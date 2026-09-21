@@ -12,6 +12,7 @@ from .realtime_session import RealtimeSessionStore
 from .plugin_runtime import PluginRegistry
 from .plugin_executor import PluginExecutor
 from .attachments import AttachmentStore
+from .vision_adapter import VisionAdapter
 from .specialist_library import SpecialistLibrary
 from .runtime_integrity import RuntimeIntegrity
 from .requirements_ledger import RequirementsLedger
@@ -27,6 +28,7 @@ _sessions = RealtimeSessionStore(Path(settings.db_path).resolve().parent / ".kri
 _plugins = PluginRegistry(Path(settings.db_path).resolve().parent / ".krishna_state")
 _plugin_executor = PluginExecutor(_plugins)
 _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krishna_state")
+_vision = VisionAdapter()
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
 _requirements = RequirementsLedger()
@@ -273,6 +275,8 @@ class Handler(BaseHTTPRequestHandler):
             chat_id=(query.get("chat_id") or [""])[0].strip()
             if not chat_id:return self._json(400,{"error":"chat_id is required"})
             return self._json(200,{"attachments":_attachments.list(chat_id)})
+        if path == "/api/vision/status":
+            return self._json(200,_vision.status())
         if path == "/api/garuda/status":
             return self._json(200, orch.garuda_status())
         if path == "/api/garudanetra/sessions":
@@ -438,6 +442,7 @@ class Handler(BaseHTTPRequestHandler):
                     "child_krishna_360_avatar",
                     "mobile_pc_remote_control",
                     "persistent_project_chats",
+                    "local_attachment_vision_reasoning",
                     "windows_conversation_console",
                     "on_demand_skill_runtime",
                     "untrusted_content_boundary",
@@ -801,12 +806,24 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 mark("KRISHNA WORKING", "Processing request")
                 project = data.get("project", "general")
+                vision_evidence=[]
+                attachment_ids=data.get("attachment_ids") or []
+                if not isinstance(attachment_ids,list):return self._json(400,{"error":"attachment_ids must be a list"})
+                for aid in attachment_ids[:3]:
+                    try:
+                        meta,raw=_attachments.read(data.get("chat_id"),str(aid))
+                        vr=_vision.analyze_bytes(raw,meta.get("content_type"),"Analyze this image for the user's current request: "+msg)
+                        vision_evidence.append({"attachment_id":str(aid),"name":meta.get("name"),"sha256":meta.get("sha256"),"analysis":vr["analysis"],"model":vr["model"]})
+                    except Exception as exc:
+                        vision_evidence.append({"attachment_id":str(aid),"error":f"{type(exc).__name__}: {exc}"})
+                vision_text="\n".join("- "+x.get("analysis",x.get("error","")) for x in vision_evidence) if vision_evidence else None
                 # KRISHNA selects internal capabilities automatically. Clients never
                 # need to choose Sudarshan/Karma/Vishwakarma manually.
                 if orch._looks_like_work_request(msg):
-                    out = orch.handle_managed_request(msg, project, data.get("source", "pc"), data.get("chat_id"))
+                    out = orch.handle_managed_request(msg, project, data.get("source", "pc"), data.get("chat_id"), vision_text)
                 else:
-                    out = orch.handle(msg, project, data.get("source", "pc"), data.get("chat_id"))
+                    out = orch.handle(msg, project, data.get("source", "pc"), data.get("chat_id"), vision_text)
+                if vision_evidence:out["vision_evidence"]=vision_evidence
                 out["mode"] = "chat"
                 out["identity"] = "KRISHNA"
                 out.setdefault("capability", "conversation")
@@ -1013,6 +1030,25 @@ class Handler(BaseHTTPRequestHandler):
                 orch.memory.add_chat_message(chat_id,"tool","Attachment added",{"attachment":item})
                 return self._json(201,item)
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/attachments/analyze":
+            chat_id=str(data.get("chat_id") or "").strip();aid=str(data.get("attachment_id") or "").strip()
+            if not chat_id or not orch.memory.chat(chat_id):return self._json(404,{"error":"chat not found"})
+            if not aid:return self._json(400,{"error":"attachment_id is required"})
+            try:
+                meta,raw=_attachments.read(chat_id,aid)
+                result=_vision.analyze_bytes(raw,meta.get("content_type"),str(data.get("prompt") or "Analyze this image as evidence for the current KRISHNA conversation."))
+                evidence={"attachment_id":aid,"sha256":meta.get("sha256"),"name":meta.get("name"),**result}
+                orch.memory.add_chat_message(chat_id,"tool","Local vision analysis",{"vision":evidence})
+                proposal=None
+                if bool(data.get("remember",False)):
+                    project=str(data.get("project") or (orch.memory.chat(chat_id) or {}).get("project") or "KRISHNA")
+                    proposal=orch.gyan_propose(project,"attachment:"+aid,result["analysis"],[evidence],0.9,"local_vision",True,"evidence",
+                                              {"attachment_sha256":meta.get("sha256"),"provider":result["provider"],"model":result["model"]})
+                return self._json(200,{"vision":evidence,"memory_proposal":proposal})
+            except KeyError:return self._json(404,{"error":"attachment not found"})
+            except (ValueError,PermissionError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if self.path == "/api/plugins/execute":
             try:
