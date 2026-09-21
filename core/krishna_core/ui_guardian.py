@@ -164,13 +164,28 @@ class UIGuardian:
         defects = []
         for viewport in rows:
             shot = target / f"{viewport['name']}.png"
-            report = self.browser.inspect(
-                url,
-                screenshot_path=str(shot),
-                viewport={"width": int(viewport["width"]), "height": int(viewport["height"])},
-            )
-            reports.append({"viewport": dict(viewport), "report": report})
-            defects.extend(self._defects(report, viewport))
+            try:
+                report = self.browser.inspect(
+                    url,
+                    screenshot_path=str(shot),
+                    viewport={"width": int(viewport["width"]), "height": int(viewport["height"])},
+                )
+                reports.append({"viewport": dict(viewport), "report": report})
+                defects.extend(self._defects(report, viewport))
+            except Exception as exc:
+                report = {
+                    "url": url,
+                    "ok": False,
+                    "error": f"{type(exc).__name__}: {exc}",
+                    "screenshot": None,
+                }
+                reports.append({"viewport": dict(viewport), "report": report})
+                defects.append({
+                    "viewport": viewport["name"],
+                    "kind": "inspection_error",
+                    "severity": "critical",
+                    "detail": report["error"],
+                })
         passed = not any(x.get("severity") in {"error", "critical"} for x in defects)
         return {
             "run_id": run_id,
