@@ -36,6 +36,7 @@ class ModelGatewayRegistry:
         self.path=Path(path)
         self.vault=vault or SecureSecretVault(self.path.parent/"secure-secrets.json")
         self.profiles:dict[str,GatewayProfile]={}
+        self.load_error=None
         self._load()
 
     @staticmethod
@@ -54,7 +55,10 @@ class ModelGatewayRegistry:
         try:
             raw=json.loads(self.path.read_text(encoding="utf-8-sig"))
             self.profiles={x["id"]:GatewayProfile(**x) for x in raw.get("profiles",[]) if x.get("id")}
-        except Exception:self.profiles={}
+            self.load_error=None
+        except Exception as exc:
+            self.profiles={}
+            self.load_error=f"{type(exc).__name__}: {exc}"
 
     def _save(self):
         self.path.parent.mkdir(parents=True,exist_ok=True)
@@ -75,10 +79,12 @@ class ModelGatewayRegistry:
         self.profiles[row.id]=row;self._save();return self.describe(row.id)
 
     def delete(self,profile_id):
-        row=self.profiles.pop(str(profile_id),None)
+        key=str(profile_id)
+        row=self.profiles.get(key)
         if not row:return False
-        try:self.vault.delete(row.secret_id)
-        except Exception:pass
+        # Do not orphan encrypted credentials by forgetting the profile first.
+        self.vault.delete(row.secret_id)
+        self.profiles.pop(key,None)
         self._save();return True
 
     def describe(self,profile_id):
@@ -91,7 +97,7 @@ class ModelGatewayRegistry:
     def list(self):
         rows=[self.describe(x) for x in self.profiles]
         rows.sort(key=lambda x:x["created_at"],reverse=True)
-        return {"profiles":rows,"count":len(rows),"policy":"no silent provider fallback; free-only profiles remain free-only"}
+        return {"profiles":rows,"count":len(rows),"load_error":self.load_error,"policy":"no silent provider fallback; free-only profiles remain free-only"}
 
     def eligible(self,privacy="approved_cloud",free_only=False):
         if privacy in {"local_only","restricted"}:return []
