@@ -14,7 +14,9 @@ from krishna_core.narad.runtime import NaradRuntime
 from krishna_core.narad.providers import NaradProviderHub
 from krishna_core.model_memory_governor import ModelMemoryGovernor
 from krishna_core.garudanetra_session import GarudanetraSessionManager, BrowserSession
+import json
 import queue
+import threading
 
 
 class FakePolicy:
@@ -139,6 +141,40 @@ class MissedAdditionsTests(unittest.TestCase):
             for action in ("back","forward","reload","new_tab","switch_tab","type_text","drag_xy","upload"):
                 m.command("s",action,{})
             with self.assertRaises(ValueError):m.command("s","shell",{})
+
+    def test_garudanetra_redacts_url_secrets_in_evidence(self):
+        with tempfile.TemporaryDirectory() as td:
+            m=GarudanetraSessionManager(td)
+            s=BrowserSession("s","KRISHNA","https://user:pass@example.com/x?token=abc&safe=1#access_token=xyz",
+                             mode="task_memory",remember_evidence=True,
+                             current_url="https://example.com/current?api_key=secret&ok=yes")
+            s.network=[{"method":"GET","url":"https://example.com/n?session=secret","status":200,"at":0}]
+            s.tabs=[{"index":0,"url":"https://example.com/t?auth=secret","title":"T"}]
+            snap=m._snapshot(s)
+            blob=json.dumps(snap)
+            self.assertNotIn("user:pass",blob)
+            self.assertNotIn("abc",blob)
+            self.assertNotIn("secret",blob)
+            self.assertIn("REDACTED",blob)
+
+    def test_garudanetra_close_all_waits_for_threads(self):
+        with tempfile.TemporaryDirectory() as td:
+            m=GarudanetraSessionManager(td)
+            s=BrowserSession("s","KRISHNA","https://example.com")
+            m._sessions["s"]=s
+            m._commands["s"]=queue.Queue()
+            done=threading.Event()
+            def worker():
+                cmd=m._commands["s"].get(timeout=1)
+                if cmd["action"]=="stop":
+                    s.stopped=True
+                    done.set()
+            t=threading.Thread(target=worker)
+            m._threads["s"]=t
+            t.start()
+            status=m.close_all(timeout=1)
+            self.assertTrue(done.is_set())
+            self.assertEqual(status["running"],0)
 
     def test_worker_supervisor_status_contract(self):
         with tempfile.TemporaryDirectory() as td:
