@@ -162,6 +162,30 @@ class Orchestrator:
         def project_unregister(payload,context):
             return self.unregister_project(str(payload.get("name") or "").strip())
 
+        def worker_ephemeral_execute(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA")
+            policy=self.projects.get(project) if project!="KRISHNA" else None
+            privacy=policy.privacy if policy else "approved_cloud"
+            return self.ephemeral_workers.execute(
+                project,payload.get("request") or {},str(payload.get("task") or ""),privacy,
+            )
+
+        def browser_inspect(payload,context):
+            return self._inspect_ui_impl(
+                str(payload.get("project") or context.get("project") or "KRISHNA"),
+                str(payload.get("url") or ""),
+                payload.get("actions") or [],
+                payload.get("screenshot_path") or None,
+            )
+
+        def browser_testing_lead(payload,context):
+            return self._testing_lead_live_verify_impl(
+                str(payload.get("project") or context.get("project") or "KRISHNA"),
+                str(payload.get("url") or ""),
+                payload.get("screenshot_dir") or None,
+                int(payload.get("max_controls") or 100),
+            )
+
         def model_complete(payload,context):
             provider=str(payload.get("provider") or "").strip()
             prompt=str(payload.get("prompt") or "")
@@ -288,6 +312,25 @@ class Orchestrator:
         )
 
         self.action_bus.register(
+            "worker.ephemeral.execute",worker_ephemeral_execute,
+            description="Run approved temporary software/research workers",
+            permissions=("worker.execute","model.use"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "browser.inspect",browser_inspect,
+            description="Run bounded read-only browser inspection",
+            permissions=("browser.read","browser.test"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "browser.testing_lead",browser_testing_lead,
+            description="Run exhaustive browser verification for the testing lead",
+            permissions=("browser.read","browser.test"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
             "model.complete",model_complete,
             description="Run an approved model provider under KRISHNA privacy and free-only policy",
             permissions=("model.use",),
@@ -374,8 +417,8 @@ class Orchestrator:
         )
         self.agent_runtime.register(
             "developer","bounded project implementation and verification",
-            permissions=("code.read","candidate.write","tests.run","browser.test"),
-            actions=("development.*",),
+            permissions=("code.read","candidate.write","tests.run","browser.read","browser.test","worker.execute","model.use"),
+            actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead"),
         )
         self.agent_runtime.register(
             "narad","durable automation and provider workflow runtime",
@@ -690,9 +733,12 @@ class Orchestrator:
         return self.software_factory.worker_request(project,manager,role,count,reason,hr_snapshot or {},bool(approve))
 
     def run_ephemeral_workers(self,project,request,task):
-        policy=self.projects.get(project) if project!="KRISHNA" else None
-        privacy=policy.privacy if policy else "approved_cloud"
-        return self.ephemeral_workers.execute(project,request,task,privacy)
+        receipt=self.dispatch_action(
+            "worker.ephemeral.execute",
+            {"project":project,"request":request,"task":task},
+            project=project,source="pc",actor="software-factory",
+        )
+        return receipt["result"]
 
     def ephemeral_worker_status(self):
         return self.ephemeral_workers.status()
@@ -705,12 +751,20 @@ class Orchestrator:
             self.gyan_bhandar.store(project,"software_factory:"+stage,"Verified factory gate passed",evidence or [],1.0,"software_factory",True)
         return result
 
-    def testing_lead_live_verify(self,project,url,screenshot_dir=None,max_controls=100):
+    def _testing_lead_live_verify_impl(self,project,url,screenshot_dir=None,max_controls=100):
         if project!="KRISHNA" and not self.projects.get(project): raise KeyError(project)
         result=self.browser.exhaustive_clickthrough(url,screenshot_dir,max_controls)
         if result.get("ok"):
             self.gyan_bhandar.store(project,"testing_lead_live_verification","Live UI click-through passed",[result],1.0,"testing_lead",True)
         return result
+
+    def testing_lead_live_verify(self,project,url,screenshot_dir=None,max_controls=100):
+        receipt=self.dispatch_action(
+            "browser.testing_lead",
+            {"project":project,"url":url,"screenshot_dir":screenshot_dir,"max_controls":max_controls},
+            project=project,source="pc",actor="testing-lead",
+        )
+        return receipt["result"]
 
     def software_factory_hr(self,project,workers,deadline_at=None,total_units=None,completed_units=None):
         return self.software_factory.hr_status(project,workers,deadline_at,total_units,completed_units)
@@ -1109,7 +1163,7 @@ Evidence:
         )
         return result
 
-    def inspect_ui(self, project, url, actions=None, screenshot_path=None):
+    def _inspect_ui_impl(self, project, url, actions=None, screenshot_path=None):
         report = self.browser.inspect(url, actions=actions or [], screenshot_path=screenshot_path)
         self.memory.remember(project, "browser_inspection", url, {
             "ok": report.get("ok"),
@@ -1123,6 +1177,14 @@ Evidence:
                 severity="notice", project=project, payload={"url": url, "findings": report["findings"][:20]},
             )
         return report
+
+    def inspect_ui(self, project, url, actions=None, screenshot_path=None):
+        receipt=self.dispatch_action(
+            "browser.inspect",
+            {"project":project,"url":url,"actions":actions or [],"screenshot_path":screenshot_path},
+            project=project,source="pc",actor="browser-inspection",
+        )
+        return receipt["result"]
 
     def research_github(self, project, query, limit=10):
         result = self.research.search(query, limit=limit)
