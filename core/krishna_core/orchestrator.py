@@ -18,6 +18,11 @@ from .project_registry import ProjectRegistry, ProjectPolicy
 from .resource_governor import ResourceGovernor
 from .action_registry import ActionRegistry
 from .shared_action_bus import SharedActionBus
+from .permission_runtime import PermissionRuntime
+from .agent_runtime import AgentRuntime
+from .job_runtime import JobRuntime
+from .protocol_gateway import AgentProtocolGateway
+from .dispatch_runtime import DispatchRuntime
 from .repository_index import RepositoryIndexer
 from .evidence_collectors import LocalEvidenceCollectors
 from .shadow_workspace import ShadowWorkspaceManager
@@ -95,10 +100,15 @@ class Orchestrator:
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
+        self.permissions = PermissionRuntime()
         self.action_bus = SharedActionBus(
             self.agi.bus,self.agi.policy,audit=self.memory.audit,
-            permission_resolver=self._shared_action_permission,
+            permission_resolver=self.permissions.authorize,
         )
+        self.agent_runtime = AgentRuntime(self.action_bus)
+        self.jobs = JobRuntime(self.task_ledger,self.action_bus)
+        self.protocols = AgentProtocolGateway(self.action_bus,self.agent_runtime)
+        self.dispatcher = DispatchRuntime(self.action_bus,self.agent_runtime,self.jobs)
         self._verification_checks = {}
         self.repair_agent = RepairAgent(
             self.investigate,
@@ -110,21 +120,11 @@ class Orchestrator:
         )
         self._restore_projects()
         self._register_shared_actions()
+        self._register_agent_runtime()
         self._register_builtin_probes()
 
     def _shared_action_permission(self,spec,context):
-        source=str(context.get("source") or "pc").lower()
-        granted=set(str(x) for x in (context.get("permissions") or []))
-        required=set(spec.permissions)
-        if source in {"pc","system"}:
-            return True,"owner/local runtime"
-        if source=="mobile":
-            allowed={"chat.create","chat.move","chat.rename","chat.delete"}
-            if spec.name not in allowed:
-                return False,"mobile source is not allowed to dispatch this action"
-        if source in {"mobile","agent"} and required and not required.issubset(granted):
-            return False,"missing action permission: "+",".join(sorted(required-granted))
-        return True,"permission contract satisfied"
+        return self.permissions.authorize(spec,context)
 
     def _register_shared_actions(self):
         def chat_create(payload,context):
@@ -176,6 +176,44 @@ class Orchestrator:
             mutating=True,permissions=("project.write",),sources=("pc","system"),
         )
 
+        self.action_bus.register(
+            "garuda.scout",
+            lambda payload,context:self.garuda_scout(
+                str(payload.get("project") or context.get("project") or "KRISHNA"),
+                str(payload.get("goal") or ""),int(payload.get("limit") or 10),
+            ),
+            description="Run Garuda research/evidence scout",
+            permissions=("web.read","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+    def _register_agent_runtime(self):
+        self.agent_runtime.register(
+            "garuda","research and evidence scout",
+            permissions=("web.read","evidence.write","memory.write"),
+            actions=("garuda.scout",),
+        )
+        self.agent_runtime.register(
+            "garudanetra","browser/computer execution and verification",
+            permissions=("browser.read","browser.act","evidence.write"),
+            actions=("garudanetra.*",),
+        )
+        self.agent_runtime.register(
+            "ui-guardian","objective UI verification",
+            permissions=("browser.read","browser.test","evidence.write"),
+            actions=("ui.*",),
+        )
+        self.agent_runtime.register(
+            "developer","bounded project implementation and verification",
+            permissions=("code.read","candidate.write","tests.run","browser.test"),
+            actions=("development.*",),
+        )
+        self.agent_runtime.register(
+            "narad","durable automation and provider workflow runtime",
+            permissions=("narad.write","narad.test","send_external"),
+            actions=("narad.*",),
+        )
+
     def dispatch_action(self,action,payload=None,project="KRISHNA",source="pc",actor="owner",
                         approved=False,permissions=(),idempotency_key=None):
         return self.action_bus.dispatch(
@@ -188,6 +226,21 @@ class Orchestrator:
 
     def action_bus_recent(self,limit=50):
         return self.action_bus.recent(limit)
+
+    def agent_runtime_status(self):
+        return self.agent_runtime.status()
+
+    def job_runtime_status(self):
+        return self.jobs.status()
+
+    def permission_runtime_status(self):
+        return self.permissions.status()
+
+    def protocol_runtime_status(self):
+        return self.protocols.status()
+
+    def dispatch_runtime_status(self):
+        return self.dispatcher.status()
 
     def rollback_dispatched_action(self,action_id,source="pc",actor="owner",approved=False):
         return self.action_bus.rollback(action_id,source=source,actor=actor,approved=approved)
