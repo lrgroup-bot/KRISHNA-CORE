@@ -81,7 +81,12 @@ class ArchitectureContracts(unittest.TestCase):
         ):
             self.assertIn(token,accept)
         self.assertIn("ACCEPT_KRISHNA_RUNTIME.ps1",deploy)
+        self.assertIn("release_ready=$false",deploy)
+        self.assertIn('acceptance_status="pending"',deploy)
+        self.assertIn("release_ready=$true",deploy)
         self.assertIn("refusing final start",deploy)
+        start=self.text("scripts/START_KRISHNA.ps1")
+        self.assertIn("if(-not $integrity.release_ready)",start)
 
     def test_server_singleton_runtime_initialization_is_not_duplicated(self):
         server=self.text("core/krishna_core/server.py")
