@@ -508,6 +508,27 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,_voice.status())
         if path == "/api/garuda/status":
             return self._json(200, orch.garuda_status())
+        if path == "/api/brahmagyan/status":
+            return self._json(200,orch.brahmagyan_status())
+        if path == "/api/brahmagyan/council":
+            return self._json(200,orch.brahmagyan_council())
+        if path == "/api/brahmagyan/missions":
+            project=(query.get("project") or [None])[0]
+            limit_raw=(query.get("limit") or ["100"])[0]
+            try:limit=max(1,min(int(limit_raw),500))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,{"missions":orch.brahmagyan_missions(project,limit)})
+        if path == "/api/brahmagyan/claim":
+            claim_id=str((query.get("id") or [""])[0]).strip()
+            if not claim_id:return self._json(400,{"error":"id is required"})
+            try:return self._json(200,orch.brahmagyan_claim(claim_id))
+            except KeyError:return self._json(404,{"error":"claim not found"})
+        if path == "/api/brahmagyan/curiosity":
+            project=(query.get("project") or [None])[0]
+            limit_raw=(query.get("limit") or ["50"])[0]
+            try:limit=max(1,min(int(limit_raw),200))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,{"questions":orch.brahmagyan_curiosity(project,limit)})
         if path == "/api/garudanetra/fabric":
             return self._json(200, _browser_fabric.status())
         if path == "/api/garudanetra/sessions":
