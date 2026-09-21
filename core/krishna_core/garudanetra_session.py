@@ -153,7 +153,7 @@ class GarudanetraSessionManager:
             "frame_available":bool(session.frame),"frame_mime":session.frame_mime,
             "frame_seq":session.frame_seq,"stream_mode":session.stream_mode,"tab_index":session.tab_index,
             "semantic_revision":session.semantic_revision,"semantic_count":len(session.semantic_items),
-            "recording_steps":len(session.recording),
+            "recording_steps":len(session.recording),"recording":[dict(x) for x in session.recording[-200:]],
             "remember_evidence":session.remember_evidence,"profile_path":session.profile_path,
         }
 
@@ -373,7 +373,14 @@ class GarudanetraSessionManager:
             else:loc.fill(str(payload.get("value") or ""))
             return
         except Exception as first:
-            recovered=self.recovery.recover_locator(page,payload)
+            recovery_payload=dict(payload or {})
+            ref=str(recovery_payload.get("ref") or "").strip()
+            if ref:
+                with self._lock:item=next((x for x in session.semantic_items if x.get("ref")==ref),None)
+                if item:
+                    for key in ("role","name","tag"):
+                        if item.get(key) and not recovery_payload.get(key):recovery_payload[key]=item.get(key)
+            recovered=self.recovery.recover_locator(page,recovery_payload)
             loc=recovered["locator"]
             if action=="click":loc.click()
             else:loc.fill(str(payload.get("value") or ""))
