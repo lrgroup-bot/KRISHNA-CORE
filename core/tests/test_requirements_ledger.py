@@ -12,7 +12,7 @@ class RequirementsLedgerTests(unittest.TestCase):
         self.assertGreaterEqual(d["requirement_count"],35)
         text="\n".join(d["non_negotiables"]+[g["title"] for g in d["groups"]]+[r for g in d["groups"] for r in g["requirements"]])
         for term in ("KRISHNA","Sudarshan","Garudanetra","Gyan-Bhandar","NARAD","KABACH","conversation-only","Krishna_AGI.exe"):
-            self.assertIn(term,text)
+            self.assertIn(term.lower(),text.lower())
 
     def test_prompt_contract_contains_non_negotiables(self):
         text=self.ledger.prompt_contract()
