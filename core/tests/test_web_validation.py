@@ -20,6 +20,22 @@ class WebValidationTests(unittest.TestCase):
         self.assertNotIn("Karma · Work", text)
         self.assertNotIn("Vishwakarma · Code", text)
 
+    def test_command_center_v4_contract(self):
+        root = Path(__file__).resolve().parents[1]
+        text = (root / "web_validation.html").read_text(encoding="utf-8")
+        for token in (
+            "ACTIVE WORK", "VERIFICATION", "SYSTEM LOAD",
+            "GARUDANETRA · PRIVATE", "TAKE CONTROL", "CONTINUE",
+            "opsInformer", "liveWork", "refreshCommandCenter",
+            "/api/narad/status", "/api/narad/workflows", "/api/narad/history",
+        ):
+            self.assertIn(token, text)
+        self.assertIn("Garudanetra", text)
+        self.assertNotIn("Garuda never implements directly", text)
+        # High-visibility legacy mojibake must not regress.
+        for broken in ("â€¢â€¢â€¢", "ðŸ¦…", "âŒ¬", "âœ¦", "ï¼‹"):
+            self.assertNotIn(broken, text)
+
     def test_server_exposes_validation_route(self):
         root = Path(__file__).resolve().parents[1]
         text = (root / "krishna_core" / "server.py").read_text(encoding="utf-8")
