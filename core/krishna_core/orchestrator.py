@@ -113,7 +113,12 @@ class Orchestrator:
         self.sudarshan = SudarshanControlPlane(
             self.action_bus,self.jobs,self.agi.critic,audit=self.memory.audit,
         )
+        self.agent_runtime.bind_sudarshan(self.sudarshan)
+        self.protocols.bind_sudarshan(self.sudarshan)
+        self.dispatcher.bind_sudarshan(self.sudarshan)
         self.agi.narad.bind_sudarshan(self.sudarshan)
+        if hasattr(self.ephemeral_workers,"bind_sudarshan"):
+            self.ephemeral_workers.bind_sudarshan(self.sudarshan)
         self._verification_checks = {}
         self.repair_agent = RepairAgent(
             self.investigate,
@@ -155,6 +160,21 @@ class Orchestrator:
             )
         def project_unregister(payload,context):
             return self.unregister_project(str(payload.get("name") or "").strip())
+
+        def model_complete(payload,context):
+            provider=str(payload.get("provider") or "").strip()
+            prompt=str(payload.get("prompt") or "")
+            privacy=str(payload.get("privacy") or "local_only").strip().lower()
+            free_only=bool(payload.get("free_only",False))
+            if not provider or not prompt:raise ValueError("provider and prompt are required")
+            rows={x.get("provider"):x for x in self.router.available()}
+            info=rows.get(provider)
+            if not info or not info.get("available"):raise RuntimeError("requested model provider is unavailable")
+            if privacy in {"local_only","restricted"} and not info.get("local"):
+                raise PermissionError("project privacy blocks cloud model provider")
+            if free_only and not info.get("local") and not info.get("free_only"):
+                raise PermissionError("free-only policy blocks this model provider")
+            return {"provider":provider,"model":info.get("model"),"text":self.router.ask(provider,prompt)}
 
         def narad_publish_event(payload,context):
             topic=str(payload.get("topic") or "").strip()
@@ -209,6 +229,13 @@ class Orchestrator:
         self.action_bus.register(
             "project.unregister",project_unregister,description="Unregister a KRISHNA project",
             mutating=True,permissions=("project.write",),sources=("pc","system"),
+        )
+
+        self.action_bus.register(
+            "model.complete",model_complete,
+            description="Run an approved model provider under KRISHNA privacy and free-only policy",
+            permissions=("model.use",),
+            sources=("pc","system","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
