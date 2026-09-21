@@ -196,8 +196,36 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    boolean privateCoreUrl(String value){
+      try{
+        URI u=new URI(value);String scheme=u.getScheme(),host=u.getHost();
+        if(host==null||(!"http".equalsIgnoreCase(scheme)&&!"https".equalsIgnoreCase(scheme)))return false;
+        String h=host.toLowerCase(java.util.Locale.US);
+        if("localhost".equals(h)||h.endsWith(".ts.net"))return true;
+        InetAddress ip=InetAddress.getByName(host);
+        if(ip.isLoopbackAddress()||ip.isSiteLocalAddress()||ip.isLinkLocalAddress())return true;
+        byte[] b=ip.getAddress();
+        if(b.length==4){
+          int a=b[0]&255,d=b[1]&255;
+          if(a==100&&d>=64&&d<=127)return true; // Tailscale/CGNAT overlay range
+        }else if(b.length==16){
+          int a=b[0]&255;
+          if((a&0xfe)==0xfc)return true; // IPv6 ULA
+        }
+      }catch(Exception ignored){}
+      return false;
+    }
+    @JavascriptInterface public String configureCoreUrl(String value){
+      try{
+        value=value==null?"":value.trim();
+        if(!privateCoreUrl(value))throw new SecurityException("KRISHNA Mobile accepts only LAN/private-overlay Core URLs");
+        getSharedPreferences("k",0).edit().putString("core_url",value.replaceAll("/+$","")).apply();
+        JSONObject d=new JSONObject();d.put("ok",true);d.put("core_url",value);d.put("policy","private-network-only");return d.toString();
+      }catch(Exception e){return error(e);}
+    }
     HttpURLConnection conn(String path)throws Exception{
       String base=getSharedPreferences("k",0).getString("core_url","http://192.168.0.106:8766");
+      if(!privateCoreUrl(base))throw new SecurityException("Core URL is outside KRISHNA private-network policy");
       HttpURLConnection c=(HttpURLConnection)new URL(base+path).openConnection();
       c.setConnectTimeout(4000);c.setReadTimeout(120000);
       c.setRequestProperty("Authorization","Device "+token());
@@ -208,6 +236,7 @@ public class MainActivity extends Activity {
     String callUnauthed(String path,String body){
       try{
         String base=getSharedPreferences("k",0).getString("core_url","http://192.168.0.106:8766");
+        if(!privateCoreUrl(base))throw new SecurityException("Core URL is outside KRISHNA private-network policy");
         HttpURLConnection c=(HttpURLConnection)new URL(base+path).openConnection();
         c.setConnectTimeout(4000);c.setReadTimeout(10000);c.setRequestProperty("X-Krishna-Device",deviceId());
         c.setRequestMethod("POST");c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");
