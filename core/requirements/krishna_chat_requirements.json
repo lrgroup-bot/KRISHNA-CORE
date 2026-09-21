@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-09-21",
+  "version": "2026-09-21-missed-additions-v1",
   "source": "Consolidated from KRISHNA project conversations and verified repository decisions",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -10,7 +10,10 @@
     "An agent never self-declares success; evidence is checked by an independent verifier before promotion.",
     "Unfinished commitments are never silently discarded; resume, explicitly supersede, cancel or complete them.",
     "Runtime/UI must report observed state honestly; unavailable optional providers fail closed.",
-    "Final Krishna_AGI.exe is built only after Windows runtime, browser/UI, mobile, recovery and deployment-integrity acceptance."
+    "Final Krishna_AGI.exe is built only after Windows runtime, browser/UI, mobile, recovery and deployment-integrity acceptance.",
+    "KRISHNA Mobile never exposes raw shell, arbitrary filesystem access, credentials, or trading authority; sensitive actions remain behind device authorization and Core Policy.",
+    "Remote-away access is private-network-only; KRISHNA must not expose Core control APIs directly to the public Internet.",
+    "Protected and archive project roles are read-only to autonomous mutation and promotion."
   ],
   "groups": [
     {
@@ -20,7 +23,9 @@
         "Observe registered projects and system state, detect errors, plan repairs, code bounded fixes, test, restart and verify.",
         "Manage CPU/RAM pressure and avoid uncontrolled heavy workers.",
         "Maintain active versus protected/archive project distinction and do not mutate backups as live projects.",
-        "Continue safe routine work without babysitting and surface meaningful verified completion notifications."
+        "Continue safe routine work without babysitting and surface meaningful verified completion notifications.",
+        "Crash loops use heartbeat/supervision, exponential restart backoff and quarantine instead of endless restart storms.",
+        "Critical RAM pressure may unload resident local models without deleting model files."
       ]
     },
     {
@@ -41,7 +46,10 @@
         "Observe DOM/accessibility, screenshot, console and network evidence; recover and verify actions.",
         "Live Work controls: Pause, Take Control, Continue, Stop and Expand.",
         "UI Guardian detects objective defects, tests candidates across target viewports, verifies and promotes or rolls back.",
-        "Browser cookies/credentials are session state, not learned knowledge; useful verified evidence may be stored in Gyan-Bhandar."
+        "Browser cookies/credentials are session state, not learned knowledge; useful verified evidence may be stored in Gyan-Bhandar.",
+        "Browser modes are Private, Private + Task Memory, and explicitly approved Persistent Workspace with project-specific profiles only.",
+        "Owner takeover supports navigation, tabs, typing, keypress, click/scroll/drag and bounded runtime-file upload; downloads stay under KRISHNA runtime.",
+        "Selector failures may enter a recovery adapter and become candidate browser skills only after verification."
       ]
     },
     {
@@ -61,7 +69,9 @@
         "Native KRISHNA event/workflow control plane with Draft, Candidate, Sandbox, Verified, Stable and Rejected lifecycle.",
         "Schedules, webhooks, project/system events, execution history, retries, recovery and dead letters.",
         "n8n, Activepieces, MCP and generic webhook integrations remain provider adapters, not KRISHNA authority.",
-        "External communication and app integrations use credential references and Policy/HITL gates."
+        "External communication and app integrations use credential references and Policy/HITL gates.",
+        "Provider adapters cover Telegram, Discord, Slack, WhatsApp, Gmail, Google Drive, Google Sheets and Google Calendar behind Policy approval.",
+        "Credentials may be environment references or Windows DPAPI-encrypted local secret references; plaintext is never returned by status APIs."
       ]
     },
     {
@@ -92,7 +102,10 @@
         "Persist device identity/credential locally; sensitive actions use device authorization rather than voice alone.",
         "Support file/photo attachment and Odia/English conversation.",
         "Owner voice gate may filter wake/listen flow locally but is not strong biometric security.",
-        "Remote-away usage requires secure transport and must not expose raw host shell/filesystem APIs."
+        "Remote-away usage requires secure transport and must not expose raw host shell/filesystem APIs.",
+        "Phone image/file attachments can be passed into the same KRISHNA conversation; supported images use local multimodal reasoning and evidence linkage.",
+        "KRISHNA Mobile accepts only LAN/private-overlay Core targets and refuses public Internet control targets.",
+        "Mobile must never expose raw shell, arbitrary host filesystem, plaintext credential, or trading execution APIs."
       ]
     },
     {
@@ -102,7 +115,9 @@
         "Jarvis-like Odia conversation with explicit microphone/listening state.",
         "Wake word 'Krishna' and owner-only wake are desired; sensitive actions still require device authentication.",
         "Child KRISHNA avatar with states Idle, Flute, Listening, Talking, Dhyan, Searching and Working.",
-        "Final avatar goal includes rigged body animation, facial animation and lip sync when a verified asset/provider is available."
+        "Final avatar goal includes rigged body animation, facial animation and lip sync when a verified asset/provider is available.",
+        "Native local Odia voice target uses AI4Bharat IndicConformer-style STT and Indic-TTS-style workers behind provider boundaries.",
+        "Always-listening wake-word target uses a local custom 'Krishna' wake model; wake detection is activation, never authentication."
       ]
     },
     {
@@ -112,7 +127,9 @@
         "Dark navy/gold/teal polished Command Center; Liquid Glass, Bento and Spatial UI used selectively.",
         "KRISHNA Home is distinct from Sudarshan and should feel like the real operating presence, not a validation lab.",
         "Vrindavan-inspired real-world home reference remains a target while operational pages stay functional.",
-        "Long-term UI stack target: React/shadcn, Dockview, React Flow, xterm and React Three Fiber with a Stable/Candidate/Experimental/Rejected GUI registry."
+        "Long-term UI stack target: React/shadcn, Dockview, React Flow, xterm and React Three Fiber with a Stable/Candidate/Experimental/Rejected GUI registry.",
+        "Sudarshan stays compact and contextual while KRISHNA Home keeps the larger avatar/core presence; Project -> Chats hierarchy remains visually clear.",
+        "Garudanetra Live Work includes an Expand mode and contextual owner controls rather than permanent clutter."
       ]
     },
     {
@@ -122,7 +139,9 @@
         "Prefer free/local tools where practical; Ollama/local models are implementation details behind privacy-aware routing.",
         "Codebase-Memory-MCP, Graft, selected Agency-Agents, n8n and OpenMontage are integrated through bounded adapters.",
         "Cloud model/API fallbacks must honor project privacy and credential isolation.",
-        "Optional providers are never reported active merely because source code is cloned."
+        "Optional providers are never reported active merely because source code is cloned.",
+        "Free-only model gateway profiles use encrypted local credentials and must never silently fall through to paid providers.",
+        "Local multimodal vision remains local-only unless a future project policy explicitly permits another provider."
       ]
     },
     {
@@ -131,7 +150,9 @@
       "requirements": [
         "After PC and mobile stability: camera/vision, audio, IMU/head tracking, gestures, optional wrist/ring input and AR display.",
         "Local low-latency Neural Action Graph/reflex layer performs observe -> decide -> act -> verify under KRISHNA authority.",
-        "Shared session/control with PC/mobile; hardware selection favors open interfaces and reasonable cost."
+        "Shared session/control with PC/mobile; hardware selection favors open interfaces and reasonable cost.",
+        "WearableBridge records only verified device capabilities; vendor camera/display/gesture support is never claimed before hardware adapter testing.",
+        "Phase 1 wearable bridge is Bluetooth audio/microphone/speaker plus phone camera; vendor display/camera and gesture/IMU/wrist/ring remain capability-gated."
       ]
     }
   ],
@@ -145,6 +166,12 @@
     "KABACH boundaries and Policy gates pass.",
     "Mobile pairing/resume/conversation/notification tests pass on device.",
     "Voice/avatar unavailable providers fail honestly and configured providers pass runtime checks.",
-    "Restart/recovery/rollback and CPU/RAM governance pass before final EXE packaging."
+    "Restart/recovery/rollback and CPU/RAM governance pass before final EXE packaging.",
+    "Encrypted credential vault and free-only model routing contracts pass.",
+    "Attachment -> local vision -> conversation evidence path passes with unsupported providers failing honestly.",
+    "Private remote transport policy rejects public Internet clients.",
+    "Crash-loop quarantine and critical-memory model unload boundaries pass.",
+    "Garudanetra browser-mode lifecycle and owner-control actions pass.",
+    "Wearable vendor capabilities remain unverified until hardware evidence exists."
   ]
 }
