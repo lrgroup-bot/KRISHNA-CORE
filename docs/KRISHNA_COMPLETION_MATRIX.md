@@ -38,10 +38,10 @@ Status meanings:
 
 | Requirement | Status | Evidence / remaining work |
 | --- | --- | --- |
-| Private browser/research identity | IMPLEMENTED / RUNTIME VERIFY | Garudanetra naming, status, research mission and evidence handoff wired. |
+| Private browser/research identity | IMPLEMENTED / RUNTIME VERIFY | Each live browser job uses an isolated non-persistent Chromium context; research/scout and live browsing remain under KRISHNA authority. |
 | Chromium / Playwright / browser inspection | VERIFIED boundary | Browser operator/UI inspection tests exist. |
-| Live Work panel + Pause / Take Control / Continue / Stop | IMPLEMENTED / RUNTIME VERIFY | Command Center v4 shell. |
-| Actual streamed browser viewport and owner takeover | PARTIAL | Current evidence flow is not yet a full CDP/WebRTC-style live viewport/control channel. |
+| Live Work panel + Pause / Take Control / Continue / Stop | IMPLEMENTED / RUNTIME VERIFY | Controls now drive the persistent Garudanetra browser session rather than UI-only state. |
+| Actual streamed browser viewport and owner takeover | IMPLEMENTED / RUNTIME VERIFY | Persistent private Chromium session manager streams real PNG browser frames into Sudarshan and accepts owner click/scroll takeover commands; Windows Playwright acceptance remains. |
 | UI Guardian detect → sandbox → verify → promote/rollback | PARTIAL | Repair/browser/verification pieces exist; unified continuous UI Guardian loop remains. |
 | Private + Task Memory / Persistent Workspace profiles | PARTIAL | Browser state boundaries exist conceptually; explicit profile lifecycle UI/runtime still required. |
 | Learned browser skills saved to Gyan-Bhandar | PARTIAL | Skill and memory fabrics exist; automatic verified browser-skill compilation remains. |
