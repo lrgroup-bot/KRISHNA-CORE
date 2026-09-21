@@ -102,7 +102,8 @@ class HTTPRuntimeTests(unittest.TestCase):
     def test_wearable_registration_is_unverified_until_explicit_verify(self):
         code,row=self.call("/api/wearables/register",{"name":"HTTP headset","kind":"headset","capabilities":["bluetooth_audio","microphone"]})
         self.assertEqual(code,201);self.assertFalse(row["verified"])
-        code,row=self.call("/api/wearables/verify",{"device_id":row["id"],"capabilities":["bluetooth_audio","microphone"]})
+        self.assertEqual(self.call("/api/wearables/verify",{"device_id":row["id"],"capabilities":["bluetooth_audio","microphone"]})[0],400)
+        code,row=self.call("/api/wearables/verify",{"device_id":row["id"],"capabilities":["bluetooth_audio","microphone"],"evidence":"HTTP acceptance hardware evidence"})
         self.assertEqual(code,200);self.assertTrue(row["verified"])
 
     def test_garudanetra_persistent_mode_requires_approval(self):
