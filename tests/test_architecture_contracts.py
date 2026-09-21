@@ -34,4 +34,15 @@ class ArchitectureContracts(unittest.TestCase):
         o=self.text("core/krishna_core/orchestrator.py")
         self.assertIn("kabach_security_research",o);self.assertIn("self.garuda.scout",o)
 
+    def test_e_drive_reconciliation_contract(self):
+        root=Path(__file__).resolve().parents[1]
+        audit=(root/"scripts"/"AUDIT_KRISHNA_E_DRIVE.ps1").read_text(encoding="utf-8")
+        integrations=(root/"core"/"krishna_core"/"integrations.py").read_text(encoding="utf-8")
+        media=(root/"core"/"krishna_core"/"media_adapter.py").read_text(encoding="utf-8")
+        self.assertIn("E:\\AI-Tools\\codebase-memory-mcp\\codebase-memory-mcp.exe",audit)
+        self.assertIn("E:/AI-Tools/codebase-memory-mcp/codebase-memory-mcp.exe",integrations)
+        self.assertIn("E:/AI-Tools/OpenMontage",media)
+        self.assertIn("OPENMONTAGE_CMD",media)
+        self.assertIn("MOBILE_RUNTIME_DUALITY",audit)
+
 if __name__=="__main__":unittest.main()

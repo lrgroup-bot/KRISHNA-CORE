@@ -1,4 +1,6 @@
+import os
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from krishna_core.policy_kernel import PolicyKernel
@@ -7,11 +9,52 @@ from krishna_core.narad import NaradRuntime
 from krishna_core.specialist_registry import SpecialistRegistry
 from krishna_core.context_governor import ContextGovernor
 from krishna_core.integrations import CodebaseMemoryAdapter, GraftMemoryAdapter
+from krishna_core.media_adapter import OpenMontageAdapter
 
 class IntelligenceNaradTests(unittest.TestCase):
     def test_optional_adapters_fail_closed(self):
         self.assertFalse(CodebaseMemoryAdapter(executable="").status()["available"])
         self.assertFalse(GraftMemoryAdapter(executable="").status()["available"])
+    def test_cbm_discovers_configured_existing_binary(self):
+        with TemporaryDirectory() as td:
+            exe=Path(td)/"codebase-memory-mcp.exe"; exe.write_bytes(b"stub")
+            with patch.dict(os.environ,{"KRISHNA_CBM_BIN":str(exe)}):
+                status=CodebaseMemoryAdapter().status()
+            self.assertTrue(status["available"])
+            self.assertEqual(status["discovery"],"environment")
+            self.assertEqual(Path(status["executable"]),exe.resolve())
+
+    def test_openmontage_distinguishes_install_from_execution_bridge(self):
+        class Workers:
+            def __init__(self): self.workers={}
+            def register(self,name,command,cwd=None,kind=None,autostart=False):
+                self.workers[name]={"name":name,"command":command,"cwd":str(cwd),"kind":kind,"autostart":autostart,"process":None}
+            def describe(self,name): return {"name":name,"kind":self.workers[name]["kind"],"running":False}
+        with TemporaryDirectory() as td:
+            home=Path(td)/"OpenMontage"; py=home/".venv/Scripts/python.exe"
+            py.parent.mkdir(parents=True); py.write_bytes(b"stub")
+            m=OpenMontageAdapter(Workers(),home=home,python=py)
+            status=m.status()
+            self.assertTrue(status["installed"])
+            self.assertFalse(status["available"])
+            self.assertFalse(status["bridge_ready"])
+            with self.assertRaises(RuntimeError): m.start()
+
+    def test_openmontage_registers_only_explicit_bridge_command(self):
+        class Workers:
+            def __init__(self): self.workers={}
+            def register(self,name,command,cwd=None,kind=None,autostart=False):
+                self.workers[name]={"name":name,"command":command,"cwd":str(cwd),"kind":kind,"autostart":autostart,"process":None}
+            def describe(self,name): return {"name":name,"kind":self.workers[name]["kind"],"running":False}
+        with TemporaryDirectory() as td:
+            home=Path(td)/"OpenMontage"; py=home/".venv/Scripts/python.exe"
+            py.parent.mkdir(parents=True); py.write_bytes(b"stub")
+            workers=Workers()
+            m=OpenMontageAdapter(workers,home=home,python=py,command="python bridge.py")
+            d=m.register_command_bridge()
+            self.assertEqual(d["name"],"openmontage")
+            self.assertEqual(workers.workers["openmontage"]["kind"],"media")
+
     def test_specialists_have_independent_verifier(self):
         names={x["name"] for x in SpecialistRegistry().list()}
         self.assertIn("verifier",names); self.assertIn("code-investigator",names)
