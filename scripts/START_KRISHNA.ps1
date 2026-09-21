@@ -40,11 +40,16 @@ $env:PYTHONPATH=$coreDir
 $voiceConfig=Join-Path $KrishnaRoot "config\voice-runtime.ps1"
 if(Test-Path $voiceConfig){. $voiceConfig}
 $bindHost="127.0.0.1"
+$lanIp=""
+$remoteIp=""
 $env:KRISHNA_LAN_DISCOVERY="0"
 if($PrivateRemote -and $MobileLan){throw "Choose either -PrivateRemote or -MobileLan, not both"}
 if($MobileLan){
     $bindHost="0.0.0.0"
     $env:KRISHNA_LAN_DISCOVERY="1"
+    try{
+        $lanIp=(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop | Where-Object {$_.IPAddress -notmatch '^(127\.|169\.254\.)' -and $_.PrefixOrigin -ne 'WellKnown'} | Sort-Object InterfaceMetric | Select-Object -First 1 -ExpandProperty IPAddress)
+    }catch{$lanIp=""}
 }
 if($PrivateRemote){
     $tailscale=(Get-Command tailscale.exe -ErrorAction SilentlyContinue)
@@ -53,7 +58,9 @@ if($PrivateRemote){
     if(!$tsIp){throw "PrivateRemote requested but no Tailscale IPv4 address is available"}
     $parsed=$null
     if(![System.Net.IPAddress]::TryParse($tsIp,[ref]$parsed)){throw "Tailscale returned an invalid IP: $tsIp"}
-    $bindHost=$tsIp
+    $remoteIp=$tsIp
+    # Bind loopback + private interfaces through one listener; Core itself rejects public clients.
+    $bindHost="0.0.0.0"
     $env:KRISHNA_PRIVATE_REMOTE_CIDRS=if($PrivateRemoteCIDRs){$PrivateRemoteCIDRs}else{"100.64.0.0/10"}
 }
 $env:KRISHNA_HOST=$bindHost
@@ -76,16 +83,14 @@ Write-Host "Root      : $KrishnaRoot"
 Write-Host "Source    : $authoritative"
 Write-Host "Integrity : $($integrity.status)"
 Write-Host "Commit    : $($integrity.commit)"
-$displayHost=$bindHost
+Write-Host "UI        : http://127.0.0.1`:$Port/"
 if($MobileLan){
-    try{
-        $lan=(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop | Where-Object {$_.IPAddress -notmatch '^(127\.|169\.254\.)' -and $_.PrefixOrigin -ne 'WellKnown'} | Sort-Object InterfaceMetric | Select-Object -First 1 -ExpandProperty IPAddress)
-        if($lan){$displayHost=$lan}
-    }catch{}
+    $mobileAddress=if($lanIp){"http://$lanIp`:$Port/"}else{"LAN address will be discovered by phone"}
+    Write-Host "Mobile    : $mobileAddress · discovery ON · pairing required" -ForegroundColor Green
 }
-Write-Host "UI        : http://$displayHost`:$Port/"
-if($MobileLan){Write-Host "Mobile    : LAN discovery ON · pairing still required" -ForegroundColor Green}
-if($PrivateRemote){Write-Host "Remote    : PRIVATE OVERLAY ONLY ($env:KRISHNA_PRIVATE_REMOTE_CIDRS)" -ForegroundColor Green}
+if($PrivateRemote){
+    Write-Host "Remote    : http://$remoteIp`:$Port/ · PRIVATE OVERLAY · pairing required" -ForegroundColor Green
+}
 Write-Host ""
 
 & $py -u -m krishna_core.server
