@@ -25,6 +25,14 @@ class SudarshanControlPlane:
         }]
         result=receipt.get("result")
         if isinstance(result,dict):
+            nested=result.get("verification")
+            if isinstance(nested,dict) and "passed" in nested:
+                checks.append({
+                    "name":"nested_verification",
+                    "status":"PASS" if bool(nested.get("passed")) else "FAIL",
+                    "passed":bool(nested.get("passed")),
+                    "detail":str(nested.get("reason") or nested.get("status") or ""),
+                })
             extra=result.get("_verification") or result.get("verification_checks") or []
             if isinstance(extra,list):
                 for row in extra:
