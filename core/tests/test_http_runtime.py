@@ -59,7 +59,8 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/tasks", "/api/core/state", "/api/core/neural-state",
                      "/api/project-graph", "/api/recovery/ladder", "/api/incidents",
                      "/api/garuda/status", "/api/commitments", "/api/gyan-bhandar",
-                     "/api/gyan-bhandar/pending", "/api/software-factory/workers/status"):
+                     "/api/gyan-bhandar/pending", "/api/software-factory/workers/status",
+                     "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/intelligence/status"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
 
     def test_avatar_preview_is_real_webp(self):
@@ -114,6 +115,17 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(self.call("/api/work/run", {"project":"KRISHNA","goal":"test","action":"unknown","approved":True})[0],403)
         self.assertFalse(self.call("/api/capabilities")[1]["mutating_actions_enabled"])
 
+    def test_narad_workflow_lifecycle(self):
+        code,w=self.call("/api/narad/workflows/create",{"name":"http-safe","trigger":{"type":"manual"},"steps":[{"action":"publish_event","topic":"http.test"}]})
+        self.assertEqual(code,201); wid=w["id"]
+        self.assertEqual(self.call("/api/narad/workflows/execute",{"workflow_id":wid})[0],409)
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"sandbox"})[0],200)
+        self.assertEqual(self.call("/api/narad/workflows/execute",{"workflow_id":wid})[0],200)
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"stable"})[0],403)
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"verified","verified":True})[0],200)
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"stable","verified":True})[0],200)
+        self.assertTrue(self.call("/api/narad/history")[1]["history"])
+
     def test_plugin_lifecycle(self):
         code, plugin=self.call("/api/plugins/add", {"name":"Isolated test plugin","kind":"custom","enabled":False})
         self.assertEqual(code,200)
@@ -123,3 +135,13 @@ class HTTPRuntimeTests(unittest.TestCase):
 
 
 if __name__ == "__main__": unittest.main()
+
+
+class NaradHttpContractTests(unittest.TestCase):
+    def test_server_exposes_narad_routes(self):
+        from pathlib import Path
+        source=(Path(__file__).resolve().parents[1]/"krishna_core"/"server.py").read_text(encoding="utf-8")
+        for route in ("/api/narad/status","/api/narad/workflows","/api/narad/history",
+                      "/api/narad/workflows/create","/api/narad/workflows/promote",
+                      "/api/narad/workflows/execute","/api/intelligence/status"):
+            self.assertIn(route,source)
