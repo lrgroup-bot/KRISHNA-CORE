@@ -78,7 +78,7 @@ class BrowserRecoveryAdapter:
         # External recovery receives only a bounded temporary snapshot. It never gets
         # KRISHNA secrets or execution authority; its output must still resolve to a
         # real locator before Garudanetra uses it.
-        safe_payload={k:v for k,v in dict(payload or {}).items() if k not in {"value","text","password","secret","token"}}
+        safe_payload={k:v for k,v in dict(payload or {}).items() if k not in {"value","password","secret","token"}}
         snapshot={"url":page.url,"title":page.title(),"payload":safe_payload,
                   "visible_text":page.locator("body").inner_text(timeout=3000)[:12000],
                   "source":kind,"untrusted":True}
