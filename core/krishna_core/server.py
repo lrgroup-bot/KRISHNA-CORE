@@ -240,6 +240,9 @@ class Handler(BaseHTTPRequestHandler):
         if not local and not paired and not public:
             self._json(401, {"error": "pairing required"})
             return False
+        if not local and paired and not public and not _remote_policy.mobile_route_allowed(request_path):
+            self._json(403, {"error": "paired remote devices are restricted to KRISHNA conversation/mobile APIs"})
+            return False
         if paired:
             touch_mobile(device, self.path)
         return True
