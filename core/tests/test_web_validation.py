@@ -35,6 +35,7 @@ class WebValidationTests(unittest.TestCase):
             "/api/commitments", "/api/models", "commitmentSummary", "modelRouter",
             "/api/runtime/audit", "driveAudit",
             "/api/requirements", "requirementsCount", "loadRequirementsLedger",
+            "gyanInventory", "gyanKind", "loadGyanInventory", "supersedeGyan",
             "/api/ui-guardian/registry", "/api/ui-guardian/evaluate", "/api/ui-guardian/transition",
             "uiGuardianRegistry", "Run viewport matrix", "Stable / Candidate / Experimental / Rejected",
         ):

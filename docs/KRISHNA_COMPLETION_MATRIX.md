@@ -51,9 +51,9 @@ Status meanings:
 | Requirement | Status | Evidence / remaining work |
 | --- | --- | --- |
 | Evidence-backed long-term memory | VERIFIED boundary | Candidate/verified learning APIs and approval UX exist. |
-| Working / episodic / semantic / graph / skill / evidence memory facade | PARTIAL | MemoryFabric boundary exists; deeper unified retrieval/promotion UX remains. |
-| Provenance, confidence and explicit promotion | VERIFIED boundary | Findings require evidence/promotion gates. |
-| Supersession of outdated knowledge | PARTIAL | Graft adapter boundary exists; local Graft runtime must be reconciled. |
+| Working / episodic / semantic / graph / skill / evidence memory facade | IMPLEMENTED / RUNTIME VERIFY | Typed memory kinds are enforced in MemoryFabric/Gyan-Bhandar, inventory is exposed by API and the UI can filter/inspect each category. |
+| Provenance, confidence and explicit promotion | IMPLEMENTED / RUNTIME VERIFY | Learning and pending-approval records now preserve memory kind, provenance, confidence, evidence and approval state. |
+| Supersession of outdated knowledge | IMPLEMENTED / RUNTIME VERIFY | Replacement knowledge is proposed through the approval queue; on approval the previous fingerprint becomes superseded and links to its replacement. Graft remains an optional backing adapter. |
 | Code intelligence links from Codebase-Memory | PARTIAL | Optional CBM adapter exists; E:\KRISHNA-CBM / CBM-Runtime must be audited and connected. |
 
 ## 5. NARAD

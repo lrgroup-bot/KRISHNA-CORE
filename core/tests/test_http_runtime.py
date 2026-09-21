@@ -59,7 +59,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/tasks", "/api/core/state", "/api/core/neural-state",
                      "/api/project-graph", "/api/recovery/ladder", "/api/incidents",
                      "/api/garuda/status", "/api/commitments", "/api/gyan-bhandar",
-                     "/api/gyan-bhandar/pending", "/api/software-factory/workers/status",
+                     "/api/gyan-bhandar/pending", "/api/gyan-bhandar/inventory?project=KRISHNA", "/api/software-factory/workers/status",
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/intelligence/status",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
@@ -133,6 +133,19 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertIn(self.call("/api/work/promotion/apply", {"promotion_token":"unknown","approved":True})[0],(403,404,409))
         self.assertEqual(self.call("/api/work/run", {"project":"KRISHNA","goal":"test","action":"unknown","approved":True})[0],403)
         self.assertFalse(self.call("/api/capabilities")[1]["mutating_actions_enabled"])
+
+    def test_gyan_typed_supersession_approval(self):
+        code,p=self.call("/api/gyan-bhandar/propose",{"project":"KRISHNA","topic":"HTTP memory","lesson":"first","memory_kind":"semantic","provenance":{"source":"http"}})
+        self.assertEqual(code,202)
+        code,d=self.call("/api/gyan-bhandar/decide",{"approval_id":p["approval_id"],"approved":True})
+        self.assertEqual(code,200); fp=d["learning"]["fingerprint"]
+        code,p2=self.call("/api/gyan-bhandar/supersede",{"project":"KRISHNA","fingerprint":fp,"topic":"HTTP memory","lesson":"second","memory_kind":"semantic","provenance":{"reason":"new evidence"}})
+        self.assertEqual(code,202)
+        self.assertEqual(self.call("/api/gyan-bhandar/decide",{"approval_id":p2["approval_id"],"approved":True})[0],200)
+        rows=self.call("/api/gyan-bhandar?project=KRISHNA&include_superseded=1")[1]["learnings"]
+        self.assertTrue(any(x["status"]=="superseded" for x in rows))
+        inv=self.call("/api/gyan-bhandar/inventory?project=KRISHNA")[1]
+        self.assertGreaterEqual(inv["kinds"]["semantic"]["superseded"],1)
 
     def test_narad_workflow_lifecycle(self):
         code,w=self.call("/api/narad/workflows/create",{"name":"http-safe","trigger":{"type":"manual"},"steps":[{"action":"publish_event","topic":"http.test"}]})
