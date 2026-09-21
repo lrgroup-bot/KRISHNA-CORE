@@ -61,7 +61,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/garuda/status", "/api/commitments", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/software-factory/workers/status",
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/intelligence/status",
-                     "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements"):
+                     "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
 
     def test_requirements_search_contract(self):
@@ -69,6 +69,12 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(code,200)
         self.assertGreater(d["count"],0)
         self.assertTrue(any("mobile" in (x.get("group","")+x.get("title","")+x.get("requirement","")).lower() for x in d["matches"]))
+
+    def test_garudanetra_live_routes_fail_closed(self):
+        self.assertEqual(self.call("/api/garudanetra/session")[0],400)
+        self.assertEqual(self.call("/api/garudanetra/frame?id=missing")[0],404)
+        self.assertEqual(self.call("/api/garudanetra/session/start",{"project":"KRISHNA","url":"file:///tmp/x"})[0],400)
+        self.assertEqual(self.call("/api/garudanetra/session/control",{"session_id":"missing","action":"pause"})[0],404)
 
     def test_avatar_preview_is_real_webp(self):
         code, body = self.call("/api/avatar360")
