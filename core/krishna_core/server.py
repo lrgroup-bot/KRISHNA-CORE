@@ -17,6 +17,7 @@ from .runtime_integrity import RuntimeIntegrity
 from .requirements_ledger import RequirementsLedger
 from .garudanetra_session import GarudanetraSessionManager
 from .ui_guardian import UIGuardian, UIGuardianRegistry
+from .narad.scheduler import NaradScheduler
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -30,6 +31,8 @@ _requirements = RequirementsLedger()
 _garudanetra = GarudanetraSessionManager(RUNTIME_ROOT)
 _ui_registry = UIGuardianRegistry(Path(settings.db_path).resolve().parent / ".krishna_state" / "ui-guardian-registry.json")
 _ui_guardian = UIGuardian(orch.browser, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
+_narad_scheduler = NaradScheduler(orch.agi.narad)
+_narad_scheduler.start()
 try:
     if _specialists.source_root.exists():
         _specialists.index()
@@ -160,7 +163,8 @@ class Handler(BaseHTTPRequestHandler):
                 return False
         device, token = self._device_auth()
         paired = bool(device and _pairing.verify(device, token))
-        public = urlparse(self.path).path in ("/health", "/api/mobile/pair/request")
+        request_path = urlparse(self.path).path
+        public = request_path in ("/health", "/api/mobile/pair/request") or request_path.startswith("/api/narad/webhook/")
         if not local and not paired and not public:
             self._json(401, {"error": "pairing required"})
             return False
@@ -329,12 +333,18 @@ class Handler(BaseHTTPRequestHandler):
             q=(query.get("q") or [""])[0]
             return self._json(200, _requirements.search(q) if q else _requirements.snapshot())
         if path == "/api/narad/status":
-            return self._json(200, orch.agi.narad.status())
+            return self._json(200, {**orch.agi.narad.status(),"scheduler":_narad_scheduler.status()})
         if path == "/api/narad/workflows":
             return self._json(200, {"workflows":[w.as_dict() for w in orch.agi.narad.workflows.values()]})
         if path == "/api/narad/history":
             limit=max(1,min(int((query.get("limit") or ["100"])[0]),500))
             return self._json(200, {"history":orch.agi.narad.history[-limit:]})
+        if path == "/api/narad/connections":
+            return self._json(200,orch.agi.narad_credentials.list())
+        if path == "/api/narad/dead-letters":
+            return self._json(200,orch.agi.narad.dead_letter_status())
+        if path == "/api/narad/scheduler":
+            return self._json(200,_narad_scheduler.status())
         if path == "/api/intelligence/status":
             return self._json(200, {
                 "codebase_memory":orch.agi.code_intelligence.status(),
@@ -431,6 +441,10 @@ class Handler(BaseHTTPRequestHandler):
                     "benchmark_lab",
                     "native_automation_bus",
                     "narad_workflow_runtime",
+                    "narad_schedule_trigger",
+                    "narad_webhook_gateway",
+                    "narad_dead_letter_retry",
+                    "narad_secret_reference_vault",
                     "codebase_memory_adapter",
                     "graft_memory_adapter",
                     "specialist_registry",
@@ -499,6 +513,7 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(404, {"error": "not found"})
 
     def _post(self):
+        post_path=urlparse(self.path).path
         try:
             data = self._body()
         except Exception as exc:
@@ -546,6 +561,35 @@ class Handler(BaseHTTPRequestHandler):
             elif action=="takeover":mark("GARUDANETRA OWNER CONTROL",sid[:8])
             elif action=="resume":mark("GARUDANETRA LIVE",sid[:8])
             return self._json(200,out)
+
+        if post_path.startswith("/api/narad/webhook/"):
+            token=post_path.rsplit("/",1)[-1].strip()
+            if not token:return self._json(404,{"error":"webhook token is required"})
+            try:return self._json(200,orch.agi.narad.handle_webhook(token,data))
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+
+        if self.path == "/api/narad/connections/register":
+            try:
+                return self._json(201,orch.agi.narad_credentials.register(
+                    str(data.get("name") or ""),str(data.get("provider") or ""),str(data.get("env_var") or ""),
+                    str(data.get("header") or "Authorization"),str(data.get("scheme") if data.get("scheme") is not None else "Bearer"),
+                ))
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/narad/webhooks/provision":
+            wid=str(data.get("workflow_id") or "").strip()
+            if not wid:return self._json(400,{"error":"workflow_id is required"})
+            return self._json(201,orch.agi.narad.provision_webhook(wid))
+
+        if self.path == "/api/narad/dead-letters/retry":
+            letter_id=str(data.get("letter_id") or "").strip()
+            if not letter_id:return self._json(400,{"error":"letter_id is required"})
+            return self._json(200,orch.agi.narad.retry_dead_letter(letter_id,bool(data.get("approved",False))))
+
+        if self.path == "/api/narad/scheduler/tick":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"manual scheduler tick must run on KRISHNA PC"})
+            return self._json(200,orch.agi.narad.run_due())
 
         if self.path == "/api/narad/workflows/create":
             name=str(data.get("name") or "").strip()
