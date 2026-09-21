@@ -60,7 +60,7 @@ class ArchitectureContracts(unittest.TestCase):
         web=self.text("core/web_validation.html")
         modules=(
             "shared_action_bus.py","permission_runtime.py","agent_runtime.py",
-            "job_runtime.py","protocol_gateway.py","dispatch_runtime.py",
+            "job_runtime.py","protocol_gateway.py","dispatch_runtime.py","sudarshan_control.py",
         )
         for module in modules:
             self.assertTrue((root/"core"/"krishna_core"/module).is_file(),module)
@@ -71,7 +71,7 @@ class ArchitectureContracts(unittest.TestCase):
             self.assertIn(token,orchestrator)
         for token in (
             "/api/action-bus","/api/agents/runtime","/api/jobs/runtime",
-            "/api/permissions/runtime","/api/protocols/status","/api/dispatch/status",
+            "/api/permissions/runtime","/api/protocols/status","/api/dispatch/status","/api/sudarshan/runtime",
         ):
             self.assertIn(token,server)
         for action in ("chat.create","chat.move","chat.rename","chat.delete","project.register",
@@ -92,6 +92,40 @@ class ArchitectureContracts(unittest.TestCase):
             self.assertIn("actionReq('"+action+"'",web)
         self.assertIn("dataset.lastActionId",web)
         self.assertIn("dataset.lastActionStatus",web)
+
+    def test_sudarshan_narad_n8n_pattern_boundary(self):
+        root=Path(__file__).resolve().parents[1]
+        orchestrator=self.text("core/krishna_core/orchestrator.py")
+        server=self.text("core/krishna_core/server.py")
+        narad=self.text("core/krishna_core/narad/runtime.py")
+        sudarshan=self.text("core/krishna_core/sudarshan_control.py")
+        requirements=self.text("core/requirements/krishna_chat_requirements.json")
+        for module in (
+            "narad/contracts.py","narad/workflow_graph.py","narad/context.py","narad/retry.py",
+            "sudarshan_control.py",
+        ):
+            self.assertTrue((root/"core"/"krishna_core"/module).is_file(),module)
+        for token in (
+            "SudarshanControlPlane","self.agi.narad.bind_sudarshan(self.sudarshan)",
+            "self.agent_runtime.bind_sudarshan(self.sudarshan)",
+            "self.protocols.bind_sudarshan(self.sudarshan)",
+            "self.dispatcher.bind_sudarshan(self.sudarshan)",
+        ):
+            self.assertIn(token,orchestrator)
+        for token in (
+            "/api/sudarshan/runtime","/api/narad/checkpoints","/api/narad/checkpoints/resume",
+        ):
+            self.assertIn(token,server)
+        for token in (
+            "WorkflowGraph","run_with_retry","build_node_payload","resume_checkpoint",
+            '"workflow_engine":"typed-dag/sudarshan"',"self.sudarshan.verify_workflow",
+        ):
+            self.assertIn(token,narad)
+        self.assertIn("IndependentCriticVerifier",sudarshan)
+        self.assertIn("n8n-style workflow patterns natively",requirements)
+        self.assertIn("does not embed the n8n runtime",requirements)
+        self.assertNotIn("from n8n",orchestrator+narad)
+        self.assertNotIn("import n8n",orchestrator+narad)
 
     def test_garuda_security_delegation(self):
         o=self.text("core/krishna_core/orchestrator.py")
