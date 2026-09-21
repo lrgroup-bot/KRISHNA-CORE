@@ -43,6 +43,15 @@ Write-Host "SOURCE $Branch @ $Head" -ForegroundColor Cyan
 # Test authoritative source before runtime mutation.
 Invoke-KrishnaTests $Source $Source
 
+# Parse every PowerShell entrypoint before touching runtime.
+$parseFailures=@()
+Get-ChildItem "$Sourcescripts" -Filter "*.ps1" -File -Recurse | ForEach-Object {
+  $tokens=$null;$errors=$null
+  [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors)
+  if($errors){$parseFailures += ($_.FullName + ": " + (($errors | ForEach-Object Message) -join " | "))}
+}
+if($parseFailures.Count){throw ("POWERSHELL PARSE FAILED: " + ($parseFailures -join " || "))}
+
 # Runtime state/assets are owned by the runtime and never mirrored/deleted by deploy.
 $excludeDirs=@("__pycache__",".krishna_state","state","logs","backups",".venv","ollama-models","dashboard\assets\avatar")
 $xd=@();foreach($d in $excludeDirs){$xd+=@("/XD",(Join-Path $Runtime $d))}
