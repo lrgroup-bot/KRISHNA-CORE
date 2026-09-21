@@ -409,7 +409,9 @@ class Orchestrator:
     def model_pool(self, project="KRISHNA"):
         policy=self.projects.get(project) if project!="KRISHNA" else None
         privacy=policy.privacy if policy else "approved_cloud"
-        return {"providers":self.router.available(),"coding_plan":self.router.coding_plan(privacy),"privacy":privacy}
+        return {"providers":self.router.available(),"coding_plan":self.router.coding_plan(privacy),
+                "free_only_plan":self.router.coding_plan(privacy,free_only=True),"privacy":privacy,
+                "gateway":self.model_gateway.list(),"secure_vault":self.secure_vault.list()}
 
     def kabach_security_research(self, project, question, limit=10):
         if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)
