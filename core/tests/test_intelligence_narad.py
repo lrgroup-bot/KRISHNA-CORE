@@ -8,6 +8,9 @@ from krishna_core.automation_bus import AutomationBus
 from krishna_core.narad import NaradRuntime
 from krishna_core.narad.scheduler import NaradScheduler
 from krishna_core.narad.credentials import NaradCredentialVault
+from krishna_core.narad.n8n_bridge import N8nBridge
+from krishna_core.narad.connector_registry import ConnectorRegistry
+from krishna_core.narad.execution_gate import BoundedExecutionGate
 from krishna_core.specialist_registry import SpecialistRegistry
 from krishna_core.context_governor import ContextGovernor
 from krishna_core.integrations import CodebaseMemoryAdapter, GraftMemoryAdapter
@@ -184,5 +187,56 @@ class IntelligenceNaradTests(unittest.TestCase):
             result=n.retry_dead_letter(letter["id"],approved=True)
             self.assertEqual(result["dead_letter"]["status"],"retried")
             self.assertEqual(result["result"]["results"][0]["status"],200)
+
+    def test_n8n_bridge_is_external_allowlisted_connector_only(self):
+        bridge=N8nBridge(allowed_hosts="127.0.0.1,n8n.example.com")
+        self.assertEqual(bridge.status()["mode"],"external-webhook-only")
+        self.assertIn("n8n.example.com",bridge.status()["allowed_hosts"])
+        with self.assertRaises(PermissionError):
+            bridge._validate("https://evil.example/api")
+        with self.assertRaises(ValueError):
+            bridge._validate("http://n8n.example.com/webhook/x")
+        self.assertEqual(bridge._validate("http://127.0.0.1:5678/webhook/x"),"http://127.0.0.1:5678/webhook/x")
+
+    def test_connector_registry_is_typed_and_fail_closed(self):
+        reg=ConnectorRegistry()
+        row=reg.register("n8n","trigger_workflow",mutating=True,permission="send_external",retry_safe=False)
+        self.assertTrue(row["mutating"])
+        self.assertEqual(reg.get("n8n","trigger_workflow").permission,"send_external")
+        with self.assertRaises(KeyError):
+            reg.get("n8n","unknown")
+
+    def test_execution_gate_is_bounded_without_worker_pool(self):
+        gate=BoundedExecutionGate(max_concurrent=1,acquire_timeout=.05)
+        self.assertEqual(gate.status()["max_concurrent"],1)
+        with gate.slot():
+            self.assertEqual(gate.status()["active"],1)
+            with self.assertRaises(RuntimeError):
+                with gate.slot():
+                    pass
+        self.assertEqual(gate.status()["active"],0)
+        self.assertEqual(gate.status()["rejected_busy"],1)
+
+    def test_workflow_plan_exposes_order_permissions_and_external_connectors(self):
+        with TemporaryDirectory() as td:
+            n=NaradRuntime(PolicyKernel(Path(td)),AutomationBus(),{"n8n":N8nBridge(allowed_hosts="127.0.0.1")},state_path=Path(td)/"narad.json")
+            w=n.create_workflow("plan",{"type":"manual"},[
+                {"id":"a","action":"publish_event","topic":"x"},
+                {"id":"b","action":"adapter_webhook","provider":"n8n","url":"http://127.0.0.1:5678/webhook/x","depends_on":["a"]},
+            ])
+            plan=n.workflow_plan(w["id"])
+            self.assertEqual(plan["order"],["a","b"])
+            self.assertEqual(plan["execution_authority"],"legacy-standalone")
+            self.assertTrue(any(x.get("provider")=="n8n" for x in plan["external_connectors"]))
+            self.assertIn("send_external",plan["permissions"])
+
+    def test_narad_status_reports_bounded_load_and_connector_contracts(self):
+        with TemporaryDirectory() as td:
+            n=NaradRuntime(PolicyKernel(Path(td)),AutomationBus(),{"n8n":N8nBridge()},state_path=Path(td)/"narad.json")
+            status=n.status()
+            self.assertLessEqual(status["execution_gate"]["max_concurrent"],8)
+            self.assertEqual(status["execution_gate"]["policy"],"bounded in-process execution; no extra worker pool")
+            self.assertGreater(status["connector_registry"]["count"],0)
+            self.assertEqual(status["n8n"]["mode"],"external-webhook-only")
 
 if __name__=="__main__": unittest.main()
