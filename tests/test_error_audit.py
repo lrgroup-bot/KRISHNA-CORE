@@ -153,17 +153,19 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn('| PRIVATE OVERLAY | pairing required',text)
         self.assertNotIn(' · ',text)
 
-    def test_sidebar_project_hierarchy_is_main_menu_project_name_chats(self):
+    def test_sidebar_has_project_names_and_separate_gpt_style_chats(self):
         web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
         aside=web.split('<aside class="side">',1)[1].split('</aside>',1)[0]
         self.assertIn('id="projectMenuToggle"',aside)
         self.assertIn('<span class="txt">Project</span>',aside)
         self.assertIn('id="projectMenuTree"',aside)
-        self.assertNotIn('<span>PROJECT CHATS</span>',aside)
-        self.assertIn('function renderSidebarProjectTree()',web)
-        self.assertIn("cap.textContent='Project Chats'",web)
-        self.assertIn('className=\'projectBranchName\'',web)
-        self.assertIn('className=\'projectChatTreeButton\'',web)
+        self.assertIn('id="chatMenuToggle"',aside)
+        self.assertIn('<span class="txt">Chats</span>',aside)
+        self.assertIn('id="recentChats"',aside)
+        self.assertNotIn('Project Chats',aside)
+        self.assertIn('function loadGeneralChats()',web)
+        self.assertIn("ch.project==='KRISHNA'||ch.project==='general'",web)
+        self.assertIn('function selectSidebarProject(name)',web)
 
 if __name__=="__main__":
     unittest.main()
