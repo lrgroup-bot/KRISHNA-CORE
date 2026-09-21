@@ -900,38 +900,7 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 .liveWork{position:absolute;z-index:60;top:62px;right:0;bottom:0;width:50%;min-width:520px;background:#050a0f;border-left:1px solid rgba(87,216,239,.28);box-shadow:-25px 0 70px #0009}.liveWork.expanded{width:100%;min-width:0}.garudaNav,.garudaTakeover{display:grid;grid-template-columns:auto auto auto 1fr auto auto auto;gap:6px;padding:7px 10px;border-bottom:1px solid #17232e;background:#071018}.garudaTakeover{grid-template-columns:1fr auto 1fr auto}.garudaNav button,.garudaTakeover button{border:1px solid #2a3b49;background:#101a24;color:#d9e3eb;border-radius:7px;padding:6px 8px;cursor:pointer}.garudaNav .input,.garudaTakeover .input{min-width:0}.liveHead{height:58px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #22303d;background:#07121b}.liveHead small{display:block;color:#58dfa2;margin-top:4px}.liveControls{display:flex;gap:5px;flex-wrap:wrap}.liveControls button{font-size:10px;border:1px solid #2a3b49;background:#101a24;color:#d9e3eb;border-radius:7px;padding:6px 8px;cursor:pointer}.liveMeta{display:flex;gap:20px;padding:9px 14px;font-size:11px;color:#92a0b1;border-bottom:1px solid #17232e}.liveViewport{height:calc(100% - 98px);display:grid;grid-template-rows:minmax(0,1fr) 150px}.garudaFrameWrap{position:relative;min-height:0;overflow:hidden;background:#05080c;display:flex;align-items:center;justify-content:center}.garudaFrame{width:100%;height:100%;object-fit:contain;display:none;user-select:none}.garudaFrame.owner{cursor:crosshair}.garudaFrameEmpty{position:absolute;color:#6f8192;font:12px Consolas,monospace;letter-spacing:.3px}.garudaEvidence{overflow:auto;padding:12px;font:11px Consolas,monospace;white-space:pre-wrap;color:#b8c8d8;border-top:1px solid #1e303d;background:#071018}
 .main.liveSplit>.view{margin-right:50%}.main.liveSplit .composerWrap{right:50%}
 @media(max-width:1000px){.opsInformer{gap:8px;flex-wrap:wrap}.opsInformer em{display:none}.liveWork{width:100%;min-width:0}.main.liveSplit>.view{margin-right:0}.main.liveSplit .composerWrap{right:0}}
-</style><script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script><script>
-function toggleLiveWork(force){
- const p=$('liveWork'), main=document.querySelector('.main'); if(!p||!main)return;
- const open=typeof force==='boolean'?force:p.hidden;
- p.hidden=!open; main.classList.toggle('liveSplit',open);
-}
-function setOps(kind,text,state){
- const map={work:['opsWorkText','opsWorkDot'],verify:['opsVerifyText','opsVerifyDot'],load:['opsLoadText','opsLoadDot']};
- const m=map[kind]; if(!m)return; const t=$(m[0]),d=$(m[1]); if(t)t.textContent=text||'—'; if(d)d.className='opsDot '+(state||'idle');
-}
-let garudaSessionId=null,garudaPollTimer=null,garudaOwnerControl=false;
-async function garudaControl(action){
- const mapped=action==='continue'?'resume':action;
- const s=await garudaControlPayload(mapped,{});
- if(s){garudaOwnerControl=!!s.owner_control;$('garudaFrame')?.classList.toggle('owner',garudaOwnerControl)}
-}
-async function refreshCommandCenter(){
- try{
-   const [d,i]=await Promise.all([req('/api/dashboard'),req('/api/runtime/integrity')]);
-   const act=d.current_activity||'Idle'; setOps('work',act,act==='Idle'?'idle':'good');
-   const r=d.resources||{}; const cpu=Math.round(Number(r.cpu_percent||r.cpu||0)); const mem=Math.round(Number(r.memory_percent||r.memory||0));
-   const peak=Math.max(cpu,mem); setOps('load','CPU '+cpu+'% · RAM '+mem+'%',peak>=90?'bad':peak>=75?'warn':'good');
-   if(i.status==='DRIFT')setOps('verify','RUNTIME DRIFT','bad');
-   else if(i.status==='UNVERIFIED')setOps('verify','Runtime unverified','warn');
-   else setOps('verify','Runtime synced · Verifier ready','good');
- }catch(e){setOps('verify','Core/API error','bad')}
-}
-setInterval(refreshCommandCenter,2500); setTimeout(refreshCommandCenter,250);
-setTimeout(()=>{const g=$('garudaGoal')||document.querySelector('#garuda textarea');const b=document.querySelector('#garuda button');if(g&&!g.id)g.id='garudaGoal';if(b&&/START PRIVATE WORK|FLY & SCOUT/i.test(b.textContent)){b.onclick=startGarudanetraMission}
- const frame=$('garudaFrame');if(frame){let dragStart=null;frame.addEventListener('pointerdown',e=>{if(!garudaSessionId||!garudaOwnerControl)return;const r=frame.getBoundingClientRect();dragStart={x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};frame.setPointerCapture(e.pointerId)});frame.addEventListener('pointerup',async e=>{if(!dragStart||!garudaSessionId||!garudaOwnerControl)return;const r=frame.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height,start=dragStart;dragStart=null;const dist=Math.hypot(x-start.x,y-start.y);try{if(dist>.03)await garudaControlPayload('drag_xy',{x1:start.x,y1:start.y,x2:x,y2:y});else await garudaControlPayload('click_xy',{x,y})}catch(err){log(err.message)}});frame.addEventListener('wheel',async e=>{if(!garudaSessionId||!garudaOwnerControl)return;e.preventDefault();try{await garudaControlPayload('scroll',{dy:e.deltaY})}catch(err){log(err.message)}},{passive:false})}},100);
-
-</script>
+</style><script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 </head><body><div id="notice" role="status" aria-live="polite"></div><dialog id="actionDialog" aria-labelledby="dialogLabel"><form method="dialog"><label id="dialogLabel" for="dialogInput"></label><input id="dialogInput" class="input" autocomplete="off"><div class="dialogActions"><button class="ghost" value="cancel">Cancel</button><button id="dialogAccept" class="primary" value="accept">Continue</button></div></form></dialog><div class="app">
 <aside class="side"><div class="brand">KRISHNA<small>ALMIGHTY · LOCAL COMMAND CORE</small></div>
 <div class="section">MAIN MENU</div><div class="nav">
@@ -1029,6 +998,36 @@ setTimeout(()=>{const g=$('garudaGoal')||document.querySelector('#garuda textare
 </main></div>
 <script>
 let chatId=null,projects=[],sending=false,noticeTimer,pendingAttachmentIds=[];const $=id=>document.getElementById(id);
+
+function toggleLiveWork(force){
+ const p=$('liveWork'), main=document.querySelector('.main'); if(!p||!main)return;
+ const open=typeof force==='boolean'?force:p.hidden;
+ p.hidden=!open; main.classList.toggle('liveSplit',open);
+}
+function setOps(kind,text,state){
+ const map={work:['opsWorkText','opsWorkDot'],verify:['opsVerifyText','opsVerifyDot'],load:['opsLoadText','opsLoadDot']};
+ const m=map[kind]; if(!m)return; const t=$(m[0]),d=$(m[1]); if(t)t.textContent=text||'—'; if(d)d.className='opsDot '+(state||'idle');
+}
+let garudaSessionId=null,garudaPollTimer=null,garudaOwnerControl=false;
+async function garudaControl(action){
+ const mapped=action==='continue'?'resume':action;
+ const s=await garudaControlPayload(mapped,{});
+ if(s){garudaOwnerControl=!!s.owner_control;$('garudaFrame')?.classList.toggle('owner',garudaOwnerControl)}
+}
+async function refreshCommandCenter(){
+ try{
+   const [d,i]=await Promise.all([req('/api/dashboard'),req('/api/runtime/integrity')]);
+   const act=d.current_activity||'Idle'; setOps('work',act,act==='Idle'?'idle':'good');
+   const r=d.resources||{}; const cpu=Math.round(Number(r.cpu_percent||r.cpu||0)); const mem=Math.round(Number(r.memory_percent||r.memory||0));
+   const peak=Math.max(cpu,mem); setOps('load','CPU '+cpu+'% · RAM '+mem+'%',peak>=90?'bad':peak>=75?'warn':'good');
+   if(i.status==='DRIFT')setOps('verify','RUNTIME DRIFT','bad');
+   else if(i.status==='UNVERIFIED')setOps('verify','Runtime unverified','warn');
+   else setOps('verify','Runtime synced · Verifier ready','good');
+ }catch(e){setOps('verify','Core/API error','bad')}
+}
+setInterval(refreshCommandCenter,2500); setTimeout(refreshCommandCenter,250);
+setTimeout(()=>{const g=$('garudaGoal')||document.querySelector('#garuda textarea');const b=document.querySelector('#garuda button');if(g&&!g.id)g.id='garudaGoal';if(b&&/START PRIVATE WORK|FLY & SCOUT/i.test(b.textContent)){b.onclick=startGarudanetraMission}
+ const frame=$('garudaFrame');if(frame){let dragStart=null;frame.addEventListener('pointerdown',e=>{if(!garudaSessionId||!garudaOwnerControl)return;const r=frame.getBoundingClientRect();dragStart={x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};frame.setPointerCapture(e.pointerId)});frame.addEventListener('pointerup',async e=>{if(!dragStart||!garudaSessionId||!garudaOwnerControl)return;const r=frame.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height,start=dragStart;dragStart=null;const dist=Math.hypot(x-start.x,y-start.y);try{if(dist>.03)await garudaControlPayload('drag_xy',{x1:start.x,y1:start.y,x2:x,y2:y});else await garudaControlPayload('click_xy',{x,y})}catch(err){log(err.message)}});frame.addEventListener('wheel',async e=>{if(!garudaSessionId||!garudaOwnerControl)return;e.preventDefault();try{await garudaControlPayload('scroll',{dy:e.deltaY})}catch(err){log(err.message)}},{passive:false})}},100);
 
 function requestDialog(message,value,confirmation){const dialog=$('actionDialog');if(dialog.open)return Promise.resolve(null);$('dialogLabel').textContent=message;$('dialogInput').hidden=confirmation;$('dialogInput').value=value||'';$('dialogAccept').textContent=confirmation?'Confirm':'Save';return new Promise(resolve=>{dialog.addEventListener('close',()=>resolve(dialog.returnValue==='accept'?(confirmation?true:$('dialogInput').value):null),{once:true});dialog.returnValue='cancel';dialog.showModal();(confirmation?$('dialogAccept'):$('dialogInput')).focus()})}
 function askText(message,value=''){return requestDialog(message,value,false)}
