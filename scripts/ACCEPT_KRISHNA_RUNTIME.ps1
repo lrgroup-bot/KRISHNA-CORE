@@ -61,7 +61,7 @@ try{
   try{
     $actionBus=Get-Json "/api/action-bus"
     $actionNames=@($actionBus.actions|ForEach-Object{$_.name})
-    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment")
+    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment")
     $missing=@($needed|Where-Object{$_ -notin $actionNames})
     if($actionBus.owner -eq "KRISHNA Shared Action Bus" -and $missing.Count -eq 0){
       Add-Check "Shared Action Bus" "PASS" ("registered="+$actionBus.registered_actions+"; Projects/Chats wired") $actionBus
@@ -69,7 +69,7 @@ try{
       Add-Check "Shared Action Bus" "FAIL" ("Missing canonical actions: "+($missing -join ", ")) $actionBus
     }
     $probe=Post-Json "/api/action-bus/dispatch" @{action="chat.create";project="general";actor="acceptance";payload=@{project="general";title="Action Bus Acceptance"};idempotency_key="acceptance-chat-create"}
-    if($probe.status -eq "completed" -and $probe.action_id -and $probe.result.chat_id){
+    if($probe.status -eq "completed" -and $probe.action_id -and $probe.result.chat_id -and $probe.verified){
       Add-Check "Shared Action dispatch" "PASS" ("action_id="+$probe.action_id) $probe
     }else{
       Add-Check "Shared Action dispatch" "FAIL" "Action envelope did not complete" $probe
