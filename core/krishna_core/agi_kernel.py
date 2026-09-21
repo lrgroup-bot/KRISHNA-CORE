@@ -22,7 +22,7 @@ from .media_adapter import OpenMontageAdapter
 
 class AGIKernel:
     VERSION="1.1.0-alpha"
-    def __init__(self,runtime_root,memory,gyan,verification_engine,reviewer):
+    def __init__(self,runtime_root,memory,gyan,verification_engine,reviewer,secure_vault=None):
         self.root=Path(runtime_root); self.root.mkdir(parents=True,exist_ok=True)
         self.policy=PolicyKernel(self.root)
         self.executors=ExecutorFabric(self.policy)
@@ -39,7 +39,7 @@ class AGIKernel:
         self.graft=GraftMemoryAdapter(profile="krishna")
         self.specialists=SpecialistRegistry()
         self.context=ContextGovernor()
-        self.narad_credentials=NaradCredentialVault(self.root/"narad"/"credentials.json")
+        self.narad_credentials=NaradCredentialVault(self.root/"narad"/"credentials.json", secure_vault)
         self.narad_providers=NaradProviderHub()
         self.narad_providers=NaradProviderHub()
         self.narad=NaradRuntime(
