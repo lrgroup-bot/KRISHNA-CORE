@@ -191,6 +191,23 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertNotIn('ThreadPoolExecutor',gate)
         self.assertNotIn('ProcessPoolExecutor',gate)
 
+    def test_avatar_character_performance_bible_is_single_source_of_truth(self):
+        avatar=self.text("core/krishna_core/avatar_fabric.py")
+        server=self.text("core/krishna_core/server.py")
+        web=self.text("core/web_validation.html")
+        bible=self.text("docs/KRISHNA_CHARACTER_PERFORMANCE_BIBLE.md")
+        for token in ("face-first","peacock feather","pitambara","Bala Krishna","Venugopala","Gita Krishna","Odissi"):
+            self.assertIn(token,avatar+bible)
+        for state in ("LISTENING","THINKING","SPEAKING","WISDOM","PLAYFUL","PROTECTION","FLUTE","DHYAN","SLEEPING","WAKING"):
+            self.assertIn('"'+state+'"',avatar)
+        self.assertIn('/api/avatar/performance',server)
+        self.assertIn('state_for_activity',server)
+        self.assertIn('avatarState(d.avatar_state',web)
+        self.assertIn("character-bible-v1",avatar+web)
+        self.assertIn('"pc"',avatar)
+        self.assertIn('"mobile"',avatar)
+        self.assertIn('"glass"',avatar)
+
     def test_garuda_security_delegation(self):
         o=self.text("core/krishna_core/orchestrator.py")
         self.assertIn("kabach_security_research",o);self.assertIn("self.garuda.scout",o)
