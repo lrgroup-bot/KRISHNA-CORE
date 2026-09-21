@@ -1029,6 +1029,9 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
  <div class="card"><div class="k">ADAPTERS</div><div id="naradAdapters" class="v">—</div></div>
  <div class="card"><div class="k">CONNECTIONS</div><div id="naradConnectionCount" class="v">0</div><p>Environment refs or Windows DPAPI encrypted secrets</p></div>
  <div class="card"><div class="k">DEAD LETTERS</div><div id="naradDeadCount" class="v">0</div><p>Failures stay visible until retried or superseded.</p></div>
+ <div class="card"><div class="k">LOAD GATE</div><div id="naradLoad" class="v">—</div><p>Bounded in-process execution; no extra worker pool.</p></div>
+ <div class="card"><div class="k">CONNECTOR CONTRACTS</div><div id="naradConnectorCount" class="v">0</div><p>Typed operations behind Sudarshan permissions.</p></div>
+ <div class="card"><div class="k">N8N</div><div id="naradN8n" class="v">EXTERNAL ONLY</div><p id="naradN8nHosts">Remote hosts require explicit allowlist.</p></div>
 </div>
 <div class="card" style="margin-top:14px">
  <div class="k">CREATE WORKFLOW</div>
@@ -1575,15 +1578,18 @@ function naradTriggerChanged(){
 }
 async function loadNarad(){
  try{
-  const [s,w,h,cx,dl,sch,cp]=await Promise.all([
+  const [s,w,h,cx,dl,sch,cp,contracts]=await Promise.all([
    req('/api/narad/status'),req('/api/narad/workflows'),req('/api/narad/history?limit=30'),
    req('/api/narad/connections'),req('/api/narad/dead-letters'),req('/api/narad/scheduler'),
-   req('/api/narad/checkpoints')
+   req('/api/narad/checkpoints'),req('/api/narad/connectors')
   ]);
   $('naradRuntime').textContent=(s.name||'NARAD')+(s.sudarshan_bound?' · SUDARSHAN':' · DEGRADED');$('naradCount').textContent=(w.workflows||[]).length;
   $('naradAdapters').textContent=(s.adapters||[]).join(' · ')||'native';
   $('naradConnectionCount').textContent=cx.count||0;$('naradDeadCount').textContent=dl.count||0;
   $('naradScheduler').textContent=(s.workflow_engine||'workflow')+' · checkpoints '+(cp.count||0)+' · scheduler '+(sch.running?'RUNNING':'STOPPED');
+  const gate=contracts.execution_gate||s.execution_gate||{};$('naradLoad').textContent=(gate.active||0)+' / '+(gate.max_concurrent||0);
+  const reg=contracts.connectors||s.connector_registry||{};$('naradConnectorCount').textContent=reg.count||0;
+  const n8=contracts.n8n||s.n8n||{};$('naradN8n').textContent=(n8.mode||'external-webhook-only').toUpperCase();$('naradN8nHosts').textContent=(n8.allowed_hosts||[]).length?('Allowed: '+n8.allowed_hosts.join(', ')):'Remote hosts blocked until KRISHNA_N8N_ALLOWED_HOSTS is configured.';
   const tr=s.triggers||{};$('naradTriggers').textContent=['manual','event','schedule','webhook'].map(k=>k+' '+(tr[k]||0)).join(' · ');
   renderNaradConnections(cx.connections||[]);renderNaradDeadLetters(dl.dead_letters||[]);populateNaradCredentialSelect(cx.connections||[]);
   const box=$('naradWorkflows');box.innerHTML='';
