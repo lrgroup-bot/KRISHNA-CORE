@@ -86,10 +86,10 @@ Write-Host "Commit    : $($integrity.commit)"
 Write-Host "UI        : http://127.0.0.1`:$Port/"
 if($MobileLan){
     $mobileAddress=if($lanIp){"http://$lanIp`:$Port/"}else{"LAN address will be discovered by phone"}
-    Write-Host "Mobile    : $mobileAddress · discovery ON · pairing required" -ForegroundColor Green
+    Write-Host "Mobile    : $mobileAddress | discovery ON | pairing required" -ForegroundColor Green
 }
 if($PrivateRemote){
-    Write-Host "Remote    : http://$remoteIp`:$Port/ · PRIVATE OVERLAY · pairing required" -ForegroundColor Green
+    Write-Host "Remote    : http://$remoteIp`:$Port/ | PRIVATE OVERLAY | pairing required" -ForegroundColor Green
 }
 Write-Host ""
 
