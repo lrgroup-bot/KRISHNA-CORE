@@ -318,11 +318,31 @@ class Orchestrator:
     def gyan_compact(self):
         return self.gyan_bhandar.compact_storage()
 
-    def gyan_archive_file(self, project, source_path, topic="", remove_original=False):
-        if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
-        return self.gyan_bhandar.archive_file(project,source_path,topic,remove_original)
+    def _gyan_scope_root(self,project):
+        if project=="KRISHNA":
+            return Path(self.db_path).resolve().parent
+        policy=self.projects.get(project)
+        if not policy:raise KeyError(project)
+        return Path(policy.root).resolve()
 
-    def gyan_restore_file(self, sha256, destination):
+    def gyan_archive_file(self, project, source_path, topic="", remove_original=False):
+        root=self._gyan_scope_root(project)
+        source=Path(source_path).resolve()
+        try:source.relative_to(root)
+        except ValueError as exc:raise PermissionError("Gyan archive source is outside the selected project/runtime scope") from exc
+        if remove_original:
+            if project!="KRISHNA":self.projects.assert_mutable(project,"gyan_archive_remove_original")
+            if not settings.allow_actions:raise PermissionError("KRISHNA_ALLOW_ACTIONS is disabled")
+        return self.gyan_bhandar.archive_file(project,source,topic,remove_original)
+
+    def gyan_restore_file(self, sha256, destination, project="KRISHNA", approved=False):
+        root=self._gyan_scope_root(project)
+        destination=Path(destination).resolve()
+        try:destination.relative_to(root)
+        except ValueError as exc:raise PermissionError("Gyan restore destination is outside the selected project/runtime scope") from exc
+        if project!="KRISHNA":self.projects.assert_mutable(project,"gyan_restore_file")
+        if not settings.allow_actions:raise PermissionError("KRISHNA_ALLOW_ACTIONS is disabled")
+        if not approved:raise PermissionError("explicit Gyan restore approval required")
         return self.gyan_bhandar.restore_file(sha256,destination)
 
     def gyan_archive_status(self):
