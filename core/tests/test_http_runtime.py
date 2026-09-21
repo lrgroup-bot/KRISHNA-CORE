@@ -60,7 +60,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/project-graph", "/api/recovery/ladder", "/api/incidents",
                      "/api/garuda/status", "/api/commitments", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/gyan-bhandar/inventory?project=KRISHNA", "/api/software-factory/workers/status",
-                     "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/intelligence/status",
+                     "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
 
@@ -158,6 +158,32 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"stable","verified":True})[0],200)
         self.assertTrue(self.call("/api/narad/history")[1]["history"])
 
+    def test_narad_webhook_and_connection_reference_contract(self):
+        code,ref=self.call("/api/narad/connections/register",{"name":"HTTP n8n","provider":"n8n","env_var":"KRISHNA_HTTP_N8N_TOKEN"})
+        self.assertEqual(code,201)
+        self.assertEqual(ref["env_var"],"KRISHNA_HTTP_N8N_TOKEN")
+        self.assertNotIn("secret",json.dumps(ref).lower())
+        conns=self.call("/api/narad/connections")[1]["connections"]
+        self.assertTrue(any(x["id"]==ref["id"] for x in conns))
+
+        code,w=self.call("/api/narad/workflows/create",{"name":"incoming-http","trigger":{"type":"webhook"},"steps":[{"action":"publish_event","topic":"http.webhook"}]})
+        self.assertEqual(code,201);wid=w["id"]
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"sandbox"})[0],200)
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"verified","verified":True})[0],200)
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"stable","verified":True})[0],200)
+        code,hook=self.call("/api/narad/webhooks/provision",{"workflow_id":wid})
+        self.assertEqual(code,201)
+        self.assertEqual(self.call(hook["path"],{"hello":"world"})[0],200)
+        self.assertEqual(self.call("/api/narad/webhook/wrong",{"hello":"world"})[0],403)
+
+    def test_narad_dead_letter_is_visible(self):
+        code,w=self.call("/api/narad/workflows/create",{"name":"bad-action","trigger":{"type":"manual"},"steps":[{"action":"not_supported"}]})
+        self.assertEqual(code,201);wid=w["id"]
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"sandbox"})[0],200)
+        self.assertEqual(self.call("/api/narad/workflows/execute",{"workflow_id":wid})[0],409)
+        letters=self.call("/api/narad/dead-letters")[1]["dead_letters"]
+        self.assertTrue(any(x["workflow_id"]==wid for x in letters))
+
     def test_plugin_lifecycle(self):
         code, plugin=self.call("/api/plugins/add", {"name":"Isolated test plugin","kind":"custom","enabled":False})
         self.assertEqual(code,200)
@@ -175,5 +201,7 @@ class NaradHttpContractTests(unittest.TestCase):
         source=(Path(__file__).resolve().parents[1]/"krishna_core"/"server.py").read_text(encoding="utf-8")
         for route in ("/api/narad/status","/api/narad/workflows","/api/narad/history",
                       "/api/narad/workflows/create","/api/narad/workflows/promote",
-                      "/api/narad/workflows/execute","/api/intelligence/status"):
+                      "/api/narad/workflows/execute","/api/narad/connections/register","/api/narad/connections",
+                      "/api/narad/dead-letters","/api/narad/dead-letters/retry","/api/narad/webhooks/provision",
+                      "/api/narad/scheduler","/api/narad/scheduler/tick","/api/intelligence/status"):
             self.assertIn(route,source)
