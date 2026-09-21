@@ -57,6 +57,10 @@ try{
 
   $narad=Get-Json "/api/narad/status"
   if($narad.name -eq "NARAD"){Add-Check "NARAD runtime" "PASS" ("workflows="+$narad.workflows) $narad}else{Add-Check "NARAD runtime" "FAIL" "NARAD did not report ready" $narad}
+  $requiredProviders=@("telegram","discord","slack","whatsapp","gmail","google_drive","google_sheets","google_calendar")
+  $missingProviders=@($requiredProviders|Where-Object{$_ -notin @($narad.provider_hub)})
+  if($missingProviders.Count -eq 0){Add-Check "NARAD provider hub" "PASS" "Messaging and Google provider adapters registered" $narad.provider_hub}
+  else{Add-Check "NARAD provider hub" "FAIL" ("Missing provider adapters: "+($missingProviders -join ", ")) $narad.provider_hub}
   $remote=Get-Json "/api/remote/status"
   if($remote.mode -eq "private-network-only"){Add-Check "Private remote boundary" "PASS" "Public Internet control clients are rejected" $remote}else{Add-Check "Private remote boundary" "FAIL" "Remote boundary is not private-network-only" $remote}
 
@@ -89,6 +93,18 @@ try{
 
   $kabach=Get-Json "/api/kabach/projects"
   Add-Check "KABACH boundary registry" "PASS" ("protected projects="+$kabach.count) $kabach
+
+  # Protected/archive projects are observable but may never enter a mutation path.
+  $protectedRoot=Join-Path $RuntimeRoot "tmp\acceptance-protected"
+  New-Item -ItemType Directory -Force $protectedRoot|Out-Null
+  $protectedName="KRISHNA-ACCEPT-PROTECTED"
+  $null=Post-Json "/api/projects/register" @{name=$protectedName;root=$protectedRoot;privacy="local_only";role="protected";allowed_actions=@("edit");verification_checks=@()}
+  try{
+    $null=Post-Json "/api/development/stage" @{project=$protectedName;files=@("x.txt")}
+    Add-Check "Protected project mutation gate" "FAIL" "Protected project accepted a staging mutation" $null
+  }catch{
+    Add-Check "Protected project mutation gate" "PASS" "Protected project mutation was rejected" $_.Exception.Message
+  }
 
   $commitments=Get-Json "/api/commitments?project=KRISHNA"
   Add-Check "Commitment ledger" "PASS" ("unfinished="+@($commitments.unfinished).Count+" forgotten="+@($commitments.forgotten).Count) $commitments
