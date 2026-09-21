@@ -191,6 +191,31 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertNotIn('ThreadPoolExecutor',gate)
         self.assertNotIn('ProcessPoolExecutor',gate)
 
+    def test_brahmagyan_is_deep_knowledge_layer_not_second_control_plane(self):
+        root=Path(__file__).resolve().parents[1]
+        bg=self.text("core/krishna_core/brahmagyan.py")
+        council=self.text("core/krishna_core/rishi_council.py")
+        agi=self.text("core/krishna_core/agi_kernel.py")
+        orch=self.text("core/krishna_core/orchestrator.py")
+        server=self.text("core/krishna_core/server.py")
+        web=self.text("core/web_validation.html")
+        requirements=self.text("core/requirements/krishna_chat_requirements.json")
+        self.assertTrue((root/"docs"/"BRAHMAGYAN_ARCHITECTURE.md").is_file())
+        for token in ("L0","L1","L2","L3","L4","L5","L6","L7","L8","promotion_readiness","resolve_contradiction","background_decision","shishya_plan"):
+            self.assertIn(token,bg)
+        for name in ("veda-vyasa","gautama","vishwamitra","sushruta","kashyapa","atri","jamadagni","bharadvaja","kanada","kapila","patanjali","yajnavalkya","agastya","charaka","panini"):
+            self.assertIn(name,council)
+        self.assertIn("BrahmagyanRuntime",agi)
+        self.assertIn('"brahmagyan.shishya.execute"',orch)
+        self.assertIn("requires_approval=True",orch)
+        self.assertIn('"rishi:"+profile["id"]',orch)
+        self.assertIn('/api/brahmagyan/status',server)
+        self.assertIn('id="brahmagyan"',web)
+        self.assertIn("BRAHMAGYAN",requirements)
+        self.assertIn("running_processes",council)
+        self.assertNotIn("ThreadPoolExecutor",bg)
+        self.assertNotIn("ProcessPoolExecutor",bg)
+
     def test_avatar_character_performance_bible_is_single_source_of_truth(self):
         avatar=self.text("core/krishna_core/avatar_fabric.py")
         server=self.text("core/krishna_core/server.py")
