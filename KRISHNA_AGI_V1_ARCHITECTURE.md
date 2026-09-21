@@ -4,6 +4,8 @@ Single control plane, modular workers. `Krishna_AGI.exe` is the only user-facing
 
 ## Core contracts
 - KRISHNA Neural Action Graph owns orchestration; LangGraph is an optional durable-execution adapter.
+- Agent-Native is an architectural reference only. KRISHNA's canonical execution spine is Shared Action Bus -> Agent/Job/Permission/Protocol/Dispatch adapters; UI controls do not become runtime authorities.
+- Priority mutating UI operations must produce auditable Shared Action receipts; compatibility HTTP routes may remain only when they delegate to the same registered action.
 - Policy Kernel is mandatory before mutation/external side effects.
 - Executors are replaceable adapters (native/OpenHands/Open Interpreter concepts).
 - Garuda is the research/evidence scout; Garudanetra is the browser/computer layer.
