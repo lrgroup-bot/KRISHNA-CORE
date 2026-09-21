@@ -121,6 +121,11 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(body[:4], b"RIFF")
         self.assertEqual(body[8:12], b"WEBP")
 
+    def test_favicon_probe_never_creates_browser_404_noise(self):
+        code, body = self.call("/favicon.ico")
+        self.assertEqual(code, 204)
+        self.assertEqual(body, b"")
+
     def test_json_shape_and_empty_message(self):
         for data in ([], "text", 3, {"message":[]}, {"message":""}):
             with self.subTest(data=data): self.assertEqual(self.call("/api/core/chat", data)[0], 400)
