@@ -61,7 +61,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/garuda/status", "/api/commitments", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/software-factory/workers/status",
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/intelligence/status",
-                     "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions"):
+                     "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
 
     def test_requirements_search_contract(self):
@@ -69,6 +69,12 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(code,200)
         self.assertGreater(d["count"],0)
         self.assertTrue(any("mobile" in (x.get("group","")+x.get("title","")+x.get("requirement","")).lower() for x in d["matches"]))
+
+    def test_ui_guardian_registry_lifecycle(self):
+        code,item=self.call("/api/ui-guardian/register",{"name":"HTTP UI","project":"KRISHNA","url":"http://127.0.0.1:8766","state":"candidate"})
+        self.assertEqual(code,201)
+        self.assertEqual(self.call("/api/ui-guardian/transition",{"entry_id":item["id"],"target":"stable","verified":True})[0],403)
+        self.assertEqual(self.call("/api/ui-guardian/transition",{"entry_id":item["id"],"target":"rejected","verified":False})[0],200)
 
     def test_garudanetra_live_routes_fail_closed(self):
         self.assertEqual(self.call("/api/garudanetra/session")[0],400)
