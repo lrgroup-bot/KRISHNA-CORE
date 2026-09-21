@@ -264,6 +264,21 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"project not registered"})
         if path == "/api/agi/status":
             return self._json(200, orch.agi_status())
+        if path == "/api/narad/status":
+            return self._json(200, orch.agi.narad.status())
+        if path == "/api/narad/workflows":
+            return self._json(200, {"workflows":[w.as_dict() for w in orch.agi.narad.workflows.values()]})
+        if path == "/api/narad/history":
+            limit=max(1,min(int((query.get("limit") or ["100"])[0]),500))
+            return self._json(200, {"history":orch.agi.narad.history[-limit:]})
+        if path == "/api/intelligence/status":
+            return self._json(200, {
+                "codebase_memory":orch.agi.code_intelligence.status(),
+                "graft":orch.agi.graft.status(),
+                "specialists":orch.agi.specialists.list(),
+                "context_governor":{"max_items":orch.agi.context.max_items,"max_chars":orch.agi.context.max_chars},
+                "media":orch.agi.media.status(),
+            })
         if path in ("/health", "/api/status"):
             return self._json(200, {
                 "ok": True,
@@ -341,6 +356,12 @@ class Handler(BaseHTTPRequestHandler):
                     "skill_compiler",
                     "benchmark_lab",
                     "native_automation_bus",
+                    "narad_workflow_runtime",
+                    "codebase_memory_adapter",
+                    "graft_memory_adapter",
+                    "specialist_registry",
+                    "context_governor",
+                    "openmontage_media_boundary",
                     "isolated_worker_fabric",
                     "creator_provider_fabric",
                     "revenue_engine_adapters",
@@ -408,6 +429,23 @@ class Handler(BaseHTTPRequestHandler):
             data = self._body()
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
+
+        if self.path == "/api/narad/workflows/create":
+            name=str(data.get("name") or "").strip()
+            trigger=data.get("trigger") or {"type":"manual"}
+            steps=data.get("steps") or []
+            if not name or not isinstance(steps,list): return self._json(400,{"error":"name and steps are required"})
+            return self._json(201,orch.agi.narad.create_workflow(name,trigger,steps,data.get("permissions") or []))
+
+        if self.path == "/api/narad/workflows/promote":
+            wid=str(data.get("workflow_id") or "").strip(); state=str(data.get("state") or "").strip()
+            if not wid or not state:return self._json(400,{"error":"workflow_id and state are required"})
+            return self._json(200,orch.agi.narad.promote(wid,state,verified=bool(data.get("verified",False))))
+
+        if self.path == "/api/narad/workflows/execute":
+            wid=str(data.get("workflow_id") or "").strip()
+            if not wid:return self._json(400,{"error":"workflow_id is required"})
+            return self._json(200,orch.agi.narad.execute(wid,data.get("context") or {},approved=bool(data.get("approved",False))))
 
         if self.path == "/api/mobile/pair/request":
             device = str(data.get("device_id", "")).strip()
