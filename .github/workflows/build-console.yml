@@ -1,22 +1,16 @@
 name: Build KRISHNA Windows App
 
 on:
-  push:
-    branches:
-      - feature/autonomous-browser-research
-      - fix/krishna-exe-core-start
-      - feature/mobile-pc-control-safe-patch
-      - main
-      - feature/web-first-validation
-    paths:
-      - 'core/**'
-      - 'avatar/**'
-      - 'scripts/**'
-      - '.github/workflows/build-console.yml'
   workflow_dispatch:
+    inputs:
+      release_gate_confirmed:
+        description: 'Confirm real Windows runtime acceptance passed before packaging KRISHNA.exe'
+        required: true
+        type: boolean
 
 jobs:
   build-windows:
+    if: ${{ inputs.release_gate_confirmed == true }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
