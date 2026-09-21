@@ -127,6 +127,15 @@ try{
   if($narad.name -eq "NARAD" -and $narad.sudarshan_bound -and $narad.workflow_engine -eq "typed-dag/sudarshan"){
     Add-Check "NARAD runtime" "PASS" ("workflows="+$narad.workflows+"; typed DAG through Sudarshan") $narad
   }else{Add-Check "NARAD runtime" "FAIL" "NARAD is not bound to Sudarshan typed-DAG execution" $narad}
+  if($narad.execution_gate.max_concurrent -le 4 -and $narad.execution_gate.policy -match "no extra worker pool"){
+    Add-Check "NARAD resource gate" "PASS" ("max_concurrent="+$narad.execution_gate.max_concurrent+"; active="+$narad.execution_gate.active) $narad.execution_gate
+  }else{Add-Check "NARAD resource gate" "FAIL" "NARAD concurrency/load contract is unsafe" $narad.execution_gate}
+  if($narad.connector_registry.count -ge 8){
+    Add-Check "NARAD connector contracts" "PASS" ("operations="+$narad.connector_registry.count) $narad.connector_registry
+  }else{Add-Check "NARAD connector contracts" "FAIL" "Typed connector registry is incomplete" $narad.connector_registry}
+  if($narad.n8n.mode -eq "external-webhook-only" -and $narad.n8n.policy -match "never KRISHNA authority"){
+    Add-Check "n8n boundary" "PASS" "n8n is external connector only; Sudarshan remains authority" $narad.n8n
+  }else{Add-Check "n8n boundary" "FAIL" "n8n boundary is not connector-only" $narad.n8n}
   $requiredProviders=@("telegram","discord","slack","whatsapp","gmail","google_drive","google_sheets","google_calendar")
   $missingProviders=@($requiredProviders|Where-Object{$_ -notin @($narad.provider_hub)})
   if($missingProviders.Count -eq 0){Add-Check "NARAD provider hub" "PASS" "Messaging and Google provider adapters registered" $narad.provider_hub}
@@ -186,6 +195,10 @@ try{
   # Isolated Narad lifecycle acceptance. No external webhook and no mutation.
   $wf=Post-Json "/api/narad/workflows/create" @{name=("acceptance-"+[guid]::NewGuid().ToString("N").Substring(0,8));trigger=@{type="manual"};steps=@(@{action="publish_event";topic="krishna.acceptance";payload=@{source="acceptance"}});permissions=@()}
   $wid=$wf.id
+  $plan=Get-Json ("/api/narad/workflow/plan?id="+$wid)
+  if($plan.execution_authority -eq "Sudarshan Control Plane" -and @($plan.order).Count -eq 1 -and $plan.verification -match "IndependentCriticVerifier"){
+    Add-Check "NARAD workflow plan" "PASS" ("workflow="+$wid+" order="+($plan.order -join ",")) $plan
+  }else{Add-Check "NARAD workflow plan" "FAIL" "Workflow plan did not resolve through Sudarshan/verifier" $plan}
   $null=Post-Json "/api/narad/workflows/promote" @{workflow_id=$wid;state="sandbox";verified=$false}
   $run=Post-Json "/api/narad/workflows/execute" @{workflow_id=$wid;context=@{};approved=$false}
   $null=Post-Json "/api/narad/workflows/promote" @{workflow_id=$wid;state="verified";verified=$true}
