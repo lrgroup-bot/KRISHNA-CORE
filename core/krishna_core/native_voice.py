@@ -39,7 +39,8 @@ class IndicConformerSTT:
         try:
             data=json.loads(out)
             return str(data.get("text") or data.get("transcript") or "").strip()
-        except Exception:return out.strip()
+        except json.JSONDecodeError:
+            return out.strip()
 
 
 class IndicTTS:
@@ -77,11 +78,11 @@ class WakeWordService:
     def dependency_status(self):
         openwake=False;sound=False;numpy=False
         try:import openwakeword;openwake=True
-        except Exception:pass
+        except ImportError:pass
         try:import sounddevice;sound=True
-        except Exception:pass
+        except ImportError:pass
         try:import numpy;numpy=True
-        except Exception:pass
+        except ImportError:pass
         model=bool(self.model_path and self.model_path.is_file())
         return {"openwakeword":openwake,"sounddevice":sound,"numpy":numpy,"custom_model":model}
 
@@ -125,7 +126,8 @@ class WakeWordService:
                         self.last_wake=now;cooldown=now+2.0
                         if self.on_wake:
                             try:self.on_wake({"score":score,"at":now})
-                            except Exception:pass
+                            except Exception as exc:
+                                self.error=f"wake_callback: {type(exc).__name__}: {exc}"
         except Exception as exc:
             self.error=f"{type(exc).__name__}: {exc}"
         finally:
