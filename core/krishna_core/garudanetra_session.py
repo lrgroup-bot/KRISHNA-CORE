@@ -130,6 +130,13 @@ class GarudanetraSessionManager:
             "remember_evidence":session.remember_evidence,"profile_path":session.profile_path,
         }
 
+    def _warn(self,session,kind,exc):
+        detail=f"{type(exc).__name__}: {exc}"[:1200]
+        with self._lock:
+            session.findings.append({"kind":str(kind),"detail":detail,"severity":"warning","at":time.time()})
+            del session.findings[:-200]
+            session.updated_at=time.time()
+
     def frame(self,session_id):
         session=self._get(session_id)
         with self._lock:return bytes(session.frame) if session.frame else None
@@ -147,7 +154,9 @@ class GarudanetraSessionManager:
         for sid in ids:
             try:
                 if not self._get(sid).stopped:self.command(sid,"stop")
-            except Exception:pass
+            except Exception as exc:
+                try:self._warn(self._get(sid),"close_all_error",exc)
+                except KeyError:continue
 
     def _persist(self,session):
         if session.mode=="private":return
@@ -311,11 +320,11 @@ class GarudanetraSessionManager:
                     try:
                         text=page.locator("body").inner_text(timeout=min(self.timeout_ms,3000))[:12000]
                         with self._lock:session.visible_text=text
-                    except Exception:pass
+                    except Exception as exc:self._warn(session,"visible_text_error",exc)
                     last_text=now
                 if now-last_persist>=3.0:
                     try:self._persist(session)
-                    except Exception:pass
+                    except Exception as exc:self._warn(session,"evidence_persist_error",exc)
                     last_persist=now
         except Exception as exc:
             with self._lock:
@@ -325,15 +334,15 @@ class GarudanetraSessionManager:
             for obj in (context,browser):
                 try:
                     if obj:obj.close()
-                except Exception:pass
+                except Exception as exc:self._warn(session,"browser_cleanup_error",exc)
             try:
                 if playwright_cm:playwright_cm.stop()
-            except Exception:pass
+            except Exception as exc:self._warn(session,"playwright_stop_error",exc)
             with self._lock:
                 if session.state!="ERROR":session.state="STOPPED"
                 session.stopped=True;session.paused=False;session.owner_control=False;session.updated_at=time.time()
             try:self._persist(session)
-            except Exception:pass
+            except Exception as exc:self._warn(session,"final_evidence_persist_error",exc)
             if self.on_closed and session.remember_evidence:
                 try:self.on_closed(self._snapshot(session))
-                except Exception:pass
+                except Exception as exc:self._warn(session,"task_memory_callback_error",exc)
