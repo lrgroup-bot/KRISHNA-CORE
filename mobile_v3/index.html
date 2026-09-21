@@ -2,107 +2,71 @@
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <style>
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#020914;color:#e9fbff;font-family:Arial,sans-serif}
-.app{height:100%;display:flex;flex-direction:column;background:radial-gradient(circle at 50% 35%,#123e66aa,transparent 36%),linear-gradient(#061726,#020914)}
-header{position:relative;text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#f2c96f;font-size:22px;font-weight:900}.state{font-size:10px;color:#82a8b9;letter-spacing:2px;margin-top:7px}.workspaceBtn{position:absolute;left:12px;top:14px;border:1px solid #2c88ae;background:#061829;color:#dffaff;border-radius:12px;padding:7px 9px;font-size:10px;max-width:34vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sheet{position:fixed;inset:0;z-index:50;background:#0008;display:none;align-items:flex-end}.sheet.show{display:flex}.sheetCard{width:100%;max-height:72vh;overflow:auto;background:#07111d;border-top:1px solid #2c88ae;border-radius:22px 22px 0 0;padding:16px}.sheet h3{margin:0 0 12px}.sheet .row{display:flex;gap:8px;margin:8px 0}.sheet select,.sheet input{flex:1;background:#0b1c2b;color:#fff;border:1px solid #2c88ae;border-radius:10px;padding:11px}.sheet button{background:#0d5d74;color:#fff;border:0;border-radius:10px;padding:11px 13px}.toolGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.toolGrid button{background:#10283a}
+.app{height:100%;display:flex;flex-direction:column;background:radial-gradient(circle at 50% 34%,#123e66aa,transparent 36%),linear-gradient(#061726,#020914)}
+header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#f2c96f;font-size:22px;font-weight:900}.state{font-size:10px;color:#82a8b9;letter-spacing:2px;margin-top:7px}
 .stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;touch-action:none;overflow:hidden}
 .halo{position:absolute;width:min(68vw,330px);aspect-ratio:1;border:2px solid #f2c96f88;border-radius:50%;box-shadow:0 0 45px #43bff255,inset 0 0 35px #43bff222}
-.avatarViewport{position:relative;height:min(59vh,560px);aspect-ratio:1/3;overflow:hidden;z-index:2;filter:drop-shadow(0 16px 22px #000a);user-select:none}
+.avatarViewport{position:relative;height:min(57vh,540px);aspect-ratio:1/3;overflow:hidden;z-index:2;filter:drop-shadow(0 16px 22px #000a);user-select:none}
 .sprite{height:100%;width:800%;display:block;transform:translateX(0);transition:transform .18s ease-out;pointer-events:none}
 .viewLabel{position:absolute;left:50%;bottom:7px;transform:translateX(-50%);z-index:4;font-size:9px;letter-spacing:2px;color:#f4d88b;background:#020914bb;border:1px solid #8b733c66;border-radius:20px;padding:5px 8px}
-.bubble{position:absolute;right:14px;top:12px;z-index:5;max-width:58%;padding:9px 11px;border:1px solid #2c88ae;border-radius:15px 15px 4px;background:#061829dd;font-size:12px;line-height:1.35}
+.bubble{position:absolute;right:14px;top:12px;z-index:5;max-width:64%;padding:9px 11px;border:1px solid #2c88ae;border-radius:15px 15px 4px;background:#061829dd;font-size:12px;line-height:1.35}
 .rotateHint{position:absolute;left:14px;top:14px;z-index:5;font-size:9px;letter-spacing:1.4px;color:#7fb3c5}
 .stage.working .halo{animation:pulse 1.2s infinite alternate}.stage.chat .halo{animation:pulse .7s infinite alternate}@keyframes pulse{from{transform:scale(.96);opacity:.65}to{transform:scale(1.03);opacity:1}}
-.bottom{padding:8px 14px 16px}.reply{min-height:44px;max-height:16vh;overflow:auto;text-align:center;font-size:14px;line-height:1.4;padding:6px 10px;color:#dffaff}
-.composer{display:flex;gap:8px;background:#041623;border:1px solid #1d7998;border-radius:18px;padding:7px}.composer input{flex:1;min-width:0;background:transparent;color:#fff;border:0;outline:0;padding:10px}.composer button{width:45px;border-radius:50%;border:1px solid #40dff4;background:#073148;color:#bdf9ff}.good{color:#50f0ac}.bad{color:#ff7189}
+.bottom{padding:8px 12px 14px}.reply{min-height:42px;max-height:18vh;overflow:auto;text-align:center;font-size:14px;line-height:1.4;padding:6px 10px;color:#dffaff;white-space:pre-wrap}
+.composer{display:grid;grid-template-columns:42px 42px 1fr 45px;gap:7px;background:#041623;border:1px solid #1d7998;border-radius:18px;padding:7px;align-items:center}
+.composer input[type=text]{min-width:0;background:transparent;color:#fff;border:0;outline:0;padding:10px}.composer button{height:42px;border-radius:50%;border:1px solid #40dff4;background:#073148;color:#bdf9ff;font-size:17px}.composer .send{background:#116f87;color:#fff}.good{color:#50f0ac}.bad{color:#ff7189}.warn{color:#f2c96f}
+.security{font-size:9px;text-align:center;color:#6f91a0;margin-top:7px;letter-spacing:.25px}
 </style></head>
 <body><div class="app">
-<header><button id="workspaceBtn" class="workspaceBtn" onclick="openWorkspace()">GENERAL</button><div class="brand">KRISHNA</div><div id="state" class="state">CONNECTING</div></header>
+<header><div class="brand">KRISHNA</div><div id="state" class="state">CONNECTING</div></header>
 <section id="stage" class="stage">
-  <div class="halo"></div>
-  <div id="rotateHint" class="rotateHint">SWIPE TO ROTATE · 360°</div>
-  <div id="avatarViewport" class="avatarViewport">
-    <img id="avatarSprite" class="sprite" src="krishna_child_360.webp" alt="KRISHNA child avatar">
-    <div id="viewLabel" class="viewLabel">FRONT</div>
-  </div>
+  <div class="halo"></div><div id="rotateHint" class="rotateHint">SWIPE TO ROTATE · 360°</div>
+  <div id="avatarViewport" class="avatarViewport"><img id="avatarSprite" class="sprite" src="krishna_child_360.webp" alt="KRISHNA child avatar"><div id="viewLabel" class="viewLabel">FRONT</div></div>
   <div id="bubble" class="bubble">Radhe Radhe. I am ready.</div>
 </section>
-<footer class="bottom"><div id="reply" class="reply">Talk to KRISHNA.</div><div class="composer"><input id="msg" placeholder="Talk to KRISHNA…" onkeydown="if(event.key==='Enter')send()"><button onclick="listen()">🎙</button><button onclick="send()">➤</button></div></footer>
-</div>
-<div id="workspaceSheet" class="sheet" onclick="if(event.target===this)closeWorkspace()">
-  <div class="sheetCard">
-    <h3>KRISHNA Workspace</h3>
-    <div class="row"><select id="projectSelect" onchange="projectChanged()"></select></div>
-    <div class="row"><select id="chatSelect" onchange="chatChanged()"></select><button onclick="createChat()">+ Chat</button></div>
-    <div class="toolGrid">
-      <button onclick="runTool('status')">PC Status</button>
-      <button onclick="runTool('index')">Index Project</button>
-      <button onclick="promptTool('investigate','Describe the problem','symptom')">Investigate</button>
-      <button onclick="promptTool('research_github','What should KRISHNA research?','query')">GitHub Research</button>
-      <button onclick="promptTool('inspect_ui','UI URL to inspect','url')">Inspect UI</button>
-      <button onclick="runTool('engines')">Core Engines</button>
-    </div>
-    <div class="row"><button style="width:100%" onclick="closeWorkspace()">Done</button></div>
-  </div>
+<footer class="bottom">
+ <div id="reply" class="reply">Talk to KRISHNA.</div>
+ <div class="composer">
+   <button onclick="document.getElementById('attach').click()" aria-label="Attach photo or file">＋</button>
+   <input id="attach" type="file" accept="image/*,.pdf,.txt,.md,.json" capture="environment" hidden onchange="attachFile(this)">
+   <button onclick="listen()" aria-label="Talk to KRISHNA">🎙</button>
+   <input id="msg" type="text" placeholder="Talk to KRISHNA…" onkeydown="if(event.key==='Enter')send()">
+   <button class="send" onclick="send()" aria-label="Send">➤</button>
+ </div>
+ <div class="security">Conversation only · owner voice gate is local · sensitive actions still require device authorization</div>
+</footer>
 </div>
 <script src="realtime-client.js"></script>
 <script>
-
-function ws(){try{return JSON.parse(Krishna.workspace())}catch(e){return {project:'general',chat_id:''}}}
-function openWorkspace(){document.getElementById('workspaceSheet').classList.add('show');loadProjects()}
-function closeWorkspace(){document.getElementById('workspaceSheet').classList.remove('show')}
-function loadProjects(){
-  try{
-    const current=ws(),d=JSON.parse(Krishna.projects()),items=[{name:'general'},...((d.projects||[]).filter(x=>x.name!=='general'))];
-    const s=document.getElementById('projectSelect');s.innerHTML='';
-    items.forEach(x=>{const o=document.createElement('option');o.value=x.name;o.textContent=x.name;if(x.name===current.project)o.selected=true;s.appendChild(o)});
-    loadChats(s.value,current.chat_id);
-  }catch(e){document.getElementById('reply').textContent='Workspace: '+e.message}
-}
-function loadChats(project,preferred){
-  try{
-    const d=JSON.parse(Krishna.chats(project)),s=document.getElementById('chatSelect');s.innerHTML='';
-    (d.chats||[]).forEach(x=>{const o=document.createElement('option');o.value=x.chat_id;o.textContent=x.title||'Chat';if(x.chat_id===preferred)o.selected=true;s.appendChild(o)});
-    if(!s.value){const n=JSON.parse(Krishna.newChat(project,'Mobile chat'));if(n.chat_id){const o=document.createElement('option');o.value=n.chat_id;o.textContent=n.title||'Mobile chat';o.selected=true;s.appendChild(o)}}
-    Krishna.setWorkspace(project,s.value||'');updateWorkspaceLabel();
-  }catch(e){document.getElementById('reply').textContent='Chats: '+e.message}
-}
-function projectChanged(){const p=document.getElementById('projectSelect').value;loadChats(p,'')}
-function chatChanged(){Krishna.setWorkspace(document.getElementById('projectSelect').value,document.getElementById('chatSelect').value);updateWorkspaceLabel()}
-function createChat(){
-  const p=document.getElementById('projectSelect').value,title=prompt('Chat title','New chat');if(!title)return;
-  try{const d=JSON.parse(Krishna.newChat(p,title));if(d.error)throw new Error(d.error);loadChats(p,d.chat_id)}catch(e){document.getElementById('reply').textContent='New chat: '+e.message}
-}
-function updateWorkspaceLabel(){const w=ws(),b=document.getElementById('workspaceBtn');b.textContent=(w.project||'general').toUpperCase()}
-function runTool(action,payload={}){
-  setMode('WORKING','KRISHNA PC is working…');
-  setTimeout(()=>{try{const d=JSON.parse(Krishna.control(action,JSON.stringify(payload)));if(d.error)throw new Error(typeof d.error==='string'?d.error:JSON.stringify(d.error));document.getElementById('reply').textContent=JSON.stringify(d,null,2);setMode('CHAT','Completed on PC')}catch(e){document.getElementById('reply').textContent='PC control: '+e.message;setMode('CHAT','Control error')}},20)
-}
-function promptTool(action,label,key){const v=prompt(label,'');if(!v)return;const p={};p[key]=v;runTool(action,p)}
-
 const labels=['FRONT','FRONT-RIGHT','RIGHT','BACK-RIGHT','BACK','BACK-LEFT','LEFT','FRONT-LEFT'];
-let view=0,drag=false,startX=0,startView=0,mode='FLUTE',lastManual=0,autoTimer=null;
+let view=0,drag=false,startX=0,startView=0,mode='FLUTE',lastManual=0,autoTimer=null,busy=false;
 const stage=document.getElementById('stage'),sprite=document.getElementById('avatarSprite'),label=document.getElementById('viewLabel'),vp=document.getElementById('avatarViewport');
-
-function showView(i,manual=false){view=(i%8+8)%8;sprite.style.transform='translateX('+(-view*12.5)+'%)';label.textContent=labels[view];if(manual)lastManual=Date.now()}
-function step(delta,manual=true){showView(view+delta,manual)}
+function showAvatarView(i,manual=false){view=(i%8+8)%8;sprite.style.transform='translateX('+(-view*12.5)+'%)';label.textContent=labels[view];if(manual)lastManual=Date.now()}
+function step(delta,manual=true){showAvatarView(view+delta,manual)}
 vp.addEventListener('pointerdown',e=>{drag=true;startX=e.clientX;startView=view;vp.setPointerCapture(e.pointerId)});
-vp.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-startX;const steps=Math.round(-dx/34);showView(startView+steps,true)});
+vp.addEventListener('pointermove',e=>{if(!drag)return;showAvatarView(startView+Math.round(-(e.clientX-startX)/34),true)});
 vp.addEventListener('pointerup',()=>drag=false);vp.addEventListener('pointercancel',()=>drag=false);
 function startAuto(){clearInterval(autoTimer);autoTimer=setInterval(()=>{if(mode==='FLUTE'&&Date.now()-lastManual>4500&&!drag)step(1,false)},2600)}
-
-function setMode(m,text){
-  mode=m||'FLUTE';document.getElementById('state').textContent=mode;
-  stage.classList.toggle('working',mode==='WORKING'||mode==='SEARCH');stage.classList.toggle('chat',mode==='CHAT');
-  if(text)document.getElementById('bubble').textContent=text;
-  if(mode==='CHAT')showView(0,false);else if(mode==='WORKING')showView(1,false);else if(mode==='SEARCH')showView(2,false);
-}
-window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q)return;i.value='';setMode('CHAT','Listening…');setTimeout(()=>{try{const d=JSON.parse(Krishna.chat(q));if(d.error)throw new Error(d.error);const text=d.reply||d.text||'Done';document.getElementById('reply').textContent=text;setMode(d.avatar_state||'CHAT',text);speak(text)}catch(e){document.getElementById('reply').innerHTML='<span class=bad>'+e.message+'</span>'}},20)}
-window.listen=()=>{if(!Krishna.voiceEnrolled()){document.getElementById('reply').textContent='Speak naturally for a few seconds to register the local owner voice profile.';setTimeout(()=>{const d=JSON.parse(Krishna.enrollVoice());document.getElementById('reply').textContent=d.error||'Voice profile registered locally. Tap the microphone again.'},100);return}if(!('webkitSpeechRecognition'in window)){document.getElementById('reply').textContent='Speech recognition unavailable; type your request.';return}const r=new webkitSpeechRecognition();r.lang='or-IN';r.interimResults=true;r.onstart=()=>setMode('CHAT','LISTENING');r.onresult=e=>{let t='';for(let k=e.resultIndex;k<e.results.length;k++)t+=e.results[k][0].transcript;document.getElementById('reply').textContent=t;if(e.results[e.results.length-1].isFinal){document.getElementById('msg').value=t.replace(/^krishna[ ,]*/i,'');send()}};r.onerror=e=>document.getElementById('reply').textContent='Voice: '+e.error;r.start()}
+function setMode(m,text){mode=m||'FLUTE';document.getElementById('state').textContent=mode;stage.classList.toggle('working',mode==='WORKING'||mode==='SEARCH'||mode==='DHYAN');stage.classList.toggle('chat',mode==='CHAT'||mode==='TALKING'||mode==='LISTENING');if(text)document.getElementById('bubble').textContent=text;if(mode==='CHAT'||mode==='TALKING'||mode==='LISTENING')showAvatarView(0,false);else if(mode==='WORKING')showAvatarView(1,false);else if(mode==='SEARCH'||mode==='DHYAN')showAvatarView(2,false)}
+function reply(text,cls=''){const e=document.getElementById('reply');e.className='reply '+cls;e.textContent=text}
 function speak(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang=/[\u0B00-\u0B7F]/.test(t)?'or-IN':'en-IN';speechSynthesis.speak(u)}catch(e){}}
+
+window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','KRISHNA is working…');reply('KRISHNA is thinking…');setTimeout(()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const d=JSON.parse(Krishna.chat(q));if(d.error)throw new Error(d.error);const text=d.reply||d.text||'Done';reply(text);setMode(d.avatar_state||'TALKING',text);speak(text)}catch(e){reply(e.message,'bad');setMode('CHAT','Connection error')}finally{busy=false}},20)}
+
+window.listen=()=>{if(busy)return;if(!Krishna.voiceEnrolled()){reply('Say a natural sentence for a few seconds to create your local owner voice gate.','warn');setTimeout(()=>{const d=JSON.parse(Krishna.enrollVoice());if(d.error){reply(d.error,'bad');return}reply('Owner voice gate enrolled locally. Tap the microphone again and say “Krishna” before your request.','good')},80);return}
+ reply('Say “Krishna” to verify the local owner voice gate…','warn');setMode('LISTENING','OWNER CHECK');
+ setTimeout(()=>{const v=JSON.parse(Krishna.verifyVoice());if(v.error){reply(v.error,'bad');setMode('CHAT','VOICE ERROR');return}if(!v.matched){reply('Voice gate did not match. Type your request or try again.','bad');setMode('CHAT','VOICE NOT MATCHED');return}
+   if(!('webkitSpeechRecognition'in window)){reply('Speech recognition is unavailable on this device; type your request.','bad');return}
+   const r=new webkitSpeechRecognition();r.lang='or-IN';r.interimResults=true;r.onstart=()=>setMode('LISTENING','LISTENING');r.onresult=e=>{let t='';for(let k=e.resultIndex;k<e.results.length;k++)t+=e.results[k][0].transcript;reply(t);if(e.results[e.results.length-1].isFinal){document.getElementById('msg').value=t.replace(/^krishna[ ,]*/i,'');send()}};r.onerror=e=>reply('Voice: '+e.error,'bad');r.start();
+ },20)
+}
+
+window.attachFile=input=>{const file=input.files&&input.files[0];if(!file)return;if(file.size>25*1024*1024){reply('Attachment exceeds 25 MB.','bad');input.value='';return}reply('Attaching '+file.name+'…','warn');const reader=new FileReader();reader.onload=()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const b64=String(reader.result).split(',')[1]||'';const d=JSON.parse(Krishna.attach(file.name,file.type||'application/octet-stream',b64));if(d.error)throw new Error(d.error);reply('Attached '+file.name+'. Tell KRISHNA what you want to do with it.','good')}catch(e){reply(e.message,'bad')}finally{input.value=''}};reader.readAsDataURL(file)}
+
 function poll(){try{const link=JSON.parse(Krishna.connection());if(link.error||!link.connected)throw new Error(link.error||'Backend link not confirmed');const d=JSON.parse(Krishna.state());if(d.error)throw new Error(d.error);setMode(d.operator?.avatar_state||'FLUTE',d.operator?.current?.task||'Radhe Radhe. I am ready.');document.getElementById('state').className='state good'}catch(e){document.getElementById('state').textContent='PC OFFLINE';document.getElementById('state').className='state bad'}}
-updateWorkspaceLabel();showView(0);startAuto();poll();setInterval(poll,5000);
+showAvatarView(0);startAuto();poll();setInterval(poll,5000);
 const realtime=new KrishnaRealtime(Krishna);
-realtime.onEvent=e=>{if(e.type==='task.completed'){const p=e.payload||{};document.getElementById('reply').textContent=p.summary||'KRISHNA completed the task';}};
-realtime.onState=s=>{if(s==='reconnecting')document.getElementById('state').textContent='RECONNECTING';};
+realtime.onEvent=e=>{if(e.type==='task.completed'){const p=e.payload||{};reply(p.summary||'KRISHNA completed the task','good');setMode('CHAT','WORK COMPLETED')}};
+realtime.onState=s=>{if(s==='reconnecting')document.getElementById('state').textContent='RECONNECTING'};
 realtime.start();window.onerror=(m,s,l)=>{try{Krishna.log('JS '+m+' '+s+':'+l)}catch(e){}};
 </script></body></html>
