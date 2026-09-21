@@ -35,7 +35,7 @@ class WebValidationTests(unittest.TestCase):
             "/api/narad/connections/register", "/api/narad/webhooks/provision", "/api/narad/dead-letters/retry",
             "naradTriggerType", "naradConnectionCount", "naradDeadLetters", "registerNaradConnection", "provisionNaradWebhook",
             "/api/kabach/projects", "/api/runtime/integrity", "KABACH", "deployIntegrity",
-            "/api/commitments", "/api/models", "commitmentSummary", "modelRouter",
+            "/api/commitments", "/api/commitments/update", "/api/autonomy/status", "/api/autonomy/tick", "commitmentSummary", "autonomySummary", "runAutonomyTick", "Auto Inspect", "/api/models", "modelRouter",
             "/api/runtime/audit", "driveAudit",
             "/api/requirements", "requirementsCount", "loadRequirementsLedger",
             "gyanInventory", "gyanKind", "loadGyanInventory", "supersedeGyan",

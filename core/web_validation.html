@@ -1011,7 +1011,7 @@ setTimeout(()=>{const g=$('garudaGoal')||document.querySelector('#garuda textare
 <section id="specialists" class="view panelView"><div class="panelInner"><h1 class="panelTitle">Specialist Teams ✦</h1><p class="panelSub">KRISHNA selects advisory specialists for the current task. Specialists provide context; KRISHNA retains decision authority.</p><div class="card"><textarea id="specialistTask" class="input" style="width:100%;min-height:80px" placeholder="Describe the work that needs a specialist team"></textarea><button class="primary" style="padding:10px 16px;margin-top:8px" onclick="selectSpecialists()">ASSEMBLE TEAM</button></div><div id="specialistResults" class="grid" style="margin-top:12px"></div></div></section>
 <section id="development" class="view panelView"><div class="panelInner"><h1 class="panelTitle">Autonomous Developer ⌬</h1><p class="panelSub">Git status, safe sync, candidate verification, real browser inspection and explicit API-contract checks.</p><div class="grid"><div class="card"><div class="k">PROJECT</div><div id="devProject" class="v">KRISHNA</div><button class="ghost" onclick="devStatus()">Git status</button><button class="ghost" onclick="devSync()">Safe sync</button></div><div class="card"><div class="k">FRONTEND URL</div><input id="devUrl" class="input" style="width:100%;margin-top:8px" placeholder="http://127.0.0.1:8766/web"><div class="k" style="margin-top:10px">EXPECTED API PATHS</div><input id="devApis" class="input" style="width:100%;margin-top:8px" placeholder="/api/status,/api/projects"></div><div class="card"><div class="k">CANDIDATE ROOT</div><input id="devCandidate" class="input" style="width:100%;margin-top:8px" placeholder="Candidate path"><div class="k" style="margin-top:10px">CHECKS</div><input id="devChecks" class="input" style="width:100%;margin-top:8px" value="python-tests"><button class="primary" style="padding:9px;margin-top:8px" onclick="devVerify()">VERIFY CANDIDATE</button></div></div><div class="card" style="margin-top:12px"><div class="k">DEVELOPMENT EVIDENCE</div><pre id="devOutput" class="log">Ready.</pre></div>
 <div class="card" style="margin-top:12px"><div class="k">UI GUARDIAN · GUI REGISTRY</div><div class="v">Stable / Candidate / Experimental / Rejected</div><p class="panelSub" style="margin:6px 0 12px">Objective browser checks run at 1920×1080, 1440×900, 1024×768 and 390×844 before a candidate can become Stable.</p><div class="taskActions"><button onclick="uiGuardianRegister()">REGISTER CURRENT URL</button><button onclick="loadUIRegistry()">REFRESH REGISTRY</button></div><div id="uiGuardianRegistry" style="margin-top:12px"></div></div></div></section>
-<section id="work" class="view panelView"><div class="panelInner"><h1 class="panelTitle">Work progress</h1><p class="panelSub">Live managed tasks plus KRISHNA's unfinished commitments. Nothing decided is silently forgotten.</p><div class="card" style="margin-bottom:14px"><div class="k">UNFINISHED COMMITMENTS</div><div id="commitmentSummary" class="v">CHECKING</div><div id="commitmentCards" style="margin-top:10px"></div></div><div id="taskCards"></div></div></section>
+<section id="work" class="view panelView"><div class="panelInner"><h1 class="panelTitle">Work progress</h1><p class="panelSub">Live managed tasks plus KRISHNA's unfinished commitments. Nothing decided is silently forgotten.</p><div class="grid" style="margin-bottom:14px"><div class="card"><div class="k">UNFINISHED COMMITMENTS</div><div id="commitmentSummary" class="v">CHECKING</div></div><div class="card"><div class="k">SAFE AUTONOMY</div><div id="autonomySummary" class="v">CHECKING</div><p id="autonomyPolicy">Non-mutating opt-in work only.</p><button class="ghost" onclick="runAutonomyTick()">RUN SAFE TICK</button></div></div><div id="commitmentCards"></div><div id="taskCards"></div></div></section>
 <section id="activity" class="view panelView"><div class="panelInner"><h1 class="panelTitle">Activity</h1><p class="panelSub">What KRISHNA is actually doing and what it has verified.</p><div class="card"><div class="k">CURRENT ACTIVITY</div><div id="currentActivity" class="v">—</div></div><div class="card" style="margin-top:12px"><div class="k">RECENT</div><div id="activityLog" class="log">No activity yet.</div></div></div></section>
 <section id="system" class="view panelView"><div class="panelInner"><h1 class="panelTitle">System</h1><p class="panelSub">Diagnostics stay here instead of cluttering Sudarshan.</p><div class="grid"><div class="card"><div class="k">CORE</div><div id="core" class="v">—</div></div><div class="card"><div class="k">CPU / RAM</div><div id="res" class="v">—</div></div><div class="card"><div class="k">PROJECTS</div><div id="projectsCount" class="v">—</div></div>
 <div class="card"><div class="k">DEPLOYMENT INTEGRITY</div><div id="deployIntegrity" class="v">CHECKING</div></div><div class="card"><div class="k">MODEL ROUTER</div><div id="modelRouter" class="v">CHECKING</div></div>
@@ -1245,13 +1245,38 @@ document.addEventListener('click',e=>{
 
 async function loadCommitments(){
  try{
-  const p=$('project').value||'KRISHNA';const d=await req('/api/commitments?project='+encodeURIComponent(p));
+  const p=$('project').value||'KRISHNA';const [d,a]=await Promise.all([req('/api/commitments?project='+encodeURIComponent(p)),req('/api/autonomy/status')]);
   const rows=d.unfinished||[],forgot=d.forgotten||[];$('commitmentSummary').textContent=rows.length+' unfinished · '+forgot.length+' need attention';
+  $('autonomySummary').textContent=(a.running?'RUNNING':'STOPPED')+' · '+(a.eligible_count||0)+' due';
+  $('autonomyPolicy').textContent='Allowed: '+(a.safe_operations||[]).join(', ')+' · '+a.poll_seconds+'s supervisor';
   const box=$('commitmentCards');box.innerHTML='';
-  rows.slice(0,20).forEach(x=>{const e=document.createElement('div');e.className='card';e.style.margin='8px 0';e.innerHTML='<div class="k"></div><div class="v"></div><p></p><div class="taskActions"></div>';e.querySelector('.k').textContent=String(x.status||'planned').toUpperCase();e.querySelector('.v').textContent=x.title||x.goal||'Commitment';e.querySelector('p').textContent=x.detail||'';const b=document.createElement('button');b.textContent='Resume in Sudarshan';b.onclick=()=>{showView('sudarshan');$('input').value='Resume unfinished commitment: '+(x.title||x.goal||'');$('input').focus()};e.querySelector('.taskActions').appendChild(b);box.appendChild(e)});
+  rows.slice(0,30).forEach(x=>{
+   const detail=(x.detail&&typeof x.detail==='object')?x.detail:{},auto=(detail.autonomy&&typeof detail.autonomy==='object')?detail.autonomy:{};
+   const e=document.createElement('div');e.className='card';e.style.margin='8px 0';e.innerHTML='<div class="k"></div><div class="v"></div><p></p><small class="workspaceMeta"></small><div class="taskActions"></div>';
+   e.querySelector('.k').textContent=String(x.status||'planned').toUpperCase()+(auto.enabled?' · AUTO '+String(auto.operation||'').toUpperCase():'');
+   e.querySelector('.v').textContent=x.title||'Commitment';
+   e.querySelector('p').textContent=detail.goal||detail.description||detail.latest_autonomy_result?.operation||'Tracked KRISHNA commitment';
+   e.querySelector('small').textContent=auto.enabled?('last '+(auto.last_status||'waiting')+' · runs '+(auto.run_count||0)):'Safe autonomy is off';
+   const actions=e.querySelector('.taskActions');
+   const resume=document.createElement('button');resume.textContent='Resume in Sudarshan';resume.onclick=()=>{showView('sudarshan');$('input').value='Resume unfinished commitment: '+(x.title||'');$('input').focus()};actions.appendChild(resume);
+   if(auto.enabled){const off=document.createElement('button');off.textContent='Pause autonomy';off.onclick=()=>setCommitmentAutonomy(x,null);actions.appendChild(off)}
+   else{
+    const inspect=document.createElement('button');inspect.textContent='Auto Inspect';inspect.onclick=()=>setCommitmentAutonomy(x,'investigate');actions.appendChild(inspect);
+    const research=document.createElement('button');research.textContent='Auto Research';research.onclick=()=>setCommitmentAutonomy(x,'research');actions.appendChild(research);
+    if(x.project!=='KRISHNA'){const index=document.createElement('button');index.textContent='Auto Index';index.onclick=()=>setCommitmentAutonomy(x,'index');actions.appendChild(index)}
+   }
+   box.appendChild(e)
+  });
   if(!rows.length)box.innerHTML='<div class="mutedCopy">No unfinished commitments.</div>';
- }catch(e){$('commitmentSummary').textContent='Unavailable';log(e.message)}
+ }catch(e){$('commitmentSummary').textContent='Unavailable';$('autonomySummary').textContent='Unavailable';log(e.message)}
 }
+async function setCommitmentAutonomy(x,operation){
+ const detail=(x.detail&&typeof x.detail==='object')?{...x.detail}:{};
+ if(operation){detail.autonomy={...(detail.autonomy||{}),enabled:true,operation,goal:detail.goal||x.title,interval_seconds:300}}
+ else detail.autonomy={...(detail.autonomy||{}),enabled:false};
+ try{await req('/api/commitments/update',{commitment_id:x.commitment_id,status:x.status||'planned',detail});await loadCommitments()}catch(e){log(e.message)}
+}
+async function runAutonomyTick(){try{const d=await req('/api/autonomy/tick',{});log(d);await loadCommitments()}catch(e){log(e.message)}}
 async function loadUIRegistry(){
  try{
   const p=$('project').value||'KRISHNA',d=await req('/api/ui-guardian/registry?project='+encodeURIComponent(p));

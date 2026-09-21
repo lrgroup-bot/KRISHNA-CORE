@@ -18,9 +18,9 @@ Status meanings:
 | Planner → specialists → critic → independent verifier → KRISHNA decision | VERIFIED boundary | Specialist/critic/verifier boundaries exist; worker UX remains richer in roadmap. |
 | Shadow repair, verification, promotion and rollback | VERIFIED | Repository tests cover bounded promotion/rollback. |
 | Resource governor / PC observer / recovery | VERIFIED boundary | Real long-duration Windows autonomy still needs soak testing. |
-| Continue working while owner is away; notify only meaningful completed work | PARTIAL | Task/realtime/mobile primitives exist; durable notification policy and remote soak test remain. |
+| Continue working while owner is away; notify only meaningful completed work | IMPLEMENTED SAFE BOUNDARY / RUNTIME VERIFY | AutonomySupervisor resumes explicitly opted-in non-mutating investigate/research/index commitments while unattended; mutation, promotion and external side effects still require their normal approval gates. Mobile completion notifications remain separate. |
 | Permanent Commitment Ledger: never silently forget agreed work | VERIFIED boundary | Unfinished/forgotten commitment APIs exist and Work UI now surfaces them automatically. |
-| Automatic resume/implementation of safe forgotten commitments | PARTIAL | Attention/resume data exists; autonomous resumption still obeys Policy/approval boundaries. |
+| Automatic resume/implementation of safe forgotten commitments | IMPLEMENTED SAFE BOUNDARY / RUNTIME VERIFY | Durable supervisor scans unfinished commitments, refreshes safe evidence on schedule, records evidence IDs/results, respects ResourceGovernor and never auto-resumes waiting-approval or non-allowlisted operations. |
 
 ## 2. Sudarshan
 
