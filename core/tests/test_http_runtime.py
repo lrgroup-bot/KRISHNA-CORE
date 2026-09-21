@@ -63,7 +63,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry",
                      "/api/vision/status", "/api/voice/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
-                     "/api/models/gateways", "/api/secure-vault/status"):
+                     "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
 
     def test_requirements_search_contract(self):
@@ -145,6 +145,19 @@ class HTTPRuntimeTests(unittest.TestCase):
         for denied in ("filesystem","credentials","trading"):
             with self.subTest(denied=denied):
                 self.assertEqual(self.call("/api/mobile/control", {"action":denied}, headers)[0], 403)
+
+    def test_zero_code_pairing_uses_client_hash_without_returning_secret(self):
+        import hashlib
+        token="http-client-held-credential"
+        digest=hashlib.sha256(token.encode()).hexdigest()
+        code,pending=self.call("/api/mobile/pair/request",{"device_id":"zero-code-phone","name":"HTTP phone","credential_sha256":digest})
+        self.assertEqual(code,200);self.assertNotIn("credential_sha256",pending)
+        listed=self.call("/api/mobile/pair/pending")[1]["pending"]
+        self.assertTrue(any(x["device_id"]=="zero-code-phone" and x["credential_proposed"] for x in listed))
+        code,approved=self.call("/api/mobile/pair/approve",{"request_id":pending["request_id"]})
+        self.assertEqual(code,200);self.assertNotIn("token",approved)
+        headers={"X-Krishna-Device":"zero-code-phone","Authorization":"Device "+token}
+        self.assertEqual(self.call("/api/mobile/resume",headers=headers)[0],200)
 
     def test_specialist_team_plan_keeps_krishna_authority(self):
         code,d=self.call("/api/specialist-teams/plan",{"project":"KRISHNA","task":"Fix frontend UI and verify responsive layout"})
