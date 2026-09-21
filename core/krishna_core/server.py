@@ -461,7 +461,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,_remote_policy.status())
         if path == "/api/resilience/status":
             return self._json(200,{"worker_supervisor":_worker_resilience.status(),"model_memory":_model_memory.status()})
-        if path == "/api/wearables/status":
+        if path in ("/api/wearables","/api/wearables/status"):
             return self._json(200,_wearables.status())
         if path == "/api/wearables":
             return self._json(200,_wearables.status())
@@ -513,6 +513,7 @@ class Handler(BaseHTTPRequestHandler):
                     "mobile_pc_remote_control",
                     "private_overlay_remote_access_policy",
                     "wearable_capability_registry",
+                    "wearable_bridge_verified_capabilities",
                     "phone_camera_to_local_vision_bridge",
                     "bluetooth_audio_os_bridge",
                     "wearable_bridge_verified_capabilities",
