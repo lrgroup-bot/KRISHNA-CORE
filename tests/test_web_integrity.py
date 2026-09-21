@@ -1,5 +1,8 @@
 from pathlib import Path
 import re
+import shutil
+import subprocess
+import tempfile
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -34,6 +37,23 @@ class WebIntegrityTests(unittest.TestCase):
         refs=set(re.findall(r"\$\('([^']+)'\)",self.text))
         missing=sorted(refs-ids)
         self.assertEqual(missing,[],missing)
+
+    def test_external_scripts_never_contain_ignored_inline_code(self):
+        for attrs,body in re.findall(r"<script\b([^>]*)>([\s\S]*?)</script>",self.text,flags=re.I):
+            if re.search(r"\bsrc\s*=",attrs,re.I):
+                self.assertFalse(body.strip(),f"inline JavaScript would be ignored for src script: {attrs}")
+
+    def test_inline_javascript_parses_when_node_is_available(self):
+        node=shutil.which("node")
+        if not node:self.skipTest("node is unavailable")
+        scripts=[body for attrs,body in re.findall(r"<script\b([^>]*)>([\s\S]*?)</script>",self.text,flags=re.I)
+                 if not re.search(r"\bsrc\s*=",attrs,re.I) and body.strip()]
+        self.assertTrue(scripts)
+        with tempfile.TemporaryDirectory() as td:
+            for i,body in enumerate(scripts):
+                path=Path(td)/f"inline-{i}.js";path.write_text(body,encoding="utf-8")
+                p=subprocess.run([node,"--check",str(path)],capture_output=True,text=True)
+                self.assertEqual(p.returncode,0,(p.stderr or p.stdout)[-4000:])
 
     def test_no_known_undefined_escape_helper(self):
         self.assertNotRegex(self.text,r"(?<![A-Za-z])esc\(")
