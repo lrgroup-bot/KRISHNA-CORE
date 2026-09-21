@@ -13,6 +13,7 @@ from .plugin_runtime import PluginRegistry
 from .plugin_executor import PluginExecutor
 from .attachments import AttachmentStore
 from .specialist_library import SpecialistLibrary
+from .runtime_integrity import RuntimeIntegrity
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -21,6 +22,7 @@ _plugins = PluginRegistry(Path(settings.db_path).resolve().parent / ".krishna_st
 _plugin_executor = PluginExecutor(_plugins)
 _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
+_integrity = RuntimeIntegrity(RUNTIME_ROOT)
 try:
     if _specialists.source_root.exists():
         _specialists.index()
@@ -269,6 +271,8 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"project not registered"})
         if path == "/api/agi/status":
             return self._json(200, orch.agi_status())
+        if path == "/api/runtime/integrity":
+            return self._json(200, _integrity.status())
         if path == "/api/narad/status":
             return self._json(200, orch.agi.narad.status())
         if path == "/api/narad/workflows":
@@ -294,6 +298,7 @@ class Handler(BaseHTTPRequestHandler):
                 "mobile_connection": mobile_link_state(),
                 "uptime_seconds": int(time.time() - started),
                 "agi": orch.agi_status(),
+                "deployment_integrity": _integrity.status(),
             })
         if path == "/api/dashboard":
             return self._json(200, {
@@ -308,6 +313,7 @@ class Handler(BaseHTTPRequestHandler):
                 "recent": activity["recent"],
                 "mobile_connection": mobile_link_state(),
                 "uptime_seconds": int(time.time() - started),
+                "deployment_integrity": _integrity.status(),
             })
         if path == "/api/mobile/connection":
             return self._json(200, mobile_link_state())
