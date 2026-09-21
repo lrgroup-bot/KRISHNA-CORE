@@ -111,6 +111,14 @@ class RepositoryErrorAudit(unittest.TestCase):
         for token in ("$MobileLan","KRISHNA_LAN_DISCOVERY","0.0.0.0","$PrivateRemote -and $MobileLan"):
             self.assertIn(token,text)
 
+    def test_deploy_copies_and_tracks_avatar_preview_without_private_glb(self):
+        text=(ROOT/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn('avatar\\krishna_child_360.webp.b64',text)
+        self.assertIn('Copy-Item -Force $avatarPreviewSource $avatarPreviewRuntime',text)
+        self.assertIn('$Runtime\\avatar\\krishna_child_360.webp.b64',text)
+        self.assertIn('dashboard\\assets\\avatar',text)
+        self.assertNotIn('Copy-Item -Force "$Source\\dashboard\\assets\\avatar',text)
+
 
 if __name__=="__main__":
     unittest.main()
