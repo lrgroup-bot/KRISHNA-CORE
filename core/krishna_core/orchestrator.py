@@ -113,6 +113,7 @@ class Orchestrator:
         self.sudarshan = SudarshanControlPlane(
             self.action_bus,self.jobs,self.agi.critic,audit=self.memory.audit,
         )
+        self.router.bind_sudarshan(self.sudarshan)
         self.agent_runtime.bind_sudarshan(self.sudarshan)
         self.protocols.bind_sudarshan(self.sudarshan)
         self.dispatcher.bind_sudarshan(self.sudarshan)
