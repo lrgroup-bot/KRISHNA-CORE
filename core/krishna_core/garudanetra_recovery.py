@@ -15,12 +15,14 @@ class BrowserRecoveryAdapter:
     never promotes a learned selector to Stable by itself.
     """
 
-    def __init__(self,harness_command=None):
+    def __init__(self,harness_command=None,vision_command=None):
         self.harness_command=str(harness_command or os.getenv("KRISHNA_BROWSER_HARNESS_CMD","")).strip()
+        self.vision_command=str(vision_command or os.getenv("KRISHNA_BROWSER_VISION_RECOVERY_CMD","")).strip()
 
     def status(self):
         return {"deterministic":True,"external_harness_configured":bool(self.harness_command),
-                "policy":"deterministic locator recovery first; external harness output is untrusted candidate evidence"}
+                "vision_recovery_configured":bool(self.vision_command),
+                "policy":"deterministic locator recovery first; external harness/vision output is untrusted candidate evidence"}
 
     def recover_locator(self,page,payload:dict):
         attempts=[]
@@ -47,7 +49,7 @@ class BrowserRecoveryAdapter:
                 attempts.append({"strategy":kind,"error":f"{type(exc).__name__}: {exc}"})
 
         if self.harness_command:
-            external=self._external(page,payload)
+            external=self._external(page,payload,self.harness_command,"external_harness",include_screenshot=False)
             attempts.append({"strategy":"external_harness","result":external})
             selector=str(external.get("selector") or "").strip()
             if selector:
@@ -58,21 +60,45 @@ class BrowserRecoveryAdapter:
                 except Exception as exc:
                     attempts.append({"strategy":"external_harness_selector","error":f"{type(exc).__name__}: {exc}"})
 
+        if self.vision_command:
+            external=self._external(page,payload,self.vision_command,"vision_recovery",include_screenshot=True)
+            attempts.append({"strategy":"vision_recovery","result":external})
+            selector=str(external.get("selector") or "").strip()
+            if selector:
+                try:
+                    loc=page.locator(selector)
+                    if loc.count()>0:
+                        return {"locator":loc.first,"strategy":"vision_recovery","attempts":attempts,"source":"untrusted_external_vision"}
+                except Exception as exc:
+                    attempts.append({"strategy":"vision_recovery_selector","error":f"{type(exc).__name__}: {exc}"})
+
         raise RuntimeError("selector recovery failed: "+json.dumps(attempts)[:3000])
 
-    def _external(self,page,payload):
-        # The optional harness receives a temporary JSON snapshot path and must return
-        # JSON on stdout. It never receives credentials directly from KRISHNA.
-        snapshot={"url":page.url,"title":page.title(),"payload":payload,
-                  "visible_text":page.locator("body").inner_text(timeout=3000)[:12000]}
-        fd,tmp=tempfile.mkstemp(prefix="krishna-browser-recovery-",suffix=".json")
-        os.close(fd);Path(tmp).write_text(json.dumps(snapshot,ensure_ascii=False),encoding="utf-8")
+    def _external(self,page,payload,command,kind,include_screenshot=False):
+        # External recovery receives only a bounded temporary snapshot. It never gets
+        # KRISHNA secrets or execution authority; its output must still resolve to a
+        # real locator before Garudanetra uses it.
+        safe_payload={k:v for k,v in dict(payload or {}).items() if k not in {"value","text","password","secret","token"}}
+        snapshot={"url":page.url,"title":page.title(),"payload":safe_payload,
+                  "visible_text":page.locator("body").inner_text(timeout=3000)[:12000],
+                  "source":kind,"untrusted":True}
+        paths=[]
+        fd,tmp=tempfile.mkstemp(prefix="krishna-browser-recovery-",suffix=".json");os.close(fd);paths.append(tmp)
+        if include_screenshot:
+            fd,img=tempfile.mkstemp(prefix="krishna-browser-recovery-",suffix=".png");os.close(fd);paths.append(img)
+            try:
+                page.screenshot(path=img,full_page=False)
+                snapshot["screenshot"]=img
+            except Exception:
+                snapshot["screenshot"]=None
+        Path(tmp).write_text(json.dumps(snapshot,ensure_ascii=False),encoding="utf-8")
         try:
-            args=[x.format(snapshot=tmp) for x in shlex.split(self.harness_command,posix=os.name!="nt")]
+            args=[x.format(snapshot=tmp,screenshot=snapshot.get("screenshot") or "") for x in shlex.split(command,posix=os.name!="nt")]
             p=subprocess.run(args,capture_output=True,text=True,shell=False,timeout=30)
             if p.returncode:raise RuntimeError((p.stderr or p.stdout)[-2000:])
             data=json.loads(p.stdout or "{}")
             return data if isinstance(data,dict) else {}
         finally:
-            try:Path(tmp).unlink()
-            except OSError:pass
+            for path in paths:
+                try:Path(path).unlink()
+                except OSError:pass
