@@ -138,6 +138,11 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(before["requests"], after["requests"])
         self.assertNotEqual(after["device"], "forged-device")
 
+    def test_post_routing_ignores_query_string(self):
+        code,row=self.call("/api/mobile/pair/request?source=mobile",{"device_id":"query-route-phone","name":"Query route"})
+        self.assertEqual(code,200)
+        self.assertEqual(row["device_id"],"query-route-phone")
+
     def test_pairing_resume_and_invalid_cursor(self):
         pending = self.call("/api/mobile/pair/request", {"device_id":"test-phone"})[1]
         paired = self.call("/api/mobile/pair/approve", {"request_id":pending["request_id"]})[1]
