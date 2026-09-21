@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import os
-import shlex
 import subprocess
 import threading
 import time
 from pathlib import Path
+
+from .command_line import split_command
 
 
 class WorkerFabric:
@@ -33,13 +33,7 @@ class WorkerFabric:
 
     def _spawn(self,w):
         command=w["command"]
-        if isinstance(command,str):
-            raw=command.strip()
-            if not raw:raise ValueError("worker command is empty")
-            args=raw if os.name=="nt" else shlex.split(raw,posix=True)
-        else:
-            args=list(command or [])
-            if not args:raise ValueError("worker command is empty")
+        args=split_command(command,empty_message="worker command is empty")
         p=subprocess.Popen(args,cwd=w["cwd"],shell=False,
                            stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         w["process"]=p;w["started"]=time.time();w["last_error"]=None
