@@ -646,7 +646,16 @@ class Handler(BaseHTTPRequestHandler):
             sid=str(data.get("session_id") or "").strip()
             action=str(data.get("action") or "").strip()
             if not sid or not action:return self._json(400,{"error":"session_id and action are required"})
-            out=_garudanetra.command(sid,action,data.get("payload") or {})
+            payload=dict(data.get("payload") or {})
+            if action=="upload_attachment":
+                chat_id=str(payload.get("chat_id") or "").strip();aid=str(payload.get("attachment_id") or "").strip()
+                selector=str(payload.get("selector") or "").strip()
+                if not chat_id or not aid or not selector:return self._json(400,{"error":"upload_attachment requires chat_id, attachment_id and selector"})
+                try:
+                    meta,path=_attachments.resolve(chat_id,aid)
+                except KeyError:return self._json(404,{"error":"attachment not found"})
+                action="upload";payload={"selector":selector,"path":str(path)}
+            out=_garudanetra.command(sid,action,payload)
             if action=="stop":mark("GARUDANETRA STOPPED",sid[:8])
             elif action=="takeover":mark("GARUDANETRA OWNER CONTROL",sid[:8])
             elif action=="resume":mark("GARUDANETRA LIVE",sid[:8])
