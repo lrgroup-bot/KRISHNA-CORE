@@ -30,6 +30,7 @@ class WebValidationTests(unittest.TestCase):
             "startGarudanetraMission", "/api/garuda/scout", "loadGarudanetra",
             "/api/narad/status", "/api/narad/workflows", "/api/narad/history",
             "/api/kabach/projects", "/api/runtime/integrity", "KABACH", "deployIntegrity",
+            "/api/commitments", "/api/models", "commitmentSummary", "modelRouter",
         ):
             self.assertIn(token, text)
         self.assertIn("Garudanetra", text)
