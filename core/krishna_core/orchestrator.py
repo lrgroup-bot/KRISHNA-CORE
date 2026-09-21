@@ -405,6 +405,12 @@ class Orchestrator:
                 payload.get("evidence") or {},
             )
 
+        def brahmagyan_contradiction_resolve(payload,context):
+            return self.agi.brahmagyan.resolve_contradiction(
+                str(payload.get("claim_id") or ""),int(payload.get("index") or 0),
+                str(payload.get("resolution") or ""),payload.get("evidence_status"),
+            )
+
         def brahmagyan_claim_advance(payload,context):
             return self.agi.brahmagyan.advance_claim(
                 str(payload.get("claim_id") or ""),str(payload.get("target_level") or ""),
@@ -453,7 +459,8 @@ class Orchestrator:
                 "BRAHMAGYAN deep research: "+mission["topic"],
                 self.governor.snapshot(),approved_by_krishna=True,
             )
-            task=self.agi.brahmagyan.deep_prompt(mission_id)+"\nShishya specialties: "+", ".join(plan["specialties"])
+            task=(self.agi.brahmagyan.deep_prompt(mission_id)+"\nShishya specialties: "+", ".join(plan["specialties"])+
+                  "\nBefore handover, explicitly include: verified findings; successful methods; failed approaches; corrections; reusable skills; evaluation results; research trajectory; sources/provenance; unresolved questions; and cross-domain relationships. Do not hide failed work.")
             batch=self.ephemeral_workers.execute(project,request,task,privacy)
             handover=self.agi.brahmagyan.absorb_shishya(mission_id,batch)
             return {"plan":plan,"batch":batch,"handover":handover}
@@ -653,6 +660,12 @@ class Orchestrator:
         self.action_bus.register(
             "brahmagyan.evidence.add",brahmagyan_evidence_add,
             description="Attach supporting contradicting or qualifying evidence to a claim",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.contradiction.resolve",brahmagyan_contradiction_resolve,
+            description="Resolve a recorded contradiction without deleting its evidence history",
             mutating=True,permissions=("memory.write","evidence.write"),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
