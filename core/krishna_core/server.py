@@ -781,6 +781,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,orch.protocol_runtime_status())
         if path == "/api/dispatch/status":
             return self._json(200,orch.dispatch_runtime_status())
+        if path == "/api/sudarshan/runtime":
+            return self._json(200,orch.sudarshan_status())
         if path == "/api/protocols/mcp/catalog":
             return self._json(200,orch.protocols.mcp_catalog())
         if path == "/api/resources":
@@ -1371,7 +1373,7 @@ class Handler(BaseHTTPRequestHandler):
             action=str(data.get("action") or "").strip()
             if not action:return self._json(400,{"error":"action is required"})
             try:
-                return self._json(202,orch.jobs.submit(
+                return self._json(202,orch.sudarshan.job(
                     action,data.get("payload") or {},project=str(data.get("project") or "KRISHNA"),
                     actor=str(data.get("actor") or "ui-job"),permissions=data.get("permissions") or [],
                     approved=bool(data.get("approved",False)),
