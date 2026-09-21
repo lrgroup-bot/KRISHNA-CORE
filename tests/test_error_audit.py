@@ -218,6 +218,19 @@ class RepositoryErrorAudit(unittest.TestCase):
         for forbidden in ("filesystem.write","system.run","credentials.read","trade.execute"):
             self.assertNotIn(forbidden,mobile)
 
+    def test_brahmagyan_dashboard_is_compact_and_not_an_always_on_agent_fleet(self):
+        web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
+        bg=(ROOT/"core"/"krishna_core"/"brahmagyan.py").read_text(encoding="utf-8-sig")
+        council=(ROOT/"core"/"krishna_core"/"rishi_council.py").read_text(encoding="utf-8-sig")
+        self.assertIn("showView('brahmagyan')",web)
+        self.assertIn('id="brahmaCouncil"',web)
+        self.assertIn('id="brahmaMissions"',web)
+        self.assertIn('id="brahmaCuriosity"',web)
+        self.assertIn("no autonomous background daemon",bg)
+        self.assertIn('"running_processes":0',council)
+        self.assertNotIn("while True",bg)
+        self.assertNotIn("ThreadPoolExecutor",bg)
+
     def test_avatar_runtime_uses_character_bible_not_two_state_stub(self):
         server=(ROOT/"core"/"krishna_core"/"server.py").read_text(encoding="utf-8-sig")
         web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
