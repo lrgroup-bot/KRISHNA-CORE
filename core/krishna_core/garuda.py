@@ -15,7 +15,7 @@ class WebCandidate:
     fingerprint:str=""
 
 class GarudaAgent:
-    """Garudanetra research scout. It gathers evidence; KRISHNA remains the decision authority."""
+    """Garuda research scout. It gathers evidence; KRISHNA remains the decision authority."""
     def __init__(self, github, memory):
         self.github=github; self.memory=memory
         self._lock=RLock(); self._state={"working":False,"phase":"READY","source":None,"goal":None,"project":None,"started_at":None,"updated_at":time.time(),"found":0,"last_error":None}
@@ -97,7 +97,7 @@ class GarudaAgent:
 
     def scout(self, project, goal, limit=10):
         goal=str(goal or "").strip()
-        if not goal: raise ValueError("Garudanetra requires a research goal")
+        if not goal: raise ValueError("Garuda requires a research goal")
         self._set(working=True,phase="TAKEOFF",source=None,goal=goal,project=project,started_at=time.time(),found=0,last_error=None)
         errors={}; web=[]; repos=[]
         try:
@@ -122,7 +122,7 @@ class GarudaAgent:
         repos.sort(key=lambda x:(x.get("fit_terms",0),x.get("score",0),x.get("stars",0)),reverse=True)
         web=self._dedupe_and_rank(web)
         report={
-            "agent":"Garudanetra","role":"research_and_evidence","project":project,"goal":goal,
+            "agent":"Garuda","role":"research_and_evidence","project":project,"goal":goal,
             "web":[asdict(x) for x in web],"github":repos,
             "errors":errors,
             "coverage":["public_web","github","research_papers","npm_registry","technical_discussions"],
