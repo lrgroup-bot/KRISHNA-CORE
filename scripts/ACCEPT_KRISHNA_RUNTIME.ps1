@@ -61,7 +61,7 @@ try{
   try{
     $actionBus=Get-Json "/api/action-bus"
     $actionNames=@($actionBus.actions|ForEach-Object{$_.name})
-    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment")
+    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment")
     $missing=@($needed|Where-Object{$_ -notin $actionNames})
     if($actionBus.owner -eq "KRISHNA Shared Action Bus" -and $missing.Count -eq 0){
       Add-Check "Shared Action Bus" "PASS" ("registered="+$actionBus.registered_actions+"; Projects/Chats wired") $actionBus
@@ -82,8 +82,12 @@ try{
     $permissions=Get-Json "/api/permissions/runtime"
     $protocols=Get-Json "/api/protocols/status"
     $dispatch=Get-Json "/api/dispatch/status"
-    if($agents.owner -eq "KRISHNA Agent Runtime" -and @($agents.agents).Count -ge 5){
-      Add-Check "Agent Runtime" "PASS" ("agents="+$agents.count+"; Shared Action authority") $agents
+    $sudarshan=Get-Json "/api/sudarshan/runtime"
+    if($sudarshan.owner -eq "Sudarshan Control Plane" -and $sudarshan.exit -eq "IndependentCriticVerifier"){
+      Add-Check "Sudarshan control plane" "PASS" "Permissioned Action/Job entry with independent verifier exit" $sudarshan
+    }else{Add-Check "Sudarshan control plane" "FAIL" "Sudarshan authority/verification boundary mismatch" $sudarshan}
+    if($agents.owner -eq "KRISHNA Agent Runtime" -and @($agents.agents).Count -ge 5 -and $agents.authority -eq "Sudarshan Control Plane"){
+      Add-Check "Agent Runtime" "PASS" ("agents="+$agents.count+"; Sudarshan authority") $agents
     }else{Add-Check "Agent Runtime" "FAIL" "Agent Runtime manifest registry is incomplete" $agents}
     if($jobs.owner -eq "KRISHNA Job Runtime" -and $jobs.authority -eq "Shared Action Bus"){
       Add-Check "Job Runtime" "PASS" "Durable TaskLedger-backed jobs use Shared Action Bus" $jobs
@@ -92,35 +96,37 @@ try{
       Add-Check "Permission Runtime" "PASS" "Delegated capabilities are explicit" $permissions
     }else{Add-Check "Permission Runtime" "FAIL" "Permission Runtime unavailable" $permissions}
     if($protocols.owner -eq "KRISHNA Agent Protocol Gateway"){
-      Add-Check "MCP/A2A boundary" "PASS" "Protocol adapters resolve to Shared Action Bus" $protocols
+      Add-Check "MCP/A2A boundary" "PASS" "Protocol adapters resolve through Sudarshan" $protocols
     }else{Add-Check "MCP/A2A boundary" "FAIL" "Protocol gateway authority mismatch" $protocols}
-    if($dispatch.owner -eq "KRISHNA Dispatch Runtime"){
-      Add-Check "Dispatch Runtime" "PASS" ("targets="+(@($dispatch.targets) -join ",")) $dispatch
+    if($dispatch.owner -eq "KRISHNA Dispatch Runtime" -and $dispatch.authority -eq "Sudarshan Control Plane"){
+      Add-Check "Dispatch Runtime" "PASS" ("targets="+(@($dispatch.targets) -join ",")+"; Sudarshan authority") $dispatch
     }else{Add-Check "Dispatch Runtime" "FAIL" "Dispatch Runtime unavailable" $dispatch}
 
     $jobProbe=Post-Json "/api/jobs/submit" @{action="chat.create";project="general";actor="acceptance-job";permissions=@("chat.write");payload=@{project="general";title="Job Runtime Acceptance"};idempotency_key="acceptance-job-chat"}
-    if($jobProbe.status -eq "completed" -and $jobProbe.job_id -and $jobProbe.action.action_id){
+    if($jobProbe.status -eq "completed" -and $jobProbe.job_id -and $jobProbe.action.action_id -and $jobProbe.verified){
       Add-Check "Job dispatch" "PASS" ("job_id="+$jobProbe.job_id+" action_id="+$jobProbe.action.action_id) $jobProbe
     }else{Add-Check "Job dispatch" "FAIL" "Durable job did not produce an action receipt" $jobProbe}
 
     $mcpProbe=Post-Json "/api/protocols/mcp/call" @{tool="chat.create";project="general";principal="acceptance-mcp";permissions=@("chat.write");args=@{project="general";title="MCP Acceptance"};request_id="acceptance-mcp-chat"}
-    if($mcpProbe.status -eq "completed" -and $mcpProbe.source -eq "mcp"){
+    if($mcpProbe.status -eq "completed" -and $mcpProbe.source -eq "mcp" -and $mcpProbe.verified){
       Add-Check "MCP action adapter" "PASS" ("action_id="+$mcpProbe.action_id) $mcpProbe
     }else{Add-Check "MCP action adapter" "FAIL" "MCP adapter bypassed or failed the Shared Action Bus" $mcpProbe}
 
     $a2aProbe=Post-Json "/api/protocols/a2a/dispatch" @{action="chat.create";project="general";principal="acceptance-a2a";permissions=@("chat.write");payload=@{project="general";title="A2A Acceptance"};request_id="acceptance-a2a-chat"}
-    if($a2aProbe.status -eq "completed" -and $a2aProbe.source -eq "a2a"){
+    if($a2aProbe.status -eq "completed" -and $a2aProbe.source -eq "a2a" -and $a2aProbe.verified){
       Add-Check "A2A action adapter" "PASS" ("action_id="+$a2aProbe.action_id) $a2aProbe
     }else{Add-Check "A2A action adapter" "FAIL" "A2A adapter bypassed or failed the Shared Action Bus" $a2aProbe}
 
     $dispatchProbe=Post-Json "/api/dispatch" @{target="action";action="chat.create";project="general";actor="acceptance-dispatch";payload=@{project="general";title="Dispatch Acceptance"};idempotency_key="acceptance-dispatch-chat"}
-    if($dispatchProbe.status -eq "completed" -and $dispatchProbe.action_id){
+    if($dispatchProbe.status -eq "completed" -and $dispatchProbe.action_id -and $dispatchProbe.verified){
       Add-Check "Unified dispatch" "PASS" ("action_id="+$dispatchProbe.action_id) $dispatchProbe
     }else{Add-Check "Unified dispatch" "FAIL" "Unified Dispatch did not produce an action receipt" $dispatchProbe}
   }catch{Add-Check "Agent-native runtime layers" "FAIL" $_.Exception.Message $null}
 
   $narad=Get-Json "/api/narad/status"
-  if($narad.name -eq "NARAD"){Add-Check "NARAD runtime" "PASS" ("workflows="+$narad.workflows) $narad}else{Add-Check "NARAD runtime" "FAIL" "NARAD did not report ready" $narad}
+  if($narad.name -eq "NARAD" -and $narad.sudarshan_bound -and $narad.workflow_engine -eq "typed-dag/sudarshan"){
+    Add-Check "NARAD runtime" "PASS" ("workflows="+$narad.workflows+"; typed DAG through Sudarshan") $narad
+  }else{Add-Check "NARAD runtime" "FAIL" "NARAD is not bound to Sudarshan typed-DAG execution" $narad}
   $requiredProviders=@("telegram","discord","slack","whatsapp","gmail","google_drive","google_sheets","google_calendar")
   $missingProviders=@($requiredProviders|Where-Object{$_ -notin @($narad.provider_hub)})
   if($missingProviders.Count -eq 0){Add-Check "NARAD provider hub" "PASS" "Messaging and Google provider adapters registered" $narad.provider_hub}
