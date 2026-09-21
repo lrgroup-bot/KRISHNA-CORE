@@ -49,6 +49,10 @@ $targets=[ordered]@{
   mobile_companion=(Join-Path $RuntimeRoot "mobile\companion")
   dashboard=(Join-Path $RuntimeRoot "dashboard")
   tools=(Join-Path $RuntimeRoot "tools")
+  browser_data_legacy=(Join-Path $RuntimeRoot "browser-data")
+  playwright_browsers=(Join-Path $RuntimeRoot "playwright-browsers")
+  garudanetra_state=(Join-Path $RuntimeRoot "state\garudanetra")
+  garudanetra_profiles=(Join-Path $RuntimeRoot "garudanetra\profiles")
 }
 $summaries=[ordered]@{}
 foreach($k in $targets.Keys){$summaries[$k]=Get-FolderSummary $targets[$k]}
@@ -62,6 +66,25 @@ $components=[ordered]@{
   canonical_avatar=Get-FileProbe (Join-Path $RuntimeRoot "dashboard\assets\avatar\krishna.glb")
   mobile_companion_server=Get-FileProbe (Join-Path $RuntimeRoot "mobile\companion\server.py")
   source_mobile_v3=Get-FileProbe (Join-Path $SourceRoot "mobile_v3\index.html")
+  playwright_python=Get-FileProbe (Join-Path $RuntimeRoot ".venv\Lib\site-packages\playwright\__init__.py")
+  browser_fabric_source=Get-FileProbe (Join-Path $SourceRoot "core\krishna_core\browser_fabric.py")
+  garudanetra_session_source=Get-FileProbe (Join-Path $SourceRoot "core\krishna_core\garudanetra_session.py")
+  legacy_garudanetra_source=Get-FileProbe (Join-Path $SourceRoot "core\krishna_core\garudanetra.py")
+}
+$browserEnv=[ordered]@{
+  PLAYWRIGHT_BROWSERS_PATH=$env:PLAYWRIGHT_BROWSERS_PATH
+  KRISHNA_BROWSER_DATA_ROOT=$env:KRISHNA_BROWSER_DATA_ROOT
+  KRISHNA_BROWSER_HARNESS_CMD=$env:KRISHNA_BROWSER_HARNESS_CMD
+  KRISHNA_BROWSER_VISION_RECOVERY_CMD=$env:KRISHNA_BROWSER_VISION_RECOVERY_CMD
+  KRISHNA_AGENT_BROWSER_CMD=$env:KRISHNA_AGENT_BROWSER_CMD
+  KRISHNA_BROWSERCODE_CMD=$env:KRISHNA_BROWSERCODE_CMD
+  KRISHNA_OPENDEVBROWSER_CMD=$env:KRISHNA_OPENDEVBROWSER_CMD
+  KRISHNA_RUSTWRIGHT_CMD=$env:KRISHNA_RUSTWRIGHT_CMD
+  KRISHNA_LUCARNE_CMD=$env:KRISHNA_LUCARNE_CMD
+  KRISHNA_PROMPTWRIGHT_CMD=$env:KRISHNA_PROMPTWRIGHT_CMD
+  KRISHNA_SKYVERN_CMD=$env:KRISHNA_SKYVERN_CMD
+  KRISHNA_RRWEB_CMD=$env:KRISHNA_RRWEB_CMD
+  KRISHNA_CEREON_BROWSER_ENDPOINT=$env:KRISHNA_CEREON_BROWSER_ENDPOINT
 }
 
 $leftoverPaths=@(
@@ -96,7 +119,7 @@ foreach($rel in $critical){
 $proc=@()
 try{
  $proc=Get-CimInstance Win32_Process|Where-Object{
-   $_.CommandLine -and ($_.CommandLine -like "*Krishna-The GOD*" -or $_.CommandLine -like "*KRISHNA-SOURCE*" -or $_.CommandLine -like "*AI-Tools\codebase-memory*" -or $_.CommandLine -like "*AI-Tools\OpenMontage*")
+   $_.CommandLine -and ($_.CommandLine -like "*Krishna-The GOD*" -or $_.CommandLine -like "*KRISHNA-SOURCE*" -or $_.CommandLine -like "*AI-Tools\codebase-memory*" -or $_.CommandLine -like "*AI-Tools\OpenMontage*" -or ($_.Name -match "chrome|chromium|msedge" -and $_.CommandLine -match "garudanetra|playwright|Krishna-The GOD"))
  }|Select-Object ProcessId,ParentProcessId,Name,CommandLine
 }catch{}
 
@@ -116,17 +139,40 @@ if(!$components.codebase_memory_exe.exists){
   [void]$findings.Add([ordered]@{severity="info";code="CBM_DISCOVERED";detail=$components.codebase_memory_exe.path})
 }
 if(!$components.openmontage_python.exists){
-  [void][void]$findings.Add([ordered]@{severity="warning";code="OPENMONTAGE_RUNTIME_MISSING";detail=$components.openmontage_python.path})
+  [void]$findings.Add([ordered]@{severity="warning";code="OPENMONTAGE_RUNTIME_MISSING";detail=$components.openmontage_python.path})
 }elseif($env:OPENMONTAGE_CMD){
-  [void][void]$findings.Add([ordered]@{severity="info";code="OPENMONTAGE_BRIDGE_READY";detail="OpenMontage source + Python runtime detected and OPENMONTAGE_CMD is configured."})
+  [void]$findings.Add([ordered]@{severity="info";code="OPENMONTAGE_BRIDGE_READY";detail="OpenMontage source + Python runtime detected and OPENMONTAGE_CMD is configured."})
 }else{
-  [void][void]$findings.Add([ordered]@{severity="info";code="OPENMONTAGE_INSTALLED";detail="OpenMontage source + Python runtime detected; command bridge is not configured in this audit process."})
+  [void]$findings.Add([ordered]@{severity="info";code="OPENMONTAGE_INSTALLED";detail="OpenMontage source + Python runtime detected; command bridge is not configured in this audit process."})
 }
 if(!$summaries.cbm_source.exists -and !$components.codebase_memory_exe.exists){
   [void]$findings.Add([ordered]@{severity="notice";code="CBM_ALTERNATE_SOURCE_MISSING";detail="E:\KRISHNA-CBM not found; this is not an error if E:\AI-Tools\codebase-memory-mcp is canonical."})
 }
 if(!$summaries.cbm_runtime.exists -and !$components.codebase_memory_exe.exists){
   [void]$findings.Add([ordered]@{severity="notice";code="CBM_ALTERNATE_RUNTIME_MISSING";detail="E:\CBM-Runtime not found; this is not an error if E:\AI-Tools\codebase-memory-mcp is canonical."})
+}
+if(!$components.playwright_python.exists){
+  [void]$findings.Add([ordered]@{severity="critical";code="PLAYWRIGHT_RUNTIME_MISSING";detail=$components.playwright_python.path})
+}else{
+  [void]$findings.Add([ordered]@{severity="info";code="GARUDANETRA_CANONICAL_ENGINE";detail="Playwright runtime detected inside KRISHNA venv."})
+}
+if(!$components.browser_fabric_source.exists){
+  [void]$findings.Add([ordered]@{severity="critical";code="BROWSER_FABRIC_SOURCE_MISSING";detail=$components.browser_fabric_source.path})
+}
+if($summaries.browser_data_legacy.exists){
+  [void]$findings.Add([ordered]@{severity="notice";code="LEGACY_BROWSER_DATA_PRESENT";detail=$targets.browser_data_legacy})
+}
+if($summaries.playwright_browsers.exists){
+  [void]$findings.Add([ordered]@{severity="info";code="PLAYWRIGHT_BROWSER_ASSETS_PRESENT";detail=$targets.playwright_browsers})
+}
+if($env:KRISHNA_BROWSER_HARNESS_CMD){
+  [void]$findings.Add([ordered]@{severity="info";code="BROWSER_HARNESS_CONFIGURED";detail="KRISHNA_BROWSER_HARNESS_CMD is configured."})
+}
+if($env:KRISHNA_BROWSER_VISION_RECOVERY_CMD){
+  [void]$findings.Add([ordered]@{severity="info";code="BROWSER_VISION_RECOVERY_CONFIGURED";detail="KRISHNA_BROWSER_VISION_RECOVERY_CMD is configured."})
+}
+if($components.legacy_garudanetra_source.exists){
+  [void]$findings.Add([ordered]@{severity="notice";code="LEGACY_GARUDANETRA_MODULE_PRESENT";detail="garudanetra.py remains only for compatibility; server authority must remain browser_fabric.py + garudanetra_session.py."})
 }
 if(!$manifest){[void]$findings.Add([ordered]@{severity="critical";code="DEPLOYMENT_MANIFEST_MISSING";detail=$manifestPath})}
 foreach($x in $sourceRuntime){
@@ -158,6 +204,7 @@ $report=[ordered]@{
  deployment_manifest=$manifest
  folders=$summaries
  components=$components
+ browser_environment=$browserEnv
  unresolved_leftovers=$leftovers
  comparisons=$comparisons
  source_runtime=$sourceRuntime
