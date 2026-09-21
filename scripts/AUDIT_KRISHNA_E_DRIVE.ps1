@@ -111,39 +111,44 @@ if(Test-Path -LiteralPath $manifestPath){try{$manifest=Get-Content -Raw -Literal
 
 $findings=New-Object System.Collections.Generic.List[object]
 if(!$components.codebase_memory_exe.exists){
-  $findings.Add([ordered]@{severity="warning";code="CBM_EXECUTABLE_MISSING";detail="E:\AI-Tools\codebase-memory-mcp\codebase-memory-mcp.exe"})
+  [void]$findings.Add([ordered]@{severity="warning";code="CBM_EXECUTABLE_MISSING";detail="E:\AI-Tools\codebase-memory-mcp\codebase-memory-mcp.exe"})
 }else{
-  $findings.Add([ordered]@{severity="info";code="CBM_DISCOVERED";detail=$components.codebase_memory_exe.path})
+  [void]$findings.Add([ordered]@{severity="info";code="CBM_DISCOVERED";detail=$components.codebase_memory_exe.path})
 }
 if(!$components.openmontage_python.exists){
-  $findings.Add([ordered]@{severity="warning";code="OPENMONTAGE_RUNTIME_MISSING";detail=$components.openmontage_python.path})
+  [void][void]$findings.Add([ordered]@{severity="warning";code="OPENMONTAGE_RUNTIME_MISSING";detail=$components.openmontage_python.path})
+}elseif($env:OPENMONTAGE_CMD){
+  [void][void]$findings.Add([ordered]@{severity="info";code="OPENMONTAGE_BRIDGE_READY";detail="OpenMontage source + Python runtime detected and OPENMONTAGE_CMD is configured."})
 }else{
-  $findings.Add([ordered]@{severity="info";code="OPENMONTAGE_INSTALLED";detail="OpenMontage source + Python runtime detected; dedicated KRISHNA command bridge is still required before execution."})
+  [void][void]$findings.Add([ordered]@{severity="info";code="OPENMONTAGE_INSTALLED";detail="OpenMontage source + Python runtime detected; command bridge is not configured in this audit process."})
 }
 if(!$summaries.cbm_source.exists -and !$components.codebase_memory_exe.exists){
-  $findings.Add([ordered]@{severity="notice";code="CBM_ALTERNATE_SOURCE_MISSING";detail="E:\KRISHNA-CBM not found; this is not an error if E:\AI-Tools\codebase-memory-mcp is canonical."})
+  [void]$findings.Add([ordered]@{severity="notice";code="CBM_ALTERNATE_SOURCE_MISSING";detail="E:\KRISHNA-CBM not found; this is not an error if E:\AI-Tools\codebase-memory-mcp is canonical."})
 }
 if(!$summaries.cbm_runtime.exists -and !$components.codebase_memory_exe.exists){
-  $findings.Add([ordered]@{severity="notice";code="CBM_ALTERNATE_RUNTIME_MISSING";detail="E:\CBM-Runtime not found; this is not an error if E:\AI-Tools\codebase-memory-mcp is canonical."})
+  [void]$findings.Add([ordered]@{severity="notice";code="CBM_ALTERNATE_RUNTIME_MISSING";detail="E:\CBM-Runtime not found; this is not an error if E:\AI-Tools\codebase-memory-mcp is canonical."})
 }
-if(!$manifest){$findings.Add([ordered]@{severity="critical";code="DEPLOYMENT_MANIFEST_MISSING";detail=$manifestPath})}
+if(!$manifest){[void]$findings.Add([ordered]@{severity="critical";code="DEPLOYMENT_MANIFEST_MISSING";detail=$manifestPath})}
 foreach($x in $sourceRuntime){
   if($x.candidate_exists -and $x.canonical_exists -and !$x.same){
-    $findings.Add([ordered]@{severity="critical";code="SOURCE_RUNTIME_DRIFT";detail=$x.candidate})
+    [void]$findings.Add([ordered]@{severity="critical";code="SOURCE_RUNTIME_DRIFT";detail=$x.candidate})
   }
 }
 foreach($p in $proc){
  if($p.CommandLine -match "\\agents\\astra_worker.py|\\agents\\autonomous_recovery_loop.py|\\guardian\\autopilot.py|\\mobile\\companion\\server.py"){
-   $findings.Add([ordered]@{severity="notice";code="LEGACY_PARALLEL_PROCESS";detail=$p.CommandLine;pid=$p.ProcessId})
+   [void]$findings.Add([ordered]@{severity="notice";code="LEGACY_PARALLEL_PROCESS";detail=$p.CommandLine;pid=$p.ProcessId})
  }
 }
 if($components.mobile_companion_server.exists -and $components.source_mobile_v3.exists){
-  $findings.Add([ordered]@{severity="notice";code="MOBILE_RUNTIME_DUALITY";detail="Legacy runtime mobile companion and repository mobile_v3 both exist; keep one canonical product path after comparison."})
+  [void]$findings.Add([ordered]@{severity="notice";code="MOBILE_RUNTIME_DUALITY";detail="Legacy runtime mobile companion and repository mobile_v3 both exist; keep one canonical product path after comparison."})
 }
 foreach($x in $leftovers){
-  if($x.exists){$findings.Add([ordered]@{severity="notice";code="UNRESOLVED_LEFTOVER";detail=$x.path})}
+  if($x.exists){[void]$findings.Add([ordered]@{severity="notice";code="UNRESOLVED_LEFTOVER";detail=$x.path})}
 }
 
+$findingRows=@($findings | ForEach-Object { $_ })
+$processRows=@($proc | ForEach-Object { $_ })
+$listenerRows=@($listeners | ForEach-Object { $_ })
 $report=[ordered]@{
  schema=2
  generated_at=(Get-Date).ToUniversalTime().ToString("o")
@@ -156,9 +161,9 @@ $report=[ordered]@{
  unresolved_leftovers=$leftovers
  comparisons=$comparisons
  source_runtime=$sourceRuntime
- running_processes=@($proc)
- listeners=@($listeners)
- findings=@($findings)
+ running_processes=$processRows
+ listeners=$listenerRows
+ findings=$findingRows
 }
 $out=Join-Path $reportDir "e-drive-audit-$stamp.json"
 $report|ConvertTo-Json -Depth 12|Set-Content -Encoding UTF8 $out
