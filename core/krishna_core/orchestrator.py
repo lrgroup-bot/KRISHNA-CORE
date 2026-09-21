@@ -3,6 +3,8 @@ from pathlib import Path
 
 from .memory import MemoryStore
 from .router import ModelRouter
+from .model_gateway import ModelGatewayRegistry
+from .secure_vault import SecureSecretVault
 from .config import settings
 from .project_graph import ProjectGraph
 from .graph_intelligence import GraphIntelligence
@@ -50,7 +52,10 @@ class Orchestrator:
         self.requirements = RequirementsLedger()
         self.software_factory = SoftwareFactory(self.memory,self.commitments)
         self.project_brain = ProjectBrain(self.memory)
-        self.router = ModelRouter()
+        runtime_state = Path(self.db_path).resolve().parent / ".krishna_state"
+        self.secure_vault = SecureSecretVault(runtime_state / "secure-secrets.json")
+        self.model_gateway = ModelGatewayRegistry(runtime_state / "model-gateways.json", self.secure_vault)
+        self.router = ModelRouter(self.model_gateway)
         self.graph = ProjectGraph()
         self.graph_intelligence = GraphIntelligence(self.graph, self.memory)
         self.gnn = OptionalGNNBackend()
