@@ -17,6 +17,8 @@ from .contracts import RetryPolicy, required_permissions
 from .context import build_node_payload
 from .retry import run_with_retry
 from .workflow_graph import WorkflowGraph
+from .connector_registry import ConnectorRegistry
+from .execution_gate import BoundedExecutionGate
 
 
 class WorkflowState(str, Enum):
@@ -60,6 +62,9 @@ class NaradRuntime:
         self.checkpoints={}
         self.load_error=None
         self.sudarshan=None
+        self.connectors=ConnectorRegistry()
+        self.execution_gate=BoundedExecutionGate()
+        self._register_default_connectors()
         self._lock=threading.RLock()
         self._load()
 
@@ -91,6 +96,50 @@ class NaradRuntime:
         self.sudarshan=control_plane
         return self.status()
 
+    def _register_default_connectors(self):
+        for provider,operation,mutating,permission,retry_safe in (
+            ("n8n","trigger_workflow",True,"send_external",False),
+            ("webhook","post",True,"send_external",False),
+            ("telegram","send_message",True,"send_external",False),
+            ("discord","send_message",True,"send_external",False),
+            ("slack","send_message",True,"send_external",False),
+            ("whatsapp","send_message",True,"send_external",False),
+            ("gmail","send_email",True,"send_external",False),
+            ("google_drive","list_files",False,"provider.read",True),
+            ("google_drive","create_folder",True,"send_external",False),
+            ("google_sheets","append_values",True,"send_external",False),
+            ("google_calendar","create_event",True,"send_external",False),
+        ):
+            self.connectors.register(
+                provider,operation,mutating=mutating,permission=permission,
+                retry_safe=retry_safe,
+            )
+
+    def workflow_plan(self,workflow_id):
+        self._healthy()
+        with self._lock:
+            w=self.workflows[str(workflow_id)]
+            graph=WorkflowGraph(list(w.steps))
+        external=[]
+        for node in graph.nodes:
+            if node.action=="narad.provider_send":
+                p=node.payload
+                provider=str(p.get("provider") or "").strip().lower()
+                operation=str(p.get("operation") or "").strip().lower()
+                if provider and operation:
+                    try:external.append(self.connectors.get(provider,operation).as_dict())
+                    except KeyError:external.append({"provider":provider,"operation":operation,"registered":False})
+            elif node.action=="narad.adapter_webhook":
+                provider=str(node.payload.get("provider") or "webhook").strip().lower()
+                external.append({"provider":provider,"operation":"post","registered":provider in self.adapters})
+        return {
+            "workflow_id":w.id,"name":w.name,"state":w.state,"version":w.version,
+            "trigger":dict(w.trigger),"permissions":list(w.permissions),
+            "order":list(graph.order),"nodes":graph.normalized_steps(),
+            "external_connectors":external,
+            "execution_authority":"Sudarshan Control Plane" if self.sudarshan else "legacy-standalone",
+            "verification":"IndependentCriticVerifier required" if self.sudarshan else "legacy",
+        }
     def _load(self):
         if not self.state_path or not self.state_path.exists():
             return
@@ -331,7 +380,7 @@ class NaradRuntime:
         self.bus.publish("narad.workflow.completed",record,source="narad")
         return record
 
-    def execute(self,workflow_id,context=None,approved=False,trigger_source="manual"):
+    def _execute_guarded(self,workflow_id,context=None,approved=False,trigger_source="manual"):
         self._healthy()
         with self._lock:
             w=self.workflows[workflow_id]
@@ -406,6 +455,9 @@ class NaradRuntime:
         self.bus.publish("narad.workflow.completed",record,source="narad")
         return record
 
+    def execute(self,workflow_id,context=None,approved=False,trigger_source="manual"):
+        with self.execution_gate.slot():
+            return self._execute_guarded(workflow_id,context,approved,trigger_source)
     def handle_event(self,topic,payload=None):
         self._healthy()
         with self._lock:
@@ -469,10 +521,11 @@ class NaradRuntime:
         if w.state not in {WorkflowState.SANDBOX.value,WorkflowState.VERIFIED.value,WorkflowState.STABLE.value}:
             raise RuntimeError("workflow is not executable")
         try:
-            return self._execute_via_sudarshan(
-                w,list(w.steps),dict(cp.get("context") or {}),approved,
-                str(cp.get("trigger_source") or "resume"),w.version,resume_run_id=str(run_id),
-            )
+            with self.execution_gate.slot():
+                return self._execute_via_sudarshan(
+                    w,list(w.steps),dict(cp.get("context") or {}),approved,
+                    str(cp.get("trigger_source") or "resume"),w.version,resume_run_id=str(run_id),
+                )
         except Exception as exc:
             self._dead_letter(w,w.version,"resume",cp.get("context") or {},exc)
             raise
@@ -508,5 +561,8 @@ class NaradRuntime:
                 "sudarshan_bound":bool(self.sudarshan),
                 "node_contracts":["action","job"],"retry_max_attempts":5,
                 "data_mapping":"safe ${input.*} / ${nodes.*}; no eval",
+                "execution_gate":self.execution_gate.status(),
+                "connector_registry":self.connectors.status(),
+                "n8n":self.adapters["n8n"].status() if "n8n" in self.adapters and hasattr(self.adapters["n8n"],"status") else {"available":False},
                 "available":not bool(self.load_error),"load_error":self.load_error,
             }
