@@ -61,8 +61,14 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/garuda/status", "/api/commitments", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/software-factory/workers/status",
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/intelligence/status",
-                     "/api/runtime/integrity", "/api/runtime/audit"):
+                     "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
+
+    def test_requirements_search_contract(self):
+        code,d=self.call("/api/requirements?q=mobile")
+        self.assertEqual(code,200)
+        self.assertGreater(d["count"],0)
+        self.assertTrue(any("mobile" in (x.get("group","")+x.get("title","")+x.get("requirement","")).lower() for x in d["matches"]))
 
     def test_avatar_preview_is_real_webp(self):
         code, body = self.call("/api/avatar360")

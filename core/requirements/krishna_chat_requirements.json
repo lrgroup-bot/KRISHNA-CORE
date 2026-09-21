@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "version": "2026-09-21",
+  "source": "Consolidated from KRISHNA project conversations and verified repository decisions",
+  "non_negotiables": [
+    "KRISHNA is the only public identity and final decision authority.",
+    "KRISHNA is standalone and independent; E:\\KRISHNA-SOURCE is authoritative code and E:\\Krishna-The GOD is runtime/state/models/assets.",
+    "Internal engines, specialists and adapters never replace KRISHNA authority.",
+    "Mutating, destructive, credential, external-message and other high-impact actions remain behind Policy/approval boundaries and audit.",
+    "An agent never self-declares success; evidence is checked by an independent verifier before promotion.",
+    "Unfinished commitments are never silently discarded; resume, explicitly supersede, cancel or complete them.",
+    "Runtime/UI must report observed state honestly; unavailable optional providers fail closed.",
+    "Final Krishna_AGI.exe is built only after Windows runtime, browser/UI, mobile, recovery and deployment-integrity acceptance."
+  ],
+  "groups": [
+    {
+      "id": "autonomy",
+      "title": "Autonomy and supervision",
+      "requirements": [
+        "Observe registered projects and system state, detect errors, plan repairs, code bounded fixes, test, restart and verify.",
+        "Manage CPU/RAM pressure and avoid uncontrolled heavy workers.",
+        "Maintain active versus protected/archive project distinction and do not mutate backups as live projects.",
+        "Continue safe routine work without babysitting and surface meaningful verified completion notifications."
+      ]
+    },
+    {
+      "id": "sudarshan",
+      "title": "Sudarshan work console",
+      "requirements": [
+        "GPT-style persistent project chats with file attachments and real Rename, Pin, Share, Move and Delete actions.",
+        "Active Work, Verification and System Load informer.",
+        "When browser work starts, transform into a Sudarshan/Garudanetra split workspace rather than opening a dead status page.",
+        "Support project, research, investigate, plugin and developer workflows while KRISHNA selects internal engines automatically."
+      ]
+    },
+    {
+      "id": "garudanetra",
+      "title": "Garudanetra",
+      "requirements": [
+        "KRISHNA private browser/research/verification eye built on Chromium/Playwright/CDP-style deterministic control.",
+        "Observe DOM/accessibility, screenshot, console and network evidence; recover and verify actions.",
+        "Live Work controls: Pause, Take Control, Continue, Stop and Expand.",
+        "UI Guardian detects objective defects, tests candidates across target viewports, verifies and promotes or rolls back.",
+        "Browser cookies/credentials are session state, not learned knowledge; useful verified evidence may be stored in Gyan-Bhandar."
+      ]
+    },
+    {
+      "id": "memory",
+      "title": "Gyan-Bhandar and learning",
+      "requirements": [
+        "Unified working, episodic, semantic, graph, skill and evidence memory facade.",
+        "Preserve provenance, confidence, candidate/verified state and supersession.",
+        "Codebase-Memory-MCP supplies structural code intelligence; Graft may provide persistent memory behind Gyan-Bhandar, never as a competing brain.",
+        "Repeated verified workflows can compile into deterministic skills and pass Benchmark Lab before Stable promotion."
+      ]
+    },
+    {
+      "id": "narad",
+      "title": "NARAD automation and messaging",
+      "requirements": [
+        "Native KRISHNA event/workflow control plane with Draft, Candidate, Sandbox, Verified, Stable and Rejected lifecycle.",
+        "Schedules, webhooks, project/system events, execution history, retries, recovery and dead letters.",
+        "n8n, Activepieces, MCP and generic webhook integrations remain provider adapters, not KRISHNA authority.",
+        "External communication and app integrations use credential references and Policy/HITL gates."
+      ]
+    },
+    {
+      "id": "specialists",
+      "title": "Specialists and developer",
+      "requirements": [
+        "Select bounded specialists on demand for architecture, backend, frontend, debugging, DevOps, security, testing, research, data, UI and documentation.",
+        "Flow: User -> KRISHNA -> Planner -> specialists -> Critic -> independent Verifier -> KRISHNA decision -> Action.",
+        "Autonomous Developer uses Git evidence, shadow/candidate workspace, tests, browser/API inspection and rollback/promotion.",
+        "OpenMontage belongs to the media/YouTube worker boundary, not KRISHNA Core reasoning."
+      ]
+    },
+    {
+      "id": "kabach",
+      "title": "KABACH",
+      "requirements": [
+        "Project defensive-security and boundary guardian under KRISHNA authority.",
+        "Inspect tool permissions, untrusted content and egress boundaries; defensive research may be delegated through Garudanetra.",
+        "Keep evidence/audit for protected project boundaries."
+      ]
+    },
+    {
+      "id": "mobile",
+      "title": "KRISHNA Mobile",
+      "requirements": [
+        "Conversation-only secure voice/text interface; no dashboard, health-panel, project-list or raw-shell UI.",
+        "Use the same KRISHNA Core conversation/task state as PC and notify after meaningful verified completed work.",
+        "Persist device identity/credential locally; sensitive actions use device authorization rather than voice alone.",
+        "Support file/photo attachment and Odia/English conversation.",
+        "Owner voice gate may filter wake/listen flow locally but is not strong biometric security.",
+        "Remote-away usage requires secure transport and must not expose raw host shell/filesystem APIs."
+      ]
+    },
+    {
+      "id": "voice_avatar",
+      "title": "Voice and avatar",
+      "requirements": [
+        "Jarvis-like Odia conversation with explicit microphone/listening state.",
+        "Wake word 'Krishna' and owner-only wake are desired; sensitive actions still require device authentication.",
+        "Child KRISHNA avatar with states Idle, Flute, Listening, Talking, Dhyan, Searching and Working.",
+        "Final avatar goal includes rigged body animation, facial animation and lip sync when a verified asset/provider is available."
+      ]
+    },
+    {
+      "id": "ui",
+      "title": "Command Center UI",
+      "requirements": [
+        "Dark navy/gold/teal polished Command Center; Liquid Glass, Bento and Spatial UI used selectively.",
+        "KRISHNA Home is distinct from Sudarshan and should feel like the real operating presence, not a validation lab.",
+        "Vrindavan-inspired real-world home reference remains a target while operational pages stay functional.",
+        "Long-term UI stack target: React/shadcn, Dockview, React Flow, xterm and React Three Fiber with a Stable/Candidate/Experimental/Rejected GUI registry."
+      ]
+    },
+    {
+      "id": "integrations",
+      "title": "Local tools and models",
+      "requirements": [
+        "Prefer free/local tools where practical; Ollama/local models are implementation details behind privacy-aware routing.",
+        "Codebase-Memory-MCP, Graft, selected Agency-Agents, n8n and OpenMontage are integrated through bounded adapters.",
+        "Cloud model/API fallbacks must honor project privacy and credential isolation.",
+        "Optional providers are never reported active merely because source code is cloned."
+      ]
+    },
+    {
+      "id": "glass",
+      "title": "KRISHNA Glass roadmap",
+      "requirements": [
+        "After PC and mobile stability: camera/vision, audio, IMU/head tracking, gestures, optional wrist/ring input and AR display.",
+        "Local low-latency Neural Action Graph/reflex layer performs observe -> decide -> act -> verify under KRISHNA authority.",
+        "Shared session/control with PC/mobile; hardware selection favors open interfaces and reasonable cost."
+      ]
+    }
+  ],
+  "release_gates": [
+    "Source/runtime integrity is SYNCED to a verified deployment manifest.",
+    "Windows compile/unit/contracts and real runtime smoke tests pass.",
+    "Sudarshan project/chat/attachment/action workflows pass.",
+    "Garudanetra real browser work, evidence and recovery paths pass.",
+    "NARAD create/promote/execute/history and external-action gates pass.",
+    "Gyan-Bhandar candidate -> approval -> verified recall passes.",
+    "KABACH boundaries and Policy gates pass.",
+    "Mobile pairing/resume/conversation/notification tests pass on device.",
+    "Voice/avatar unavailable providers fail honestly and configured providers pass runtime checks.",
+    "Restart/recovery/rollback and CPU/RAM governance pass before final EXE packaging."
+  ]
+}
