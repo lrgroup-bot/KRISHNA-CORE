@@ -32,7 +32,12 @@ class HTTPRuntimeTests(unittest.TestCase):
             try:
                 if cls.call("/health")[0] == 200: break
             except OSError: time.sleep(.1)
-        else: raise RuntimeError("test Core failed to start")
+        else:
+            cls.log.flush()
+            details=""
+            try:details=(cls.root/"server.log").read_text(encoding="utf-8",errors="replace")[-6000:]
+            except OSError:pass
+            raise RuntimeError("test Core failed to start\n"+details)
         cls.call("/api/projects/register", {"name":"KRISHNA", "root":str(cls.root), "privacy":"local_only"})
 
     @classmethod
