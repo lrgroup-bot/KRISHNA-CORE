@@ -736,6 +736,7 @@ Evidence:
         item = self.projects.get(project)
         if not item:
             raise KeyError(project)
+        self.projects.assert_mutable(project,"shadow_repair")
         if action_name not in item.allowed_actions:
             raise PermissionError(f"action not allowed for project: {action_name}")
 
