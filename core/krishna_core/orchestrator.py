@@ -162,6 +162,46 @@ class Orchestrator:
         def project_unregister(payload,context):
             return self.unregister_project(str(payload.get("name") or "").strip())
 
+        def development_git_status(payload,context):
+            return self._development_git_snapshot_impl(str(payload.get("project") or context.get("project") or ""))
+
+        def development_git_commit(payload,context):
+            return self._development_commit_impl(
+                str(payload.get("project") or context.get("project") or ""),
+                str(payload.get("message") or "KRISHNA verified change"),
+                payload.get("files") or [],
+                approved=bool(context.get("approved",False)),
+            )
+
+        def development_git_push(payload,context):
+            return self._development_push_impl(
+                str(payload.get("project") or context.get("project") or ""),
+                approved=bool(context.get("approved",False)),
+            )
+
+        def development_sync_action(payload,context):
+            return self._development_sync_impl(
+                str(payload.get("project") or context.get("project") or ""),
+                approved=bool(context.get("approved",False)),
+            )
+
+        def development_stage_action(payload,context):
+            return self._development_stage_impl(
+                str(payload.get("project") or context.get("project") or ""),
+                payload.get("files") or [],
+            )
+
+        def development_verify_action(payload,context):
+            return self._development_verify_impl(
+                str(payload.get("project") or context.get("project") or ""),
+                str(payload.get("candidate_root") or ""),
+                payload.get("checks") or [],
+                payload.get("frontend_url"),
+                payload.get("browser_actions") or [],
+                payload.get("api_expectations") or [],
+                payload.get("screenshot_path") or None,
+            )
+
         def worker_ephemeral_execute(payload,context):
             project=str(payload.get("project") or context.get("project") or "KRISHNA")
             policy=self.projects.get(project) if project!="KRISHNA" else None
@@ -312,6 +352,46 @@ class Orchestrator:
         )
 
         self.action_bus.register(
+            "development.git.status",development_git_status,
+            description="Read bounded Git status for a registered project",
+            permissions=("code.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "development.git.commit",development_git_commit,
+            description="Commit verified project changes locally",
+            mutating=True,requires_approval=True,
+            permissions=("candidate.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "development.git.push",development_git_push,
+            description="Push verified project commit to its configured remote",
+            mutating=True,requires_approval=True,
+            permissions=("git.push",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "development.sync",development_sync_action,
+            description="Synchronize a registered development project",
+            mutating=True,requires_approval=True,
+            permissions=("candidate.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "development.stage",development_stage_action,
+            description="Stage bounded files in a registered development project",
+            mutating=True,permissions=("candidate.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "development.verify",development_verify_action,
+            description="Run independent tests/browser/API verification on a candidate workspace",
+            permissions=("tests.run","browser.test"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
             "worker.ephemeral.execute",worker_ephemeral_execute,
             description="Run approved temporary software/research workers",
             permissions=("worker.execute","model.use"),
@@ -417,7 +497,7 @@ class Orchestrator:
         )
         self.agent_runtime.register(
             "developer","bounded project implementation and verification",
-            permissions=("code.read","candidate.write","tests.run","browser.read","browser.test","worker.execute","model.use"),
+            permissions=("code.read","candidate.write","git.push","tests.run","browser.read","browser.test","worker.execute","model.use"),
             actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead"),
         )
         self.agent_runtime.register(
@@ -814,7 +894,7 @@ class Orchestrator:
     def kabach_inspect_tool(self, project, tool, operation, permissions=None, approved=False):
         return self.kabach.record(project,self.kabach.inspect_tool(tool,operation,permissions,approved),"tool")
 
-    def development_sync(self, project, approved=False):
+    def _development_sync_impl(self, project, approved=False):
         policy=self.projects.get(project)
         if not policy: raise KeyError(project)
         self.projects.assert_mutable(project,"development_sync")
@@ -824,7 +904,11 @@ class Orchestrator:
         self.memory.audit("development_sync","completed" if result.get("ok") else "blocked",project)
         return result
 
-    def development_stage(self, project, files):
+    def development_sync(self, project, approved=False):
+        receipt=self.dispatch_action("development.sync",{"project":project},project=project,source="pc",actor="developer-ui",approved=approved)
+        return receipt["result"]
+
+    def _development_stage_impl(self, project, files):
         policy=self.projects.get(project)
         if not policy: raise KeyError(project)
         self.projects.assert_mutable(project,"development_stage")
@@ -832,12 +916,20 @@ class Orchestrator:
         self.memory.audit("development_stage","completed",f"{project}:{result['file_count']}")
         return result
 
-    def development_git_snapshot(self, project):
+    def development_stage(self, project, files):
+        receipt=self.dispatch_action("development.stage",{"project":project,"files":files},project=project,source="pc",actor="developer-ui")
+        return receipt["result"]
+
+    def _development_git_snapshot_impl(self, project):
         policy=self.projects.get(project)
         if not policy: raise KeyError(project)
         return self.development.git_snapshot(policy.root)
 
-    def development_commit(self, project, message, files, approved=False):
+    def development_git_snapshot(self, project):
+        receipt=self.dispatch_action("development.git.status",{"project":project},project=project,source="pc",actor="developer-ui")
+        return receipt["result"]
+
+    def _development_commit_impl(self, project, message, files, approved=False):
         self.projects.assert_mutable(project,"development_commit")
         if not settings.allow_actions: raise PermissionError("KRISHNA_ALLOW_ACTIONS is disabled")
         if not approved: raise PermissionError("explicit commit approval required")
@@ -847,7 +939,11 @@ class Orchestrator:
         self.memory.audit("development_commit","completed" if result.get("ok") else "failed",project)
         return result
 
-    def development_push(self, project, approved=False):
+    def development_commit(self, project, message, files, approved=False):
+        receipt=self.dispatch_action("development.git.commit",{"project":project,"message":message,"files":files},project=project,source="pc",actor="developer-ui",approved=approved)
+        return receipt["result"]
+
+    def _development_push_impl(self, project, approved=False):
         self.projects.assert_mutable(project,"development_push")
         if not settings.allow_actions: raise PermissionError("KRISHNA_ALLOW_ACTIONS is disabled")
         if not approved: raise PermissionError("explicit push approval required")
@@ -857,7 +953,11 @@ class Orchestrator:
         self.memory.audit("development_push","completed" if result.get("ok") else "failed",project)
         return result
 
-    def development_verify(self, project, candidate_root, checks, frontend_url=None,
+    def development_push(self, project, approved=False):
+        receipt=self.dispatch_action("development.git.push",{"project":project},project=project,source="pc",actor="developer-ui",approved=approved)
+        return receipt["result"]
+
+    def _development_verify_impl(self, project, candidate_root, checks, frontend_url=None,
                            browser_actions=None, api_expectations=None, screenshot_path=None):
         policy=self.projects.get(project)
         if not policy: raise KeyError(project)
@@ -868,6 +968,17 @@ class Orchestrator:
         else:
             result["promotion"]=None
         return result
+
+    def development_verify(self, project, candidate_root, checks, frontend_url=None,
+                           browser_actions=None, api_expectations=None, screenshot_path=None):
+        receipt=self.dispatch_action(
+            "development.verify",
+            {"project":project,"candidate_root":candidate_root,"checks":checks,
+             "frontend_url":frontend_url,"browser_actions":browser_actions or [],
+             "api_expectations":api_expectations or [],"screenshot_path":screenshot_path},
+            project=project,source="pc",actor="developer-ui",
+        )
+        return receipt["result"]
 
     def register_project(self, name, root, privacy="local_only",
                          allowed_actions=None, verification_checks=None, metadata=None, role="active"):
