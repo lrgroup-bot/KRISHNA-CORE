@@ -46,7 +46,20 @@ _worker_resilience.start()
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
 _requirements = RequirementsLedger()
-_garudanetra = GarudanetraSessionManager(RUNTIME_ROOT)
+def _remember_garudanetra_session(snapshot):
+    project=str(snapshot.get("project") or "KRISHNA")
+    sid=str(snapshot.get("session_id") or "")
+    lesson=(snapshot.get("visible_text") or "")[:5000] or ("Garudanetra task-memory session "+sid)
+    evidence=[{"url":snapshot.get("current_url"),"title":snapshot.get("title"),
+               "findings":snapshot.get("findings") or [],"downloads":snapshot.get("downloads") or [],
+               "console":snapshot.get("console") or [],"network":snapshot.get("network") or []}]
+    try:
+        orch.gyan_propose(project,"garudanetra-task-memory:"+sid,lesson,evidence,0.8,
+                          "garudanetra_task_memory",False,"evidence",
+                          {"session_id":sid,"mode":snapshot.get("mode"),"url":snapshot.get("current_url")})
+    except Exception as exc:
+        orch.memory.audit("garudanetra_task_memory","proposal_failed",f"{type(exc).__name__}: {exc}")
+_garudanetra = GarudanetraSessionManager(RUNTIME_ROOT,on_closed=_remember_garudanetra_session)
 _ui_registry = UIGuardianRegistry(Path(settings.db_path).resolve().parent / ".krishna_state" / "ui-guardian-registry.json")
 _ui_guardian = UIGuardian(orch.browser, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
 _narad_scheduler = NaradScheduler(orch.agi.narad)
@@ -465,6 +478,9 @@ class Handler(BaseHTTPRequestHandler):
                     "chromium_ui_inspection",
                     "garudanetra_private_live_browser",
                     "garudanetra_owner_takeover_stream",
+                    "garudanetra_task_memory_mode",
+                    "garudanetra_persistent_workspace_mode",
+                    "garudanetra_self_healing_selector_recovery",
                     "ui_guardian_viewport_matrix",
                     "gui_registry_stable_candidate_experimental_rejected",
                     "github_repository_research",
@@ -615,8 +631,10 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/garudanetra/session/start":
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
             url=str(data.get("url") or "").strip()
-            out=_garudanetra.create(project,url)
-            mark("GARUDANETRA LIVE",f"{project}: {url[:120]}")
+            mode=str(data.get("mode") or "private").strip().lower()
+            approved=bool(data.get("persistent_approved",False))
+            out=_garudanetra.create(project,url,mode,persistent_approved=approved)
+            mark("GARUDANETRA LIVE",f"{project}: {mode}: {url[:120]}")
             return self._json(201,out)
 
         if self.path == "/api/garudanetra/session/control":
