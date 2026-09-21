@@ -255,7 +255,10 @@ class NaradRuntime:
                     "verification":{"status":"FAIL","passed":False,"checks":[],"evidence":[],"reason":str(exc)},
                 }
                 node_runs.append(row)
-                if not node.continue_on_error:raise
+                if not node.continue_on_error:
+                    if isinstance(exc,KeyError):
+                        raise RuntimeError(f"unsupported or unavailable Narad action: {node.action}") from exc
+                    raise
 
         workflow_verification=self.sudarshan.verify_workflow(node_runs)
         if not workflow_verification.get("passed"):
