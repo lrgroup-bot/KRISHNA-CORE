@@ -289,13 +289,15 @@ class Orchestrator:
             raise KeyError(project)
         return self.garuda.scout(project,goal,limit)
 
-    def gyan_store(self, project, topic, lesson, evidence=None, confidence=0.0, source="sudarshan", verified=False):
+    def gyan_store(self, project, topic, lesson, evidence=None, confidence=0.0, source="sudarshan", verified=False,
+                   memory_kind="semantic", provenance=None, supersedes=None):
         if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
-        return self.gyan_bhandar.store(project,topic,lesson,evidence,confidence,source,verified)
+        return self.gyan_bhandar.store(project,topic,lesson,evidence,confidence,source,verified,memory_kind,provenance,supersedes)
 
-    def gyan_propose(self, project, topic, lesson, evidence=None, confidence=0.0, source="research", verified=False):
+    def gyan_propose(self, project, topic, lesson, evidence=None, confidence=0.0, source="research", verified=False,
+                     memory_kind="semantic", provenance=None, supersedes=None):
         if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
-        return self.gyan_bhandar.propose(project,topic,lesson,evidence,confidence,source,verified)
+        return self.gyan_bhandar.propose(project,topic,lesson,evidence,confidence,source,verified,memory_kind,provenance,supersedes)
 
     def gyan_pending(self, project=None, limit=100):
         if project and project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
@@ -317,9 +319,18 @@ class Orchestrator:
     def gyan_archive_status(self):
         return self.gyan_bhandar.archive_status()
 
-    def gyan_recall(self, project, topic=None, limit=50, verified_only=False):
+    def gyan_recall(self, project, topic=None, limit=50, verified_only=False, memory_kind=None, include_superseded=False):
         if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
-        return self.gyan_bhandar.recall(project,topic,limit,verified_only)
+        return self.gyan_bhandar.recall(project,topic,limit,verified_only,memory_kind,include_superseded)
+
+    def gyan_inventory(self, project):
+        if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
+        return self.gyan_bhandar.inventory(project)
+
+    def gyan_supersede(self, project, fingerprint, topic, lesson, evidence=None, confidence=0.0, source="krishna",
+                       verified=False, memory_kind="semantic", provenance=None):
+        if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
+        return self.gyan_bhandar.supersede(project,fingerprint,topic,lesson,evidence,confidence,source,verified,memory_kind,provenance)
 
     def gyan_theory(self, project, topic, limit=25):
         if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
