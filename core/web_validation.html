@@ -1575,14 +1575,15 @@ function naradTriggerChanged(){
 }
 async function loadNarad(){
  try{
-  const [s,w,h,cx,dl,sch]=await Promise.all([
+  const [s,w,h,cx,dl,sch,cp]=await Promise.all([
    req('/api/narad/status'),req('/api/narad/workflows'),req('/api/narad/history?limit=30'),
-   req('/api/narad/connections'),req('/api/narad/dead-letters'),req('/api/narad/scheduler')
+   req('/api/narad/connections'),req('/api/narad/dead-letters'),req('/api/narad/scheduler'),
+   req('/api/narad/checkpoints')
   ]);
-  $('naradRuntime').textContent=s.name||'NARAD';$('naradCount').textContent=(w.workflows||[]).length;
+  $('naradRuntime').textContent=(s.name||'NARAD')+(s.sudarshan_bound?' · SUDARSHAN':' · DEGRADED');$('naradCount').textContent=(w.workflows||[]).length;
   $('naradAdapters').textContent=(s.adapters||[]).join(' · ')||'native';
   $('naradConnectionCount').textContent=cx.count||0;$('naradDeadCount').textContent=dl.count||0;
-  $('naradScheduler').textContent='Scheduler '+(sch.running?'RUNNING':'STOPPED')+' · '+sch.poll_seconds+'s poll';
+  $('naradScheduler').textContent=(s.workflow_engine||'workflow')+' · checkpoints '+(cp.count||0)+' · scheduler '+(sch.running?'RUNNING':'STOPPED');
   const tr=s.triggers||{};$('naradTriggers').textContent=['manual','event','schedule','webhook'].map(k=>k+' '+(tr[k]||0)).join(' · ');
   renderNaradConnections(cx.connections||[]);renderNaradDeadLetters(dl.dead_letters||[]);populateNaradCredentialSelect(cx.connections||[]);
   const box=$('naradWorkflows');box.innerHTML='';
