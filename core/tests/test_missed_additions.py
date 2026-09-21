@@ -60,6 +60,11 @@ class MissedAdditionsTests(unittest.TestCase):
             self.assertIn("windows-dpapi",v.list()["backend"])
             if not v.available:
                 with self.assertRaises(SecretVaultUnavailable):v.put("x","test","secret")
+            else:
+                row=v.put("x","test","secret-value")
+                self.assertEqual(v.resolve(row["id"]),"secret-value")
+                raw=(Path(td)/"s.json").read_text("utf-8")
+                self.assertNotIn("secret-value",raw)
 
     def test_model_gateway_enforces_https_for_remote(self):
         with tempfile.TemporaryDirectory() as td:
