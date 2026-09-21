@@ -30,6 +30,23 @@ class ArchitectureContracts(unittest.TestCase):
     def test_browser_testing_lead_contract(self):
         b=self.text("core/krishna_core/browser_operator.py")
         self.assertIn("exhaustive_clickthrough",b);self.assertIn("controls_checked",b)
+    def test_garudanetra_browser_fabric_is_canonical(self):
+        server=self.text("core/krishna_core/server.py")
+        fabric=self.text("core/krishna_core/browser_fabric.py")
+        start=self.text("scripts/START_KRISHNA.ps1")
+        audit=self.text("scripts/AUDIT_KRISHNA_E_DRIVE.ps1")
+        self.assertIn("GarudanetraBrowserFabric",server)
+        self.assertNotIn("from .garudanetra import GarudanetraService",server)
+        self.assertIn('canonical":"playwright"',fabric)
+        for name in ("browser_harness","agent_browser","browsercode","opendevbrowser","rustwright","lucarne","promptwright","skyvern","rrweb","cereon_browser_operator"):
+            self.assertIn(name,fabric)
+        for token in ("semantic_snapshot_refs","cdp_screencast","bounded_replay","candidate_skill_learning"):
+            self.assertIn(token,fabric)
+        self.assertIn("PLAYWRIGHT_BROWSERS_PATH",start)
+        self.assertIn("KRISHNA_BROWSER_DATA_ROOT",start)
+        self.assertIn("LEGACY_BROWSER_DATA_PRESENT",audit)
+        self.assertIn("LEGACY_GARUDANETRA_MODULE_PRESENT",audit)
+
     def test_garuda_security_delegation(self):
         o=self.text("core/krishna_core/orchestrator.py")
         self.assertIn("kabach_security_research",o);self.assertIn("self.garuda.scout",o)
