@@ -102,14 +102,13 @@ class NaradCredentialVault:
         return self.describe(ref.id)
 
     def delete(self, credential_id):
-        ref = self.refs.pop(str(credential_id), None)
+        key=str(credential_id)
+        ref = self.refs.get(key)
         if not ref:
             return False
         if ref.source == "vault" and ref.secret_id:
-            try:
-                self.secure_vault.delete(ref.secret_id)
-            except Exception:
-                pass
+            self.secure_vault.delete(ref.secret_id)
+        self.refs.pop(key,None)
         self._save()
         return True
 
