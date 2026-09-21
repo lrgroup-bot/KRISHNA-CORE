@@ -160,8 +160,11 @@ class NaradRuntime:
         try:
             for step in steps:
                 action=str(step.get("action","")).strip()
-                mutating=bool(step.get("mutating",False)) or action in {"adapter_webhook","provider_send"}
-                policy_action="send_external" if action in {"adapter_webhook","provider_send"} else action
+                external=action in {"adapter_webhook","provider_send"}
+                if external and state!=WorkflowState.STABLE.value:
+                    raise PermissionError("external Narad side effects require a Stable verified workflow")
+                mutating=bool(step.get("mutating",False)) or external
+                policy_action="send_external" if external else action
                 decision=self.policy.action(policy_action,mutating=mutating,approved=approved)
                 if not decision.allowed: raise PermissionError(decision.reason)
                 if action=="publish_event":
