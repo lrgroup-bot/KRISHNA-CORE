@@ -73,6 +73,7 @@ class SecureSecretVault:
     def __init__(self,path:str|Path):
         self.path=Path(path)
         self.items={}
+        self.load_error=None
         self._load()
 
     @property
@@ -85,12 +86,21 @@ class SecureSecretVault:
         try:
             raw=json.loads(self.path.read_text(encoding="utf-8-sig"))
             if raw.get("schema")!=1:
+                self.load_error=f"unsupported vault schema: {raw.get('schema')!r}"
+                self.items={}
                 return
             self.items={x["id"]:x for x in raw.get("secrets",[]) if x.get("id")}
-        except Exception:
+            self.load_error=None
+        except Exception as exc:
             self.items={}
+            self.load_error=f"{type(exc).__name__}: {exc}"
+
+    def _healthy(self):
+        if self.load_error:
+            raise SecretVaultUnavailable("secret vault metadata is unreadable; refusing to overwrite it: "+self.load_error)
 
     def _save(self):
+        self._healthy()
         self.path.parent.mkdir(parents=True,exist_ok=True)
         payload={"schema":1,"backend":"windows-dpapi","secrets":list(self.items.values())}
         fd,tmp=tempfile.mkstemp(prefix="krishna-secrets-",suffix=".json",dir=str(self.path.parent))
@@ -105,6 +115,7 @@ class SecureSecretVault:
     def put(self,name:str,provider:str,secret:str)->dict:
         if not self.available:
             raise SecretVaultUnavailable("secure persisted secrets require Windows DPAPI")
+        self._healthy()
         name=str(name or "").strip();provider=str(provider or "").strip();secret=str(secret or "")
         if not name or not provider or not secret:
             raise ValueError("name, provider and secret are required")
@@ -115,11 +126,13 @@ class SecureSecretVault:
         return self.describe(sid)
 
     def delete(self,secret_id:str)->bool:
+        self._healthy()
         removed=self.items.pop(str(secret_id),None) is not None
         if removed:self._save()
         return removed
 
     def resolve(self,secret_id:str)->str:
+        self._healthy()
         item=self.items.get(str(secret_id))
         if not item:raise KeyError("secret reference not found")
         if not self.available:
@@ -128,6 +141,7 @@ class SecureSecretVault:
         return _dpapi_unprotect(cipher).decode("utf-8")
 
     def describe(self,secret_id:str)->dict:
+        self._healthy()
         item=self.items.get(str(secret_id))
         if not item:raise KeyError("secret reference not found")
         return {"id":item["id"],"name":item["name"],"provider":item["provider"],"created_at":item["created_at"],"available":self.available,"backend":"windows-dpapi"}
@@ -135,4 +149,5 @@ class SecureSecretVault:
     def list(self)->dict:
         rows=[self.describe(x) for x in self.items]
         rows.sort(key=lambda x:x["created_at"],reverse=True)
-        return {"secrets":rows,"count":len(rows),"backend":"windows-dpapi","available":self.available,"policy":"plaintext is never returned by status/list APIs"}
+        return {"secrets":rows,"count":len(rows),"backend":"windows-dpapi","available":self.available and not bool(self.load_error),
+                "load_error":self.load_error,"policy":"plaintext is never returned by status/list APIs; corrupt metadata is never overwritten"}
