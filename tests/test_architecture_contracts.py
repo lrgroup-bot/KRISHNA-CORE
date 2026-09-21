@@ -58,6 +58,17 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertIn("raw shell",requirements)
         self.assertIn("/api/mobile/pair/pending",server)
 
+    def test_release_build_workflows_are_canonical_and_gated(self):
+        root=Path(__file__).resolve().parents[1]
+        self.assertFalse((root/".github"/"workflows"/"build-apk.yml").exists())
+        mobile=self.text(".github/workflows/build-mobile-v3.yml")
+        desktop=self.text(".github/workflows/build-console.yml")
+        self.assertIn("fix/krishna-ui-runtime-verification",mobile)
+        self.assertIn("KRISHNA-v3.5-Conversation-Mobile-APK",mobile)
+        self.assertIn("workflow_dispatch",desktop)
+        self.assertIn("release_gate_confirmed",desktop)
+        self.assertNotIn("  push:\n",desktop)
+
     def test_runtime_acceptance_is_a_deploy_gate(self):
         root=Path(__file__).resolve().parents[1]
         accept=(root/"scripts"/"ACCEPT_KRISHNA_RUNTIME.ps1").read_text(encoding="utf-8")
