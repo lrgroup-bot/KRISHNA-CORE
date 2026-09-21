@@ -939,7 +939,8 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 <div id="recentChats" class="chatMenuList" aria-label="Chats"></div>
 </div>
 <button onclick="showView('kabach')"><span class="ico">🛡</span><span class="txt">KABACH</span></button>
-<button onclick="showView('garuda')"><span id="garudaMenuIcon" class="ico garudaIcon">👁</span><span class="txt">Garudanetra</span></button>
+<button onclick="showView('garuda')"><span id="garudaMenuIcon" class="ico garudaIcon">🦅</span><span class="txt">Garuda</span></button>
+<button onclick="showView('garudanetra')"><span id="garudanetraMenuIcon" class="ico garudaIcon">👁</span><span class="txt">Garudanetra</span></button>
 <button onclick="showView('gyan')"><span class="ico gyanBrain">🧠</span><span class="txt">Gyan-Bhandar</span></button>
 <button onclick="showView('narad');loadNarad()"><span class="ico">🪕</span><span class="txt">NARAD</span></button>
 <button onclick="showView('plugins')"><span class="ico">⌘</span><span class="txt">Plugins</span></button>
@@ -977,7 +978,41 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 <section id="projects" class="view panelView"><div class="panelInner"><h1 class="panelTitle">Projects</h1><p class="panelSub">Registered workspaces KRISHNA can understand, monitor and safely work on.</p>
 <div class="addBox glassWell"><input id="projectRegName" class="input" placeholder="Project name"><input id="projectRegRoot" class="input" placeholder="Absolute project root"><select id="projectRegPrivacy" class="select"><option value="local_only">local_only</option><option value="restricted">restricted</option><option value="approved_cloud">approved_cloud</option></select><select id="projectRegRole" class="select"><option value="active">active · managed</option><option value="protected">protected · read only</option><option value="archive">archive · read only</option></select><button class="primary" onclick="registerProject()">Register</button></div><div class="projectWorkspaceHead"><div><div class="k">SELECTED WORKSPACE</div><div id="selectedProjectName" class="workspaceName">KRISHNA</div></div><div class="projectbar"><button class="primary compact" onclick="openSelectedProject()">Open workspace</button><button class="ghost" onclick="newProjectChat()">＋ New chat</button><button class="ghost" onclick="indexProject()">Index project</button></div></div><div id="projectCards" class="projectBento"></div><div class="projectChatPanel"><div class="projectChatHead"><div><div class="k">CHATS IN THIS PROJECT</div><div id="projectChatCount" class="workspaceMeta">0 conversations</div></div><button class="ghost" onclick="newProjectChat()">＋ Add chat</button></div><div id="projectChatList" class="projectChatList"></div></div></div></section>
 <section id="kabach" class="view panelView"><div class="panelInner"><h1 class="panelTitle">KABACH 🛡</h1><p class="panelSub">KRISHNA's project boundary and defensive security layer. KABACH observes and protects; KRISHNA keeps decision authority.</p><div class="grid"><div class="card"><div class="k">PROTECTED PROJECTS</div><div id="kabachCount" class="v">—</div></div><div class="card"><div class="k">BOUNDARY STATUS</div><div id="kabachState" class="v">CHECKING</div></div><div class="card"><div class="k">AUTHORITY</div><div class="v">KRISHNA</div></div></div><div id="kabachProjects" style="margin-top:14px"></div></div></section>
-<section id="garuda" class="view panelView"><div class="panelInner"><h1 class="panelTitle">GARUDANETRA</h1><p class="panelSub">KRISHNA's private browser, research and verification eye. Garudanetra observes pages, inspects UI/API evidence and works under KRISHNA Policy + Verifier authority.</p><div class="card"><div class="k">BROWSER / RESEARCH MISSION</div><textarea id="garudaGoal" class="input" style="width:100%;min-height:90px;margin:10px 0" placeholder="What should Garudanetra discover or open for this project?"></textarea><div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center"><select id="garudaMode" class="select"><option value="private">PRIVATE · destroy browser state</option><option value="task_memory">PRIVATE + TASK MEMORY · retain evidence only</option><option value="persistent_workspace">PERSISTENT WORKSPACE · keep project browser profile</option></select><button class="primary" style="padding:10px 16px" onclick="startGarudanetraMission()">START WORK</button></div><p class="workspaceMeta">Modes: Private · Private + Task Memory · Persistent Workspace. Cookies and credentials are never learned memory. Persistent browser profiles require explicit approval.</p></div><div id="garudaState" class="card" style="margin-top:12px"><div class="k">STATUS</div><div class="v">READY</div></div><div class="garudaLive"><div class="card"><div class="k">FLIGHT</div><div id="garudaFlight" class="v">LANDED</div></div><div class="card"><div class="k">SOURCE</div><div id="garudaSource" class="v">—</div></div><div class="card"><div class="k">FOUND</div><div id="garudaFound" class="v">0</div></div><div class="card"><div class="k">MISSION</div><div id="garudaMission" class="v">—</div></div></div><div id="garudaResults" style="margin-top:12px"></div></div></section>
+<section id="garuda" class="view panelView"><div class="panelInner">
+<h1 class="panelTitle">GARUDA 🦅</h1>
+<p class="panelSub">KRISHNA's research and evidence scout. Garuda searches public technical sources, research papers, package registries and GitHub, then hands evidence back to KRISHNA for review and decision.</p>
+<div class="card"><div class="k">SCOUT MISSION</div>
+<textarea id="garudaGoal" class="input" style="width:100%;min-height:90px;margin:10px 0" placeholder="What should Garuda research, compare or discover for this project?"></textarea>
+<button class="primary" style="padding:10px 16px" onclick="runGaruda()">FLY &amp; SCOUT</button>
+<p class="workspaceMeta">Garuda gathers evidence only. Untrusted content is flagged; implementation stays behind KRISHNA Policy + Verifier.</p></div>
+<div id="garudaState" class="card" style="margin-top:12px"><div class="k">STATUS</div><div class="v">READY</div></div>
+<div class="garudaLive">
+<div class="card"><div class="k">FLIGHT</div><div id="garudaFlight" class="v">LANDED</div></div>
+<div class="card"><div class="k">SOURCE</div><div id="garudaSource" class="v">—</div></div>
+<div class="card"><div class="k">FOUND</div><div id="garudaFound" class="v">0</div></div>
+<div class="card"><div class="k">MISSION</div><div id="garudaMission" class="v">—</div></div>
+</div>
+<div id="garudaResults" style="margin-top:12px"></div>
+</div></section>
+
+<section id="garudanetra" class="view panelView"><div class="panelInner">
+<h1 class="panelTitle">GARUDANETRA 👁</h1>
+<p class="panelSub">KRISHNA's private live browser and visual verification eye. Garudanetra opens real pages in Chromium, streams the frame, records browser evidence and allows owner takeover when explicitly requested.</p>
+<div class="card"><div class="k">BROWSER MISSION</div>
+<textarea id="garudanetraGoal" class="input" style="width:100%;min-height:90px;margin:10px 0" placeholder="Enter a URL or describe what Garudanetra should open and verify."></textarea>
+<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">
+<select id="garudaMode" class="select"><option value="private">PRIVATE · destroy browser state</option><option value="task_memory">PRIVATE + TASK MEMORY · retain evidence only</option><option value="persistent_workspace">PERSISTENT WORKSPACE · keep project browser profile</option></select>
+<button class="primary" style="padding:10px 16px" onclick="startGarudanetraMission()">OPEN GARUDANETRA</button>
+</div>
+<p class="workspaceMeta">Private · Task Memory · Persistent Workspace. Credentials are never learned memory. Persistent browser profiles require explicit approval.</p>
+</div>
+<div id="garudanetraState" class="card" style="margin-top:12px"><div class="k">LIVE BROWSER STATUS</div><div class="v">READY</div></div>
+<div class="grid" style="margin-top:12px">
+<div class="card"><div class="k">CONTROL</div><div class="v">KRISHNA / OWNER TAKEOVER</div><p>Use the live Garudanetra panel for pause, continue, tabs, typing, upload and takeover.</p></div>
+<div class="card"><div class="k">EVIDENCE</div><div class="v">CONSOLE · NETWORK · FRAME</div><p>Browser findings remain visible for verification and Task Memory handoff.</p></div>
+</div>
+<button class="ghost" style="margin-top:12px" onclick="toggleLiveWork(true)">OPEN LIVE GARUDANETRA PANEL</button>
+</div></section>
 <section id="narad" class="view panelView"><div class="panelInner">
 <h1 class="panelTitle">NARAD 🪕</h1><p class="panelSub">KRISHNA's durable automation, trigger, connection and messenger control plane. External side effects remain behind Policy Kernel approval.</p>
 <div class="grid">
@@ -1057,15 +1092,14 @@ async function refreshCommandCenter(){
  }catch(e){setOps('verify','Core/API error','bad')}
 }
 setInterval(refreshCommandCenter,2500); setTimeout(refreshCommandCenter,250);
-setTimeout(()=>{const g=$('garudaGoal')||document.querySelector('#garuda textarea');const b=document.querySelector('#garuda button');if(g&&!g.id)g.id='garudaGoal';if(b&&/START PRIVATE WORK|FLY & SCOUT/i.test(b.textContent)){b.onclick=startGarudanetraMission}
- const frame=$('garudaFrame');if(frame){let dragStart=null;frame.addEventListener('pointerdown',e=>{if(!garudaSessionId||!garudaOwnerControl)return;const r=frame.getBoundingClientRect();dragStart={x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};frame.setPointerCapture(e.pointerId)});frame.addEventListener('pointerup',async e=>{if(!dragStart||!garudaSessionId||!garudaOwnerControl)return;const r=frame.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height,start=dragStart;dragStart=null;const dist=Math.hypot(x-start.x,y-start.y);try{if(dist>.03)await garudaControlPayload('drag_xy',{x1:start.x,y1:start.y,x2:x,y2:y});else await garudaControlPayload('click_xy',{x,y})}catch(err){log(err.message)}});frame.addEventListener('wheel',async e=>{if(!garudaSessionId||!garudaOwnerControl)return;e.preventDefault();try{await garudaControlPayload('scroll',{dy:e.deltaY})}catch(err){log(err.message)}},{passive:false})}},100);
+setTimeout(()=>{const frame=$('garudaFrame');if(frame){let dragStart=null;frame.addEventListener('pointerdown',e=>{if(!garudaSessionId||!garudaOwnerControl)return;const r=frame.getBoundingClientRect();dragStart={x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};frame.setPointerCapture(e.pointerId)});frame.addEventListener('pointerup',async e=>{if(!dragStart||!garudaSessionId||!garudaOwnerControl)return;const r=frame.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height,start=dragStart;dragStart=null;const dist=Math.hypot(x-start.x,y-start.y);try{if(dist>.03)await garudaControlPayload('drag_xy',{x1:start.x,y1:start.y,x2:x,y2:y});else await garudaControlPayload('click_xy',{x,y})}catch(err){log(err.message)}});frame.addEventListener('wheel',async e=>{if(!garudaSessionId||!garudaOwnerControl)return;e.preventDefault();try{await garudaControlPayload('scroll',{dy:e.deltaY})}catch(err){log(err.message)}},{passive:false})}},100);
 
 function requestDialog(message,value,confirmation){const dialog=$('actionDialog');if(dialog.open)return Promise.resolve(null);$('dialogLabel').textContent=message;$('dialogInput').hidden=confirmation;$('dialogInput').value=value||'';$('dialogAccept').textContent=confirmation?'Confirm':'Save';return new Promise(resolve=>{dialog.addEventListener('close',()=>resolve(dialog.returnValue==='accept'?(confirmation?true:$('dialogInput').value):null),{once:true});dialog.returnValue='cancel';dialog.showModal();(confirmation?$('dialogAccept'):$('dialogInput')).focus()})}
 function askText(message,value=''){return requestDialog(message,value,false)}
 function confirmAction(message){return requestDialog(message,'',true)}
 async function req(path,payload){const o={headers:{Accept:'application/json','X-Krishna-Device':'sudarshan-web'}};if(payload!==undefined){o.method='POST';o.headers['Content-Type']='application/json';o.body=JSON.stringify(payload)}const r=await fetch(path,o);let d={};try{d=await r.json()}catch(e){d={error:'invalid JSON'}}if(!r.ok)throw new Error((d&&d.error)||('HTTP '+r.status));return d}
 function log(x){$('log').textContent=typeof x==='string'?x:JSON.stringify(x,null,2);if(typeof x==='string'){$('notice').textContent=x;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{$('notice').textContent=''},6000)}}
-function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.body.dataset.view=id;const titles={home:'Almighty Core',sudarshan:'Sudarshan',projects:'Projects',kabach:'KABACH',garuda:'Garudanetra',gyan:'Gyan-Bhandar',narad:'NARAD',plugins:'Plugins',specialists:'Specialists',development:'Developer',uiGuardian:'UI Guardian',work:'Work progress',activity:'Activity',system:'System'};$('pageTitle').textContent=titles[id]||id;const composer=document.querySelector('.composerWrap');if(composer)composer.style.display=id==='sudarshan'?'block':'none';document.querySelectorAll('.nav button').forEach(x=>{const active=x.getAttribute('onclick')==="showView('"+id+"')";x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});if(id==='work'){loadTasks();loadCommitments();}if(id==='uiGuardian')loadUIGuardian();if(id==='plugins')loadPlugins();if(id==='projects')renderProjects();if(id==='gyan'){loadGyanInventory();loadGyan();loadGyanPending()}if(id==='narad')loadNarad();if(id==='garuda')loadGarudanetra();if(id==='kabach')loadKabach();if(id==='development')loadUIRegistry()}
+function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.body.dataset.view=id;const titles={home:'Almighty Core',sudarshan:'Sudarshan',projects:'Projects',kabach:'KABACH',garuda:'Garuda',garudanetra:'Garudanetra',gyan:'Gyan-Bhandar',narad:'NARAD',plugins:'Plugins',specialists:'Specialists',development:'Developer',uiGuardian:'UI Guardian',work:'Work progress',activity:'Activity',system:'System'};$('pageTitle').textContent=titles[id]||id;const composer=document.querySelector('.composerWrap');if(composer)composer.style.display=id==='sudarshan'?'block':'none';document.querySelectorAll('.nav button').forEach(x=>{const active=x.getAttribute('onclick')==="showView('"+id+"')";x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});if(id==='work'){loadTasks();loadCommitments();}if(id==='uiGuardian')loadUIGuardian();if(id==='plugins')loadPlugins();if(id==='projects')renderProjects();if(id==='gyan'){loadGyanInventory();loadGyan();loadGyanPending()}if(id==='narad')loadNarad();if(id==='garuda')refreshGaruda();if(id==='garudanetra')loadGarudanetra();if(id==='kabach')loadKabach();if(id==='development')loadUIRegistry()}
 async function refresh(){try{const [s,p,d]=await Promise.all([req('/api/status'),req('/api/projects'),req('/api/dashboard')]);const di=s.deployment_integrity||{};const drift=di.status==='DRIFT';$('online').textContent=drift?'CORE DRIFT':'CORE ONLINE';$('online').className='pill '+(drift?'bad':'ok');$('dot').className=drift?'statusDot':'statusDot on';$('sideStatus').textContent=drift?'Runtime drift detected':'Core online';$('core').textContent=s.core||'ONLINE';if($('deployIntegrity')){$('deployIntegrity').textContent=(di.status||'UNVERIFIED')+(di.commit?' · '+String(di.commit).slice(0,8):'')};const po=s.pc_observer||{};$('res').textContent=(po.cpu_percent??'—')+'% / '+(po.memory_percent??'—')+'%';if($('holoLoad'))$('holoLoad').textContent='CPU '+(po.cpu_percent??'—')+'% · RAM '+(po.memory_percent??'—')+'%';if($('holoCoreState'))$('holoCoreState').textContent='ONLINE';const projectsChanged=JSON.stringify(projects)!==JSON.stringify(p.projects||[]);projects=p.projects||[];$('projectsCount').textContent=projects.length;$('currentActivity').textContent=d.current_activity||'Idle';$('activityLog').textContent=(d.recent||[]).map(x=>'['+(x.time||'')+'] '+(x.event||x)).join('\n')||'No activity yet.';syncProjects();loadModelRouter();loadRuntimeAudit();loadRequirementsLedger();loadExtendedRuntime();if(projectsChanged||!$('projectCards').childElementCount)renderProjects();if(projectsChanged||!$('projectMenuTree').childElementCount)renderSidebarProjectTree();if(projectsChanged||!$('recentChats').childElementCount)loadGeneralChats()}catch(e){$('online').textContent='CORE OFFLINE';$('online').className='pill bad';$('dot').className='statusDot';$('sideStatus').textContent='Core offline';log(e.message)}}
 function toggleProjectMenu(force){const tree=$('projectMenuTree'),btn=$('projectMenuToggle');if(!tree||!btn)return;projectMenuOpen=typeof force==='boolean'?force:!projectMenuOpen;tree.hidden=!projectMenuOpen;btn.setAttribute('aria-expanded',projectMenuOpen?'true':'false')}
 function toggleChatMenu(force){const list=$('recentChats'),btn=$('chatMenuToggle');if(!list||!btn)return;chatMenuOpen=typeof force==='boolean'?force:!chatMenuOpen;list.hidden=!chatMenuOpen;btn.setAttribute('aria-expanded',chatMenuOpen?'true':'false')}
@@ -1428,12 +1462,20 @@ async function loadKabach(){
 }
 async function loadGarudanetra(){
  try{
-  const [scout,sessions]=await Promise.all([req('/api/garuda/status'),req('/api/garudanetra/sessions')]);
-  const st=$('garudaState')?.querySelector('.v'); if(st)st.textContent=String(scout.phase||'READY').toUpperCase();
+  const sessions=await req('/api/garudanetra/sessions');
   const live=(sessions.sessions||[]).find(x=>!x.stopped&&x.state!=='ERROR');
-  if(live){garudaSessionId=live.session_id;toggleLiveWork(true);startGarudanetraPolling();renderGarudanetraSession(live)}
+  const st=$('garudanetraState')?.querySelector('.v');
+  if(live){
+   if(st)st.textContent=String(live.state||'LIVE').toUpperCase();
+   garudaSessionId=live.session_id;toggleLiveWork(true);startGarudanetraPolling();renderGarudanetraSession(live)
+  }else{
+   if(st)st.textContent='READY';
+  }
   setOps('verify','Garudanetra ready','good');
- }catch(e){setOps('verify','Garudanetra unavailable','bad');log(e.message)}
+ }catch(e){
+  const st=$('garudanetraState')?.querySelector('.v');if(st)st.textContent='UNAVAILABLE';
+  setOps('verify','Garudanetra unavailable','bad');log(e.message)
+ }
 }
 function renderGarudanetraSession(s){
  if(!s)return;
@@ -1483,7 +1525,7 @@ async function garudaUploadPending(){if(!garudaOwnerControl){log('Use TAKE CONTR
 async function garudaControlPayload(action,payload){if(!garudaSessionId){log('No active Garudanetra live session.');return}try{const s=await req('/api/garudanetra/session/control',{session_id:garudaSessionId,action,payload:payload||{}});renderGarudanetraSession(s);return s}catch(e){log(e.message);setOps('verify','Garudanetra control failure','bad')}}
 function toggleGarudaExpand(){const p=$('liveWork');if(!p)return;p.classList.toggle('expanded')}
 async function startGarudanetraMission(){
- const goal=($('garudaGoal')?.value||'').trim(); if(!goal){log('Garudanetra mission is required.');return}
+ const goal=($('garudanetraGoal')?.value||'').trim(); if(!goal){log('Garudanetra mission is required.');return}
  toggleLiveWork(true);$('liveState').textContent='STARTING';$('liveOperation').textContent=goal;setOps('work','Garudanetra: '+goal,'good');
  try{
   if(/^https?:\/\//i.test(goal)){await startGarudanetraBrowser(goal);return}
