@@ -46,15 +46,19 @@ class GyanBhandarAgent:
     def _terms(text):
         return {x for x in re.findall(r"[a-z0-9][a-z0-9_+.-]{2,}",str(text).lower()) if len(x)>2}
 
-    def store(self, project, topic, lesson, evidence=None, confidence=0.0, source="sudarshan", verified=False):
-        item=self.memory.learn(project,topic,lesson,evidence or [],confidence,source,verified)
-        self.memory.audit("gyan_bhandar_store","verified" if verified else "candidate",f"{project}:{item['fingerprint']}")
+    def store(self, project, topic, lesson, evidence=None, confidence=0.0, source="sudarshan", verified=False,
+              memory_kind="semantic", provenance=None, supersedes=None):
+        item=self.memory.learn(project,topic,lesson,evidence or [],confidence,source,verified,memory_kind,provenance,supersedes)
+        self.memory.audit("gyan_bhandar_store","verified" if verified else "candidate",
+            f"{project}:{item['fingerprint']}:{memory_kind}")
         return item
 
-    def propose(self, project, topic, lesson, evidence=None, confidence=0.0, source="research", verified=False):
+    def propose(self, project, topic, lesson, evidence=None, confidence=0.0, source="research", verified=False,
+                memory_kind="semantic", provenance=None, supersedes=None):
         approval_id=str(uuid.uuid4())
-        item=self.memory.create_gyan_pending(approval_id,project,topic,lesson,evidence or [],confidence,source,verified)
-        self.memory.audit("gyan_bhandar_proposal","waiting_approval",f"{project}:{approval_id}:{topic}")
+        item=self.memory.create_gyan_pending(approval_id,project,topic,lesson,evidence or [],confidence,source,verified,
+                                             memory_kind,provenance,supersedes)
+        self.memory.audit("gyan_bhandar_proposal","waiting_approval",f"{project}:{approval_id}:{topic}:{memory_kind}")
         return {**item,"stored":False,"requires_user_approval":True,
             "question":"Save these findings to Gyan-Bhandar?"}
 
@@ -68,7 +72,8 @@ class GyanBhandarAgent:
             out=self.memory.decide_gyan_pending(approval_id,"rejected")
             self.memory.audit("gyan_bhandar_proposal","rejected",approval_id)
             return {**out,"stored":False}
-        stored=self.store(item["project"],item["topic"],item["lesson"],item["evidence"],item["confidence"],item["source"],item["verified"])
+        stored=self.store(item["project"],item["topic"],item["lesson"],item["evidence"],item["confidence"],item["source"],item["verified"],
+                          item.get("memory_kind","semantic"),item.get("provenance") or {},item.get("supersedes"))
         out=self.memory.decide_gyan_pending(approval_id,"approved")
         self.memory.audit("gyan_bhandar_proposal","approved",approval_id)
         return {**out,"stored":True,"learning":stored}
@@ -78,12 +83,26 @@ class GyanBhandarAgent:
         self.memory.audit("gyan_bhandar_compact","completed",f"{result['records_compacted']} records; {result['bytes_saved']} bytes saved")
         return {"agent":"Gyan-Bhandar",**result}
 
-    def recall(self, project, topic=None, limit=50, verified_only=False):
-        rows=self.memory.learnings(project,limit,verified_only)
+    def recall(self, project, topic=None, limit=50, verified_only=False, memory_kind=None, include_superseded=False):
+        rows=self.memory.learnings(project,limit,verified_only,memory_kind,include_superseded)
         if topic:
             wanted=self._terms(topic)
             rows.sort(key=lambda x:len(wanted & self._terms(x["topic"]+" "+x["lesson"])),reverse=True)
         return rows
+
+    def inventory(self, project):
+        out=self.memory.learning_inventory(project)
+        out["agent"]="Gyan-Bhandar"
+        out["policy"]="working / episodic / semantic / graph / skill / evidence with provenance and supersession"
+        return out
+
+    def supersede(self, project, fingerprint, topic, lesson, evidence=None, confidence=0.0, source="krishna",
+                  verified=False, memory_kind="semantic", provenance=None):
+        old=[x for x in self.memory.learnings(project,500,False,None,True) if x.get("fingerprint")==fingerprint]
+        if not old: raise KeyError(fingerprint)
+        proposal=self.propose(project,topic,lesson,evidence or [],confidence,source,verified,memory_kind,provenance,fingerprint)
+        self.memory.audit("gyan_bhandar_supersession","waiting_approval",f"{project}:{fingerprint}->{proposal['approval_id']}")
+        return proposal
 
     def theory(self, project, topic, limit=25):
         rows=self.recall(project,topic,limit=limit)
