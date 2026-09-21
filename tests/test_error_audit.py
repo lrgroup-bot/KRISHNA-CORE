@@ -179,7 +179,7 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn('<section id="garudanetra" class="view panelView">',web)
         self.assertIn('id="garudaGoal"',web)
         self.assertIn('id="garudanetraGoal"',web)
-        self.assertIn("onclick=\"runGaruda()\"",'onclick="'+web.split('onclick="runGaruda()"',1)[0][-9:]+'runGaruda()"') if False else self.assertIn('onclick="runGaruda()"',web)
+        self.assertIn('onclick="runGaruda()"',web)
         self.assertIn('onclick="startGarudanetraMission()"',web)
         self.assertNotIn("document.querySelector('#garuda button')",web)
         self.assertIn('"agent":"Garuda"',garuda)
