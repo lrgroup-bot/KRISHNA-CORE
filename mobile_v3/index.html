@@ -3,7 +3,7 @@
 <style>
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#020914;color:#e9fbff;font-family:Arial,sans-serif}
 .app{height:100%;display:flex;flex-direction:column;background:radial-gradient(circle at 50% 34%,#123e66aa,transparent 36%),linear-gradient(#061726,#020914)}
-header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#f2c96f;font-size:22px;font-weight:900}.state{font-size:10px;color:#82a8b9;letter-spacing:2px;margin-top:7px}
+header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#f2c96f;font-size:22px;font-weight:900}.state{cursor:pointer;font-size:10px;color:#82a8b9;letter-spacing:2px;margin-top:7px}
 .stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;touch-action:none;overflow:hidden}
 .halo{position:absolute;width:min(68vw,330px);aspect-ratio:1;border:2px solid #f2c96f88;border-radius:50%;box-shadow:0 0 45px #43bff255,inset 0 0 35px #43bff222}
 .avatarViewport{position:relative;height:min(57vh,540px);aspect-ratio:1/3;overflow:hidden;z-index:2;filter:drop-shadow(0 16px 22px #000a);user-select:none}
@@ -18,7 +18,7 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
 .security{font-size:9px;text-align:center;color:#6f91a0;margin-top:7px;letter-spacing:.25px}
 </style></head>
 <body><div class="app">
-<header><div class="brand">KRISHNA</div><div id="state" class="state">CONNECTING</div></header>
+<header><div class="brand">KRISHNA</div><div id="state" class="state" title="Tap to configure the private KRISHNA PC link" onclick="configurePc()">CONNECTING</div></header>
 <section id="stage" class="stage">
   <div class="halo"></div><div id="rotateHint" class="rotateHint">SWIPE TO ROTATE · 360°</div>
   <div id="avatarViewport" class="avatarViewport"><img id="avatarSprite" class="sprite" src="krishna_child_360.webp" alt="KRISHNA child avatar"><div id="viewLabel" class="viewLabel">FRONT</div></div>
@@ -62,6 +62,21 @@ window.listen=()=>{if(busy)return;if(!Krishna.voiceEnrolled()){reply('Say a natu
 }
 
 window.attachFile=input=>{const file=input.files&&input.files[0];if(!file)return;if(file.size>25*1024*1024){reply('Attachment exceeds 25 MB.','bad');input.value='';return}reply('Attaching '+file.name+'…','warn');const reader=new FileReader();reader.onload=()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const b64=String(reader.result).split(',')[1]||'';const d=JSON.parse(Krishna.attach(file.name,file.type||'application/octet-stream',b64));if(d.error)throw new Error(d.error);if(d.attachment_id)pendingAttachmentIds.push(d.attachment_id);reply('Attached '+file.name+'. It will be included in your next KRISHNA request.','good')}catch(e){reply(e.message,'bad')}finally{input.value=''}};reader.readAsDataURL(file)}
+
+function configurePc(){
+ try{
+   const current=(Krishna.coreUrl&&Krishna.coreUrl())||'';
+   const value=prompt('KRISHNA PC private address (LAN or Tailscale), for example http://192.168.1.10:8766',current);
+   if(value===null)return;
+   const d=JSON.parse(Krishna.configureCoreUrl(value));
+   if(d.error)throw new Error(d.error);
+   pairingRequestedAt=0;
+   document.getElementById('state').textContent='CONNECTING';
+   document.getElementById('state').className='state warn';
+   reply('Private PC link saved. KRISHNA will pair without a code.','good');
+   setTimeout(poll,100);
+ }catch(e){reply(e.message,'bad')}
+}
 
 function poll(){try{const link=JSON.parse(Krishna.connection());if(link.error||!link.connected){if(Date.now()-pairingRequestedAt>15000){pairingRequestedAt=Date.now();try{const p=JSON.parse(Krishna.pairingRequest());if(!p.error){document.getElementById('state').textContent='WAITING FOR PC APPROVAL';document.getElementById('state').className='state warn';reply('Pairing request sent securely. Approve this phone once in KRISHNA PC System. No code is required.','warn');return}}catch(_){}}throw new Error(link.error||'Backend link not confirmed')}const d=JSON.parse(Krishna.state());if(d.error)throw new Error(d.error);setMode(d.operator?.avatar_state||'FLUTE',d.operator?.current?.task||'Radhe Radhe. I am ready.');document.getElementById('state').className='state good'}catch(e){if(document.getElementById('state').textContent!=='WAITING FOR PC APPROVAL')document.getElementById('state').textContent='PC OFFLINE';document.getElementById('state').className=document.getElementById('state').textContent==='WAITING FOR PC APPROVAL'?'state warn':'state bad'}}
 showAvatarView(0);startAuto();poll();setInterval(poll,5000);

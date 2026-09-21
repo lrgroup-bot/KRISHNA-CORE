@@ -77,10 +77,12 @@ class SpecialistTeamPlanner:
 
     def plan(self, task: str, project="KRISHNA", external_limit=6):
         roles=self.roles_for(task)
-        external=[]
+        external=[];advisor_error=None
         if self.agency:
             try:external=self.agency.select(task,max(1,min(int(external_limit),8)))
-            except Exception:external=[]
+            except Exception as exc:
+                external=[]
+                advisor_error=f"{type(exc).__name__}: {exc}"
         manifests=[self.manifests[x].as_dict() for x in roles]
         return {
             "team_id":str(uuid.uuid4()),
@@ -88,6 +90,7 @@ class SpecialistTeamPlanner:
             "task":str(task).strip(),
             "roles":manifests,
             "agency_advisors":external,
+            "advisor_error":advisor_error,
             "flow":["KRISHNA","Planner","Specialists","Critic","Independent Verifier","KRISHNA Decision","Action"],
             "authority":"KRISHNA",
             "live_mutation_allowed":False,

@@ -28,6 +28,20 @@ from krishna_core.promotion_manager import PromotionManager
 
 
 class KrishnaCapabilityTests(unittest.TestCase):
+    def test_gyan_file_archive_is_scoped_to_runtime(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)/"runtime";root.mkdir()
+            outside=Path(td)/"outside.txt";outside.write_text("outside",encoding="utf-8")
+            inside=root/"inside.txt";inside.write_text("inside",encoding="utf-8")
+            orch=Orchestrator(root/"core.db")
+            try:
+                archived=orch.gyan_archive_file("KRISHNA",inside)
+                self.assertEqual(archived["name"],"inside.txt")
+                with self.assertRaises(PermissionError):
+                    orch.gyan_archive_file("KRISHNA",outside)
+            finally:
+                orch.close()
+
     def test_project_graph_relevant(self):
         graph = ProjectGraph()
         graph.upsert_node("api", "service")
@@ -582,7 +596,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
 
     def test_server_exposes_localhost_only_e2e_registration(self):
         server = (Path(__file__).resolve().parents[1] / "krishna_core" / "server.py").read_text(encoding="utf-8")
-        self.assertIn('if self.path == "/api/e2e/register":', server)
+        self.assertIn('if post_path == "/api/e2e/register":', server)
         self.assertIn('self.client_address[0] not in ("127.0.0.1", "::1")', server)
 
     def test_web_ui_keeps_internal_engines_out_of_manual_navigation(self):

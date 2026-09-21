@@ -117,12 +117,16 @@ class AutonomySupervisor:
         self.last_run=now;self.run_count+=1;self.last_results=results[-50:]
         return {"checked":len(rows),"executed":sum(1 for x in results if x.get("ok")),"results":results,"at":now}
 
+    def _record_loop_error(self,exc):
+        row={"ok":False,"error":f"supervisor_loop: {type(exc).__name__}: {exc}","at":time.time()}
+        self.last_results=(self.last_results+[row])[-50:]
+
     def _loop(self):
         try:self.run_once()
-        except Exception:pass
+        except Exception as exc:self._record_loop_error(exc)
         while not self._stop.wait(self.poll_seconds):
             try:self.run_once()
-            except Exception:pass
+            except Exception as exc:self._record_loop_error(exc)
 
     def status(self):
         rows=self.orch.commitments.list(None,True,500)

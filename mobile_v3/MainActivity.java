@@ -50,7 +50,24 @@ public class MainActivity extends Activity {
     web=new WebView(this);
     web.getSettings().setJavaScriptEnabled(true);
     web.getSettings().setDomStorageEnabled(true);
-    web.getSettings().setAllowFileAccess(true);
+    web.getSettings().setAllowFileAccess(true); // required only for android_asset shell
+    web.getSettings().setAllowFileAccessFromFileURLs(false);
+    web.getSettings().setAllowUniversalAccessFromFileURLs(false);
+    web.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+    web.getSettings().setSafeBrowsingEnabled(true);
+    web.removeJavascriptInterface("searchBoxJavaBridge_");
+    web.removeJavascriptInterface("accessibility");
+    web.removeJavascriptInterface("accessibilityTraversal");
+    web.setWebViewClient(new WebViewClient(){
+      boolean trusted(Uri u){return u!=null && "file".equalsIgnoreCase(u.getScheme()) && "/android_asset/index.html".equals(u.getPath());}
+      @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
+        if(request==null || !request.isForMainFrame())return false;
+        return !trusted(request.getUrl());
+      }
+      @Override public boolean shouldOverrideUrlLoading(WebView view,String url){
+        try{return !trusted(Uri.parse(url));}catch(Exception e){return true;}
+      }
+    });
     web.setWebChromeClient(new WebChromeClient(){
       @Override public void onPermissionRequest(PermissionRequest request){
         runOnUiThread(()->{
@@ -219,17 +236,45 @@ public class MainActivity extends Activity {
       }catch(Exception ignored){}
       return false;
     }
+    String discoverLanCore(){
+      DatagramSocket s=null;
+      try{
+        s=new DatagramSocket();s.setBroadcast(true);s.setSoTimeout(1200);
+        byte[] q="KRISHNA_DISCOVER_V1".getBytes("UTF-8");
+        s.send(new DatagramPacket(q,q.length,InetAddress.getByName("255.255.255.255"),8767));
+        byte[] buf=new byte[1024];DatagramPacket p=new DatagramPacket(buf,buf.length);s.receive(p);
+        JSONObject d=new JSONObject(new String(p.getData(),0,p.getLength(),"UTF-8"));
+        if(!"KRISHNA_CORE".equals(d.optString("service")))return "";
+        int port=d.optInt("port",8766);
+        String host=p.getAddress().getHostAddress();
+        String candidate="http://"+host+":"+port;
+        if(!privateCoreUrl(candidate))return "";
+        getSharedPreferences("k",0).edit().putString("core_url",candidate).apply();
+        return candidate;
+      }catch(Exception ignored){return "";}
+      finally{if(s!=null)s.close();}
+    }
+    String coreBase()throws Exception{
+      String base=getSharedPreferences("k",0).getString("core_url","").trim();
+      if(base.isEmpty())base=discoverLanCore();
+      if(base.isEmpty())throw new IllegalStateException("KRISHNA Core address is not configured. Enable Mobile LAN on the PC or enter a LAN/Tailscale Core address.");
+      if(!privateCoreUrl(base))throw new SecurityException("Core URL is outside KRISHNA private-network policy");
+      return base.replaceAll("/+$","");
+    }
     @JavascriptInterface public String configureCoreUrl(String value){
       try{
         value=value==null?"":value.trim();
         if(!privateCoreUrl(value))throw new SecurityException("KRISHNA Mobile accepts only LAN/private-overlay Core URLs");
-        getSharedPreferences("k",0).edit().putString("core_url",value.replaceAll("/+$","")).apply();
+        value=value.replaceAll("/+$","");
+        getSharedPreferences("k",0).edit().putString("core_url",value).apply();
         JSONObject d=new JSONObject();d.put("ok",true);d.put("core_url",value);d.put("policy","private-network-only");return d.toString();
       }catch(Exception e){return error(e);}
     }
+    @JavascriptInterface public String coreUrl(){
+      try{return coreBase();}catch(Exception e){return "";}
+    }
     HttpURLConnection conn(String path)throws Exception{
-      String base=getSharedPreferences("k",0).getString("core_url","http://192.168.0.106:8766");
-      if(!privateCoreUrl(base))throw new SecurityException("Core URL is outside KRISHNA private-network policy");
+      String base=coreBase();
       HttpURLConnection c=(HttpURLConnection)new URL(base+path).openConnection();
       c.setConnectTimeout(4000);c.setReadTimeout(120000);
       c.setRequestProperty("Authorization","Device "+token());
@@ -239,25 +284,30 @@ public class MainActivity extends Activity {
     }
     String callUnauthed(String path,String body){
       try{
-        String base=getSharedPreferences("k",0).getString("core_url","http://192.168.0.106:8766");
-        if(!privateCoreUrl(base))throw new SecurityException("Core URL is outside KRISHNA private-network policy");
+        String base=coreBase();
         HttpURLConnection c=(HttpURLConnection)new URL(base+path).openConnection();
         c.setConnectTimeout(4000);c.setReadTimeout(10000);c.setRequestProperty("X-Krishna-Device",deviceId());
         c.setRequestMethod("POST");c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");
-        c.getOutputStream().write(body.getBytes("UTF-8"));
+        try(OutputStream out=c.getOutputStream()){out.write(body.getBytes("UTF-8"));}
         return read(c);
       }catch(Exception e){return error(e);}
     }
     String call(String path,String body){
       try{
         HttpURLConnection c=conn(path);
-        if(body!=null){c.setRequestMethod("POST");c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");c.getOutputStream().write(body.getBytes("UTF-8"));}
+        if(body!=null){c.setRequestMethod("POST");c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");try(OutputStream out=c.getOutputStream()){out.write(body.getBytes("UTF-8"));}}
         return read(c);
       }catch(Exception e){return error(e);}
     }
     String read(HttpURLConnection c)throws Exception{
-      InputStream in=c.getResponseCode()<400?c.getInputStream():c.getErrorStream();
-      ByteArrayOutputStream o=new ByteArrayOutputStream();byte[]b=new byte[8192];for(int n;(n=in.read(b))>0;)o.write(b,0,n);return o.toString("UTF-8");
+      try{
+        int code=c.getResponseCode();
+        InputStream source=code<400?c.getInputStream():c.getErrorStream();
+        if(source==null)return "{\"error\":\"HTTP "+code+" returned no response body\"}";
+        try(InputStream in=source;ByteArrayOutputStream o=new ByteArrayOutputStream()){
+          byte[]b=new byte[8192];for(int n;(n=in.read(b))>0;)o.write(b,0,n);return o.toString("UTF-8");
+        }
+      }finally{c.disconnect();}
     }
     String error(Exception e){return "{\"error\":"+JSONObject.quote(e.getClass().getSimpleName()+": "+String.valueOf(e.getMessage()))+"}";}
   }

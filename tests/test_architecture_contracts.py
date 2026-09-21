@@ -71,6 +71,13 @@ class ArchitectureContracts(unittest.TestCase):
             self.assertIn(token,accept)
         self.assertIn("ACCEPT_KRISHNA_RUNTIME.ps1",deploy)
         self.assertIn("refusing final start",deploy)
+        self.assertIn('Get-ChildItem (Join-Path $Source "scripts")',deploy)
+        self.assertIn("$currentBranch=(git branch --show-current).Trim()",deploy)
+        self.assertIn("provisional manifest rolled back",deploy)
+        self.assertIn('state\\acceptance\\',accept)
+        self.assertIn('$env:KRISHNA_DB=Join-Path $acceptanceState "krishna_core.db"',accept)
+        self.assertIn('Add-Check "Acceptance harness" "FAIL"',accept)
+        self.assertIn('Remove-Item -Recurse -Force $acceptanceState',accept)
 
     def test_missed_additions_are_release_contracts(self):
         root=Path(__file__).resolve().parents[1]

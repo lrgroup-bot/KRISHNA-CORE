@@ -52,6 +52,7 @@ class NaradRuntime:
         self.dead_letters=[]
         self.schedule_state={}
         self.webhook_hashes={}
+        self.load_error=None
         self._lock=threading.RLock()
         self._load()
 
@@ -89,10 +90,18 @@ class NaradRuntime:
             self.dead_letters=list(raw.get("dead_letters",[]))[-200:]
             self.schedule_state={str(k):float(v) for k,v in (raw.get("schedule_state") or {}).items()}
             self.webhook_hashes={str(k):str(v) for k,v in (raw.get("webhook_hashes") or {}).items()}
-        except Exception:
+        except Exception as exc:
             self.workflows={};self.history=[];self.dead_letters=[];self.schedule_state={};self.webhook_hashes={}
+            self.load_error=f"{type(exc).__name__}: {exc}"
+        else:
+            self.load_error=None
+
+    def _healthy(self):
+        if self.load_error:
+            raise RuntimeError("Narad durable state is unreadable; refusing execution or mutation: "+self.load_error)
 
     def _save(self):
+        self._healthy()
         if not self.state_path:
             return
         self.state_path.parent.mkdir(parents=True,exist_ok=True)
@@ -114,6 +123,7 @@ class NaradRuntime:
             if os.path.exists(tmp):os.unlink(tmp)
 
     def create_workflow(self,name,trigger,steps,permissions=None):
+        self._healthy()
         name=str(name or "").strip()
         if not name: raise ValueError("workflow name is required")
         if not isinstance(steps,list) or not steps: raise ValueError("workflow requires at least one step")
@@ -125,6 +135,7 @@ class NaradRuntime:
         return w.as_dict()
 
     def promote(self,workflow_id,state,verified=False):
+        self._healthy()
         with self._lock:
             w=self.workflows[workflow_id]
             target=WorkflowState(state)
@@ -148,6 +159,7 @@ class NaradRuntime:
         return result
 
     def execute(self,workflow_id,context=None,approved=False,trigger_source="manual"):
+        self._healthy()
         with self._lock:
             w=self.workflows[workflow_id]
             state=w.state
@@ -216,6 +228,7 @@ class NaradRuntime:
         return record
 
     def handle_event(self,topic,payload=None):
+        self._healthy()
         with self._lock:
             matches=[w.id for w in self.workflows.values()
                      if w.state==WorkflowState.STABLE.value and w.trigger.get("type")=="event"
@@ -227,6 +240,7 @@ class NaradRuntime:
         return out
 
     def run_due(self,now=None):
+        self._healthy()
         now=float(now or time.time())
         with self._lock:
             due=[]
@@ -245,6 +259,7 @@ class NaradRuntime:
         return {"checked_at":now,"due":len(due),"results":results}
 
     def provision_webhook(self,workflow_id):
+        self._healthy()
         with self._lock:
             w=self.workflows[workflow_id]
             if w.trigger.get("type")!="webhook":raise ValueError("workflow is not configured for webhook trigger")
@@ -255,6 +270,7 @@ class NaradRuntime:
                 "warning":"Token is shown once. KRISHNA stores only its hash."}
 
     def handle_webhook(self,token,payload=None):
+        self._healthy()
         digest=hashlib.sha256(str(token).encode()).hexdigest()
         with self._lock:
             matches=[wid for wid,h in self.webhook_hashes.items() if secrets.compare_digest(h,digest)]
@@ -264,6 +280,7 @@ class NaradRuntime:
         return self.execute(wid,{"webhook":payload or {}},approved=False,trigger_source="webhook")
 
     def retry_dead_letter(self,letter_id,approved=False):
+        self._healthy()
         with self._lock:
             letter=next((x for x in self.dead_letters if x.get("id")==letter_id),None)
         if not letter:raise KeyError("Narad dead letter not found")
@@ -289,4 +306,5 @@ class NaradRuntime:
                 "connections":self.credentials.list()["count"] if self.credentials else 0,
                 "scheduler_ready":True,"webhook_gateway":True,
                 "provider_hub":self.provider_hub.providers() if self.provider_hub else [],
+                "available":not bool(self.load_error),"load_error":self.load_error,
             }

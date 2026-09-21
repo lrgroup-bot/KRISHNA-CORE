@@ -8,13 +8,27 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
 
 from .garudanetra_recovery import BrowserRecoveryAdapter
 
 
 _SAFE_NAME=re.compile(r"[^A-Za-z0-9._-]+")
+_SENSITIVE_URL_KEY=re.compile(r"(?:token|secret|pass(?:word)?|api[_-]?key|auth|signature|credential|session|code)",re.I)
 BROWSER_MODES={"private","task_memory","persistent_workspace"}
+
+
+def _redact_url(value)->str:
+    raw=str(value or "")
+    try:
+        parsed=urlsplit(raw)
+        netloc=parsed.netloc.rsplit("@",1)[-1]
+        query=urlencode([(key,"REDACTED" if _SENSITIVE_URL_KEY.search(key) else val)
+                         for key,val in parse_qsl(parsed.query,keep_blank_values=True)],doseq=True)
+        fragment="REDACTED" if parsed.fragment and _SENSITIVE_URL_KEY.search(parsed.fragment) else parsed.fragment
+        return urlunsplit((parsed.scheme,netloc,parsed.path,query,fragment))
+    except Exception:
+        return "[invalid-url]"
 
 
 @dataclass
@@ -119,16 +133,25 @@ class GarudanetraSessionManager:
     @staticmethod
     def _snapshot(session):
         return {
-            "session_id":session.session_id,"project":session.project,"requested_url":session.requested_url,
-            "mode":session.mode,"state":session.state,"current_url":session.current_url,"title":session.title,
+            "session_id":session.session_id,"project":session.project,"requested_url":_redact_url(session.requested_url),
+            "mode":session.mode,"state":session.state,"current_url":_redact_url(session.current_url),"title":session.title,
             "paused":session.paused,"owner_control":session.owner_control,"stopped":session.stopped,
             "created_at":session.created_at,"updated_at":session.updated_at,"last_error":session.last_error,
             "viewport":dict(session.viewport),"visible_text":session.visible_text[:6000],
-            "console":list(session.console[-50:]),"network":list(session.network[-100:]),
-            "findings":list(session.findings[-100:]),"downloads":list(session.downloads[-50:]),"tabs":list(session.tabs[-30:]),
+            "console":list(session.console[-50:]),
+            "network":[{**row,"url":_redact_url(row.get("url"))} for row in session.network[-100:]],
+            "findings":list(session.findings[-100:]),"downloads":list(session.downloads[-50:]),
+            "tabs":[{**row,"url":_redact_url(row.get("url"))} for row in session.tabs[-30:]],
             "frame_available":bool(session.frame),"tab_index":session.tab_index,
             "remember_evidence":session.remember_evidence,"profile_path":session.profile_path,
         }
+
+    def _warn(self,session,kind,exc):
+        detail=f"{type(exc).__name__}: {exc}"[:1200]
+        with self._lock:
+            session.findings.append({"kind":str(kind),"detail":detail,"severity":"warning","at":time.time()})
+            del session.findings[:-200]
+            session.updated_at=time.time()
 
     def frame(self,session_id):
         session=self._get(session_id)
@@ -142,12 +165,23 @@ class GarudanetraSessionManager:
         except queue.Full as exc:raise RuntimeError("Garudanetra command queue is full") from exc
         return self.status(session.session_id)
 
-    def close_all(self):
+    def close_all(self,timeout=5.0):
         with self._lock:ids=list(self._sessions)
         for sid in ids:
             try:
                 if not self._get(sid).stopped:self.command(sid,"stop")
-            except Exception:pass
+            except Exception as exc:
+                try:self._warn(self._get(sid),"close_all_error",exc)
+                except KeyError:continue
+        deadline=time.time()+max(0.0,float(timeout))
+        for sid in ids:
+            thread=self._threads.get(sid)
+            if not thread or not thread.is_alive():continue
+            remaining=max(0.0,deadline-time.time())
+            if remaining<=0:break
+            thread.join(timeout=remaining)
+        with self._lock:
+            return {"requested":len(ids),"running":sum(1 for sid in ids if self._threads.get(sid) and self._threads[sid].is_alive())}
 
     def _persist(self,session):
         if session.mode=="private":return
@@ -166,8 +200,9 @@ class GarudanetraSessionManager:
     def _append_network(self,sid,method,url,status):
         session=self._get(sid)
         with self._lock:
-            session.network.append({"method":method,"url":str(url)[:1500],"status":int(status),"at":time.time()});del session.network[:-400]
-            if int(status)>=400:session.findings.append({"kind":"http_error","detail":f"{status} {url}"[:1200],"severity":"error"})
+            safe_url=_redact_url(url)[:1500]
+            session.network.append({"method":method,"url":safe_url,"status":int(status),"at":time.time()});del session.network[:-400]
+            if int(status)>=400:session.findings.append({"kind":"http_error","detail":f"{status} {safe_url}"[:1200],"severity":"error"})
 
     def _download(self,sid,download):
         session=self._get(sid)
@@ -193,7 +228,7 @@ class GarudanetraSessionManager:
         for i,p in enumerate(context.pages):
             try:title=p.title()
             except Exception:title=""
-            rows.append({"index":i,"url":p.url,"title":title})
+            rows.append({"index":i,"url":_redact_url(p.url),"title":title})
         return rows
 
     def _click_or_fill(self,page,action,payload,session):
@@ -311,11 +346,11 @@ class GarudanetraSessionManager:
                     try:
                         text=page.locator("body").inner_text(timeout=min(self.timeout_ms,3000))[:12000]
                         with self._lock:session.visible_text=text
-                    except Exception:pass
+                    except Exception as exc:self._warn(session,"visible_text_error",exc)
                     last_text=now
                 if now-last_persist>=3.0:
                     try:self._persist(session)
-                    except Exception:pass
+                    except Exception as exc:self._warn(session,"evidence_persist_error",exc)
                     last_persist=now
         except Exception as exc:
             with self._lock:
@@ -325,15 +360,15 @@ class GarudanetraSessionManager:
             for obj in (context,browser):
                 try:
                     if obj:obj.close()
-                except Exception:pass
+                except Exception as exc:self._warn(session,"browser_cleanup_error",exc)
             try:
                 if playwright_cm:playwright_cm.stop()
-            except Exception:pass
+            except Exception as exc:self._warn(session,"playwright_stop_error",exc)
             with self._lock:
                 if session.state!="ERROR":session.state="STOPPED"
                 session.stopped=True;session.paused=False;session.owner_control=False;session.updated_at=time.time()
             try:self._persist(session)
-            except Exception:pass
+            except Exception as exc:self._warn(session,"final_evidence_persist_error",exc)
             if self.on_closed and session.remember_evidence:
                 try:self.on_closed(self._snapshot(session))
-                except Exception:pass
+                except Exception as exc:self._warn(session,"task_memory_callback_error",exc)

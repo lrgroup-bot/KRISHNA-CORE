@@ -35,6 +35,7 @@ class NaradCredentialVault:
         self.path = Path(path)
         self.secure_vault = secure_vault or SecureSecretVault(self.path.parent / "secure-secrets.json")
         self.refs: dict[str, CredentialRef] = {}
+        self.load_error = None
         self._load()
 
     def _load(self):
@@ -52,10 +53,18 @@ class NaradCredentialVault:
                 row.setdefault("env_var", "")
                 refs[row["id"]] = CredentialRef(**row)
             self.refs = refs
-        except Exception:
+        except Exception as exc:
             self.refs = {}
+            self.load_error = f"{type(exc).__name__}: {exc}"
+        else:
+            self.load_error = None
+
+    def _healthy(self):
+        if self.load_error:
+            raise RuntimeError("Narad credential metadata is unreadable; refusing mutation or secret resolution: "+self.load_error)
 
     def _save(self):
+        self._healthy()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"schema": 2, "credentials": [asdict(x) for x in self.refs.values()]}
         fd, tmp = tempfile.mkstemp(prefix="narad-credentials-", suffix=".json", dir=str(self.path.parent))
@@ -80,6 +89,7 @@ class NaradCredentialVault:
         return name, provider, header, scheme
 
     def register(self, name, provider, env_var, header="Authorization", scheme="Bearer"):
+        self._healthy()
         name, provider, header, scheme = self._validate_common(name, provider, header, scheme)
         env_var = str(env_var or "").strip()
         if not env_var:
@@ -94,6 +104,7 @@ class NaradCredentialVault:
         return self.describe(ref.id)
 
     def register_secret(self, name, provider, secret, header="Authorization", scheme="Bearer"):
+        self._healthy()
         name, provider, header, scheme = self._validate_common(name, provider, header, scheme)
         meta = self.secure_vault.put(name, provider, str(secret or ""))
         ref = CredentialRef(str(uuid.uuid4()), name, provider, "", header, scheme, time.time(), "vault", meta["id"])
@@ -102,14 +113,14 @@ class NaradCredentialVault:
         return self.describe(ref.id)
 
     def delete(self, credential_id):
-        ref = self.refs.pop(str(credential_id), None)
+        self._healthy()
+        key=str(credential_id)
+        ref = self.refs.get(key)
         if not ref:
             return False
         if ref.source == "vault" and ref.secret_id:
-            try:
-                self.secure_vault.delete(ref.secret_id)
-            except Exception:
-                pass
+            self.secure_vault.delete(ref.secret_id)
+        self.refs.pop(key,None)
         self._save()
         return True
 
@@ -125,6 +136,7 @@ class NaradCredentialVault:
         return False
 
     def describe(self, credential_id):
+        self._healthy()
         ref = self.refs.get(str(credential_id))
         if not ref:
             raise KeyError("Narad credential reference not found")
@@ -135,16 +147,25 @@ class NaradCredentialVault:
         return row
 
     def list(self):
+        if self.load_error:
+            return {
+                "connections": [], "count": 0, "available": False, "load_error": self.load_error,
+                "secure_vault": self.secure_vault.list(),
+                "policy": "credential metadata is unreadable; mutation and secret resolution are fail-closed",
+            }
         rows = [self.describe(x) for x in self.refs]
         rows.sort(key=lambda x: x["created_at"], reverse=True)
         return {
             "connections": rows,
             "count": len(rows),
+            "available": True,
+            "load_error": None,
             "secure_vault": self.secure_vault.list(),
             "policy": "environment references or Windows DPAPI; plaintext secrets are never returned",
         }
 
     def resolve(self, credential_id):
+        self._healthy()
         ref = self.refs.get(str(credential_id))
         if not ref:
             raise KeyError("Narad credential reference not found")

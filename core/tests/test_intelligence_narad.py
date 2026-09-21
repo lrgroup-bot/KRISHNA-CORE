@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from krishna_core.policy_kernel import PolicyKernel
 from krishna_core.automation_bus import AutomationBus
 from krishna_core.narad import NaradRuntime
+from krishna_core.narad.scheduler import NaradScheduler
 from krishna_core.narad.credentials import NaradCredentialVault
 from krishna_core.specialist_registry import SpecialistRegistry
 from krishna_core.context_governor import ContextGovernor
@@ -13,6 +14,15 @@ from krishna_core.integrations import CodebaseMemoryAdapter, GraftMemoryAdapter
 from krishna_core.media_adapter import OpenMontageAdapter
 
 class IntelligenceNaradTests(unittest.TestCase):
+    def test_scheduler_status_is_valid_before_start(self):
+        class Runtime:
+            def run_due(self): return {"due":0,"results":[]}
+        scheduler=NaradScheduler(Runtime(),poll_seconds=5)
+        status=scheduler.status()
+        self.assertFalse(status["running"])
+        self.assertEqual(status["run_count"],0)
+        self.assertIsNone(status["last_error"])
+
     def test_optional_adapters_fail_closed(self):
         self.assertFalse(CodebaseMemoryAdapter(executable="").status()["available"])
         self.assertFalse(GraftMemoryAdapter(executable="").status()["available"])
@@ -131,6 +141,31 @@ class IntelligenceNaradTests(unittest.TestCase):
             raw=path.read_text(encoding="utf-8")
             self.assertNotIn("super-secret-value",raw)
             self.assertIn("KRISHNA_TEST_N8N_TOKEN",raw)
+
+    def test_corrupt_narad_state_fails_closed_without_overwrite(self):
+        with TemporaryDirectory() as td:
+            state=Path(td)/"narad.json"
+            state.write_text("{broken",encoding="utf-8")
+            n=NaradRuntime(PolicyKernel(Path(td)),AutomationBus(),state_path=state)
+            self.assertFalse(n.status()["available"])
+            before=state.read_text(encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                n.create_workflow("must-not-overwrite",{"type":"manual"},[{"action":"publish_event","topic":"x"}])
+            self.assertEqual(state.read_text(encoding="utf-8"),before)
+
+    def test_corrupt_narad_credential_state_fails_closed_without_overwrite(self):
+        with TemporaryDirectory() as td:
+            path=Path(td)/"credentials.json"
+            path.write_text("{broken",encoding="utf-8")
+            vault=NaradCredentialVault(path)
+            status=vault.list()
+            self.assertFalse(status["available"])
+            before=path.read_text(encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                vault.register("Broken","n8n","KRISHNA_TOKEN")
+            with self.assertRaises(RuntimeError):
+                vault.resolve("missing")
+            self.assertEqual(path.read_text(encoding="utf-8"),before)
 
     def test_dead_letter_retry_can_succeed_only_with_explicit_approval(self):
         class Adapter:

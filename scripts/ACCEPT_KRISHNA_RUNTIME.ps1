@@ -8,12 +8,15 @@ $Py=Join-Path $RuntimeRoot ".venv\Scripts\python.exe"
 if(!(Test-Path $Py)){throw "KRISHNA runtime Python not found: $Py"}
 if(!(Test-Path "$RuntimeRoot\core\krishna_core")){throw "KRISHNA runtime core is missing"}
 
+$acceptanceId=[guid]::NewGuid().ToString("N")
+$acceptanceState=Join-Path $RuntimeRoot ("state\acceptance\"+$acceptanceId)
+New-Item -ItemType Directory -Force $acceptanceState|Out-Null
 $env:PYTHONPATH="$RuntimeRoot\core"
 $env:KRISHNA_RUNTIME_ROOT=$RuntimeRoot
 $env:KRISHNA_SOURCE_ROOT=$SourceRoot
 $env:KRISHNA_HOST="127.0.0.1"
 $env:KRISHNA_PORT=[string]$Port
-$env:KRISHNA_DB=Join-Path $RuntimeRoot "krishna_core.db"
+$env:KRISHNA_DB=Join-Path $acceptanceState "krishna_core.db"
 $env:KRISHNA_ALLOW_ACTIONS="0"
 $base="http://127.0.0.1:$Port"
 $reportDir=Join-Path $RuntimeRoot "reports"
@@ -95,7 +98,7 @@ try{
   Add-Check "KABACH boundary registry" "PASS" ("protected projects="+$kabach.count) $kabach
 
   # Protected/archive projects are observable but may never enter a mutation path.
-  $protectedRoot=Join-Path $RuntimeRoot "tmp\acceptance-protected"
+  $protectedRoot=Join-Path $acceptanceState "protected-project"
   New-Item -ItemType Directory -Force $protectedRoot|Out-Null
   $protectedName="KRISHNA-ACCEPT-PROTECTED"
   $null=Post-Json "/api/projects/register" @{name=$protectedName;root=$protectedRoot;privacy="local_only";role="protected";allowed_actions=@("edit");verification_checks=@()}
@@ -185,11 +188,14 @@ try{
     }catch{Add-Check "E drive reconciliation audit" "FAIL" $_.Exception.Message $null}
   }else{Add-Check "E drive reconciliation audit" "WARN" "audit script not deployed" $null}
 
+} catch {
+  Add-Check "Acceptance harness" "FAIL" $_.Exception.Message $null
 } finally {
   if($proc -and !$proc.HasExited){
     Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
     try{$proc.WaitForExit(5000)}catch{}
   }
+  if(Test-Path $acceptanceState){Remove-Item -Recurse -Force $acceptanceState -ErrorAction SilentlyContinue}
 }
 
 $fail=@($checks|Where-Object{$_.status -eq "FAIL"}).Count

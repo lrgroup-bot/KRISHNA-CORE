@@ -5,6 +5,8 @@ import threading
 import time
 from pathlib import Path
 
+from .command_line import split_command
+
 
 class WorkerFabric:
     """Supervisor for optional heavy workers with crash-loop quarantine."""
@@ -30,7 +32,9 @@ class WorkerFabric:
         return self.describe(name)
 
     def _spawn(self,w):
-        p=subprocess.Popen(w["command"],cwd=w["cwd"],shell=isinstance(w["command"],str),
+        command=w["command"]
+        args=split_command(command,empty_message="worker command is empty")
+        p=subprocess.Popen(args,cwd=w["cwd"],shell=False,
                            stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         w["process"]=p;w["started"]=time.time();w["last_error"]=None
         return p
@@ -54,7 +58,7 @@ class WorkerFabric:
                 try:p.wait(timeout=5)
                 except Exception:
                     try:p.kill()
-                    except Exception:pass
+                    except Exception as exc:w["last_error"]=f"kill_failed: {type(exc).__name__}: {exc}"
             return self.describe(name)
 
     def quarantine(self,name,reason="manual"):
@@ -63,7 +67,7 @@ class WorkerFabric:
             p=w.get("process")
             if p and p.poll() is None:
                 try:p.terminate()
-                except Exception:pass
+                except Exception as exc:w["last_error"]=f"terminate_failed: {type(exc).__name__}: {exc}"
             return self.describe(name)
 
     def clear_quarantine(self,name):
@@ -140,7 +144,8 @@ class WorkerResilienceSupervisor:
                     if self.on_event:
                         for e in events:
                             try:self.on_event(e)
-                            except Exception:pass
+                            except Exception as exc:
+                                self.last_events=([{"event":"callback_error","error":f"{type(exc).__name__}: {exc}","source_event":e}]+self.last_events)[:100]
             except Exception as exc:
                 self.last_events=([{"event":"supervisor_error","error":f"{type(exc).__name__}: {exc}"}]+self.last_events)[:100]
 

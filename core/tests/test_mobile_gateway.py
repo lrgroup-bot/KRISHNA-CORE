@@ -1,4 +1,5 @@
 import hashlib, tempfile, unittest
+from pathlib import Path
 from krishna_core.device_pairing import DevicePairingStore
 from krishna_core.mobile_gateway import MobileGateway
 from krishna_core.mobile_rpc import MobileRPC
@@ -13,6 +14,30 @@ class GatewayTest(unittest.TestCase):
             self.assertEqual(gw.call("phone-1",auth["token"],"chat.send",{"text":"hi"})["echo"],"hi")
             with self.assertRaises(PermissionError): gw.call("phone-1",auth["token"],"system.run",{"cmd":"whoami"})
             with self.assertRaises(PermissionError): gw.call("phone-1","bad","chat.send",{"text":"x"})
+    def test_pairing_queue_and_device_id_are_bounded(self):
+        with tempfile.TemporaryDirectory() as d:
+            store=DevicePairingStore(d,max_pending=2)
+            store.request("phone-a","A")
+            store.request("phone-b","B")
+            with self.assertRaises(RuntimeError):
+                store.request("phone-c","C")
+            with self.assertRaises(ValueError):
+                store.request("x"*161,"Too long")
+            with self.assertRaises(ValueError):
+                store.request("bad\ndevice","Bad")
+
+    def test_corrupt_pairing_state_fails_closed(self):
+        with tempfile.TemporaryDirectory() as d:
+            store=DevicePairingStore(d)
+            store.paired_file.write_text("{broken",encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                store.verify("phone","credential")
+            req=store.request("phone-new","Mobile")
+            before=store.paired_file.read_text(encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                store.approve(req["request_id"])
+            self.assertEqual(store.paired_file.read_text(encoding="utf-8"),before)
+
     def test_zero_code_client_hash_pairing(self):
         with tempfile.TemporaryDirectory() as d:
             store=DevicePairingStore(d)

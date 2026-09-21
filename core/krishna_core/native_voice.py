@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import os
-import shlex
 import subprocess
 import threading
 import time
 from pathlib import Path
+
+from .command_line import split_command
 
 
 class CommandTemplate:
@@ -15,7 +16,7 @@ class CommandTemplate:
     def available(self):return bool(self.raw)
     def run(self,values:dict,timeout=180)->str:
         if not self.raw:raise RuntimeError("provider command is not configured")
-        args=[part.format(**values) for part in shlex.split(self.raw,posix=os.name!="nt")]
+        args=[part.format(**values) for part in split_command(self.raw,empty_message="provider command is not configured")]
         p=subprocess.run(args,capture_output=True,text=True,shell=False,timeout=timeout)
         if p.returncode:raise RuntimeError((p.stderr or p.stdout)[-4000:])
         return p.stdout.strip()
@@ -39,7 +40,8 @@ class IndicConformerSTT:
         try:
             data=json.loads(out)
             return str(data.get("text") or data.get("transcript") or "").strip()
-        except Exception:return out.strip()
+        except json.JSONDecodeError:
+            return out.strip()
 
 
 class IndicTTS:
@@ -77,11 +79,11 @@ class WakeWordService:
     def dependency_status(self):
         openwake=False;sound=False;numpy=False
         try:import openwakeword;openwake=True
-        except Exception:pass
+        except ImportError:pass
         try:import sounddevice;sound=True
-        except Exception:pass
+        except ImportError:pass
         try:import numpy;numpy=True
-        except Exception:pass
+        except ImportError:pass
         model=bool(self.model_path and self.model_path.is_file())
         return {"openwakeword":openwake,"sounddevice":sound,"numpy":numpy,"custom_model":model}
 
@@ -125,7 +127,8 @@ class WakeWordService:
                         self.last_wake=now;cooldown=now+2.0
                         if self.on_wake:
                             try:self.on_wake({"score":score,"at":now})
-                            except Exception:pass
+                            except Exception as exc:
+                                self.error=f"wake_callback: {type(exc).__name__}: {exc}"
         except Exception as exc:
             self.error=f"{type(exc).__name__}: {exc}"
         finally:

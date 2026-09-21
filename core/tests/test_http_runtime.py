@@ -32,7 +32,12 @@ class HTTPRuntimeTests(unittest.TestCase):
             try:
                 if cls.call("/health")[0] == 200: break
             except OSError: time.sleep(.1)
-        else: raise RuntimeError("test Core failed to start")
+        else:
+            cls.log.flush()
+            details=""
+            try:details=(cls.root/"server.log").read_text(encoding="utf-8",errors="replace")[-6000:]
+            except OSError:pass
+            raise RuntimeError("test Core failed to start\n"+details)
         cls.call("/api/projects/register", {"name":"KRISHNA", "root":str(cls.root), "privacy":"local_only"})
 
     @classmethod
@@ -132,6 +137,11 @@ class HTTPRuntimeTests(unittest.TestCase):
         after = self.call("/api/mobile/connection")[1]
         self.assertEqual(before["requests"], after["requests"])
         self.assertNotEqual(after["device"], "forged-device")
+
+    def test_post_routing_ignores_query_string(self):
+        code,row=self.call("/api/mobile/pair/request?source=mobile",{"device_id":"query-route-phone","name":"Query route"})
+        self.assertEqual(code,200)
+        self.assertEqual(row["device_id"],"query-route-phone")
 
     def test_pairing_resume_and_invalid_cursor(self):
         pending = self.call("/api/mobile/pair/request", {"device_id":"test-phone"})[1]

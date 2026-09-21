@@ -28,9 +28,12 @@ if((git status --porcelain)){throw "E:\KRISHNA-SOURCE has local changes. Refusin
 
 git fetch --prune origin
 if(!$Branch){
-  $remoteHead=(git symbolic-ref --short refs/remotes/origin/HEAD 2>$null)
-  if($LASTEXITCODE -eq 0 -and $remoteHead){$Branch=($remoteHead.Trim() -replace '^origin/','')}
-  else{$Branch=(git branch --show-current).Trim()}
+  $currentBranch=(git branch --show-current).Trim()
+  if($currentBranch){$Branch=$currentBranch}
+  else{
+    $remoteHead=(git symbolic-ref --short refs/remotes/origin/HEAD 2>$null)
+    if($LASTEXITCODE -eq 0 -and $remoteHead){$Branch=($remoteHead.Trim() -replace '^origin/','')}
+  }
 }
 if(!$Branch){throw "Could not resolve deployment branch"}
 git checkout $Branch
@@ -42,6 +45,15 @@ Write-Host "SOURCE $Branch @ $Head" -ForegroundColor Cyan
 
 # Test authoritative source before runtime mutation.
 Invoke-KrishnaTests $Source $Source
+
+# Parse every PowerShell entrypoint before touching runtime.
+$parseFailures=@()
+Get-ChildItem (Join-Path $Source "scripts") -Filter "*.ps1" -File -Recurse | ForEach-Object {
+  $tokens=$null;$errors=$null
+  [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors)
+  if($errors){$parseFailures += ($_.FullName + ": " + (($errors | ForEach-Object Message) -join " | "))}
+}
+if($parseFailures.Count){throw ("POWERSHELL PARSE FAILED: " + ($parseFailures -join " || "))}
 
 # Runtime state/assets are owned by the runtime and never mirrored/deleted by deploy.
 $excludeDirs=@("__pycache__",".krishna_state","state","logs","backups",".venv","ollama-models","dashboard\assets\avatar")
@@ -88,20 +100,30 @@ $manifest=[ordered]@{
 }
 $tmp=Join-Path $deployDir "DEPLOYED_COMMIT.json.tmp"
 $dest=Join-Path $deployDir "DEPLOYED_COMMIT.json"
+$previousManifest=$null
+if(Test-Path $dest){$previousManifest=Get-Content -Raw $dest}
 $manifest|ConvertTo-Json -Depth 8|Set-Content -Encoding UTF8 $tmp
 Move-Item -Force $tmp $dest
 
-Write-Host "DEPLOY VERIFIED AT $Head" -ForegroundColor Green
-Write-Host "MANIFEST $dest ($($hashes.Count) files)" -ForegroundColor Green
+Write-Host "DEPLOY STAGED AT $Head" -ForegroundColor Yellow
+Write-Host "PROVISIONAL MANIFEST $dest ($($hashes.Count) files)" -ForegroundColor Yellow
 
-# Real runtime acceptance is part of deployment by default. It starts an isolated
-# localhost Core on a separate port, exercises the release gates, then shuts it down.
+# Real runtime acceptance is part of deployment by default. The manifest is provisional
+# until acceptance succeeds. On failure, restore the prior manifest (or remove the new
+# one) so START_KRISHNA will detect drift and refuse to advertise this release as verified.
 if(!$SkipAcceptance){
   $accept=Join-Path $Runtime "scripts\ACCEPT_KRISHNA_RUNTIME.ps1"
   if(!(Test-Path $accept)){throw "Runtime acceptance harness missing: $accept"}
   & powershell -NoProfile -ExecutionPolicy Bypass -File $accept -RuntimeRoot $Runtime -SourceRoot $Source
-  if($LASTEXITCODE -ne 0){throw "KRISHNA runtime acceptance failed; refusing final start"}
+  if($LASTEXITCODE -ne 0){
+    if($null -ne $previousManifest){$previousManifest|Set-Content -Encoding UTF8 $dest}
+    elseif(Test-Path $dest){Remove-Item -Force $dest}
+    throw "KRISHNA runtime acceptance failed; provisional manifest rolled back; refusing final start"
+  }
 }
+
+Write-Host "DEPLOY VERIFIED AT $Head" -ForegroundColor Green
+Write-Host "MANIFEST $dest ($($hashes.Count) files)" -ForegroundColor Green
 
 # Non-destructive E: audit after every verified deployment.
 $audit=Join-Path $Runtime "scripts\AUDIT_KRISHNA_E_DRIVE.ps1"

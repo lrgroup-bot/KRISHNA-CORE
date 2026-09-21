@@ -25,6 +25,7 @@ class SpecialistLibrary:
         self.config=self.state/"specialists.json"
         self.source_root=Path(source_root).resolve() if source_root else None
         self.items={}
+        self.load_error=None
         self._load()
 
     def _load(self):
@@ -33,7 +34,11 @@ class SpecialistLibrary:
             raw=json.loads(self.config.read_text(encoding="utf-8"))
             for row in raw.get("specialists",[]):
                 s=Specialist(**row); self.items[s.id]=s
-        except Exception: self.items={}
+        except Exception as exc:
+            self.items={}
+            self.load_error=f"{type(exc).__name__}: {exc}"
+        else:
+            self.load_error=None
 
     def _save(self):
         self.config.write_text(json.dumps({"source_root":str(self.source_root) if self.source_root else None,"specialists":[asdict(x) for x in self.items.values()]},indent=2),encoding="utf-8")
@@ -58,13 +63,15 @@ class SpecialistLibrary:
                 desc=self._field(m.group(1),"description")
                 sid=f"{division}/{p.stem}"
                 found[sid]=Specialist(sid,name,division,desc,str(p),loaded_at=time.time())
-        self.items=found; self._save()
+        self.items=found; self._save(); self.load_error=None
         return self.status()
 
     def status(self):
         counts={}
         for x in self.items.values(): counts[x.division]=counts.get(x.division,0)+1
-        return {"source_root":str(self.source_root) if self.source_root else None,"total":len(self.items),"divisions":counts,"specialists":[asdict(x) for x in sorted(self.items.values(),key=lambda z:(z.division,z.name.lower()))]}
+        return {"source_root":str(self.source_root) if self.source_root else None,"total":len(self.items),"divisions":counts,
+                "specialists":[asdict(x) for x in sorted(self.items.values(),key=lambda z:(z.division,z.name.lower()))],
+                "load_error":self.load_error,"available":not bool(self.load_error)}
 
     def select(self, task:str, limit:int=5):
         text=(task or "").lower()
