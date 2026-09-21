@@ -375,6 +375,12 @@ class Handler(BaseHTTPRequestHandler):
             if not WEB_VALIDATION.exists():
                 return self._json(404, {"error": "web validation UI unavailable"})
             return self._html(200, WEB_VALIDATION.read_text(encoding="utf-8"))
+        if path == "/api/avatar/status":
+            return self._json(200,{
+                "preview_available": bool(avatar_360_bytes()),
+                "glb_available": AVATAR_GLB.is_file(),
+                "viewer_policy": "local-only",
+            })
         if path == "/api/avatar.glb":
             if not AVATAR_GLB.is_file():return self._json(404,{"error":"private krishna.glb unavailable"})
             return self._binary(200,AVATAR_GLB.read_bytes(),"model/gltf-binary")
