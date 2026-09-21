@@ -359,6 +359,105 @@ class Orchestrator:
                 letter_id,approved=bool(context.get("approved",False)),
             )
 
+        def brahmagyan_mission_create(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA")
+            return self.agi.brahmagyan.create_mission(
+                project,str(payload.get("topic") or ""),
+                str(payload.get("question") or ""),
+                payload.get("rishi_id"),
+                str(payload.get("knowledge_track") or "general"),
+                payload.get("priority") or {},
+                str(payload.get("target_level") or "L8"),
+            )
+
+        def brahmagyan_questions_add(payload,context):
+            return self.agi.brahmagyan.add_questions(
+                str(payload.get("mission_id") or ""),payload.get("questions") or [],
+            )
+
+        def brahmagyan_deep_discover(payload,context):
+            mission_id=str(payload.get("mission_id") or "").strip()
+            mission=self.agi.brahmagyan.mission(mission_id)
+            project=mission["project"]
+            if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)
+            prompt=self.agi.brahmagyan.deep_prompt(mission_id,payload.get("rishi_id"))
+            report=self.garuda.scout(project,prompt,int(payload.get("limit") or 12))
+            self.memory.remember(project,"brahmagyan_discovery",mission["topic"],{
+                "mission_id":mission_id,"lead_rishi":mission["lead_rishi"],
+                "report":report,"maturity":"discovery_only","learned":False,
+            })
+            return {
+                "mission":mission,"research_prompt":prompt,"report":report,
+                "knowledge_status":"L0/L1 candidate evidence only; reading/search results are not trusted learning",
+                "next_required":["extract atomic claims","record traceable sources","Gautama source verification","independent cross-check"],
+            }
+
+        def brahmagyan_claim_record(payload,context):
+            return self.agi.brahmagyan.record_claim(
+                str(payload.get("mission_id") or ""),str(payload.get("claim") or ""),
+                payload.get("sources") or [],payload.get("knowledge_track"),
+                payload.get("valid_from"),payload.get("valid_until"),
+            )
+
+        def brahmagyan_evidence_add(payload,context):
+            return self.agi.brahmagyan.add_evidence(
+                str(payload.get("claim_id") or ""),str(payload.get("kind") or ""),
+                payload.get("evidence") or {},
+            )
+
+        def brahmagyan_claim_advance(payload,context):
+            return self.agi.brahmagyan.advance_claim(
+                str(payload.get("claim_id") or ""),str(payload.get("target_level") or ""),
+                payload.get("detail") or {},
+            )
+
+        def brahmagyan_claim_compile(payload,context):
+            return self.agi.brahmagyan.compile_claim(
+                str(payload.get("claim_id") or ""),str(payload.get("compiled_by") or "veda-vyasa"),
+            )
+
+        def brahmagyan_claim_promote(payload,context):
+            return self.agi.brahmagyan.propose_to_gyan(str(payload.get("claim_id") or ""))
+
+        def brahmagyan_curiosity_add(payload,context):
+            return self.agi.brahmagyan.add_curiosity(
+                str(payload.get("project") or context.get("project") or "KRISHNA"),
+                str(payload.get("question") or ""),payload.get("signals") or {},
+            )
+
+        def brahmagyan_background_check(payload,context):
+            resources=self.governor.snapshot()
+            cpu=float(resources.get("cpu_percent") or resources.get("cpu") or 0)
+            ram=float(resources.get("memory_percent") or resources.get("memory") or 0)
+            busy=bool(self.task_ledger.active())
+            return self.agi.brahmagyan.background_decision(cpu,ram,busy)
+
+        def brahmagyan_shishya_plan(payload,context):
+            return self.agi.brahmagyan.shishya_plan(
+                str(payload.get("mission_id") or ""),
+                payload.get("specialties") or [],payload.get("count"),
+            )
+
+        def brahmagyan_shishya_execute(payload,context):
+            mission_id=str(payload.get("mission_id") or "").strip()
+            plan=self.agi.brahmagyan.shishya_plan(
+                mission_id,payload.get("specialties") or [],payload.get("count"),
+            )
+            mission=self.agi.brahmagyan.mission(mission_id)
+            project=mission["project"]
+            if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)
+            policy=self.projects.get(project) if project!="KRISHNA" else None
+            privacy=policy.privacy if policy else "approved_cloud"
+            request=self.software_factory.worker_request(
+                project,"rishi:"+mission["lead_rishi"],"research-shishya",plan["requested_count"],
+                "BRAHMAGYAN deep research: "+mission["topic"],
+                self.governor.snapshot(),approved_by_krishna=True,
+            )
+            task=self.agi.brahmagyan.deep_prompt(mission_id)+"\nShishya specialties: "+", ".join(plan["specialties"])
+            batch=self.ephemeral_workers.execute(project,request,task,privacy)
+            handover=self.agi.brahmagyan.absorb_shishya(mission_id,batch)
+            return {"plan":plan,"batch":batch,"handover":handover}
+
         self.action_bus.register(
             "chat.create",chat_create,description="Create a persistent KRISHNA chat",
             mutating=True,permissions=("chat.write",),
@@ -528,6 +627,80 @@ class Orchestrator:
             sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
+            "brahmagyan.mission.create",brahmagyan_mission_create,
+            description="Create an L0-L8 deep knowledge mission",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.questions.add",brahmagyan_questions_add,
+            description="Add explicit research questions to a BRAHMAGYAN mission",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.deep.discover",brahmagyan_deep_discover,
+            description="Run deep source discovery without pretending discovery is learned knowledge",
+            permissions=("web.read","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.claim.record",brahmagyan_claim_record,
+            description="Record an atomic BRAHMAGYAN claim with provenance",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.evidence.add",brahmagyan_evidence_add,
+            description="Attach supporting contradicting or qualifying evidence to a claim",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.claim.advance",brahmagyan_claim_advance,
+            description="Advance exactly one L0-L8 maturity gate after evidence requirements pass",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.claim.compile",brahmagyan_claim_compile,
+            description="Compile a cross-checked claim under Veda Vyasa knowledge architecture",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.claim.promote",brahmagyan_claim_promote,
+            description="Propose a sufficiently verified BRAHMAGYAN claim to trusted Gyan-Bhandar",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.curiosity.add",brahmagyan_curiosity_add,
+            description="Queue a prioritized knowledge-gap question",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.background.check",brahmagyan_background_check,
+            description="Check whether production resources permit optional background learning",
+            permissions=("runtime.read",),
+            sources=("pc","system","job"),
+        )
+        self.action_bus.register(
+            "brahmagyan.shishya.plan",brahmagyan_shishya_plan,
+            description="Plan a capped temporary Shishya research team",
+            permissions=("worker.execute",),
+            sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "brahmagyan.shishya.execute",brahmagyan_shishya_execute,
+            description="Run approved temporary Shishya researchers and preserve their handover before retirement",
+            mutating=True,requires_approval=True,
+            permissions=("worker.execute","model.use"),
+            sources=("pc","system"),
+        )
+
+        self.action_bus.register(
             "garuda.scout",
             lambda payload,context:self.garuda_scout(
                 str(payload.get("project") or context.get("project") or "KRISHNA"),
@@ -564,6 +737,13 @@ class Orchestrator:
             permissions=("narad.write","narad.test","narad.execute","send_external"),
             actions=("narad.*",),
         )
+
+        for profile in self.agi.brahmagyan.council.list():
+            self.agent_runtime.register(
+                "rishi:"+profile["id"],profile["role"],
+                permissions=("web.read","evidence.write","memory.write","worker.execute"),
+                actions=("brahmagyan.*","garuda.scout"),
+            )
 
     def dispatch_action(self,action,payload=None,project="KRISHNA",source="pc",actor="owner",
                         approved=False,permissions=(),idempotency_key=None):
@@ -889,6 +1069,21 @@ class Orchestrator:
     def gyan_strengthen(self, project, topic, use_garuda=True, limit=10):
         if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
         return self.gyan_bhandar.strengthen(project,topic,use_garuda,limit)
+
+    def brahmagyan_status(self):
+        return self.agi.brahmagyan.status()
+
+    def brahmagyan_council(self):
+        return self.agi.brahmagyan.council.status()
+
+    def brahmagyan_missions(self,project=None,limit=100):
+        return self.agi.brahmagyan.missions(project,limit)
+
+    def brahmagyan_claim(self,claim_id):
+        return self.agi.brahmagyan.claim(claim_id)
+
+    def brahmagyan_curiosity(self,project=None,limit=50):
+        return self.agi.brahmagyan.curiosity_queue(project,limit)
 
     def create_software_project_team(self,project,goal,deadline_hours=None,start_at=None,end_at=None):
         if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)
