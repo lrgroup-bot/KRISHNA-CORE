@@ -84,7 +84,7 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertIn("release_ready=$false",deploy)
         self.assertIn('acceptance_status="pending"',deploy)
         self.assertIn("release_ready=$true",deploy)
-        self.assertIn("refusing final start",deploy)
+        self.assertIn("final start is refused",deploy)
         start=self.text("scripts/START_KRISHNA.ps1")
         self.assertIn("if(-not $integrity.release_ready)",start)
 
