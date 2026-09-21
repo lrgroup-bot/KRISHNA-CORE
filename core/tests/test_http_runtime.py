@@ -67,7 +67,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/gyan-bhandar/pending", "/api/gyan-bhandar/inventory?project=KRISHNA", "/api/software-factory/workers/status",
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry",
-                     "/api/vision/status", "/api/voice/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
+                     "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/performance", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
 
@@ -120,6 +120,25 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertEqual(body[:4], b"RIFF")
         self.assertEqual(body[8:12], b"WEBP")
+
+    def test_avatar_character_bible_is_canonical_and_cross_surface(self):
+        code,status=self.call("/api/avatar/status")
+        self.assertEqual(code,200)
+        self.assertEqual(status["character_bible"],"character-bible-v1")
+        self.assertIn("FLUTE",status["states"])
+        self.assertIn("DHYAN",status["states"])
+        code,bible=self.call("/api/avatar/performance")
+        self.assertEqual(code,200)
+        self.assertEqual(bible["version"],"character-bible-v1")
+        for state in ("LISTENING","THINKING","SPEAKING","WISDOM","PLAYFUL","PROTECTION","FLUTE","DHYAN","SLEEPING","WAKING"):
+            self.assertIn(state,bible["states"])
+        self.assertEqual(bible["visual_identity"]["priority"],"face-first")
+        self.assertIn("pc",bible["surface_contract"])
+        self.assertIn("mobile",bible["surface_contract"])
+        self.assertIn("glass",bible["surface_contract"])
+        dashboard=self.call("/api/dashboard")[1]
+        self.assertIn(dashboard["avatar_state"],bible["states"])
+        self.assertEqual(dashboard["avatar_character_bible"],"character-bible-v1")
 
     def test_favicon_probe_never_creates_browser_404_noise(self):
         code, body = self.call("/favicon.ico")
