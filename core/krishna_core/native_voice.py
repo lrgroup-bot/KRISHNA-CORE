@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import os
-import shlex
 import subprocess
 import threading
 import time
 from pathlib import Path
+
+from .command_line import split_command
 
 
 class CommandTemplate:
@@ -15,7 +16,7 @@ class CommandTemplate:
     def available(self):return bool(self.raw)
     def run(self,values:dict,timeout=180)->str:
         if not self.raw:raise RuntimeError("provider command is not configured")
-        args=[part.format(**values) for part in shlex.split(self.raw,posix=os.name!="nt")]
+        args=[part.format(**values) for part in split_command(self.raw,empty_message="provider command is not configured")]
         p=subprocess.run(args,capture_output=True,text=True,shell=False,timeout=timeout)
         if p.returncode:raise RuntimeError((p.stderr or p.stdout)[-4000:])
         return p.stdout.strip()
