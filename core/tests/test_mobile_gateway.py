@@ -1,4 +1,5 @@
 import hashlib, tempfile, unittest
+from pathlib import Path
 from krishna_core.device_pairing import DevicePairingStore
 from krishna_core.mobile_gateway import MobileGateway
 from krishna_core.mobile_rpc import MobileRPC
@@ -24,6 +25,15 @@ class GatewayTest(unittest.TestCase):
                 store.request("x"*161,"Too long")
             with self.assertRaises(ValueError):
                 store.request("bad\ndevice","Bad")
+
+    def test_corrupt_pairing_state_fails_closed(self):
+        with tempfile.TemporaryDirectory() as d:
+            store=DevicePairingStore(d)
+            store.paired_file.write_text("{broken",encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                store.verify("phone","credential")
+            with self.assertRaises(RuntimeError):
+                store.request("phone-new","Mobile")
 
     def test_zero_code_client_hash_pairing(self):
         with tempfile.TemporaryDirectory() as d:
