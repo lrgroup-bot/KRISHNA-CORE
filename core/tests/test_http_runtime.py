@@ -61,7 +61,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/garuda/status", "/api/commitments", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/software-factory/workers/status",
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/intelligence/status",
-                     "/api/runtime/integrity"):
+                     "/api/runtime/integrity", "/api/runtime/audit"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
 
     def test_avatar_preview_is_real_webp(self):
