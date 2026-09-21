@@ -486,7 +486,10 @@ class Handler(BaseHTTPRequestHandler):
                 "preview_available": bool(avatar_360_bytes()),
                 "glb_available": AVATAR_GLB.is_file(),
                 "viewer_policy": "local-only",
+                **orch.agi.avatar.status(),
             })
+        if path == "/api/avatar/performance":
+            return self._json(200,orch.agi.avatar.performance_bible())
         if path == "/api/avatar.glb":
             if not AVATAR_GLB.is_file():return self._json(404,{"error":"private krishna.glb unavailable"})
             return self._binary(200,AVATAR_GLB.read_bytes(),"model/gltf-binary")
@@ -639,6 +642,7 @@ class Handler(BaseHTTPRequestHandler):
                 "requirements": {"version":_requirements.snapshot()["version"],"count":_requirements.snapshot()["requirement_count"]},
             })
         if path == "/api/dashboard":
+            current_state=activity_snapshot()
             return self._json(200, {
                 "active": True,
                 "core": "ONLINE",
@@ -646,7 +650,9 @@ class Handler(BaseHTTPRequestHandler):
                 "resources": orch.governor.snapshot(),
                 "pc_observer": pc_observer.snapshot(),
                 "neural": orch.neural_state(),
-                **activity_snapshot(),
+                **current_state,
+                "avatar_state": orch.agi.avatar.state_for_activity(current_state["current_activity"]),
+                "avatar_character_bible": orch.agi.avatar.VERSION,
                 "mobile_connection": mobile_link_state(),
                 "uptime_seconds": int(time.time() - started),
                 "deployment_integrity": _integrity.status(),
@@ -817,7 +823,8 @@ class Handler(BaseHTTPRequestHandler):
             current_state=activity_snapshot();current=current_state["current_activity"]
             return self._json(200, {
                 "operator": {
-                    "avatar_state": "FLUTE" if current == "Idle" else "WORKING",
+                    "avatar_state": orch.agi.avatar.state_for_activity(current),
+                    "character_bible": orch.agi.avatar.VERSION,
                     "current": {"task": current},
                     "updated": current_state["updated"],
                 },
