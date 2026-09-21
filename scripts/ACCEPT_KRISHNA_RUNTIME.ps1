@@ -61,7 +61,7 @@ try{
   try{
     $actionBus=Get-Json "/api/action-bus"
     $actionNames=@($actionBus.actions|ForEach-Object{$_.name})
-    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","worker.ephemeral.execute","browser.inspect","browser.testing_lead","development.git.status","development.git.commit","development.git.push","development.sync","development.stage","development.verify","work.managed.run","repair.shadow","promotion.prepare","promotion.apply","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment")
+    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","worker.ephemeral.execute","browser.inspect","browser.testing_lead","development.git.status","development.git.commit","development.git.push","development.sync","development.stage","development.verify","work.managed.run","repair.shadow","promotion.prepare","promotion.apply","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment","brahmagyan.mission.create","brahmagyan.questions.add","brahmagyan.deep.discover","brahmagyan.claim.record","brahmagyan.evidence.add","brahmagyan.contradiction.resolve","brahmagyan.claim.advance","brahmagyan.claim.compile","brahmagyan.claim.promote","brahmagyan.curiosity.add","brahmagyan.background.check","brahmagyan.shishya.plan","brahmagyan.shishya.execute")
     $missing=@($needed|Where-Object{$_ -notin $actionNames})
     if($actionBus.owner -eq "KRISHNA Shared Action Bus" -and $missing.Count -eq 0){
       Add-Check "Shared Action Bus" "PASS" ("registered="+$actionBus.registered_actions+"; Projects/Chats wired") $actionBus
@@ -204,6 +204,27 @@ try{
   $null=Post-Json "/api/narad/workflows/promote" @{workflow_id=$wid;state="verified";verified=$true}
   $null=Post-Json "/api/narad/workflows/promote" @{workflow_id=$wid;state="stable";verified=$true}
   Add-Check "NARAD lifecycle" "PASS" ("workflow "+$wid+" executed and promoted") $run
+
+  # BRAHMAGYAN must remain deep, source-faithful and resource-light.
+  try{
+    $bg=Get-Json "/api/brahmagyan/status"
+    $council=Get-Json "/api/brahmagyan/council"
+    $levels=@($bg.maturity_levels|ForEach-Object{$_.code})
+    if($bg.name -eq "BRAHMAGYAN" -and $levels[0] -eq "L0" -and $levels[-1] -eq "L8" -and @($bg.deep_learning_loop).Count -ge 10){
+      Add-Check "BRAHMAGYAN deep knowledge" "PASS" ("maturity="+($levels -join "->")) $bg
+    }else{Add-Check "BRAHMAGYAN deep knowledge" "FAIL" "L0-L8 deep-learning contract is incomplete" $bg}
+    if([int]$council.permanent_profiles -ge 16 -and [int]$council.running_processes -eq 0){
+      Add-Check "BRAHMAGYAN Rishi council" "PASS" ("profiles="+$council.permanent_profiles+"; running_processes=0") $council
+    }else{Add-Check "BRAHMAGYAN Rishi council" "FAIL" "Rishi council is missing profiles or became an always-running fleet" $council}
+    $bgProbe=Post-Json "/api/action-bus/dispatch" @{action="brahmagyan.mission.create";project="KRISHNA";actor="acceptance";payload=@{project="KRISHNA";topic=("acceptance-deep-knowledge-"+[guid]::NewGuid().ToString("N").Substring(0,8));question="What evidence supports this?";target_level="L8";knowledge_track="general"}}
+    if($bgProbe.status -eq "completed" -and $bgProbe.result.maturity -eq "L0" -and $bgProbe.result.target_level -eq "L8" -and $bgProbe.verified){
+      Add-Check "BRAHMAGYAN Sudarshan mission" "PASS" ("mission="+$bgProbe.result.mission_id+" lead="+$bgProbe.result.lead_rishi) $bgProbe
+    }else{Add-Check "BRAHMAGYAN Sudarshan mission" "FAIL" "Deep mission did not enter through verified Action architecture" $bgProbe}
+    $shishyaPlan=Post-Json "/api/action-bus/dispatch" @{action="brahmagyan.shishya.plan";project="KRISHNA";actor="acceptance";payload=@{mission_id=$bgProbe.result.mission_id;count=20;specialties=@("Evidence Review","Methods","Contradictions","Sources","Testing")}}
+    if([int]$shishyaPlan.result.requested_count -le 4 -and $shishyaPlan.result.ephemeral -and $shishyaPlan.result.approval_required){
+      Add-Check "BRAHMAGYAN Shishya boundary" "PASS" ("capped="+$shishyaPlan.result.requested_count+"; temporary + approval-gated") $shishyaPlan
+    }else{Add-Check "BRAHMAGYAN Shishya boundary" "FAIL" "Temporary research workforce cap/approval contract failed" $shishyaPlan}
+  }catch{Add-Check "BRAHMAGYAN runtime" "FAIL" $_.Exception.Message $null}
 
   # Gyan candidate -> approval -> verified recall acceptance, using a disposable topic.
   $topic="runtime-acceptance-"+[guid]::NewGuid().ToString("N").Substring(0,8)
