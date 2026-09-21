@@ -99,6 +99,9 @@ class MissedAdditionsTests(unittest.TestCase):
         ])
         n.promote(w["id"],"sandbox")
         with self.assertRaises(PermissionError):n.execute(w["id"],approved=False)
+        with self.assertRaises(PermissionError):n.execute(w["id"],approved=True)
+        n.promote(w["id"],"verified",verified=True);n.promote(w["id"],"stable",verified=True)
+        with self.assertRaises(PermissionError):n.execute(w["id"],approved=False)
         out=n.execute(w["id"],approved=True)
         self.assertEqual(out["results"][0]["provider"],"slack")
 
