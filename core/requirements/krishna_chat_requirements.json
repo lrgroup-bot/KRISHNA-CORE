@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-09-21-sudarshan-narad-n8n-patterns-v1",
+  "version": "2026-09-21-brahmagyan-v1",
   "source": "Consolidated from KRISHNA project conversations and verified repository decisions",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -43,6 +43,23 @@
         "MCP/A2A are authenticated adapter boundaries over Shared Actions, not public unauthenticated control planes.",
         "Desktop/mobile action state sync uses the existing authenticated realtime event store and does not turn KRISHNA Mobile into a dashboard or raw host-control client.",
         "Project-code rollback remains under verified PromotionManager backups/post-checks; Shared Action rollback never weakens project promotion safeguards."
+      ]
+    },
+    {
+      "id": "brahmagyan",
+      "title": "BRAHMAGYAN deep knowledge and Rishi council",
+      "requirements": [
+        "BRAHMAGYAN is KRISHNA's permanent deep-learning/research intelligence but never a second authority; all execution remains behind Sudarshan Action/Job permissions and independent verification.",
+        "Reading/search discovery is not learned knowledge. Claims mature sequentially L0 Discovered -> L1 Read -> L2 Understood -> L3 Source Verified -> L4 Cross-checked -> L5 Applied -> L6 Tested -> L7 Mastered -> L8 Connected.",
+        "Gautama performs evidence/epistemic review and Veda Vyasa compiles sufficiently cross-checked knowledge before trusted Gyan-Bhandar proposal.",
+        "Permanent Rishi/Acharya entries are lightweight role manifests, not permanent running model processes.",
+        "Modern scientific evidence and Vedic/classical knowledge remain separately labeled and are compared only after source-faithful understanding; similarities never establish scientific identity.",
+        "Contradicting evidence is retained with explicit resolution history; credible conflicts are never silently collapsed.",
+        "Temporal knowledge preserves previous/current state, validity, source history and supersession.",
+        "Trusted Gyan proposals retain traceable provenance whenever provenance is available.",
+        "Rishis may request temporary Shishya researchers through AI-HR/Sudarshan; v1 batches are capped at four and require approval for execution.",
+        "Before Shishya retirement, verified findings, methods, failures, corrections, evaluation, sources, provenance and useful cross-domain learning are preserved.",
+        "BRAHMAGYAN curiosity is priority/resource bounded and v1 starts no autonomous background-learning daemon."
       ]
     },
     {
@@ -214,6 +231,8 @@
     "Priority operational UI controls produce real Shared Action receipts; decorative-but-unwired controls are release defects.",
     "NARAD reports typed-dag/sudarshan mode with Sudarshan bound in runtime acceptance.",
     "NARAD checkpoint/resume, bounded retry, safe data mapping and independent workflow verification tests pass.",
-    "No full n8n runtime process/dependency is required for KRISHNA Core."
+    "No full n8n runtime process/dependency is required for KRISHNA Core.",
+    "BRAHMAGYAN L0-L8 maturity gates, Rishi council manifests, dual-track knowledge discipline and provenance contracts pass.",
+    "BRAHMAGYAN Shishya execution remains approval-gated, capped and temporary; no permanent research worker fleet is introduced."
   ]
 }
