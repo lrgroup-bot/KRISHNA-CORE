@@ -120,7 +120,11 @@ class BrowserOperator:
                 network.append({"url": resp.url, "status": resp.status, "method": resp.request.method}),
                 bad_responses.append(f"{resp.status} {resp.url}") if resp.status >= 400 else None,
             ))
-            page.goto(url, wait_until="networkidle")
+            # Live dashboards poll continuously, so Playwright's networkidle state can
+            # legitimately never occur. DOM readiness plus a short bounded settle window
+            # gives UI Guardian a deterministic inspection point without masking page errors.
+            page.goto(url, wait_until="domcontentloaded")
+            page.wait_for_timeout(500)
 
             for action in actions:
                 kind = str(action.get("type", "")).lower()
