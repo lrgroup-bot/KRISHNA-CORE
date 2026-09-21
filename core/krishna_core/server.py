@@ -1,5 +1,5 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-import json, time, threading, base64, sys
+import json, time, threading, base64, sys, uuid
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
