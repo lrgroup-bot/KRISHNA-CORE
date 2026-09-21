@@ -431,6 +431,17 @@ class Orchestrator:
                 str(payload.get("question") or ""),payload.get("signals") or {},
             )
 
+        def brahmagyan_gaps_generate(payload,context):
+            return self.agi.brahmagyan.gap_questions(
+                str(payload.get("claim_id") or ""),queue=bool(payload.get("queue",False)),
+            )
+
+        def brahmagyan_council_propose(payload,context):
+            return self.agi.brahmagyan.propose_council_specialist(
+                str(payload.get("domain") or ""),str(payload.get("role") or ""),
+                str(payload.get("reason") or ""),
+            )
+
         def brahmagyan_background_check(payload,context):
             resources=self.governor.snapshot()
             cpu=float(resources.get("cpu_percent") or resources.get("cpu") or 0)
@@ -692,6 +703,18 @@ class Orchestrator:
             description="Queue a prioritized knowledge-gap question",
             mutating=True,permissions=("memory.write",),
             sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.gaps.generate",brahmagyan_gaps_generate,
+            description="Generate explicit missing-knowledge questions from an incomplete claim",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.council.propose",brahmagyan_council_propose,
+            description="Propose a future permanent knowledge specialist after duplication review",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "brahmagyan.background.check",brahmagyan_background_check,
