@@ -107,10 +107,10 @@ Status meanings:
 
 | Requirement | Status | Evidence / remaining work |
 | --- | --- | --- |
-| Conversation-first mobile experience | VERIFIED boundary | Mobile RPC intentionally excludes raw host shell/filesystem. |
+| Conversation-first mobile experience | IMPLEMENTED / RUNTIME VERIFY | mobile_v3 now exposes only conversation, microphone, attachment and avatar UX; dashboard/project/tool controls were removed from the UI. Natural-language requests still route through KRISHNA Core. |
 | Secure pairing/device credential | VERIFIED boundary | Pair/resume/idempotency tests. |
-| Same KRISHNA conversation/session across PC/mobile | PARTIAL | Realtime session/event primitives exist; full product acceptance remains. |
-| Proactive completion notifications | PARTIAL | Event bridge exists; polished notification delivery/rules remain. |
+| Same KRISHNA conversation/session across PC/mobile | IMPLEMENTED / RUNTIME VERIFY | Mobile now auto-creates/reuses a persistent KRISHNA Mobile chat and sends through the same Core chat/history path; real-device acceptance remains. |
+| Proactive completion notifications | IMPLEMENTED / RUNTIME VERIFY | Android listens to task.completed realtime events and posts a local completion notification; real-device background delivery remains to be accepted. |
 | One canonical mobile runtime | PARTIAL | E:\Krishna-The GOD\mobile\companion and repository mobile_v3 must be reconciled. |
 | Remote use away from home | PARTIAL | Secure private network/routing prerequisite remains environment-dependent. |
 
@@ -120,8 +120,8 @@ Status meanings:
 | --- | --- | --- |
 | Provider-neutral local STT/TTS boundary | VERIFIED | VoiceRuntime + LocalCLIProvider. |
 | Odia speech | PARTIAL | Local voice assets/providers need final runtime configuration. |
-| Always-listening wake word “Krishna” | ROADMAP / runtime integration | Must be implemented with local wake-word pipeline and explicit microphone state. |
-| Owner voice verification | ROADMAP / runtime integration | Voice profile + device authentication boundary required. |
+| Always-listening wake word “Krishna” | PARTIAL | Mobile microphone flow expects “Krishna” after the local owner gate, but true always-listening low-power wake-word service remains a later runtime integration. |
+| Owner voice verification | IMPLEMENTED GATE / NOT SECURITY AUTHORITY | Mobile uses a local owner voice gate before speech recognition; device credentials remain authoritative for sensitive actions. This gate must not be treated as strong biometric authentication. |
 | Child KRISHNA avatar / local GLB route | VERIFIED boundary | Local avatar route/fallback and manifest boundary. |
 | Rigged walking/body animation | PARTIAL | Requires verified rigged GLB asset. |
 | Facial animation / lip sync / state animations (Dhyan, Flute, Work, Chat, Search) | PARTIAL | State boundary exists; full animation runtime/provider integration remains. |
