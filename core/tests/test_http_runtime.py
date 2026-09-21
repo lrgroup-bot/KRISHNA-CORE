@@ -61,7 +61,9 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/garuda/status", "/api/commitments", "/api/autonomy/status", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/gyan-bhandar/inventory?project=KRISHNA", "/api/software-factory/workers/status",
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
-                     "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry"):
+                     "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry",
+                     "/api/vision/status", "/api/voice/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
+                     "/api/models/gateways", "/api/secure-vault/status"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
 
     def test_requirements_search_contract(self):
@@ -81,6 +83,31 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(self.call("/api/garudanetra/frame?id=missing")[0],404)
         self.assertEqual(self.call("/api/garudanetra/session/start",{"project":"KRISHNA","url":"file:///tmp/x"})[0],400)
         self.assertEqual(self.call("/api/garudanetra/session/control",{"session_id":"missing","action":"pause"})[0],404)
+
+    def test_protected_project_role_is_read_only(self):
+        protected=self.root/"protected";protected.mkdir(exist_ok=True)
+        code,row=self.call("/api/projects/register",{"name":"PROTECTED-TEST","root":str(protected),"privacy":"local_only","role":"protected","allowed_actions":["edit"]})
+        self.assertEqual(code,200);self.assertEqual(row["role"],"protected")
+        projects=self.call("/api/projects")[1]["projects"]
+        self.assertEqual(next(x for x in projects if x["name"]=="PROTECTED-TEST")["role"],"protected")
+
+    def test_remote_voice_vision_resilience_contracts(self):
+        self.assertEqual(self.call("/api/remote/status")[1]["mode"],"private-network-only")
+        voice=self.call("/api/voice/status")[1]
+        self.assertEqual(voice["language"],"or-IN");self.assertEqual(voice["wake"]["wake_word"],"Krishna")
+        vision=self.call("/api/vision/status")[1];self.assertTrue(vision["local"])
+        resilience=self.call("/api/resilience/status")[1]
+        self.assertIn("worker_supervisor",resilience);self.assertIn("model_memory",resilience)
+
+    def test_wearable_registration_is_unverified_until_explicit_verify(self):
+        code,row=self.call("/api/wearables/register",{"name":"HTTP headset","kind":"headset","capabilities":["bluetooth_audio","microphone"]})
+        self.assertEqual(code,201);self.assertFalse(row["verified"])
+        code,row=self.call("/api/wearables/verify",{"device_id":row["id"],"capabilities":["bluetooth_audio","microphone"]})
+        self.assertEqual(code,200);self.assertTrue(row["verified"])
+
+    def test_garudanetra_persistent_mode_requires_approval(self):
+        code,_=self.call("/api/garudanetra/session/start",{"project":"KRISHNA","url":"http://127.0.0.1:%d/"%self.port,"mode":"persistent_workspace"})
+        self.assertEqual(code,403)
 
     def test_avatar_preview_is_real_webp(self):
         code, body = self.call("/api/avatar360")
