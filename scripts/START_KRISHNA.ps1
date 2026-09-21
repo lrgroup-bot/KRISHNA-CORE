@@ -66,6 +66,9 @@ if($PrivateRemote){
 $env:KRISHNA_HOST=$bindHost
 $env:KRISHNA_PORT=[string]$Port
 $env:KRISHNA_RUNTIME_ROOT=$KrishnaRoot
+$env:KRISHNA_BROWSER_DATA_ROOT=Join-Path $KrishnaRoot "state\garudanetra"
+$playwrightRoot=Join-Path $KrishnaRoot "playwright-browsers"
+if(Test-Path $playwrightRoot){$env:PLAYWRIGHT_BROWSERS_PATH=$playwrightRoot}
 if($authoritative){$env:KRISHNA_SOURCE_ROOT=$authoritative}
 if (!$env:KRISHNA_DB) { $env:KRISHNA_DB=Join-Path $KrishnaRoot "krishna_core.db" }
 if (!$env:KRISHNA_ALLOW_ACTIONS) { $env:KRISHNA_ALLOW_ACTIONS="0" }
@@ -84,6 +87,7 @@ Write-Host "Source    : $authoritative"
 Write-Host "Integrity : $($integrity.status)"
 Write-Host "Commit    : $($integrity.commit)"
 Write-Host "UI        : http://127.0.0.1`:$Port/"
+Write-Host "Browser   : Garudanetra Fabric | Playwright canonical | adapters explicit"
 if($MobileLan){
     $mobileAddress=if($lanIp){"http://$lanIp`:$Port/"}else{"LAN address will be discovered by phone"}
     Write-Host "Mobile    : $mobileAddress | discovery ON | pairing required" -ForegroundColor Green
