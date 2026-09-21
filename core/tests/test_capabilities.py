@@ -28,6 +28,20 @@ from krishna_core.promotion_manager import PromotionManager
 
 
 class KrishnaCapabilityTests(unittest.TestCase):
+    def test_gyan_file_archive_is_scoped_to_runtime(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)/"runtime";root.mkdir()
+            outside=Path(td)/"outside.txt";outside.write_text("outside",encoding="utf-8")
+            inside=root/"inside.txt";inside.write_text("inside",encoding="utf-8")
+            orch=Orchestrator(root/"core.db")
+            try:
+                archived=orch.gyan_archive_file("KRISHNA",inside)
+                self.assertEqual(archived["name"],"inside.txt")
+                with self.assertRaises(PermissionError):
+                    orch.gyan_archive_file("KRISHNA",outside)
+            finally:
+                orch.close()
+
     def test_project_graph_relevant(self):
         graph = ProjectGraph()
         graph.upsert_node("api", "service")
