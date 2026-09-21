@@ -1644,22 +1644,22 @@ async function createNaradProviderWorkflow(){
  if(!name||!provider||!operation){log('Provider workflow name, provider and operation are required.');return}
  let payload={};try{payload=JSON.parse($('naradProviderPayload').value||'{}')}catch(e){log('Provider payload must be valid JSON.');return}
  const step={action:'provider_send',provider,operation,payload,mutating:true};if(credential_ref)step.credential_ref=credential_ref;
- try{await req('/api/narad/workflows/create',{name,trigger:{type:'manual'},steps:[step],permissions:['send_external']});$('naradProviderName').value='';$('naradProviderPayload').value='';await loadNarad()}catch(e){log(e.message)}
+ try{await actionReq('narad.workflow.create',{name,trigger:{type:'manual'},steps:[step],permissions:['send_external']},{project:$('project').value||'KRISHNA'});$('naradProviderName').value='';$('naradProviderPayload').value='';await loadNarad()}catch(e){log(e.message)}
 }
 async function createNaradWorkflow(){
  const name=$('naradName').value.trim(),topic=$('naradTopic').value.trim(),type=$('naradTriggerType').value,value=$('naradTriggerValue').value.trim();
  if(!name||!topic){log('Narad workflow name and safe event topic are required.');return}
  let trigger={type};if(type==='event'){if(!value){log('Event topic is required.');return}trigger.topic=value}else if(type==='schedule'){const n=Number(value);if(!Number.isInteger(n)||n<60){log('Schedule interval must be at least 60 seconds.');return}trigger.every_seconds=n}
- try{await req('/api/narad/workflows/create',{name,trigger,steps:[{action:'publish_event',topic,payload:{source:'narad-ui'}}],permissions:[]});$('naradName').value='';$('naradTopic').value='';$('naradTriggerValue').value='';await loadNarad()}catch(e){log(e.message)}
+ try{await actionReq('narad.workflow.create',{name,trigger,steps:[{action:'publish_event',topic,payload:{source:'narad-ui'}}],permissions:[]},{project:$('project').value||'KRISHNA'});$('naradName').value='';$('naradTopic').value='';$('naradTriggerValue').value='';await loadNarad()}catch(e){log(e.message)}
 }
-async function promoteNarad(id,state,verified){try{await req('/api/narad/workflows/promote',{workflow_id:id,state,verified});await loadNarad()}catch(e){log(e.message)}}
-async function runNarad(id,external=false){let approved=false;if(external){approved=await confirmAction('This workflow can send data or messages to an external provider. Run this verified workflow now?');if(!approved)return}try{const d=await req('/api/narad/workflows/execute',{workflow_id:id,approved});log(d);await loadNarad()}catch(e){log(e.message);await loadNarad()}}
+async function promoteNarad(id,state,verified){try{await actionReq('narad.workflow.promote',{workflow_id:id,state,verified},{project:$('project').value||'KRISHNA'});await loadNarad()}catch(e){log(e.message)}}
+async function runNarad(id,external=false){let approved=false;if(external){approved=await confirmAction('This workflow can send data or messages to an external provider. Run this verified workflow now?');if(!approved)return}try{const d=await actionReq('narad.workflow.execute',{workflow_id:id,context:{project:$('project').value||'KRISHNA'}},{project:$('project').value||'KRISHNA',approved});log(d);await loadNarad()}catch(e){log(e.message);await loadNarad()}}
 async function provisionNaradWebhook(id){
  try{const d=await req('/api/narad/webhooks/provision',{workflow_id:id});await askText('Webhook token is shown once. Copy and store securely:',location.origin+d.path);await loadNarad()}catch(e){log(e.message)}
 }
 async function retryNaradDeadLetter(id){
  const ok=await confirmAction('Retry this failed Narad execution? External/mutating work will still require Policy approval.');if(!ok)return;
- try{const d=await req('/api/narad/dead-letters/retry',{letter_id:id,approved:false});log(d);await loadNarad()}catch(e){log(e.message);await loadNarad()}
+ try{const d=await actionReq('narad.dead_letter.retry',{letter_id:id},{project:$('project').value||'KRISHNA',approved:true});log(d);await loadNarad()}catch(e){log(e.message);await loadNarad()}
 }
 function openSharedChatFromUrl(){try{const id=new URLSearchParams(location.search).get('chat_id');if(id)setTimeout(()=>openChat(id).then(()=>showView('sudarshan')).catch(e=>log(e.message)),0)}catch(e){log(e.message)}}
 
