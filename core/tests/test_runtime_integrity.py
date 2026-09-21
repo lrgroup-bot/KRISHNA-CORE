@@ -20,10 +20,13 @@ class RuntimeIntegrityTests(unittest.TestCase):
             p=runtime/"core/krishna_core/server.py"; p.write_text("ok",encoding="utf-8")
             (runtime/"state/deployment").mkdir(parents=True)
             (runtime/"state/deployment/DEPLOYED_COMMIT.json").write_text(json.dumps({
-                "commit":"abc","branch":"test","files":{"core/krishna_core/server.py":sha(p)}
+                "commit":"abc","branch":"test","release_ready":True,"acceptance_status":"passed",
+                "files":{"core/krishna_core/server.py":sha(p)}
             }),encoding="utf-8")
             s=RuntimeIntegrity(runtime,src).status()
             self.assertEqual(s["status"],"SYNCED")
+            self.assertTrue(s["release_ready"])
+            self.assertEqual(s["acceptance_status"],"passed")
             p.write_text("changed",encoding="utf-8")
             s=RuntimeIntegrity(runtime,src).status()
             self.assertEqual(s["status"],"DRIFT")
