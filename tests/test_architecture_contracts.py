@@ -45,6 +45,19 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertIn("OPENMONTAGE_CMD",media)
         self.assertIn("MOBILE_RUNTIME_DUALITY",audit)
 
+    def test_mobile_security_and_private_remote_invariants(self):
+        server=self.text("core/krishna_core/server.py")
+        rpc=self.text("core/krishna_core/mobile_rpc.py")
+        mobile=self.text("mobile_v3/MainActivity.java")
+        requirements=self.text("core/requirements/krishna_chat_requirements.json")
+        for dangerous in ("system.run","filesystem.write","credentials.read","trade.execute"):
+            self.assertNotIn('"'+dangerous+'"',rpc)
+        for token in ("privateCoreUrl","100&&d>=64&&d<=127","credential_sha256","pairingRequest"):
+            self.assertIn(token,mobile)
+        self.assertIn("public Internet",requirements)
+        self.assertIn("raw shell",requirements)
+        self.assertIn("/api/mobile/pair/pending",server)
+
     def test_runtime_acceptance_is_a_deploy_gate(self):
         root=Path(__file__).resolve().parents[1]
         accept=(root/"scripts"/"ACCEPT_KRISHNA_RUNTIME.ps1").read_text(encoding="utf-8")
