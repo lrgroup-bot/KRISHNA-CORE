@@ -73,8 +73,8 @@ class Orchestrator:
         if specialist_root.exists() and not self.specialists.items:
             try:
                 self.specialists.index()
-            except Exception:
-                pass
+            except Exception as exc:
+                self.memory.audit("specialists","index_failed",f"{type(exc).__name__}: {exc}")
 
         self.projects = ProjectRegistry()
         self.governor = ResourceGovernor()
@@ -686,8 +686,8 @@ Evidence:
                     parsed.append(Hypothesis(statement, confidence, supporting_sources=sources))
             if parsed:
                 return parsed[:5]
-        except Exception:
-            pass
+        except Exception as exc:
+            self.memory.audit("investigation","hypothesis_parse_fallback",f"{type(exc).__name__}: {exc}")
         return InvestigationEngine._baseline_hypotheses(symptom, evidence)
 
     def investigate(self, symptom, project="general", components=None):
