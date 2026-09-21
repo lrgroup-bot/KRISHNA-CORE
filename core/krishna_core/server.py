@@ -82,6 +82,19 @@ def avatar_360_bytes():
         return b""
 
 
+def latest_e_drive_audit():
+    reports=RUNTIME_ROOT/"reports"
+    try:
+        files=sorted(reports.glob("e-drive-audit-*.json"),key=lambda p:p.stat().st_mtime,reverse=True)
+        if not files:return {"available":False,"findings":[],"finding_count":0}
+        raw=json.loads(files[0].read_text(encoding="utf-8-sig"))
+        findings=list(raw.get("findings") or [])
+        return {"available":True,"path":str(files[0]),"generated_at":raw.get("generated_at"),
+                "finding_count":len(findings),"findings":findings[:50]}
+    except Exception as exc:
+        return {"available":False,"error":f"{type(exc).__name__}: {exc}","findings":[],"finding_count":0}
+
+
 def mark(event, detail=""):
     now = time.strftime("%H:%M:%S")
     activity["current_activity"] = detail or event
@@ -273,6 +286,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, orch.agi_status())
         if path == "/api/runtime/integrity":
             return self._json(200, _integrity.status())
+        if path == "/api/runtime/audit":
+            return self._json(200, latest_e_drive_audit())
         if path == "/api/narad/status":
             return self._json(200, orch.agi.narad.status())
         if path == "/api/narad/workflows":
