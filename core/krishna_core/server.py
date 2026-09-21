@@ -15,6 +15,7 @@ from .attachments import AttachmentStore
 from .specialist_library import SpecialistLibrary
 from .runtime_integrity import RuntimeIntegrity
 from .requirements_ledger import RequirementsLedger
+from .garudanetra_session import GarudanetraSessionManager
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -25,6 +26,7 @@ _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krish
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
 _requirements = RequirementsLedger()
+_garudanetra = GarudanetraSessionManager(RUNTIME_ROOT)
 try:
     if _specialists.source_root.exists():
         _specialists.index()
@@ -203,6 +205,14 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _binary_nostore(self, code, body, content_type):
+        self.send_response(code)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def _html(self, code, text):
         b = text.encode()
         self.send_response(code)
@@ -253,6 +263,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"attachments":_attachments.list(chat_id)})
         if path == "/api/garuda/status":
             return self._json(200, orch.garuda_status())
+        if path == "/api/garudanetra/sessions":
+            return self._json(200, _garudanetra.status())
+        if path == "/api/garudanetra/session":
+            sid=(query.get("id") or [""])[0].strip()
+            if not sid:return self._json(400,{"error":"id is required"})
+            return self._json(200,_garudanetra.status(sid))
+        if path == "/api/garudanetra/frame":
+            sid=(query.get("id") or [""])[0].strip()
+            if not sid:return self._json(400,{"error":"id is required"})
+            frame=_garudanetra.frame(sid)
+            if not frame:return self._json(404,{"error":"frame not available yet"})
+            return self._binary_nostore(200,frame,"image/png")
         if path == "/api/commitments/resume":
             project=(query.get("project") or [None])[0]
             return self._json(200,orch.resume_unfinished_work(project))
@@ -366,6 +388,8 @@ class Handler(BaseHTTPRequestHandler):
                     "resource_governor",
                     "privacy_aware_model_routing",
                     "chromium_ui_inspection",
+                    "garudanetra_private_live_browser",
+                    "garudanetra_owner_takeover_stream",
                     "github_repository_research",
                     "goal_completion_evaluation",
                     "recovery_ladder",
@@ -461,6 +485,23 @@ class Handler(BaseHTTPRequestHandler):
             data = self._body()
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
+
+        if self.path == "/api/garudanetra/session/start":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            url=str(data.get("url") or "").strip()
+            out=_garudanetra.create(project,url)
+            mark("GARUDANETRA LIVE",f"{project}: {url[:120]}")
+            return self._json(201,out)
+
+        if self.path == "/api/garudanetra/session/control":
+            sid=str(data.get("session_id") or "").strip()
+            action=str(data.get("action") or "").strip()
+            if not sid or not action:return self._json(400,{"error":"session_id and action are required"})
+            out=_garudanetra.command(sid,action,data.get("payload") or {})
+            if action=="stop":mark("GARUDANETRA STOPPED",sid[:8])
+            elif action=="takeover":mark("GARUDANETRA OWNER CONTROL",sid[:8])
+            elif action=="resume":mark("GARUDANETRA LIVE",sid[:8])
+            return self._json(200,out)
 
         if self.path == "/api/narad/workflows/create":
             name=str(data.get("name") or "").strip()
