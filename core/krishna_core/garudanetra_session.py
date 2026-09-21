@@ -138,8 +138,10 @@ class GarudanetraSessionManager:
             "paused":session.paused,"owner_control":session.owner_control,"stopped":session.stopped,
             "created_at":session.created_at,"updated_at":session.updated_at,"last_error":session.last_error,
             "viewport":dict(session.viewport),"visible_text":session.visible_text[:6000],
-            "console":list(session.console[-50:]),"network":list(session.network[-100:]),
-            "findings":list(session.findings[-100:]),"downloads":list(session.downloads[-50:]),"tabs":list(session.tabs[-30:]),
+            "console":list(session.console[-50:]),
+            "network":[{**row,"url":_redact_url(row.get("url"))} for row in session.network[-100:]],
+            "findings":list(session.findings[-100:]),"downloads":list(session.downloads[-50:]),
+            "tabs":[{**row,"url":_redact_url(row.get("url"))} for row in session.tabs[-30:]],
             "frame_available":bool(session.frame),"tab_index":session.tab_index,
             "remember_evidence":session.remember_evidence,"profile_path":session.profile_path,
         }
