@@ -13,6 +13,7 @@ from .plugin_runtime import PluginRegistry
 from .plugin_executor import PluginExecutor
 from .attachments import AttachmentStore
 from .vision_adapter import VisionAdapter
+from .native_voice import KrishnaVoiceStack
 from .specialist_library import SpecialistLibrary
 from .runtime_integrity import RuntimeIntegrity
 from .requirements_ledger import RequirementsLedger
@@ -29,6 +30,7 @@ _plugins = PluginRegistry(Path(settings.db_path).resolve().parent / ".krishna_st
 _plugin_executor = PluginExecutor(_plugins)
 _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _vision = VisionAdapter()
+_voice = KrishnaVoiceStack(lambda event: orch.handle_event("wakeword","krishna_detected","Local wake word Krishna detected",severity="notice",project="system",payload=event))
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
 _requirements = RequirementsLedger()
@@ -277,6 +279,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"attachments":_attachments.list(chat_id)})
         if path == "/api/vision/status":
             return self._json(200,_vision.status())
+        if path == "/api/voice/status":
+            return self._json(200,_voice.status())
         if path == "/api/garuda/status":
             return self._json(200, orch.garuda_status())
         if path == "/api/garudanetra/sessions":
@@ -443,6 +447,9 @@ class Handler(BaseHTTPRequestHandler):
                     "mobile_pc_remote_control",
                     "persistent_project_chats",
                     "local_attachment_vision_reasoning",
+                    "local_odia_indicconformer_stt",
+                    "local_odia_indic_tts",
+                    "openwakeword_krishna_wake_service",
                     "windows_conversation_console",
                     "on_demand_skill_runtime",
                     "untrusted_content_boundary",
@@ -937,6 +944,35 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(404, {"error": str(exc)})
             except ValueError as exc:
                 return self._json(400, {"error": str(exc)})
+
+        if self.path == "/api/voice/wake/start":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"microphone wake service must be controlled on KRISHNA PC"})
+            try:return self._json(200,_voice.wake.start())
+            except RuntimeError as exc:return self._json(503,{"error":str(exc),"status":_voice.status()})
+
+        if self.path == "/api/voice/wake/stop":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"microphone wake service must be controlled on KRISHNA PC"})
+            return self._json(200,_voice.wake.stop())
+
+        if self.path == "/api/voice/tts":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"local TTS must be requested on KRISHNA PC"})
+            text_value=str(data.get("text") or "").strip()
+            if not text_value:return self._json(400,{"error":"text is required"})
+            out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
+            out_path=out_dir/(str(uuid.uuid4())+".wav")
+            try:return self._json(200,{"output_path":_voice.tts.speak(text_value,out_path),"provider":"ai4bharat-indic-tts"})
+            except (RuntimeError,ValueError) as exc:return self._json(503,{"error":str(exc)})
+
+        if self.path == "/api/voice/stt":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"local STT must be requested on KRISHNA PC"})
+            audio_path=str(data.get("audio_path") or "").strip()
+            if not audio_path:return self._json(400,{"error":"audio_path is required"})
+            try:return self._json(200,{"text":_voice.stt.transcribe(audio_path),"provider":"ai4bharat-indicconformer"})
+            except (RuntimeError,ValueError,FileNotFoundError) as exc:return self._json(503,{"error":str(exc)})
 
         if self.path == "/api/models/gateways/register":
             if self.client_address[0] not in ("127.0.0.1","::1"):
