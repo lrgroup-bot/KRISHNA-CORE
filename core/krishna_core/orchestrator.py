@@ -901,7 +901,7 @@ Evidence:
                 continue
         return selected, contexts
 
-    def handle_managed_request(self, message, project="general", source="pc", chat_id=None):
+    def handle_managed_request(self, message, project="general", source="pc", chat_id=None, vision_evidence=None):
         task = self.task_ledger.create(project, message)
         task_id = task["task_id"]
         try:
@@ -947,6 +947,8 @@ Registered project: {bool(registered)}
 
 Observed evidence:
 {evidence_summary}
+Local attachment/vision evidence:
+{vision_evidence or "- None"}
 
 Diagnostic hypotheses:
 {hypothesis_summary}
@@ -988,6 +990,8 @@ STRICT OUTPUT CONTRACT:
                 issue_lines.append("- Some collected historical health-log samples show RAM usage above 80%; the same evidence also contains later lower samples, so this is not proof of current memory pressure.")
             if "dirty " in evidence_lower:
                 issue_lines.append("- Guardian log evidence reports uncommitted/dirty files in one or more monitored repositories; this is an observed repository state, not by itself a KRISHNA failure.")
+            if vision_evidence:
+                observed_lines.append("- A local image attachment was analyzed by KRISHNA's local vision provider; its result is included as attachment evidence.")
             if not observed_lines:
                 observed_lines = [
                     f"- [{row.get('source')}/{row.get('kind')}] {str(row.get('detail', '')).strip()[:700]}"
@@ -1045,7 +1049,7 @@ STRICT OUTPUT CONTRACT:
                 self.task_ledger.update(task_id, "failed", "error", {"error": f"{type(exc).__name__}: {exc}"})
             raise
 
-    def handle(self, message, project="general", source="pc", chat_id=None):
+    def handle(self, message, project="general", source="pc", chat_id=None, vision_evidence=None):
         task_id = str(uuid.uuid4())
         self.memory.audit(task_id, "received", message)
         event_kind = "mobile_command" if source == "mobile" else "user_command"
@@ -1080,6 +1084,7 @@ Project: {project}
 Recent project memory: {context}
 Recent incidents: {incidents}
 Current project chat history: {chat_context}
+Local attachment/vision evidence: {vision_evidence or "None"}
 Neural routing intent: {neural['intent']}
 Matched specialist skills: {skill_names}
 Specialist guidance:
