@@ -14,6 +14,7 @@ from .plugin_executor import PluginExecutor
 from .attachments import AttachmentStore
 from .specialist_library import SpecialistLibrary
 from .runtime_integrity import RuntimeIntegrity
+from .requirements_ledger import RequirementsLedger
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -23,6 +24,7 @@ _plugin_executor = PluginExecutor(_plugins)
 _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
+_requirements = RequirementsLedger()
 try:
     if _specialists.source_root.exists():
         _specialists.index()
@@ -288,6 +290,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, _integrity.status())
         if path == "/api/runtime/audit":
             return self._json(200, latest_e_drive_audit())
+        if path == "/api/requirements":
+            q=(query.get("q") or [""])[0]
+            return self._json(200, _requirements.search(q) if q else _requirements.snapshot())
         if path == "/api/narad/status":
             return self._json(200, orch.agi.narad.status())
         if path == "/api/narad/workflows":
@@ -314,6 +319,7 @@ class Handler(BaseHTTPRequestHandler):
                 "uptime_seconds": int(time.time() - started),
                 "agi": orch.agi_status(),
                 "deployment_integrity": _integrity.status(),
+                "requirements": {"version":_requirements.snapshot()["version"],"count":_requirements.snapshot()["requirement_count"]},
             })
         if path == "/api/dashboard":
             return self._json(200, {
