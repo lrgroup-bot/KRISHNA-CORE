@@ -198,10 +198,17 @@ class NaradRuntime:
             project=str(cp.get("project") or context.get("project") or "KRISHNA")
             context=dict(cp.get("context") or context or {})
             node_outputs=dict(cp.get("node_outputs") or {})
-            node_runs=list(cp.get("node_runs") or [])
-            results=list(cp.get("results") or [])
-            failed=set(cp.get("failed") or [])
             completed=set(cp.get("completed") or [])
+            # Resume restores only independently verified completed nodes. Prior
+            # failed/skipped rows are attempt history, not final verification
+            # evidence; those nodes must execute again from a clean failure set.
+            node_runs=[
+                dict(row) for row in (cp.get("node_runs") or [])
+                if row.get("node_id") in completed
+                and bool((row.get("verification") or {}).get("passed"))
+            ]
+            results=list(cp.get("results") or [])
+            failed=set()
         else:
             run_id=str(uuid.uuid4())
             project=str(context.get("project") or "KRISHNA")
