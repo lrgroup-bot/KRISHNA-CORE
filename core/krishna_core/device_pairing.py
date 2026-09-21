@@ -27,8 +27,14 @@ class DevicePairingStore:
         self.max_pending=max(1,int(max_pending));self._lock=threading.RLock()
 
     def _load(self,p):
-        try:return json.loads(p.read_text("utf-8"))
-        except Exception:return {}
+        if not p.exists():return {}
+        try:
+            data=json.loads(p.read_text("utf-8"))
+        except Exception as exc:
+            raise RuntimeError(f"pairing state unreadable: {p.name}: {type(exc).__name__}") from exc
+        if not isinstance(data,dict):
+            raise RuntimeError(f"pairing state unreadable: {p.name}: expected JSON object")
+        return data
 
     def _save(self,p,v):
         tmp=p.with_suffix(".tmp"); tmp.write_text(json.dumps(v,indent=2),"utf-8"); tmp.replace(p)
