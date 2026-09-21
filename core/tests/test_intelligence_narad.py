@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from krishna_core.policy_kernel import PolicyKernel
 from krishna_core.automation_bus import AutomationBus
 from krishna_core.narad import NaradRuntime
+from krishna_core.narad.scheduler import NaradScheduler
 from krishna_core.narad.credentials import NaradCredentialVault
 from krishna_core.specialist_registry import SpecialistRegistry
 from krishna_core.context_governor import ContextGovernor
@@ -13,6 +14,15 @@ from krishna_core.integrations import CodebaseMemoryAdapter, GraftMemoryAdapter
 from krishna_core.media_adapter import OpenMontageAdapter
 
 class IntelligenceNaradTests(unittest.TestCase):
+    def test_scheduler_status_is_valid_before_start(self):
+        class Runtime:
+            def run_due(self): return {"due":0,"results":[]}
+        scheduler=NaradScheduler(Runtime(),poll_seconds=5)
+        status=scheduler.status()
+        self.assertFalse(status["running"])
+        self.assertEqual(status["run_count"],0)
+        self.assertIsNone(status["last_error"])
+
     def test_optional_adapters_fail_closed(self):
         self.assertFalse(CodebaseMemoryAdapter(executable="").status()["available"])
         self.assertFalse(GraftMemoryAdapter(executable="").status()["available"])
