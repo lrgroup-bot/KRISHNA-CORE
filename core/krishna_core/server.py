@@ -103,6 +103,10 @@ def _remember_garudanetra_session(snapshot):
     except Exception as exc:
         orch.memory.audit("garudanetra_task_memory","proposal_failed",f"{type(exc).__name__}: {exc}")
 _browser_fabric = GarudanetraBrowserFabric(RUNTIME_ROOT,inspector=orch.browser,on_closed=_remember_garudanetra_session)
+# From this point forward the Fabric is KRISHNA's browser authority.  The raw
+# BrowserOperator remains internal as _browser_fabric.inspector.
+orch.browser = _browser_fabric
+orch.development.browser = _browser_fabric
 _garudanetra = _browser_fabric.sessions
 _ui_registry = UIGuardianRegistry(Path(settings.db_path).resolve().parent / ".krishna_state" / "ui-guardian-registry.json")
 _ui_guardian = UIGuardian(_browser_fabric, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
