@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import queue
 import re
@@ -54,9 +55,15 @@ class BrowserSession:
     downloads: list[dict] = field(default_factory=list)
     tabs: list[dict] = field(default_factory=list)
     frame: bytes | None = None
+    frame_mime: str = "image/png"
+    frame_seq: int = 0
+    stream_mode: str = "starting"
     tab_index: int = 0
     remember_evidence: bool = False
     profile_path: str | None = None
+    semantic_revision: int = 0
+    semantic_items: list[dict] = field(default_factory=list)
+    recording: list[dict] = field(default_factory=list)
 
 
 class GarudanetraSessionManager:
@@ -69,7 +76,8 @@ class GarudanetraSessionManager:
 
     ACTIONS={
         "pause","resume","takeover","stop","navigate","back","forward","reload",
-        "new_tab","switch_tab","close_tab","click","fill","type_text","press",
+        "new_tab","switch_tab","close_tab","click","dblclick","fill","type_text","press",
+        "hover","focus","select_option","check","uncheck","scroll_into_view",
         "click_xy","drag_xy","scroll","upload"
     }
 
@@ -142,7 +150,10 @@ class GarudanetraSessionManager:
             "network":[{**row,"url":_redact_url(row.get("url"))} for row in session.network[-100:]],
             "findings":list(session.findings[-100:]),"downloads":list(session.downloads[-50:]),
             "tabs":[{**row,"url":_redact_url(row.get("url"))} for row in session.tabs[-30:]],
-            "frame_available":bool(session.frame),"tab_index":session.tab_index,
+            "frame_available":bool(session.frame),"frame_mime":session.frame_mime,
+            "frame_seq":session.frame_seq,"stream_mode":session.stream_mode,"tab_index":session.tab_index,
+            "semantic_revision":session.semantic_revision,"semantic_count":len(session.semantic_items),
+            "recording_steps":len(session.recording),
             "remember_evidence":session.remember_evidence,"profile_path":session.profile_path,
         }
 
@@ -156,6 +167,62 @@ class GarudanetraSessionManager:
     def frame(self,session_id):
         session=self._get(session_id)
         with self._lock:return bytes(session.frame) if session.frame else None
+
+    def frame_info(self,session_id):
+        session=self._get(session_id)
+        with self._lock:
+            return {
+                "bytes":bytes(session.frame) if session.frame else None,
+                "mime":session.frame_mime,
+                "seq":session.frame_seq,
+                "stream_mode":session.stream_mode,
+            }
+
+    def semantic_snapshot(self,session_id):
+        session=self._get(session_id)
+        with self._lock:
+            return {
+                "session_id":session.session_id,
+                "url":_redact_url(session.current_url),
+                "title":session.title,
+                "revision":session.semantic_revision,
+                "items":[dict(x) for x in session.semantic_items],
+            }
+
+    def recording(self,session_id):
+        session=self._get(session_id)
+        with self._lock:
+            return {
+                "session_id":session.session_id,
+                "project":session.project,
+                "mode":session.mode,
+                "steps":[dict(x) for x in session.recording],
+                "count":len(session.recording),
+                "policy":"typed/fill values are redacted unless remember_value=true; consequential replay requires approval",
+            }
+
+    def replay(self,session_id,steps=None,approved=False):
+        session=self._get(session_id)
+        rows=list(steps if steps is not None else session.recording)
+        safe={"navigate","back","forward","reload","switch_tab","scroll","pause","resume","hover","focus","scroll_into_view"}
+        queued=[];blocked=[]
+        for row in rows[:50]:
+            if str(row.get("status") or "ok")!="ok":continue
+            action=str(row.get("action") or "").strip().lower()
+            payload=dict(row.get("payload") or {})
+            if not action or action not in self.ACTIONS:continue
+            if action not in safe and not approved:
+                blocked.append({"action":action,"reason":"explicit approval required"})
+                continue
+            if any(str(v)=="[REDACTED]" for v in payload.values()):
+                blocked.append({"action":action,"reason":"recorded secret/value is redacted"})
+                continue
+            try:
+                self._commands[session.session_id].put_nowait({"action":action,"payload":payload,"replay":True})
+                queued.append(action)
+            except queue.Full:
+                blocked.append({"action":action,"reason":"command queue full"});break
+        return {"session_id":session.session_id,"queued":queued,"blocked":blocked,"approved":bool(approved)}
 
     def command(self,session_id,action,payload=None):
         session=self._get(session_id);action=str(action or "").strip().lower()
@@ -231,11 +298,77 @@ class GarudanetraSessionManager:
             rows.append({"index":i,"url":_redact_url(p.url),"title":title})
         return rows
 
-    def _click_or_fill(self,page,action,payload,session):
+    def _record_action(self,session,action,payload,status="ok",detail=""):
+        safe={}
+        for k,v in dict(payload or {}).items():
+            key=str(k)
+            if key in {"password","secret","token"}:
+                safe[key]="[REDACTED]"
+            elif key in {"value","text"} and not bool(payload.get("remember_value",False)):
+                safe[key]="[REDACTED]"
+            elif key=="url":
+                safe[key]=_redact_url(v)
+            elif key!="remember_value":
+                safe[key]=v
+        row={"at":time.time(),"action":str(action),"payload":safe,"status":str(status)}
+        if detail:row["detail"]=str(detail)[:1000]
+        with self._lock:
+            session.recording.append(row);del session.recording[:-500]
+
+    def _semantic_capture(self,page,session):
+        revision=session.semantic_revision+1
+        prefix=f"k{revision}-"
+        script="""({prefix}) => {
+          for (const el of document.querySelectorAll('[data-krishna-ref]')) el.removeAttribute('data-krishna-ref');
+          const selector='a[href],button,input:not([type=hidden]),textarea,select,[role=button],[role=link],[role=checkbox],[role=radio],[role=combobox],[tabindex]:not([tabindex="-1"])';
+          const nodes=[...document.querySelectorAll(selector)].slice(0,350);
+          const roleOf=(el)=>{
+            const explicit=el.getAttribute('role'); if(explicit)return explicit;
+            const tag=el.tagName.toLowerCase(),type=(el.getAttribute('type')||'').toLowerCase();
+            if(tag==='a')return 'link'; if(tag==='button')return 'button';
+            if(tag==='textarea')return 'textbox'; if(tag==='select')return 'combobox';
+            if(tag==='input'&&type==='checkbox')return 'checkbox';
+            if(tag==='input'&&type==='radio')return 'radio';
+            if(tag==='input')return 'textbox'; return 'interactive';
+          };
+          const nameOf=(el)=>{
+            const type=(el.getAttribute('type')||'').toLowerCase();
+            const raw=el.getAttribute('aria-label')||el.getAttribute('title')||el.getAttribute('placeholder')||
+              (type==='password'?'':(el.innerText||el.value||''))||el.getAttribute('name')||'';
+            return String(raw).replace(/\s+/g,' ').trim().slice(0,220);
+          };
+          return nodes.map((el,i)=>{
+            const r=el.getBoundingClientRect(),ref='e'+(i+1),marker=prefix+ref;
+            el.setAttribute('data-krishna-ref',marker);
+            return {ref,selector:'[data-krishna-ref="'+marker+'"]',role:roleOf(el),name:nameOf(el),
+              tag:el.tagName.toLowerCase(),visible:!!(r.width&&r.height),x:Math.round(r.x),y:Math.round(r.y),
+              width:Math.round(r.width),height:Math.round(r.height),disabled:!!el.disabled};
+          }).filter(x=>x.visible);
+        }"""
+        items=page.evaluate(script,{"prefix":prefix})
+        with self._lock:
+            session.semantic_revision=revision
+            session.semantic_items=list(items or [])[:350]
+        return session.semantic_items
+
+    def _locator(self,page,payload,session):
+        ref=str(payload.get("ref") or "").strip()
+        if ref:
+            with self._lock:item=next((x for x in session.semantic_items if x.get("ref")==ref),None)
+            if not item:raise ValueError(f"unknown semantic ref: {ref}")
+            loc=page.locator(str(item.get("selector") or ""))
+            if loc.count()>0:return loc.first
+            raise RuntimeError(f"semantic ref is stale: {ref}")
         selector=str(payload.get("selector") or "").strip()
-        try:
-            if not selector:raise ValueError("selector missing")
+        if selector:
             loc=page.locator(selector)
+            if loc.count()>0:return loc.first
+        raise ValueError("selector or semantic ref is required")
+
+    def _click_or_fill(self,page,action,payload,session):
+        selector=str(payload.get("selector") or payload.get("ref") or "").strip()
+        try:
+            loc=self._locator(page,payload,session)
             if action=="click":loc.click()
             else:loc.fill(str(payload.get("value") or ""))
             return
