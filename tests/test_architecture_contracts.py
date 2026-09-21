@@ -127,6 +127,47 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertNotIn("from n8n",orchestrator+narad)
         self.assertNotIn("import n8n",orchestrator+narad)
 
+    def test_models_workers_browser_and_developer_enter_sudarshan(self):
+        orchestrator=self.text("core/krishna_core/orchestrator.py")
+        router=self.text("core/krishna_core/router.py")
+        server=self.text("core/krishna_core/server.py")
+        web=self.text("core/web_validation.html")
+        for token in (
+            "self.router.bind_sudarshan(self.sudarshan)",
+            '"worker.ephemeral.execute"',
+            '"browser.inspect"',
+            '"browser.testing_lead"',
+            '"development.git.status"',
+            '"development.git.commit"',
+            '"development.git.push"',
+            '"development.sync"',
+            '"development.stage"',
+            '"development.verify"',
+            '"work.managed.run"',
+            '"repair.shadow"',
+            '"promotion.prepare"',
+            '"promotion.apply"',
+        ):
+            self.assertIn(token,orchestrator)
+        self.assertIn("self.control_plane.action(",router)
+        self.assertIn('"model.complete"',router)
+        self.assertIn('project=str(project or "KRISHNA")',router)
+        # Public compatibility endpoints must resolve to governed Orchestrator wrappers.
+        for token in (
+            "orch.run_ephemeral_workers(","orch.testing_lead_live_verify(","orch.inspect_ui(",
+            "orch.development_commit(","orch.development_push(","orch.development_sync(",
+            "orch.development_stage(","orch.development_verify(","orch.run_managed_goal(",
+            "orch.run_shadow_repair(","orch.prepare_promotion(","orch.promote_candidate(",
+        ):
+            self.assertIn(token,server)
+        # NARAD priority UI mutation controls use action receipts directly.
+        for action in (
+            "narad.workflow.create","narad.workflow.promote",
+            "narad.workflow.execute","narad.dead_letter.retry",
+        ):
+            self.assertIn("actionReq('"+action+"'",web)
+        self.assertNotIn("actionReq('narad.webhook.provision'",web)
+
     def test_garuda_security_delegation(self):
         o=self.text("core/krishna_core/orchestrator.py")
         self.assertIn("kabach_security_research",o);self.assertIn("self.garuda.scout",o)
