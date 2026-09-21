@@ -457,6 +457,10 @@ class Handler(BaseHTTPRequestHandler):
             })
         if path == "/api/mobile/connection":
             return self._json(200, {**mobile_link_state(),"remote_policy":_remote_policy.status()})
+        if path == "/api/mobile/pair/pending":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"pairing approvals are visible only on KRISHNA PC"})
+            return self._json(200,{**_pairing.pending(),"paired":_pairing.paired()})
         if path == "/api/remote/status":
             return self._json(200,_remote_policy.status())
         if path == "/api/resilience/status":
@@ -509,6 +513,7 @@ class Handler(BaseHTTPRequestHandler):
                     "pc_resource_observer",
                     "registered_project_change_observer",
                     "mobile_event_bridge",
+                    "mobile_zero_code_client_hash_pairing",
                     "child_krishna_360_avatar",
                     "mobile_pc_remote_control",
                     "private_overlay_remote_access_policy",
@@ -770,13 +775,18 @@ class Handler(BaseHTTPRequestHandler):
             device = str(data.get("device_id", "")).strip()
             if not device:
                 return self._json(400, {"error": "device_id required"})
-            return self._json(200, _pairing.request(device, str(data.get("name", "KRISHNA Mobile"))[:128]))
+            return self._json(200, _pairing.request(
+                device,str(data.get("name","KRISHNA Mobile"))[:128],
+                str(data.get("credential_sha256") or ""),
+            ))
 
         if self.path == "/api/mobile/pair/approve":
             if self.client_address[0] not in ("127.0.0.1", "::1"):
                 return self._json(403, {"error": "approval must be performed on KRISHNA PC"})
             try:
-                return self._json(200, _pairing.approve(str(data.get("request_id", ""))))
+                result=_pairing.approve(str(data.get("request_id", "")))
+                orch.handle_event("device_pairing","device_approved",result.get("device_id",""),severity="notice",project="system",payload={"mode":result.get("mode")})
+                return self._json(200,result)
             except PermissionError as exc:
                 return self._json(400, {"error": str(exc)})
 
