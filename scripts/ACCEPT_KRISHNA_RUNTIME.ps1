@@ -61,7 +61,7 @@ try{
   try{
     $actionBus=Get-Json "/api/action-bus"
     $actionNames=@($actionBus.actions|ForEach-Object{$_.name})
-    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister")
+    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment")
     $missing=@($needed|Where-Object{$_ -notin $actionNames})
     if($actionBus.owner -eq "KRISHNA Shared Action Bus" -and $missing.Count -eq 0){
       Add-Check "Shared Action Bus" "PASS" ("registered="+$actionBus.registered_actions+"; Projects/Chats wired") $actionBus
@@ -75,6 +75,49 @@ try{
       Add-Check "Shared Action dispatch" "FAIL" "Action envelope did not complete" $probe
     }
   }catch{Add-Check "Shared Action Bus" "FAIL" $_.Exception.Message $null}
+
+  try{
+    $agents=Get-Json "/api/agents/runtime"
+    $jobs=Get-Json "/api/jobs/runtime"
+    $permissions=Get-Json "/api/permissions/runtime"
+    $protocols=Get-Json "/api/protocols/status"
+    $dispatch=Get-Json "/api/dispatch/status"
+    if($agents.owner -eq "KRISHNA Agent Runtime" -and @($agents.agents).Count -ge 5){
+      Add-Check "Agent Runtime" "PASS" ("agents="+$agents.count+"; Shared Action authority") $agents
+    }else{Add-Check "Agent Runtime" "FAIL" "Agent Runtime manifest registry is incomplete" $agents}
+    if($jobs.owner -eq "KRISHNA Job Runtime" -and $jobs.authority -eq "Shared Action Bus"){
+      Add-Check "Job Runtime" "PASS" "Durable TaskLedger-backed jobs use Shared Action Bus" $jobs
+    }else{Add-Check "Job Runtime" "FAIL" "Job Runtime authority mismatch" $jobs}
+    if($permissions.owner -eq "KRISHNA Permission Runtime"){
+      Add-Check "Permission Runtime" "PASS" "Delegated capabilities are explicit" $permissions
+    }else{Add-Check "Permission Runtime" "FAIL" "Permission Runtime unavailable" $permissions}
+    if($protocols.owner -eq "KRISHNA Agent Protocol Gateway"){
+      Add-Check "MCP/A2A boundary" "PASS" "Protocol adapters resolve to Shared Action Bus" $protocols
+    }else{Add-Check "MCP/A2A boundary" "FAIL" "Protocol gateway authority mismatch" $protocols}
+    if($dispatch.owner -eq "KRISHNA Dispatch Runtime"){
+      Add-Check "Dispatch Runtime" "PASS" ("targets="+(@($dispatch.targets) -join ",")) $dispatch
+    }else{Add-Check "Dispatch Runtime" "FAIL" "Dispatch Runtime unavailable" $dispatch}
+
+    $jobProbe=Post-Json "/api/jobs/submit" @{action="chat.create";project="general";actor="acceptance-job";permissions=@("chat.write");payload=@{project="general";title="Job Runtime Acceptance"};idempotency_key="acceptance-job-chat"}
+    if($jobProbe.status -eq "completed" -and $jobProbe.job_id -and $jobProbe.action.action_id){
+      Add-Check "Job dispatch" "PASS" ("job_id="+$jobProbe.job_id+" action_id="+$jobProbe.action.action_id) $jobProbe
+    }else{Add-Check "Job dispatch" "FAIL" "Durable job did not produce an action receipt" $jobProbe}
+
+    $mcpProbe=Post-Json "/api/protocols/mcp/call" @{tool="chat.create";project="general";principal="acceptance-mcp";permissions=@("chat.write");args=@{project="general";title="MCP Acceptance"};request_id="acceptance-mcp-chat"}
+    if($mcpProbe.status -eq "completed" -and $mcpProbe.source -eq "mcp"){
+      Add-Check "MCP action adapter" "PASS" ("action_id="+$mcpProbe.action_id) $mcpProbe
+    }else{Add-Check "MCP action adapter" "FAIL" "MCP adapter bypassed or failed the Shared Action Bus" $mcpProbe}
+
+    $a2aProbe=Post-Json "/api/protocols/a2a/dispatch" @{action="chat.create";project="general";principal="acceptance-a2a";permissions=@("chat.write");payload=@{project="general";title="A2A Acceptance"};request_id="acceptance-a2a-chat"}
+    if($a2aProbe.status -eq "completed" -and $a2aProbe.source -eq "a2a"){
+      Add-Check "A2A action adapter" "PASS" ("action_id="+$a2aProbe.action_id) $a2aProbe
+    }else{Add-Check "A2A action adapter" "FAIL" "A2A adapter bypassed or failed the Shared Action Bus" $a2aProbe}
+
+    $dispatchProbe=Post-Json "/api/dispatch" @{target="action";action="chat.create";project="general";actor="acceptance-dispatch";payload=@{project="general";title="Dispatch Acceptance"};idempotency_key="acceptance-dispatch-chat"}
+    if($dispatchProbe.status -eq "completed" -and $dispatchProbe.action_id){
+      Add-Check "Unified dispatch" "PASS" ("action_id="+$dispatchProbe.action_id) $dispatchProbe
+    }else{Add-Check "Unified dispatch" "FAIL" "Unified Dispatch did not produce an action receipt" $dispatchProbe}
+  }catch{Add-Check "Agent-native runtime layers" "FAIL" $_.Exception.Message $null}
 
   $narad=Get-Json "/api/narad/status"
   if($narad.name -eq "NARAD"){Add-Check "NARAD runtime" "PASS" ("workflows="+$narad.workflows) $narad}else{Add-Check "NARAD runtime" "FAIL" "NARAD did not report ready" $narad}
