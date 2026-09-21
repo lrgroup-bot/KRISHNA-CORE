@@ -102,6 +102,7 @@ Status meanings:
 | Detect source/runtime drift | IMPLEMENTED / RUNTIME VERIFY | RuntimeIntegrity API + UI. |
 | Refuse misleading CORE ONLINE when drifted | IMPLEMENTED / RUNTIME VERIFY | START_KRISHNA blocks DRIFT and auto-deploys when source is ahead. |
 | Non-destructive E: reconciliation audit | IMPLEMENTED / RUNTIME VERIFY | AUDIT_KRISHNA_E_DRIVE.ps1 now inspects AI-Tools CBM/OpenMontage, alternate CBM roots, AGI, agents, guardian, voice, Agency-Agents, dual mobile runtimes, dashboard, canonical avatar and unresolved leftovers. |
+| One-command real Windows runtime acceptance | IMPLEMENTED / RUNTIME VERIFY | ACCEPT_KRISHNA_RUNTIME.ps1 starts an isolated local Core, validates integrity, NARAD, intelligence, KABACH, commitments, autonomy, Gyan promotion, Garudanetra live frames, UI Guardian, mobile state and E-drive audit, writes a JSON report, then shuts down. Verified deploys run it by default and refuse final start on failed release gates. |
 
 ## 9. Mobile
 

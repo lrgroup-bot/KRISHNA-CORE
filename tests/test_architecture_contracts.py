@@ -45,4 +45,18 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertIn("OPENMONTAGE_CMD",media)
         self.assertIn("MOBILE_RUNTIME_DUALITY",audit)
 
+    def test_runtime_acceptance_is_a_deploy_gate(self):
+        root=Path(__file__).resolve().parents[1]
+        accept=(root/"scripts"/"ACCEPT_KRISHNA_RUNTIME.ps1").read_text(encoding="utf-8")
+        deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
+        for token in (
+            "/api/runtime/integrity","/api/narad/status","/api/intelligence/status",
+            "/api/kabach/projects","/api/garudanetra/session/start",
+            "/api/ui-guardian/evaluate","/api/gyan-bhandar/propose",
+            "release_ready","AUDIT_KRISHNA_E_DRIVE.ps1",
+        ):
+            self.assertIn(token,accept)
+        self.assertIn("ACCEPT_KRISHNA_RUNTIME.ps1",deploy)
+        self.assertIn("refusing final start",deploy)
+
 if __name__=="__main__":unittest.main()

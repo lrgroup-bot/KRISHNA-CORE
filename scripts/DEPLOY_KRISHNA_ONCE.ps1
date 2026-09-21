@@ -1,5 +1,6 @@
 param(
   [switch]$SkipStart,
+  [switch]$SkipAcceptance,
   [string]$Branch = ""
 )
 $ErrorActionPreference="Stop"
@@ -92,6 +93,15 @@ Move-Item -Force $tmp $dest
 
 Write-Host "DEPLOY VERIFIED AT $Head" -ForegroundColor Green
 Write-Host "MANIFEST $dest ($($hashes.Count) files)" -ForegroundColor Green
+
+# Real runtime acceptance is part of deployment by default. It starts an isolated
+# localhost Core on a separate port, exercises the release gates, then shuts it down.
+if(!$SkipAcceptance){
+  $accept=Join-Path $Runtime "scripts\ACCEPT_KRISHNA_RUNTIME.ps1"
+  if(!(Test-Path $accept)){throw "Runtime acceptance harness missing: $accept"}
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $accept -RuntimeRoot $Runtime -SourceRoot $Source
+  if($LASTEXITCODE -ne 0){throw "KRISHNA runtime acceptance failed; refusing final start"}
+}
 
 # Non-destructive E: audit after every verified deployment.
 $audit=Join-Path $Runtime "scripts\AUDIT_KRISHNA_E_DRIVE.ps1"
