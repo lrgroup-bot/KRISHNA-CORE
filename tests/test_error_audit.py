@@ -167,5 +167,23 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn("ch.project==='KRISHNA'||ch.project==='general'",web)
         self.assertIn('function selectSidebarProject(name)',web)
 
+    def test_garuda_and_garudanetra_are_distinct_ui_and_runtime_roles(self):
+        web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
+        garuda=(ROOT/"core"/"krishna_core"/"garuda.py").read_text(encoding="utf-8-sig")
+        aside=web.split('<aside class="side">',1)[1].split('</aside>',1)[0]
+        self.assertIn("showView('garuda')",aside)
+        self.assertIn('<span class="txt">Garuda</span>',aside)
+        self.assertIn("showView('garudanetra')",aside)
+        self.assertIn('<span class="txt">Garudanetra</span>',aside)
+        self.assertIn('<section id="garuda" class="view panelView">',web)
+        self.assertIn('<section id="garudanetra" class="view panelView">',web)
+        self.assertIn('id="garudaGoal"',web)
+        self.assertIn('id="garudanetraGoal"',web)
+        self.assertIn("onclick=\"runGaruda()\"",'onclick="'+web.split('onclick="runGaruda()"',1)[0][-9:]+'runGaruda()"') if False else self.assertIn('onclick="runGaruda()"',web)
+        self.assertIn('onclick="startGarudanetraMission()"',web)
+        self.assertNotIn("document.querySelector('#garuda button')",web)
+        self.assertIn('"agent":"Garuda"',garuda)
+        self.assertIn('Garuda requires a research goal',garuda)
+
 if __name__=="__main__":
     unittest.main()
