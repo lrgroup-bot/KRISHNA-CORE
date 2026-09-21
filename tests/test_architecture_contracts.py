@@ -53,6 +53,46 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertIn('$browserConfig',start)
         self.assertIn('. $browserConfig',start)
 
+    def test_agent_native_reference_layers_share_one_action_authority(self):
+        root=Path(__file__).resolve().parents[1]
+        orchestrator=self.text("core/krishna_core/orchestrator.py")
+        server=self.text("core/krishna_core/server.py")
+        web=self.text("core/web_validation.html")
+        modules=(
+            "shared_action_bus.py","permission_runtime.py","agent_runtime.py",
+            "job_runtime.py","protocol_gateway.py","dispatch_runtime.py",
+        )
+        for module in modules:
+            self.assertTrue((root/"core"/"krishna_core"/module).is_file(),module)
+        for token in (
+            "SharedActionBus","PermissionRuntime","AgentRuntime","JobRuntime",
+            "AgentProtocolGateway","DispatchRuntime",
+        ):
+            self.assertIn(token,orchestrator)
+        for token in (
+            "/api/action-bus","/api/agents/runtime","/api/jobs/runtime",
+            "/api/permissions/runtime","/api/protocols/status","/api/dispatch/status",
+        ):
+            self.assertIn(token,server)
+        for action in ("chat.create","chat.move","chat.rename","chat.delete","project.register",
+                       "garuda.scout","garudanetra.start","garudanetra.control"):
+            self.assertIn(action,orchestrator+server+web)
+        self.assertIn("action.sync",server)
+        self.assertIn("actionReq('garuda.scout'",web)
+        self.assertIn("actionReq('garudanetra.start'",web)
+        self.assertIn("actionReq('garudanetra.control'",web)
+        self.assertIn("actionReq('garudanetra.upload_attachment'",web)
+
+    def test_ui_mutation_foundation_uses_action_receipts_for_priority_surfaces(self):
+        web=self.text("core/web_validation.html")
+        for action in (
+            "project.register","chat.create","chat.rename","chat.delete","chat.move",
+            "garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment",
+        ):
+            self.assertIn("actionReq('"+action+"'",web)
+        self.assertIn("dataset.lastActionId",web)
+        self.assertIn("dataset.lastActionStatus",web)
+
     def test_garuda_security_delegation(self):
         o=self.text("core/krishna_core/orchestrator.py")
         self.assertIn("kabach_security_research",o);self.assertIn("self.garuda.scout",o)
