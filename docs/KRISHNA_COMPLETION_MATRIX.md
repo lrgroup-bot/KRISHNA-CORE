@@ -34,17 +34,26 @@ Status meanings:
 | Dockview draggable/floating workspace | ROADMAP | Planned React migration; current UI is transition HTML. |
 | xterm terminal and React Flow NAG visualization | ROADMAP | Planned React migration. |
 
-## 3. Garudanetra
+## 3. Garuda + Garudanetra Browser Fabric
 
 | Requirement | Status | Evidence / remaining work |
 | --- | --- | --- |
-| Private browser/research identity | IMPLEMENTED / RUNTIME VERIFY | Each live browser job uses an isolated non-persistent Chromium context; research/scout and live browsing remain under KRISHNA authority. |
-| Chromium / Playwright / browser inspection | VERIFIED boundary | Browser operator/UI inspection tests exist. |
-| Live Work panel + Pause / Take Control / Continue / Stop | IMPLEMENTED / RUNTIME VERIFY | Controls now drive the persistent Garudanetra browser session rather than UI-only state. |
-| Actual streamed browser viewport and owner takeover | IMPLEMENTED / RUNTIME VERIFY | Persistent private Chromium session manager streams real PNG browser frames into Sudarshan and accepts owner click/scroll takeover commands; Windows Playwright acceptance remains. |
-| UI Guardian detect → sandbox → verify → promote/rollback | IMPLEMENTED / RUNTIME VERIFY | Objective browser checks now run across the four target viewports; GUI candidates are persisted in Stable/Candidate/Experimental/Rejected registry and Stable promotion requires a passed evaluation plus explicit verification. Automatic repair generation still routes through Developer/shadow workflows. |
-| Private + Task Memory / Persistent Workspace profiles | IMPLEMENTED / RUNTIME VERIFY | Private destroys state; Task Memory persists evidence into candidate Gyan memory; Persistent Workspace uses only a project-specific KRISHNA profile and requires explicit approval. UI mode selection is wired. |
-| Learned browser skills saved to Gyan-Bhandar | IMPLEMENTED CANDIDATE PIPELINE / RUNTIME VERIFY | Deterministic locator recovery and optional external harness produce candidate selector skills; Task Memory proposes them as Gyan skill candidates requiring verification/approval before becoming trusted knowledge. |
+| Garuda research identity is separate from Garudanetra | VERIFIED boundary | Garuda owns research/evidence scouting; Garudanetra owns browser/computer execution. The UI and runtime no longer route the Garudanetra mission button through Garuda research. |
+| One canonical Garudanetra Browser Fabric | VERIFIED boundary | `browser_fabric.py` owns the live session authority and shared inspector boundary. Server runtime no longer imports the legacy `GarudanetraService`. |
+| Playwright / Chromium canonical engine | VERIFIED / RUNTIME ACCEPTED | Playwright remains the canonical verified engine; optional adapters cannot silently replace it. E-drive startup pins browser assets to the KRISHNA runtime. |
+| Semantic accessibility-style refs | IMPLEMENTED / RUNTIME VERIFY | Live sessions maintain bounded `e1/e2/...` semantic refs with role/name/geometry and allow ref-driven browser actions/recovery. |
+| CDP screencast live frame | IMPLEMENTED / RUNTIME VERIFY | Garudanetra starts a Chrome DevTools Protocol screencast and retains bounded PNG screenshot fallback if CDP streaming is unavailable. |
+| Live Work + owner takeover | IMPLEMENTED / RUNTIME VERIFY | Pause / Take Control / Continue / Stop / tabs / typing / keypress / click / drag / scroll / upload remain wired. Live Work stays collapsed unless explicitly opened or owner attention is required. |
+| Private + Task Memory / Persistent Workspace profiles | IMPLEMENTED / RUNTIME VERIFY | Private destroys state; Task Memory preserves evidence; Persistent Workspace uses only project-specific KRISHNA profiles and requires explicit approval. |
+| Console/network/download/visible-text evidence | IMPLEMENTED / RUNTIME VERIFY | Live session snapshots redact sensitive URL query fields and retain bounded verification evidence. |
+| Self-healing locator recovery | IMPLEMENTED / RUNTIME VERIFY | Deterministic role/label/placeholder/text recovery runs first; optional Browser Harness and configured vision recovery produce untrusted candidate evidence only. |
+| Browser action recording | IMPLEMENTED / RUNTIME VERIFY | Successful/error actions are captured; typed/fill values are redacted by default unless explicitly marked reusable. |
+| Bounded workflow replay | IMPLEMENTED / RUNTIME VERIFY | Safe navigation/observation replay is allowed; consequential click/fill/type/upload style replay is blocked without explicit approval. |
+| Learned browser skills saved to Gyan-Bhandar | IMPLEMENTED CANDIDATE PIPELINE / RUNTIME VERIFY | Recovered locators and successful recorded workflows compile to distinct guidance-only skill candidates with evidence. Benchmark/verification is still required for Stable promotion. |
+| Optional GitHub browser implementations | IMPLEMENTED ADAPTER REGISTRY / ENVIRONMENT-DEPENDENT | Browser Harness, browser-use, agent-browser, BrowserCode, OpenDevBrowser, Rustwright, Lucarne, Promptwright, Skyvern, rrweb and Cereon are discoverable capability adapters/providers. They are not auto-installed or auto-authorized. |
+| UI Guardian + Developer verification share browser authority | VERIFIED boundary | Both use the Browser Fabric inspector boundary rather than defining a second public browser authority. |
+| Legacy duplicate Garudanetra service | DEPRECATED COMPATIBILITY ONLY | `garudanetra.py` is marked legacy; active runtime authority is `browser_fabric.py` + `garudanetra_session.py`. |
+| Browser E-drive reconciliation | IMPLEMENTED / RUNTIME VERIFY | Audit now inventories `browser-data`, `playwright-browsers`, Garudanetra state/profiles, adapter environment and related browser processes without deleting user data. |
 
 ## 4. Gyan-Bhandar
 
