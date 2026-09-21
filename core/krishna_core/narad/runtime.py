@@ -13,6 +13,11 @@ import threading
 import time
 import uuid
 
+from .contracts import RetryPolicy, required_permissions
+from .context import build_node_payload
+from .retry import run_with_retry
+from .workflow_graph import WorkflowGraph
+
 
 class WorkflowState(str, Enum):
     DRAFT="draft"; CANDIDATE="candidate"; SANDBOX="sandbox"; VERIFIED="verified"; STABLE="stable"; REJECTED="rejected"
@@ -53,6 +58,7 @@ class NaradRuntime:
         self.schedule_state={}
         self.webhook_hashes={}
         self.load_error=None
+        self.sudarshan=None
         self._lock=threading.RLock()
         self._load()
 
@@ -79,6 +85,10 @@ class NaradRuntime:
 
     def register_adapter(self,name,adapter):
         self.adapters[str(name)]=adapter
+
+    def bind_sudarshan(self,control_plane):
+        self.sudarshan=control_plane
+        return self.status()
 
     def _load(self):
         if not self.state_path or not self.state_path.exists():
@@ -126,12 +136,16 @@ class NaradRuntime:
         self._healthy()
         name=str(name or "").strip()
         if not name: raise ValueError("workflow name is required")
-        if not isinstance(steps,list) or not steps: raise ValueError("workflow requires at least one step")
+        graph=WorkflowGraph(steps)
         clean_trigger=self._validate_trigger(trigger)
-        w=Workflow(str(uuid.uuid4()),name,clean_trigger,list(steps),permissions=list(permissions or []),created_at=self._now_iso())
+        derived=required_permissions(graph.nodes)
+        grants=sorted(set(str(x) for x in (permissions or []) if str(x).strip())|set(derived))
+        w=Workflow(str(uuid.uuid4()),name,clean_trigger,list(steps),permissions=grants,created_at=self._now_iso())
         with self._lock:self.workflows[w.id]=w
         self._save()
-        self.bus.publish("narad.workflow.created",{"workflow_id":w.id,"name":name},source="narad")
+        self.bus.publish("narad.workflow.created",{
+            "workflow_id":w.id,"name":name,"nodes":len(graph.nodes),"permissions":grants,
+        },source="narad")
         return w.as_dict()
 
     def promote(self,workflow_id,state,verified=False):
@@ -158,6 +172,106 @@ class NaradRuntime:
         self._save()
         return result
 
+    def _dead_letter(self,w,version,trigger_source,context,exc):
+        letter={
+            "id":str(uuid.uuid4()),"workflow_id":w.id,"version":version,
+            "trigger_source":trigger_source,"context":dict(context or {}),
+            "error":f"{type(exc).__name__}: {exc}","status":"pending","at":self._now_iso(),
+        }
+        with self._lock:
+            self.dead_letters.append(letter);self.dead_letters=self.dead_letters[-200:]
+        self._save()
+        return letter
+
+    def _execute_via_sudarshan(self,w,steps,context,approved,trigger_source,version):
+        graph=WorkflowGraph(steps)
+        run_id=str(uuid.uuid4())
+        project=str(context.get("project") or "KRISHNA")
+        node_outputs={}
+        node_runs=[]
+        results=[]
+        failed=set()
+        external_actions={"narad.adapter_webhook","narad.provider_send"}
+
+        for node_id in graph.order:
+            node=graph.by_id[node_id]
+            if any(dep in failed for dep in node.depends_on):
+                row={
+                    "node_id":node.id,"action":node.action,"dispatch":node.dispatch,
+                    "status":"skipped","reason":"dependency_failed","verification":{
+                        "status":"FAIL","passed":False,"checks":[],"evidence":[],
+                        "reason":"dependency failed",
+                    },
+                }
+                node_runs.append(row);failed.add(node.id);continue
+
+            if node.action in external_actions and w.state!=WorkflowState.STABLE.value:
+                raise PermissionError("external Narad side effects require a Stable verified workflow")
+
+            payload=build_node_payload(node.payload,context,node_outputs)
+            if node.action in external_actions:
+                inner=dict(payload.get("payload") or {})
+                payload["payload"]={**inner,**context}
+
+            policy=node.retry
+            if node.action in external_actions and policy.max_attempts>1 and not policy.retry_safe:
+                policy=RetryPolicy(1,policy.delay_ms,policy.backoff,False)
+
+            def invoke(_attempt):
+                key=f"narad:{w.id}:{run_id}:{node.id}"
+                if node.dispatch=="job":
+                    return self.sudarshan.job(
+                        node.action,payload,project=project,actor=f"narad:{w.id}",
+                        permissions=w.permissions,approved=approved,idempotency_key=key,
+                    )
+                return self.sudarshan.action(
+                    node.action,payload,project=project,source="job",actor=f"narad:{w.id}",
+                    permissions=w.permissions,approved=approved,idempotency_key=key,
+                )
+
+            try:
+                executed,attempts=run_with_retry(invoke,policy)
+                receipt=executed["action"] if node.dispatch=="job" else executed
+                actual=receipt.get("result")
+                verification=executed.get("verification") or receipt.get("verification") or {}
+                row={
+                    "node_id":node.id,"action":node.action,"dispatch":node.dispatch,
+                    "status":"verified" if verification.get("passed") else "rejected",
+                    "action_id":receipt.get("action_id"),"job_id":executed.get("job_id") if node.dispatch=="job" else None,
+                    "attempts":attempts,"verification":verification,
+                }
+                node_runs.append(row)
+                node_outputs[node.id]={"result":actual,"receipt":receipt}
+                results.append(actual)
+                if not verification.get("passed"):
+                    failed.add(node.id)
+                    if not node.continue_on_error:
+                        raise RuntimeError(f"{node.id}: independent verification failed")
+            except Exception as exc:
+                failed.add(node.id)
+                row={
+                    "node_id":node.id,"action":node.action,"dispatch":node.dispatch,
+                    "status":"failed","error":f"{type(exc).__name__}: {exc}",
+                    "verification":{"status":"FAIL","passed":False,"checks":[],"evidence":[],"reason":str(exc)},
+                }
+                node_runs.append(row)
+                if not node.continue_on_error:raise
+
+        workflow_verification=self.sudarshan.verify_workflow(node_runs)
+        if not workflow_verification.get("passed"):
+            raise RuntimeError("independent verifier rejected NARAD workflow: "+str(workflow_verification.get("reason")))
+
+        record={
+            "id":run_id,"workflow_id":w.id,"version":version,"trigger_source":trigger_source,
+            "results":results,"nodes":node_runs,"verification":workflow_verification,
+            "execution_authority":"Sudarshan Control Plane","at":self._now_iso(),
+        }
+        with self._lock:
+            self.history.append(record);self.history=self.history[-500:]
+        self._save()
+        self.bus.publish("narad.workflow.completed",record,source="narad")
+        return record
+
     def execute(self,workflow_id,context=None,approved=False,trigger_source="manual"):
         self._healthy()
         with self._lock:
@@ -168,6 +282,12 @@ class NaradRuntime:
         if state not in {WorkflowState.SANDBOX.value,WorkflowState.VERIFIED.value,WorkflowState.STABLE.value}:
             raise RuntimeError("workflow is not executable")
         context=dict(context or {})
+        if self.sudarshan:
+            try:
+                return self._execute_via_sudarshan(w,steps,context,approved,trigger_source,version)
+            except Exception as exc:
+                self._dead_letter(w,version,trigger_source,context,exc)
+                raise
         results=[]
         try:
             for step in steps:
@@ -306,5 +426,9 @@ class NaradRuntime:
                 "connections":self.credentials.list()["count"] if self.credentials else 0,
                 "scheduler_ready":True,"webhook_gateway":True,
                 "provider_hub":self.provider_hub.providers() if self.provider_hub else [],
+                "workflow_engine":"typed-dag/sudarshan" if self.sudarshan else "legacy-standalone",
+                "sudarshan_bound":bool(self.sudarshan),
+                "node_contracts":["action","job"],"retry_max_attempts":5,
+                "data_mapping":"safe ${input.*} / ${nodes.*}; no eval",
                 "available":not bool(self.load_error),"load_error":self.load_error,
             }
