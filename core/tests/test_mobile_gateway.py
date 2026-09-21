@@ -1,4 +1,4 @@
-import tempfile, unittest
+import hashlib, tempfile, unittest
 from krishna_core.device_pairing import DevicePairingStore
 from krishna_core.mobile_gateway import MobileGateway
 from krishna_core.mobile_rpc import MobileRPC
@@ -13,4 +13,18 @@ class GatewayTest(unittest.TestCase):
             self.assertEqual(gw.call("phone-1",auth["token"],"chat.send",{"text":"hi"})["echo"],"hi")
             with self.assertRaises(PermissionError): gw.call("phone-1",auth["token"],"system.run",{"cmd":"whoami"})
             with self.assertRaises(PermissionError): gw.call("phone-1","bad","chat.send",{"text":"x"})
+    def test_zero_code_client_hash_pairing(self):
+        with tempfile.TemporaryDirectory() as d:
+            store=DevicePairingStore(d)
+            token="client-generated-credential-that-never-crosses-as-plaintext"
+            digest=hashlib.sha256(token.encode()).hexdigest()
+            req=store.request("phone-zero","KRISHNA Mobile",digest)
+            self.assertNotIn("credential_sha256",req)
+            pending=store.pending()
+            self.assertTrue(pending["pending"][0]["credential_proposed"])
+            approved=store.approve(req["request_id"])
+            self.assertTrue(approved["approved"])
+            self.assertNotIn("token",approved)
+            self.assertTrue(store.verify("phone-zero",token))
+
 if __name__=="__main__": unittest.main()

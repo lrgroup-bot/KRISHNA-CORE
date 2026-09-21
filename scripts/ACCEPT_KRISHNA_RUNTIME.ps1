@@ -57,6 +57,34 @@ try{
 
   $narad=Get-Json "/api/narad/status"
   if($narad.name -eq "NARAD"){Add-Check "NARAD runtime" "PASS" ("workflows="+$narad.workflows) $narad}else{Add-Check "NARAD runtime" "FAIL" "NARAD did not report ready" $narad}
+  $requiredProviders=@("telegram","discord","slack","whatsapp","gmail","google_drive","google_sheets","google_calendar")
+  $missingProviders=@($requiredProviders|Where-Object{$_ -notin @($narad.provider_hub)})
+  if($missingProviders.Count -eq 0){Add-Check "NARAD provider hub" "PASS" "Messaging and Google provider adapters registered" $narad.provider_hub}
+  else{Add-Check "NARAD provider hub" "FAIL" ("Missing provider adapters: "+($missingProviders -join ", ")) $narad.provider_hub}
+  $remote=Get-Json "/api/remote/status"
+  if($remote.mode -eq "private-network-only"){Add-Check "Private remote boundary" "PASS" "Public Internet control clients are rejected" $remote}else{Add-Check "Private remote boundary" "FAIL" "Remote boundary is not private-network-only" $remote}
+
+  $vault=Get-Json "/api/secure-vault/status"
+  if($vault.backend -eq "windows-dpapi" -and $vault.available){Add-Check "Encrypted secret vault" "PASS" "Windows DPAPI vault available; plaintext is not returned" $vault}
+  else{Add-Check "Encrypted secret vault" "FAIL" "Windows runtime does not report an available DPAPI vault" $vault}
+
+  $models=Get-Json "/api/models?project=KRISHNA"
+  if($models.gateway.policy -match "no silent provider fallback"){Add-Check "Free-only model gateway" "PASS" "Gateway policy blocks silent paid fallback" $models.gateway}
+  else{Add-Check "Free-only model gateway" "FAIL" "Free-only fallback policy missing" $models.gateway}
+
+  $voice=Get-Json "/api/voice/status"
+  $voiceReady=($voice.stt.available -and $voice.tts.available -and $voice.wake.available)
+  Add-Check "Native Odia voice + wake" ($(if($voiceReady){"PASS"}else{"WARN"})) ($(if($voiceReady){"Indic STT/TTS and Krishna wake runtime ready"}else{"Local voice boundaries installed; model/worker/wake assets still require runtime configuration"})) $voice
+
+  $vision=Get-Json "/api/vision/status"
+  Add-Check "Local multimodal vision" ($(if($vision.available){"PASS"}else{"WARN"})) ($(if($vision.available){"Local vision model "+$vision.model+" available"}else{"Local vision adapter installed; configured multimodal Ollama model is unavailable"})) $vision
+
+  $resilience=Get-Json "/api/resilience/status"
+  if($resilience.worker_supervisor.running){Add-Check "Crash-loop resilience" "PASS" "Worker supervisor live with backoff/quarantine" $resilience.worker_supervisor}
+  else{Add-Check "Crash-loop resilience" "FAIL" "Worker resilience supervisor is not running" $resilience.worker_supervisor}
+
+  $wear=Get-Json "/api/wearables"
+  Add-Check "Wearable capability gate" "PASS" ("verified capabilities="+(($wear.verified_capabilities -join ", "))) $wear
 
   $intelligence=Get-Json "/api/intelligence/status"
   Add-Check "Code intelligence" ($(if($intelligence.codebase_memory.available){"PASS"}else{"WARN"})) ($(if($intelligence.codebase_memory.available){"Codebase-Memory discovered"}else{"Codebase-Memory optional adapter unavailable"})) $intelligence.codebase_memory
@@ -65,6 +93,18 @@ try{
 
   $kabach=Get-Json "/api/kabach/projects"
   Add-Check "KABACH boundary registry" "PASS" ("protected projects="+$kabach.count) $kabach
+
+  # Protected/archive projects are observable but may never enter a mutation path.
+  $protectedRoot=Join-Path $RuntimeRoot "tmp\acceptance-protected"
+  New-Item -ItemType Directory -Force $protectedRoot|Out-Null
+  $protectedName="KRISHNA-ACCEPT-PROTECTED"
+  $null=Post-Json "/api/projects/register" @{name=$protectedName;root=$protectedRoot;privacy="local_only";role="protected";allowed_actions=@("edit");verification_checks=@()}
+  try{
+    $null=Post-Json "/api/development/stage" @{project=$protectedName;files=@("x.txt")}
+    Add-Check "Protected project mutation gate" "FAIL" "Protected project accepted a staging mutation" $null
+  }catch{
+    Add-Check "Protected project mutation gate" "PASS" "Protected project mutation was rejected" $_.Exception.Message
+  }
 
   $commitments=Get-Json "/api/commitments?project=KRISHNA"
   Add-Check "Commitment ledger" "PASS" ("unfinished="+@($commitments.unfinished).Count+" forgotten="+@($commitments.forgotten).Count) $commitments
@@ -94,7 +134,7 @@ try{
 
   # Garudanetra must be able to launch the local KRISHNA UI and produce a real frame.
   try{
-    $live=Post-Json "/api/garudanetra/session/start" @{project="KRISHNA";url="$base/"}
+    $live=Post-Json "/api/garudanetra/session/start" @{project="KRISHNA";url="$base/";mode="task_memory";persistent_approved=$false}
     $sid=$live.session_id
     $ready=$null
     for($i=0;$i -lt 30;$i++){
@@ -102,6 +142,9 @@ try{
       try{$s=Get-Json ("/api/garudanetra/session?id="+$sid);if($s.frame_available -or $s.state -eq "ERROR"){$ready=$s;break}}catch{}
     }
     if($ready -and $ready.frame_available){
+      if($ready.mode -ne "task_memory"){Add-Check "Garudanetra browser mode" "FAIL" "Task Memory mode was not preserved" $ready}else{Add-Check "Garudanetra browser mode" "PASS" "Private + Task Memory session active" $ready}
+      $null=Post-Json "/api/garudanetra/session/control" @{session_id=$sid;action="takeover";payload=@{}}
+      $null=Post-Json "/api/garudanetra/session/control" @{session_id=$sid;action="reload";payload=@{}}
       $frame=Invoke-WebRequest -Uri ($base+"/api/garudanetra/frame?id="+$sid) -TimeoutSec 20
       if($frame.RawContentLength -gt 1000){Add-Check "Garudanetra live browser" "PASS" ("frame bytes="+$frame.RawContentLength) $ready}else{Add-Check "Garudanetra live browser" "FAIL" "Browser frame was empty" $ready}
     }else{
@@ -111,6 +154,15 @@ try{
   }catch{
     Add-Check "Garudanetra live browser" "FAIL" $_.Exception.Message $null
   }
+
+  try{
+    try{
+      $null=Post-Json "/api/garudanetra/session/start" @{project="KRISHNA";url="$base/";mode="persistent_workspace";persistent_approved=$false}
+      Add-Check "Garudanetra persistent approval gate" "FAIL" "Persistent workspace started without explicit approval" $null
+    }catch{
+      Add-Check "Garudanetra persistent approval gate" "PASS" "Persistent workspace correctly refused without approval" $_.Exception.Message
+    }
+  }catch{}
 
   # UI Guardian four-viewport acceptance against the same local interface.
   try{

@@ -45,6 +45,19 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertIn("OPENMONTAGE_CMD",media)
         self.assertIn("MOBILE_RUNTIME_DUALITY",audit)
 
+    def test_mobile_security_and_private_remote_invariants(self):
+        server=self.text("core/krishna_core/server.py")
+        rpc=self.text("core/krishna_core/mobile_rpc.py")
+        mobile=self.text("mobile_v3/MainActivity.java")
+        requirements=self.text("core/requirements/krishna_chat_requirements.json")
+        for dangerous in ("system.run","filesystem.write","credentials.read","trade.execute"):
+            self.assertNotIn('"'+dangerous+'"',rpc)
+        for token in ("privateCoreUrl","100&&d>=64&&d<=127","credential_sha256","pairingRequest"):
+            self.assertIn(token,mobile)
+        self.assertIn("public Internet",requirements)
+        self.assertIn("raw shell",requirements)
+        self.assertIn("/api/mobile/pair/pending",server)
+
     def test_runtime_acceptance_is_a_deploy_gate(self):
         root=Path(__file__).resolve().parents[1]
         accept=(root/"scripts"/"ACCEPT_KRISHNA_RUNTIME.ps1").read_text(encoding="utf-8")
@@ -58,5 +71,21 @@ class ArchitectureContracts(unittest.TestCase):
             self.assertIn(token,accept)
         self.assertIn("ACCEPT_KRISHNA_RUNTIME.ps1",deploy)
         self.assertIn("refusing final start",deploy)
+
+    def test_missed_additions_are_release_contracts(self):
+        root=Path(__file__).resolve().parents[1]
+        server=self.text("core/krishna_core/server.py")
+        requirements=self.text("core/requirements/krishna_chat_requirements.json")
+        for module in ("secure_vault.py","model_gateway.py","vision_adapter.py","native_voice.py","remote_access.py","wearable_bridge.py","model_memory_governor.py"):
+            self.assertTrue((root/"core"/"krishna_core"/module).is_file(),module)
+        for token in ("windows_dpapi_secret_vault","encrypted_free_only_model_gateway","local_attachment_vision_reasoning",
+                      "openwakeword_krishna_wake_service","private_overlay_remote_access_policy",
+                      "crash_loop_backoff_quarantine","wearable_bridge_verified_capabilities"):
+            self.assertIn(token,server)
+        for token in ("public Internet","Protected and archive","Free-only model gateway","Private + Task Memory",
+                      "AI4Bharat","raw shell","vendor camera/display"):
+            self.assertIn(token,requirements)
+        guardian=self.text("scripts/KRISHNA_GUARDIAN.ps1")
+        for token in ("CORE_QUARANTINED","RESTART_SCHEDULED","MaxCrashes","CrashWindowSeconds"):self.assertIn(token,guardian)
 
 if __name__=="__main__":unittest.main()

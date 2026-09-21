@@ -40,12 +40,13 @@ class NaradRuntime:
 
     TRIGGERS={"manual","event","schedule","webhook"}
 
-    def __init__(self, policy, bus, adapters=None, state_path=None, credentials=None):
+    def __init__(self, policy, bus, adapters=None, state_path=None, credentials=None, provider_hub=None):
         self.policy=policy
         self.bus=bus
         self.adapters=dict(adapters or {})
         self.state_path=Path(state_path) if state_path else None
         self.credentials=credentials
+        self.provider_hub=provider_hub
         self.workflows={}
         self.history=[]
         self.dead_letters=[]
@@ -159,8 +160,11 @@ class NaradRuntime:
         try:
             for step in steps:
                 action=str(step.get("action","")).strip()
-                mutating=bool(step.get("mutating",False)) or action=="adapter_webhook"
-                policy_action="send_external" if action=="adapter_webhook" else action
+                external=action in {"adapter_webhook","provider_send"}
+                if external and state!=WorkflowState.STABLE.value:
+                    raise PermissionError("external Narad side effects require a Stable verified workflow")
+                mutating=bool(step.get("mutating",False)) or external
+                policy_action="send_external" if external else action
                 decision=self.policy.action(policy_action,mutating=mutating,approved=approved)
                 if not decision.allowed: raise PermissionError(decision.reason)
                 if action=="publish_event":
@@ -178,6 +182,17 @@ class NaradRuntime:
                         {**(step.get("payload") or {}),**context},
                         headers=headers,
                     ))
+                elif action=="provider_send":
+                    if not self.provider_hub:raise RuntimeError("Narad provider hub is unavailable")
+                    provider=str(step.get("provider") or "").strip().lower()
+                    operation=str(step.get("operation") or "").strip().lower()
+                    credential_ref=step.get("credential_ref")
+                    headers={}
+                    if credential_ref:
+                        if not self.credentials:raise RuntimeError("Narad credential vault is unavailable")
+                        headers=self.credentials.headers(credential_ref)
+                    payload={**(step.get("payload") or {}),**context}
+                    results.append(self.provider_hub.send(provider,operation,payload,headers=headers))
                 else:
                     raise RuntimeError(f"unsupported Narad action: {action}")
         except Exception as exc:
@@ -273,4 +288,5 @@ class NaradRuntime:
                 "states":[x.value for x in WorkflowState],"triggers":triggers,
                 "connections":self.credentials.list()["count"] if self.credentials else 0,
                 "scheduler_ready":True,"webhook_gateway":True,
+                "provider_hub":self.provider_hub.providers() if self.provider_hub else [],
             }

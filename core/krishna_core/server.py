@@ -1,5 +1,5 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-import json, time, threading, base64, sys
+import json, time, threading, base64, sys, uuid, uuid
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
@@ -12,6 +12,13 @@ from .realtime_session import RealtimeSessionStore
 from .plugin_runtime import PluginRegistry
 from .plugin_executor import PluginExecutor
 from .attachments import AttachmentStore
+from .vision_adapter import VisionAdapter
+from .native_voice import KrishnaVoiceStack
+from .remote_access import PrivateRemotePolicy
+from .worker_fabric import WorkerResilienceSupervisor
+from .model_memory_governor import ModelMemoryGovernor
+from .wearable_bridge import WearableBridge
+from .wearable_bridge import WearableBridge
 from .specialist_library import SpecialistLibrary
 from .runtime_integrity import RuntimeIntegrity
 from .requirements_ledger import RequirementsLedger
@@ -27,10 +34,53 @@ _sessions = RealtimeSessionStore(Path(settings.db_path).resolve().parent / ".kri
 _plugins = PluginRegistry(Path(settings.db_path).resolve().parent / ".krishna_state")
 _plugin_executor = PluginExecutor(_plugins)
 _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krishna_state")
+_vision = VisionAdapter()
+_voice = KrishnaVoiceStack(lambda event: orch.handle_event("wakeword","krishna_detected","Local wake word Krishna detected",severity="notice",project="system",payload=event))
+_remote_policy = PrivateRemotePolicy()
+_model_memory = ModelMemoryGovernor()
+_wearables = WearableBridge(Path(settings.db_path).resolve().parent / ".krishna_state" / "wearables.json")
+_wearables = WearableBridge(Path(settings.db_path).resolve().parent / ".krishna_state" / "wearables.json")
+_worker_resilience = WorkerResilienceSupervisor(
+    orch.agi.workers, interval=5,
+    on_event=lambda event: orch.handle_event("worker_resilience",event.get("event","worker_event"),json.dumps(event),
+                                             severity="critical" if event.get("event")=="quarantined" else "notice",
+                                             project="system",payload=event),
+)
+_worker_resilience.start()
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
 _requirements = RequirementsLedger()
-_garudanetra = GarudanetraSessionManager(RUNTIME_ROOT)
+def _remember_garudanetra_session(snapshot):
+    project=str(snapshot.get("project") or "KRISHNA")
+    sid=str(snapshot.get("session_id") or "")
+    lesson=(snapshot.get("visible_text") or "")[:5000] or ("Garudanetra task-memory session "+sid)
+    evidence=[{"url":snapshot.get("current_url"),"title":snapshot.get("title"),
+               "findings":snapshot.get("findings") or [],"downloads":snapshot.get("downloads") or [],
+               "console":snapshot.get("console") or [],"network":snapshot.get("network") or []}]
+    try:
+        orch.gyan_propose(project,"garudanetra-task-memory:"+sid,lesson,evidence,0.8,
+                          "garudanetra_task_memory",False,"evidence",
+                          {"session_id":sid,"mode":snapshot.get("mode"),"url":snapshot.get("current_url")})
+        for finding in snapshot.get("findings") or []:
+            if finding.get("kind")!="selector_recovered" or not finding.get("candidate_skill"):
+                continue
+            skill=finding["candidate_skill"]
+            compiled=orch.agi.skills.compile_candidate(
+                "garudanetra-selector-recovery",
+                [{"action":"browser_selector_recovery","strategy":skill.get("strategy"),"payload":skill.get("payload") or {}}],
+                project=project,
+                evidence=[{"session_id":sid,"url":snapshot.get("current_url"),"finding":finding}],
+            )
+            orch.gyan_propose(project,"garudanetra-browser-skill",
+                              "Recovered browser locator candidate: "+json.dumps(skill,ensure_ascii=False),
+                              [{"session_id":sid,"url":snapshot.get("current_url"),"finding":finding,
+                                "compiled_skill":{"path":compiled.get("path"),"digest":compiled.get("digest"),"status":compiled.get("status")}}],
+                              0.75,"garudanetra_recovery",False,"skill",
+                              {"session_id":sid,"recovery_source":skill.get("source"),"verification_required":True,
+                               "compiled_skill_path":compiled.get("path"),"compiled_skill_digest":compiled.get("digest")})
+    except Exception as exc:
+        orch.memory.audit("garudanetra_task_memory","proposal_failed",f"{type(exc).__name__}: {exc}")
+_garudanetra = GarudanetraSessionManager(RUNTIME_ROOT,on_closed=_remember_garudanetra_session)
 _ui_registry = UIGuardianRegistry(Path(settings.db_path).resolve().parent / ".krishna_state" / "ui-guardian-registry.json")
 _ui_guardian = UIGuardian(orch.browser, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
 _narad_scheduler = NaradScheduler(orch.agi.narad)
@@ -143,6 +193,18 @@ def on_pc_event(event):
         project=event.get("project", "system"),
         payload=event.get("payload") or {},
     )
+    if event.get("kind")=="memory_pressure":
+        percent=float((event.get("payload") or {}).get("percent") or 0)
+        if percent>=90:
+            def relieve():
+                try:
+                    result=_model_memory.relieve(percent,90)
+                    orch.handle_event("model_memory_governor","models_unloaded" if result.get("acted") else "no_action",
+                                      json.dumps(result),severity="warning",project="system",payload=result)
+                except Exception as exc:
+                    orch.handle_event("model_memory_governor","unload_failed",f"{type(exc).__name__}: {exc}",
+                                      severity="warning",project="system")
+            threading.Thread(target=relieve,name="krishna-model-memory-relief",daemon=True).start()
 
 pc_observer = PCObserver(
     orch.projects.list,
@@ -155,7 +217,12 @@ pc_observer.start()
 
 class Handler(BaseHTTPRequestHandler):
     def _authorize(self):
-        local = self.client_address[0] in ("127.0.0.1", "::1")
+        client_ip=self.client_address[0]
+        remote_class=_remote_policy.classify(client_ip)
+        local = client_ip in ("127.0.0.1", "::1")
+        if not remote_class["allowed"]:
+            self._json(403,{"error":"KRISHNA accepts only loopback/LAN or explicitly configured private-overlay clients","network":remote_class})
+            return False
         host = urlparse("//" + self.headers.get("Host", "")).hostname
         if local and host not in ("localhost", "127.0.0.1", "::1", settings.host):
             self._json(403, {"error": "unrecognized local Host"})
@@ -273,6 +340,10 @@ class Handler(BaseHTTPRequestHandler):
             chat_id=(query.get("chat_id") or [""])[0].strip()
             if not chat_id:return self._json(400,{"error":"chat_id is required"})
             return self._json(200,{"attachments":_attachments.list(chat_id)})
+        if path == "/api/vision/status":
+            return self._json(200,_vision.status())
+        if path == "/api/voice/status":
+            return self._json(200,_voice.status())
         if path == "/api/garuda/status":
             return self._json(200, orch.garuda_status())
         if path == "/api/garudanetra/sessions":
@@ -306,6 +377,10 @@ class Handler(BaseHTTPRequestHandler):
             project=(query.get("project") or ["KRISHNA"])[0]
             try:return self._json(200,orch.model_pool(project))
             except KeyError:return self._json(404,{"error":"project not registered"})
+        if path == "/api/models/gateways":
+            return self._json(200,orch.model_gateway.list())
+        if path == "/api/secure-vault/status":
+            return self._json(200,orch.secure_vault.list())
         if path == "/api/gyan-bhandar/archive/status":
             return self._json(200,orch.gyan_archive_status())
         if path == "/api/gyan-bhandar/pending":
@@ -389,7 +464,19 @@ class Handler(BaseHTTPRequestHandler):
                 "deployment_integrity": _integrity.status(),
             })
         if path == "/api/mobile/connection":
-            return self._json(200, mobile_link_state())
+            return self._json(200, {**mobile_link_state(),"remote_policy":_remote_policy.status()})
+        if path == "/api/mobile/pair/pending":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"pairing approvals are visible only on KRISHNA PC"})
+            return self._json(200,{**_pairing.pending(),"paired":_pairing.paired()})
+        if path == "/api/remote/status":
+            return self._json(200,_remote_policy.status())
+        if path == "/api/resilience/status":
+            return self._json(200,{"worker_supervisor":_worker_resilience.status(),"model_memory":_model_memory.status()})
+        if path in ("/api/wearables","/api/wearables/status"):
+            return self._json(200,_wearables.status())
+        if path == "/api/wearables":
+            return self._json(200,_wearables.status())
         if path == "/api/mobile/resume":
             device, token = self._device_auth()
             if not _pairing.verify(device, token):
@@ -420,6 +507,10 @@ class Handler(BaseHTTPRequestHandler):
                     "chromium_ui_inspection",
                     "garudanetra_private_live_browser",
                     "garudanetra_owner_takeover_stream",
+                    "garudanetra_task_memory_mode",
+                    "garudanetra_persistent_workspace_mode",
+                    "garudanetra_self_healing_selector_recovery",
+                    "garudanetra_candidate_skill_compilation",
                     "ui_guardian_viewport_matrix",
                     "gui_registry_stable_candidate_experimental_rejected",
                     "github_repository_research",
@@ -431,9 +522,20 @@ class Handler(BaseHTTPRequestHandler):
                     "pc_resource_observer",
                     "registered_project_change_observer",
                     "mobile_event_bridge",
+                    "mobile_zero_code_client_hash_pairing",
                     "child_krishna_360_avatar",
                     "mobile_pc_remote_control",
+                    "private_overlay_remote_access_policy",
+                    "wearable_capability_registry",
+                    "wearable_bridge_verified_capabilities",
+                    "phone_camera_to_local_vision_bridge",
+                    "bluetooth_audio_os_bridge",
+                    "wearable_bridge_verified_capabilities",
                     "persistent_project_chats",
+                    "local_attachment_vision_reasoning",
+                    "local_odia_indicconformer_stt",
+                    "local_odia_indic_tts",
+                    "openwakeword_krishna_wake_service",
                     "windows_conversation_console",
                     "on_demand_skill_runtime",
                     "untrusted_content_boundary",
@@ -452,7 +554,12 @@ class Handler(BaseHTTPRequestHandler):
                     "narad_webhook_gateway",
                     "narad_dead_letter_retry",
                     "narad_secret_reference_vault",
+                    "windows_dpapi_secret_vault",
+                    "encrypted_free_only_model_gateway",
+                    "protected_archive_project_roles",
                     "safe_unattended_commitment_supervisor",
+                    "crash_loop_backoff_quarantine",
+                    "critical_ram_model_unload",
                     "curated_specialist_team_planner",
                     "independent_critic_verifier_flow",
                     "codebase_memory_adapter",
@@ -560,15 +667,26 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/garudanetra/session/start":
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
             url=str(data.get("url") or "").strip()
-            out=_garudanetra.create(project,url)
-            mark("GARUDANETRA LIVE",f"{project}: {url[:120]}")
+            mode=str(data.get("mode") or "private").strip().lower()
+            approved=bool(data.get("persistent_approved",False))
+            out=_garudanetra.create(project,url,mode,persistent_approved=approved)
+            mark("GARUDANETRA LIVE",f"{project}: {mode}: {url[:120]}")
             return self._json(201,out)
 
         if self.path == "/api/garudanetra/session/control":
             sid=str(data.get("session_id") or "").strip()
             action=str(data.get("action") or "").strip()
             if not sid or not action:return self._json(400,{"error":"session_id and action are required"})
-            out=_garudanetra.command(sid,action,data.get("payload") or {})
+            payload=dict(data.get("payload") or {})
+            if action=="upload_attachment":
+                chat_id=str(payload.get("chat_id") or "").strip();aid=str(payload.get("attachment_id") or "").strip()
+                selector=str(payload.get("selector") or "").strip()
+                if not chat_id or not aid or not selector:return self._json(400,{"error":"upload_attachment requires chat_id, attachment_id and selector"})
+                try:
+                    meta,path=_attachments.resolve(chat_id,aid)
+                except KeyError:return self._json(404,{"error":"attachment not found"})
+                action="upload";payload={"selector":selector,"path":str(path)}
+            out=_garudanetra.command(sid,action,payload)
             if action=="stop":mark("GARUDANETRA STOPPED",sid[:8])
             elif action=="takeover":mark("GARUDANETRA OWNER CONTROL",sid[:8])
             elif action=="resume":mark("GARUDANETRA LIVE",sid[:8])
@@ -613,6 +731,23 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             except ValueError as exc:return self._json(400,{"error":str(exc)})
 
+        if self.path == "/api/narad/connections/register-secret":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"encrypted secret registration must run on KRISHNA PC"})
+            try:
+                return self._json(201,orch.agi.narad_credentials.register_secret(
+                    str(data.get("name") or ""),str(data.get("provider") or ""),str(data.get("secret") or ""),
+                    str(data.get("header") or "Authorization"),str(data.get("scheme") if data.get("scheme") is not None else "Bearer"),
+                ))
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/narad/connections/delete":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"credential deletion must run on KRISHNA PC"})
+            cid=str(data.get("credential_id") or "").strip()
+            if not cid:return self._json(400,{"error":"credential_id is required"})
+            return self._json(200,{"deleted":orch.agi.narad_credentials.delete(cid)})
+
         if self.path == "/api/narad/webhooks/provision":
             wid=str(data.get("workflow_id") or "").strip()
             if not wid:return self._json(400,{"error":"workflow_id is required"})
@@ -649,13 +784,18 @@ class Handler(BaseHTTPRequestHandler):
             device = str(data.get("device_id", "")).strip()
             if not device:
                 return self._json(400, {"error": "device_id required"})
-            return self._json(200, _pairing.request(device, str(data.get("name", "KRISHNA Mobile"))[:128]))
+            return self._json(200, _pairing.request(
+                device,str(data.get("name","KRISHNA Mobile"))[:128],
+                str(data.get("credential_sha256") or ""),
+            ))
 
         if self.path == "/api/mobile/pair/approve":
             if self.client_address[0] not in ("127.0.0.1", "::1"):
                 return self._json(403, {"error": "approval must be performed on KRISHNA PC"})
             try:
-                return self._json(200, _pairing.approve(str(data.get("request_id", ""))))
+                result=_pairing.approve(str(data.get("request_id", "")))
+                orch.handle_event("device_pairing","device_approved",result.get("device_id",""),severity="notice",project="system",payload={"mode":result.get("mode")})
+                return self._json(200,result)
             except PermissionError as exc:
                 return self._json(400, {"error": str(exc)})
 
@@ -777,12 +917,24 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 mark("KRISHNA WORKING", "Processing request")
                 project = data.get("project", "general")
+                vision_evidence=[]
+                attachment_ids=data.get("attachment_ids") or []
+                if not isinstance(attachment_ids,list):return self._json(400,{"error":"attachment_ids must be a list"})
+                for aid in attachment_ids[:3]:
+                    try:
+                        meta,raw=_attachments.read(data.get("chat_id"),str(aid))
+                        vr=_vision.analyze_bytes(raw,meta.get("content_type"),"Analyze this image for the user's current request: "+msg)
+                        vision_evidence.append({"attachment_id":str(aid),"name":meta.get("name"),"sha256":meta.get("sha256"),"analysis":vr["analysis"],"model":vr["model"]})
+                    except Exception as exc:
+                        vision_evidence.append({"attachment_id":str(aid),"error":f"{type(exc).__name__}: {exc}"})
+                vision_text="\n".join("- "+x.get("analysis",x.get("error","")) for x in vision_evidence) if vision_evidence else None
                 # KRISHNA selects internal capabilities automatically. Clients never
                 # need to choose Sudarshan/Karma/Vishwakarma manually.
                 if orch._looks_like_work_request(msg):
-                    out = orch.handle_managed_request(msg, project, data.get("source", "pc"), data.get("chat_id"))
+                    out = orch.handle_managed_request(msg, project, data.get("source", "pc"), data.get("chat_id"), vision_text)
                 else:
-                    out = orch.handle(msg, project, data.get("source", "pc"), data.get("chat_id"))
+                    out = orch.handle(msg, project, data.get("source", "pc"), data.get("chat_id"), vision_text)
+                if vision_evidence:out["vision_evidence"]=vision_evidence
                 out["mode"] = "chat"
                 out["identity"] = "KRISHNA"
                 out.setdefault("capability", "conversation")
@@ -897,6 +1049,90 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as exc:
                 return self._json(400, {"error": str(exc)})
 
+        if self.path == "/api/wearables/register":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"wearable registration must run on KRISHNA PC"})
+            try:
+                return self._json(201,_wearables.register(
+                    str(data.get("name") or ""),str(data.get("kind") or ""),data.get("capabilities") or [],
+                    str(data.get("provider") or "generic"),False,
+                ))
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/wearables/verify":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"wearable verification must run on KRISHNA PC"})
+            did=str(data.get("device_id") or "").strip()
+            if not did:return self._json(400,{"error":"device_id is required"})
+            try:
+                return self._json(200,_wearables.verify(
+                    did,data.get("capabilities"),str(data.get("evidence") or ""),
+                ))
+            except KeyError:return self._json(404,{"error":"wearable device not found"})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/resilience/worker/clear-quarantine":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"worker quarantine changes must run on KRISHNA PC"})
+            name=str(data.get("worker") or "").strip()
+            if not name:return self._json(400,{"error":"worker is required"})
+            try:return self._json(200,orch.agi.workers.clear_quarantine(name))
+            except KeyError:return self._json(404,{"error":"worker not registered"})
+
+        if self.path == "/api/resilience/models/unload":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"model unload must run on KRISHNA PC"})
+            model=str(data.get("model") or "").strip()
+            try:return self._json(200,_model_memory.unload(model) if model else _model_memory.unload_all())
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/voice/wake/start":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"microphone wake service must be controlled on KRISHNA PC"})
+            try:return self._json(200,_voice.wake.start())
+            except RuntimeError as exc:return self._json(503,{"error":str(exc),"status":_voice.status()})
+
+        if self.path == "/api/voice/wake/stop":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"microphone wake service must be controlled on KRISHNA PC"})
+            return self._json(200,_voice.wake.stop())
+
+        if self.path == "/api/voice/tts":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"local TTS must be requested on KRISHNA PC"})
+            text_value=str(data.get("text") or "").strip()
+            if not text_value:return self._json(400,{"error":"text is required"})
+            out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
+            out_path=out_dir/(str(uuid.uuid4())+".wav")
+            try:return self._json(200,{"output_path":_voice.tts.speak(text_value,out_path),"provider":"ai4bharat-indic-tts"})
+            except (RuntimeError,ValueError) as exc:return self._json(503,{"error":str(exc)})
+
+        if self.path == "/api/voice/stt":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"local STT must be requested on KRISHNA PC"})
+            audio_path=str(data.get("audio_path") or "").strip()
+            if not audio_path:return self._json(400,{"error":"audio_path is required"})
+            try:return self._json(200,{"text":_voice.stt.transcribe(audio_path),"provider":"ai4bharat-indicconformer"})
+            except (RuntimeError,ValueError,FileNotFoundError) as exc:return self._json(503,{"error":str(exc)})
+
+        if self.path == "/api/models/gateways/register":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"model gateway secrets must be configured on KRISHNA PC"})
+            try:
+                return self._json(201,orch.model_gateway.register(
+                    str(data.get("name") or ""),str(data.get("base_url") or ""),
+                    str(data.get("model") or ""),str(data.get("api_key") or ""),
+                    bool(data.get("free_only",True)),bool(data.get("enabled",True)),
+                ))
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/models/gateways/delete":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"model gateway deletion must run on KRISHNA PC"})
+            pid=str(data.get("profile_id") or "").strip()
+            if not pid:return self._json(400,{"error":"profile_id is required"})
+            return self._json(200,{"deleted":orch.model_gateway.delete(pid)})
+
         if self.path == "/api/projects/register":
             try:
                 out = orch.register_project(
@@ -906,6 +1142,7 @@ class Handler(BaseHTTPRequestHandler):
                     allowed_actions=data.get("allowed_actions") or [],
                     verification_checks=data.get("verification_checks") or [],
                     metadata=data.get("metadata") or {},
+                    role=str(data.get("role") or "active"),
                 )
                 return self._json(200, out)
             except (ValueError, TypeError) as exc:
@@ -970,6 +1207,25 @@ class Handler(BaseHTTPRequestHandler):
                 orch.memory.add_chat_message(chat_id,"tool","Attachment added",{"attachment":item})
                 return self._json(201,item)
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/attachments/analyze":
+            chat_id=str(data.get("chat_id") or "").strip();aid=str(data.get("attachment_id") or "").strip()
+            if not chat_id or not orch.memory.chat(chat_id):return self._json(404,{"error":"chat not found"})
+            if not aid:return self._json(400,{"error":"attachment_id is required"})
+            try:
+                meta,raw=_attachments.read(chat_id,aid)
+                result=_vision.analyze_bytes(raw,meta.get("content_type"),str(data.get("prompt") or "Analyze this image as evidence for the current KRISHNA conversation."))
+                evidence={"attachment_id":aid,"sha256":meta.get("sha256"),"name":meta.get("name"),**result}
+                orch.memory.add_chat_message(chat_id,"tool","Local vision analysis",{"vision":evidence})
+                proposal=None
+                if bool(data.get("remember",False)):
+                    project=str(data.get("project") or (orch.memory.chat(chat_id) or {}).get("project") or "KRISHNA")
+                    proposal=orch.gyan_propose(project,"attachment:"+aid,result["analysis"],[evidence],0.9,"local_vision",True,"evidence",
+                                              {"attachment_sha256":meta.get("sha256"),"provider":result["provider"],"model":result["model"]})
+                return self._json(200,{"vision":evidence,"memory_proposal":proposal})
+            except KeyError:return self._json(404,{"error":"attachment not found"})
+            except (ValueError,PermissionError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if self.path == "/api/plugins/execute":
             try:

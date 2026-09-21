@@ -3,6 +3,8 @@ from pathlib import Path
 
 from .memory import MemoryStore
 from .router import ModelRouter
+from .model_gateway import ModelGatewayRegistry
+from .secure_vault import SecureSecretVault
 from .config import settings
 from .project_graph import ProjectGraph
 from .graph_intelligence import GraphIntelligence
@@ -50,7 +52,10 @@ class Orchestrator:
         self.requirements = RequirementsLedger()
         self.software_factory = SoftwareFactory(self.memory,self.commitments)
         self.project_brain = ProjectBrain(self.memory)
-        self.router = ModelRouter()
+        runtime_state = Path(self.db_path).resolve().parent / ".krishna_state"
+        self.secure_vault = SecureSecretVault(runtime_state / "secure-secrets.json")
+        self.model_gateway = ModelGatewayRegistry(runtime_state / "model-gateways.json", self.secure_vault)
+        self.router = ModelRouter(self.model_gateway)
         self.graph = ProjectGraph()
         self.graph_intelligence = GraphIntelligence(self.graph, self.memory)
         self.gnn = OptionalGNNBackend()
@@ -88,7 +93,7 @@ class Orchestrator:
         self.kabach = KabachAgent(self.memory)
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
         self.goal_evaluator = GoalEvaluator()
-        self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer)
+        self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
         self._verification_checks = {}
         self.repair_agent = RepairAgent(
             self.investigate,
@@ -117,6 +122,7 @@ class Orchestrator:
                     allowed_actions=item.get("allowed_actions") or [],
                     verification_checks=item.get("verification_checks") or [],
                     metadata=item.get("metadata") or {},
+                    role=(item.get("role") or (item.get("metadata") or {}).get("role") or "active"),
                 ))
                 self.graph.upsert_node(item["name"], "project", {
                     "root": item["root"],
@@ -186,6 +192,7 @@ class Orchestrator:
                 })
 
             if registered[action_name].get("mutating"):
+                self.projects.assert_mutable(project,action_name)
                 if not settings.allow_actions:
                     return self.task_ledger.update(task_id, "waiting_approval", "mutation_disabled", {
                         "action": action_name, "investigation": investigation,
@@ -233,6 +240,7 @@ class Orchestrator:
     def prepare_promotion(self, project, candidate_root, task_id=None):
         policy=self.projects.get(project)
         if not policy: raise KeyError(project)
+        self.projects.assert_mutable(project,"prepare_promotion")
         if not candidate_root: raise ValueError("verified candidate_root is required")
         candidate=Path(candidate_root).resolve()
         controlled=(Path(self.db_path).resolve().parent/".krishna_state"/"promotion-candidates").resolve()
@@ -265,6 +273,7 @@ class Orchestrator:
         if not approved: raise PermissionError("explicit promotion approval required")
         project=item["project"]; policy=self.projects.get(project)
         if not policy: raise KeyError(project)
+        self.projects.assert_mutable(project,"promote_candidate")
         def verify(root):
             checks=[]
             for name in policy.verification_checks:
@@ -400,7 +409,9 @@ class Orchestrator:
     def model_pool(self, project="KRISHNA"):
         policy=self.projects.get(project) if project!="KRISHNA" else None
         privacy=policy.privacy if policy else "approved_cloud"
-        return {"providers":self.router.available(),"coding_plan":self.router.coding_plan(privacy),"privacy":privacy}
+        return {"providers":self.router.available(),"coding_plan":self.router.coding_plan(privacy),
+                "free_only_plan":self.router.coding_plan(privacy,free_only=True),"privacy":privacy,
+                "gateway":self.model_gateway.list(),"secure_vault":self.secure_vault.list()}
 
     def kabach_security_research(self, project, question, limit=10):
         if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)
@@ -427,6 +438,7 @@ class Orchestrator:
     def development_stage(self, project, files):
         policy=self.projects.get(project)
         if not policy: raise KeyError(project)
+        self.projects.assert_mutable(project,"development_stage")
         result=self.development.stage(policy.root,files)
         self.memory.audit("development_stage","completed",f"{project}:{result['file_count']}")
         return result
@@ -437,6 +449,7 @@ class Orchestrator:
         return self.development.git_snapshot(policy.root)
 
     def development_commit(self, project, message, files, approved=False):
+        self.projects.assert_mutable(project,"development_commit")
         if not settings.allow_actions: raise PermissionError("KRISHNA_ALLOW_ACTIONS is disabled")
         if not approved: raise PermissionError("explicit commit approval required")
         policy=self.projects.get(project)
@@ -446,6 +459,7 @@ class Orchestrator:
         return result
 
     def development_push(self, project, approved=False):
+        self.projects.assert_mutable(project,"development_push")
         if not settings.allow_actions: raise PermissionError("KRISHNA_ALLOW_ACTIONS is disabled")
         if not approved: raise PermissionError("explicit push approval required")
         policy=self.projects.get(project)
@@ -467,7 +481,7 @@ class Orchestrator:
         return result
 
     def register_project(self, name, root, privacy="local_only",
-                         allowed_actions=None, verification_checks=None, metadata=None):
+                         allowed_actions=None, verification_checks=None, metadata=None, role="active"):
         item = self.projects.register(ProjectPolicy(
             name=name,
             root=root,
@@ -475,10 +489,12 @@ class Orchestrator:
             allowed_actions=allowed_actions or [],
             verification_checks=verification_checks or [],
             metadata=metadata or {},
+            role=role,
         ))
         self.graph.upsert_node(name, "project", {
             "root": item["root"],
             "privacy": item["privacy"],
+            "role": item["role"],
         })
         self.memory.save_project(
             item["name"], item["root"], item["privacy"],
@@ -505,6 +521,7 @@ class Orchestrator:
         policy = self.projects.get(project)
         if not policy:
             raise KeyError(project)
+        self.projects.assert_mutable(project,"register_e2e_test_harness")
         root = Path(policy.root).resolve()
         marker = root / ".krishna-e2e-disposable"
         if not bool(policy.metadata.get("e2e_test_harness")):
@@ -719,6 +736,7 @@ Evidence:
         item = self.projects.get(project)
         if not item:
             raise KeyError(project)
+        self.projects.assert_mutable(project,"shadow_repair")
         if action_name not in item.allowed_actions:
             raise PermissionError(f"action not allowed for project: {action_name}")
 
@@ -884,7 +902,7 @@ Evidence:
                 continue
         return selected, contexts
 
-    def handle_managed_request(self, message, project="general", source="pc", chat_id=None):
+    def handle_managed_request(self, message, project="general", source="pc", chat_id=None, vision_evidence=None):
         task = self.task_ledger.create(project, message)
         task_id = task["task_id"]
         try:
@@ -930,6 +948,8 @@ Registered project: {bool(registered)}
 
 Observed evidence:
 {evidence_summary}
+Local attachment/vision evidence:
+{vision_evidence or "- None"}
 
 Diagnostic hypotheses:
 {hypothesis_summary}
@@ -971,6 +991,8 @@ STRICT OUTPUT CONTRACT:
                 issue_lines.append("- Some collected historical health-log samples show RAM usage above 80%; the same evidence also contains later lower samples, so this is not proof of current memory pressure.")
             if "dirty " in evidence_lower:
                 issue_lines.append("- Guardian log evidence reports uncommitted/dirty files in one or more monitored repositories; this is an observed repository state, not by itself a KRISHNA failure.")
+            if vision_evidence:
+                observed_lines.append("- A local image attachment was analyzed by KRISHNA's local vision provider; its result is included as attachment evidence.")
             if not observed_lines:
                 observed_lines = [
                     f"- [{row.get('source')}/{row.get('kind')}] {str(row.get('detail', '')).strip()[:700]}"
@@ -1028,7 +1050,7 @@ STRICT OUTPUT CONTRACT:
                 self.task_ledger.update(task_id, "failed", "error", {"error": f"{type(exc).__name__}: {exc}"})
             raise
 
-    def handle(self, message, project="general", source="pc", chat_id=None):
+    def handle(self, message, project="general", source="pc", chat_id=None, vision_evidence=None):
         task_id = str(uuid.uuid4())
         self.memory.audit(task_id, "received", message)
         event_kind = "mobile_command" if source == "mobile" else "user_command"
@@ -1063,6 +1085,7 @@ Project: {project}
 Recent project memory: {context}
 Recent incidents: {incidents}
 Current project chat history: {chat_context}
+Local attachment/vision evidence: {vision_evidence or "None"}
 Neural routing intent: {neural['intent']}
 Matched specialist skills: {skill_names}
 Specialist guidance:

@@ -143,6 +143,8 @@ class IntelligenceNaradTests(unittest.TestCase):
             with self.assertRaises(PermissionError): n.execute(w["id"],approved=False)
             letter=n.dead_letter_status()["dead_letters"][0]
             with self.assertRaises(PermissionError): n.retry_dead_letter(letter["id"],approved=False)
+            with self.assertRaises(PermissionError): n.retry_dead_letter(letter["id"],approved=True)
+            n.promote(w["id"],"verified",verified=True);n.promote(w["id"],"stable",verified=True)
             result=n.retry_dead_letter(letter["id"],approved=True)
             self.assertEqual(result["dead_letter"]["status"],"retried")
             self.assertEqual(result["result"]["results"][0]["status"],200)

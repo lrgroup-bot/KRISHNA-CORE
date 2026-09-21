@@ -1,7 +1,9 @@
 param(
     [Parameter(Mandatory=$false)][string]$KrishnaRoot = "E:\Krishna-The GOD",
     [Parameter(Mandatory=$false)][int]$Port = 8766,
-    [Parameter(Mandatory=$false)][string]$SourceRoot = ""
+    [Parameter(Mandatory=$false)][string]$SourceRoot = "",
+    [Parameter(Mandatory=$false)][switch]$PrivateRemote,
+    [Parameter(Mandatory=$false)][string]$PrivateRemoteCIDRs = ""
 )
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -34,7 +36,20 @@ if($authoritative -and (Test-Path "$authoritative\.git")){
 
 if(!(Test-Path $coreDir)){throw "KRISHNA core directory not found: $coreDir"}
 $env:PYTHONPATH=$coreDir
-$env:KRISHNA_HOST="127.0.0.1"
+$voiceConfig=Join-Path $KrishnaRoot "config\voice-runtime.ps1"
+if(Test-Path $voiceConfig){. $voiceConfig}
+$bindHost="127.0.0.1"
+if($PrivateRemote){
+    $tailscale=(Get-Command tailscale.exe -ErrorAction SilentlyContinue)
+    if(!$tailscale){throw "PrivateRemote requested but tailscale.exe is not installed/found"}
+    $tsIp=(& $tailscale.Source ip -4 2>$null | Select-Object -First 1).Trim()
+    if(!$tsIp){throw "PrivateRemote requested but no Tailscale IPv4 address is available"}
+    $parsed=$null
+    if(![System.Net.IPAddress]::TryParse($tsIp,[ref]$parsed)){throw "Tailscale returned an invalid IP: $tsIp"}
+    $bindHost=$tsIp
+    $env:KRISHNA_PRIVATE_REMOTE_CIDRS=if($PrivateRemoteCIDRs){$PrivateRemoteCIDRs}else{"100.64.0.0/10"}
+}
+$env:KRISHNA_HOST=$bindHost
 $env:KRISHNA_PORT=[string]$Port
 $env:KRISHNA_RUNTIME_ROOT=$KrishnaRoot
 if($authoritative){$env:KRISHNA_SOURCE_ROOT=$authoritative}
@@ -54,7 +69,8 @@ Write-Host "Root      : $KrishnaRoot"
 Write-Host "Source    : $authoritative"
 Write-Host "Integrity : $($integrity.status)"
 Write-Host "Commit    : $($integrity.commit)"
-Write-Host "UI        : http://127.0.0.1:$Port/"
+Write-Host "UI        : http://$bindHost`:$Port/"
+if($PrivateRemote){Write-Host "Remote    : PRIVATE OVERLAY ONLY ($env:KRISHNA_PRIVATE_REMOTE_CIDRS)" -ForegroundColor Green}
 Write-Host ""
 
 & $py -u -m krishna_core.server

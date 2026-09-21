@@ -99,6 +99,10 @@ public class MainActivity extends Activity {
   public class Bridge {
     Bridge(){ensureCredential();deviceId();}
     String token(){return getSharedPreferences("k",0).getString("device_credential","");}
+    String credentialHash()throws Exception{
+      byte[] digest=java.security.MessageDigest.getInstance("SHA-256").digest(token().getBytes("UTF-8"));
+      StringBuilder s=new StringBuilder();for(byte b:digest)s.append(String.format(java.util.Locale.US,"%02x",b&255));return s.toString();
+    }
     void ensureCredential(){
       if(token().isEmpty()){
         String id=java.util.UUID.randomUUID().toString()+"-"+java.util.UUID.randomUUID().toString();
@@ -122,7 +126,7 @@ public class MainActivity extends Activity {
     }
     @JavascriptInterface public String pairingRequest(){
       try{
-        JSONObject b=new JSONObject();b.put("device_id",deviceId());b.put("name","KRISHNA Mobile");
+        JSONObject b=new JSONObject();b.put("device_id",deviceId());b.put("name","KRISHNA Mobile");b.put("credential_sha256",credentialHash());
         return callUnauthed("/api/mobile/pair/request",b.toString());
       }catch(Exception e){return error(e);}
     }
@@ -152,11 +156,14 @@ public class MainActivity extends Activity {
         JSONObject ok=new JSONObject();ok.put("ok",true);ok.put("project",project);ok.put("chat_id",chatId);return ok.toString();
       }catch(Exception e){return error(e);}
     }
-    @JavascriptInterface public String chat(String m){
+    @JavascriptInterface public String chat(String m){return chatWithAttachments(m,"[]");}
+    @JavascriptInterface public String chatWithAttachments(String m,String attachmentIdsJson){
       try{
         JSONObject ready=new JSONObject(ensureChat());if(ready.has("error"))return ready.toString();
         String project=ready.optString("project","KRISHNA"),chatId=ready.optString("chat_id","");
-        JSONObject body=new JSONObject();body.put("message",m);body.put("project",project);body.put("chat_id",chatId);body.put("source","mobile");body.put("mode","chat");
+        JSONArray ids=new JSONArray(attachmentIdsJson==null?"[]":attachmentIdsJson);
+        if(ids.length()>3)throw new IllegalArgumentException("at most 3 attachments per request");
+        JSONObject body=new JSONObject();body.put("message",m);body.put("project",project);body.put("chat_id",chatId);body.put("source","mobile");body.put("mode","chat");body.put("attachment_ids",ids);
         return call(CORE,body.toString());
       }catch(Exception e){return error(e);}
     }
@@ -193,8 +200,36 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    boolean privateCoreUrl(String value){
+      try{
+        URI u=new URI(value);String scheme=u.getScheme(),host=u.getHost();
+        if(host==null||(!"http".equalsIgnoreCase(scheme)&&!"https".equalsIgnoreCase(scheme)))return false;
+        String h=host.toLowerCase(java.util.Locale.US);
+        if("localhost".equals(h)||h.endsWith(".ts.net"))return true;
+        InetAddress ip=InetAddress.getByName(host);
+        if(ip.isLoopbackAddress()||ip.isSiteLocalAddress()||ip.isLinkLocalAddress())return true;
+        byte[] b=ip.getAddress();
+        if(b.length==4){
+          int a=b[0]&255,d=b[1]&255;
+          if(a==100&&d>=64&&d<=127)return true; // Tailscale/CGNAT overlay range
+        }else if(b.length==16){
+          int a=b[0]&255;
+          if((a&0xfe)==0xfc)return true; // IPv6 ULA
+        }
+      }catch(Exception ignored){}
+      return false;
+    }
+    @JavascriptInterface public String configureCoreUrl(String value){
+      try{
+        value=value==null?"":value.trim();
+        if(!privateCoreUrl(value))throw new SecurityException("KRISHNA Mobile accepts only LAN/private-overlay Core URLs");
+        getSharedPreferences("k",0).edit().putString("core_url",value.replaceAll("/+$","")).apply();
+        JSONObject d=new JSONObject();d.put("ok",true);d.put("core_url",value);d.put("policy","private-network-only");return d.toString();
+      }catch(Exception e){return error(e);}
+    }
     HttpURLConnection conn(String path)throws Exception{
       String base=getSharedPreferences("k",0).getString("core_url","http://192.168.0.106:8766");
+      if(!privateCoreUrl(base))throw new SecurityException("Core URL is outside KRISHNA private-network policy");
       HttpURLConnection c=(HttpURLConnection)new URL(base+path).openConnection();
       c.setConnectTimeout(4000);c.setReadTimeout(120000);
       c.setRequestProperty("Authorization","Device "+token());
@@ -205,6 +240,7 @@ public class MainActivity extends Activity {
     String callUnauthed(String path,String body){
       try{
         String base=getSharedPreferences("k",0).getString("core_url","http://192.168.0.106:8766");
+        if(!privateCoreUrl(base))throw new SecurityException("Core URL is outside KRISHNA private-network policy");
         HttpURLConnection c=(HttpURLConnection)new URL(base+path).openConnection();
         c.setConnectTimeout(4000);c.setReadTimeout(10000);c.setRequestProperty("X-Krishna-Device",deviceId());
         c.setRequestMethod("POST");c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");
