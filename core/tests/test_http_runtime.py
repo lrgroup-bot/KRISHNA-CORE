@@ -55,7 +55,7 @@ class HTTPRuntimeTests(unittest.TestCase):
 
     def test_read_endpoints(self):
         for path in ("/health", "/api/status", "/api/dashboard", "/api/capabilities",
-                     "/api/projects", "/api/plugins", "/api/specialists", "/api/resources",
+                     "/api/projects", "/api/plugins", "/api/specialists", "/api/specialist-teams", "/api/resources",
                      "/api/tasks", "/api/core/state", "/api/core/neural-state",
                      "/api/project-graph", "/api/recovery/ladder", "/api/incidents",
                      "/api/garuda/status", "/api/commitments", "/api/autonomy/status", "/api/gyan-bhandar",
@@ -114,6 +114,14 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(self.call("/api/mobile/resume?after=bad", headers=headers)[0], 400)
         self.assertTrue(self.call("/api/mobile/connection")[1]["connected"])
         self.assertEqual(self.call("/api/mobile/control", {"action":"shell"}, headers)[0], 403)
+
+    def test_specialist_team_plan_keeps_krishna_authority(self):
+        code,d=self.call("/api/specialist-teams/plan",{"project":"KRISHNA","task":"Fix frontend UI and verify responsive layout"})
+        self.assertEqual(code,200)
+        roles={x["role"] for x in d["roles"]}
+        self.assertIn("frontend",roles);self.assertIn("testing",roles);self.assertIn("critic",roles);self.assertIn("verifier",roles)
+        self.assertEqual(d["authority"],"KRISHNA")
+        self.assertFalse(d["live_mutation_allowed"])
 
     def test_commitment_autonomy_is_explicit_and_allowlisted(self):
         self.assertEqual(self.call("/api/commitments/create",{"project":"KRISHNA","title":"unsafe","autonomy":{"enabled":True,"operation":"shell"}})[0],403)
