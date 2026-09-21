@@ -1,4 +1,4 @@
-name: Build KRISHNA v3 3D APK
+name: Build KRISHNA Mobile Conversation APK
 on:
   workflow_dispatch:
   push:
@@ -57,8 +57,8 @@ jobs:
               applicationId 'com.krishna.mobile'
               minSdk 26
               targetSdk 35
-              versionCode 34
-              versionName '3.4.0'
+              versionCode 35
+              versionName '3.5.0'
             }
           }
           EOF
@@ -121,7 +121,7 @@ jobs:
       - name: Build APK
         run: gradle :app:assembleDebug
 
-      - name: Verify child KRISHNA 360 avatar
+      - name: Verify conversation-only KRISHNA Mobile
         shell: bash
         run: |
           set -euo pipefail
@@ -129,13 +129,15 @@ jobs:
           test -s app/src/main/assets/krishna_child_360.webp
           grep -q "krishna_child_360.webp" app/src/main/assets/index.html
           grep -q "SWIPE TO ROTATE" app/src/main/assets/index.html
-          grep -q "showView" app/src/main/assets/index.html
-          grep -q "workspaceBtn" app/src/main/assets/index.html
-          grep -q "runTool" app/src/main/assets/index.html
-          grep -q "mobile/control" app/src/main/java/com/krishna/mobile/MainActivity.java
-          grep -q "setWorkspace" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "showAvatarView" app/src/main/assets/index.html
+          grep -q "Conversation only" app/src/main/assets/index.html
+          grep -q "verifyVoice" app/src/main/assets/index.html
+          grep -q "ensureChat" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "task.completed" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "device_credential" app/src/main/java/com/krishna/mobile/MainActivity.java
+          if grep -q "workspaceBtn\|runTool" app/src/main/assets/index.html; then echo "dashboard/tool UI leaked into conversation-only mobile" >&2; exit 1; fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: KRISHNA-v3.3-Mobile-PC-APK
+          name: KRISHNA-v3.5-Conversation-Mobile-APK
           path: app/build/outputs/apk/debug/app-debug.apk
