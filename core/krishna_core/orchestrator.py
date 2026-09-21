@@ -428,9 +428,12 @@ class Orchestrator:
     def kabach_inspect_tool(self, project, tool, operation, permissions=None, approved=False):
         return self.kabach.record(project,self.kabach.inspect_tool(tool,operation,permissions,approved),"tool")
 
-    def development_sync(self, project):
+    def development_sync(self, project, approved=False):
         policy=self.projects.get(project)
         if not policy: raise KeyError(project)
+        self.projects.assert_mutable(project,"development_sync")
+        if not settings.allow_actions:raise PermissionError("KRISHNA_ALLOW_ACTIONS is disabled")
+        if not approved:raise PermissionError("explicit sync approval required")
         result=self.development.sync(policy.root)
         self.memory.audit("development_sync","completed" if result.get("ok") else "blocked",project)
         return result
