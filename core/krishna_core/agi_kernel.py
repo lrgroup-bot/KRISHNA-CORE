@@ -36,7 +36,7 @@ class AGIKernel:
         self.graft=GraftMemoryAdapter(profile="krishna")
         self.specialists=SpecialistRegistry()
         self.context=ContextGovernor()
-        self.narad=NaradRuntime(self.policy,self.bus,{"n8n":WebhookAdapter(),"activepieces":WebhookAdapter(),"webhook":WebhookAdapter()})
+        self.narad=NaradRuntime(self.policy,self.bus,{"n8n":WebhookAdapter(),"activepieces":WebhookAdapter(),"webhook":WebhookAdapter()},state_path=self.root/"narad"/"state.json")
         self.media=OpenMontageAdapter(self.workers)
     def status(self):
         return {"name":"KRISHNA AGI CORE","version":self.VERSION,"architecture":"single-control-plane/modular-workers",
