@@ -968,17 +968,20 @@ class Handler(BaseHTTPRequestHandler):
         if post_path == "/api/narad/webhooks/provision":
             wid=str(data.get("workflow_id") or "").strip()
             if not wid:return self._json(400,{"error":"workflow_id is required"})
-            return self._json(201,orch.agi.narad.provision_webhook(wid))
+            receipt=orch.dispatch_action("narad.webhook.provision",{"workflow_id":wid},source="pc",actor="legacy-http")
+            return self._json(201,receipt["result"])
 
         if post_path == "/api/narad/dead-letters/retry":
             letter_id=str(data.get("letter_id") or "").strip()
             if not letter_id:return self._json(400,{"error":"letter_id is required"})
-            return self._json(200,orch.agi.narad.retry_dead_letter(letter_id,bool(data.get("approved",False))))
+            receipt=orch.dispatch_action("narad.dead_letter.retry",{"letter_id":letter_id},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
+            return self._json(200,receipt["result"])
 
         if post_path == "/api/narad/checkpoints/resume":
             run_id=str(data.get("run_id") or "").strip()
             if not run_id:return self._json(400,{"error":"run_id is required"})
-            return self._json(200,orch.agi.narad.resume_checkpoint(run_id,bool(data.get("approved",False))))
+            receipt=orch.dispatch_action("narad.checkpoint.resume",{"run_id":run_id},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
+            return self._json(200,receipt["result"])
 
         if post_path == "/api/narad/scheduler/tick":
             if self.client_address[0] not in ("127.0.0.1","::1"):
@@ -990,17 +993,20 @@ class Handler(BaseHTTPRequestHandler):
             trigger=data.get("trigger") or {"type":"manual"}
             steps=data.get("steps") or []
             if not name or not isinstance(steps,list): return self._json(400,{"error":"name and steps are required"})
-            return self._json(201,orch.agi.narad.create_workflow(name,trigger,steps,data.get("permissions") or []))
+            receipt=orch.dispatch_action("narad.workflow.create",{"name":name,"trigger":trigger,"steps":steps,"permissions":data.get("permissions") or []},source="pc",actor="legacy-http")
+            return self._json(201,receipt["result"])
 
         if post_path == "/api/narad/workflows/promote":
             wid=str(data.get("workflow_id") or "").strip(); state=str(data.get("state") or "").strip()
             if not wid or not state:return self._json(400,{"error":"workflow_id and state are required"})
-            return self._json(200,orch.agi.narad.promote(wid,state,verified=bool(data.get("verified",False))))
+            receipt=orch.dispatch_action("narad.workflow.promote",{"workflow_id":wid,"state":state,"verified":bool(data.get("verified",False))},source="pc",actor="legacy-http")
+            return self._json(200,receipt["result"])
 
         if post_path == "/api/narad/workflows/execute":
             wid=str(data.get("workflow_id") or "").strip()
             if not wid:return self._json(400,{"error":"workflow_id is required"})
-            return self._json(200,orch.agi.narad.execute(wid,data.get("context") or {},approved=bool(data.get("approved",False))))
+            receipt=orch.dispatch_action("narad.workflow.execute",{"workflow_id":wid,"context":data.get("context") or {}},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
+            return self._json(200,receipt["result"])
 
         if post_path == "/api/mobile/pair/request":
             device = str(data.get("device_id", "")).strip()
