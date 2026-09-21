@@ -39,6 +39,11 @@ if(!(Test-Path $coreDir)){throw "KRISHNA core directory not found: $coreDir"}
 $env:PYTHONPATH=$coreDir
 $voiceConfig=Join-Path $KrishnaRoot "config\voice-runtime.ps1"
 if(Test-Path $voiceConfig){. $voiceConfig}
+$browserConfig=Join-Path $KrishnaRoot "config\browser-runtime.ps1"
+if(Test-Path $browserConfig){
+    . $browserConfig
+    Write-Host "Browser adapter config loaded: $browserConfig" -ForegroundColor DarkCyan
+}
 $bindHost="127.0.0.1"
 $lanIp=""
 $remoteIp=""
