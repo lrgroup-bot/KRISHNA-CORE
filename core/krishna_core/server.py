@@ -19,6 +19,7 @@ from .garudanetra_session import GarudanetraSessionManager
 from .ui_guardian import UIGuardian, UIGuardianRegistry
 from .narad.scheduler import NaradScheduler
 from .autonomy_supervisor import AutonomySupervisor
+from .specialist_team import SpecialistTeamPlanner
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -36,6 +37,7 @@ _narad_scheduler = NaradScheduler(orch.agi.narad)
 _narad_scheduler.start()
 _autonomy = AutonomySupervisor(orch)
 _autonomy.start()
+_team_planner = SpecialistTeamPlanner(_specialists)
 try:
     if _specialists.source_root.exists():
         _specialists.index()
@@ -451,6 +453,8 @@ class Handler(BaseHTTPRequestHandler):
                     "narad_dead_letter_retry",
                     "narad_secret_reference_vault",
                     "safe_unattended_commitment_supervisor",
+                    "curated_specialist_team_planner",
+                    "independent_critic_verifier_flow",
                     "codebase_memory_adapter",
                     "graft_memory_adapter",
                     "specialist_registry",
@@ -467,7 +471,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/plugins":
             return self._json(200, {"plugins": _plugins.list()})
         if path == "/api/specialists":
-            return self._json(200, _specialists.status())
+            return self._json(200, {**_specialists.status(),"curated_team":_team_planner.status()})
+        if path == "/api/specialist-teams":
+            return self._json(200,_team_planner.status())
         if path == "/api/skills":
             project = (query.get("project") or [None])[0]
             return self._json(200, orch.skill_status(project))
@@ -815,7 +821,14 @@ class Handler(BaseHTTPRequestHandler):
             task = str(data.get("task", "")).strip()
             if not task:
                 return self._json(400, {"error": "task is required"})
-            return self._json(200, {"selected": _specialists.select(task, int(data.get("limit", 5)))})
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            plan=_team_planner.plan(task,project,int(data.get("limit",5)))
+            return self._json(200, {"selected":plan["agency_advisors"],"team":plan})
+
+        if self.path == "/api/specialist-teams/plan":
+            task=str(data.get("task") or "").strip()
+            if not task:return self._json(400,{"error":"task is required"})
+            return self._json(200,_team_planner.plan(task,str(data.get("project") or "KRISHNA"),int(data.get("external_limit") or 6)))
 
         if self.path == "/api/specialists/context":
             try:

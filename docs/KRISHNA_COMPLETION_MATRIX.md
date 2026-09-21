@@ -15,7 +15,7 @@ Status meanings:
 | One public identity: KRISHNA | VERIFIED | Internal engines are selected by Core; clients do not choose Karma/Vishwakarma modes. |
 | Neural Action Graph routing | VERIFIED | Core routing and architecture contracts. |
 | Policy/Security Kernel between decision and execution | VERIFIED | Mutating/high-impact actions fail closed without approval. |
-| Planner → specialists → critic → independent verifier → KRISHNA decision | VERIFIED boundary | Specialist/critic/verifier boundaries exist; worker UX remains richer in roadmap. |
+| Planner → specialists → critic → independent verifier → KRISHNA decision | IMPLEMENTED / RUNTIME VERIFY | Curated team planner now returns bounded role manifests, permissions/risk, Agency-Agents advisors, mandatory Critic and independent Verifier, with live mutation blocked until separate promotion. |
 | Shadow repair, verification, promotion and rollback | VERIFIED | Repository tests cover bounded promotion/rollback. |
 | Resource governor / PC observer / recovery | VERIFIED boundary | Real long-duration Windows autonomy still needs soak testing. |
 | Continue working while owner is away; notify only meaningful completed work | IMPLEMENTED SAFE BOUNDARY / RUNTIME VERIFY | AutonomySupervisor resumes explicitly opted-in non-mutating investigate/research/index commitments while unattended; mutation, promotion and external side effects still require their normal approval gates. Mobile completion notifications remain separate. |
@@ -81,7 +81,7 @@ Status meanings:
 | Free/local-first routing (Ollama / optional GPT4All-style local provider) | PARTIAL | Local routing is implemented; optional local engines depend on runtime installation. |
 | Cloud fallbacks (OpenAI/Gemini/Claude/Grok/OpenRouter) without leaking restricted project data | PARTIAL | Router/privacy boundary exists; provider credentials/connectors remain environment-dependent. |
 | Agency-Agents specialist library | IMPLEMENTED / RUNTIME VERIFY | Runtime has external agency-agents library; selection/indexing exists. |
-| Architect / Backend / Frontend / Debugger / DevOps / Security / Test / Research / Data / UI / Docs patterns | PARTIAL | Specialist library is broad; curated default team UX/risk manifests remain. |
+| Architect / Backend / Frontend / Debugger / DevOps / Security / Test / Research / Data / UI / Docs patterns | IMPLEMENTED / RUNTIME VERIFY | Curated manifests and task-driven team assembly are implemented and surfaced in Specialist Teams UI; Agency-Agents remain prompt-only advisory contexts. |
 | OpenMontage only as media/YouTube worker | VERIFIED boundary | Media adapter keeps it outside the KRISHNA brain. |
 
 ## 7. KABACH

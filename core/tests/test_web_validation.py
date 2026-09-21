@@ -43,6 +43,7 @@ class WebValidationTests(unittest.TestCase):
             "gyanInventory", "gyanKind", "loadGyanInventory", "supersedeGyan",
             "/api/ui-guardian/registry", "/api/ui-guardian/evaluate", "/api/ui-guardian/transition",
             "uiGuardianRegistry", "Run viewport matrix", "Stable / Candidate / Experimental / Rejected",
+            "/api/specialists/select", "specialistFlow", "Independent Verifier", "live mutation", "agencyResults",
         ):
             self.assertIn(token, text)
         self.assertIn("Garudanetra", text)
