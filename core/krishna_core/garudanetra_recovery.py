@@ -55,7 +55,8 @@ class BrowserRecoveryAdapter:
                     loc=page.locator(selector)
                     if loc.count()>0:
                         return {"locator":loc.first,"strategy":"external_harness","attempts":attempts,"source":"untrusted_external"}
-                except Exception:pass
+                except Exception as exc:
+                    attempts.append({"strategy":"external_harness_selector","error":f"{type(exc).__name__}: {exc}"})
 
         raise RuntimeError("selector recovery failed: "+json.dumps(attempts)[:3000])
 
