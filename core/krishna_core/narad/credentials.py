@@ -129,6 +129,7 @@ class NaradCredentialVault:
         if not ref:
             raise KeyError("Narad credential reference not found")
         row = asdict(ref)
+        row.pop("secret_id", None)
         row["available"] = self._available(ref)
         row["backend"] = "environment" if ref.source == "env" else "windows-dpapi"
         return row
