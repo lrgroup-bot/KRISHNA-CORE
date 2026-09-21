@@ -22,6 +22,7 @@ class BrowserReport:
     visible_text: str = ""
     screenshot: str | None = None
     elapsed_ms: int = 0
+    layout: dict = field(default_factory=dict)
     ok: bool = False
 
 
@@ -81,7 +82,7 @@ class BrowserOperator:
         return {"url":url,"controls_checked":len(evidence),"evidence":evidence,"findings":findings,"screenshot":str(shot) if shot else None,"ok":not failed and not findings,"elapsed_ms":int((time.perf_counter()-started)*1000)}
 
     def inspect(self, url: str, actions: list[dict] | None = None,
-                screenshot_path: str | None = None) -> dict:
+                screenshot_path: str | None = None, viewport: dict | None = None) -> dict:
         if not url.startswith(("http://", "https://")):
             raise ValueError("browser inspection requires http:// or https:// URL")
         try:
@@ -105,7 +106,10 @@ class BrowserOperator:
                 browser = p.chromium.launch(channel="chrome", headless=self.headless)
             except Exception:
                 browser = p.chromium.launch(headless=self.headless)
-            page = browser.new_page()
+            viewport = viewport or {"width": 1440, "height": 900}
+            width=max(320,min(int(viewport.get("width",1440)),3840))
+            height=max(480,min(int(viewport.get("height",900)),2160))
+            page = browser.new_page(viewport={"width":width,"height":height})
             page.set_default_timeout(self.timeout_ms)
             page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
             page.on("pageerror", lambda exc: page_errors.append(str(exc)))
@@ -140,6 +144,19 @@ class BrowserOperator:
                 shot = str(target)
 
             visible_text = page.locator("body").inner_text()[:12000]
+            layout = page.evaluate("""() => {
+              const de=document.documentElement, b=document.body;
+              const vw=window.innerWidth, vh=window.innerHeight;
+              const sw=Math.max(de?.scrollWidth||0,b?.scrollWidth||0);
+              const sh=Math.max(de?.scrollHeight||0,b?.scrollHeight||0);
+              return {
+                viewport_width:vw, viewport_height:vh,
+                scroll_width:sw, scroll_height:sh,
+                document_width:Math.max(de?.clientWidth||0,b?.clientWidth||0),
+                document_height:Math.max(de?.clientHeight||0,b?.clientHeight||0),
+                horizontal_overflow:sw>vw+2
+              };
+            }""")
             report = BrowserReport(
                 url=url,
                 final_url=page.url,
@@ -151,6 +168,7 @@ class BrowserOperator:
                 visible_text=visible_text,
                 screenshot=shot,
                 elapsed_ms=int((time.perf_counter() - started) * 1000),
+                layout=layout,
             )
             report.ok = not report.findings
             browser.close()
