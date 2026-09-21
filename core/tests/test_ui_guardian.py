@@ -22,6 +22,10 @@ class FakeBrowser:
             }
         }
 
+class FailingBrowser:
+    def inspect(self,url,screenshot_path=None,viewport=None,actions=None):
+        raise RuntimeError("synthetic browser failure")
+
 class UIGuardianTests(unittest.TestCase):
     def test_registry_requires_verified_pass_for_stable(self):
         with tempfile.TemporaryDirectory() as td:
@@ -52,5 +56,15 @@ class UIGuardianTests(unittest.TestCase):
             out=g.evaluate("KRISHNA","http://127.0.0.1:8766")
             self.assertFalse(out["passed"])
             self.assertTrue(any(x["kind"]=="horizontal_overflow" for x in out["defects"]))
+
+    def test_browser_exception_becomes_critical_defect_not_server_crash(self):
+        with tempfile.TemporaryDirectory() as td:
+            reg=UIGuardianRegistry(Path(td)/"registry.json")
+            g=UIGuardian(FailingBrowser(),reg,Path(td)/"shots")
+            out=g.evaluate("KRISHNA","http://127.0.0.1:8766")
+            self.assertFalse(out["passed"])
+            self.assertEqual(len(out["reports"]),4)
+            self.assertTrue(all(x["kind"]=="inspection_error" and x["severity"]=="critical" for x in out["defects"]))
+            self.assertTrue(all("synthetic browser failure" in x["detail"] for x in out["defects"]))
 
 if __name__=="__main__": unittest.main()
