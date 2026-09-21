@@ -38,6 +38,7 @@ from .commitment_ledger import CommitmentLedger
 from .software_factory import SoftwareFactory
 from .ephemeral_workers import EphemeralWorkerRuntime
 from .agi_kernel import AGIKernel
+from .requirements_ledger import RequirementsLedger
 
 
 class Orchestrator:
@@ -46,6 +47,7 @@ class Orchestrator:
         self.memory = MemoryStore(self.db_path)
         self.task_ledger = TaskLedger(self.db_path)
         self.commitments = CommitmentLedger(self.db_path)
+        self.requirements = RequirementsLedger()
         self.software_factory = SoftwareFactory(self.memory,self.commitments)
         self.project_brain = ProjectBrain(self.memory)
         self.router = ModelRouter()
@@ -1043,6 +1045,8 @@ Operating loop: Observe -> Understand -> Investigate -> Research -> Plan -> Act 
 Be concise and truthful. Never claim an action completed unless verification evidence exists.
 Never execute arbitrary shell commands from natural language. Mutating actions must use registered workers/policies.
 For registered projects, prefer evidence, shadow testing, verification, rollback, and learned incident memory.
+
+{self.requirements.prompt_contract()}
 
 Project: {project}
 Recent project memory: {context}
