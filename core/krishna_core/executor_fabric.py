@@ -1,5 +1,5 @@
 from __future__ import annotations
-import subprocess, sys, time
+import os, shlex, subprocess, sys, time
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
@@ -23,5 +23,8 @@ class ExecutorFabric:
         decision=self.policy.action("shell", mutating=True, approved=approved)
         if not decision.allowed: raise PermissionError(decision.reason)
         started=time.perf_counter()
-        cp=subprocess.run(command,cwd=str(cwd),shell=True,text=True,capture_output=True,timeout=timeout)
-        return ExecutionResult("native",cp.returncode==0,command,cp.returncode,cp.stdout[-12000:],cp.stderr[-12000:],int((time.perf_counter()-started)*1000)).as_dict()
+        args=shlex.split(command,posix=os.name!="nt") if isinstance(command,str) else list(command or [])
+        if not args:raise ValueError("executor command is empty")
+        cp=subprocess.run(args,cwd=str(cwd),shell=False,text=True,capture_output=True,timeout=timeout)
+        shown=command if isinstance(command,str) else " ".join(str(x) for x in args)
+        return ExecutionResult("native",cp.returncode==0,shown,cp.returncode,cp.stdout[-12000:],cp.stderr[-12000:],int((time.perf_counter()-started)*1000)).as_dict()
