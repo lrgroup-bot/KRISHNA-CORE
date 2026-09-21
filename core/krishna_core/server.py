@@ -61,6 +61,15 @@ def _remember_garudanetra_session(snapshot):
         orch.gyan_propose(project,"garudanetra-task-memory:"+sid,lesson,evidence,0.8,
                           "garudanetra_task_memory",False,"evidence",
                           {"session_id":sid,"mode":snapshot.get("mode"),"url":snapshot.get("current_url")})
+        for finding in snapshot.get("findings") or []:
+            if finding.get("kind")!="selector_recovered" or not finding.get("candidate_skill"):
+                continue
+            skill=finding["candidate_skill"]
+            orch.gyan_propose(project,"garudanetra-browser-skill",
+                              "Recovered browser locator candidate: "+json.dumps(skill,ensure_ascii=False),
+                              [{"session_id":sid,"url":snapshot.get("current_url"),"finding":finding}],
+                              0.75,"garudanetra_recovery",False,"skill",
+                              {"session_id":sid,"recovery_source":skill.get("source"),"verification_required":True})
     except Exception as exc:
         orch.memory.audit("garudanetra_task_memory","proposal_failed",f"{type(exc).__name__}: {exc}")
 _garudanetra = GarudanetraSessionManager(RUNTIME_ROOT,on_closed=_remember_garudanetra_session)
