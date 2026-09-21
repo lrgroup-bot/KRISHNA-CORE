@@ -10,7 +10,7 @@ class RequirementsLedgerTests(unittest.TestCase):
         d=self.ledger.snapshot()
         self.assertGreaterEqual(d["group_count"],10)
         self.assertGreaterEqual(d["requirement_count"],35)
-        text="\n".join(d["non_negotiables"]+[r for g in d["groups"] for r in g["requirements"]])
+        text="\n".join(d["non_negotiables"]+[g["title"] for g in d["groups"]]+[r for g in d["groups"] for r in g["requirements"]])
         for term in ("KRISHNA","Sudarshan","Garudanetra","Gyan-Bhandar","NARAD","KABACH","conversation-only","Krishna_AGI.exe"):
             self.assertIn(term,text)
 
