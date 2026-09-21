@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-09-21-agent-native-action-spine-v1",
+  "version": "2026-09-21-sudarshan-narad-n8n-patterns-v1",
   "source": "Consolidated from KRISHNA project conversations and verified repository decisions",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -15,7 +15,8 @@
     "Remote-away access is private-network-only; KRISHNA must not expose Core control APIs directly to the public Internet.",
     "Protected and archive project roles are read-only to autonomous mutation and promotion.",
     "Garuda is the research/evidence scout; Garudanetra is the browser/computer fabric. Neither replaces KRISHNA authority.",
-    "Every operational dashboard control must resolve to a real runtime contract; mutating priority controls use the Shared Action Bus and receive auditable action receipts."
+    "Every operational dashboard control must resolve to a real runtime contract; mutating priority controls use the Shared Action Bus and receive auditable action receipts.",
+    "Every delegated capability enters through Sudarshan's permissioned Action/Job architecture and leaves through the independent verifier; no framework gains authority by being powerful."
   ],
   "groups": [
     {
@@ -99,7 +100,13 @@
         "n8n, Activepieces, MCP and generic webhook integrations remain provider adapters, not KRISHNA authority.",
         "External communication and app integrations use credential references and Policy/HITL gates.",
         "Provider adapters cover Telegram, Discord, Slack, WhatsApp, Gmail, Google Drive, Google Sheets and Google Calendar behind Policy approval.",
-        "Credentials may be environment references or Windows DPAPI-encrypted local secret references; plaintext is never returned by status APIs."
+        "Credentials may be environment references or Windows DPAPI-encrypted local secret references; plaintext is never returned by status APIs.",
+        "NARAD adopts n8n-style workflow patterns natively but does not embed the n8n runtime, editor, database, queue workers, credential store or unrestricted node catalog.",
+        "NARAD workflows compile to typed action/job DAG nodes with explicit dependencies, safe data references, bounded retries, durable history, dead letters and per-run checkpoints.",
+        "Workflow data mapping supports bounded ${input.*} and ${nodes.*} lookup only; arbitrary Python/JavaScript expression evaluation is prohibited.",
+        "External webhook/provider steps are side-effecting, remain approval-gated, and are retried only when explicitly marked retry-safe.",
+        "Checkpoint resume skips already completed and independently verified nodes.",
+        "External n8n may be called only as a bounded webhook adapter behind Sudarshan; it never becomes KRISHNA's scheduler or authority."
       ]
     },
     {
@@ -204,6 +211,9 @@
     "Garuda research and Garudanetra browser/computer responsibilities remain separate in runtime and UI.",
     "Garudanetra semantic refs, browser-fabric status, frame transport, action recording and replay approval gate pass runtime acceptance.",
     "Shared Action Bus, Agent Runtime, Jobs, Permissions, MCP/A2A adapter and Dispatch acceptance checks pass.",
-    "Priority operational UI controls produce real Shared Action receipts; decorative-but-unwired controls are release defects."
+    "Priority operational UI controls produce real Shared Action receipts; decorative-but-unwired controls are release defects.",
+    "NARAD reports typed-dag/sudarshan mode with Sudarshan bound in runtime acceptance.",
+    "NARAD checkpoint/resume, bounded retry, safe data mapping and independent workflow verification tests pass.",
+    "No full n8n runtime process/dependency is required for KRISHNA Core."
   ]
 }
