@@ -13,6 +13,18 @@ class GatewayTest(unittest.TestCase):
             self.assertEqual(gw.call("phone-1",auth["token"],"chat.send",{"text":"hi"})["echo"],"hi")
             with self.assertRaises(PermissionError): gw.call("phone-1",auth["token"],"system.run",{"cmd":"whoami"})
             with self.assertRaises(PermissionError): gw.call("phone-1","bad","chat.send",{"text":"x"})
+    def test_pairing_queue_and_device_id_are_bounded(self):
+        with tempfile.TemporaryDirectory() as d:
+            store=DevicePairingStore(d,max_pending=2)
+            store.request("phone-a","A")
+            store.request("phone-b","B")
+            with self.assertRaises(RuntimeError):
+                store.request("phone-c","C")
+            with self.assertRaises(ValueError):
+                store.request("x"*161,"Too long")
+            with self.assertRaises(ValueError):
+                store.request("bad\ndevice","Bad")
+
     def test_zero_code_client_hash_pairing(self):
         with tempfile.TemporaryDirectory() as d:
             store=DevicePairingStore(d)
