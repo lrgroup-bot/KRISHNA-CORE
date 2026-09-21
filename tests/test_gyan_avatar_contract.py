@@ -18,10 +18,14 @@ class GyanAvatarContractTests(unittest.TestCase):
         self.assertIn('"auto_implementation":False',g)
         self.assertIn('"implementation_executor":"Sudarshan"',g)
     def test_private_avatar_is_local_route(self):
+        self.assertIn('/api/avatar/status',SERVER)
         self.assertIn('/api/avatar.glb',SERVER)
         self.assertIn('dashboard" / "assets" / "avatar" / "krishna.glb"',SERVER)
-        self.assertIn('src="/api/avatar.glb"',WEB)
         self.assertIn('id="krishnaModel"',WEB)
+        self.assertIn("customElements.get('model-viewer')",WEB)
+        self.assertIn("avatar.setAttribute('src','/api/avatar.glb')",WEB)
+        self.assertNotIn('src="/api/avatar.glb"',WEB)
+        self.assertNotIn('ajax.googleapis.com/ajax/libs/model-viewer',WEB)
     def test_gyan_ui_contract(self):
         self.assertIn('id="gyan"',WEB)
         self.assertIn('Gyan-Bhandar',WEB)
