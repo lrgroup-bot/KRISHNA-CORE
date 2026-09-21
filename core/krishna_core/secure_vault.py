@@ -31,6 +31,9 @@ def _dpapi_protect(data:bytes,entropy:bytes=b"KRISHNA-SECRET-VAULT-V1")->bytes:
         raise SecretVaultUnavailable("Windows DPAPI is available only on Windows")
     crypt32=ctypes.windll.crypt32
     kernel32=ctypes.windll.kernel32
+    crypt32.CryptProtectData.argtypes=[ctypes.POINTER(_DATA_BLOB),wintypes.LPCWSTR,ctypes.POINTER(_DATA_BLOB),ctypes.c_void_p,ctypes.c_void_p,wintypes.DWORD,ctypes.POINTER(_DATA_BLOB)]
+    crypt32.CryptProtectData.restype=wintypes.BOOL
+    kernel32.LocalFree.argtypes=[ctypes.c_void_p];kernel32.LocalFree.restype=ctypes.c_void_p
     in_blob,in_buf=_blob(data); ent_blob,ent_buf=_blob(entropy); out_blob=_DATA_BLOB()
     flags=0x1  # CRYPTPROTECT_UI_FORBIDDEN
     if not crypt32.CryptProtectData(ctypes.byref(in_blob),"KRISHNA",ctypes.byref(ent_blob),None,None,flags,ctypes.byref(out_blob)):
@@ -46,8 +49,11 @@ def _dpapi_unprotect(data:bytes,entropy:bytes=b"KRISHNA-SECRET-VAULT-V1")->bytes
         raise SecretVaultUnavailable("Windows DPAPI is available only on Windows")
     crypt32=ctypes.windll.crypt32
     kernel32=ctypes.windll.kernel32
+    crypt32.CryptUnprotectData.argtypes=[ctypes.POINTER(_DATA_BLOB),ctypes.POINTER(wintypes.LPWSTR),ctypes.POINTER(_DATA_BLOB),ctypes.c_void_p,ctypes.c_void_p,wintypes.DWORD,ctypes.POINTER(_DATA_BLOB)]
+    crypt32.CryptUnprotectData.restype=wintypes.BOOL
+    kernel32.LocalFree.argtypes=[ctypes.c_void_p];kernel32.LocalFree.restype=ctypes.c_void_p
     in_blob,in_buf=_blob(data); ent_blob,ent_buf=_blob(entropy); out_blob=_DATA_BLOB()
-    desc=ctypes.c_wchar_p()
+    desc=wintypes.LPWSTR()
     flags=0x1
     if not crypt32.CryptUnprotectData(ctypes.byref(in_blob),ctypes.byref(desc),ctypes.byref(ent_blob),None,None,flags,ctypes.byref(out_blob)):
         raise ctypes.WinError()
