@@ -10,6 +10,7 @@ from .automation_bus import AutomationBus
 from .worker_fabric import WorkerFabric
 from .creator_runtime import CreatorRuntime
 from .avatar_fabric import AvatarFabric
+from .brahmagyan import BrahmagyanRuntime
 from .revenue_engine import RevenueEngine
 from .integrations import CodebaseMemoryAdapter, GraftMemoryAdapter, WebhookAdapter
 from .narad import NaradRuntime
@@ -34,6 +35,7 @@ class AGIKernel:
         self.workers=WorkerFabric(self.root)
         self.creator=CreatorRuntime(self.workers)
         self.avatar=AvatarFabric()
+        self.brahmagyan=BrahmagyanRuntime(self.root/"brahmagyan",gyan,memory)
         self.revenue=RevenueEngine(self.bus)
         self.code_intelligence=CodebaseMemoryAdapter(cache_root=self.root/"cbm-cache")
         self.graft=GraftMemoryAdapter(profile="krishna")
@@ -55,5 +57,5 @@ class AGIKernel:
         "memory":{**self.memory.adapters(),"graft":self.graft.status()},"code_intelligence":self.code_intelligence.status(),
         "critic":"independent","skill_compiler":"ready","benchmark_lab":"ready","narad":{**self.narad.status(),"credential_vault":{"connections":self.narad_credentials.list()["count"],"policy":"environment refs or Windows DPAPI encrypted secrets"},"providers":self.narad_providers.providers()},
         "specialists":self.specialists.list(),"garudanetra":"BrowserOperator/Garuda integration",
-        "creator":self.creator.status(),"avatar":self.avatar.status(),"media":self.media.status(),
+        "creator":self.creator.status(),"avatar":self.avatar.status(),"brahmagyan":self.brahmagyan.status(),"media":self.media.status(),
         "revenue":self.revenue.status(),"workers":self.workers.status()}
