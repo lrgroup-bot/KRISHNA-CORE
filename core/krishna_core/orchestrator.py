@@ -17,6 +17,7 @@ from .security import DefensiveSecurityScanner
 from .project_registry import ProjectRegistry, ProjectPolicy
 from .resource_governor import ResourceGovernor
 from .action_registry import ActionRegistry
+from .shared_action_bus import SharedActionBus
 from .repository_index import RepositoryIndexer
 from .evidence_collectors import LocalEvidenceCollectors
 from .shadow_workspace import ShadowWorkspaceManager
@@ -94,6 +95,10 @@ class Orchestrator:
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
+        self.action_bus = SharedActionBus(
+            self.agi.bus,self.agi.policy,audit=self.memory.audit,
+            permission_resolver=self._shared_action_permission,
+        )
         self._verification_checks = {}
         self.repair_agent = RepairAgent(
             self.investigate,
@@ -104,7 +109,88 @@ class Orchestrator:
             Path(self.db_path).resolve().parent / ".krishna_state" / "promotion-candidates",
         )
         self._restore_projects()
+        self._register_shared_actions()
         self._register_builtin_probes()
+
+    def _shared_action_permission(self,spec,context):
+        source=str(context.get("source") or "pc").lower()
+        granted=set(str(x) for x in (context.get("permissions") or []))
+        required=set(spec.permissions)
+        if source in {"pc","system"}:
+            return True,"owner/local runtime"
+        if source=="mobile":
+            allowed={"chat.create","chat.move","chat.rename","chat.delete"}
+            if spec.name not in allowed:
+                return False,"mobile source is not allowed to dispatch this action"
+        if source in {"mobile","agent"} and required and not required.issubset(granted):
+            return False,"missing action permission: "+",".join(sorted(required-granted))
+        return True,"permission contract satisfied"
+
+    def _register_shared_actions(self):
+        def chat_create(payload,context):
+            return self.create_chat(
+                str(payload.get("project") or context.get("project") or "general"),
+                str(payload.get("title") or "New chat"),
+            )
+        def chat_move(payload,context):
+            return self.move_chat(str(payload.get("chat_id") or ""),str(payload.get("project") or ""))
+        def chat_rename(payload,context):
+            return self.rename_chat(str(payload.get("chat_id") or ""),str(payload.get("title") or ""))
+        def chat_delete(payload,context):
+            return self.delete_chat(str(payload.get("chat_id") or ""))
+        def project_register(payload,context):
+            return self.register_project(
+                name=str(payload.get("name") or "").strip(),
+                root=str(payload.get("root") or "").strip(),
+                privacy=str(payload.get("privacy") or "local_only"),
+                allowed_actions=payload.get("allowed_actions") or [],
+                verification_checks=payload.get("verification_checks") or [],
+                metadata=payload.get("metadata") or {},
+                role=str(payload.get("role") or "active"),
+            )
+        def project_unregister(payload,context):
+            return self.unregister_project(str(payload.get("name") or "").strip())
+
+        self.action_bus.register(
+            "chat.create",chat_create,description="Create a persistent KRISHNA chat",
+            mutating=True,permissions=("chat.write",),
+        )
+        self.action_bus.register(
+            "chat.move",chat_move,description="Move a chat into a registered project",
+            mutating=True,permissions=("chat.write","project.write"),
+        )
+        self.action_bus.register(
+            "chat.rename",chat_rename,description="Rename a chat",
+            mutating=True,permissions=("chat.write",),
+        )
+        self.action_bus.register(
+            "chat.delete",chat_delete,description="Delete a chat and its stored history",
+            mutating=True,permissions=("chat.write",),
+        )
+        self.action_bus.register(
+            "project.register",project_register,description="Register a KRISHNA project",
+            mutating=True,permissions=("project.write",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "project.unregister",project_unregister,description="Unregister a KRISHNA project",
+            mutating=True,permissions=("project.write",),sources=("pc","system"),
+        )
+
+    def dispatch_action(self,action,payload=None,project="KRISHNA",source="pc",actor="owner",
+                        approved=False,permissions=(),idempotency_key=None):
+        return self.action_bus.dispatch(
+            action,payload,project=project,source=source,actor=actor,approved=approved,
+            permissions=permissions,idempotency_key=idempotency_key,
+        )
+
+    def action_bus_status(self):
+        return self.action_bus.status()
+
+    def action_bus_recent(self,limit=50):
+        return self.action_bus.recent(limit)
+
+    def rollback_dispatched_action(self,action_id,source="pc",actor="owner",approved=False):
+        return self.action_bus.rollback(action_id,source=source,actor=actor,approved=approved)
 
     def close(self):
         """Release every database owned by this runtime, including commitments."""
