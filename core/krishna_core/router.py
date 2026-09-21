@@ -51,10 +51,21 @@ class ModelRouter:
             model=rows[0].get("id")
         return self._openai_local(base,model,prompt)
 
+    @staticmethod
+    def _probe_json(url,timeout=2):
+        try:
+            with urllib.request.urlopen(url,timeout=timeout) as r:
+                return True,json.loads(r.read().decode())
+        except Exception as exc:
+            return False,{"error":f"{type(exc).__name__}: {exc}"}
+
     def available(self):
+        ollama_ok,ollama_data=self._probe_json(settings.ollama_url.rstrip("/")+"/api/tags")
+        gpt_base=os.getenv("KRISHNA_GPT4ALL_URL","http://127.0.0.1:4891/v1").rstrip("/")
+        gpt_ok,gpt_data=self._probe_json(gpt_base+"/models")
         out=[
-          {"provider":"ollama","available":True,"local":True,"model":os.getenv("KRISHNA_LOCAL_MODEL","qwen2.5:3b"),"credential_source":"none"},
-          {"provider":"gpt4all","available":True,"local":True,"model":os.getenv("KRISHNA_GPT4ALL_MODEL","auto"),"credential_source":"none"},
+          {"provider":"ollama","available":ollama_ok,"local":True,"model":os.getenv("KRISHNA_LOCAL_MODEL","qwen2.5:3b"),"credential_source":"none","error":None if ollama_ok else ollama_data.get("error")},
+          {"provider":"gpt4all","available":gpt_ok,"local":True,"model":os.getenv("KRISHNA_GPT4ALL_MODEL","auto"),"credential_source":"none","error":None if gpt_ok else gpt_data.get("error")},
         ]
         for name,p in self.PROVIDERS.items():
             out.append({"provider":name,"available":bool(os.getenv(p["key"])),"local":False,
