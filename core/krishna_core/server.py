@@ -16,6 +16,7 @@ from .specialist_library import SpecialistLibrary
 from .runtime_integrity import RuntimeIntegrity
 from .requirements_ledger import RequirementsLedger
 from .garudanetra_session import GarudanetraSessionManager
+from .ui_guardian import UIGuardian, UIGuardianRegistry
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -27,6 +28,8 @@ _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".kri
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
 _requirements = RequirementsLedger()
 _garudanetra = GarudanetraSessionManager(RUNTIME_ROOT)
+_ui_registry = UIGuardianRegistry(Path(settings.db_path).resolve().parent / ".krishna_state" / "ui-guardian-registry.json")
+_ui_guardian = UIGuardian(orch.browser, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
 try:
     if _specialists.source_root.exists():
         _specialists.index()
@@ -265,6 +268,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, orch.garuda_status())
         if path == "/api/garudanetra/sessions":
             return self._json(200, _garudanetra.status())
+        if path == "/api/ui-guardian/registry":
+            project=(query.get("project") or [None])[0]
+            return self._json(200,_ui_registry.list(project))
         if path == "/api/garudanetra/session":
             sid=(query.get("id") or [""])[0].strip()
             if not sid:return self._json(400,{"error":"id is required"})
@@ -390,6 +396,8 @@ class Handler(BaseHTTPRequestHandler):
                     "chromium_ui_inspection",
                     "garudanetra_private_live_browser",
                     "garudanetra_owner_takeover_stream",
+                    "ui_guardian_viewport_matrix",
+                    "gui_registry_stable_candidate_experimental_rejected",
                     "github_repository_research",
                     "goal_completion_evaluation",
                     "recovery_ladder",
@@ -485,6 +493,32 @@ class Handler(BaseHTTPRequestHandler):
             data = self._body()
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
+
+        if self.path == "/api/ui-guardian/register":
+            item=_ui_registry.register(
+                str(data.get("name") or "").strip(),
+                str(data.get("project") or "KRISHNA").strip() or "KRISHNA",
+                str(data.get("url") or "").strip(),
+                str(data.get("state") or "candidate"),
+                str(data.get("notes") or ""),
+            )
+            return self._json(201,item)
+
+        if self.path == "/api/ui-guardian/evaluate":
+            entry_id=str(data.get("entry_id") or "").strip()
+            if not entry_id:return self._json(400,{"error":"entry_id is required"})
+            mark("UI GUARDIAN",f"Evaluating {entry_id[:8]}")
+            with orch.governor.job(timeout=0):
+                result=_ui_guardian.evaluate_entry(entry_id)
+            mark("UI GUARDIAN COMPLETE","PASS" if result.get("passed") else "DEFECTS FOUND")
+            return self._json(200,result)
+
+        if self.path == "/api/ui-guardian/transition":
+            entry_id=str(data.get("entry_id") or "").strip()
+            target=str(data.get("target") or "").strip()
+            if not entry_id or not target:return self._json(400,{"error":"entry_id and target are required"})
+            result=_ui_registry.transition(entry_id,target,verified=bool(data.get("verified",False)),notes=str(data.get("notes") or ""))
+            return self._json(200,result)
 
         if self.path == "/api/garudanetra/session/start":
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
