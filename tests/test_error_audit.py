@@ -88,9 +88,12 @@ class RepositoryErrorAudit(unittest.TestCase):
                       "_voice.wake.stop", "_garudanetra.close_all"):
             self.assertIn(token,server)
         for source in (executor,workers):
-            self.assertIn('args=raw if os.name=="nt" else shlex.split(raw,posix=True)',source)
+            self.assertIn("split_command(",source)
             self.assertIn("shell=False",source)
             self.assertNotIn('shlex.split(command,posix=os.name!="nt")',source)
+        voice=(ROOT/"core"/"krishna_core"/"native_voice.py").read_text(encoding="utf-8-sig")
+        self.assertIn("split_command(",voice)
+        self.assertNotIn('shlex.split(self.raw,posix=os.name!="nt")',voice)
         self.assertIn("kernel32.LocalFree(ctypes.cast(desc,ctypes.c_void_p))",vault)
 
     def test_one_canonical_mobile_build_workflow(self):
