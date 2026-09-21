@@ -168,6 +168,29 @@ class ArchitectureContracts(unittest.TestCase):
             self.assertIn("actionReq('"+action+"'",web)
         self.assertNotIn("actionReq('narad.webhook.provision'",web)
 
+    def test_n8n_stays_external_connector_under_sudarshan(self):
+        agi=self.text("core/krishna_core/agi_kernel.py")
+        runtime=self.text("core/krishna_core/narad/runtime.py")
+        bridge=self.text("core/krishna_core/narad/n8n_bridge.py")
+        start=self.text("scripts/START_KRISHNA.ps1")
+        web=self.text("core/web_validation.html")
+        self.assertIn('"n8n":N8nBridge()',agi)
+        self.assertIn('workflow_engine":"typed-dag/sudarshan"',runtime)
+        self.assertIn('remote n8n webhook requires KRISHNA_N8N_ALLOWED_HOSTS',bridge)
+        self.assertIn('config\\narad-runtime.ps1',start)
+        self.assertIn('id="naradLoad"',web)
+        self.assertIn('id="naradConnectorCount"',web)
+        self.assertIn('id="naradN8n"',web)
+        self.assertNotIn('n8n-io/n8n',agi+runtime+web)
+
+    def test_narad_resource_gate_is_lightweight_and_bounded(self):
+        gate=self.text("core/krishna_core/narad/execution_gate.py")
+        self.assertIn('KRISHNA_NARAD_MAX_CONCURRENT',gate)
+        self.assertIn('min(int(configured),4)',gate)
+        self.assertIn('no extra worker pool',gate)
+        self.assertNotIn('ThreadPoolExecutor',gate)
+        self.assertNotIn('ProcessPoolExecutor',gate)
+
     def test_garuda_security_delegation(self):
         o=self.text("core/krishna_core/orchestrator.py")
         self.assertIn("kabach_security_research",o);self.assertIn("self.garuda.scout",o)
