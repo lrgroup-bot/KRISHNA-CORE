@@ -23,8 +23,8 @@ class WorkflowGraph:
             node_id=str(raw.get("id") or f"step-{idx}").strip()
             if not node_id or node_id in seen:raise ValueError("workflow step ids must be unique")
             seen.add(node_id)
-            action=str(raw.get("action") or "").strip()
-            action=LEGACY_ACTION_MAP.get(action,action)
+            original_action=str(raw.get("action") or "").strip()
+            action=LEGACY_ACTION_MAP.get(original_action,original_action)
             if not action:raise ValueError(f"{node_id}: action is required")
             dispatch=str(raw.get("dispatch") or "action").strip().lower()
             if dispatch not in cls.TARGETS:raise ValueError(f"{node_id}: dispatch must be action or job")
@@ -33,10 +33,12 @@ class WorkflowGraph:
             if isinstance(deps,str):deps=[deps]
             deps=tuple(str(x).strip() for x in deps if str(x).strip())
             if not explicit and previous:deps=(previous,)
-            payload=dict(raw.get("payload") or {})
-            # Preserve legacy NARAD fields as action payload.
-            for key in ("topic","provider","url","operation","credential_ref"):
-                if key in raw and key not in payload:payload[key]=raw.get(key)
+            if original_action in LEGACY_ACTION_MAP:
+                payload={"payload":dict(raw.get("payload") or {})}
+                for key in ("topic","provider","url","operation","credential_ref"):
+                    if key in raw:payload[key]=raw.get(key)
+            else:
+                payload=dict(raw.get("payload") or {})
             retry=RetryPolicy.from_value(raw.get("retry"))
             rows.append(WorkflowNode(
                 node_id,action,dispatch,deps,payload,retry,bool(raw.get("continue_on_error",False)),
