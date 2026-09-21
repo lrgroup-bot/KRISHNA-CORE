@@ -1480,7 +1480,9 @@ async function loadGarudanetra(){
   const st=$('garudanetraState')?.querySelector('.v');
   if(live){
    if(st)st.textContent=String(live.state||'LIVE').toUpperCase();
-   garudaSessionId=live.session_id;toggleLiveWork(true);startGarudanetraPolling();renderGarudanetraSession(live)
+   garudaSessionId=live.session_id;
+   if(live.owner_control||live.state==='ERROR'||live.state==='TAKEOVER')toggleLiveWork(true);
+   startGarudanetraPolling();renderGarudanetraSession(live)
   }else{
    if(st)st.textContent='READY';
   }
