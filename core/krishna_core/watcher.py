@@ -10,6 +10,7 @@ class Watcher:
         self.running = False
         self.on_transition = on_transition
         self._lock = threading.RLock()
+        self.last_callback_error = None
 
     def _check(self, host, port):
         started = time.perf_counter()
@@ -27,6 +28,7 @@ class Watcher:
                 "targets": dict(self.state),
                 "recent_transitions": list(self.transitions[:20]),
                 "interval_seconds": self.interval,
+                "last_callback_error": self.last_callback_error,
             }
 
     def loop(self):
@@ -56,8 +58,8 @@ class Watcher:
                         if self.on_transition:
                             try:
                                 self.on_transition(transition)
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                self.last_callback_error=f"{type(exc).__name__}: {exc}"
             time.sleep(self.interval)
 
     def start(self):
