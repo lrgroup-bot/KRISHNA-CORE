@@ -7,6 +7,8 @@ on:
       - feature/knag-pc-mobile
       - feature/mobile-pc-control-safe-patch
       - main
+      - fix/krishna-ui-runtime-verification
+      - fix/krishna-full-error-audit-v1
   pull_request:
     paths:
       - 'mobile_v3/**'
@@ -96,6 +98,7 @@ jobs:
               android:label="KRISHNA"
               android:icon="@drawable/krishna_hud_v3"
               android:usesCleartextTraffic="true"
+              android:allowBackup="false"
               android:networkSecurityConfig="@xml/network_security_config">
               <activity android:name=".MainActivity" android:exported="true">
                 <intent-filter>
@@ -135,6 +138,11 @@ jobs:
           grep -q "ensureChat" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "task.completed" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "device_credential" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "KRISHNA_DISCOVER_V1" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "setAllowUniversalAccessFromFileURLs(false)" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "privateCoreUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "configurePc" app/src/main/assets/index.html
+          if grep -q "192\.168\.0\.106" app/src/main/java/com/krishna/mobile/MainActivity.java; then echo "stale hard-coded PC IP leaked into mobile build" >&2; exit 1; fi
           if grep -q "workspaceBtn\|runTool" app/src/main/assets/index.html; then echo "dashboard/tool UI leaked into conversation-only mobile" >&2; exit 1; fi
 
       - uses: actions/upload-artifact@v4
