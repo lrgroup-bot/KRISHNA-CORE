@@ -22,6 +22,23 @@ Status meanings:
 | Permanent Commitment Ledger: never silently forget agreed work | VERIFIED boundary | Unfinished/forgotten commitment APIs exist and Work UI now surfaces them automatically. |
 | Automatic resume/implementation of safe forgotten commitments | IMPLEMENTED SAFE BOUNDARY / RUNTIME VERIFY | Durable supervisor scans unfinished commitments, refreshes safe evidence on schedule, records evidence IDs/results, respects ResourceGovernor and never auto-resumes waiting-approval or non-allowlisted operations. |
 
+## 1A. Agent-Native reference / Shared Action execution spine
+
+| Requirement | Status | Evidence / remaining work |
+| --- | --- | --- |
+| Agent-Native used as reference, not replacement | VERIFIED architecture boundary | KRISHNA retains Neural Action Graph, Policy, memory, browser, automation and verifier authority; Agent-Native contributes the composable-primitive/runtime pattern. |
+| Shared Action Bus | IMPLEMENTED / RUNTIME VERIFY | Named actions carry action ID, project, source, actor, permissions, approval, idempotency, sanitized payload/result, events and audit receipt. Raw shell is not an action primitive. |
+| Projects / Chats on Shared Action Bus | IMPLEMENTED / RUNTIME VERIFY | Project registration and chat create/move/rename/delete priority UI paths use `actionReq`; compatibility routes delegate to the same actions. |
+| Agent Runtime | IMPLEMENTED / RUNTIME VERIFY | Garuda, Garudanetra, UI Guardian, Developer and NARAD manifests have explicit action patterns and capabilities; agents dispatch through the Shared Action Bus. |
+| Jobs | IMPLEMENTED / RUNTIME VERIFY | JobRuntime reuses TaskLedger and links durable job/task IDs to Shared Action IDs. Current scheduling mode is durable-inline. |
+| Permissions | IMPLEMENTED / RUNTIME VERIFY | PermissionRuntime distinguishes local owner/system authority from capability-bounded agent/job/MCP/A2A/mobile callers. |
+| Audit / rollback | IMPLEMENTED BOUNDARY / RUNTIME VERIFY | Shared Actions publish requested/completed/failed/blocked receipts and write sanitized durable MemoryStore audit metadata. Project file promotion/rollback remains under PromotionManager transactional backups. |
+| MCP / A2A | INTERNAL ADAPTER BOUNDARY / RUNTIME VERIFY | MCP tool catalog/call and A2A dispatch adapters map to the same Shared Actions. No unauthenticated public protocol server is claimed. |
+| Unified Dispatch | IMPLEMENTED / RUNTIME VERIFY | DispatchRuntime targets action, agent or job while preserving one execution authority. |
+| Desktop / Mobile sync | IMPLEMENTED FOUNDATION / DEVICE VERIFY | Action state is mirrored as authenticated `action.sync` realtime events; mobile uses only its conversation status indicator, not a dashboard. |
+| Garuda / Garudanetra integration | IMPLEMENTED / RUNTIME VERIFY | Garuda scout and Garudanetra start/control/upload/replay actions are registered on the same bus; priority UI functions use direct Shared Action receipts. |
+| No decorative operational controls | PARTIAL / ENFORCED ON PRIORITY SURFACES | Repository contracts enforce action receipts for Projects/Chats/Garuda/Garudanetra. Remaining legacy POST-backed controls are real runtime endpoints but are migrated incrementally to named actions. |
+
 ## 2. Sudarshan
 
 | Requirement | Status | Evidence / remaining work |
@@ -195,3 +212,5 @@ Do **not** build the final `Krishna_AGI.exe` until:
 14. Garudanetra Private/Task Memory/Persistent Workspace lifecycles pass,
 15. local Odia voice/wake providers fail honestly when unconfigured and pass when configured,
 16. wearable capability registry reports only hardware-verified capabilities.
+17. Shared Action Bus, Agent Runtime, Jobs, Permissions, MCP/A2A adapter and Dispatch acceptance pass.
+18. Priority operational UI controls produce real action receipts and desktop/mobile action state remains coherent.
