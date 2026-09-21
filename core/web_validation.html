@@ -1002,6 +1002,18 @@ setTimeout(()=>{const g=$('garudaGoal')||document.querySelector('#garuda textare
  <div class="card"><div class="k">CONNECTION REFERENCES</div><div style="display:grid;gap:7px;margin-top:9px"><input id="naradConnName" class="input" placeholder="Connection name"><input id="naradConnProvider" class="input" placeholder="Provider, e.g. n8n"><input id="naradConnEnv" class="input" placeholder="Environment variable name"><button class="ghost" onclick="registerNaradConnection()">ADD ENV REFERENCE</button><input id="naradConnSecret" class="input" type="password" autocomplete="off" placeholder="Secret — encrypted locally with Windows DPAPI"><button class="ghost" onclick="registerNaradSecret()">STORE ENCRYPTED SECRET</button></div><div id="naradConnections" style="margin-top:10px"></div></div>
  <div class="card"><div class="k">DEAD LETTER QUEUE</div><div id="naradDeadLetters" style="margin-top:10px"></div></div>
 </div>
+<div class="card" style="margin-top:14px">
+ <div class="k">PROVIDER ACTION WORKFLOW</div>
+ <p class="workspaceMeta">Creates a DRAFT workflow only. External delivery still requires Policy approval when executed.</p>
+ <div style="display:grid;grid-template-columns:1fr 180px 180px;gap:8px;margin:10px 0">
+   <input id="naradProviderWorkflowName" class="input" placeholder="Workflow name">
+   <select id="naradProvider" class="select"><option>telegram</option><option>discord</option><option>slack</option><option>whatsapp</option><option>gmail</option><option>google_drive</option><option>google_sheets</option><option>google_calendar</option></select>
+   <input id="naradProviderOperation" class="input" placeholder="Operation, e.g. send_message">
+ </div>
+ <select id="naradProviderCredential" class="select" style="width:100%;margin-bottom:8px"><option value="">No credential reference</option></select>
+ <textarea id="naradProviderPayload" class="input" style="width:100%;min-height:100px" placeholder='JSON payload, e.g. {"channel":"C123","text":"Hello"}'></textarea>
+ <button class="primary" style="padding:10px 16px;margin-top:10px" onclick="createNaradProviderWorkflow()">CREATE PROVIDER DRAFT</button>
+</div>
 <div class="card" style="margin-top:14px"><div class="k">EXECUTION HISTORY</div><pre id="naradHistory" class="log">No executions yet.</pre></div>
 </div></section>
 <section id="gyan" class="view panelView"><div class="panelInner"><h1 class="panelTitle">Gyan-Bhandar 🧠</h1><p class="panelSub">KRISHNA's evidence-backed memory fabric. Working, episodic, semantic, graph, skill and evidence memory remain separated by type, provenance and verification state.</p><div id="gyanPending" class="gyanPending"></div><div id="gyanInventory" class="grid" style="margin-bottom:14px"></div><div class="card"><div class="k">TOPIC / THEORY</div><div style="display:grid;grid-template-columns:1fr 180px;gap:8px;margin:10px 0"><input id="gyanTopic" class="input" placeholder="What knowledge should be recalled or strengthened?"><select id="gyanKind" class="select" onchange="loadGyan()"><option value="">All memory types</option><option value="working">Working</option><option value="episodic">Episodic</option><option value="semantic">Semantic</option><option value="graph">Graph</option><option value="skill">Skill</option><option value="evidence">Evidence</option></select></div><button class="primary" onclick="strengthenGyan()">STRENGTHEN WITH GARUDANETRA</button><button class="ghost" onclick="loadGyan()">RECALL MEMORY</button><button class="ghost" onclick="loadGyan(true)">SHOW SUPERSEDED</button></div><div id="gyanResults" style="margin-top:14px"></div></div></section>
@@ -1441,6 +1453,7 @@ async function loadNarad(){
   $('naradScheduler').textContent='Scheduler '+(sch.running?'RUNNING':'STOPPED')+' · '+sch.poll_seconds+'s poll';
   const tr=s.triggers||{};$('naradTriggers').textContent=['manual','event','schedule','webhook'].map(k=>k+' '+(tr[k]||0)).join(' · ');
   renderNaradConnections(cx.connections||[]);renderNaradDeadLetters(dl.dead_letters||[]);
+  const credSel=$('naradProviderCredential');if(credSel){credSel.innerHTML='<option value="">No credential reference</option>';(cx.connections||[]).forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=x.name+' · '+x.provider+(x.available?'':' · unavailable');credSel.appendChild(o)})}
   const box=$('naradWorkflows');box.innerHTML='';
   (w.workflows||[]).forEach(x=>{
    const e=document.createElement('div');e.className='card';e.style.marginBottom='10px';
@@ -1482,6 +1495,16 @@ async function registerNaradSecret(){
 async function deleteNaradConnection(id){
  if(!await confirmAction('Delete this credential reference and its encrypted secret, if any?'))return;
  try{await req('/api/narad/connections/delete',{credential_id:id});await loadNarad()}catch(e){log(e.message)}
+}
+async function createNaradProviderWorkflow(){
+ const name=$('naradProviderWorkflowName').value.trim(),provider=$('naradProvider').value.trim(),operation=$('naradProviderOperation').value.trim(),credential_ref=$('naradProviderCredential').value;
+ if(!name||!provider||!operation){log('Provider workflow name, provider and operation are required.');return}
+ let payload={};try{payload=JSON.parse($('naradProviderPayload').value.trim()||'{}')}catch(e){log('Provider payload must be valid JSON.');return}
+ const step={action:'provider_send',provider,operation,payload,mutating:true};if(credential_ref)step.credential_ref=credential_ref;
+ try{
+   await req('/api/narad/workflows/create',{name,trigger:{type:'manual'},steps:[step],permissions:['external_side_effect']});
+   $('naradProviderWorkflowName').value='';$('naradProviderOperation').value='';$('naradProviderPayload').value='';await loadNarad()
+ }catch(e){log(e.message)}
 }
 async function createNaradWorkflow(){
  const name=$('naradName').value.trim(),topic=$('naradTopic').value.trim(),type=$('naradTriggerType').value,value=$('naradTriggerValue').value.trim();
