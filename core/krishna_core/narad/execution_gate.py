@@ -9,7 +9,7 @@ class BoundedExecutionGate:
 
     def __init__(self,max_concurrent=None,acquire_timeout=1.0):
         configured=max_concurrent if max_concurrent is not None else os.getenv("KRISHNA_NARAD_MAX_CONCURRENT","2")
-        self.max_concurrent=max(1,min(int(configured),8))
+        self.max_concurrent=max(1,min(int(configured),4))
         self.acquire_timeout=max(0.05,float(acquire_timeout))
         self._sem=BoundedSemaphore(self.max_concurrent)
         self._lock=RLock()
