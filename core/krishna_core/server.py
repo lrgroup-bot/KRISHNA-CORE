@@ -18,6 +18,7 @@ from .requirements_ledger import RequirementsLedger
 from .garudanetra_session import GarudanetraSessionManager
 from .ui_guardian import UIGuardian, UIGuardianRegistry
 from .narad.scheduler import NaradScheduler
+from .autonomy_supervisor import AutonomySupervisor
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -33,6 +34,8 @@ _ui_registry = UIGuardianRegistry(Path(settings.db_path).resolve().parent / ".kr
 _ui_guardian = UIGuardian(orch.browser, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
 _narad_scheduler = NaradScheduler(orch.agi.narad)
 _narad_scheduler.start()
+_autonomy = AutonomySupervisor(orch)
+_autonomy.start()
 try:
     if _specialists.source_root.exists():
         _specialists.index()
@@ -295,6 +298,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/commitments":
             project=(query.get("project") or [None])[0]
             return self._json(200,orch.commitments_status(project))
+        if path == "/api/autonomy/status":
+            return self._json(200,_autonomy.status())
         if path == "/api/models":
             project=(query.get("project") or ["KRISHNA"])[0]
             try:return self._json(200,orch.model_pool(project))
@@ -445,6 +450,7 @@ class Handler(BaseHTTPRequestHandler):
                     "narad_webhook_gateway",
                     "narad_dead_letter_retry",
                     "narad_secret_reference_vault",
+                    "safe_unattended_commitment_supervisor",
                     "codebase_memory_adapter",
                     "graft_memory_adapter",
                     "specialist_registry",
@@ -567,6 +573,31 @@ class Handler(BaseHTTPRequestHandler):
             if not token:return self._json(404,{"error":"webhook token is required"})
             try:return self._json(200,orch.agi.narad.handle_webhook(token,data))
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
+
+        if self.path == "/api/commitments/create":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            title=str(data.get("title") or "").strip()
+            if not title:return self._json(400,{"error":"title is required"})
+            detail=data.get("detail") or {}
+            if not isinstance(detail,dict):return self._json(400,{"error":"detail must be an object"})
+            autonomy=data.get("autonomy")
+            if autonomy is not None:
+                if not isinstance(autonomy,dict):return self._json(400,{"error":"autonomy must be an object"})
+                op=str(autonomy.get("operation") or "").strip().lower()
+                if autonomy.get("enabled") and op not in _autonomy.SAFE_OPERATIONS:
+                    return self._json(403,{"error":"autonomy operation is outside the non-mutating allowlist"})
+                detail={**detail,"autonomy":autonomy}
+            return self._json(201,orch.remember_commitment(project,title,detail,str(data.get("source") or "KRISHNA")))
+
+        if self.path == "/api/commitments/update":
+            cid=str(data.get("commitment_id") or "").strip();status=str(data.get("status") or "").strip()
+            if not cid or not status:return self._json(400,{"error":"commitment_id and status are required"})
+            return self._json(200,orch.complete_commitment(cid,status,data.get("detail")))
+
+        if self.path == "/api/autonomy/tick":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"manual autonomy tick must run on KRISHNA PC"})
+            return self._json(200,_autonomy.run_once())
 
         if self.path == "/api/narad/connections/register":
             try:
