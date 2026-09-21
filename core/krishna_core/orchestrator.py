@@ -207,6 +207,19 @@ class Orchestrator:
                 provider,operation,payload.get("payload") or {},headers=headers,
             )
 
+        def assert_narad_workflow_capabilities(workflow_id,context):
+            wid=str(workflow_id or "").strip()
+            workflow=self.agi.narad.workflows.get(wid)
+            if not workflow:raise KeyError(wid)
+            if str(context.get("source") or "pc").lower() in {"pc","system"}:
+                return workflow
+            required=set(str(x) for x in (workflow.permissions or []))
+            granted=set(str(x) for x in (context.get("permissions") or []))
+            missing=sorted(required-granted)
+            if missing:
+                raise PermissionError("delegated workflow caller missing capability: "+",".join(missing))
+            return workflow
+
         def narad_workflow_create(payload,context):
             return self.agi.narad.create_workflow(
                 str(payload.get("name") or "").strip(),
@@ -223,23 +236,30 @@ class Orchestrator:
             )
 
         def narad_workflow_execute(payload,context):
+            wid=str(payload.get("workflow_id") or "").strip()
+            assert_narad_workflow_capabilities(wid,context)
             return self.agi.narad.execute(
-                str(payload.get("workflow_id") or "").strip(),
-                payload.get("context") or {},
+                wid,payload.get("context") or {},
                 approved=bool(context.get("approved",False)),
                 trigger_source=str(payload.get("trigger_source") or "manual"),
             )
 
         def narad_checkpoint_resume(payload,context):
+            run_id=str(payload.get("run_id") or "").strip()
+            checkpoint=self.agi.narad.checkpoints.get(run_id)
+            if not checkpoint:raise KeyError("Narad checkpoint not found")
+            assert_narad_workflow_capabilities(checkpoint.get("workflow_id"),context)
             return self.agi.narad.resume_checkpoint(
-                str(payload.get("run_id") or "").strip(),
-                approved=bool(context.get("approved",False)),
+                run_id,approved=bool(context.get("approved",False)),
             )
 
         def narad_dead_letter_retry(payload,context):
+            letter_id=str(payload.get("letter_id") or "").strip()
+            letter=next((x for x in self.agi.narad.dead_letters if x.get("id")==letter_id),None)
+            if not letter:raise KeyError("Narad dead letter not found")
+            assert_narad_workflow_capabilities(letter.get("workflow_id"),context)
             return self.agi.narad.retry_dead_letter(
-                str(payload.get("letter_id") or "").strip(),
-                approved=bool(context.get("approved",False)),
+                letter_id,approved=bool(context.get("approved",False)),
             )
 
         def narad_webhook_provision(payload,context):
@@ -371,7 +391,7 @@ class Orchestrator:
         )
         self.agent_runtime.register(
             "narad","durable automation and provider workflow runtime",
-            permissions=("narad.write","narad.test","send_external"),
+            permissions=("narad.write","narad.test","narad.execute","send_external"),
             actions=("narad.*",),
         )
 
