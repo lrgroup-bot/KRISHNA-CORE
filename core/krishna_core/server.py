@@ -305,9 +305,18 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(b)
 
     def _body(self):
+        path=urlparse(self.path).path
+        if path=="/api/mobile/pair/request":
+            limit=16*1024
+        elif path.startswith("/api/narad/webhook/"):
+            limit=2*1024*1024
+        elif path=="/api/attachments":
+            limit=36*1024*1024
+        else:
+            limit=8*1024*1024
         n = int(self.headers.get("Content-Length", "0"))
-        if n < 0 or n > 36 * 1024 * 1024:
-            raise ValueError("request body exceeds 36 MB")
+        if n < 0 or n > limit:
+            raise ValueError(f"request body exceeds {limit // 1024} KB limit for this endpoint")
         body = json.loads(self.rfile.read(n) or b"{}")
         if not isinstance(body, dict):
             raise ValueError("request body must be a JSON object")
