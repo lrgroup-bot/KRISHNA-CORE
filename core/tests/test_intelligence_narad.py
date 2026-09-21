@@ -44,12 +44,13 @@ class IntelligenceNaradTests(unittest.TestCase):
         with TemporaryDirectory() as td:
             home=Path(td)/"OpenMontage"; py=home/".venv/Scripts/python.exe"
             py.parent.mkdir(parents=True); py.write_bytes(b"stub")
-            m=OpenMontageAdapter(Workers(),home=home,python=py)
-            status=m.status()
-            self.assertTrue(status["installed"])
-            self.assertFalse(status["available"])
-            self.assertFalse(status["bridge_ready"])
-            with self.assertRaises(RuntimeError): m.start()
+            with patch.dict(os.environ,{"OPENMONTAGE_CMD":""}):
+                m=OpenMontageAdapter(Workers(),home=home,python=py)
+                status=m.status()
+                self.assertTrue(status["installed"])
+                self.assertFalse(status["available"])
+                self.assertFalse(status["bridge_ready"])
+                with self.assertRaises(RuntimeError): m.start()
 
     def test_openmontage_registers_only_explicit_bridge_command(self):
         class Workers:
