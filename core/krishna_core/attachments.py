@@ -57,5 +57,6 @@ class AttachmentStore:
         for p in folder.glob("*.json"):
             try:
                 row=json.loads(p.read_text("utf-8")); row.pop("path",None); out.append(row)
-            except Exception:pass
+            except (json.JSONDecodeError,UnicodeDecodeError):
+                continue
         return sorted(out,key=lambda x:x.get("created_at",0))
