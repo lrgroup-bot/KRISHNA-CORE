@@ -17,6 +17,7 @@ from .native_voice import KrishnaVoiceStack
 from .remote_access import PrivateRemotePolicy
 from .worker_fabric import WorkerResilienceSupervisor
 from .model_memory_governor import ModelMemoryGovernor
+from .wearable_bridge import WearableBridge
 from .specialist_library import SpecialistLibrary
 from .runtime_integrity import RuntimeIntegrity
 from .requirements_ledger import RequirementsLedger
@@ -36,6 +37,7 @@ _vision = VisionAdapter()
 _voice = KrishnaVoiceStack(lambda event: orch.handle_event("wakeword","krishna_detected","Local wake word Krishna detected",severity="notice",project="system",payload=event))
 _remote_policy = PrivateRemotePolicy()
 _model_memory = ModelMemoryGovernor()
+_wearables = WearableBridge(Path(settings.db_path).resolve().parent / ".krishna_state" / "wearables.json")
 _worker_resilience = WorkerResilienceSupervisor(
     orch.agi.workers, interval=5,
     on_event=lambda event: orch.handle_event("worker_resilience",event.get("event","worker_event"),json.dumps(event),
@@ -448,6 +450,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,_remote_policy.status())
         if path == "/api/resilience/status":
             return self._json(200,{"worker_supervisor":_worker_resilience.status(),"model_memory":_model_memory.status()})
+        if path == "/api/wearables":
+            return self._json(200,_wearables.status())
         if path == "/api/mobile/resume":
             device, token = self._device_auth()
             if not _pairing.verify(device, token):
@@ -495,6 +499,7 @@ class Handler(BaseHTTPRequestHandler):
                     "child_krishna_360_avatar",
                     "mobile_pc_remote_control",
                     "private_overlay_remote_access_policy",
+                    "wearable_bridge_verified_capabilities",
                     "persistent_project_chats",
                     "local_attachment_vision_reasoning",
                     "local_odia_indicconformer_stt",
@@ -998,6 +1003,22 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(404, {"error": str(exc)})
             except ValueError as exc:
                 return self._json(400, {"error": str(exc)})
+
+        if self.path == "/api/wearables/register":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"wearable registration must run on KRISHNA PC"})
+            try:return self._json(201,_wearables.register(str(data.get("name") or ""),str(data.get("kind") or ""),
+                                                         data.get("capabilities") or [],str(data.get("provider") or "generic"),False))
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/wearables/verify":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"wearable verification must run on KRISHNA PC"})
+            did=str(data.get("device_id") or "").strip()
+            if not did:return self._json(400,{"error":"device_id is required"})
+            try:return self._json(200,_wearables.verify(did,data.get("capabilities")))
+            except KeyError:return self._json(404,{"error":"wearable device not found"})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
 
         if self.path == "/api/resilience/worker/clear-quarantine":
             if self.client_address[0] not in ("127.0.0.1","::1"):
