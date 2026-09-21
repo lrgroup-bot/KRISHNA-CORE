@@ -226,6 +226,25 @@ pc_observer = PCObserver(
 pc_observer.start()
 
 
+def shutdown_runtime_services():
+    failures=[]
+    services=(
+        ("autonomy", _autonomy.stop),
+        ("narad_scheduler", _narad_scheduler.stop),
+        ("worker_resilience", _worker_resilience.stop),
+        ("pc_observer", pc_observer.stop),
+        ("watcher", watcher.stop),
+        ("voice_wake", _voice.wake.stop),
+        ("garudanetra", _garudanetra.close_all),
+    )
+    for name, stop in services:
+        try:
+            stop()
+        except Exception as exc:
+            failures.append(f"{name}: {type(exc).__name__}: {exc}")
+    return failures
+
+
 class Handler(BaseHTTPRequestHandler):
     def _authorize(self):
         client_ip=self.client_address[0]
@@ -458,7 +477,13 @@ class Handler(BaseHTTPRequestHandler):
                 "context_governor":{"max_items":orch.agi.context.max_items,"max_chars":orch.agi.context.max_chars},
                 "media":orch.agi.media.status(),
             })
-        if path in ("/health", "/api/status"):
+        if path == "/health":
+            return self._json(200, {
+                "ok": True,
+                "core": "ONLINE",
+                "uptime_seconds": int(time.time() - started),
+            })
+        if path == "/api/status":
             return self._json(200, {
                 "ok": True,
                 "core": "ONLINE",
@@ -1554,4 +1579,7 @@ if __name__ == "__main__":
     finally:
         if _lan_discovery:
             _lan_discovery.stop()
+        shutdown_failures=shutdown_runtime_services()
+        for failure in shutdown_failures:
+            print(f"[KRISHNA] shutdown warning: {failure}", file=sys.stderr)
         server.server_close()
