@@ -994,7 +994,7 @@ Evidence:
 {evidence_text}
 """
         try:
-            result = self.router.route(prompt, privacy=context.get("privacy", "local_only"))
+            result = self.router.route(prompt, privacy=context.get("privacy", "local_only"), project=context.get("project","general"), actor="investigation-hypothesis")
             parsed = []
             sources = sorted({e.source for e in evidence})
             forbidden = (
@@ -1305,7 +1305,7 @@ STRICT OUTPUT CONTRACT:
             # The local model may help investigation, but the final factual report is
             # rendered deterministically from probe evidence so specialist prompts,
             # hypotheses, or model priors cannot become observations.
-            result = self.router.route(prompt, privacy=(registered.privacy if registered else "approved_cloud"))
+            result = self.router.route(prompt, privacy=(registered.privacy if registered else "approved_cloud"), project=project, actor="managed-investigation")
             model_text = str(result.get("text") or "").strip()
             evidence_blob = "\n".join(str(row.get("detail", "")) for row in evidence)
             evidence_lower = evidence_blob.lower()
@@ -1434,7 +1434,7 @@ User: {message}
 If the request describes a failure, recommend investigation and evidence collection before modification.
 If it requires an action, describe the bounded action and verification criteria.
 """
-        result = self.router.route(prompt, privacy=privacy)
+        result = self.router.route(prompt, privacy=privacy, project=project, actor="conversation")
         self.memory.remember(project, "conversation", message, {"task_id": task_id, "chat_id": chat_id})
         if chat_id:
             self.memory.add_chat_message(
