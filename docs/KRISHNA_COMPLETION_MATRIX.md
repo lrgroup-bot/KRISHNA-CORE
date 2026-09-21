@@ -19,6 +19,8 @@ Status meanings:
 | Shadow repair, verification, promotion and rollback | VERIFIED | Repository tests cover bounded promotion/rollback. |
 | Resource governor / PC observer / recovery | VERIFIED boundary | Real long-duration Windows autonomy still needs soak testing. |
 | Continue working while owner is away; notify only meaningful completed work | PARTIAL | Task/realtime/mobile primitives exist; durable notification policy and remote soak test remain. |
+| Permanent Commitment Ledger: never silently forget agreed work | VERIFIED boundary | Unfinished/forgotten commitment APIs exist and Work UI now surfaces them automatically. |
+| Automatic resume/implementation of safe forgotten commitments | PARTIAL | Attention/resume data exists; autonomous resumption still obeys Policy/approval boundaries. |
 
 ## 2. Sudarshan
 
@@ -75,6 +77,9 @@ Status meanings:
 | Codebase-Memory-MCP as structural code intelligence | PARTIAL | Optional adapter exists; local E: installation still requires reconciliation/index acceptance. |
 | Graft behind Gyan-Bhandar | PARTIAL | Optional adapter exists; local runtime/CLI still requires reconciliation. |
 | Context governor | VERIFIED boundary | Bounded verified-first context selection implemented. |
+| Privacy-aware multi-model pool | VERIFIED boundary | Model router exposes local/cloud providers and coding plans according to project privacy. |
+| Free/local-first routing (Ollama / optional GPT4All-style local provider) | PARTIAL | Local routing is implemented; optional local engines depend on runtime installation. |
+| Cloud fallbacks (OpenAI/Gemini/Claude/Grok/OpenRouter) without leaking restricted project data | PARTIAL | Router/privacy boundary exists; provider credentials/connectors remain environment-dependent. |
 | Agency-Agents specialist library | IMPLEMENTED / RUNTIME VERIFY | Runtime has external agency-agents library; selection/indexing exists. |
 | Architect / Backend / Frontend / Debugger / DevOps / Security / Test / Research / Data / UI / Docs patterns | PARTIAL | Specialist library is broad; curated default team UX/risk manifests remain. |
 | OpenMontage only as media/YouTube worker | VERIFIED boundary | Media adapter keeps it outside the KRISHNA brain. |
