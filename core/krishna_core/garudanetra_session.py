@@ -382,8 +382,43 @@ class GarudanetraSessionManager:
                                          "candidate_skill":{"original_selector":selector,"payload":{k:v for k,v in payload.items() if k!="value"},
                                                             "strategy":recovered["strategy"],"source":recovered["source"]}})
 
+    def _start_screencast(self,context,page,session):
+        try:
+            cdp=context.new_cdp_session(page)
+            def on_frame(params):
+                try:
+                    raw=base64.b64decode(params.get("data") or "")
+                    if raw:
+                        with self._lock:
+                            session.frame=raw;session.frame_mime="image/jpeg";session.frame_seq+=1
+                            session.stream_mode="cdp_screencast";session.updated_at=time.time()
+                    frame_id=params.get("sessionId")
+                    if frame_id is not None:
+                        cdp.send("Page.screencastFrameAck",{"sessionId":frame_id})
+                except Exception as exc:
+                    self._warn(session,"cdp_screencast_frame_error",exc)
+            cdp.on("Page.screencastFrame",on_frame)
+            cdp.send("Page.startScreencast",{
+                "format":"jpeg","quality":72,
+                "maxWidth":int(session.viewport["width"]),"maxHeight":int(session.viewport["height"]),
+                "everyNthFrame":1,
+            })
+            with self._lock:session.stream_mode="cdp_screencast"
+            return cdp
+        except Exception as exc:
+            with self._lock:session.stream_mode="screenshot_fallback"
+            self._warn(session,"cdp_screencast_unavailable",exc)
+            return None
+
+    def _stop_screencast(self,cdp,session):
+        if not cdp:return
+        try:cdp.send("Page.stopScreencast")
+        except Exception as exc:self._warn(session,"cdp_screencast_stop_error",exc)
+        try:cdp.detach()
+        except Exception:pass
+
     def _worker(self,sid):
-        session=self._get(sid);browser=context=page=None;playwright_cm=None
+        session=self._get(sid);browser=context=page=None;playwright_cm=None;stream_cdp=None
         try:
             from playwright.sync_api import sync_playwright
             playwright_cm=sync_playwright();p=playwright_cm.start()
@@ -408,6 +443,9 @@ class GarudanetraSessionManager:
             bind(page)
             with self._lock:session.state="NAVIGATING";session.updated_at=time.time()
             page.goto(session.requested_url,wait_until="domcontentloaded",timeout=self.timeout_ms)
+            stream_cdp=self._start_screencast(context,page,session)
+            try:self._semantic_capture(page,session)
+            except Exception as exc:self._warn(session,"semantic_snapshot_error",exc)
             with self._lock:session.state="LIVE";session.current_url=page.url;session.title=page.title();session.tabs=self._tab_snapshot(context);session.updated_at=time.time()
 
             last_capture=last_text=last_persist=0.0
@@ -416,6 +454,7 @@ class GarudanetraSessionManager:
                 try:
                     cmd=self._commands[sid].get(timeout=0.12);action,payload=cmd["action"],cmd["payload"]
                     if action=="stop":
+                        self._record_action(session,action,payload,"ok")
                         with self._lock:session.state="STOPPING"
                         break
                     if action=="pause":
@@ -429,21 +468,34 @@ class GarudanetraSessionManager:
                     elif action=="forward":page.go_forward(wait_until="domcontentloaded")
                     elif action=="reload":page.reload(wait_until="domcontentloaded")
                     elif action=="new_tab":
+                        self._stop_screencast(stream_cdp,session);stream_cdp=None
                         page=context.new_page();bind(page);target=str(payload.get("url") or "").strip()
                         if target:page.goto(self.validate_url(target),wait_until="domcontentloaded")
+                        stream_cdp=self._start_screencast(context,page,session)
                     elif action=="switch_tab":
                         pages=context.pages;idx=int(payload.get("index",0))
                         if idx<0 or idx>=len(pages):raise ValueError("tab index out of range")
-                        page=pages[idx];page.bring_to_front()
+                        self._stop_screencast(stream_cdp,session);stream_cdp=None
+                        page=pages[idx];page.bring_to_front();stream_cdp=self._start_screencast(context,page,session)
                     elif action=="close_tab":
                         pages=context.pages
                         if len(pages)<=1:raise RuntimeError("cannot close the last Garudanetra tab")
+                        self._stop_screencast(stream_cdp,session);stream_cdp=None
                         page.close();page=context.pages[max(0,min(session.tab_index,len(context.pages)-1))];page.bring_to_front()
+                        stream_cdp=self._start_screencast(context,page,session)
                     elif action in {"click","fill"}:self._click_or_fill(page,action,payload,session)
+                    elif action=="dblclick":self._locator(page,payload,session).dblclick()
+                    elif action=="hover":self._locator(page,payload,session).hover()
+                    elif action=="focus":self._locator(page,payload,session).focus()
+                    elif action=="select_option":self._locator(page,payload,session).select_option(str(payload.get("value") or ""))
+                    elif action=="check":self._locator(page,payload,session).check()
+                    elif action=="uncheck":self._locator(page,payload,session).uncheck()
+                    elif action=="scroll_into_view":self._locator(page,payload,session).scroll_into_view_if_needed()
                     elif action=="type_text":page.keyboard.insert_text(str(payload.get("text") or ""))
                     elif action=="press":
-                        selector=str(payload.get("selector") or "").strip();key=str(payload.get("key") or "Enter")
-                        page.locator(selector).press(key) if selector else page.keyboard.press(key)
+                        key=str(payload.get("key") or "Enter")
+                        if payload.get("selector") or payload.get("ref"):self._locator(page,payload,session).press(key)
+                        else:page.keyboard.press(key)
                     elif action=="click_xy":
                         nx=min(1.0,max(0.0,float(payload.get("x",0.5))));ny=min(1.0,max(0.0,float(payload.get("y",0.5))))
                         page.mouse.click(nx*session.viewport["width"],ny*session.viewport["height"])
@@ -454,24 +506,28 @@ class GarudanetraSessionManager:
                         page.mouse.move(x2*session.viewport["width"],y2*session.viewport["height"],steps=8);page.mouse.up()
                     elif action=="scroll":page.mouse.wheel(0,int(payload.get("dy",600)))
                     elif action=="upload":
-                        selector=str(payload.get("selector") or "").strip()
-                        if not selector:raise ValueError("upload selector is required")
-                        page.locator(selector).set_input_files(str(self._validate_upload_path(payload.get("path"))))
+                        self._locator(page,payload,session).set_input_files(str(self._validate_upload_path(payload.get("path"))))
+                    self._record_action(session,action,payload,"ok")
+                    try:self._semantic_capture(page,session)
+                    except Exception as exc:self._warn(session,"semantic_snapshot_error",exc)
                     with self._lock:
                         pages=context.pages;session.tab_index=pages.index(page) if page in pages else 0
                         session.current_url=page.url;session.title=page.title();session.updated_at=time.time()
                 except queue.Empty:pass
                 except Exception as exc:
+                    self._record_action(session,locals().get("action","unknown"),locals().get("payload",{}),"error",f"{type(exc).__name__}: {exc}")
                     with self._lock:
                         session.last_error=f"{type(exc).__name__}: {exc}"
                         session.findings.append({"kind":"browser_action_error","detail":session.last_error[:1200],"severity":"error"})
                         session.updated_at=time.time()
 
-                if now-last_capture>=0.7:
+                if now-last_capture>=0.7 and stream_cdp is None:
                     try:
                         frame=page.screenshot(type="png")
                         with self._lock:
-                            session.frame=frame;session.current_url=page.url;session.title=page.title();session.tabs=self._tab_snapshot(context);session.updated_at=time.time()
+                            session.frame=frame;session.frame_mime="image/png";session.frame_seq+=1
+                            session.stream_mode="screenshot_fallback";session.current_url=page.url
+                            session.title=page.title();session.tabs=self._tab_snapshot(context);session.updated_at=time.time()
                     except Exception as exc:
                         with self._lock:session.last_error=f"{type(exc).__name__}: {exc}"
                     last_capture=now
@@ -479,7 +535,8 @@ class GarudanetraSessionManager:
                     try:
                         text=page.locator("body").inner_text(timeout=min(self.timeout_ms,3000))[:12000]
                         with self._lock:session.visible_text=text
-                    except Exception as exc:self._warn(session,"visible_text_error",exc)
+                        self._semantic_capture(page,session)
+                    except Exception as exc:self._warn(session,"visible_text_or_semantic_error",exc)
                     last_text=now
                 if now-last_persist>=3.0:
                     try:self._persist(session)
@@ -490,6 +547,7 @@ class GarudanetraSessionManager:
                 session.state="ERROR";session.last_error=f"{type(exc).__name__}: {exc}"
                 session.findings.append({"kind":"browser_runtime_error","detail":session.last_error[:1200],"severity":"critical"});session.updated_at=time.time()
         finally:
+            self._stop_screencast(stream_cdp,session)
             for obj in (context,browser):
                 try:
                     if obj:obj.close()
