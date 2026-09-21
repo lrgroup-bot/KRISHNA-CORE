@@ -65,11 +65,19 @@ def _remember_garudanetra_session(snapshot):
             if finding.get("kind")!="selector_recovered" or not finding.get("candidate_skill"):
                 continue
             skill=finding["candidate_skill"]
+            compiled=orch.agi.skills.compile_candidate(
+                "garudanetra-selector-recovery",
+                [{"action":"browser_selector_recovery","strategy":skill.get("strategy"),"payload":skill.get("payload") or {}}],
+                project=project,
+                evidence=[{"session_id":sid,"url":snapshot.get("current_url"),"finding":finding}],
+            )
             orch.gyan_propose(project,"garudanetra-browser-skill",
                               "Recovered browser locator candidate: "+json.dumps(skill,ensure_ascii=False),
-                              [{"session_id":sid,"url":snapshot.get("current_url"),"finding":finding}],
+                              [{"session_id":sid,"url":snapshot.get("current_url"),"finding":finding,
+                                "compiled_skill":{"path":compiled.get("path"),"digest":compiled.get("digest"),"status":compiled.get("status")}}],
                               0.75,"garudanetra_recovery",False,"skill",
-                              {"session_id":sid,"recovery_source":skill.get("source"),"verification_required":True})
+                              {"session_id":sid,"recovery_source":skill.get("source"),"verification_required":True,
+                               "compiled_skill_path":compiled.get("path"),"compiled_skill_digest":compiled.get("digest")})
     except Exception as exc:
         orch.memory.audit("garudanetra_task_memory","proposal_failed",f"{type(exc).__name__}: {exc}")
 _garudanetra = GarudanetraSessionManager(RUNTIME_ROOT,on_closed=_remember_garudanetra_session)
@@ -502,6 +510,7 @@ class Handler(BaseHTTPRequestHandler):
                     "garudanetra_task_memory_mode",
                     "garudanetra_persistent_workspace_mode",
                     "garudanetra_self_healing_selector_recovery",
+                    "garudanetra_candidate_skill_compilation",
                     "ui_guardian_viewport_matrix",
                     "gui_registry_stable_candidate_experimental_rejected",
                     "github_repository_research",
