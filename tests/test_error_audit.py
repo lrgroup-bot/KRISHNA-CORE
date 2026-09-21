@@ -218,5 +218,14 @@ class RepositoryErrorAudit(unittest.TestCase):
         for forbidden in ("filesystem.write","system.run","credentials.read","trade.execute"):
             self.assertNotIn(forbidden,mobile)
 
+    def test_narad_n8n_dashboard_is_observability_not_embedded_editor(self):
+        web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
+        self.assertIn('id="naradLoad"',web)
+        self.assertIn('id="naradConnectorCount"',web)
+        self.assertIn('id="naradN8n"',web)
+        self.assertIn("req('/api/narad/connectors')",web)
+        self.assertNotIn('iframe src="http://localhost:5678',web)
+        self.assertNotIn('iframe src="https://',web.split('<section id="narad"',1)[1].split('</section>',1)[0])
+
 if __name__=="__main__":
     unittest.main()
