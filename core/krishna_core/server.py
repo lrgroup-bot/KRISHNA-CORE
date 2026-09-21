@@ -1293,11 +1293,15 @@ class Handler(BaseHTTPRequestHandler):
             if not source_path:return self._json(400,{"error":"source_path is required"})
             try:return self._json(201,orch.gyan_archive_file(project,source_path,str(data.get("topic") or ""),bool(data.get("remove_original",False))))
             except KeyError:return self._json(404,{"error":"project not registered"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
         if post_path == "/api/gyan-bhandar/archive/restore":
             digest=str(data.get("sha256") or "").strip(); destination=str(data.get("destination") or "").strip()
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
             if not digest or not destination:return self._json(400,{"error":"sha256 and destination are required"})
-            try:return self._json(200,orch.gyan_restore_file(digest,destination))
+            try:return self._json(200,orch.gyan_restore_file(digest,destination,project,bool(data.get("approved",False))))
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
         if post_path == "/api/gyan-bhandar/compact":
             return self._json(200,orch.gyan_compact())
