@@ -1398,7 +1398,6 @@ async function loadGarudanetra(){
 function renderGarudanetraSession(s){
  if(!s)return;
  garudaOwnerControl=!!s.owner_control;
- if($('liveGarudaMode'))$('liveGarudaMode').textContent='👁 GARUDANETRA · '+String(s.mode||'private').replaceAll('_',' ').toUpperCase();
  $('liveState').textContent=String(s.state||'READY').toUpperCase();
  if($('liveMode'))$('liveMode').textContent=String(s.mode||'private').replaceAll('_',' ').toUpperCase();
  if($('garudaAddress')&&document.activeElement!==$('garudaAddress'))$('garudaAddress').value=s.current_url||s.requested_url||'';
