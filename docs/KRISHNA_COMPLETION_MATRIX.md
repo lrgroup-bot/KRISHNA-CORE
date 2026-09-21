@@ -17,7 +17,7 @@ Status meanings:
 | Policy/Security Kernel between decision and execution | VERIFIED | Mutating/high-impact actions fail closed without approval. |
 | Planner → specialists → critic → independent verifier → KRISHNA decision | IMPLEMENTED / RUNTIME VERIFY | Curated team planner now returns bounded role manifests, permissions/risk, Agency-Agents advisors, mandatory Critic and independent Verifier, with live mutation blocked until separate promotion. |
 | Shadow repair, verification, promotion and rollback | VERIFIED | Repository tests cover bounded promotion/rollback. |
-| Resource governor / PC observer / recovery | VERIFIED boundary | Real long-duration Windows autonomy still needs soak testing. |
+| Resource governor / PC observer / recovery | IMPLEMENTED / RUNTIME VERIFY | ResourceGovernor + PCObserver now pair with worker crash-loop backoff/quarantine, a Core Guardian restart loop, and critical-RAM Ollama unload that never deletes model files. Long-duration Windows soak remains. |
 | Continue working while owner is away; notify only meaningful completed work | IMPLEMENTED SAFE BOUNDARY / RUNTIME VERIFY | AutonomySupervisor resumes explicitly opted-in non-mutating investigate/research/index commitments while unattended; mutation, promotion and external side effects still require their normal approval gates. Mobile completion notifications remain separate. |
 | Permanent Commitment Ledger: never silently forget agreed work | VERIFIED boundary | Unfinished/forgotten commitment APIs exist and Work UI now surfaces them automatically. |
 | Automatic resume/implementation of safe forgotten commitments | IMPLEMENTED SAFE BOUNDARY / RUNTIME VERIFY | Durable supervisor scans unfinished commitments, refreshes safe evidence on schedule, records evidence IDs/results, respects ResourceGovernor and never auto-resumes waiting-approval or non-allowlisted operations. |
@@ -29,7 +29,7 @@ Status meanings:
 | GPT-style project conversation workspace | VERIFIED boundary | Persistent project chats, history, attachments and chat actions exist. |
 | Chat Rename / Pin / Share / Move / Delete dropdown | IMPLEMENTED / RUNTIME VERIFY | UI implementation and contracts exist. |
 | Active Work / Verification / System Load informer | IMPLEMENTED / RUNTIME VERIFY | Command Center v4. |
-| 50/50 Sudarshan + Garudanetra live-work split | PARTIAL | Shell and controls exist; true interactive browser stream/takeover transport remains. |
+| 50/50 Sudarshan + Garudanetra live-work split | IMPLEMENTED / RUNTIME VERIFY | Real Chromium PNG frame stream, evidence feed, owner takeover, typing/navigation/tab controls and Expand are wired; final Windows latency/interaction acceptance remains. |
 | Files / Plugins / Projects / Research / Investigate tools | VERIFIED boundary | Existing APIs/UI. |
 | Dockview draggable/floating workspace | ROADMAP | Planned React migration; current UI is transition HTML. |
 | xterm terminal and React Flow NAG visualization | ROADMAP | Planned React migration. |
@@ -43,8 +43,8 @@ Status meanings:
 | Live Work panel + Pause / Take Control / Continue / Stop | IMPLEMENTED / RUNTIME VERIFY | Controls now drive the persistent Garudanetra browser session rather than UI-only state. |
 | Actual streamed browser viewport and owner takeover | IMPLEMENTED / RUNTIME VERIFY | Persistent private Chromium session manager streams real PNG browser frames into Sudarshan and accepts owner click/scroll takeover commands; Windows Playwright acceptance remains. |
 | UI Guardian detect → sandbox → verify → promote/rollback | IMPLEMENTED / RUNTIME VERIFY | Objective browser checks now run across the four target viewports; GUI candidates are persisted in Stable/Candidate/Experimental/Rejected registry and Stable promotion requires a passed evaluation plus explicit verification. Automatic repair generation still routes through Developer/shadow workflows. |
-| Private + Task Memory / Persistent Workspace profiles | PARTIAL | Browser state boundaries exist conceptually; explicit profile lifecycle UI/runtime still required. |
-| Learned browser skills saved to Gyan-Bhandar | PARTIAL | Skill and memory fabrics exist; automatic verified browser-skill compilation remains. |
+| Private + Task Memory / Persistent Workspace profiles | IMPLEMENTED / RUNTIME VERIFY | Private destroys state; Task Memory persists evidence into candidate Gyan memory; Persistent Workspace uses only a project-specific KRISHNA profile and requires explicit approval. UI mode selection is wired. |
+| Learned browser skills saved to Gyan-Bhandar | IMPLEMENTED CANDIDATE PIPELINE / RUNTIME VERIFY | Deterministic locator recovery and optional external harness produce candidate selector skills; Task Memory proposes them as Gyan skill candidates requiring verification/approval before becoming trusted knowledge. |
 
 ## 4. Gyan-Bhandar
 
@@ -66,8 +66,8 @@ Status meanings:
 | n8n / Activepieces / generic webhook boundaries | VERIFIED boundary | External execution is high-impact and approval gated. |
 | MCP adapter | PARTIAL | Architecture requirement retained; provider-specific execution wiring remains. |
 | Schedules / event triggers / webhooks | IMPLEMENTED / RUNTIME VERIFY | Stable workflows support durable event, >=60-second schedule and token-hashed webhook triggers; NaradScheduler runs as a Core daemon. |
-| Gmail / Telegram / Slack / WhatsApp / Drive / Sheets / Calendar integrations | PARTIAL | Must be added as provider connections, not hard-coded into KRISHNA Core. |
-| Credential vault / secret references | IMPLEMENTED / RUNTIME VERIFY | NaradCredentialVault persists metadata and environment-variable references only; raw secret values are never written to Narad state or returned by APIs. |
+| Gmail / Telegram / Slack / WhatsApp / Drive / Sheets / Calendar integrations | IMPLEMENTED / RUNTIME VERIFY | NARAD provider hub implements bounded Telegram, Discord, Slack, WhatsApp, Gmail, Drive, Sheets and Calendar operations. Provider workflows remain Policy approval gated and credentials stay in references/vault. Live provider credentials/API acceptance remains environment-dependent. |
+| Credential vault / secret references | IMPLEMENTED / RUNTIME VERIFY | Narad supports environment references plus Windows user-bound DPAPI encrypted secrets. Plaintext is never returned by list/status APIs. Real Windows encryption round-trip is in runtime acceptance. |
 | Full Automations / Connections / Messages / Triggers / History UI | PARTIAL / expanded | Control Center now manages workflows, manual/event/schedule/webhook triggers, connection references, dead letters and history. Provider-specific message inbox/outbox and richer visual workflow editing remain. |
 
 ## 6. Code intelligence and specialist workers
@@ -78,8 +78,8 @@ Status meanings:
 | Graft behind Gyan-Bhandar | PARTIAL | Optional adapter exists; local runtime/CLI still requires reconciliation. |
 | Context governor | VERIFIED boundary | Bounded verified-first context selection implemented. |
 | Privacy-aware multi-model pool | VERIFIED boundary | Model router exposes local/cloud providers and coding plans according to project privacy. |
-| Free/local-first routing (Ollama / optional GPT4All-style local provider) | PARTIAL | Local routing is implemented; optional local engines depend on runtime installation. |
-| Cloud fallbacks (OpenAI/Gemini/Claude/Grok/OpenRouter) without leaking restricted project data | PARTIAL | Router/privacy boundary exists; provider credentials/connectors remain environment-dependent. |
+| Free/local-first routing (Ollama / GPT4All / encrypted free-only gateway) | IMPLEMENTED / RUNTIME VERIFY | Router tries local Ollama/GPT4All and supports DPAPI-backed OpenAI-compatible free-only gateway profiles. free_only requests never silently fall through to paid env-cloud providers. Provider runtime availability remains environment-dependent. |
+| Cloud fallbacks (OpenAI/Gemini/Claude/Grok/OpenRouter) without leaking restricted project data | IMPLEMENTED BOUNDARY / RUNTIME VERIFY | Restricted/local-only projects cannot cloud-fallback. Approved cloud providers remain credential/environment dependent; encrypted gateway credentials are supported. |
 | Agency-Agents specialist library | IMPLEMENTED / RUNTIME VERIFY | Runtime has external agency-agents library; selection/indexing exists. |
 | Architect / Backend / Frontend / Debugger / DevOps / Security / Test / Research / Data / UI / Docs patterns | IMPLEMENTED / RUNTIME VERIFY | Curated manifests and task-driven team assembly are implemented and surfaced in Specialist Teams UI; Agency-Agents remain prompt-only advisory contexts. |
 | OpenMontage only as media/YouTube worker | VERIFIED boundary | Media adapter keeps it outside the KRISHNA brain. |
@@ -113,15 +113,15 @@ Status meanings:
 | Same KRISHNA conversation/session across PC/mobile | IMPLEMENTED / RUNTIME VERIFY | Mobile now auto-creates/reuses a persistent KRISHNA Mobile chat and sends through the same Core chat/history path; real-device acceptance remains. |
 | Proactive completion notifications | IMPLEMENTED / RUNTIME VERIFY | Android listens to task.completed realtime events and posts a local completion notification; real-device background delivery remains to be accepted. |
 | One canonical mobile runtime | PARTIAL | E:\Krishna-The GOD\mobile\companion and repository mobile_v3 must be reconciled. |
-| Remote use away from home | PARTIAL | Secure private network/routing prerequisite remains environment-dependent. |
+| Remote use away from home | IMPLEMENTED PRIVATE-OVERLAY BOUNDARY / RUNTIME VERIFY | Core rejects public Internet clients, START_KRISHNA has Tailscale-only PrivateRemote mode, mobile accepts LAN/private-overlay targets, and configuration helper verifies Tailscale. Real away-from-home device acceptance remains. |
 
 ## 10. Voice and avatar
 
 | Requirement | Status | Evidence / remaining work |
 | --- | --- | --- |
 | Provider-neutral local STT/TTS boundary | VERIFIED | VoiceRuntime + LocalCLIProvider. |
-| Odia speech | PARTIAL | Local voice assets/providers need final runtime configuration. |
-| Always-listening wake word “Krishna” | PARTIAL | Mobile microphone flow expects “Krishna” after the local owner gate, but true always-listening low-power wake-word service remains a later runtime integration. |
+| Odia speech | IMPLEMENTED PROVIDER BOUNDARY / RUNTIME VERIFY | AI4Bharat IndicConformer-style local STT and Indic-TTS-style local worker boundaries are wired with an E:-runtime setup helper. Actual model assets/commands must be configured and accepted on Windows. |
+| Always-listening wake word “Krishna” | IMPLEMENTED / RUNTIME VERIFY | Local openWakeWord service boundary with custom KRISHNA model, microphone loop, cooldown and Core event emission is wired. Wake word remains activation only; custom model/hardware acceptance remains. |
 | Owner voice verification | IMPLEMENTED GATE / NOT SECURITY AUTHORITY | Mobile uses a local owner voice gate before speech recognition; device credentials remain authoritative for sensitive actions. This gate must not be treated as strong biometric authentication. |
 | Child KRISHNA avatar / local GLB route | VERIFIED boundary | Local avatar route/fallback and manifest boundary. |
 | Rigged walking/body animation | PARTIAL | Requires verified rigged GLB asset. |
@@ -151,7 +151,7 @@ Status meanings:
 
 ## 13. Glass / XR
 
-The KRISHNA Glass concept remains a later dedicated roadmap item after PC + mobile are stable:
+The KRISHNA Glass hardware remains a later dedicated roadmap item after PC + mobile are stable. A production-safe WearableBridge is now implemented to track only verified capabilities:
 - local sensorimotor/reflex layer beneath the main reasoning brain,
 - camera/vision, audio, IMU/head tracking,
 - hand gesture plus optional wrist/ring input,
@@ -159,7 +159,13 @@ The KRISHNA Glass concept remains a later dedicated roadmap item after PC + mobi
 - observe → decide → act → verify loop,
 - shared control with PC/mobile.
 
-This is intentionally **ROADMAP**, not a current production-complete claim.
+Current bridge boundary:
+- Phase 1: Bluetooth audio/microphone/speaker + phone camera capability registration.
+- Phase 2: vendor camera/display adapters only after real hardware verification.
+- Phase 3: IMU/gesture/wrist/ring/AR capabilities only after adapter/device evidence.
+Vendor-specific capability is never claimed from product marketing or source presence alone.
+
+Hardware Glass remains **ROADMAP / CAPABILITY-GATED**, not a production-complete claim.
 
 ## Final release gate
 
@@ -173,4 +179,10 @@ Do **not** build the final `Krishna_AGI.exe` until:
 7. KABACH boundaries pass,
 8. mobile connection/resume passes,
 9. voice/avatar unavailable providers fail honestly,
-10. restart/recovery/rollback and CPU/RAM governance pass.
+10. restart/recovery/rollback and CPU/RAM governance pass,
+11. DPAPI secret vault + free-only model routing pass on Windows,
+12. attachment -> local vision -> conversation path passes when a supported local model is configured,
+13. public-Internet remote clients are rejected and private-overlay mobile access passes,
+14. Garudanetra Private/Task Memory/Persistent Workspace lifecycles pass,
+15. local Odia voice/wake providers fail honestly when unconfigured and pass when configured,
+16. wearable capability registry reports only hardware-verified capabilities.
