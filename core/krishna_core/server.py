@@ -1,5 +1,5 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-import json, time, threading, base64, sys, uuid, uuid
+import json, time, threading, base64, sys, uuid
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
@@ -17,7 +17,6 @@ from .native_voice import KrishnaVoiceStack
 from .remote_access import PrivateRemotePolicy
 from .worker_fabric import WorkerResilienceSupervisor
 from .model_memory_governor import ModelMemoryGovernor
-from .wearable_bridge import WearableBridge
 from .wearable_bridge import WearableBridge
 from .specialist_library import SpecialistLibrary
 from .runtime_integrity import RuntimeIntegrity
@@ -38,7 +37,6 @@ _vision = VisionAdapter()
 _voice = KrishnaVoiceStack(lambda event: orch.handle_event("wakeword","krishna_detected","Local wake word Krishna detected",severity="notice",project="system",payload=event))
 _remote_policy = PrivateRemotePolicy()
 _model_memory = ModelMemoryGovernor()
-_wearables = WearableBridge(Path(settings.db_path).resolve().parent / ".krishna_state" / "wearables.json")
 _wearables = WearableBridge(Path(settings.db_path).resolve().parent / ".krishna_state" / "wearables.json")
 _worker_resilience = WorkerResilienceSupervisor(
     orch.agi.workers, interval=5,
