@@ -123,3 +123,13 @@ class HTTPRuntimeTests(unittest.TestCase):
 
 
 if __name__ == "__main__": unittest.main()
+
+
+class NaradHttpContractTests(unittest.TestCase):
+    def test_server_exposes_narad_routes(self):
+        from pathlib import Path
+        source=(Path(__file__).resolve().parents[1]/"krishna_core"/"server.py").read_text(encoding="utf-8")
+        for route in ("/api/narad/status","/api/narad/workflows","/api/narad/history",
+                      "/api/narad/workflows/create","/api/narad/workflows/promote",
+                      "/api/narad/workflows/execute","/api/intelligence/status"):
+            self.assertIn(route,source)
