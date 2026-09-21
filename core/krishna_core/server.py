@@ -687,6 +687,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/actions":
             project = (query.get("project") or [None])[0]
             return self._json(200, {"actions": orch.actions.list(project)})
+        if path == "/api/action-bus":
+            return self._json(200, orch.action_bus_status())
+        if path == "/api/action-bus/recent":
+            limit_raw=(query.get("limit") or ["50"])[0]
+            try:limit=max(1,min(int(limit_raw),500))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,{"actions":orch.action_bus_recent(limit)})
         if path == "/api/resources":
             return self._json(200, orch.governor.snapshot())
         if path == "/api/tasks":
@@ -1116,45 +1123,38 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403, {"error": str(exc)})
 
         if post_path == "/api/chats/create":
-            project = str(data.get("project", "general")).strip() or "general"
-            title = str(data.get("title", "New chat")).strip() or "New chat"
+            project=str(data.get("project","general")).strip() or "general"
+            title=str(data.get("title","New chat")).strip() or "New chat"
             try:
-                return self._json(200, orch.create_chat(project, title))
-            except KeyError:
-                return self._json(404, {"error": "project not registered"})
+                out=orch.dispatch_action("chat.create",{"project":project,"title":title},project=project,source="pc",actor="legacy-http")
+                return self._json(200,out["result"])
+            except KeyError:return self._json(404,{"error":"project not registered"})
 
         if post_path == "/api/chats/move":
-            chat_id = str(data.get("chat_id", "")).strip()
-            project = str(data.get("project", "")).strip()
-            if not chat_id or not project:
-                return self._json(400, {"error": "chat_id and project are required"})
+            chat_id=str(data.get("chat_id","")).strip();project=str(data.get("project","")).strip()
+            if not chat_id or not project:return self._json(400,{"error":"chat_id and project are required"})
             try:
-                return self._json(200, orch.move_chat(chat_id, project))
-            except KeyError as exc:
-                return self._json(404, {"error": str(exc)})
-            except ValueError as exc:
-                return self._json(400, {"error": str(exc)})
+                out=orch.dispatch_action("chat.move",{"chat_id":chat_id,"project":project},project=project,source="pc",actor="legacy-http")
+                return self._json(200,out["result"])
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/chats/delete":
-            chat_id = str(data.get("chat_id", "")).strip()
-            if not chat_id:
-                return self._json(400, {"error": "chat_id is required"})
+            chat_id=str(data.get("chat_id","")).strip()
+            if not chat_id:return self._json(400,{"error":"chat_id is required"})
             try:
-                return self._json(200, orch.delete_chat(chat_id))
-            except KeyError as exc:
-                return self._json(404, {"error": str(exc)})
+                out=orch.dispatch_action("chat.delete",{"chat_id":chat_id},project="KRISHNA",source="pc",actor="legacy-http")
+                return self._json(200,out["result"])
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
 
         if post_path == "/api/chats/rename":
-            chat_id = str(data.get("chat_id", "")).strip()
-            title = str(data.get("title", "")).strip()
-            if not chat_id or not title:
-                return self._json(400, {"error": "chat_id and title are required"})
+            chat_id=str(data.get("chat_id","")).strip();title=str(data.get("title","")).strip()
+            if not chat_id or not title:return self._json(400,{"error":"chat_id and title are required"})
             try:
-                return self._json(200, orch.rename_chat(chat_id, title))
-            except KeyError as exc:
-                return self._json(404, {"error": str(exc)})
-            except ValueError as exc:
-                return self._json(400, {"error": str(exc)})
+                out=orch.dispatch_action("chat.rename",{"chat_id":chat_id,"title":title},project="KRISHNA",source="pc",actor="legacy-http")
+                return self._json(200,out["result"])
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/wearables/register":
             if self.client_address[0] not in ("127.0.0.1","::1"):
@@ -1240,31 +1240,56 @@ class Handler(BaseHTTPRequestHandler):
             if not pid:return self._json(400,{"error":"profile_id is required"})
             return self._json(200,{"deleted":orch.model_gateway.delete(pid)})
 
-        if post_path == "/api/projects/register":
+        if post_path == "/api/action-bus/dispatch":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"direct Shared Action Bus dispatch is local-PC only; mobile uses authenticated transport"})
+            action=str(data.get("action") or "").strip()
+            if not action:return self._json(400,{"error":"action is required"})
             try:
-                out = orch.register_project(
-                    name=str(data.get("name", "")).strip(),
-                    root=str(data.get("root", "")).strip(),
-                    privacy=str(data.get("privacy", "local_only")),
-                    allowed_actions=data.get("allowed_actions") or [],
-                    verification_checks=data.get("verification_checks") or [],
-                    metadata=data.get("metadata") or {},
-                    role=str(data.get("role") or "active"),
+                out=orch.dispatch_action(
+                    action,data.get("payload") or {},project=str(data.get("project") or "KRISHNA"),
+                    source="pc",actor=str(data.get("actor") or "ui"),
+                    approved=bool(data.get("approved",False)),
+                    permissions=data.get("permissions") or [],
+                    idempotency_key=str(data.get("idempotency_key") or "").strip() or None,
                 )
-                return self._json(200, out)
-            except (ValueError, TypeError) as exc:
-                return self._json(400, {"error": str(exc)})
+                return self._json(200,out)
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/action-bus/rollback":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"direct Shared Action Bus rollback is local-PC only"})
+            action_id=str(data.get("action_id") or "").strip()
+            if not action_id:return self._json(400,{"error":"action_id is required"})
+            try:return self._json(200,orch.rollback_dispatched_action(action_id,source="pc",actor="ui",approved=bool(data.get("approved",False))))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/projects/register":
+            payload={
+                "name":str(data.get("name","")).strip(),"root":str(data.get("root","")).strip(),
+                "privacy":str(data.get("privacy","local_only")),
+                "allowed_actions":data.get("allowed_actions") or [],
+                "verification_checks":data.get("verification_checks") or [],
+                "metadata":data.get("metadata") or {},"role":str(data.get("role") or "active"),
+            }
+            try:
+                out=orch.dispatch_action("project.register",payload,project=payload["name"] or "KRISHNA",source="pc",actor="legacy-http")
+                return self._json(200,out["result"])
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
 
         if post_path == "/api/projects/unregister":
-            name = str(data.get("name", "")).strip()
+            name=str(data.get("name","")).strip()
             try:
-                return self._json(200, orch.unregister_project(name))
-            except KeyError:
-                return self._json(404, {"error": "project not registered"})
-            except PermissionError as exc:
-                return self._json(403, {"error": str(exc)})
-            except ValueError as exc:
-                return self._json(400, {"error": str(exc)})
+                out=orch.dispatch_action("project.unregister",{"name":name},project=name or "KRISHNA",source="pc",actor="legacy-http")
+                return self._json(200,out["result"])
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/e2e/register":
             if self.client_address[0] not in ("127.0.0.1", "::1"):
