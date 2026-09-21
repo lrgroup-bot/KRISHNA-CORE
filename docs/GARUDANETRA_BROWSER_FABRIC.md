@@ -102,6 +102,25 @@ Each candidate is compiled as guidance-only with a distinct session-derived name
 
 These are not automatically installed, selected or executed. Availability is environment-dependent and surfaced by `/api/garudanetra/fabric`.
 
+## Runtime adapter configuration
+
+Optional adapters can be enabled without editing KRISHNA source. Create:
+
+```text
+E:\Krishna-The GOD\config\browser-runtime.ps1
+```
+
+Example:
+
+```powershell
+$env:KRISHNA_BROWSER_HARNESS_CMD = 'E:\Krishna-The GOD\tools\browser-harness\browser-harness.exe'
+$env:KRISHNA_AGENT_BROWSER_CMD = 'E:\Krishna-The GOD\tools\agent-browser\agent-browser.exe'
+$env:KRISHNA_LUCARNE_CMD = 'E:\Krishna-The GOD\tools\lucarne\lucarne.cmd'
+# Configure only adapters actually installed and verified on this PC.
+```
+
+START_KRISHNA.ps1 loads this runtime-owned file when present. The file is not deployed from Git and can remain machine-specific.
+
 ## Environment bridge variables
 
 ```text
