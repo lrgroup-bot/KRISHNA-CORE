@@ -38,6 +38,8 @@ class WebValidationTests(unittest.TestCase):
             "/api/commitments", "/api/commitments/update", "/api/autonomy/status", "/api/autonomy/tick", "commitmentSummary", "autonomySummary", "runAutonomyTick", "Auto Inspect", "/api/models", "modelRouter",
             "/api/runtime/audit", "driveAudit",
             "/api/requirements", "requirementsCount", "loadRequirementsLedger",
+            "/api/ui-guardian/registry", "/api/ui-guardian/evaluate", "/api/ui-guardian/transition",
+            "UI Guardian", "Evaluate 4 viewports", "promoteUIGuardian",
             "gyanInventory", "gyanKind", "loadGyanInventory", "supersedeGyan",
             "/api/ui-guardian/registry", "/api/ui-guardian/evaluate", "/api/ui-guardian/transition",
             "uiGuardianRegistry", "Run viewport matrix", "Stable / Candidate / Experimental / Rejected",
