@@ -845,38 +845,44 @@ class Handler(BaseHTTPRequestHandler):
 
         if post_path == "/api/garudanetra/session/start":
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
-            url=str(data.get("url") or "").strip()
-            mode=str(data.get("mode") or "private").strip().lower()
-            approved=bool(data.get("persistent_approved",False))
-            out=_garudanetra.create(project,url,mode,persistent_approved=approved)
-            mark("GARUDANETRA LIVE",f"{project}: {mode}: {url[:120]}")
-            return self._json(201,out)
+            payload={"project":project,"url":str(data.get("url") or "").strip(),"mode":str(data.get("mode") or "private").strip().lower()}
+            try:
+                receipt=orch.dispatch_action("garudanetra.start",payload,project=project,source="pc",actor="legacy-http",approved=bool(data.get("persistent_approved",False)))
+                mark("GARUDANETRA LIVE",f'{project}: {payload["mode"]}: {payload["url"][:120]}')
+                return self._json(201,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/garudanetra/session/replay":
             sid=str(data.get("session_id") or "").strip()
             if not sid:return self._json(400,{"error":"session_id is required"})
             steps=data.get("steps")
             if steps is not None and not isinstance(steps,list):return self._json(400,{"error":"steps must be an array"})
-            return self._json(200,_browser_fabric.replay(sid,steps=steps,approved=bool(data.get("approved",False))))
+            try:
+                receipt=orch.dispatch_action("garudanetra.replay",{"session_id":sid,"steps":steps},project="KRISHNA",source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
+                return self._json(200,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/garudanetra/session/control":
-            sid=str(data.get("session_id") or "").strip()
-            action=str(data.get("action") or "").strip()
+            sid=str(data.get("session_id") or "").strip();action=str(data.get("action") or "").strip()
             if not sid or not action:return self._json(400,{"error":"session_id and action are required"})
             payload=dict(data.get("payload") or {})
             if action=="upload_attachment":
-                chat_id=str(payload.get("chat_id") or "").strip();aid=str(payload.get("attachment_id") or "").strip()
-                selector=str(payload.get("selector") or "").strip()
+                chat_id=str(payload.get("chat_id") or "").strip();aid=str(payload.get("attachment_id") or "").strip();selector=str(payload.get("selector") or "").strip()
                 if not chat_id or not aid or not selector:return self._json(400,{"error":"upload_attachment requires chat_id, attachment_id and selector"})
-                try:
-                    meta,path=_attachments.resolve(chat_id,aid)
+                try:meta,path=_attachments.resolve(chat_id,aid)
                 except KeyError:return self._json(404,{"error":"attachment not found"})
                 action="upload";payload={"selector":selector,"path":str(path)}
-            out=_garudanetra.command(sid,action,payload)
-            if action=="stop":mark("GARUDANETRA STOPPED",sid[:8])
-            elif action=="takeover":mark("GARUDANETRA OWNER CONTROL",sid[:8])
-            elif action=="resume":mark("GARUDANETRA LIVE",sid[:8])
-            return self._json(200,out)
+            try:
+                receipt=orch.dispatch_action("garudanetra.control",{"session_id":sid,"action":action,"payload":payload},project="KRISHNA",source="pc",actor="legacy-http")
+                out=receipt["result"]
+                if action=="stop":mark("GARUDANETRA STOPPED",sid[:8])
+                elif action=="takeover":mark("GARUDANETRA OWNER CONTROL",sid[:8])
+                elif action=="resume":mark("GARUDANETRA LIVE",sid[:8])
+                return self._json(200,out)
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path.startswith("/api/narad/webhook/"):
             token=post_path.rsplit("/",1)[-1].strip()
@@ -1340,6 +1346,64 @@ class Handler(BaseHTTPRequestHandler):
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except ValueError as exc:return self._json(400,{"error":str(exc)})
 
+        if post_path == "/api/jobs/submit":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"direct job submission is local-PC only; remote clients use authenticated dispatch"})
+            action=str(data.get("action") or "").strip()
+            if not action:return self._json(400,{"error":"action is required"})
+            try:
+                return self._json(202,orch.jobs.submit(
+                    action,data.get("payload") or {},project=str(data.get("project") or "KRISHNA"),
+                    actor=str(data.get("actor") or "ui-job"),permissions=data.get("permissions") or [],
+                    approved=bool(data.get("approved",False)),
+                    idempotency_key=str(data.get("idempotency_key") or "").strip() or None,
+                ))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/dispatch":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"direct dispatch is local-PC only"})
+            action=str(data.get("action") or "").strip()
+            if not action:return self._json(400,{"error":"action is required"})
+            try:
+                return self._json(200,orch.dispatcher.dispatch(
+                    str(data.get("target") or "action"),action,data.get("payload") or {},
+                    project=str(data.get("project") or "KRISHNA"),
+                    actor=str(data.get("actor") or "ui"),
+                    agent_id=str(data.get("agent_id") or "").strip() or None,
+                    permissions=data.get("permissions") or [],
+                    approved=bool(data.get("approved",False)),
+                    idempotency_key=str(data.get("idempotency_key") or "").strip() or None,
+                ))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/protocols/mcp/call":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"MCP adapter test endpoint is local-PC only"})
+            tool=str(data.get("tool") or "").strip()
+            if not tool:return self._json(400,{"error":"tool is required"})
+            try:return self._json(200,orch.protocols.mcp_call(
+                tool,data.get("args") or {},principal=str(data.get("principal") or "mcp-client"),
+                project=str(data.get("project") or "KRISHNA"),
+                permissions=data.get("permissions") or [],approved=bool(data.get("approved",False)),
+                request_id=str(data.get("request_id") or "").strip() or None,
+            ))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/protocols/a2a/dispatch":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"A2A adapter test endpoint is local-PC only"})
+            try:return self._json(200,orch.protocols.a2a_dispatch(data))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
         if post_path == "/api/projects/register":
             payload={
                 "name":str(data.get("name","")).strip(),"root":str(data.get("root","")).strip(),
@@ -1530,11 +1594,13 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/garuda/scout":
-            project=str(data.get("project") or "KRISHNA").strip()
-            goal=str(data.get("goal") or "").strip()
+            project=str(data.get("project") or "KRISHNA").strip();goal=str(data.get("goal") or "").strip()
             if not goal:return self._json(400,{"error":"goal is required"})
-            try:return self._json(200,orch.garuda_scout(project,goal,int(data.get("limit") or 10)))
+            try:
+                out=orch.dispatch_action("garuda.scout",{"project":project,"goal":goal,"limit":int(data.get("limit") or 10)},project=project,source="pc",actor="legacy-http")
+                return self._json(200,out["result"])
             except KeyError:return self._json(404,{"error":"project not registered"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/development/git/status":
