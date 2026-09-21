@@ -49,7 +49,7 @@ class BrahmagyanRuntime:
         self.council=RishiCouncil()
         self.lock=RLock()
         self.state={
-            "missions":{},"claims":{},"curiosity":[],"shishya_archive":[],
+            "missions":{},"claims":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
             "created_at":time.time(),"version":self.VERSION,
         }
         self._load()
@@ -59,7 +59,7 @@ class BrahmagyanRuntime:
         try:
             raw=json.loads(self.path.read_text(encoding="utf-8"))
             if isinstance(raw,dict):
-                for key in ("missions","claims","curiosity","shishya_archive"):
+                for key in ("missions","claims","curiosity","shishya_archive","council_proposals"):
                     if key in raw:self.state[key]=raw[key]
         except Exception as exc:
             self.memory.audit("brahmagyan_state","load_failed",f"{type(exc).__name__}: {exc}")
@@ -370,6 +370,51 @@ class BrahmagyanRuntime:
             old["updated_at"]=new["updated_at"]=self._now();self._save()
             return {"previous":json.loads(json.dumps(old)),"current":json.loads(json.dumps(new))}
 
+    def gap_questions(self,claim_id,queue=False):
+        c=self.claim(claim_id)
+        questions=[]
+        if not c.get("sources"):
+            questions.append("What is the strongest primary source for this claim?")
+        if not c.get("context_summary"):
+            questions.append("What source context, definitions, scope and limitations are required to understand this claim correctly?")
+        if not c.get("supporting_evidence"):
+            questions.append("What independent evidence supports this claim?")
+        if not c.get("contradicting_evidence"):
+            questions.append("What credible evidence or interpretation contradicts this claim?")
+        if LEVEL_INDEX[c["maturity"]]<LEVEL_INDEX["L5"]:
+            questions.append("Where can this claim be applied without assuming more than the evidence supports?")
+        if not c.get("test_evidence"):
+            questions.append("How could this claim be tested, benchmarked or falsified?")
+        if not c.get("connections"):
+            questions.append("Which related domains, causes, consequences or historical states should this claim connect to?")
+        if c.get("knowledge_track") in {"modern_science","vedic_classical"}:
+            other="vedic/classical" if c["knowledge_track"]=="modern_science" else "modern scientific"
+            questions.append(f"What does the separate {other} track say about this topic, without forcing equivalence?")
+        created=[]
+        if queue:
+            for q in questions:
+                created.append(self.add_curiosity(c["project"],q,{"knowledge_gap":1,"relevance":1,"project":1,"duplication":0,"resource_cost":.2}))
+        return {"claim_id":claim_id,"questions":questions,"queued":created}
+
+    def propose_council_specialist(self,domain,role,reason):
+        domain=str(domain or "").strip().lower();role=str(role or "").strip();reason=str(reason or "").strip()
+        if not domain or not role or not reason:raise ValueError("domain, role and reason are required")
+        overlaps=[]
+        for profile in self.council.list():
+            hits=[d for d in profile["domains"] if domain in d or d in domain]
+            if hits:overlaps.append({"id":profile["id"],"display_name":profile["display_name"],"overlap":hits})
+        proposal={
+            "proposal_id":str(uuid.uuid4()),"domain":domain,"role":role,"reason":reason,
+            "duplicate_candidates":overlaps,"status":"needs_duplication_review" if overlaps else "candidate",
+            "created_at":self._now(),
+            "policy":"proposal only; permanent Rishi creation requires AI-HR duplication review plus Sudarshan authorization and code/runtime registration",
+        }
+        with self.lock:
+            self.state["council_proposals"].append(proposal)
+            self.state["council_proposals"]=self.state["council_proposals"][-200:]
+            self._save()
+        return dict(proposal)
+
     def add_curiosity(self,project,question,signals=None):
         q=str(question or "").strip()
         if not q:raise ValueError("question is required")
@@ -446,6 +491,7 @@ class BrahmagyanRuntime:
             "maturity_levels":[{"code":c,"name":n} for c,n in MATURITY],
             "deep_learning_loop":["discover","read","understand_context","extract_claims","verify_sources","cross_check","find_contradictions","apply","test","evaluate","connect","store"],
             "missions":missions,"claims":claims,"curiosity_queued":curiosity,
+            "council_proposals":len(self.state.get("council_proposals") or []),
             "council":self.council.status(),
             "trusted_store":"Gyan-Bhandar","authority":"Sudarshan permissioned Action/Job architecture",
             "resource_policy":"council profiles are inert; workers are mission-scoped and temporary; no background daemon",
