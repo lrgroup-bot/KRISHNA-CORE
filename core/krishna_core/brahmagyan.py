@@ -100,6 +100,13 @@ class BrahmagyanRuntime:
             raise ValueError("source requires title, url or identifier")
         return row
 
+    @staticmethod
+    def _needs_dual_track(topic):
+        text=str(topic or "").lower()
+        classical=("veda","vedic","upanishad","gita","yoga","ayurveda","shastra","itihasa","sanskrit","classical indian","ancient indian")
+        modern=("science","medical","medicine","physics","biology","psychology","neuroscience","astronomy","technology","clinical","quantum","genetic")
+        return any(x in text for x in classical) and any(x in text for x in modern)
+
     def create_mission(self,project,topic,question="",rishi_id=None,knowledge_track="general",priority=None,target_level="L8"):
         topic=str(topic or "").strip()
         if not topic:raise ValueError("topic is required")
@@ -110,6 +117,7 @@ class BrahmagyanRuntime:
             "mission_id":mid,"project":str(project or "KRISHNA"),"topic":topic,
             "question":str(question or topic).strip(),"lead_rishi":selected["id"],
             "knowledge_track":self._track(knowledge_track),"target_level":target_level,
+            "dual_track_required":self._needs_dual_track(topic),
             "maturity":"L0","status":"planned","created_at":self._now(),"updated_at":self._now(),
             "review_flow":self.review_flow(topic,selected["id"]),
             "deep_learning_loop":[
@@ -180,6 +188,8 @@ class BrahmagyanRuntime:
         m=self.mission(mission_id)
         cid=str(uuid.uuid4())
         track=self._track(knowledge_track or m["knowledge_track"])
+        if m.get("dual_track_required") and track=="general":
+            raise ValueError("this mission requires separate modern_science and vedic_classical/historical/philosophical claim tracks")
         source_rows=[self._source_row(x) for x in (sources or [])]
         row={
             "claim_id":cid,"mission_id":mission_id,"project":m["project"],"topic":m["topic"],
@@ -287,6 +297,25 @@ class BrahmagyanRuntime:
         self.memory.audit("brahmagyan_maturity",target,f"{claim_id}:{out['evidence_status']}:{out['confidence']}")
         return out
 
+    def resolve_contradiction(self,claim_id,index,resolution,evidence_status=None):
+        resolution=str(resolution or "").strip()
+        if not resolution:raise ValueError("resolution is required")
+        with self.lock:
+            c=self.state["claims"].get(str(claim_id))
+            if not c:raise KeyError(claim_id)
+            rows=c.get("contradicting_evidence") or []
+            idx=int(index)
+            if idx<0 or idx>=len(rows):raise IndexError("contradiction index out of range")
+            rows[idx]["resolution"]=resolution
+            rows[idx]["resolved_at"]=self._now()
+            if evidence_status:
+                status=str(evidence_status).strip().lower()
+                if status not in EVIDENCE_STATUS:raise ValueError("invalid evidence_status")
+                c["evidence_status"]=status
+            c["updated_at"]=self._now();c["knowledge_version"]=int(c.get("knowledge_version") or 1)+1
+            self._save()
+            return json.loads(json.dumps(c))
+
     def compile_claim(self,claim_id,compiled_by="veda-vyasa"):
         if str(compiled_by).strip().lower()!="veda-vyasa":raise PermissionError("Veda Vyasa is the canonical knowledge compiler")
         with self.lock:
@@ -298,7 +327,7 @@ class BrahmagyanRuntime:
 
     def promotion_readiness(self,claim_id):
         c=self.claim(claim_id)
-        unresolved=len(c.get("contradicting_evidence") or [])
+        unresolved=len([x for x in (c.get("contradicting_evidence") or []) if not x.get("resolved_at")])
         trusted=(
             LEVEL_INDEX[c["maturity"]]>=LEVEL_INDEX["L4"]
             and c.get("verified_by")=="gautama"
