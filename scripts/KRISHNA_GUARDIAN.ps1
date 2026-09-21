@@ -26,7 +26,7 @@ function Load-State(){
   return $null
 }
 
-Write-Host "KRISHNA GUARDIAN — crash-loop protected supervisor" -ForegroundColor Cyan
+Write-Host "KRISHNA GUARDIAN - crash-loop protected supervisor" -ForegroundColor Cyan
 if(Test-Path $quarantinePath){
   Write-Host "Core is quarantined. Remove $quarantinePath after diagnosis to resume." -ForegroundColor Red
   exit 3
