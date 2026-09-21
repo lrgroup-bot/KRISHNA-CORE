@@ -5,6 +5,19 @@ import os
 
 
 class PrivateRemotePolicy:
+    MOBILE_ROUTES=frozenset({
+        "/api/status",
+        "/api/mobile/connection",
+        "/api/mobile/resume",
+        "/api/mobile/control",
+        "/api/core/event",
+        "/api/core/state",
+        "/api/core/chat",
+        "/api/chats/create",
+        "/api/chat/history",
+        "/api/attachments",
+        "/api/mobile-log",
+    })
     """Network boundary for KRISHNA Mobile/remote clients.
 
     Loopback and RFC1918/ULA LAN addresses are allowed. Overlay address ranges are
@@ -36,6 +49,10 @@ class PrivateRemotePolicy:
     def allowed(self,address:str)->bool:
         return bool(self.classify(address)["allowed"])
 
+    def mobile_route_allowed(self,path:str)->bool:
+        return str(path or "") in self.MOBILE_ROUTES
+
     def status(self):
         return {"mode":"private-network-only","overlay_cidrs":[str(x) for x in self.networks],
-                "policy":"public Internet clients are rejected; use LAN or an explicitly configured private overlay"}
+                "mobile_route_count":len(self.MOBILE_ROUTES),
+                "policy":"public Internet clients are rejected; paired remote devices are restricted to the conversation/mobile API allowlist"}
