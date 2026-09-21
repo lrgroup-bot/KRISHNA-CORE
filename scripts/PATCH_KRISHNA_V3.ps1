@@ -3,7 +3,7 @@ param(
     [string]$PackageRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
 
     [Parameter(Mandatory=$false)]
-    [string]$TargetRoot = "C:\KRISHNA-v3"
+    [string]$TargetRoot = "E:\Krishna-The GOD"
 )
 
 $ErrorActionPreference = "Stop"
