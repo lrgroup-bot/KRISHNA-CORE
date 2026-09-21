@@ -1033,7 +1033,8 @@ setTimeout(()=>{const g=$('garudaGoal')||document.querySelector('#garuda textare
 <div class="card"><div class="k">LOCAL VISION</div><div id="visionRuntime" class="v">CHECKING</div></div>
 <div class="card"><div class="k">REMOTE POLICY</div><div id="remoteRuntime" class="v">CHECKING</div></div>
 <div class="card"><div class="k">RESILIENCE</div><div id="resilienceRuntime" class="v">CHECKING</div></div>
-<div class="card"><div class="k">WEARABLE / GLASS</div><div id="wearableRuntime" class="v">CHECKING</div></div></div>
+<div class="card"><div class="k">WEARABLE / GLASS</div><div id="wearableRuntime" class="v">CHECKING</div></div>
+<div class="card"><div class="k">MOBILE PAIRING</div><div id="mobilePairingState" class="v">CHECKING</div><div id="mobilePairingList" style="margin-top:8px"></div></div></div>
 <div class="card" style="margin-top:12px"><div class="k">FREE / CLOUD MODEL GATEWAY</div><div class="addBox" style="margin-top:8px"><input id="gatewayName" class="input" placeholder="Gateway name"><input id="gatewayUrl" class="input" placeholder="https://gateway.example/v1"><input id="gatewayModel" class="input" placeholder="Model"><input id="gatewayKey" class="input" type="password" autocomplete="off" placeholder="API key · encrypted with Windows DPAPI"><label class="workspaceMeta"><input id="gatewayFreeOnly" type="checkbox" checked> free-only · never paid fallback</label><button class="primary" onclick="registerModelGateway()">Connect gateway</button></div><div id="modelGatewayList" style="margin-top:10px"></div></div>
 <div class="card" style="margin-top:12px"><button class="ghost" onclick="runAll()">Run API checks</button><div id="testState" class="v">NOT RUN</div><div id="tests" class="tests"></div></div><div class="card" style="margin-top:12px"><div class="k">TOOL OUTPUT</div><div id="log" class="log">Ready.</div></div></div></section>
 <div class="composerWrap"><div class="composer"><textarea id="input" rows="2" placeholder="Command KRISHNA through Sudarshan…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea><div class="composeFoot"><div class="tools"><button class="tool" onclick="document.getElementById('attachInput').click()">＋ File</button><input id="attachInput" type="file" style="display:none" onchange="uploadAttachment(this)"><button class="tool" onclick="showView('plugins')">＋ Plugin</button><button class="tool" onclick="showView('projects')">◇ Project</button><button class="tool" onclick="investigate()">⌕ Investigate</button><button class="tool" onclick="research()">⌁ Research</button></div><div><span class="hint">Enter to send · Shift+Enter for line</span> <button class="send" onclick="send()">↑</button></div></div></div></div>
@@ -1336,6 +1337,18 @@ async function uiGuardianReject(id){
  const ok=await confirmAction('Reject this GUI candidate?');if(!ok)return;
  try{await req('/api/ui-guardian/transition',{entry_id:id,target:'rejected',verified:false});await loadUIRegistry()}catch(e){log(e.message)}
 }
+async function loadMobilePairing(){
+ try{
+  const d=await req('/api/mobile/pair/pending'),rows=d.pending||[];$('mobilePairingState').textContent=rows.length?rows.length+' APPROVAL PENDING':((d.paired||{}).count||0)+' PAIRED';
+  const box=$('mobilePairingList');box.innerHTML='';
+  rows.forEach(x=>{const e=document.createElement('div');e.className='card';e.style.margin='6px 0';e.innerHTML='<div class="v"></div><p></p><div class="taskActions"></div>';e.querySelector('.v').textContent=x.name||x.device_id;e.querySelector('p').textContent='Zero-code request · expires '+new Date((x.expires_at||0)*1000).toLocaleTimeString();const b=document.createElement('button');b.className='approve';b.textContent='Approve device';b.onclick=()=>approveMobilePairing(x.request_id);e.querySelector('.taskActions').appendChild(b);box.appendChild(e)});
+  if(!rows.length)box.innerHTML='<div class="mutedCopy">No pending device approvals.</div>';
+ }catch(e){if($('mobilePairingState'))$('mobilePairingState').textContent='Unavailable'}
+}
+async function approveMobilePairing(id){
+ const ok=await confirmAction('Approve this KRISHNA Mobile device? The phone already holds its credential; no pairing code is used.');if(!ok)return;
+ try{await req('/api/mobile/pair/approve',{request_id:id});await loadMobilePairing()}catch(e){log(e.message)}
+}
 async function loadExtendedRuntime(){
  try{
   const [v,vision,remote,resilience,wear]=await Promise.all([
@@ -1346,6 +1359,7 @@ async function loadExtendedRuntime(){
   $('remoteRuntime').textContent=String(remote.mode||'private-network-only').toUpperCase();
   const ws=resilience.worker_supervisor||{},mm=resilience.model_memory||{};$('resilienceRuntime').textContent=(ws.running?'SUPERVISOR LIVE':'SUPERVISOR STOPPED')+' · '+((mm.running_models||[]).length)+' loaded model(s)';
   $('wearableRuntime').textContent=(wear.bridge_ready?'VERIFIED BRIDGE':'NO VERIFIED HARDWARE')+' · '+(wear.verified_capabilities||[]).join(', ');
+  loadMobilePairing();
  }catch(e){
   for(const id of ['voiceRuntime','visionRuntime','remoteRuntime','resilienceRuntime','wearableRuntime'])if($(id))$(id).textContent='Unavailable';
  }
