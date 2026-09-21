@@ -13,6 +13,7 @@ from .plugin_runtime import PluginRegistry
 from .plugin_executor import PluginExecutor
 from .attachments import AttachmentStore
 from .specialist_library import SpecialistLibrary
+from .runtime_integrity import RuntimeIntegrity
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -21,6 +22,7 @@ _plugins = PluginRegistry(Path(settings.db_path).resolve().parent / ".krishna_st
 _plugin_executor = PluginExecutor(_plugins)
 _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
+_integrity = RuntimeIntegrity(RUNTIME_ROOT)
 try:
     if _specialists.source_root.exists():
         _specialists.index()
@@ -78,6 +80,19 @@ def avatar_360_bytes():
         return base64.b64decode(AVATAR_B64.read_text(encoding="utf-8").strip(), validate=True)
     except Exception:
         return b""
+
+
+def latest_e_drive_audit():
+    reports=RUNTIME_ROOT/"reports"
+    try:
+        files=sorted(reports.glob("e-drive-audit-*.json"),key=lambda p:p.stat().st_mtime,reverse=True)
+        if not files:return {"available":False,"findings":[],"finding_count":0}
+        raw=json.loads(files[0].read_text(encoding="utf-8-sig"))
+        findings=list(raw.get("findings") or [])
+        return {"available":True,"path":str(files[0]),"generated_at":raw.get("generated_at"),
+                "finding_count":len(findings),"findings":findings[:50]}
+    except Exception as exc:
+        return {"available":False,"error":f"{type(exc).__name__}: {exc}","findings":[],"finding_count":0}
 
 
 def mark(event, detail=""):
@@ -269,6 +284,10 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"project not registered"})
         if path == "/api/agi/status":
             return self._json(200, orch.agi_status())
+        if path == "/api/runtime/integrity":
+            return self._json(200, _integrity.status())
+        if path == "/api/runtime/audit":
+            return self._json(200, latest_e_drive_audit())
         if path == "/api/narad/status":
             return self._json(200, orch.agi.narad.status())
         if path == "/api/narad/workflows":
@@ -294,6 +313,7 @@ class Handler(BaseHTTPRequestHandler):
                 "mobile_connection": mobile_link_state(),
                 "uptime_seconds": int(time.time() - started),
                 "agi": orch.agi_status(),
+                "deployment_integrity": _integrity.status(),
             })
         if path == "/api/dashboard":
             return self._json(200, {
@@ -308,6 +328,7 @@ class Handler(BaseHTTPRequestHandler):
                 "recent": activity["recent"],
                 "mobile_connection": mobile_link_state(),
                 "uptime_seconds": int(time.time() - started),
+                "deployment_integrity": _integrity.status(),
             })
         if path == "/api/mobile/connection":
             return self._json(200, mobile_link_state())

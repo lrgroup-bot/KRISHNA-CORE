@@ -5,25 +5,57 @@ param(
 )
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
 $KrishnaRoot=[IO.Path]::GetFullPath($KrishnaRoot)
+$authoritative = if($SourceRoot){[IO.Path]::GetFullPath($SourceRoot)}elseif(Test-Path "E:\KRISHNA-SOURCE\.git"){"E:\KRISHNA-SOURCE"}else{""}
 $coreDir=Join-Path $KrishnaRoot "core"
-if ($SourceRoot) { $coreDir=Join-Path ([IO.Path]::GetFullPath($SourceRoot)) "core" }
 $py=Join-Path $KrishnaRoot ".venv\Scripts\python.exe"
 $logDir=Join-Path $KrishnaRoot "logs"
-if(!(Test-Path $coreDir)){throw "KRISHNA core directory not found: $coreDir"}
 if(!(Test-Path $py)){throw "KRISHNA venv Python not found: $py"}
 if(!(Test-Path $logDir)){New-Item -ItemType Directory -Force $logDir|Out-Null}
+
+# Keep runtime automatically synchronized to the authoritative Git source.
+if($authoritative -and (Test-Path "$authoritative\.git")){
+    $env:KRISHNA_SOURCE_ROOT=$authoritative
+    $sourceHead=(git -C $authoritative rev-parse HEAD).Trim()
+    $manifestPath=Join-Path $KrishnaRoot "state\deployment\DEPLOYED_COMMIT.json"
+    $deployed=""
+    if(Test-Path $manifestPath){
+        try{$deployed=(Get-Content -Raw $manifestPath|ConvertFrom-Json).commit}catch{$deployed=""}
+    }
+    if(!$deployed -or $deployed -ne $sourceHead){
+        Write-Host "KRISHNA runtime is not synchronized. Running verified deploy..." -ForegroundColor Yellow
+        $deploy=Join-Path $authoritative "scripts\DEPLOY_KRISHNA_ONCE.ps1"
+        if(!(Test-Path $deploy)){throw "Verified deploy script missing: $deploy"}
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $deploy -SkipStart
+        if($LASTEXITCODE -ne 0){throw "Automatic verified deployment failed"}
+    }
+}
+
+if(!(Test-Path $coreDir)){throw "KRISHNA core directory not found: $coreDir"}
 $env:PYTHONPATH=$coreDir
 $env:KRISHNA_HOST="127.0.0.1"
 $env:KRISHNA_PORT=[string]$Port
 $env:KRISHNA_RUNTIME_ROOT=$KrishnaRoot
+if($authoritative){$env:KRISHNA_SOURCE_ROOT=$authoritative}
 if (!$env:KRISHNA_DB) { $env:KRISHNA_DB=Join-Path $KrishnaRoot "krishna_core.db" }
 if (!$env:KRISHNA_ALLOW_ACTIONS) { $env:KRISHNA_ALLOW_ACTIONS="0" }
+
+# Never advertise CORE ONLINE when deployed files no longer match the verified manifest.
+$integrityJson=& $py -c "import json; from krishna_core.runtime_integrity import RuntimeIntegrity; print(json.dumps(RuntimeIntegrity().status()))"
+if($LASTEXITCODE -ne 0){throw "Runtime integrity check could not run"}
+$integrity=$integrityJson|ConvertFrom-Json
+if($integrity.status -eq "DRIFT"){throw ("KRISHNA runtime drift detected. Missing={0}; mismatches={1}; source_drift={2}" -f (($integrity.missing -join ',')),(($integrity.mismatches -join ',')),$integrity.source_drift)}
+if($integrity.status -eq "UNVERIFIED"){Write-Host "KRISHNA runtime has no verified deployment manifest." -ForegroundColor Yellow}
+
 Write-Host ""
 Write-Host "KRISHNA MODERN CORE START" -ForegroundColor Cyan
-Write-Host "Root : $KrishnaRoot"
-Write-Host "UI   : http://127.0.0.1:$Port/"
+Write-Host "Root      : $KrishnaRoot"
+Write-Host "Source    : $authoritative"
+Write-Host "Integrity : $($integrity.status)"
+Write-Host "Commit    : $($integrity.commit)"
+Write-Host "UI        : http://127.0.0.1:$Port/"
 Write-Host ""
-# Modern KRISHNA is server-first. Legacy desktop/console launchers are intentionally not preferred.
+
 & $py -u -m krishna_core.server
 exit $LASTEXITCODE

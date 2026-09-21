@@ -27,7 +27,11 @@ class WebValidationTests(unittest.TestCase):
             "ACTIVE WORK", "VERIFICATION", "SYSTEM LOAD",
             "GARUDANETRA · PRIVATE", "TAKE CONTROL", "CONTINUE",
             "opsInformer", "liveWork", "refreshCommandCenter",
+            "startGarudanetraMission", "/api/garuda/scout", "loadGarudanetra",
             "/api/narad/status", "/api/narad/workflows", "/api/narad/history",
+            "/api/kabach/projects", "/api/runtime/integrity", "KABACH", "deployIntegrity",
+            "/api/commitments", "/api/models", "commitmentSummary", "modelRouter",
+            "/api/runtime/audit", "driveAudit",
         ):
             self.assertIn(token, text)
         self.assertIn("Garudanetra", text)
