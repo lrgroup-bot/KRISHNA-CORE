@@ -47,6 +47,12 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertIn("LEGACY_BROWSER_DATA_PRESENT",audit)
         self.assertIn("LEGACY_GARUDANETRA_MODULE_PRESENT",audit)
 
+    def test_browser_runtime_config_can_be_loaded_without_source_edits(self):
+        start=self.text("scripts/START_KRISHNA.ps1")
+        self.assertIn('config\\browser-runtime.ps1',start)
+        self.assertIn('$browserConfig',start)
+        self.assertIn('. $browserConfig',start)
+
     def test_garuda_security_delegation(self):
         o=self.text("core/krishna_core/orchestrator.py")
         self.assertIn("kabach_security_research",o);self.assertIn("self.garuda.scout",o)
