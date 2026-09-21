@@ -15,6 +15,8 @@ from .attachments import AttachmentStore
 from .vision_adapter import VisionAdapter
 from .native_voice import KrishnaVoiceStack
 from .remote_access import PrivateRemotePolicy
+from .worker_fabric import WorkerResilienceSupervisor
+from .model_memory_governor import ModelMemoryGovernor
 from .specialist_library import SpecialistLibrary
 from .runtime_integrity import RuntimeIntegrity
 from .requirements_ledger import RequirementsLedger
@@ -33,6 +35,14 @@ _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krish
 _vision = VisionAdapter()
 _voice = KrishnaVoiceStack(lambda event: orch.handle_event("wakeword","krishna_detected","Local wake word Krishna detected",severity="notice",project="system",payload=event))
 _remote_policy = PrivateRemotePolicy()
+_model_memory = ModelMemoryGovernor()
+_worker_resilience = WorkerResilienceSupervisor(
+    orch.agi.workers, interval=5,
+    on_event=lambda event: orch.handle_event("worker_resilience",event.get("event","worker_event"),json.dumps(event),
+                                             severity="critical" if event.get("event")=="quarantined" else "notice",
+                                             project="system",payload=event),
+)
+_worker_resilience.start()
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
 _requirements = RequirementsLedger()
@@ -149,6 +159,18 @@ def on_pc_event(event):
         project=event.get("project", "system"),
         payload=event.get("payload") or {},
     )
+    if event.get("kind")=="memory_pressure":
+        percent=float((event.get("payload") or {}).get("percent") or 0)
+        if percent>=90:
+            def relieve():
+                try:
+                    result=_model_memory.relieve(percent,90)
+                    orch.handle_event("model_memory_governor","models_unloaded" if result.get("acted") else "no_action",
+                                      json.dumps(result),severity="warning",project="system",payload=result)
+                except Exception as exc:
+                    orch.handle_event("model_memory_governor","unload_failed",f"{type(exc).__name__}: {exc}",
+                                      severity="warning",project="system")
+            threading.Thread(target=relieve,name="krishna-model-memory-relief",daemon=True).start()
 
 pc_observer = PCObserver(
     orch.projects.list,
@@ -411,6 +433,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {**mobile_link_state(),"remote_policy":_remote_policy.status()})
         if path == "/api/remote/status":
             return self._json(200,_remote_policy.status())
+        if path == "/api/resilience/status":
+            return self._json(200,{"worker_supervisor":_worker_resilience.status(),"model_memory":_model_memory.status()})
         if path == "/api/mobile/resume":
             device, token = self._device_auth()
             if not _pairing.verify(device, token):
@@ -482,6 +506,8 @@ class Handler(BaseHTTPRequestHandler):
                     "encrypted_free_only_model_gateway",
                     "protected_archive_project_roles",
                     "safe_unattended_commitment_supervisor",
+                    "crash_loop_backoff_quarantine",
+                    "critical_ram_model_unload",
                     "curated_specialist_team_planner",
                     "independent_critic_verifier_flow",
                     "codebase_memory_adapter",
@@ -954,6 +980,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(404, {"error": str(exc)})
             except ValueError as exc:
                 return self._json(400, {"error": str(exc)})
+
+        if self.path == "/api/resilience/worker/clear-quarantine":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"worker quarantine changes must run on KRISHNA PC"})
+            name=str(data.get("worker") or "").strip()
+            if not name:return self._json(400,{"error":"worker is required"})
+            try:return self._json(200,orch.agi.workers.clear_quarantine(name))
+            except KeyError:return self._json(404,{"error":"worker not registered"})
+
+        if self.path == "/api/resilience/models/unload":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"model unload must run on KRISHNA PC"})
+            model=str(data.get("model") or "").strip()
+            try:return self._json(200,_model_memory.unload(model) if model else _model_memory.unload_all())
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
         if self.path == "/api/voice/wake/start":
             if self.client_address[0] not in ("127.0.0.1","::1"):
