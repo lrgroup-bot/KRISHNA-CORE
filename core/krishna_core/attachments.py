@@ -27,6 +27,29 @@ class AttachmentStore:
         path.with_suffix(path.suffix+".json").write_text(json.dumps(meta,indent=2),encoding="utf-8")
         return {k:v for k,v in meta.items() if k!="path"}
 
+    def resolve(self,chat_id,attachment_id):
+        folder=self._folder(chat_id)
+        aid=str(attachment_id or "").strip()
+        if not aid:raise ValueError("attachment_id is required")
+        for p in folder.glob("*.json"):
+            try:
+                row=json.loads(p.read_text("utf-8"))
+            except Exception:
+                continue
+            if row.get("attachment_id")==aid:
+                path=Path(row.get("path") or "")
+                try:path.resolve().relative_to(folder.resolve())
+                except Exception:raise PermissionError("attachment path escaped chat storage")
+                if not path.is_file():raise FileNotFoundError("attachment payload is missing")
+                return row,path
+        raise KeyError("attachment not found")
+
+    def read(self,chat_id,attachment_id,max_bytes=25*1024*1024):
+        row,path=self.resolve(chat_id,attachment_id)
+        data=path.read_bytes()
+        if len(data)>int(max_bytes):raise ValueError("attachment exceeds read limit")
+        return row,data
+
     def list(self,chat_id):
         folder=self._folder(chat_id)
         if not folder.is_dir():return []
