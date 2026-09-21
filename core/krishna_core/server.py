@@ -1033,8 +1033,11 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/wearables/register":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"wearable registration must run on KRISHNA PC"})
-            try:return self._json(201,_wearables.register(str(data.get("name") or ""),str(data.get("kind") or ""),
-                                                         data.get("capabilities") or [],str(data.get("provider") or "generic"),False))
+            try:
+                return self._json(201,_wearables.register(
+                    str(data.get("name") or ""),str(data.get("kind") or ""),data.get("capabilities") or [],
+                    str(data.get("provider") or "generic"),False,
+                ))
             except ValueError as exc:return self._json(400,{"error":str(exc)})
 
         if self.path == "/api/wearables/verify":
@@ -1042,26 +1045,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403,{"error":"wearable verification must run on KRISHNA PC"})
             did=str(data.get("device_id") or "").strip()
             if not did:return self._json(400,{"error":"device_id is required"})
-            try:return self._json(200,_wearables.verify(did,data.get("capabilities")))
-            except KeyError:return self._json(404,{"error":"wearable device not found"})
-            except ValueError as exc:return self._json(400,{"error":str(exc)})
-
-        if self.path == "/api/wearables/register":
-            if self.client_address[0] not in ("127.0.0.1","::1"):
-                return self._json(403,{"error":"wearable registration must run on KRISHNA PC"})
-            try:return self._json(201,_wearables.register(
-                str(data.get("name") or ""),str(data.get("kind") or ""),data.get("capabilities") or [],
-                str(data.get("provider") or "generic"),False,
-            ))
-            except ValueError as exc:return self._json(400,{"error":str(exc)})
-
-        if self.path == "/api/wearables/verify":
-            if self.client_address[0] not in ("127.0.0.1","::1"):
-                return self._json(403,{"error":"wearable verification must run on KRISHNA PC"})
-            try:return self._json(200,_wearables.verify(
-                str(data.get("device_id") or ""),data.get("capabilities"),
-                str(data.get("evidence") or ""),
-            ))
+            try:
+                return self._json(200,_wearables.verify(
+                    did,data.get("capabilities"),str(data.get("evidence") or ""),
+                ))
             except KeyError:return self._json(404,{"error":"wearable device not found"})
             except ValueError as exc:return self._json(400,{"error":str(exc)})
 
