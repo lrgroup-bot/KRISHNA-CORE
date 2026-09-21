@@ -878,8 +878,9 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 receipt=orch.dispatch_action("garudanetra.replay",{"session_id":sid,"steps":steps},project="KRISHNA",source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
                 return self._json(200,receipt["result"])
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
-            except (ValueError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/garudanetra/session/control":
             sid=str(data.get("session_id") or "").strip();action=str(data.get("action") or "").strip()
@@ -898,8 +899,9 @@ class Handler(BaseHTTPRequestHandler):
                 elif action=="takeover":mark("GARUDANETRA OWNER CONTROL",sid[:8])
                 elif action=="resume":mark("GARUDANETRA LIVE",sid[:8])
                 return self._json(200,out)
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
-            except (ValueError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path.startswith("/api/narad/webhook/"):
             token=post_path.rsplit("/",1)[-1].strip()
