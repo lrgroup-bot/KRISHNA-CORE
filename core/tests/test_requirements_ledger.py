@@ -14,6 +14,12 @@ class RequirementsLedgerTests(unittest.TestCase):
         for term in ("KRISHNA","Sudarshan","Garudanetra","Gyan-Bhandar","NARAD","KABACH","conversation-only","Krishna_AGI.exe"):
             self.assertIn(term,text)
 
+    def test_prompt_contract_contains_non_negotiables(self):
+        text=self.ledger.prompt_contract()
+        self.assertIn("KRISHNA is the only public identity",text)
+        self.assertIn("Unfinished commitments are never silently discarded",text)
+        self.assertIn("Final Krishna_AGI.exe",text)
+
     def test_search_finds_mobile_and_voice_rules(self):
         d=self.ledger.search("device")
         self.assertGreater(d["count"],0)
