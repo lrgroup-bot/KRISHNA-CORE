@@ -57,6 +57,7 @@ class NaradRuntime:
         self.dead_letters=[]
         self.schedule_state={}
         self.webhook_hashes={}
+        self.checkpoints={}
         self.load_error=None
         self.sudarshan=None
         self._lock=threading.RLock()
@@ -100,8 +101,9 @@ class NaradRuntime:
             self.dead_letters=list(raw.get("dead_letters",[]))[-200:]
             self.schedule_state={str(k):float(v) for k,v in (raw.get("schedule_state") or {}).items()}
             self.webhook_hashes={str(k):str(v) for k,v in (raw.get("webhook_hashes") or {}).items()}
+            self.checkpoints={str(k):dict(v) for k,v in (raw.get("checkpoints") or {}).items()}
         except Exception as exc:
-            self.workflows={};self.history=[];self.dead_letters=[];self.schedule_state={};self.webhook_hashes={}
+            self.workflows={};self.history=[];self.dead_letters=[];self.schedule_state={};self.webhook_hashes={};self.checkpoints={}
             self.load_error=f"{type(exc).__name__}: {exc}"
         else:
             self.load_error=None
@@ -117,12 +119,13 @@ class NaradRuntime:
         self.state_path.parent.mkdir(parents=True,exist_ok=True)
         with self._lock:
             payload={
-                "schema":2,
+                "schema":3,
                 "workflows":[w.as_dict() for w in self.workflows.values()],
                 "history":self.history[-500:],
                 "dead_letters":self.dead_letters[-200:],
                 "schedule_state":dict(self.schedule_state),
                 "webhook_hashes":dict(self.webhook_hashes),
+                "checkpoints":dict(list(self.checkpoints.items())[-100:]),
             }
         fd,tmp=tempfile.mkstemp(prefix="narad-",suffix=".json",dir=str(self.state_path.parent))
         try:
@@ -183,17 +186,42 @@ class NaradRuntime:
         self._save()
         return letter
 
-    def _execute_via_sudarshan(self,w,steps,context,approved,trigger_source,version):
+    def _execute_via_sudarshan(self,w,steps,context,approved,trigger_source,version,resume_run_id=None):
         graph=WorkflowGraph(steps)
-        run_id=str(uuid.uuid4())
-        project=str(context.get("project") or "KRISHNA")
-        node_outputs={}
-        node_runs=[]
-        results=[]
-        failed=set()
+        if resume_run_id:
+            with self._lock:
+                cp=dict(self.checkpoints.get(str(resume_run_id)) or {})
+            if not cp:raise KeyError("Narad checkpoint not found")
+            if cp.get("workflow_id")!=w.id or int(cp.get("version") or 0)!=int(version):
+                raise RuntimeError("Narad checkpoint workflow/version mismatch")
+            run_id=str(resume_run_id)
+            project=str(cp.get("project") or context.get("project") or "KRISHNA")
+            context=dict(cp.get("context") or context or {})
+            node_outputs=dict(cp.get("node_outputs") or {})
+            node_runs=list(cp.get("node_runs") or [])
+            results=list(cp.get("results") or [])
+            failed=set(cp.get("failed") or [])
+            completed=set(cp.get("completed") or [])
+        else:
+            run_id=str(uuid.uuid4())
+            project=str(context.get("project") or "KRISHNA")
+            node_outputs={}
+            node_runs=[]
+            results=[]
+            failed=set()
+            completed=set()
+            with self._lock:
+                self.checkpoints[run_id]={
+                    "run_id":run_id,"workflow_id":w.id,"version":version,"project":project,
+                    "context":dict(context),"trigger_source":trigger_source,"completed":[],
+                    "failed":[],"node_outputs":{},"node_runs":[],"results":[],
+                    "status":"running","updated_at":self._now_iso(),
+                }
+            self._save()
         external_actions={"narad.adapter_webhook","narad.provider_send"}
 
         for node_id in graph.order:
+            if node_id in completed:continue
             node=graph.by_id[node_id]
             if any(dep in failed for dep in node.depends_on):
                 row={
@@ -203,7 +231,17 @@ class NaradRuntime:
                         "reason":"dependency failed",
                     },
                 }
-                node_runs.append(row);failed.add(node.id);continue
+                node_runs.append(row);failed.add(node.id)
+                with self._lock:
+                    self.checkpoints[run_id]={
+                        "run_id":run_id,"workflow_id":w.id,"version":version,"project":project,
+                        "context":dict(context),"trigger_source":trigger_source,
+                        "completed":sorted(completed),"failed":sorted(failed),
+                        "node_outputs":node_outputs,"node_runs":node_runs,"results":results,
+                        "status":"running","updated_at":self._now_iso(),
+                    }
+                self._save()
+                continue
 
             if node.action in external_actions and w.state!=WorkflowState.STABLE.value:
                 raise PermissionError("external Narad side effects require a Stable verified workflow")
@@ -243,6 +281,16 @@ class NaradRuntime:
                 node_runs.append(row)
                 node_outputs[node.id]={"result":actual,"receipt":receipt}
                 results.append(actual)
+                completed.add(node.id)
+                with self._lock:
+                    self.checkpoints[run_id]={
+                        "run_id":run_id,"workflow_id":w.id,"version":version,"project":project,
+                        "context":dict(context),"trigger_source":trigger_source,
+                        "completed":sorted(completed),"failed":sorted(failed),
+                        "node_outputs":node_outputs,"node_runs":node_runs,"results":results,
+                        "status":"running","updated_at":self._now_iso(),
+                    }
+                self._save()
                 if not verification.get("passed"):
                     failed.add(node.id)
                     if not node.continue_on_error:
@@ -271,6 +319,7 @@ class NaradRuntime:
         }
         with self._lock:
             self.history.append(record);self.history=self.history[-500:]
+            self.checkpoints.pop(run_id,None)
         self._save()
         self.bus.publish("narad.workflow.completed",record,source="narad")
         return record
@@ -402,6 +451,25 @@ class NaradRuntime:
             if not w or w.state!=WorkflowState.STABLE.value:raise PermissionError("Narad webhook workflow is not Stable")
         return self.execute(wid,{"webhook":payload or {}},approved=False,trigger_source="webhook")
 
+    def resume_checkpoint(self,run_id,approved=False):
+        self._healthy()
+        if not self.sudarshan:raise RuntimeError("Sudarshan control plane is required for checkpoint resume")
+        with self._lock:
+            cp=dict(self.checkpoints.get(str(run_id)) or {})
+        if not cp:raise KeyError("Narad checkpoint not found")
+        w=self.workflows.get(str(cp.get("workflow_id") or ""))
+        if not w:raise KeyError("Narad checkpoint workflow not found")
+        if w.state not in {WorkflowState.SANDBOX.value,WorkflowState.VERIFIED.value,WorkflowState.STABLE.value}:
+            raise RuntimeError("workflow is not executable")
+        try:
+            return self._execute_via_sudarshan(
+                w,list(w.steps),dict(cp.get("context") or {}),approved,
+                str(cp.get("trigger_source") or "resume"),w.version,resume_run_id=str(run_id),
+            )
+        except Exception as exc:
+            self._dead_letter(w,w.version,"resume",cp.get("context") or {},exc)
+            raise
+
     def retry_dead_letter(self,letter_id,approved=False):
         self._healthy()
         with self._lock:
@@ -424,7 +492,7 @@ class NaradRuntime:
             for w in self.workflows.values():triggers[w.trigger.get("type","manual")]=triggers.get(w.trigger.get("type","manual"),0)+1
             return {
                 "name":"NARAD","durable":bool(self.state_path),"workflows":len(self.workflows),
-                "history":len(self.history),"dead_letters":len(self.dead_letters),"adapters":sorted(self.adapters),
+                "history":len(self.history),"dead_letters":len(self.dead_letters),"checkpoints":len(self.checkpoints),"adapters":sorted(self.adapters),
                 "states":[x.value for x in WorkflowState],"triggers":triggers,
                 "connections":self.credentials.list()["count"] if self.credentials else 0,
                 "scheduler_ready":True,"webhook_gateway":True,
