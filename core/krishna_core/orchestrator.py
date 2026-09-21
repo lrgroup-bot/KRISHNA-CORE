@@ -162,6 +162,36 @@ class Orchestrator:
         def project_unregister(payload,context):
             return self.unregister_project(str(payload.get("name") or "").strip())
 
+        def work_managed_run(payload,context):
+            return self._run_managed_goal_impl(
+                str(payload.get("project") or context.get("project") or ""),
+                str(payload.get("goal") or ""),
+                str(payload.get("action_name") or "").strip() or None,
+                payload.get("components") or [],
+                approved=bool(context.get("approved",False)),
+            )
+
+        def repair_shadow(payload,context):
+            return self._run_shadow_repair_impl(
+                str(payload.get("project") or context.get("project") or ""),
+                str(payload.get("symptom") or ""),
+                str(payload.get("action_name") or ""),
+                payload.get("components") or [],
+            )
+
+        def promotion_prepare(payload,context):
+            return self._prepare_promotion_impl(
+                str(payload.get("project") or context.get("project") or ""),
+                str(payload.get("candidate_root") or ""),
+                payload.get("task_id"),
+            )
+
+        def promotion_apply(payload,context):
+            return self._promote_candidate_impl(
+                str(payload.get("promotion_token") or ""),
+                approved=bool(context.get("approved",False)),
+            )
+
         def development_git_status(payload,context):
             return self._development_git_snapshot_impl(str(payload.get("project") or context.get("project") or ""))
 
@@ -352,6 +382,32 @@ class Orchestrator:
         )
 
         self.action_bus.register(
+            "work.managed.run",work_managed_run,
+            description="Run a bounded managed KRISHNA work transaction",
+            permissions=("work.execute",),
+            sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "repair.shadow",repair_shadow,
+            description="Run a bounded repair in KRISHNA shadow workspace",
+            permissions=("candidate.write","tests.run"),
+            sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "promotion.prepare",promotion_prepare,
+            description="Prepare a verified candidate for live promotion",
+            permissions=("candidate.write",),
+            sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "promotion.apply",promotion_apply,
+            description="Apply a verified promotion with transactional rollback",
+            mutating=True,requires_approval=True,
+            permissions=("live.write",),
+            sources=("pc","system"),
+        )
+
+        self.action_bus.register(
             "development.git.status",development_git_status,
             description="Read bounded Git status for a registered project",
             permissions=("code.read",),
@@ -387,7 +443,7 @@ class Orchestrator:
         self.action_bus.register(
             "development.verify",development_verify_action,
             description="Run independent tests/browser/API verification on a candidate workspace",
-            permissions=("tests.run","browser.test"),
+            permissions=("candidate.write","tests.run","browser.test"),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
 
@@ -498,7 +554,7 @@ class Orchestrator:
         self.agent_runtime.register(
             "developer","bounded project implementation and verification",
             permissions=("code.read","candidate.write","git.push","tests.run","browser.read","browser.test","worker.execute","model.use"),
-            actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead"),
+            actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead","repair.shadow"),
         )
         self.agent_runtime.register(
             "narad","durable automation and provider workflow runtime",
@@ -579,7 +635,7 @@ class Orchestrator:
         self.memory.audit("project_unregister", "completed", name)
         return {"name": name, "removed": True}
 
-    def run_managed_goal(self, project, goal, action_name=None, components=None, approved=False):
+    def _run_managed_goal_impl(self, project, goal, action_name=None, components=None, approved=False):
         """Run a bounded managed-work transaction.
 
         Investigation is always allowed for a registered project. Mutation requires:
@@ -644,11 +700,11 @@ class Orchestrator:
             self.task_ledger.update(task_id, "running", "shadow_repair", {
                 "action": action_name, "mutation_scope": "shadow_only",
             })
-            result = self.run_shadow_repair(project, goal, action_name, components or [])
+            result = self._run_shadow_repair_impl(project, goal, action_name, components or [])
             if result.get("promotable"):
                 self.project_brain.learn_verified(project, goal, result)
                 candidate_root=result.get("candidate_root")
-                promotion=self.prepare_promotion(project,candidate_root,task_id=task_id) if candidate_root else None
+                promotion=self._prepare_promotion_impl(project,candidate_root,task_id=task_id) if candidate_root else None
                 return self.task_ledger.update(task_id, "verified", "promotion_ready", {
                     "repair": result,
                     "promotion": promotion,
@@ -672,7 +728,15 @@ class Orchestrator:
             raise
 
 
-    def prepare_promotion(self, project, candidate_root, task_id=None):
+    def run_managed_goal(self, project, goal, action_name=None, components=None, approved=False):
+        receipt=self.dispatch_action(
+            "work.managed.run",
+            {"project":project,"goal":goal,"action_name":action_name,"components":components or []},
+            project=project,source="pc",actor="work-console",approved=approved,
+        )
+        return receipt["result"]
+
+    def _prepare_promotion_impl(self, project, candidate_root, task_id=None):
         policy=self.projects.get(project)
         if not policy: raise KeyError(project)
         self.projects.assert_mutable(project,"prepare_promotion")
@@ -701,7 +765,15 @@ class Orchestrator:
         self.memory.audit(token,"promotion_prepared",f"{project}:{delta['file_count']}")
         return {"promotion_token":token,"project":project,"diff":delta,"approved":False,"live_project_modified":False}
 
-    def promote_candidate(self, token, approved=False):
+    def prepare_promotion(self, project, candidate_root, task_id=None):
+        receipt=self.dispatch_action(
+            "promotion.prepare",
+            {"project":project,"candidate_root":candidate_root,"task_id":task_id},
+            project=project,source="pc",actor="promotion-manager",
+        )
+        return receipt["result"]
+
+    def _promote_candidate_impl(self, token, approved=False):
         item=self._promotion_candidates.get(token)
         if not item: raise KeyError(token)
         if not settings.allow_actions: raise PermissionError("KRISHNA_ALLOW_ACTIONS is disabled")
@@ -723,6 +795,17 @@ class Orchestrator:
             self.task_ledger.update(item["task_id"],status,phase,{"promotion":result,"live_project_modified":bool(result.get("promoted"))})
         if result.get("promoted") or result.get("rolled_back"): self._promotion_candidates.pop(token,None)
         return result
+
+
+    def promote_candidate(self, token, approved=False):
+        item=self._promotion_candidates.get(token)
+        project=str((item or {}).get("project") or "KRISHNA")
+        receipt=self.dispatch_action(
+            "promotion.apply",
+            {"promotion_token":token},
+            project=project,source="pc",actor="promotion-manager",approved=approved,
+        )
+        return receipt["result"]
 
 
     def garuda_status(self):
@@ -964,7 +1047,7 @@ class Orchestrator:
         result=self.development.verify(candidate_root,checks,frontend_url,browser_actions,api_expectations,screenshot_path)
         self.memory.audit("development_verify","verified" if result.get("verified") else "failed",project)
         if result.get("verified"):
-            result["promotion"]=self.prepare_promotion(project,candidate_root)
+            result["promotion"]=self._prepare_promotion_impl(project,candidate_root)
         else:
             result["promotion"]=None
         return result
@@ -1232,7 +1315,7 @@ Evidence:
         self.memory.audit("repository_index", "complete", f"{project}:{result['file_count']}")
         return result
 
-    def run_shadow_repair(self, project, symptom, action_name, components=None):
+    def _run_shadow_repair_impl(self, project, symptom, action_name, components=None):
         item = self.projects.get(project)
         if not item:
             raise KeyError(project)
@@ -1273,6 +1356,14 @@ Evidence:
             reviewer_provider="",
         )
         return result
+
+    def run_shadow_repair(self, project, symptom, action_name, components=None):
+        receipt=self.dispatch_action(
+            "repair.shadow",
+            {"project":project,"symptom":symptom,"action_name":action_name,"components":components or []},
+            project=project,source="pc",actor="repair-console",
+        )
+        return receipt["result"]
 
     def _inspect_ui_impl(self, project, url, actions=None, screenshot_path=None):
         report = self.browser.inspect(url, actions=actions or [], screenshot_path=screenshot_path)
