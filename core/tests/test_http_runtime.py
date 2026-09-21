@@ -66,6 +66,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/garuda/status", "/api/commitments", "/api/autonomy/status", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/gyan-bhandar/inventory?project=KRISHNA", "/api/software-factory/workers/status",
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
+                     "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry",
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/performance", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
@@ -242,6 +243,26 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertTrue(any(x["status"]=="superseded" for x in rows))
         inv=self.call("/api/gyan-bhandar/inventory?project=KRISHNA")[1]
         self.assertGreaterEqual(inv["kinds"]["semantic"]["superseded"],1)
+
+    def test_brahmagyan_deep_mission_is_action_native_and_not_instant_truth(self):
+        code,status=self.call("/api/brahmagyan/status")
+        self.assertEqual(code,200)
+        self.assertEqual(status["name"],"BRAHMAGYAN")
+        self.assertEqual(status["council"]["running_processes"],0)
+        self.assertEqual(status["maturity_levels"][0]["code"],"L0")
+        self.assertEqual(status["maturity_levels"][-1]["code"],"L8")
+        code,receipt=self.call("/api/action-bus/dispatch",{
+            "action":"brahmagyan.mission.create","project":"KRISHNA",
+            "payload":{"project":"KRISHNA","topic":"Deep test knowledge","question":"What evidence supports this?","target_level":"L8"}
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(receipt["status"],"completed")
+        mission=receipt["result"]
+        self.assertEqual(mission["maturity"],"L0")
+        self.assertEqual(mission["target_level"],"L8")
+        self.assertIn("verify_sources",mission["deep_learning_loop"])
+        self.assertIn("gautama",mission["review_flow"])
+        self.assertIn("veda-vyasa",mission["review_flow"])
 
     def test_narad_workflow_lifecycle(self):
         code,w=self.call("/api/narad/workflows/create",{"name":"http-safe","trigger":{"type":"manual"},"steps":[{"action":"publish_event","topic":"http.test"}]})
