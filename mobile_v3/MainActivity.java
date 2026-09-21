@@ -288,20 +288,26 @@ public class MainActivity extends Activity {
         HttpURLConnection c=(HttpURLConnection)new URL(base+path).openConnection();
         c.setConnectTimeout(4000);c.setReadTimeout(10000);c.setRequestProperty("X-Krishna-Device",deviceId());
         c.setRequestMethod("POST");c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");
-        c.getOutputStream().write(body.getBytes("UTF-8"));
+        try(OutputStream out=c.getOutputStream()){out.write(body.getBytes("UTF-8"));}
         return read(c);
       }catch(Exception e){return error(e);}
     }
     String call(String path,String body){
       try{
         HttpURLConnection c=conn(path);
-        if(body!=null){c.setRequestMethod("POST");c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");c.getOutputStream().write(body.getBytes("UTF-8"));}
+        if(body!=null){c.setRequestMethod("POST");c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");try(OutputStream out=c.getOutputStream()){out.write(body.getBytes("UTF-8"));}}
         return read(c);
       }catch(Exception e){return error(e);}
     }
     String read(HttpURLConnection c)throws Exception{
-      InputStream in=c.getResponseCode()<400?c.getInputStream():c.getErrorStream();
-      ByteArrayOutputStream o=new ByteArrayOutputStream();byte[]b=new byte[8192];for(int n;(n=in.read(b))>0;)o.write(b,0,n);return o.toString("UTF-8");
+      try{
+        int code=c.getResponseCode();
+        InputStream source=code<400?c.getInputStream():c.getErrorStream();
+        if(source==null)return "{\"error\":\"HTTP "+code+" returned no response body\"}";
+        try(InputStream in=source;ByteArrayOutputStream o=new ByteArrayOutputStream()){
+          byte[]b=new byte[8192];for(int n;(n=in.read(b))>0;)o.write(b,0,n);return o.toString("UTF-8");
+        }
+      }finally{c.disconnect();}
     }
     String error(Exception e){return "{\"error\":"+JSONObject.quote(e.getClass().getSimpleName()+": "+String.valueOf(e.getMessage()))+"}";}
   }
