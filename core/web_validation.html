@@ -897,7 +897,7 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 .opsInformer span{display:flex;align-items:center;gap:7px;font-size:10px;letter-spacing:.7px}.opsInformer em{font-style:normal;color:#9ba8b8;max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.opsInformer button{margin-left:auto;border:1px solid #2b6a78;background:#0d2730;color:#bdf5ff;border-radius:9px;padding:7px 10px;cursor:pointer}
 .opsDot{width:8px;height:8px;border-radius:50%;background:#687482;box-shadow:0 0 8px #687482}.opsDot.good{background:#58dfa2;box-shadow:0 0 10px #58dfa2}.opsDot.warn{background:#e5bd67;box-shadow:0 0 10px #e5bd67}.opsDot.bad{background:#ff7186;box-shadow:0 0 10px #ff7186}
 .main>.view{padding-top:54px}
-.liveWork{position:absolute;z-index:60;top:62px;right:0;bottom:0;width:50%;min-width:520px;background:#050a0f;border-left:1px solid rgba(87,216,239,.28);box-shadow:-25px 0 70px #0009}.liveHead{height:58px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #22303d;background:#07121b}.liveHead small{display:block;color:#58dfa2;margin-top:4px}.liveControls{display:flex;gap:5px;flex-wrap:wrap}.liveControls button{font-size:10px;border:1px solid #2a3b49;background:#101a24;color:#d9e3eb;border-radius:7px;padding:6px 8px;cursor:pointer}.liveMeta{display:flex;gap:20px;padding:9px 14px;font-size:11px;color:#92a0b1;border-bottom:1px solid #17232e}.liveViewport{height:calc(100% - 98px);display:grid;grid-template-rows:minmax(0,1fr) 150px}.liveViewport iframe{width:100%;height:100%;border:0;background:#fff}.garudaEvidence{overflow:auto;padding:12px;font:11px Consolas,monospace;white-space:pre-wrap;color:#b8c8d8;border-top:1px solid #1e303d;background:#071018}
+.liveWork{position:absolute;z-index:60;top:62px;right:0;bottom:0;width:50%;min-width:520px;background:#050a0f;border-left:1px solid rgba(87,216,239,.28);box-shadow:-25px 0 70px #0009}.liveHead{height:58px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #22303d;background:#07121b}.liveHead small{display:block;color:#58dfa2;margin-top:4px}.liveControls{display:flex;gap:5px;flex-wrap:wrap}.liveControls button{font-size:10px;border:1px solid #2a3b49;background:#101a24;color:#d9e3eb;border-radius:7px;padding:6px 8px;cursor:pointer}.liveMeta{display:flex;gap:20px;padding:9px 14px;font-size:11px;color:#92a0b1;border-bottom:1px solid #17232e}.liveViewport{height:calc(100% - 98px);display:grid;grid-template-rows:minmax(0,1fr) 150px}.garudaFrameWrap{position:relative;min-height:0;overflow:hidden;background:#05080c;display:flex;align-items:center;justify-content:center}.garudaFrame{width:100%;height:100%;object-fit:contain;display:none;user-select:none}.garudaFrame.owner{cursor:crosshair}.garudaFrameEmpty{position:absolute;color:#6f8192;font:12px Consolas,monospace;letter-spacing:.3px}.garudaEvidence{overflow:auto;padding:12px;font:11px Consolas,monospace;white-space:pre-wrap;color:#b8c8d8;border-top:1px solid #1e303d;background:#071018}
 .main.liveSplit>.view{margin-right:50%}.main.liveSplit .composerWrap{right:50%}
 @media(max-width:1000px){.opsInformer{gap:8px;flex-wrap:wrap}.opsInformer em{display:none}.liveWork{width:100%;min-width:0}.main.liveSplit>.view{margin-right:0}.main.liveSplit .composerWrap{right:0}}
 </style><script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js">
@@ -910,12 +910,16 @@ function setOps(kind,text,state){
  const map={work:['opsWorkText','opsWorkDot'],verify:['opsVerifyText','opsVerifyDot'],load:['opsLoadText','opsLoadDot']};
  const m=map[kind]; if(!m)return; const t=$(m[0]),d=$(m[1]); if(t)t.textContent=text||'—'; if(d)d.className='opsDot '+(state||'idle');
 }
-function garudaControl(action){
- const state=$('liveState'), op=$('liveOperation');
- if(action==='pause'){state.textContent='PAUSED';op.textContent='Paused by owner';setOps('work','Paused','warn')}
- else if(action==='takeover'){state.textContent='OWNER CONTROL';op.textContent='Owner has control';setOps('work','Owner control','warn')}
- else if(action==='continue'){state.textContent='LIVE';op.textContent='Continuing';setOps('work','Garudanetra working','good')}
- else if(action==='stop'){state.textContent='STOPPED';op.textContent='Stopped';setOps('work','Idle','idle')}
+let garudaSessionId=null,garudaPollTimer=null,garudaOwnerControl=false;
+async function garudaControl(action){
+ if(!garudaSessionId){log('No active Garudanetra live session.');return}
+ const mapped=action==='continue'?'resume':action;
+ try{
+  const s=await req('/api/garudanetra/session/control',{session_id:garudaSessionId,action:mapped,payload:{}});
+  garudaOwnerControl=!!s.owner_control;
+  $('garudaFrame')?.classList.toggle('owner',garudaOwnerControl);
+  renderGarudanetraSession(s);
+ }catch(e){log(e.message);setOps('verify','Garudanetra control failure','bad')}
 }
 async function refreshCommandCenter(){
  try{
@@ -929,7 +933,8 @@ async function refreshCommandCenter(){
  }catch(e){setOps('verify','Core/API error','bad')}
 }
 setInterval(refreshCommandCenter,2500); setTimeout(refreshCommandCenter,250);
-setTimeout(()=>{const g=$('garudaGoal')||document.querySelector('#garuda textarea');const b=document.querySelector('#garuda button');if(g&&!g.id)g.id='garudaGoal';if(b&&/START PRIVATE WORK|FLY & SCOUT/i.test(b.textContent)){b.onclick=startGarudanetraMission}},100);
+setTimeout(()=>{const g=$('garudaGoal')||document.querySelector('#garuda textarea');const b=document.querySelector('#garuda button');if(g&&!g.id)g.id='garudaGoal';if(b&&/START PRIVATE WORK|FLY & SCOUT/i.test(b.textContent)){b.onclick=startGarudanetraMission}
+ const frame=$('garudaFrame');if(frame){frame.addEventListener('click',async e=>{if(!garudaSessionId||!garudaOwnerControl)return;const r=frame.getBoundingClientRect();const x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;try{await req('/api/garudanetra/session/control',{session_id:garudaSessionId,action:'click_xy',payload:{x,y}})}catch(err){log(err.message)}});frame.addEventListener('wheel',async e=>{if(!garudaSessionId||!garudaOwnerControl)return;e.preventDefault();try{await req('/api/garudanetra/session/control',{session_id:garudaSessionId,action:'scroll',payload:{dy:e.deltaY}})}catch(err){log(err.message)}},{passive:false})}},100);
 
 </script>
 </head><body><div id="notice" role="status" aria-live="polite"></div><dialog id="actionDialog" aria-labelledby="dialogLabel"><form method="dialog"><label id="dialogLabel" for="dialogInput"></label><input id="dialogInput" class="input" autocomplete="off"><div class="dialogActions"><button class="ghost" value="cancel">Cancel</button><button id="dialogAccept" class="primary" value="accept">Continue</button></div></form></dialog><div class="app">
@@ -961,7 +966,7 @@ setTimeout(()=>{const g=$('garudaGoal')||document.querySelector('#garuda textare
  <div class="liveHead"><div><strong>👁 GARUDANETRA · PRIVATE</strong><small id="liveState">READY</small></div>
  <div class="liveControls"><button onclick="garudaControl('pause')">PAUSE</button><button onclick="garudaControl('takeover')">TAKE CONTROL</button><button onclick="garudaControl('continue')">CONTINUE</button><button onclick="garudaControl('stop')">STOP</button><button onclick="toggleLiveWork()">CLOSE</button></div></div>
  <div class="liveMeta"><span>Current operation: <b id="liveOperation">Waiting</b></span><span>Verification: <b id="liveVerification">Ready</b></span></div>
- <div class="liveViewport"><iframe id="garudaViewport" title="Garudanetra live work viewport"></iframe><div id="garudaEvidence" class="garudaEvidence">No browser evidence yet.</div></div>
+ <div class="liveViewport"><div class="garudaFrameWrap"><img id="garudaFrame" class="garudaFrame" alt="Garudanetra live browser stream"><div id="garudaFrameEmpty" class="garudaFrameEmpty">Waiting for private Chromium frame…</div></div><div id="garudaEvidence" class="garudaEvidence">No browser evidence yet.</div></div>
 </div><div class="sceneGrid"></div><header class="top"><div class="crumb"><span id="modeBadge" style="color:var(--gold);margin-right:8px">KRISHNA</span><span id="pageTitle">Almighty Core</span> <span style="color:#596474">/</span> <span id="projectName">general</span></div><div class="topActions"><span id="contextBadge" class="pill">KRISHNA</span><button class="ghost" onclick="moveCurrentChat()" class="chatScopedTop" style="display:none" class="legacyChatAction">Move chat</button><button class="ghost danger" onclick="deleteCurrentChat()" class="chatScopedTop" style="display:none" class="legacyChatAction">Delete chat</button><button id="topPlugins" class="ghost" onclick="showView('plugins')">Plugins</button><span id="online" class="pill">CHECKING</span></div></header>
 <select id="project" style="display:none"></select><section id="home" class="view active panelView"><div class="panelInner"><div class="holoStage"><div class="holoCore"><div class="holoRing r1"></div><div class="holoRing r2"></div><div class="holoRing r3"></div><div class="holoOrb"></div><div id="krishnaAvatar" class="krishnaAvatar"><model-viewer id="krishnaModel" src="/api/avatar.glb" alt="KRISHNA avatar" camera-controls disable-zoom autoplay shadow-intensity="1" interaction-prompt="none"></model-viewer><div id="avatarFallback" class="avatarFallback" hidden><img src="/api/avatar360" alt="KRISHNA avatar preview"><small id="avatarStatus">Loading 3D avatar…</small></div></div><div class="holoNode n1">NEURAL ACTION GRAPH</div><div class="holoNode n2">SYSTEM OBSERVER</div><div class="holoNode n3">VERIFICATION GATE</div><div class="holoNode n4">SUDARSHAN ONLINE</div><div class="holoLabel"><strong>KRISHNA</strong><span>ALMIGHTY CORE</span></div></div></div><div style="text-align:center;margin:-20px 0 28px"><button class="primary" style="padding:12px 22px" onclick="showView('sudarshan');newChat()">ENTER SUDARSHAN ☸</button></div><div class="grid"><div class="card"><div class="k">ROLE</div><div class="v">Almighty Core</div></div><div class="card"><div class="k">WORKSPACE</div><div class="v">Sudarshan</div></div><div class="card"><div class="k">AUTHORITY</div><div class="v">Policy + Verification</div></div></div></div></section>
 <section id="sudarshan" class="view chatView">
@@ -1241,17 +1246,56 @@ async function loadKabach(){
 }
 async function loadGarudanetra(){
  try{
-  const s=await req('/api/garuda/status');
-  const st=$('garudaState')?.querySelector('.v'); if(st)st.textContent=String(s.status||s.state||'READY').toUpperCase();
+  const [scout,sessions]=await Promise.all([req('/api/garuda/status'),req('/api/garudanetra/sessions')]);
+  const st=$('garudaState')?.querySelector('.v'); if(st)st.textContent=String(scout.phase||'READY').toUpperCase();
+  const live=(sessions.sessions||[]).find(x=>!x.stopped&&x.state!=='ERROR');
+  if(live){garudaSessionId=live.session_id;toggleLiveWork(true);startGarudanetraPolling();renderGarudanetraSession(live)}
   setOps('verify','Garudanetra ready','good');
  }catch(e){setOps('verify','Garudanetra unavailable','bad');log(e.message)}
 }
+function renderGarudanetraSession(s){
+ if(!s)return;
+ garudaOwnerControl=!!s.owner_control;
+ $('liveState').textContent=String(s.state||'READY').toUpperCase();
+ $('liveOperation').textContent=(s.title||s.current_url||s.requested_url||'Waiting').slice(0,180);
+ const findings=s.findings||[],errors=findings.filter(x=>x.severity==='error'||x.severity==='critical').length;
+ $('liveVerification').textContent=errors?errors+' finding'+(errors===1?'':'s'):'No browser errors observed';
+ const evidence={session_id:s.session_id,state:s.state,url:s.current_url,title:s.title,owner_control:s.owner_control,console:(s.console||[]).slice(-12),network:(s.network||[]).slice(-20),findings:findings.slice(-20),visible_text:(s.visible_text||'').slice(0,1800)};
+ $('garudaEvidence').textContent=JSON.stringify(evidence,null,2);
+ const frame=$('garudaFrame'),empty=$('garudaFrameEmpty'); if(frame){frame.classList.toggle('owner',garudaOwnerControl);if(s.frame_available){frame.style.display='block';frame.src='/api/garudanetra/frame?id='+encodeURIComponent(s.session_id)+'&t='+Date.now();if(empty)empty.style.display='none'}else{frame.style.display='none';if(empty)empty.style.display='block'}}
+ if(s.state==='ERROR'){setOps('work','Garudanetra error','bad');setOps('verify',s.last_error||'Browser error','bad')}
+ else if(s.state==='STOPPED'){setOps('work','Idle','idle')}
+ else if(s.owner_control)setOps('work','Owner control','warn');
+ else if(s.paused)setOps('work','Garudanetra paused','warn');
+ else setOps('work','Garudanetra live','good');
+}
+async function pollGarudanetraSession(){
+ if(!garudaSessionId)return;
+ try{
+  const s=await req('/api/garudanetra/session?id='+encodeURIComponent(garudaSessionId));
+  renderGarudanetraSession(s);
+  if(s.stopped||s.state==='ERROR'){clearInterval(garudaPollTimer);garudaPollTimer=null}
+ }catch(e){setOps('verify','Garudanetra session lost','bad')}
+}
+function startGarudanetraPolling(){
+ if(garudaPollTimer)clearInterval(garudaPollTimer);
+ garudaPollTimer=setInterval(pollGarudanetraSession,850);
+ pollGarudanetraSession();
+}
+async function startGarudanetraBrowser(url){
+ const out=await req('/api/garudanetra/session/start',{project:$('project').value||'KRISHNA',url});
+ garudaSessionId=out.session_id;toggleLiveWork(true);renderGarudanetraSession(out);startGarudanetraPolling();return out;
+}
 async function startGarudanetraMission(){
  const goal=($('garudaGoal')?.value||'').trim(); if(!goal){log('Garudanetra mission is required.');return}
- toggleLiveWork(true); $('liveState').textContent='LIVE'; $('liveOperation').textContent=goal; setOps('work','Garudanetra: '+goal,'good');
+ toggleLiveWork(true);$('liveState').textContent='STARTING';$('liveOperation').textContent=goal;setOps('work','Garudanetra: '+goal,'good');
  try{
+  if(/^https?:\/\//i.test(goal)){await startGarudanetraBrowser(goal);return}
   const out=await req('/api/garuda/scout',{project:$('project').value||'KRISHNA',goal,limit:10});
-  $('garudaEvidence').textContent=JSON.stringify(out,null,2); $('liveVerification').textContent='Evidence captured'; setOps('verify','Evidence captured','good');
+  $('garudaEvidence').textContent=JSON.stringify(out,null,2);$('liveVerification').textContent='Research evidence captured';setOps('verify','Research evidence captured','good');
+  const web=(out.web||[]).find(x=>!x.suspicious&&/^https?:\/\//i.test(x.url||''));const repo=(out.github||[]).find(x=>/^https?:\/\//i.test(x.html_url||x.url||''));
+  const url=web?.url||repo?.html_url||repo?.url;
+  if(url)await startGarudanetraBrowser(url);else{$('liveState').textContent='RESEARCH COMPLETE';setOps('work','Research complete','good')}
  }catch(e){$('garudaEvidence').textContent=e.message;$('liveVerification').textContent='Failed';setOps('verify','Browser/research failure','bad')}
 }
 async function loadNarad(){try{const [s,w,h]=await Promise.all([req('/api/narad/status'),req('/api/narad/workflows'),req('/api/narad/history?limit=30')]);$('naradRuntime').textContent=s.name||'NARAD';$('naradCount').textContent=(w.workflows||[]).length;$('naradAdapters').textContent=(s.adapters||[]).join(' · ')||'native';const box=$('naradWorkflows');box.innerHTML='';(w.workflows||[]).forEach(x=>{const e=document.createElement('div');e.className='card';e.style.marginBottom='10px';e.innerHTML='<div class="k"></div><div class="v"></div><p></p><div class="taskActions"></div>';e.querySelector('.k').textContent=String(x.state||'draft').toUpperCase()+' · v'+x.version;e.querySelector('.v').textContent=x.name;e.querySelector('p').textContent=(x.steps||[]).length+' steps · trigger '+(x.trigger?.type||'manual');const a=e.querySelector('.taskActions');if(x.state==='draft'||x.state==='candidate'){const sb=document.createElement('button');sb.textContent='Sandbox';sb.onclick=()=>promoteNarad(x.id,'sandbox',false);a.appendChild(sb)}if(['sandbox','verified','stable'].includes(x.state)){const run=document.createElement('button');run.textContent='Run';run.onclick=()=>runNarad(x.id);a.appendChild(run)}if(x.state==='sandbox'){const v=document.createElement('button');v.className='approve';v.textContent='Mark verified';v.onclick=()=>promoteNarad(x.id,'verified',true);a.appendChild(v)}if(x.state==='verified'){const st=document.createElement('button');st.className='approve';st.textContent='Promote stable';st.onclick=()=>promoteNarad(x.id,'stable',true);a.appendChild(st)}box.appendChild(e)});$('naradHistory').textContent=(h.history||[]).length?JSON.stringify(h.history,null,2):'No executions yet.'}catch(e){$('naradRuntime').textContent='OFFLINE';$('naradAdapters').textContent='API unavailable';$('naradHistory').textContent=e.message;setOps('verify','Narad API unavailable','bad');log(e.message)}}
