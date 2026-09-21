@@ -371,6 +371,8 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/dashboard"):
             ui = WEB_VALIDATION if WEB_VALIDATION.exists() else DASHBOARD
             return self._html(200, ui.read_text(encoding="utf-8"))
+        if path == "/favicon.ico":
+            return self._binary(204, b"", "image/x-icon")
         if path in ("/web", "/web-test", "/validation"):
             if not WEB_VALIDATION.exists():
                 return self._json(404, {"error": "web validation UI unavailable"})
