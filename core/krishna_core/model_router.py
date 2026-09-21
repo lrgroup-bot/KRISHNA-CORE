@@ -36,13 +36,28 @@ class OpenAICompatibleLocalProvider:
 class ModelRouter:
     """Prefer local providers; fail closed instead of silently sending data to cloud."""
     def __init__(self):
+        self.control_plane=None
         self.providers=[
             OpenAICompatibleLocalProvider("ollama",os.getenv("KRISHNA_OLLAMA_OPENAI_URL","http://127.0.0.1:11434/v1"),os.getenv("KRISHNA_OLLAMA_MODEL") or None),
             OpenAICompatibleLocalProvider("gpt4all",os.getenv("KRISHNA_GPT4ALL_URL","http://127.0.0.1:4891/v1"),os.getenv("KRISHNA_GPT4ALL_MODEL") or None),
         ]
+    def bind_sudarshan(self,control_plane):
+        self.control_plane=control_plane
+        return {"authority":"Sudarshan Control Plane","bound":True}
+
     def complete(self, req:ModelRequest)->dict:
         errors={}
         for p in self.providers:
-            try: return {"provider":p.name,"content":p.complete(req)}
+            try:
+                if self.control_plane:
+                    receipt=self.control_plane.action(
+                        "model.complete",
+                        {"provider":p.name,"prompt":req.prompt,"privacy":"local_only","free_only":True},
+                        project="KRISHNA",source="system",actor="legacy-model-router",
+                        permissions=("model.use",),
+                    )
+                    result=receipt.get("result") or {}
+                    return {"provider":p.name,"content":str(result.get("text") or "")}
+                return {"provider":p.name,"content":p.complete(req)}
             except Exception as e: errors[p.name]=f"{type(e).__name__}: {e}"
         raise ProviderError("No approved local model provider available: "+json.dumps(errors))
