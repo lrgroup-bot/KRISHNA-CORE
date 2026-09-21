@@ -11,6 +11,10 @@ from krishna_core.native_voice import KrishnaVoiceStack
 from krishna_core.wearable_bridge import WearableBridge
 from krishna_core.worker_fabric import WorkerFabric, WorkerResilienceSupervisor
 from krishna_core.narad.runtime import NaradRuntime
+from krishna_core.narad.providers import NaradProviderHub
+from krishna_core.model_memory_governor import ModelMemoryGovernor
+from krishna_core.garudanetra_session import GarudanetraSessionManager, BrowserSession
+import queue
 
 
 class FakePolicy:
@@ -82,7 +86,8 @@ class MissedAdditionsTests(unittest.TestCase):
             w=WearableBridge(Path(td)/"wearables.json")
             d=w.register("test headset","headset",["bluetooth_audio","microphone"])
             self.assertFalse(d["verified"])
-            d=w.verify(d["id"])
+            with self.assertRaises(ValueError):w.verify(d["id"])
+            d=w.verify(d["id"],evidence="manual Bluetooth audio loopback passed")
             self.assertTrue(d["verified"])
             self.assertIn("bluetooth_audio",w.status()["verified_capabilities"])
             with self.assertRaises(ValueError):w.register("fake","glasses",["unverified_magic_display"])
@@ -96,6 +101,26 @@ class MissedAdditionsTests(unittest.TestCase):
         with self.assertRaises(PermissionError):n.execute(w["id"],approved=False)
         out=n.execute(w["id"],approved=True)
         self.assertEqual(out["results"][0]["provider"],"slack")
+
+    def test_narad_provider_hub_has_all_planned_connectors(self):
+        providers=set(NaradProviderHub().providers())
+        self.assertTrue({"telegram","discord","slack","whatsapp","gmail","google_drive","google_sheets","google_calendar"}<=providers)
+
+    def test_model_memory_governor_no_action_below_threshold(self):
+        g=ModelMemoryGovernor("http://127.0.0.1:1")
+        self.assertFalse(g.relieve(70,90)["acted"])
+
+    def test_garudanetra_modes_and_rich_actions(self):
+        with tempfile.TemporaryDirectory() as td:
+            m=GarudanetraSessionManager(td)
+            self.assertEqual(m.validate_mode("task_memory"),"task_memory")
+            with self.assertRaises(ValueError):m.validate_mode("personal_chrome")
+            with self.assertRaises(PermissionError):m.create("KRISHNA","https://example.com","persistent_workspace",False)
+            s=BrowserSession("s","KRISHNA","https://example.com",mode="task_memory",remember_evidence=True)
+            m._sessions["s"]=s;m._commands["s"]=queue.Queue()
+            for action in ("back","forward","reload","new_tab","switch_tab","type_text","drag_xy","upload"):
+                m.command("s",action,{})
+            with self.assertRaises(ValueError):m.command("s","shell",{})
 
     def test_worker_supervisor_status_contract(self):
         with tempfile.TemporaryDirectory() as td:
