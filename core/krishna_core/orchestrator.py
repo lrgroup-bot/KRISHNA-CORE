@@ -207,6 +207,46 @@ class Orchestrator:
                 provider,operation,payload.get("payload") or {},headers=headers,
             )
 
+        def narad_workflow_create(payload,context):
+            return self.agi.narad.create_workflow(
+                str(payload.get("name") or "").strip(),
+                payload.get("trigger") or {"type":"manual"},
+                payload.get("steps") or [],
+                payload.get("permissions") or [],
+            )
+
+        def narad_workflow_promote(payload,context):
+            return self.agi.narad.promote(
+                str(payload.get("workflow_id") or "").strip(),
+                str(payload.get("state") or "").strip(),
+                verified=bool(payload.get("verified",False)),
+            )
+
+        def narad_workflow_execute(payload,context):
+            return self.agi.narad.execute(
+                str(payload.get("workflow_id") or "").strip(),
+                payload.get("context") or {},
+                approved=bool(context.get("approved",False)),
+                trigger_source=str(payload.get("trigger_source") or "manual"),
+            )
+
+        def narad_checkpoint_resume(payload,context):
+            return self.agi.narad.resume_checkpoint(
+                str(payload.get("run_id") or "").strip(),
+                approved=bool(context.get("approved",False)),
+            )
+
+        def narad_dead_letter_retry(payload,context):
+            return self.agi.narad.retry_dead_letter(
+                str(payload.get("letter_id") or "").strip(),
+                approved=bool(context.get("approved",False)),
+            )
+
+        def narad_webhook_provision(payload,context):
+            return self.agi.narad.provision_webhook(
+                str(payload.get("workflow_id") or "").strip(),
+            )
+
         self.action_bus.register(
             "chat.create",chat_create,description="Create a persistent KRISHNA chat",
             mutating=True,permissions=("chat.write",),
@@ -257,6 +297,43 @@ class Orchestrator:
             description="Execute a bounded NARAD provider operation",
             mutating=True,requires_approval=True,
             permissions=("narad.execute","send_external"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "narad.workflow.create",narad_workflow_create,
+            description="Create a typed NARAD workflow graph",
+            mutating=True,permissions=("narad.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narad.workflow.promote",narad_workflow_promote,
+            description="Promote a NARAD workflow lifecycle state",
+            mutating=True,permissions=("narad.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narad.workflow.execute",narad_workflow_execute,
+            description="Execute a NARAD workflow through Sudarshan",
+            permissions=("narad.execute",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narad.checkpoint.resume",narad_checkpoint_resume,
+            description="Resume a durable NARAD workflow checkpoint",
+            permissions=("narad.execute",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narad.dead_letter.retry",narad_dead_letter_retry,
+            description="Retry a NARAD dead-letter workflow",
+            permissions=("narad.execute",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narad.webhook.provision",narad_webhook_provision,
+            description="Provision a hashed-token NARAD webhook",
+            mutating=True,permissions=("narad.write",),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
 
