@@ -29,7 +29,7 @@ class WebValidationTests(unittest.TestCase):
             "opsInformer", "liveWork", "refreshCommandCenter",
             "startGarudanetraMission", "/api/garuda/scout", "loadGarudanetra",
             "/api/garudanetra/session/start", "/api/garudanetra/session/control", "/api/garudanetra/frame",
-            "garudaFrame", "OWNER CONTROL", "startGarudanetraPolling",
+            "garudaFrame", "garudaOwnerControl", "owner_control", "startGarudanetraPolling",
             "/api/narad/status", "/api/narad/workflows", "/api/narad/history",
             "/api/kabach/projects", "/api/runtime/integrity", "KABACH", "deployIntegrity",
             "/api/commitments", "/api/models", "commitmentSummary", "modelRouter",
