@@ -71,6 +71,8 @@ class RepositoryErrorAudit(unittest.TestCase):
         ):
             self.assertIn(token,text)
         self.assertNotIn("192.168.0.106",text)
+        self.assertIn("try(OutputStream out=c.getOutputStream())",text)
+        self.assertIn("finally{c.disconnect();}",text)
 
 
     def test_part1_runtime_security_regressions_stay_fixed(self):
