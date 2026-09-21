@@ -33,7 +33,7 @@ class WebValidationTests(unittest.TestCase):
             "Private + Task Memory", "Persistent Workspace", "toggleGarudaExpand", "garudaType", "new_tab",
             "/api/narad/status", "/api/narad/workflows", "/api/narad/history",
             "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler",
-            "/api/narad/connections/register", "/api/narad/webhooks/provision", "/api/narad/dead-letters/retry",
+            "/api/narad/connections/register", "/api/narad/webhooks/provision", "actionReq(\'narad.dead_letter.retry\'",
             "naradTriggerType", "naradConnectionCount", "naradDeadLetters", "registerNaradConnection", "registerNaradSecret", "createNaradProviderWorkflow", "provisionNaradWebhook",
             "google_calendar", "google_drive", "google_sheets", "WhatsApp", "Gmail",
             "/api/kabach/projects", "/api/runtime/integrity", "KABACH", "deployIntegrity",
