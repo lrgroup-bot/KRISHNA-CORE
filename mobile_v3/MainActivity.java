@@ -99,6 +99,10 @@ public class MainActivity extends Activity {
   public class Bridge {
     Bridge(){ensureCredential();deviceId();}
     String token(){return getSharedPreferences("k",0).getString("device_credential","");}
+    String credentialHash()throws Exception{
+      byte[] digest=java.security.MessageDigest.getInstance("SHA-256").digest(token().getBytes("UTF-8"));
+      StringBuilder s=new StringBuilder();for(byte b:digest)s.append(String.format(java.util.Locale.US,"%02x",b&255));return s.toString();
+    }
     void ensureCredential(){
       if(token().isEmpty()){
         String id=java.util.UUID.randomUUID().toString()+"-"+java.util.UUID.randomUUID().toString();
@@ -122,7 +126,7 @@ public class MainActivity extends Activity {
     }
     @JavascriptInterface public String pairingRequest(){
       try{
-        JSONObject b=new JSONObject();b.put("device_id",deviceId());b.put("name","KRISHNA Mobile");
+        JSONObject b=new JSONObject();b.put("device_id",deviceId());b.put("name","KRISHNA Mobile");b.put("credential_sha256",credentialHash());
         return callUnauthed("/api/mobile/pair/request",b.toString());
       }catch(Exception e){return error(e);}
     }
