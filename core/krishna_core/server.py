@@ -1,5 +1,5 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-import json, time, threading, base64, sys, uuid
+import json, time, threading, base64, sys, uuid, os
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
@@ -26,6 +26,7 @@ from .ui_guardian import UIGuardian, UIGuardianRegistry
 from .narad.scheduler import NaradScheduler
 from .autonomy_supervisor import AutonomySupervisor
 from .specialist_team import SpecialistTeamPlanner
+from .lan_discovery import LanDiscoveryService
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -48,6 +49,7 @@ _worker_resilience.start()
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
 _requirements = RequirementsLedger()
+_lan_discovery = None
 def _remember_garudanetra_session(snapshot):
     project=str(snapshot.get("project") or "KRISHNA")
     sid=str(snapshot.get("session_id") or "")
@@ -468,7 +470,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403,{"error":"pairing approvals are visible only on KRISHNA PC"})
             return self._json(200,{**_pairing.pending(),"paired":_pairing.paired()})
         if path == "/api/remote/status":
-            return self._json(200,_remote_policy.status())
+            remote=_remote_policy.status()
+            remote["lan_discovery"]=_lan_discovery.status() if _lan_discovery else {"running":False,"policy":"enable KRISHNA_LAN_DISCOVERY=1 with a LAN-reachable Core bind"}
+            return self._json(200,remote)
         if path == "/api/resilience/status":
             return self._json(200,{"worker_supervisor":_worker_resilience.status(),"model_memory":_model_memory.status()})
         if path in ("/api/wearables","/api/wearables/status"):
@@ -519,6 +523,7 @@ class Handler(BaseHTTPRequestHandler):
                     "registered_project_change_observer",
                     "mobile_event_bridge",
                     "mobile_zero_code_client_hash_pairing",
+                    "lan_zero_code_core_discovery",
                     "child_krishna_360_avatar",
                     "mobile_pc_remote_control",
                     "private_overlay_remote_access_policy",
@@ -1511,5 +1516,17 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"KRISHNA Core: http://127.0.0.1:{settings.port}/dashboard")
-    ThreadingHTTPServer((settings.host, settings.port), Handler).serve_forever()
+    server = ThreadingHTTPServer((settings.host, settings.port), Handler)
+    if os.getenv("KRISHNA_LAN_DISCOVERY","0") == "1":
+        _lan_discovery = LanDiscoveryService(settings.port)
+        _lan_discovery.start()
+        if _lan_discovery.last_error:
+            print(f"[KRISHNA] LAN discovery warning: {_lan_discovery.last_error}", file=sys.stderr)
+    shown_host = "127.0.0.1" if settings.host == "0.0.0.0" else settings.host
+    print(f"KRISHNA Core: http://{shown_host}:{settings.port}/dashboard")
+    try:
+        server.serve_forever()
+    finally:
+        if _lan_discovery:
+            _lan_discovery.stop()
+        server.server_close()
