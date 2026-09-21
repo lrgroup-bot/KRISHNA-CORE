@@ -31,8 +31,9 @@ class NaradRuntime:
         results=[]
         for step in w.steps:
             action=str(step.get("action",""))
-            mutating=bool(step.get("mutating",False))
-            decision=self.policy.action(action,mutating=mutating,approved=approved)
+            mutating=bool(step.get("mutating",False)) or action=="adapter_webhook"
+            policy_action="send_external" if action=="adapter_webhook" else action
+            decision=self.policy.action(policy_action,mutating=mutating,approved=approved)
             if not decision.allowed: raise PermissionError(decision.reason)
             if action=="publish_event": results.append(self.bus.publish(step["topic"],step.get("payload",{}),source="narad"))
             elif action=="adapter_webhook":
