@@ -306,6 +306,10 @@ class Handler(BaseHTTPRequestHandler):
             project=(query.get("project") or ["KRISHNA"])[0]
             try:return self._json(200,orch.model_pool(project))
             except KeyError:return self._json(404,{"error":"project not registered"})
+        if path == "/api/models/gateways":
+            return self._json(200,orch.model_gateway.list())
+        if path == "/api/secure-vault/status":
+            return self._json(200,orch.secure_vault.list())
         if path == "/api/gyan-bhandar/archive/status":
             return self._json(200,orch.gyan_archive_status())
         if path == "/api/gyan-bhandar/pending":
@@ -452,6 +456,9 @@ class Handler(BaseHTTPRequestHandler):
                     "narad_webhook_gateway",
                     "narad_dead_letter_retry",
                     "narad_secret_reference_vault",
+                    "windows_dpapi_secret_vault",
+                    "encrypted_free_only_model_gateway",
+                    "protected_archive_project_roles",
                     "safe_unattended_commitment_supervisor",
                     "curated_specialist_team_planner",
                     "independent_critic_verifier_flow",
@@ -612,6 +619,23 @@ class Handler(BaseHTTPRequestHandler):
                     str(data.get("header") or "Authorization"),str(data.get("scheme") if data.get("scheme") is not None else "Bearer"),
                 ))
             except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/narad/connections/register-secret":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"encrypted secret registration must run on KRISHNA PC"})
+            try:
+                return self._json(201,orch.agi.narad_credentials.register_secret(
+                    str(data.get("name") or ""),str(data.get("provider") or ""),str(data.get("secret") or ""),
+                    str(data.get("header") or "Authorization"),str(data.get("scheme") if data.get("scheme") is not None else "Bearer"),
+                ))
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/narad/connections/delete":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"credential deletion must run on KRISHNA PC"})
+            cid=str(data.get("credential_id") or "").strip()
+            if not cid:return self._json(400,{"error":"credential_id is required"})
+            return self._json(200,{"deleted":orch.agi.narad_credentials.delete(cid)})
 
         if self.path == "/api/narad/webhooks/provision":
             wid=str(data.get("workflow_id") or "").strip()
@@ -897,6 +921,24 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as exc:
                 return self._json(400, {"error": str(exc)})
 
+        if self.path == "/api/models/gateways/register":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"model gateway secrets must be configured on KRISHNA PC"})
+            try:
+                return self._json(201,orch.model_gateway.register(
+                    str(data.get("name") or ""),str(data.get("base_url") or ""),
+                    str(data.get("model") or ""),str(data.get("api_key") or ""),
+                    bool(data.get("free_only",True)),bool(data.get("enabled",True)),
+                ))
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/models/gateways/delete":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"model gateway deletion must run on KRISHNA PC"})
+            pid=str(data.get("profile_id") or "").strip()
+            if not pid:return self._json(400,{"error":"profile_id is required"})
+            return self._json(200,{"deleted":orch.model_gateway.delete(pid)})
+
         if self.path == "/api/projects/register":
             try:
                 out = orch.register_project(
@@ -906,6 +948,7 @@ class Handler(BaseHTTPRequestHandler):
                     allowed_actions=data.get("allowed_actions") or [],
                     verification_checks=data.get("verification_checks") or [],
                     metadata=data.get("metadata") or {},
+                    role=str(data.get("role") or "active"),
                 )
                 return self._json(200, out)
             except (ValueError, TypeError) as exc:
