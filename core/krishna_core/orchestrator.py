@@ -122,6 +122,7 @@ class Orchestrator:
                     allowed_actions=item.get("allowed_actions") or [],
                     verification_checks=item.get("verification_checks") or [],
                     metadata=item.get("metadata") or {},
+                    role=(item.get("role") or (item.get("metadata") or {}).get("role") or "active"),
                 ))
                 self.graph.upsert_node(item["name"], "project", {
                     "root": item["root"],
@@ -191,6 +192,7 @@ class Orchestrator:
                 })
 
             if registered[action_name].get("mutating"):
+                self.projects.assert_mutable(project,action_name)
                 if not settings.allow_actions:
                     return self.task_ledger.update(task_id, "waiting_approval", "mutation_disabled", {
                         "action": action_name, "investigation": investigation,
@@ -238,6 +240,7 @@ class Orchestrator:
     def prepare_promotion(self, project, candidate_root, task_id=None):
         policy=self.projects.get(project)
         if not policy: raise KeyError(project)
+        self.projects.assert_mutable(project,"prepare_promotion")
         if not candidate_root: raise ValueError("verified candidate_root is required")
         candidate=Path(candidate_root).resolve()
         controlled=(Path(self.db_path).resolve().parent/".krishna_state"/"promotion-candidates").resolve()
@@ -270,6 +273,7 @@ class Orchestrator:
         if not approved: raise PermissionError("explicit promotion approval required")
         project=item["project"]; policy=self.projects.get(project)
         if not policy: raise KeyError(project)
+        self.projects.assert_mutable(project,"promote_candidate")
         def verify(root):
             checks=[]
             for name in policy.verification_checks:
@@ -432,6 +436,7 @@ class Orchestrator:
     def development_stage(self, project, files):
         policy=self.projects.get(project)
         if not policy: raise KeyError(project)
+        self.projects.assert_mutable(project,"development_stage")
         result=self.development.stage(policy.root,files)
         self.memory.audit("development_stage","completed",f"{project}:{result['file_count']}")
         return result
@@ -442,6 +447,7 @@ class Orchestrator:
         return self.development.git_snapshot(policy.root)
 
     def development_commit(self, project, message, files, approved=False):
+        self.projects.assert_mutable(project,"development_commit")
         if not settings.allow_actions: raise PermissionError("KRISHNA_ALLOW_ACTIONS is disabled")
         if not approved: raise PermissionError("explicit commit approval required")
         policy=self.projects.get(project)
@@ -451,6 +457,7 @@ class Orchestrator:
         return result
 
     def development_push(self, project, approved=False):
+        self.projects.assert_mutable(project,"development_push")
         if not settings.allow_actions: raise PermissionError("KRISHNA_ALLOW_ACTIONS is disabled")
         if not approved: raise PermissionError("explicit push approval required")
         policy=self.projects.get(project)
@@ -472,7 +479,7 @@ class Orchestrator:
         return result
 
     def register_project(self, name, root, privacy="local_only",
-                         allowed_actions=None, verification_checks=None, metadata=None):
+                         allowed_actions=None, verification_checks=None, metadata=None, role="active"):
         item = self.projects.register(ProjectPolicy(
             name=name,
             root=root,
@@ -480,10 +487,12 @@ class Orchestrator:
             allowed_actions=allowed_actions or [],
             verification_checks=verification_checks or [],
             metadata=metadata or {},
+            role=role,
         ))
         self.graph.upsert_node(name, "project", {
             "root": item["root"],
             "privacy": item["privacy"],
+            "role": item["role"],
         })
         self.memory.save_project(
             item["name"], item["root"], item["privacy"],
@@ -510,6 +519,7 @@ class Orchestrator:
         policy = self.projects.get(project)
         if not policy:
             raise KeyError(project)
+        self.projects.assert_mutable(project,"register_e2e_test_harness")
         root = Path(policy.root).resolve()
         marker = root / ".krishna-e2e-disposable"
         if not bool(policy.metadata.get("e2e_test_harness")):
