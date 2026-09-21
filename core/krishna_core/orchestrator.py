@@ -23,6 +23,7 @@ from .agent_runtime import AgentRuntime
 from .job_runtime import JobRuntime
 from .protocol_gateway import AgentProtocolGateway
 from .dispatch_runtime import DispatchRuntime
+from .sudarshan_control import SudarshanControlPlane
 from .repository_index import RepositoryIndexer
 from .evidence_collectors import LocalEvidenceCollectors
 from .shadow_workspace import ShadowWorkspaceManager
@@ -109,6 +110,10 @@ class Orchestrator:
         self.jobs = JobRuntime(self.task_ledger,self.action_bus)
         self.protocols = AgentProtocolGateway(self.action_bus,self.agent_runtime)
         self.dispatcher = DispatchRuntime(self.action_bus,self.agent_runtime,self.jobs)
+        self.sudarshan = SudarshanControlPlane(
+            self.action_bus,self.jobs,self.agi.critic,audit=self.memory.audit,
+        )
+        self.agi.narad.bind_sudarshan(self.sudarshan)
         self._verification_checks = {}
         self.repair_agent = RepairAgent(
             self.investigate,
@@ -151,6 +156,36 @@ class Orchestrator:
         def project_unregister(payload,context):
             return self.unregister_project(str(payload.get("name") or "").strip())
 
+        def narad_publish_event(payload,context):
+            topic=str(payload.get("topic") or "").strip()
+            if not topic:raise ValueError("topic is required")
+            return self.agi.bus.publish(topic,payload.get("payload") or {},source="narad")
+
+        def narad_adapter_webhook(payload,context):
+            provider=str(payload.get("provider") or "").strip()
+            if provider not in self.agi.narad.adapters:raise RuntimeError(f"Narad adapter unavailable: {provider}")
+            url=str(payload.get("url") or "").strip()
+            if not url:raise ValueError("webhook url is required")
+            headers={}
+            credential_ref=payload.get("credential_ref")
+            if credential_ref:
+                headers=self.agi.narad_credentials.headers(credential_ref)
+            return self.agi.narad.adapters[provider].post(
+                url,payload.get("payload") or {},headers=headers,
+            )
+
+        def narad_provider_send(payload,context):
+            provider=str(payload.get("provider") or "").strip().lower()
+            operation=str(payload.get("operation") or "").strip().lower()
+            if not provider or not operation:raise ValueError("provider and operation are required")
+            headers={}
+            credential_ref=payload.get("credential_ref")
+            if credential_ref:
+                headers=self.agi.narad_credentials.headers(credential_ref)
+            return self.agi.narad_providers.send(
+                provider,operation,payload.get("payload") or {},headers=headers,
+            )
+
         self.action_bus.register(
             "chat.create",chat_create,description="Create a persistent KRISHNA chat",
             mutating=True,permissions=("chat.write",),
@@ -174,6 +209,27 @@ class Orchestrator:
         self.action_bus.register(
             "project.unregister",project_unregister,description="Unregister a KRISHNA project",
             mutating=True,permissions=("project.write",),sources=("pc","system"),
+        )
+
+        self.action_bus.register(
+            "narad.publish_event",narad_publish_event,
+            description="Publish a NARAD event through the canonical automation bus",
+            permissions=("narad.execute",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narad.adapter_webhook",narad_adapter_webhook,
+            description="Execute a bounded NARAD webhook adapter call",
+            mutating=True,requires_approval=True,
+            permissions=("narad.execute","send_external"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narad.provider_send",narad_provider_send,
+            description="Execute a bounded NARAD provider operation",
+            mutating=True,requires_approval=True,
+            permissions=("narad.execute","send_external"),
+            sources=("pc","system","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
@@ -216,7 +272,7 @@ class Orchestrator:
 
     def dispatch_action(self,action,payload=None,project="KRISHNA",source="pc",actor="owner",
                         approved=False,permissions=(),idempotency_key=None):
-        return self.action_bus.dispatch(
+        return self.sudarshan.action(
             action,payload,project=project,source=source,actor=actor,approved=approved,
             permissions=permissions,idempotency_key=idempotency_key,
         )
@@ -241,6 +297,9 @@ class Orchestrator:
 
     def dispatch_runtime_status(self):
         return self.dispatcher.status()
+
+    def sudarshan_status(self):
+        return self.sudarshan.status()
 
     def rollback_dispatched_action(self,action_id,source="pc",actor="owner",approved=False):
         return self.action_bus.rollback(action_id,source=source,actor=actor,approved=approved)
