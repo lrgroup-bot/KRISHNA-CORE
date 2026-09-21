@@ -6,7 +6,8 @@ Single control plane, modular workers. `Krishna_AGI.exe` is the only user-facing
 - KRISHNA Neural Action Graph owns orchestration; LangGraph is an optional durable-execution adapter.
 - Policy Kernel is mandatory before mutation/external side effects.
 - Executors are replaceable adapters (native/OpenHands/Open Interpreter concepts).
-- Garudanetra is the browser/computer layer.
+- Garuda is the research/evidence scout; Garudanetra is the browser/computer layer.
+- Garudanetra has one canonical Browser Fabric: Playwright/Chromium is the verified engine, semantic refs/recovery/stream/record-replay are native capabilities, and external browser projects remain optional adapters.
 - Gyan-Bhandar is the canonical memory API; Graphiti/Letta/Mem0 are optional backends.
 - Critic/Verifier is read-only and independent of mutation workers.
 - Successful verified procedures may become skill candidates; benchmark pass is required for promotion.
@@ -14,4 +15,4 @@ Single control plane, modular workers. `Krishna_AGI.exe` is the only user-facing
 - Creator/avatar/revenue systems are capability layers, not owners of the AGI core.
 
 ## Packaging
-Final Windows release target: `Krishna_AGI.exe`. Heavy models/browser binaries remain managed runtime assets under `E:\Krishna-The GOD` rather than being duplicated into the PE executable.
+Final Windows release target: `Krishna_AGI.exe`. Heavy models/browser binaries remain managed runtime assets under `E:\Krishna-The GOD` rather than being duplicated into the PE executable. Garudanetra browser state/assets are isolated under KRISHNA runtime paths and legacy `browser-data` is reconciled non-destructively.
