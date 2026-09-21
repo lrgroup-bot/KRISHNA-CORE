@@ -1371,7 +1371,7 @@ class Handler(BaseHTTPRequestHandler):
         if post_path == "/api/development/sync":
             project=str(data.get("project","")).strip()
             if not project:return self._json(400,{"error":"project is required"})
-            try:return self._json(200,orch.development_sync(project))
+            try:return self._json(200,orch.development_sync(project,bool(data.get("approved",False))))
             except KeyError:return self._json(404,{"error":"project not registered"})
 
         if post_path == "/api/development/stage":
