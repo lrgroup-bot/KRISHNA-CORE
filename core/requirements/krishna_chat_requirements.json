@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-09-21-garudanetra-browser-fabric-v1",
+  "version": "2026-09-21-agent-native-action-spine-v1",
   "source": "Consolidated from KRISHNA project conversations and verified repository decisions",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -14,7 +14,8 @@
     "KRISHNA Mobile never exposes raw shell, arbitrary filesystem access, credentials, or trading authority; sensitive actions remain behind device authorization and Core Policy.",
     "Remote-away access is private-network-only; KRISHNA must not expose Core control APIs directly to the public Internet.",
     "Protected and archive project roles are read-only to autonomous mutation and promotion.",
-    "Garuda is the research/evidence scout; Garudanetra is the browser/computer fabric. Neither replaces KRISHNA authority."
+    "Garuda is the research/evidence scout; Garudanetra is the browser/computer fabric. Neither replaces KRISHNA authority.",
+    "Every operational dashboard control must resolve to a real runtime contract; mutating priority controls use the Shared Action Bus and receive auditable action receipts."
   ],
   "groups": [
     {
@@ -27,6 +28,20 @@
         "Continue safe routine work without babysitting and surface meaningful verified completion notifications.",
         "Crash loops use heartbeat/supervision, exponential restart backoff and quarantine instead of endless restart storms.",
         "Critical RAM pressure may unload resident local models without deleting model files."
+      ]
+    },
+    {
+      "id": "action_runtime",
+      "title": "Agent-native action/runtime foundation",
+      "requirements": [
+        "Agent-Native is an architectural reference/foundation only; KRISHNA remains the product, public identity and final authority.",
+        "Integration order is Shared Action Bus -> Projects/Chats -> Agent Runtime -> Jobs -> Permissions -> Audit/Rollback -> MCP/A2A -> Dispatch -> Desktop/Mobile sync -> Garuda/Garudanetra.",
+        "Operational UI controls must be backed by real runtime behavior; priority mutating controls dispatch named Shared Actions and expose an action_id receipt.",
+        "Agents, jobs, MCP and A2A adapters do not call runtime internals directly; delegated execution resolves through explicit action manifests and capabilities.",
+        "Jobs reuse the durable TaskLedger instead of creating a competing job authority.",
+        "MCP/A2A are authenticated adapter boundaries over Shared Actions, not public unauthenticated control planes.",
+        "Desktop/mobile action state sync uses the existing authenticated realtime event store and does not turn KRISHNA Mobile into a dashboard or raw host-control client.",
+        "Project-code rollback remains under verified PromotionManager backups/post-checks; Shared Action rollback never weakens project promotion safeguards."
       ]
     },
     {
@@ -187,6 +202,8 @@
     "Garudanetra browser-mode lifecycle and owner-control actions pass.",
     "Wearable vendor capabilities remain unverified until hardware evidence exists.",
     "Garuda research and Garudanetra browser/computer responsibilities remain separate in runtime and UI.",
-    "Garudanetra semantic refs, browser-fabric status, frame transport, action recording and replay approval gate pass runtime acceptance."
+    "Garudanetra semantic refs, browser-fabric status, frame transport, action recording and replay approval gate pass runtime acceptance.",
+    "Shared Action Bus, Agent Runtime, Jobs, Permissions, MCP/A2A adapter and Dispatch acceptance checks pass.",
+    "Priority operational UI controls produce real Shared Action receipts; decorative-but-unwired controls are release defects."
   ]
 }
