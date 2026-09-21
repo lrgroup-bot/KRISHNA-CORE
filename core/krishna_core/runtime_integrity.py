@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib, json
+import hashlib, json, os
 from pathlib import Path
 from .config import RUNTIME_ROOT
 
@@ -36,7 +36,7 @@ def _git_head(repo:Path):
 class RuntimeIntegrity:
     def __init__(self,runtime_root=RUNTIME_ROOT,source_root=None):
         self.runtime=Path(runtime_root).resolve()
-        self.source=Path(source_root or "E:/KRISHNA-SOURCE").resolve()
+        self.source=Path(source_root or os.getenv("KRISHNA_SOURCE_ROOT","E:/KRISHNA-SOURCE")).resolve()
         self.manifest_path=self.runtime/"state"/"deployment"/"DEPLOYED_COMMIT.json"
     def manifest(self):
         try:
