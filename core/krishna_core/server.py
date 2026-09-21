@@ -594,6 +594,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,orch.agi.narad_credentials.list())
         if path == "/api/narad/dead-letters":
             return self._json(200,orch.agi.narad.dead_letter_status())
+        if path == "/api/narad/checkpoints":
+            rows=list(orch.agi.narad.checkpoints.values())
+            rows.sort(key=lambda x:str(x.get("updated_at") or ""),reverse=True)
+            return self._json(200,{"checkpoints":rows,"count":len(rows)})
         if path == "/api/narad/scheduler":
             return self._json(200,_narad_scheduler.status())
         if path == "/api/intelligence/status":
@@ -970,6 +974,11 @@ class Handler(BaseHTTPRequestHandler):
             letter_id=str(data.get("letter_id") or "").strip()
             if not letter_id:return self._json(400,{"error":"letter_id is required"})
             return self._json(200,orch.agi.narad.retry_dead_letter(letter_id,bool(data.get("approved",False))))
+
+        if post_path == "/api/narad/checkpoints/resume":
+            run_id=str(data.get("run_id") or "").strip()
+            if not run_id:return self._json(400,{"error":"run_id is required"})
+            return self._json(200,orch.agi.narad.resume_checkpoint(run_id,bool(data.get("approved",False))))
 
         if post_path == "/api/narad/scheduler/tick":
             if self.client_address[0] not in ("127.0.0.1","::1"):
