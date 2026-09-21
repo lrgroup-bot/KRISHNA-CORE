@@ -35,4 +35,11 @@ class IntelligenceNaradTests(unittest.TestCase):
             n.promote(w["id"],"sandbox")
             with self.assertRaises(PermissionError): n.execute(w["id"],approved=False)
 
+    def test_webhook_is_always_high_impact(self):
+        with TemporaryDirectory() as td:
+            n=NaradRuntime(PolicyKernel(Path(td)),AutomationBus(),{"n8n":object()})
+            w=n.create_workflow("hook",{"type":"manual"},[{"action":"adapter_webhook","provider":"n8n","url":"https://example.invalid"}])
+            n.promote(w["id"],"sandbox")
+            with self.assertRaises(PermissionError): n.execute(w["id"],approved=False)
+
 if __name__=="__main__": unittest.main()
