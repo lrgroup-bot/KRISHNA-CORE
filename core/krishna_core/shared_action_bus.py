@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from threading import RLock
 from typing import Callable
+import json
 import uuid
 
 
@@ -17,7 +18,7 @@ class SharedActionSpec:
     mutating: bool = False
     requires_approval: bool = False
     permissions: tuple[str, ...] = ()
-    sources: tuple[str, ...] = ("pc","mobile","system","agent")
+    sources: tuple[str, ...] = ("pc","mobile","system","agent","job","mcp","a2a")
     rollback_action: str | None = None
 
     def as_dict(self) -> dict:
@@ -69,7 +70,7 @@ class SharedActionBus:
         return clean(dict(payload or {}))
 
     def register(self,name,handler,*,description="",mutating=False,requires_approval=False,
-                 permissions=(),sources=("pc","mobile","system","agent"),rollback_action=None)->dict:
+                 permissions=(),sources=("pc","mobile","system","agent","job","mcp","a2a"),rollback_action=None)->dict:
         key=str(name or "").strip()
         if not key or any(ch.isspace() for ch in key):
             raise ValueError("shared action name must be a non-empty token")
@@ -97,7 +98,13 @@ class SharedActionBus:
             self._history=self._history[-self.history_limit:]
         if self.audit:
             try:
-                self.audit(row["action_id"],row["status"],f'{row["action"]}:{row.get("project","")}')
+                detail={
+                    "action_id":row.get("action_id"),"action":row.get("action"),"project":row.get("project"),
+                    "source":row.get("source"),"actor":row.get("actor"),"status":row.get("status"),
+                    "reason":row.get("reason"),"error":row.get("error"),"spec":row.get("spec"),
+                    "created_at":row.get("created_at"),"completed_at":row.get("completed_at"),
+                }
+                self.audit(row["action_id"],row["status"],json.dumps(detail,ensure_ascii=False)[:12000])
             except Exception:
                 pass
 
@@ -154,9 +161,10 @@ class SharedActionBus:
             row={**envelope,"status":"failed","error":f"{type(exc).__name__}: {exc}","spec":spec.as_dict()}
             self._record(row);self._publish("action.failed",row)
             raise
+        safe_result=self._safe_payload(result) if isinstance(result,dict) else result
         row={
             **envelope,"status":"completed","completed_at":self._now(),
-            "spec":spec.as_dict(),"result":result,
+            "spec":spec.as_dict(),"result":safe_result,
         }
         self._record(row);self._publish("action.completed",row)
         if idempotency_key:
