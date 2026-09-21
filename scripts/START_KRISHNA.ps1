@@ -36,6 +36,8 @@ if($authoritative -and (Test-Path "$authoritative\.git")){
 
 if(!(Test-Path $coreDir)){throw "KRISHNA core directory not found: $coreDir"}
 $env:PYTHONPATH=$coreDir
+$voiceConfig=Join-Path $KrishnaRoot "config\voice-runtime.ps1"
+if(Test-Path $voiceConfig){. $voiceConfig}
 $bindHost="127.0.0.1"
 if($PrivateRemote){
     $tailscale=(Get-Command tailscale.exe -ErrorAction SilentlyContinue)
