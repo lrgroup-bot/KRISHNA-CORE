@@ -82,6 +82,9 @@ $manifest=[ordered]@{
   commit=$Head
   branch=$Branch
   deployed_at=(Get-Date).ToUniversalTime().ToString("o")
+  release_ready=$false
+  acceptance_status="pending"
+  acceptance_completed_at=$null
   source_root=$Source
   runtime_root=$Runtime
   files=$hashes
@@ -91,8 +94,8 @@ $dest=Join-Path $deployDir "DEPLOYED_COMMIT.json"
 $manifest|ConvertTo-Json -Depth 8|Set-Content -Encoding UTF8 $tmp
 Move-Item -Force $tmp $dest
 
-Write-Host "DEPLOY VERIFIED AT $Head" -ForegroundColor Green
-Write-Host "MANIFEST $dest ($($hashes.Count) files)" -ForegroundColor Green
+Write-Host "DEPLOY FILES SYNCED AT $Head" -ForegroundColor Cyan
+Write-Host "MANIFEST $dest ($($hashes.Count) files; acceptance pending)" -ForegroundColor Cyan
 
 # Real runtime acceptance is part of deployment by default. It starts an isolated
 # localhost Core on a separate port, exercises the release gates, then shuts it down.
@@ -100,7 +103,28 @@ if(!$SkipAcceptance){
   $accept=Join-Path $Runtime "scripts\ACCEPT_KRISHNA_RUNTIME.ps1"
   if(!(Test-Path $accept)){throw "Runtime acceptance harness missing: $accept"}
   & powershell -NoProfile -ExecutionPolicy Bypass -File $accept -RuntimeRoot $Runtime -SourceRoot $Source
-  if($LASTEXITCODE -ne 0){throw "KRISHNA runtime acceptance failed; refusing final start"}
+  if($LASTEXITCODE -ne 0){
+    $failed=Get-Content -Raw $dest|ConvertFrom-Json
+    $failed.release_ready=$false
+    $failed.acceptance_status="failed"
+    $failed.acceptance_completed_at=(Get-Date).ToUniversalTime().ToString("o")
+    $failed|ConvertTo-Json -Depth 8|Set-Content -Encoding UTF8 $tmp
+    Move-Item -Force $tmp $dest
+    throw "KRISHNA runtime acceptance failed; release_ready remains false and final start is refused"
+  }
+  $passed=Get-Content -Raw $dest|ConvertFrom-Json
+  $passed.release_ready=$true
+  $passed.acceptance_status="passed"
+  $passed.acceptance_completed_at=(Get-Date).ToUniversalTime().ToString("o")
+  $passed|ConvertTo-Json -Depth 8|Set-Content -Encoding UTF8 $tmp
+  Move-Item -Force $tmp $dest
+  Write-Host "DEPLOY VERIFIED + ACCEPTED AT $Head" -ForegroundColor Green
+}else{
+  Write-Host "Acceptance skipped; runtime is NOT release-ready." -ForegroundColor Yellow
+}
+
+if(!$SkipStart -and $SkipAcceptance){
+  throw "Cannot start KRISHNA from a deployment whose runtime acceptance was skipped"
 }
 
 # Non-destructive E: audit after every verified deployment.
