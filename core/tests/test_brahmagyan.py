@@ -130,6 +130,22 @@ class BrahmagyanTests(unittest.TestCase):
         self.assertTrue(plan["approval_required"])
         self.assertIn("failed approaches",plan["preserve_before_retirement"])
 
+    def test_gap_engine_generates_missing_questions_and_can_queue_them(self):
+        m=self.bg.create_mission("KRISHNA","AI reliability",rishi_id="jamadagni",knowledge_track="engineering")
+        c=self.bg.record_claim(m["mission_id"],"System is reliable",[],knowledge_track="engineering")
+        out=self.bg.gap_questions(c["claim_id"],queue=True)
+        self.assertTrue(any("primary source" in q for q in out["questions"]))
+        self.assertTrue(any("contradicts" in q for q in out["questions"]))
+        self.assertGreater(len(out["queued"]),0)
+
+    def test_new_permanent_rishi_is_proposal_only_with_duplication_check(self):
+        duplicate=self.bg.propose_council_specialist("genetics","Genomics specialist","persistent genomics workload")
+        self.assertEqual(duplicate["status"],"needs_duplication_review")
+        self.assertTrue(duplicate["duplicate_candidates"])
+        novel=self.bg.propose_council_specialist("cryogenic tribology","Cryogenic Tribology Scholar","persistent uncovered engineering domain")
+        self.assertEqual(novel["status"],"candidate")
+        self.assertIn("proposal only",novel["policy"])
+
     def test_deep_prompt_refuses_forced_ancient_modern_equivalence(self):
         m=self.bg.create_mission("KRISHNA","Yoga and neuroscience",rishi_id="patanjali",knowledge_track="general")
         prompt=self.bg.deep_prompt(m["mission_id"])
