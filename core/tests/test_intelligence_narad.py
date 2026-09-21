@@ -27,6 +27,7 @@ class IntelligenceNaradTests(unittest.TestCase):
             n.promote(w["id"],"sandbox")
             r=n.execute(w["id"]); self.assertEqual(r["results"][0]["event"]["topic"],"x")
             with self.assertRaises(PermissionError): n.promote(w["id"],"stable")
+            n.promote(w["id"],"verified",verified=True)
             n.promote(w["id"],"stable",verified=True)
     def test_narad_blocks_unapproved_mutation(self):
         with TemporaryDirectory() as td:
@@ -34,6 +35,14 @@ class IntelligenceNaradTests(unittest.TestCase):
             w=n.create_workflow("mut",{"type":"manual"},[{"action":"send_external","mutating":True}])
             n.promote(w["id"],"sandbox")
             with self.assertRaises(PermissionError): n.execute(w["id"],approved=False)
+
+    def test_durable_state_roundtrip(self):
+        with TemporaryDirectory() as td:
+            state=Path(td)/"narad.json"
+            n=NaradRuntime(PolicyKernel(Path(td)),AutomationBus(),state_path=state)
+            w=n.create_workflow("persist",{"type":"manual"},[{"action":"publish_event","topic":"persist"}])
+            restored=NaradRuntime(PolicyKernel(Path(td)),AutomationBus(),state_path=state)
+            self.assertIn(w["id"],restored.workflows)
 
     def test_webhook_is_always_high_impact(self):
         with TemporaryDirectory() as td:
