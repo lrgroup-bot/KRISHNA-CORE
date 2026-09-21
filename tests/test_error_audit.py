@@ -72,6 +72,27 @@ class RepositoryErrorAudit(unittest.TestCase):
             self.assertIn(token,text)
         self.assertNotIn("192.168.0.106",text)
 
+
+    def test_part1_runtime_security_regressions_stay_fixed(self):
+        server=(ROOT/"core"/"krishna_core"/"server.py").read_text(encoding="utf-8-sig")
+        executor=(ROOT/"core"/"krishna_core"/"executor_fabric.py").read_text(encoding="utf-8-sig")
+        workers=(ROOT/"core"/"krishna_core"/"worker_fabric.py").read_text(encoding="utf-8-sig")
+        vault=(ROOT/"core"/"krishna_core"/"secure_vault.py").read_text(encoding="utf-8-sig")
+        self.assertIn('if path == "/health":',server)
+        self.assertIn('if path == "/api/status":',server)
+        health_block=server.split('if path == "/health":',1)[1].split('if path == "/api/status":',1)[0]
+        self.assertNotIn("watcher.snapshot()",health_block)
+        self.assertNotIn("orch.agi_status()",health_block)
+        for token in ("shutdown_runtime_services()", "_autonomy.stop", "_narad_scheduler.stop",
+                      "_worker_resilience.stop", "pc_observer.stop", "watcher.stop",
+                      "_voice.wake.stop", "_garudanetra.close_all"):
+            self.assertIn(token,server)
+        for source in (executor,workers):
+            self.assertIn('args=raw if os.name=="nt" else shlex.split(raw,posix=True)',source)
+            self.assertIn("shell=False",source)
+            self.assertNotIn('shlex.split(command,posix=os.name!="nt")',source)
+        self.assertIn("kernel32.LocalFree(ctypes.cast(desc,ctypes.c_void_p))",vault)
+
     def test_one_canonical_mobile_build_workflow(self):
         workflows=ROOT/".github"/"workflows"
         self.assertTrue((workflows/"build-mobile-v3.yml").is_file())
