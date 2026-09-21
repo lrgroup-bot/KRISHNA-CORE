@@ -15,6 +15,7 @@ from .integrations import CodebaseMemoryAdapter, GraftMemoryAdapter, WebhookAdap
 from .narad import NaradRuntime
 from .narad.credentials import NaradCredentialVault
 from .narad.providers import NaradProviderHub
+from .narad.n8n_bridge import N8nBridge
 from .specialist_registry import SpecialistRegistry
 from .context_governor import ContextGovernor
 from .media_adapter import OpenMontageAdapter
@@ -42,7 +43,7 @@ class AGIKernel:
         self.narad_providers=NaradProviderHub()
         self.narad=NaradRuntime(
             self.policy,self.bus,
-            {"n8n":WebhookAdapter(),"activepieces":WebhookAdapter(),"webhook":WebhookAdapter()},
+            {"n8n":N8nBridge(),"activepieces":WebhookAdapter(),"webhook":WebhookAdapter()},
             state_path=self.root/"narad"/"state.json",
             credentials=self.narad_credentials,
             provider_hub=self.narad_providers,
