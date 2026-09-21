@@ -44,6 +44,11 @@ if(Test-Path $browserConfig){
     . $browserConfig
     Write-Host "Browser adapter config loaded: $browserConfig" -ForegroundColor DarkCyan
 }
+$naradConfig=Join-Path $KrishnaRoot "config\narad-runtime.ps1"
+if(Test-Path $naradConfig){
+    . $naradConfig
+    Write-Host "NARAD adapter config loaded: $naradConfig" -ForegroundColor DarkCyan
+}
 $bindHost="127.0.0.1"
 $lanIp=""
 $remoteIp=""
