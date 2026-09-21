@@ -74,7 +74,7 @@ Status meanings:
 
 | Requirement | Status | Evidence / remaining work |
 | --- | --- | --- |
-| Codebase-Memory-MCP as structural code intelligence | PARTIAL | Optional adapter exists; local E: installation still requires reconciliation/index acceptance. |
+| Codebase-Memory-MCP as structural code intelligence | IMPLEMENTED / RUNTIME VERIFY | Adapter now discovers the known E:\\AI-Tools\\codebase-memory-mcp executable as well as env/PATH/alternate E: locations; indexing acceptance still runs on the real PC. |
 | Graft behind Gyan-Bhandar | PARTIAL | Optional adapter exists; local runtime/CLI still requires reconciliation. |
 | Context governor | VERIFIED boundary | Bounded verified-first context selection implemented. |
 | Privacy-aware multi-model pool | VERIFIED boundary | Model router exposes local/cloud providers and coding plans according to project privacy. |
@@ -101,7 +101,7 @@ Status meanings:
 | DEPLOYED_COMMIT.json with file hashes | IMPLEMENTED / RUNTIME VERIFY | Added atomic deployment manifest. |
 | Detect source/runtime drift | IMPLEMENTED / RUNTIME VERIFY | RuntimeIntegrity API + UI. |
 | Refuse misleading CORE ONLINE when drifted | IMPLEMENTED / RUNTIME VERIFY | START_KRISHNA blocks DRIFT and auto-deploys when source is ahead. |
-| Non-destructive E: reconciliation audit | IMPLEMENTED / RUNTIME VERIFY | AUDIT_KRISHNA_E_DRIVE.ps1 inspects CBM, AGI, agents, guardian, voice, mobile, external, dashboard and unresolved leftovers. |
+| Non-destructive E: reconciliation audit | IMPLEMENTED / RUNTIME VERIFY | AUDIT_KRISHNA_E_DRIVE.ps1 now inspects AI-Tools CBM/OpenMontage, alternate CBM roots, AGI, agents, guardian, voice, Agency-Agents, dual mobile runtimes, dashboard, canonical avatar and unresolved leftovers. |
 
 ## 9. Mobile
 
@@ -131,7 +131,7 @@ Status meanings:
 | Requirement | Status | Evidence / remaining work |
 | --- | --- | --- |
 | Creator providers (ComfyUI/Wan/LTX/SkyReels) behind worker boundary | VERIFIED boundary | Optional provider adapters only. |
-| OpenMontage media bridge | VERIFIED boundary | Separate media worker. |
+| OpenMontage media bridge | IMPLEMENTED / RUNTIME VERIFY | E:\\AI-Tools\\OpenMontage installation is detected, but cloned source is not treated as executable authority; a dedicated OPENMONTAGE_CMD/worker bridge is required. |
 | Revenue/CRM/publishing adapters | VERIFIED boundary | Business layer only; not KRISHNA authority. |
 | Active provider workers installed and verified | ENVIRONMENT-DEPENDENT | Do not report active until binaries/services are present. |
 
