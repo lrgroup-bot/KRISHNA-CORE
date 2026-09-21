@@ -582,7 +582,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
 
     def test_server_exposes_localhost_only_e2e_registration(self):
         server = (Path(__file__).resolve().parents[1] / "krishna_core" / "server.py").read_text(encoding="utf-8")
-        self.assertIn('if self.path == "/api/e2e/register":', server)
+        self.assertIn('if post_path == "/api/e2e/register":', server)
         self.assertIn('self.client_address[0] not in ("127.0.0.1", "::1")', server)
 
     def test_web_ui_keeps_internal_engines_out_of_manual_navigation(self):
