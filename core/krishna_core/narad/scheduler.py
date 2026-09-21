@@ -12,6 +12,8 @@ class NaradScheduler:
         self.poll_seconds=max(5,int(poll_seconds))
         self._stop=threading.Event()
         self._thread=None
+        self.run_count=0
+        self.last_error=None
 
     def start(self):
         if self._thread and self._thread.is_alive():return self.status()
