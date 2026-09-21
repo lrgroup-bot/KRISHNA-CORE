@@ -15,8 +15,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Compile Core
-        run: python -m compileall -q core/krishna_core
+      - name: Compile all Python sources
+        run: python -m compileall -q core tests
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $failed=@()
+          Get-ChildItem scripts -Filter *.ps1 -Recurse | ForEach-Object {
+            $tokens=$null; $errors=$null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors)
+            if($errors){ $failed += ($_.FullName + ": " + (($errors | ForEach-Object Message) -join " | ")) }
+          }
+          if($failed.Count){ $failed | ForEach-Object { Write-Error $_ }; exit 1 }
       - name: Unit and isolated HTTP integration tests
         working-directory: core
         run: python -m unittest discover -s tests -v
