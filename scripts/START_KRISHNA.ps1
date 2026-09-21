@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory=$false)][int]$Port = 8766,
     [Parameter(Mandatory=$false)][string]$SourceRoot = "",
     [Parameter(Mandatory=$false)][switch]$PrivateRemote,
+    [Parameter(Mandatory=$false)][switch]$MobileLan,
     [Parameter(Mandatory=$false)][string]$PrivateRemoteCIDRs = ""
 )
 $ErrorActionPreference = "Stop"
@@ -39,6 +40,12 @@ $env:PYTHONPATH=$coreDir
 $voiceConfig=Join-Path $KrishnaRoot "config\voice-runtime.ps1"
 if(Test-Path $voiceConfig){. $voiceConfig}
 $bindHost="127.0.0.1"
+$env:KRISHNA_LAN_DISCOVERY="0"
+if($PrivateRemote -and $MobileLan){throw "Choose either -PrivateRemote or -MobileLan, not both"}
+if($MobileLan){
+    $bindHost="0.0.0.0"
+    $env:KRISHNA_LAN_DISCOVERY="1"
+}
 if($PrivateRemote){
     $tailscale=(Get-Command tailscale.exe -ErrorAction SilentlyContinue)
     if(!$tailscale){throw "PrivateRemote requested but tailscale.exe is not installed/found"}
@@ -69,7 +76,15 @@ Write-Host "Root      : $KrishnaRoot"
 Write-Host "Source    : $authoritative"
 Write-Host "Integrity : $($integrity.status)"
 Write-Host "Commit    : $($integrity.commit)"
-Write-Host "UI        : http://$bindHost`:$Port/"
+$displayHost=$bindHost
+if($MobileLan){
+    try{
+        $lan=(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop | Where-Object {$_.IPAddress -notmatch '^(127\.|169\.254\.)' -and $_.PrefixOrigin -ne 'WellKnown'} | Sort-Object InterfaceMetric | Select-Object -First 1 -ExpandProperty IPAddress)
+        if($lan){$displayHost=$lan}
+    }catch{}
+}
+Write-Host "UI        : http://$displayHost`:$Port/"
+if($MobileLan){Write-Host "Mobile    : LAN discovery ON · pairing still required" -ForegroundColor Green}
 if($PrivateRemote){Write-Host "Remote    : PRIVATE OVERLAY ONLY ($env:KRISHNA_PRIVATE_REMOTE_CIDRS)" -ForegroundColor Green}
 Write-Host ""
 
