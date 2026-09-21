@@ -25,6 +25,11 @@ class RequirementsLedger:
             "requirement_count":count,
             "group_count":len(groups),
         }
+    def prompt_contract(self):
+        data=self.snapshot()
+        rules="\n".join("- "+x for x in data["non_negotiables"])
+        return "Canonical KRISHNA requirements (user-approved project contract):\n"+rules
+
     def search(self,query):
         q=str(query or "").strip().lower()
         data=self.snapshot()
