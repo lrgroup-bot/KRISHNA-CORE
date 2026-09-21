@@ -133,5 +133,12 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn('[void]$proc.WaitForExit(5000)',text)
 
 
+    def test_dashboard_has_no_implicit_favicon_404(self):
+        web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
+        server=(ROOT/"core"/"krishna_core"/"server.py").read_text(encoding="utf-8-sig")
+        self.assertIn('<link rel="icon" href="data:,">',web)
+        self.assertIn('if path == "/favicon.ico":',server)
+        self.assertIn('return self._binary(204, b"", "image/x-icon")',server)
+
 if __name__=="__main__":
     unittest.main()
