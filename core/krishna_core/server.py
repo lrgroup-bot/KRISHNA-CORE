@@ -473,8 +473,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"worker_supervisor":_worker_resilience.status(),"model_memory":_model_memory.status()})
         if path in ("/api/wearables","/api/wearables/status"):
             return self._json(200,_wearables.status())
-        if path == "/api/wearables":
-            return self._json(200,_wearables.status())
         if path == "/api/mobile/resume":
             device, token = self._device_auth()
             if not _pairing.verify(device, token):
