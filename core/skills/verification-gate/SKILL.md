@@ -1,31 +1,19 @@
 ---
 name: verification-gate
-description: Independent evidence gate before KRISHNA declares work complete.
+description: Independently verify claimed completion.
 triggers:
   - verify
-  - check the output
-  - test it
+  - verification
   - completed
-  - deploy
-  - release
+  - fixed
 project_scope:
-  - "*"
+  - '*'
 permissions:
   - read_context
-  - read_files
-  - browser_read
+  - run_tests
 risk: low
 verification_required: true
-rollback_required: true
+rollback_required: false
 ---
-
-# Verification gate
-
-A completion claim requires observable evidence.
-
-- Prefer registered project checks over ad-hoc confidence.
-- For UI work, inspect the real page and collect browser evidence when available.
-- For services, verify health plus the affected behavior; HTTP 200 alone is insufficient.
-- For generated artifacts, verify the artifact exists, is non-empty and matches the requested reality.
-- Use an independent reviewer when practical.
-- Failed verification means **not complete** and should trigger rollback or a new investigation.
+# Verification Gate
+Verify expected versus actual behavior with tests and evidence. A change is not complete merely because it was applied.

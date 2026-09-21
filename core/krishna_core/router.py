@@ -10,7 +10,8 @@ class ModelRouter:
       "xai":{"key":"XAI_API_KEY","url":"https://api.x.ai/v1/chat/completions","model":"XAI_MODEL","default":"grok-2-latest"},
       "openrouter":{"key":"OPENROUTER_API_KEY","url":"https://openrouter.ai/api/v1/chat/completions","model":"OPENROUTER_MODEL","default":"openrouter/auto"},
     }
-    def local(self,prompt,model="qwen2.5:3b"):
+    def local(self,prompt,model=None):
+        model = model or os.getenv("KRISHNA_LOCAL_MODEL", "qwen2.5:3b")
         body=json.dumps({"model":model,"prompt":prompt,"stream":False}).encode()
         req=urllib.request.Request(settings.ollama_url.rstrip("/")+"/api/generate",data=body,headers={"Content-Type":"application/json"})
         with urllib.request.urlopen(req,timeout=90) as r:return json.loads(r.read().decode()).get("response","")

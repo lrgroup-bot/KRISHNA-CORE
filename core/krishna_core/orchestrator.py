@@ -37,6 +37,7 @@ from .kabach import KabachAgent
 from .commitment_ledger import CommitmentLedger
 from .software_factory import SoftwareFactory
 from .ephemeral_workers import EphemeralWorkerRuntime
+from .agi_kernel import AGIKernel
 
 
 class Orchestrator:
@@ -85,6 +86,7 @@ class Orchestrator:
         self.kabach = KabachAgent(self.memory)
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
         self.goal_evaluator = GoalEvaluator()
+        self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer)
         self._verification_checks = {}
         self.repair_agent = RepairAgent(
             self.investigate,
@@ -96,6 +98,12 @@ class Orchestrator:
         )
         self._restore_projects()
         self._register_builtin_probes()
+
+    def close(self):
+        """Release every database owned by this runtime, including commitments."""
+        self.commitments.close()
+        self.task_ledger.close()
+        self.memory.close()
 
     def _restore_projects(self):
         for item in self.memory.projects():
@@ -149,6 +157,21 @@ class Orchestrator:
                 self.task_ledger.update(task_id, "failed", "project_scope", {"error": "project_not_registered"})
                 raise KeyError(project)
 
+            if action_name and action_name not in policy.allowed_actions:
+                self.task_ledger.update(task_id, "failed", "policy", {
+                    "action": action_name, "mutation_performed": False,
+                    "error": "action_not_allowed_by_project_policy",
+                })
+                raise PermissionError(f"action not allowed for project: {action_name}")
+
+            registered = {row["name"]: row for row in self.actions.list(project)}
+            if action_name and action_name not in registered:
+                self.task_ledger.update(task_id, "failed", "action_registry", {
+                    "action": action_name, "mutation_performed": False,
+                    "error": "action_not_registered_at_runtime",
+                })
+                raise KeyError(f"{project}:{action_name}")
+
             self.task_ledger.update(task_id, "running", "investigate")
             investigation = self.investigate(goal, project, components or [])
 
@@ -159,21 +182,6 @@ class Orchestrator:
                     "mutation_performed": False,
                     "reason": "registered action must be selected before mutation",
                 })
-
-            if action_name not in policy.allowed_actions:
-                self.task_ledger.update(task_id, "failed", "policy", {
-                    "action": action_name, "mutation_performed": False,
-                    "error": "action_not_allowed_by_project_policy",
-                })
-                raise PermissionError(f"action not allowed for project: {action_name}")
-
-            registered = {row["name"]: row for row in self.actions.list(project)}
-            if action_name not in registered:
-                self.task_ledger.update(task_id, "failed", "action_registry", {
-                    "action": action_name, "mutation_performed": False,
-                    "error": "action_not_registered_at_runtime",
-                })
-                raise KeyError(f"{project}:{action_name}")
 
             if registered[action_name].get("mutating"):
                 if not settings.allow_actions:
@@ -833,6 +841,9 @@ Evidence:
 
     def neural_state(self):
         return self.neural.snapshot()
+
+    def agi_status(self):
+        return self.agi.status()
 
     @staticmethod
     def _looks_like_work_request(message):

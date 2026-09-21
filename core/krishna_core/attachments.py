@@ -8,12 +8,19 @@ class AttachmentStore:
     def __init__(self,state_dir):
         self.root=Path(state_dir).resolve()/"attachments"; self.root.mkdir(parents=True,exist_ok=True)
 
+    def _folder(self, chat_id):
+        try:
+            identity = str(uuid.UUID(str(chat_id)))
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError("invalid chat_id")
+        return self.root / identity
+
     def save(self,chat_id,name,data_b64,content_type="application/octet-stream"):
         name=_SAFE.sub("_",str(name or "file"))[:160]
         raw=base64.b64decode(str(data_b64 or ""),validate=True)
         if not raw: raise ValueError("attachment is empty")
         if len(raw)>25*1024*1024: raise ValueError("attachment exceeds 25 MB")
-        aid=str(uuid.uuid4()); folder=self.root/str(chat_id)
+        aid=str(uuid.uuid4()); folder=self._folder(chat_id)
         folder.mkdir(parents=True,exist_ok=True)
         path=folder/(aid+"-"+name); path.write_bytes(raw)
         meta={"attachment_id":aid,"chat_id":str(chat_id),"name":name,"content_type":str(content_type)[:120],"bytes":len(raw),"sha256":hashlib.sha256(raw).hexdigest(),"created_at":time.time(),"path":str(path)}
@@ -21,7 +28,7 @@ class AttachmentStore:
         return {k:v for k,v in meta.items() if k!="path"}
 
     def list(self,chat_id):
-        folder=self.root/str(chat_id)
+        folder=self._folder(chat_id)
         if not folder.is_dir():return []
         out=[]
         for p in folder.glob("*.json"):

@@ -49,4 +49,8 @@ class CommitmentLedger:
         cutoff=time.time()-max(0,int(older_than_seconds))
         return [x for x in self.list(project,True,500) if x["updated_at"]<=cutoff]
     def close(self):
-        with self.lock:self.db.commit();self.db.close()
+        with self.lock:
+            if self.db is not None:
+                self.db.commit()
+                self.db.close()
+                self.db = None

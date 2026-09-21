@@ -11,10 +11,10 @@ class WebValidationTests(unittest.TestCase):
             "/api/browser/inspect", "/api/research/github", "/api/plugins", "/api/tasks",
         ):
             self.assertIn(endpoint, text)
-        self.assertIn("Run full web check", text)
+        self.assertIn("Run API checks", text)
         # KRISHNA is the sole public identity. Internal work engines are
         # intentionally selected by Core rather than exposed as manual modes.
-        self.assertIn("Talk to KRISHNA", text)
+        self.assertIn("Command KRISHNA through Sudarshan", text)
         self.assertIn("Conversation", text)
         self.assertIn("Work progress", text)
         self.assertNotIn("Karma · Work", text)

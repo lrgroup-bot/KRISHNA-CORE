@@ -1,61 +1,24 @@
 name: Test KRISHNA Core
 on:
   push:
-    paths:
-      - 'core/**'
-      - '.github/workflows/test-core.yml'
+    paths: ['core/**', 'tests/**', 'scripts/**', '.github/workflows/test-core.yml']
   pull_request:
-    paths:
-      - 'core/**'
-      - '.github/workflows/test-core.yml'
-
+    paths: ['core/**', 'tests/**', 'scripts/**', '.github/workflows/test-core.yml']
 jobs:
   core-tests:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: core
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - name: Compile KRISHNA Core
-        run: python -m compileall -q krishna_core
-      - name: Run capability tests
+          python-version: '3.13'
+      - name: Compile Core
+        run: python -m compileall -q core/krishna_core
+      - name: Unit and isolated HTTP integration tests
+        working-directory: core
         run: python -m unittest discover -s tests -v
-      - name: Smoke test Mobile to Core connection
-        shell: bash
-        run: |
-          set -euo pipefail
-          KRISHNA_HOST=127.0.0.1 KRISHNA_PORT=18766 python -m krishna_core.server >/tmp/krishna-core.log 2>&1 &
-          pid=$!
-          trap 'kill "$pid" 2>/dev/null || true' EXIT
-          for i in {1..20}; do
-            if curl -fsS http://127.0.0.1:18766/api/status >/dev/null; then break; fi
-            sleep 0.5
-          done
-          curl -fsS -H 'X-Krishna-Device: android-primary' http://127.0.0.1:18766/api/core/state >/tmp/mobile-state.json
-          curl -fsS http://127.0.0.1:18766/api/mobile/connection >/tmp/mobile-connection.json
-          curl -fsS http://127.0.0.1:18766/api/avatar360 >/tmp/krishna-avatar.webp
-          curl -fsS -H 'Content-Type: application/json' -H 'X-Krishna-Device: android-primary' \
-            -d '{"action":"status","project":"general","payload":{}}' \
-            http://127.0.0.1:18766/api/mobile/control >/tmp/mobile-control.json
-          test -s /tmp/krishna-avatar.webp
-          python - <<'PY'
-          data=open('/tmp/krishna-avatar.webp','rb').read(16)
-          assert data[:4] == b'RIFF' and data[8:12] == b'WEBP', data
-          print('KRISHNA 360 avatar endpoint verified')
-          PY
-          python - <<'PY'
-          import json
-          state=json.load(open('/tmp/mobile-connection.json', encoding='utf-8'))
-          assert state['connected'] is True, state
-          assert state['device'] == 'android-primary', state
-          assert state['last_path'] == '/api/core/state', state
-          print('KRISHNA Mobile backend connection verified:', state)
-          control=json.load(open('/tmp/mobile-control.json', encoding='utf-8'))
-          assert control['core'] == 'ONLINE', control
-          assert control['ok'] is True, control
-          print('KRISHNA Mobile -> PC control verified:', control['core'])
-          PY
+      - name: Repository contracts
+        run: python -m unittest discover -s tests -v

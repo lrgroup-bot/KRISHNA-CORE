@@ -3,7 +3,7 @@ import json, time, threading, base64, sys
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-from .config import settings
+from .config import settings, RUNTIME_ROOT
 from .orchestrator import Orchestrator
 from .watcher import Watcher
 from .pc_observer import PCObserver
@@ -70,7 +70,7 @@ else:
     DASHBOARD = _CORE_ROOT / "dashboard.html"
     WEB_VALIDATION = _CORE_ROOT / "web_validation.html"
     AVATAR_B64 = _REPO_ROOT / "avatar" / "krishna_child_360.webp.b64"
-    AVATAR_GLB = _CORE_ROOT.parent / "dashboard" / "assets" / "avatar" / "krishna.glb"
+    AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
 
 
 def avatar_360_bytes():
@@ -124,6 +124,46 @@ pc_observer.start()
 
 
 class Handler(BaseHTTPRequestHandler):
+    def _authorize(self):
+        local = self.client_address[0] in ("127.0.0.1", "::1")
+        host = urlparse("//" + self.headers.get("Host", "")).hostname
+        if local and host not in ("localhost", "127.0.0.1", "::1", settings.host):
+            self._json(403, {"error": "unrecognized local Host"})
+            return False
+        origin = self.headers.get("Origin")
+        if origin:
+            parsed = urlparse(origin)
+            if parsed.scheme not in ("http", "https") or parsed.netloc != self.headers.get("Host"):
+                self._json(403, {"error": "cross-origin control is not allowed"})
+                return False
+        device, token = self._device_auth()
+        paired = bool(device and _pairing.verify(device, token))
+        public = urlparse(self.path).path in ("/health", "/api/mobile/pair/request")
+        if not local and not paired and not public:
+            self._json(401, {"error": "pairing required"})
+            return False
+        if paired:
+            touch_mobile(device, self.path)
+        return True
+
+    def _dispatch(self, method):
+        if not self._authorize():
+            return
+        try:
+            return method()
+        except (ValueError, TypeError) as exc:
+            return self._json(400, {"error": str(exc)})
+        except PermissionError as exc:
+            return self._json(403, {"error": str(exc)})
+        except KeyError as exc:
+            return self._json(404, {"error": str(exc)})
+
+    def do_GET(self):
+        return self._dispatch(self._get)
+
+    def do_POST(self):
+        return self._dispatch(self._post)
+
     def _json(self, code, obj):
         b = json.dumps(obj).encode()
         self.send_response(code)
@@ -152,7 +192,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def _body(self):
         n = int(self.headers.get("Content-Length", "0"))
-        return json.loads(self.rfile.read(n) or b"{}")
+        if n < 0 or n > 36 * 1024 * 1024:
+            raise ValueError("request body exceeds 36 MB")
+        body = json.loads(self.rfile.read(n) or b"{}")
+        if not isinstance(body, dict):
+            raise ValueError("request body must be a JSON object")
+        return body
 
     def _device_auth(self):
         device = self.headers.get("X-Krishna-Device", "").strip()
@@ -160,8 +205,7 @@ class Handler(BaseHTTPRequestHandler):
         token = auth[7:].strip() if auth.startswith("Device ") else ""
         return device, token
 
-    def do_GET(self):
-        touch_mobile(self.headers.get("X-Krishna-Device"), self.path)
+    def _get(self):
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
@@ -218,6 +262,8 @@ class Handler(BaseHTTPRequestHandler):
             verified=str((query.get("verified") or ["0"])[0]).lower() in {"1","true","yes"}
             try:return self._json(200,{"agent":"Gyan-Bhandar","project":project,"learnings":orch.gyan_recall(project,topic,100,verified)})
             except KeyError:return self._json(404,{"error":"project not registered"})
+        if path == "/api/agi/status":
+            return self._json(200, orch.agi_status())
         if path in ("/health", "/api/status"):
             return self._json(200, {
                 "ok": True,
@@ -227,6 +273,7 @@ class Handler(BaseHTTPRequestHandler):
                 "pc_observer": pc_observer.snapshot(),
                 "mobile_connection": mobile_link_state(),
                 "uptime_seconds": int(time.time() - started),
+                "agi": orch.agi_status(),
             })
         if path == "/api/dashboard":
             return self._json(200, {
@@ -288,6 +335,15 @@ class Handler(BaseHTTPRequestHandler):
                     "on_demand_skill_runtime",
                     "untrusted_content_boundary",
                     "specialist_permission_manifests",
+                    "agi_policy_kernel",
+                    "independent_critic_verifier",
+                    "unified_memory_fabric",
+                    "skill_compiler",
+                    "benchmark_lab",
+                    "native_automation_bus",
+                    "isolated_worker_fabric",
+                    "creator_provider_fabric",
+                    "revenue_engine_adapters",
                 ],
                 "mutating_actions_enabled": settings.allow_actions,
             })
@@ -347,8 +403,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"incidents": orch.memory.incidents(project, 50)})
         return self._json(404, {"error": "not found"})
 
-    def do_POST(self):
-        touch_mobile(self.headers.get("X-Krishna-Device"), self.path)
+    def _post(self):
         try:
             data = self._body()
         except Exception as exc:
@@ -369,8 +424,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"error": str(exc)})
 
         if self.path in ("/api/core/event", "/api/neural/event"):
-            if str(data.get("source", "")).lower() == "mobile":
-                touch_mobile(self.headers.get("X-Krishna-Device") or "android-primary", self.path)
             source = str(data.get("source", "unknown")).strip() or "unknown"
             kind = str(data.get("kind", "event")).strip() or "event"
             detail = str(data.get("detail", ""))
@@ -382,7 +435,6 @@ class Handler(BaseHTTPRequestHandler):
             ))
 
         if self.path in ("/api/mobile-log",):
-            touch_mobile(self.headers.get("X-Krishna-Device") or "android-primary", self.path)
             event = str(data.get("event", ""))
             return self._json(200, orch.handle_event(
                 "mobile", "mobile_log", event, severity="info", project="system",
@@ -457,6 +509,15 @@ class Handler(BaseHTTPRequestHandler):
                             "mobile_pc_remote_control",
                             "on_demand_skill_runtime","untrusted_content_boundary",
                             "specialist_permission_manifests",
+                    "agi_policy_kernel",
+                    "independent_critic_verifier",
+                    "unified_memory_fabric",
+                    "skill_compiler",
+                    "benchmark_lab",
+                    "native_automation_bus",
+                    "isolated_worker_fabric",
+                    "creator_provider_fabric",
+                    "revenue_engine_adapters",
                         ]
                     })
             except KeyError:
@@ -467,9 +528,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(500, {"error": str(exc)})
 
         if self.path in ("/v1/chat", "/api/core/chat"):
-            if str(data.get("source", "")).lower() == "mobile":
-                touch_mobile(self.headers.get("X-Krishna-Device") or "android-primary", self.path)
             msg = data.get("message", "")
+            if not isinstance(msg, str) or not msg.strip():
+                return self._json(400, {"error": "message must be non-empty text"})
             # KRISHNA is the only public identity/mode. Legacy internal mode values are
             # accepted for compatibility but are not required by clients.
             requested_mode = str(data.get("mode", "chat")).strip().lower()
@@ -493,7 +554,7 @@ class Handler(BaseHTTPRequestHandler):
                 activity["current_activity"] = "Idle"
                 orch.handle_event(
                     data.get("source", "pc"),
-                    "task_completed",
+                    "response_generated",
                     "KRISHNA response generated and returned",
                     severity="notice",
                     project=data.get("project", "general"),
@@ -502,7 +563,7 @@ class Handler(BaseHTTPRequestHandler):
                 if str(data.get("source", "")).lower() == "mobile":
                     device, token = self._device_auth()
                     if _pairing.verify(device, token):
-                        _sessions.publish(device, "task.completed", {
+                        _sessions.publish(device, "response.generated", {
                             "project": data.get("project", "general"),
                             "chat_id": out.get("chat_id") or data.get("chat_id"),
                             "task_id": out.get("task_id"),

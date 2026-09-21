@@ -321,8 +321,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 self.assertGreater(task["detail"]["evidence_count"], 0)
                 self.assertTrue(out["investigation"]["evidence"])
             finally:
-                orch.task_ledger.close()
-                orch.memory.close()
+                orch.close()
 
     def test_managed_unknown_named_project_is_not_inspected(self):
         with tempfile.TemporaryDirectory() as td:
@@ -331,8 +330,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 with self.assertRaises(KeyError):
                     orch.handle_managed_request("Check project health.", "not-registered")
             finally:
-                orch.task_ledger.close()
-                orch.memory.close()
+                orch.close()
 
 
     def test_task_ledger_history_includes_completed_tasks(self):
@@ -370,8 +368,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 self.assertIn('"initialized"', captured["prompt"])
                 self.assertIn('"not configured"', captured["prompt"])
             finally:
-                orch.task_ledger.close()
-                orch.memory.close()
+                orch.close()
 
 
 
@@ -389,10 +386,8 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 self.assertIsNone(second.projects.get("isolated-demo"))
                 self.assertEqual([], second.memory.projects())
             finally:
-                first.task_ledger.close()
-                first.memory.close()
-                second.task_ledger.close()
-                second.memory.close()
+                first.close()
+                second.close()
 
 
     def test_managed_goal_requires_registered_action_before_mutation(self):
@@ -412,8 +407,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                     orch.run_managed_goal("demo", "repair app", action_name="patch", approved=True)
                 self.assertEqual("live", live.read_text(encoding="utf-8"))
             finally:
-                orch.task_ledger.close()
-                orch.memory.close()
+                orch.close()
 
     def test_managed_goal_verified_shadow_does_not_touch_live_project(self):
         with tempfile.TemporaryDirectory() as td:
@@ -445,8 +439,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 self.assertEqual("fixed",(candidate/"app.txt").read_text(encoding="utf-8"))
                 self.assertEqual("broken", live.read_text(encoding="utf-8"))
             finally:
-                orch.task_ledger.close()
-                orch.memory.close()
+                orch.close()
 
 
 
@@ -465,7 +458,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 self.assertTrue(Path(out["candidate_root"]).is_dir())
                 self.assertEqual("old",(root/"a.txt").read_text(encoding="utf-8"))
             finally:
-                orch.task_ledger.close(); orch.memory.close()
+                orch.close()
 
 
 
@@ -479,7 +472,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 with self.assertRaises(PermissionError):
                     orch.prepare_promotion("demo",outside)
             finally:
-                orch.task_ledger.close(); orch.memory.close()
+                orch.close()
 
 
     def test_promotion_manager_promotes_verified_candidate_with_backup(self):
@@ -533,7 +526,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 self.assertEqual(2, len(orch.actions.list("probe")))
                 self.assertTrue(all(x["mutating"] for x in orch.actions.list("probe")))
             finally:
-                orch.task_ledger.close(); orch.memory.close()
+                orch.close()
 
     def test_e2e_harness_proves_shadow_promotion_backup_and_rollback(self):
         with tempfile.TemporaryDirectory() as td:
@@ -585,7 +578,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 self.assertEqual(before, original.read_text(encoding="utf-8"))
                 self.assertFalse((root / ".krishna-e2e-force-post-fail").exists())
             finally:
-                orch.task_ledger.close(); orch.memory.close()
+                orch.close()
 
     def test_server_exposes_localhost_only_e2e_registration(self):
         server = (Path(__file__).resolve().parents[1] / "krishna_core" / "server.py").read_text(encoding="utf-8")
@@ -596,8 +589,8 @@ class KrishnaCapabilityTests(unittest.TestCase):
         ui=(Path(__file__).resolve().parents[1]/"web_validation.html").read_text(encoding="utf-8")
         self.assertNotIn("Karma · Work",ui)
         self.assertNotIn("Vishwakarma · Code",ui)
-        self.assertNotIn(">Sudarshan</span>",ui)
-        self.assertIn("Talk to KRISHNA",ui)
+        self.assertIn(">Sudarshan</span>",ui)
+        self.assertIn("Command KRISHNA through Sudarshan",ui)
         self.assertIn("registerProject()",ui)
 
     def test_server_routes_work_automatically_under_krishna_identity(self):
@@ -634,7 +627,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 self.assertLessEqual(out["hypotheses"][0]["confidence"], 0.70)
                 self.assertEqual("untested", out["hypotheses"][0]["status"])
             finally:
-                orch.task_ledger.close(); orch.memory.close()
+                orch.close()
 
     def test_ai_hypotheses_caps_confidence_and_marks_claim_possible(self):
         with tempfile.TemporaryDirectory() as td:
@@ -652,7 +645,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 self.assertTrue(hypothesis["statement"].startswith("possible: "))
                 self.assertEqual("untested", hypothesis["status"])
             finally:
-                orch.task_ledger.close(); orch.memory.close()
+                orch.close()
 
     def test_managed_health_report_fails_closed_on_specialist_fact_leakage(self):
         with tempfile.TemporaryDirectory() as td:
@@ -677,7 +670,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 task = orch.task_ledger.get(out["managed_task_id"])
                 self.assertFalse(task["detail"]["mutation_performed"])
             finally:
-                orch.task_ledger.close(); orch.memory.close()
+                orch.close()
 
     def test_generic_health_routing_excludes_service_role_specialists(self):
         from krishna_core.specialist_library import SpecialistLibrary, Specialist
