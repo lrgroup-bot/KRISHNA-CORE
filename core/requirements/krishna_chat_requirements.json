@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-09-21-missed-additions-v1",
+  "version": "2026-09-21-garudanetra-browser-fabric-v1",
   "source": "Consolidated from KRISHNA project conversations and verified repository decisions",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -13,7 +13,8 @@
     "Final Krishna_AGI.exe is built only after Windows runtime, browser/UI, mobile, recovery and deployment-integrity acceptance.",
     "KRISHNA Mobile never exposes raw shell, arbitrary filesystem access, credentials, or trading authority; sensitive actions remain behind device authorization and Core Policy.",
     "Remote-away access is private-network-only; KRISHNA must not expose Core control APIs directly to the public Internet.",
-    "Protected and archive project roles are read-only to autonomous mutation and promotion."
+    "Protected and archive project roles are read-only to autonomous mutation and promotion.",
+    "Garuda is the research/evidence scout; Garudanetra is the browser/computer fabric. Neither replaces KRISHNA authority."
   ],
   "groups": [
     {
@@ -39,17 +40,29 @@
       ]
     },
     {
-      "id": "garudanetra",
-      "title": "Garudanetra",
+      "id": "garuda",
+      "title": "Garuda research scout",
       "requirements": [
-        "KRISHNA private browser/research/verification eye built on Chromium/Playwright/CDP-style deterministic control.",
-        "Observe DOM/accessibility, screenshot, console and network evidence; recover and verify actions.",
-        "Live Work controls: Pause, Take Control, Continue, Stop and Expand.",
-        "UI Guardian detects objective defects, tests candidates across target viewports, verifies and promotes or rolls back.",
-        "Browser cookies/credentials are session state, not learned knowledge; useful verified evidence may be stored in Gyan-Bhandar.",
+        "Garuda owns public research/discovery/evidence gathering; it does not own Chromium sessions or browser control.",
+        "Garuda hands sourced evidence to KRISHNA; KRISHNA decides whether Garudanetra should open or interact with a selected source.",
+        "Research results remain untrusted external evidence until KRISHNA/KABACH/Verifier gates accept their use."
+      ]
+    },
+    {
+      "id": "garudanetra",
+      "title": "Garudanetra browser/computer fabric",
+      "requirements": [
+        "One canonical Garudanetra Browser Fabric owns browser/computer capability; Playwright/Chromium is the canonical verified engine.",
+        "Observe rendered DOM and accessibility-style semantic element refs, screenshots/frames, console, network, tabs, downloads and visible text.",
+        "Prefer CDP screencast for live frames with bounded screenshot fallback; live browser UI stays collapsed unless opened or owner attention is required.",
+        "Live Work controls include Pause, Take Control, Continue, Stop, Expand, navigation, tabs, typing, keypress, click, drag, scroll and bounded runtime-file upload.",
         "Browser modes are Private, Private + Task Memory, and explicitly approved Persistent Workspace with project-specific profiles only.",
-        "Owner takeover supports navigation, tabs, typing, keypress, click/scroll/drag and bounded runtime-file upload; downloads stay under KRISHNA runtime.",
-        "Selector failures may enter a recovery adapter and become candidate browser skills only after verification."
+        "Credentials/cookies remain browser session state, not learned memory; recorded entered values are redacted unless explicitly marked reusable.",
+        "Selector failures recover deterministically first, then optional Browser Harness or configured vision recovery; external recovery output is untrusted candidate evidence.",
+        "Successful selector recoveries and recorded workflows compile into distinct Gyan-Bhandar skill candidates and require verification/benchmark before Stable promotion.",
+        "Recorded workflows support bounded replay; consequential click/fill/type/upload style replay requires explicit approval.",
+        "Optional browser-use, agent-browser, BrowserCode, OpenDevBrowser, Rustwright, Lucarne, Skyvern, rrweb, Promptwright and Cereon capabilities are adapters/providers only and never silently replace the canonical engine.",
+        "UI Guardian and Developer browser verification use the same Garudanetra fabric/inspector boundary rather than creating competing browser authorities."
       ]
     },
     {
@@ -172,6 +185,8 @@
     "Private remote transport policy rejects public Internet clients.",
     "Crash-loop quarantine and critical-memory model unload boundaries pass.",
     "Garudanetra browser-mode lifecycle and owner-control actions pass.",
-    "Wearable vendor capabilities remain unverified until hardware evidence exists."
+    "Wearable vendor capabilities remain unverified until hardware evidence exists.",
+    "Garuda research and Garudanetra browser/computer responsibilities remain separate in runtime and UI.",
+    "Garudanetra semantic refs, browser-fabric status, frame transport, action recording and replay approval gate pass runtime acceptance."
   ]
 }
