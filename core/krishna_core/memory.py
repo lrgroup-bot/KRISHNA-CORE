@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_chats_project_updated ON chats(project, active, updated_at);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_chat ON chat_messages(chat_id, id);
-CREATE INDEX IF NOT EXISTS idx_memory_project_kind ON memory(project, kind, active);\nCREATE TABLE IF NOT EXISTS learnings (\n id INTEGER PRIMARY KEY AUTOINCREMENT, project TEXT NOT NULL, topic TEXT NOT NULL, lesson TEXT NOT NULL, evidence TEXT NOT NULL DEFAULT '[]', confidence REAL NOT NULL DEFAULT 0, source TEXT NOT NULL DEFAULT 'sudarshan', status TEXT NOT NULL DEFAULT 'candidate', fingerprint TEXT NOT NULL, created_at REAL NOT NULL, updated_at REAL NOT NULL, UNIQUE(project,fingerprint));\nCREATE INDEX IF NOT EXISTS idx_learnings_project_status ON learnings(project,status,updated_at);
+CREATE INDEX IF NOT EXISTS idx_memory_project_kind ON memory(project, kind, active);\nCREATE TABLE IF NOT EXISTS learnings (\n id INTEGER PRIMARY KEY AUTOINCREMENT, project TEXT NOT NULL, topic TEXT NOT NULL, lesson TEXT NOT NULL, evidence TEXT NOT NULL DEFAULT '[]', confidence REAL NOT NULL DEFAULT 0, source TEXT NOT NULL DEFAULT 'sudarshan', status TEXT NOT NULL DEFAULT 'candidate', fingerprint TEXT NOT NULL, memory_kind TEXT NOT NULL DEFAULT 'semantic', provenance TEXT NOT NULL DEFAULT '{}', superseded_by TEXT, superseded_at REAL, created_at REAL NOT NULL, updated_at REAL NOT NULL, UNIQUE(project,fingerprint));\nCREATE INDEX IF NOT EXISTS idx_learnings_project_status ON learnings(project,status,updated_at);
 CREATE TABLE IF NOT EXISTS gyan_pending (
  approval_id TEXT PRIMARY KEY,
  project TEXT NOT NULL,
@@ -83,7 +83,22 @@ class MemoryStore:
         self.lock = RLock()
         with self.lock:
             self.db.executescript(SCHEMA)
+            self._ensure_schema_extensions()
             self.db.commit()
+
+    def _ensure_schema_extensions(self):
+        """Forward-only SQLite migrations for long-lived KRISHNA runtime databases."""
+        cols={row[1] for row in self.db.execute("PRAGMA table_info(learnings)").fetchall()}
+        additions=(
+            ("memory_kind","TEXT NOT NULL DEFAULT 'semantic'"),
+            ("provenance","TEXT NOT NULL DEFAULT '{}'"),
+            ("superseded_by","TEXT"),
+            ("superseded_at","REAL"),
+        )
+        for name,ddl in additions:
+            if name not in cols:
+                self.db.execute(f"ALTER TABLE learnings ADD COLUMN {name} {ddl}")
+        self.db.execute("CREATE INDEX IF NOT EXISTS idx_learnings_project_kind_status ON learnings(project,memory_kind,status,updated_at)")
 
     @staticmethod
     def _pack_gyan(value):
@@ -389,32 +404,76 @@ class MemoryStore:
                 for r in cur.fetchall()
             ]
 
-    def learn(self, project, topic, lesson, evidence=None, confidence=0.0, source="sudarshan", verified=False):
+    def learn(self, project, topic, lesson, evidence=None, confidence=0.0, source="sudarshan",
+              verified=False, memory_kind="semantic", provenance=None, supersedes=None):
         import hashlib
         project=str(project or "KRISHNA").strip(); topic=str(topic or "").strip()[:240]; lesson=str(lesson or "").strip()
+        memory_kind=str(memory_kind or "semantic").strip().lower()
+        if memory_kind not in {"working","episodic","semantic","graph","skill","evidence"}:
+            raise ValueError("invalid memory_kind")
         if not topic or not lesson: raise ValueError("topic and lesson are required")
         fp=hashlib.sha256((topic.lower()+"|"+lesson.lower()).encode("utf-8","ignore")).hexdigest()
         now=time.time(); status="verified" if verified else "candidate"; confidence=max(0.0,min(float(confidence),1.0))
+        provenance_json=json.dumps(provenance or {},ensure_ascii=False,separators=(",",":"))
         with self.lock:
-            self.db.execute("""INSERT INTO learnings(project,topic,lesson,evidence,confidence,source,status,fingerprint,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(project,fingerprint) DO UPDATE SET evidence=excluded.evidence,confidence=MAX(learnings.confidence,excluded.confidence),source=excluded.source,status=CASE WHEN learnings.status='verified' THEN 'verified' ELSE excluded.status END,updated_at=excluded.updated_at""",
-                (project,topic,lesson,json.dumps(evidence or []),confidence,str(source or "sudarshan"),status,fp,now,now))
+            if supersedes:
+                prior=self.db.execute("SELECT status FROM learnings WHERE project=? AND fingerprint=?",(project,str(supersedes))).fetchone()
+                if not prior: raise KeyError(str(supersedes))
+                self.db.execute("UPDATE learnings SET status='superseded',superseded_by=?,superseded_at=?,updated_at=? WHERE project=? AND fingerprint=?",
+                    (fp,now,now,project,str(supersedes)))
+            self.db.execute("""INSERT INTO learnings(project,topic,lesson,evidence,confidence,source,status,fingerprint,memory_kind,provenance,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(project,fingerprint) DO UPDATE SET
+                evidence=excluded.evidence,confidence=MAX(learnings.confidence,excluded.confidence),source=excluded.source,
+                status=CASE WHEN learnings.status='verified' THEN 'verified' WHEN learnings.status='superseded' THEN 'superseded' ELSE excluded.status END,
+                memory_kind=excluded.memory_kind,provenance=excluded.provenance,updated_at=excluded.updated_at""",
+                (project,topic,lesson,self._pack_gyan(evidence or []),confidence,str(source or "sudarshan"),status,fp,memory_kind,provenance_json,now,now))
             self.db.commit()
-        return {"project":project,"topic":topic,"lesson":lesson,"confidence":confidence,"source":source,"status":status,"fingerprint":fp}
+        return {"project":project,"topic":topic,"lesson":lesson,"confidence":confidence,"source":source,"status":status,
+                "fingerprint":fp,"memory_kind":memory_kind,"provenance":provenance or {},"supersedes":supersedes}
 
-    def learnings(self, project, limit=100, verified_only=False):
+    def learnings(self, project, limit=100, verified_only=False, memory_kind=None, include_superseded=False):
         with self.lock:
-            sql="SELECT topic,lesson,evidence,confidence,source,status,fingerprint,created_at,updated_at FROM learnings WHERE project=?"; args=[project]
+            sql="SELECT topic,lesson,evidence,confidence,source,status,fingerprint,memory_kind,provenance,superseded_by,superseded_at,created_at,updated_at FROM learnings WHERE project=?"
+            args=[project]
             if verified_only: sql+=" AND status='verified'"
+            elif not include_superseded: sql+=" AND status!='superseded'"
+            if memory_kind:
+                sql+=" AND memory_kind=?";args.append(str(memory_kind))
             sql+=" ORDER BY updated_at DESC LIMIT ?"; args.append(int(limit))
             rows=self.db.execute(sql,tuple(args)).fetchall()
-        return [{"topic":r[0],"lesson":r[1],"evidence":json.loads(r[2]),"confidence":r[3],"source":r[4],"status":r[5],"fingerprint":r[6],"created_at":r[7],"updated_at":r[8]} for r in rows]
+        return [{"topic":r[0],"lesson":r[1],"evidence":self._unpack_gyan(r[2]),"confidence":r[3],"source":r[4],
+                 "status":r[5],"fingerprint":r[6],"memory_kind":r[7],"provenance":json.loads(r[8] or "{}"),
+                 "superseded_by":r[9],"superseded_at":r[10],"created_at":r[11],"updated_at":r[12]} for r in rows]
 
     def verify_learning(self, project, fingerprint):
         with self.lock:
-            cur=self.db.execute("UPDATE learnings SET status='verified',updated_at=? WHERE project=? AND fingerprint=?",(time.time(),project,fingerprint)); self.db.commit()
+            cur=self.db.execute("UPDATE learnings SET status='verified',updated_at=? WHERE project=? AND fingerprint=? AND status!='superseded'",
+                (time.time(),project,fingerprint)); self.db.commit()
         if not cur.rowcount: raise KeyError(fingerprint)
         return True
+
+    def supersede_learning(self, project, fingerprint, replacement_topic, replacement_lesson, evidence=None,
+                           confidence=0.0, source="krishna", verified=False, memory_kind="semantic", provenance=None):
+        return self.learn(project,replacement_topic,replacement_lesson,evidence,confidence,source,verified,
+                          memory_kind,provenance,supersedes=fingerprint)
+
+    def learning_inventory(self, project):
+        kinds=("working","episodic","semantic","graph","skill","evidence")
+        with self.lock:
+            rows=self.db.execute("SELECT memory_kind,status,COUNT(*) FROM learnings WHERE project=? GROUP BY memory_kind,status",(project,)).fetchall()
+            transient=self.db.execute("SELECT kind,COUNT(*) FROM memory WHERE project=? AND active=1 GROUP BY kind",(project,)).fetchall()
+        out={k:{"candidate":0,"verified":0,"superseded":0,"active_memory":0} for k in kinds}
+        for kind,status,count in rows:
+            if kind not in out: out[kind]={"candidate":0,"verified":0,"superseded":0,"active_memory":0}
+            if status in out[kind]: out[kind][status]=int(count)
+        for kind,count in transient:
+            if kind in out: out[kind]["active_memory"]=int(count)
+        return {"project":project,"kinds":out,"totals":{
+            "active_learnings":sum(v["candidate"]+v["verified"] for v in out.values()),
+            "verified":sum(v["verified"] for v in out.values()),
+            "superseded":sum(v["superseded"] for v in out.values()),
+            "active_memory":sum(v["active_memory"] for v in out.values()),
+        }}
 
     def close(self):
         with self.lock:
