@@ -998,6 +998,7 @@ setTimeout(()=>{const g=$('garudaGoal')||document.querySelector('#garuda textare
  <button class="primary" style="padding:10px 16px;margin-top:10px" onclick="createNaradWorkflow()">CREATE DRAFT</button>
 </div>
 <div id="naradWorkflows" style="margin-top:14px"></div>
+<div class="card" style="margin-top:14px"><div class="k">PROVIDER MESSAGE / DATA WORKFLOW</div><p class="workspaceMeta">Creates a Draft provider workflow. External side effects remain blocked until verified, Stable and explicitly approved at run time.</p><div class="addBox" style="margin-top:8px"><input id="naradProviderName" class="input" placeholder="Workflow name"><select id="naradProvider" class="select" onchange="naradProviderChanged()"><option value="telegram">Telegram</option><option value="slack">Slack</option><option value="discord">Discord</option><option value="whatsapp">WhatsApp</option><option value="gmail">Gmail</option><option value="google_drive">Google Drive</option><option value="google_sheets">Google Sheets</option><option value="google_calendar">Google Calendar</option></select><input id="naradProviderOp" class="input" value="send_message" placeholder="Operation"><select id="naradProviderCred" class="select"><option value="">No credential reference</option></select></div><textarea id="naradProviderPayload" class="input" style="width:100%;min-height:90px;margin-top:8px" placeholder='JSON payload, e.g. {"channel":"#ops","text":"KRISHNA completed work"}'></textarea><button class="primary" style="margin-top:8px" onclick="createNaradProviderWorkflow()">CREATE PROVIDER DRAFT</button></div>
 <div class="grid" style="margin-top:14px">
  <div class="card"><div class="k">CONNECTION REFERENCES</div><div style="display:grid;gap:7px;margin-top:9px"><input id="naradConnName" class="input" placeholder="Connection name"><input id="naradConnProvider" class="input" placeholder="Provider, e.g. n8n"><input id="naradConnEnv" class="input" placeholder="Environment variable name"><button class="ghost" onclick="registerNaradConnection()">ADD ENV REFERENCE</button><input id="naradConnSecret" class="input" type="password" autocomplete="off" placeholder="Secret — encrypted locally with Windows DPAPI"><button class="ghost" onclick="registerNaradSecret()">STORE ENCRYPTED SECRET</button></div><div id="naradConnections" style="margin-top:10px"></div></div>
  <div class="card"><div class="k">DEAD LETTER QUEUE</div><div id="naradDeadLetters" style="margin-top:10px"></div></div>
@@ -1452,7 +1453,7 @@ async function loadNarad(){
   $('naradConnectionCount').textContent=cx.count||0;$('naradDeadCount').textContent=dl.count||0;
   $('naradScheduler').textContent='Scheduler '+(sch.running?'RUNNING':'STOPPED')+' · '+sch.poll_seconds+'s poll';
   const tr=s.triggers||{};$('naradTriggers').textContent=['manual','event','schedule','webhook'].map(k=>k+' '+(tr[k]||0)).join(' · ');
-  renderNaradConnections(cx.connections||[]);renderNaradDeadLetters(dl.dead_letters||[]);
+  renderNaradConnections(cx.connections||[]);renderNaradDeadLetters(dl.dead_letters||[]);populateNaradCredentialSelect(cx.connections||[]);
   const credSel=$('naradProviderCredential');if(credSel){credSel.innerHTML='<option value="">No credential reference</option>';(cx.connections||[]).forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=x.name+' · '+x.provider+(x.available?'':' · unavailable');credSel.appendChild(o)})}
   const box=$('naradWorkflows');box.innerHTML='';
   (w.workflows||[]).forEach(x=>{
@@ -1463,7 +1464,8 @@ async function loadNarad(){
    const trigger=x.trigger||{};e.querySelector('p').textContent=(x.steps||[]).length+' steps · '+String(trigger.type||'manual').toUpperCase()+(trigger.topic?' · '+trigger.topic:'')+(trigger.every_seconds?' · every '+trigger.every_seconds+'s':'');
    const a=e.querySelector('.taskActions');
    if(x.state==='draft'||x.state==='candidate'){const sb=document.createElement('button');sb.textContent='Sandbox';sb.onclick=()=>promoteNarad(x.id,'sandbox',false);a.appendChild(sb)}
-   if(['sandbox','verified','stable'].includes(x.state)){const run=document.createElement('button');run.textContent='Run';run.onclick=()=>runNarad(x.id);a.appendChild(run)}
+   const external=(x.steps||[]).some(s=>['provider_send','adapter_webhook'].includes(s.action));
+   if(['sandbox','verified','stable'].includes(x.state)){const run=document.createElement('button');run.textContent=external?'Run (approval required)':'Run';run.onclick=()=>runNarad(x.id,external);a.appendChild(run)}
    if(x.state==='sandbox'){const v=document.createElement('button');v.className='approve';v.textContent='Mark verified';v.onclick=()=>promoteNarad(x.id,'verified',true);a.appendChild(v)}
    if(x.state==='verified'){const st=document.createElement('button');st.className='approve';st.textContent='Promote stable';st.onclick=()=>promoteNarad(x.id,'stable',true);a.appendChild(st)}
    if(x.state==='stable'&&trigger.type==='webhook'){const wh=document.createElement('button');wh.textContent='Provision webhook token';wh.onclick=()=>provisionNaradWebhook(x.id);a.appendChild(wh)}
@@ -1506,6 +1508,23 @@ async function createNaradProviderWorkflow(){
    $('naradProviderWorkflowName').value='';$('naradProviderOperation').value='';$('naradProviderPayload').value='';await loadNarad()
  }catch(e){log(e.message)}
 }
+function populateNaradCredentialSelect(rows){
+ const s=$('naradProviderCred');if(!s)return;const current=s.value;s.innerHTML='<option value="">No credential reference</option>';
+ rows.forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=x.name+' · '+x.provider+' · '+(x.available?'ready':'unavailable');s.appendChild(o)});
+ if([...s.options].some(o=>o.value===current))s.value=current;
+}
+function naradProviderChanged(){
+ const provider=$('naradProvider').value,op=$('naradProviderOp');
+ const defaults={telegram:'send_message',slack:'send_message',discord:'send_message',whatsapp:'send_message',gmail:'send_email',google_drive:'list_files',google_sheets:'append_values',google_calendar:'create_event'};
+ op.value=defaults[provider]||'send_message';
+}
+async function createNaradProviderWorkflow(){
+ const name=$('naradProviderName').value.trim(),provider=$('naradProvider').value,operation=$('naradProviderOp').value.trim(),credential_ref=$('naradProviderCred').value;
+ if(!name||!provider||!operation){log('Provider workflow name, provider and operation are required.');return}
+ let payload={};try{payload=JSON.parse($('naradProviderPayload').value||'{}')}catch(e){log('Provider payload must be valid JSON.');return}
+ const step={action:'provider_send',provider,operation,payload,mutating:true};if(credential_ref)step.credential_ref=credential_ref;
+ try{await req('/api/narad/workflows/create',{name,trigger:{type:'manual'},steps:[step],permissions:['send_external']});$('naradProviderName').value='';$('naradProviderPayload').value='';await loadNarad()}catch(e){log(e.message)}
+}
 async function createNaradWorkflow(){
  const name=$('naradName').value.trim(),topic=$('naradTopic').value.trim(),type=$('naradTriggerType').value,value=$('naradTriggerValue').value.trim();
  if(!name||!topic){log('Narad workflow name and safe event topic are required.');return}
@@ -1513,7 +1532,7 @@ async function createNaradWorkflow(){
  try{await req('/api/narad/workflows/create',{name,trigger,steps:[{action:'publish_event',topic,payload:{source:'narad-ui'}}],permissions:[]});$('naradName').value='';$('naradTopic').value='';$('naradTriggerValue').value='';await loadNarad()}catch(e){log(e.message)}
 }
 async function promoteNarad(id,state,verified){try{await req('/api/narad/workflows/promote',{workflow_id:id,state,verified});await loadNarad()}catch(e){log(e.message)}}
-async function runNarad(id){try{const d=await req('/api/narad/workflows/execute',{workflow_id:id,approved:false});log(d);await loadNarad()}catch(e){log(e.message);await loadNarad()}}
+async function runNarad(id,external=false){let approved=false;if(external){approved=await confirmAction('This workflow can send data or messages to an external provider. Run this verified workflow now?');if(!approved)return}try{const d=await req('/api/narad/workflows/execute',{workflow_id:id,approved});log(d);await loadNarad()}catch(e){log(e.message);await loadNarad()}}
 async function provisionNaradWebhook(id){
  try{const d=await req('/api/narad/webhooks/provision',{workflow_id:id});await askText('Webhook token is shown once. Copy and store securely:',location.origin+d.path);await loadNarad()}catch(e){log(e.message)}
 }
