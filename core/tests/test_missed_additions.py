@@ -47,6 +47,16 @@ class MissedAdditionsTests(unittest.TestCase):
         self.assertTrue(r.can("backup","edit",mutating=False))
         with self.assertRaises(PermissionError):r.assert_mutable("backup","edit")
 
+    def test_remote_paired_route_allowlist_is_conversation_only(self):
+        p=PrivateRemotePolicy("100.64.0.0/10")
+        for path in ("/api/core/chat","/api/chats/create","/api/attachments","/api/mobile/resume","/api/mobile/control"):
+            with self.subTest(path=path):
+                self.assertTrue(p.mobile_route_allowed(path))
+        for path in ("/api/projects/unregister","/api/plugins/add","/api/development/git/push",
+                     "/api/narad/connections/register-secret","/api/resilience/models/unload"):
+            with self.subTest(path=path):
+                self.assertFalse(p.mobile_route_allowed(path))
+
     def test_remote_policy_rejects_public_internet(self):
         p=PrivateRemotePolicy("100.64.0.0/10")
         self.assertTrue(p.allowed("127.0.0.1"))
