@@ -27,6 +27,11 @@ class ModelRouter:
 
     def __init__(self,gateway:ModelGatewayRegistry|None=None):
         self.gateway=gateway
+        self.control_plane=None
+
+    def bind_sudarshan(self,control_plane):
+        self.control_plane=control_plane
+        return {"authority":"Sudarshan Control Plane","bound":True}
 
     @staticmethod
     def _openai_local(base_url,model,prompt,timeout=90):
@@ -103,6 +108,18 @@ class ModelRouter:
         if provider in self.PROVIDERS:return self._chat_compatible(provider,prompt)
         raise KeyError(provider)
 
+    def _governed_ask(self,provider,prompt,privacy="approved_cloud",free_only=False):
+        if not self.control_plane:
+            return self.ask(provider,prompt)
+        receipt=self.control_plane.action(
+            "model.complete",
+            {"provider":provider,"prompt":prompt,"privacy":privacy,"free_only":bool(free_only)},
+            project="KRISHNA",source="system",actor="model-router",
+            permissions=("model.use",),
+        )
+        result=receipt.get("result") or {}
+        return str(result.get("text") or "")
+
     def coding_plan(self,privacy="approved_cloud",free_only=False):
         available=[x for x in self.available() if x["available"]]
         if privacy in {"local_only","restricted"}:
@@ -120,7 +137,7 @@ class ModelRouter:
         local_errors={}
         for name in ("ollama","gpt4all"):
             try:
-                out=self.ask(name,prompt)
+                out=self._governed_ask(name,prompt,privacy,free_only)
                 if str(out).strip():return {"provider":name,"text":out}
             except Exception as exc:
                 local_errors[name]=f"{type(exc).__name__}: {exc}"
@@ -129,7 +146,7 @@ class ModelRouter:
         if self.gateway:
             profiles=self.gateway.eligible(privacy,free_only=free_only)
             for row in profiles:
-                try:return {"provider":"gateway:"+row.id,"text":self.gateway.complete(row.id,prompt),"free_only":row.free_only}
+                try:return {"provider":"gateway:"+row.id,"text":self._governed_ask("gateway:"+row.id,prompt,privacy,free_only),"free_only":row.free_only}
                 except Exception:
                     # Deliberately continue only to another eligible profile of the same policy.
                     continue
@@ -137,7 +154,7 @@ class ModelRouter:
             raise RuntimeError("free-only routing requested; no approved free-only local/gateway provider succeeded")
         for row in self.available():
             if row["available"] and not row["local"] and row["provider"] in self.PROVIDERS:
-                try:return {"provider":row["provider"],"text":self.ask(row["provider"],prompt)}
+                try:return {"provider":row["provider"],"text":self._governed_ask(row["provider"],prompt,privacy,free_only)}
                 except Exception:continue
         raise RuntimeError("no usable model provider")
 
