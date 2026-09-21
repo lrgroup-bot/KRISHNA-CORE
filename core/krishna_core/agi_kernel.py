@@ -13,6 +13,7 @@ from .avatar_fabric import AvatarFabric
 from .revenue_engine import RevenueEngine
 from .integrations import CodebaseMemoryAdapter, GraftMemoryAdapter, WebhookAdapter
 from .narad import NaradRuntime
+from .narad.credentials import NaradCredentialVault
 from .specialist_registry import SpecialistRegistry
 from .context_governor import ContextGovernor
 from .media_adapter import OpenMontageAdapter
@@ -36,13 +37,19 @@ class AGIKernel:
         self.graft=GraftMemoryAdapter(profile="krishna")
         self.specialists=SpecialistRegistry()
         self.context=ContextGovernor()
-        self.narad=NaradRuntime(self.policy,self.bus,{"n8n":WebhookAdapter(),"activepieces":WebhookAdapter(),"webhook":WebhookAdapter()},state_path=self.root/"narad"/"state.json")
+        self.narad_credentials=NaradCredentialVault(self.root/"narad"/"credentials.json")
+        self.narad=NaradRuntime(
+            self.policy,self.bus,
+            {"n8n":WebhookAdapter(),"activepieces":WebhookAdapter(),"webhook":WebhookAdapter()},
+            state_path=self.root/"narad"/"state.json",
+            credentials=self.narad_credentials,
+        )
         self.media=OpenMontageAdapter(self.workers)
     def status(self):
         return {"name":"KRISHNA AGI CORE","version":self.VERSION,"architecture":"single-control-plane/modular-workers",
         "orchestrator":"KRISHNA Neural Action Graph + durable adapter boundary","executors":self.executors.capabilities(),
         "memory":{**self.memory.adapters(),"graft":self.graft.status()},"code_intelligence":self.code_intelligence.status(),
-        "critic":"independent","skill_compiler":"ready","benchmark_lab":"ready","narad":self.narad.status(),
+        "critic":"independent","skill_compiler":"ready","benchmark_lab":"ready","narad":{**self.narad.status(),"credential_vault":{"connections":self.narad_credentials.list()["count"],"policy":"secret references only"}},
         "specialists":self.specialists.list(),"garudanetra":"BrowserOperator/Garuda integration",
         "creator":self.creator.status(),"avatar":self.avatar.status(),"media":self.media.status(),
         "revenue":self.revenue.status(),"workers":self.workers.status()}

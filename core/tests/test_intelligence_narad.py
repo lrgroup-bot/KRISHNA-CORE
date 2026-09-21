@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from krishna_core.policy_kernel import PolicyKernel
 from krishna_core.automation_bus import AutomationBus
 from krishna_core.narad import NaradRuntime
+from krishna_core.narad.credentials import NaradCredentialVault
 from krishna_core.specialist_registry import SpecialistRegistry
 from krishna_core.context_governor import ContextGovernor
 from krishna_core.integrations import CodebaseMemoryAdapter, GraftMemoryAdapter
@@ -93,5 +94,57 @@ class IntelligenceNaradTests(unittest.TestCase):
             w=n.create_workflow("hook",{"type":"manual"},[{"action":"adapter_webhook","provider":"n8n","url":"https://example.invalid"}])
             n.promote(w["id"],"sandbox")
             with self.assertRaises(PermissionError): n.execute(w["id"],approved=False)
+
+    def test_schedule_trigger_runs_stable_workflow(self):
+        with TemporaryDirectory() as td:
+            n=NaradRuntime(PolicyKernel(Path(td)),AutomationBus(),state_path=Path(td)/"narad.json")
+            with self.assertRaises(ValueError):
+                n.create_workflow("too-fast",{"type":"schedule","every_seconds":30},[{"action":"publish_event","topic":"x"}])
+            w=n.create_workflow("hourly",{"type":"schedule","every_seconds":3600},[{"action":"publish_event","topic":"scheduled"}])
+            n.promote(w["id"],"sandbox");n.promote(w["id"],"verified",verified=True);n.promote(w["id"],"stable",verified=True)
+            out=n.run_due(now=10000)
+            self.assertEqual(out["due"],1)
+            self.assertEqual(out["results"][0]["result"]["trigger_source"],"schedule")
+            self.assertEqual(n.run_due(now=10001)["due"],0)
+
+    def test_webhook_token_is_hashed_and_invalid_token_fails(self):
+        with TemporaryDirectory() as td:
+            state=Path(td)/"narad.json"
+            n=NaradRuntime(PolicyKernel(Path(td)),AutomationBus(),state_path=state)
+            w=n.create_workflow("incoming",{"type":"webhook"},[{"action":"publish_event","topic":"incoming"}])
+            n.promote(w["id"],"sandbox");n.promote(w["id"],"verified",verified=True);n.promote(w["id"],"stable",verified=True)
+            hook=n.provision_webhook(w["id"])
+            raw=state.read_text(encoding="utf-8")
+            self.assertNotIn(hook["token"],raw)
+            out=n.handle_webhook(hook["token"],{"hello":"world"})
+            self.assertEqual(out["trigger_source"],"webhook")
+            with self.assertRaises(PermissionError): n.handle_webhook("wrong",{})
+
+    def test_credential_vault_persists_only_secret_reference(self):
+        with TemporaryDirectory() as td:
+            path=Path(td)/"credentials.json";vault=NaradCredentialVault(path)
+            ref=vault.register("N8N","n8n","KRISHNA_TEST_N8N_TOKEN")
+            self.assertFalse(ref["available"])
+            with patch.dict(os.environ,{"KRISHNA_TEST_N8N_TOKEN":"super-secret-value"}):
+                self.assertEqual(vault.headers(ref["id"])["Authorization"],"Bearer super-secret-value")
+                self.assertTrue(vault.describe(ref["id"])["available"])
+            raw=path.read_text(encoding="utf-8")
+            self.assertNotIn("super-secret-value",raw)
+            self.assertIn("KRISHNA_TEST_N8N_TOKEN",raw)
+
+    def test_dead_letter_retry_can_succeed_only_with_explicit_approval(self):
+        class Adapter:
+            def post(self,url,payload,headers=None,timeout=15):
+                return {"status":200,"body":"ok","headers_seen":bool(headers)}
+        with TemporaryDirectory() as td:
+            n=NaradRuntime(PolicyKernel(Path(td)),AutomationBus(),{"n8n":Adapter()},state_path=Path(td)/"narad.json")
+            w=n.create_workflow("external",{"type":"manual"},[{"action":"adapter_webhook","provider":"n8n","url":"https://example.invalid"}])
+            n.promote(w["id"],"sandbox")
+            with self.assertRaises(PermissionError): n.execute(w["id"],approved=False)
+            letter=n.dead_letter_status()["dead_letters"][0]
+            with self.assertRaises(PermissionError): n.retry_dead_letter(letter["id"],approved=False)
+            result=n.retry_dead_letter(letter["id"],approved=True)
+            self.assertEqual(result["dead_letter"]["status"],"retried")
+            self.assertEqual(result["result"]["results"][0]["status"],200)
 
 if __name__=="__main__": unittest.main()

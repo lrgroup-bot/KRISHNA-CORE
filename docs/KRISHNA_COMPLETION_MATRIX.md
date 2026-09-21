@@ -62,13 +62,13 @@ Status meanings:
 | --- | --- | --- |
 | Native automation/messenger control plane | VERIFIED boundary | Durable workflow lifecycle and policy gates. |
 | DRAFT → CANDIDATE/SANDBOX → VERIFIED → STABLE | VERIFIED | Runtime/tests. |
-| Execution history and dead letters | VERIFIED boundary | Durable state implemented. |
+| Execution history and dead letters | IMPLEMENTED / RUNTIME VERIFY | Durable execution history plus identified dead letters and explicit retry lifecycle are implemented. |
 | n8n / Activepieces / generic webhook boundaries | VERIFIED boundary | External execution is high-impact and approval gated. |
 | MCP adapter | PARTIAL | Architecture requirement retained; provider-specific execution wiring remains. |
-| Schedules / event triggers / webhooks | PARTIAL | Event runtime exists; production scheduler/webhook gateway remains. |
+| Schedules / event triggers / webhooks | IMPLEMENTED / RUNTIME VERIFY | Stable workflows support durable event, >=60-second schedule and token-hashed webhook triggers; NaradScheduler runs as a Core daemon. |
 | Gmail / Telegram / Slack / WhatsApp / Drive / Sheets / Calendar integrations | PARTIAL | Must be added as provider connections, not hard-coded into KRISHNA Core. |
-| Credential vault / secret references | PARTIAL | Policy boundary exists; dedicated Narad credential store UX/runtime remains. |
-| Full Automations / Connections / Messages / Triggers / History UI | PARTIAL | Basic workflow UI exists; full control center remains. |
+| Credential vault / secret references | IMPLEMENTED / RUNTIME VERIFY | NaradCredentialVault persists metadata and environment-variable references only; raw secret values are never written to Narad state or returned by APIs. |
+| Full Automations / Connections / Messages / Triggers / History UI | PARTIAL / expanded | Control Center now manages workflows, manual/event/schedule/webhook triggers, connection references, dead letters and history. Provider-specific message inbox/outbox and richer visual workflow editing remain. |
 
 ## 6. Code intelligence and specialist workers
 
