@@ -24,6 +24,8 @@ class N8nBridge:
         local=host in {"127.0.0.1","localhost","::1"}
         if parsed.scheme!="https" and not local:
             raise ValueError("remote n8n webhook must use https")
+        if not local and not self.allowed_hosts:
+            raise PermissionError("remote n8n webhook requires KRISHNA_N8N_ALLOWED_HOSTS")
         if self.allowed_hosts and host not in self.allowed_hosts:
             raise PermissionError("n8n webhook host is not allowlisted")
         return value
