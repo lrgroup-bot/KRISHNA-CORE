@@ -33,8 +33,13 @@ class WorkerFabric:
 
     def _spawn(self,w):
         command=w["command"]
-        args=shlex.split(command,posix=os.name!="nt") if isinstance(command,str) else list(command or [])
-        if not args:raise ValueError("worker command is empty")
+        if isinstance(command,str):
+            raw=command.strip()
+            if not raw:raise ValueError("worker command is empty")
+            args=raw if os.name=="nt" else shlex.split(raw,posix=True)
+        else:
+            args=list(command or [])
+            if not args:raise ValueError("worker command is empty")
         p=subprocess.Popen(args,cwd=w["cwd"],shell=False,
                            stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         w["process"]=p;w["started"]=time.time();w["last_error"]=None
