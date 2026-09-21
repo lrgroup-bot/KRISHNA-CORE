@@ -264,7 +264,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(403, {"error": "cross-origin control is not allowed"})
                 return False
         device, token = self._device_auth()
-        paired = bool(device and _pairing.verify(device, token))
+        try:
+            paired = bool(device and _pairing.verify(device, token))
+        except RuntimeError as exc:
+            orch.memory.audit("device_pairing","state_unavailable",f"{type(exc).__name__}: {exc}")
+            self._json(503, {"error": "pairing state unavailable"})
+            return False
         request_path = urlparse(self.path).path
         public = request_path in ("/health", "/api/mobile/pair/request") or request_path.startswith("/api/narad/webhook/")
         if not local and not paired and not public:
