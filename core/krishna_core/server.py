@@ -966,10 +966,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"deleted":orch.agi.narad_credentials.delete(cid)})
 
         if post_path == "/api/narad/webhooks/provision":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"webhook provisioning must run on KRISHNA PC"})
             wid=str(data.get("workflow_id") or "").strip()
             if not wid:return self._json(400,{"error":"workflow_id is required"})
-            receipt=orch.dispatch_action("narad.webhook.provision",{"workflow_id":wid},source="pc",actor="legacy-http")
-            return self._json(201,receipt["result"])
+            return self._json(201,orch.agi.narad.provision_webhook(wid))
 
         if post_path == "/api/narad/dead-letters/retry":
             letter_id=str(data.get("letter_id") or "").strip()
