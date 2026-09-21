@@ -32,8 +32,11 @@ class GatewayTest(unittest.TestCase):
             store.paired_file.write_text("{broken",encoding="utf-8")
             with self.assertRaises(RuntimeError):
                 store.verify("phone","credential")
+            req=store.request("phone-new","Mobile")
+            before=store.paired_file.read_text(encoding="utf-8")
             with self.assertRaises(RuntimeError):
-                store.request("phone-new","Mobile")
+                store.approve(req["request_id"])
+            self.assertEqual(store.paired_file.read_text(encoding="utf-8"),before)
 
     def test_zero_code_client_hash_pairing(self):
         with tempfile.TemporaryDirectory() as d:
