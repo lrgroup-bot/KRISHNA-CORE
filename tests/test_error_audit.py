@@ -119,6 +119,19 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn('dashboard\\assets\\avatar',text)
         self.assertNotIn('Copy-Item -Force "$Source\\dashboard\\assets\\avatar',text)
 
+    def test_live_ui_inspection_does_not_require_network_idle(self):
+        text=(ROOT/"core"/"krishna_core"/"browser_operator.py").read_text(encoding="utf-8-sig")
+        inspect=text.split("    def inspect(",1)[1]
+        self.assertIn('page.goto(url, wait_until="domcontentloaded")',inspect)
+        self.assertNotIn('page.goto(url, wait_until="networkidle")',inspect)
+
+    def test_acceptance_report_is_windows_powershell_51_safe(self):
+        text=(ROOT/"scripts"/"ACCEPT_KRISHNA_RUNTIME.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn('$checkRows=@($checks | ForEach-Object { $_ })',text)
+        self.assertIn('checks=$checkRows',text)
+        self.assertNotIn('checks=@($checks)',text)
+        self.assertIn('[void]$proc.WaitForExit(5000)',text)
+
 
 if __name__=="__main__":
     unittest.main()
