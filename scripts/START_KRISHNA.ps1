@@ -61,7 +61,8 @@ $integrityJson=& $py -c "import json; from krishna_core.runtime_integrity import
 if($LASTEXITCODE -ne 0){throw "Runtime integrity check could not run"}
 $integrity=$integrityJson|ConvertFrom-Json
 if($integrity.status -eq "DRIFT"){throw ("KRISHNA runtime drift detected. Missing={0}; mismatches={1}; source_drift={2}" -f (($integrity.missing -join ',')),(($integrity.mismatches -join ',')),$integrity.source_drift)}
-if($integrity.status -eq "UNVERIFIED"){Write-Host "KRISHNA runtime has no verified deployment manifest." -ForegroundColor Yellow}
+if($integrity.status -eq "UNVERIFIED"){throw "KRISHNA runtime has no verified deployment manifest. Run verified deployment first."}
+if(-not $integrity.release_ready){throw ("KRISHNA runtime is synced but not release-ready. Acceptance status: {0}. Run DEPLOY_KRISHNA_ONCE.ps1 without -SkipAcceptance." -f $integrity.acceptance_status)}
 
 Write-Host ""
 Write-Host "KRISHNA MODERN CORE START" -ForegroundColor Cyan
@@ -69,6 +70,7 @@ Write-Host "Root      : $KrishnaRoot"
 Write-Host "Source    : $authoritative"
 Write-Host "Integrity : $($integrity.status)"
 Write-Host "Commit    : $($integrity.commit)"
+Write-Host "Accepted  : $($integrity.release_ready) ($($integrity.acceptance_status))"
 Write-Host "UI        : http://$bindHost`:$Port/"
 if($PrivateRemote){Write-Host "Remote    : PRIVATE OVERLAY ONLY ($env:KRISHNA_PRIVATE_REMOTE_CIDRS)" -ForegroundColor Green}
 Write-Host ""
