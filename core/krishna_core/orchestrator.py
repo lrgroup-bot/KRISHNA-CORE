@@ -262,11 +262,6 @@ class Orchestrator:
                 letter_id,approved=bool(context.get("approved",False)),
             )
 
-        def narad_webhook_provision(payload,context):
-            return self.agi.narad.provision_webhook(
-                str(payload.get("workflow_id") or "").strip(),
-            )
-
         self.action_bus.register(
             "chat.create",chat_create,description="Create a persistent KRISHNA chat",
             mutating=True,permissions=("chat.write",),
@@ -350,13 +345,6 @@ class Orchestrator:
             permissions=("narad.execute",),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
-        self.action_bus.register(
-            "narad.webhook.provision",narad_webhook_provision,
-            description="Provision a hashed-token NARAD webhook",
-            mutating=True,permissions=("narad.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
-        )
-
         self.action_bus.register(
             "garuda.scout",
             lambda payload,context:self.garuda_scout(
