@@ -587,6 +587,17 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {**orch.agi.narad.status(),"scheduler":_narad_scheduler.status()})
         if path == "/api/narad/workflows":
             return self._json(200, {"workflows":[w.as_dict() for w in orch.agi.narad.workflows.values()]})
+        if path == "/api/narad/workflow/plan":
+            workflow_id=str((query.get("id") or [""])[0]).strip()
+            if not workflow_id:return self._json(400,{"error":"id is required"})
+            try:return self._json(200,orch.agi.narad.workflow_plan(workflow_id))
+            except KeyError:return self._json(404,{"error":"workflow not found"})
+        if path == "/api/narad/connectors":
+            return self._json(200,{
+                "connectors":orch.agi.narad.connectors.status(),
+                "n8n":orch.agi.narad.status().get("n8n"),
+                "execution_gate":orch.agi.narad.execution_gate.status(),
+            })
         if path == "/api/narad/history":
             limit=max(1,min(int((query.get("limit") or ["100"])[0]),500))
             return self._json(200, {"history":orch.agi.narad.history[-limit:]})
