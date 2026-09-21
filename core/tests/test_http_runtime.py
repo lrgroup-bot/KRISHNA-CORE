@@ -58,7 +58,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/projects", "/api/plugins", "/api/specialists", "/api/resources",
                      "/api/tasks", "/api/core/state", "/api/core/neural-state",
                      "/api/project-graph", "/api/recovery/ladder", "/api/incidents",
-                     "/api/garuda/status", "/api/commitments", "/api/gyan-bhandar",
+                     "/api/garuda/status", "/api/commitments", "/api/autonomy/status", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/gyan-bhandar/inventory?project=KRISHNA", "/api/software-factory/workers/status",
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry"):
@@ -114,6 +114,16 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(self.call("/api/mobile/resume?after=bad", headers=headers)[0], 400)
         self.assertTrue(self.call("/api/mobile/connection")[1]["connected"])
         self.assertEqual(self.call("/api/mobile/control", {"action":"shell"}, headers)[0], 403)
+
+    def test_commitment_autonomy_is_explicit_and_allowlisted(self):
+        self.assertEqual(self.call("/api/commitments/create",{"project":"KRISHNA","title":"unsafe","autonomy":{"enabled":True,"operation":"shell"}})[0],403)
+        code,row=self.call("/api/commitments/create",{"project":"KRISHNA","title":"safe inspect","detail":{"goal":"inspect KRISHNA"},"autonomy":{"enabled":True,"operation":"investigate","interval_seconds":3600}})
+        self.assertEqual(code,201)
+        self.assertTrue(row["detail"]["autonomy"]["enabled"])
+        status=self.call("/api/autonomy/status")[1]
+        self.assertIn("investigate",status["safe_operations"])
+        self.assertIn(row["commitment_id"],status["eligible"])
+        self.assertEqual(self.call("/api/commitments/update",{"commitment_id":row["commitment_id"],"status":"cancelled","detail":row["detail"]})[0],200)
 
     def test_chats_and_attachment_lifecycle(self):
         code, chat = self.call("/api/chats/create", {"project":"KRISHNA", "title":"HTTP test"})
