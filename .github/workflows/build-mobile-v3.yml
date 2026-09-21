@@ -3,10 +3,13 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/krishna-v3-live-avatar
-      - feature/knag-pc-mobile
-      - feature/mobile-pc-control-safe-patch
+      - fix/krishna-ui-runtime-verification
       - main
+    paths:
+      - 'mobile_v3/**'
+      - 'app/src/main/res/**'
+      - 'avatar/**'
+      - '.github/workflows/build-mobile-v3.yml'
   pull_request:
     paths:
       - 'mobile_v3/**'
