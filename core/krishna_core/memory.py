@@ -69,6 +69,9 @@ CREATE TABLE IF NOT EXISTS gyan_pending (
  confidence REAL NOT NULL DEFAULT 0,
  source TEXT NOT NULL DEFAULT 'research',
  verified INTEGER NOT NULL DEFAULT 0,
+ memory_kind TEXT NOT NULL DEFAULT 'semantic',
+ provenance TEXT NOT NULL DEFAULT '{}',
+ supersedes TEXT,
  status TEXT NOT NULL DEFAULT 'pending',
  created_at REAL NOT NULL,
  decided_at REAL
@@ -98,6 +101,14 @@ class MemoryStore:
         for name,ddl in additions:
             if name not in cols:
                 self.db.execute(f"ALTER TABLE learnings ADD COLUMN {name} {ddl}")
+        pending_cols={row[1] for row in self.db.execute("PRAGMA table_info(gyan_pending)").fetchall()}
+        for name,ddl in (
+            ("memory_kind","TEXT NOT NULL DEFAULT 'semantic'"),
+            ("provenance","TEXT NOT NULL DEFAULT '{}'"),
+            ("supersedes","TEXT"),
+        ):
+            if name not in pending_cols:
+                self.db.execute(f"ALTER TABLE gyan_pending ADD COLUMN {name} {ddl}")
         self.db.execute("CREATE INDEX IF NOT EXISTS idx_learnings_project_kind_status ON learnings(project,memory_kind,status,updated_at)")
 
     @staticmethod
@@ -128,21 +139,25 @@ class MemoryStore:
             self.db.commit()
         return {"records_compacted":changed,"bytes_before":before,"bytes_after":after,"bytes_saved":max(0,before-after)}
 
-    def create_gyan_pending(self, approval_id, project, topic, lesson, evidence=None, confidence=0.0, source="research", verified=False):
-        now=time.time()
+    def create_gyan_pending(self, approval_id, project, topic, lesson, evidence=None, confidence=0.0, source="research",
+                            verified=False, memory_kind="semantic", provenance=None, supersedes=None):
+        now=time.time(); memory_kind=str(memory_kind or "semantic").strip().lower()
+        if memory_kind not in {"working","episodic","semantic","graph","skill","evidence"}: raise ValueError("invalid memory_kind")
         with self.lock:
             self.db.execute(
-                "INSERT INTO gyan_pending(approval_id,project,topic,lesson,evidence,confidence,source,verified,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                (approval_id,project,topic,lesson,self._pack_gyan(evidence or []),float(confidence or 0),source,1 if verified else 0,"pending",now),
+                "INSERT INTO gyan_pending(approval_id,project,topic,lesson,evidence,confidence,source,verified,memory_kind,provenance,supersedes,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (approval_id,project,topic,lesson,self._pack_gyan(evidence or []),float(confidence or 0),source,1 if verified else 0,memory_kind,
+                 json.dumps(provenance or {},ensure_ascii=False,separators=(",",":")),supersedes,"pending",now),
             )
             self.db.commit()
         return self.gyan_pending(approval_id)
 
     def gyan_pending(self, approval_id):
         with self.lock:
-            r=self.db.execute("SELECT approval_id,project,topic,lesson,evidence,confidence,source,verified,status,created_at,decided_at FROM gyan_pending WHERE approval_id=?",(approval_id,)).fetchone()
+            r=self.db.execute("SELECT approval_id,project,topic,lesson,evidence,confidence,source,verified,memory_kind,provenance,supersedes,status,created_at,decided_at FROM gyan_pending WHERE approval_id=?",(approval_id,)).fetchone()
         if not r:return None
-        return {"approval_id":r[0],"project":r[1],"topic":r[2],"lesson":r[3],"evidence":self._unpack_gyan(r[4]),"confidence":r[5],"source":r[6],"verified":bool(r[7]),"status":r[8],"created_at":r[9],"decided_at":r[10]}
+        return {"approval_id":r[0],"project":r[1],"topic":r[2],"lesson":r[3],"evidence":self._unpack_gyan(r[4]),"confidence":r[5],"source":r[6],"verified":bool(r[7]),
+                "memory_kind":r[8],"provenance":json.loads(r[9] or "{}"),"supersedes":r[10],"status":r[11],"created_at":r[12],"decided_at":r[13]}
 
     def list_gyan_pending(self, project=None, status="pending", limit=100):
         with self.lock:
