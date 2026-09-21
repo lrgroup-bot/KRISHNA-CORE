@@ -197,5 +197,26 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn("Garuda owns research; Garudanetra owns browser execution",mission)
         self.assertIn("/api/garudanetra/fabric",web)
 
+    def test_priority_operational_ui_has_no_legacy_mutation_bypass(self):
+        web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
+        for path in (
+            "/api/garuda/scout","/api/garudanetra/session/start","/api/garudanetra/session/control",
+            "/api/chats/create","/api/chats/move","/api/chats/rename","/api/chats/delete",
+            "/api/projects/register",
+        ):
+            self.assertNotIn(path,web)
+        for action in (
+            "project.register","chat.create","chat.move","chat.rename","chat.delete",
+            "garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment",
+        ):
+            self.assertEqual(web.count("actionReq('"+action+"'"),1,action)
+
+    def test_mobile_action_sync_stays_conversation_status_only(self):
+        mobile=(ROOT/"mobile_v3"/"index.html").read_text(encoding="utf-8-sig")
+        self.assertIn("e.type==='action.sync'",mobile)
+        self.assertIn("setMode('WORKING',action)",mobile)
+        for forbidden in ("filesystem.write","system.run","credentials.read","trade.execute"):
+            self.assertNotIn(forbidden,mobile)
+
 if __name__=="__main__":
     unittest.main()
