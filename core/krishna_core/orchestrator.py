@@ -277,8 +277,10 @@ class Orchestrator:
             return self.agi.bus.publish(topic,payload.get("payload") or {},source="narad")
 
         def narad_adapter_webhook(payload,context):
-            provider=str(payload.get("provider") or "").strip()
+            provider=str(payload.get("provider") or "").strip().lower()
             if provider not in self.agi.narad.adapters:raise RuntimeError(f"Narad adapter unavailable: {provider}")
+            operation="trigger_workflow" if provider=="n8n" else "post"
+            self.agi.narad.connectors.get(provider if provider=="n8n" else "webhook",operation)
             url=str(payload.get("url") or "").strip()
             if not url:raise ValueError("webhook url is required")
             headers={}
@@ -293,6 +295,7 @@ class Orchestrator:
             provider=str(payload.get("provider") or "").strip().lower()
             operation=str(payload.get("operation") or "").strip().lower()
             if not provider or not operation:raise ValueError("provider and operation are required")
+            self.agi.narad.connectors.get(provider,operation)
             headers={}
             credential_ref=payload.get("credential_ref")
             if credential_ref:
