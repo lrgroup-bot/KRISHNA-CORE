@@ -38,6 +38,7 @@ class BrowserSession:
     network: list[dict] = field(default_factory=list)
     findings: list[dict] = field(default_factory=list)
     downloads: list[dict] = field(default_factory=list)
+    tabs: list[dict] = field(default_factory=list)
     frame: bytes | None = None
     tab_index: int = 0
     remember_evidence: bool = False
@@ -124,7 +125,7 @@ class GarudanetraSessionManager:
             "created_at":session.created_at,"updated_at":session.updated_at,"last_error":session.last_error,
             "viewport":dict(session.viewport),"visible_text":session.visible_text[:6000],
             "console":list(session.console[-50:]),"network":list(session.network[-100:]),
-            "findings":list(session.findings[-100:]),"downloads":list(session.downloads[-50:]),
+            "findings":list(session.findings[-100:]),"downloads":list(session.downloads[-50:]),"tabs":list(session.tabs[-30:]),
             "frame_available":bool(session.frame),"tab_index":session.tab_index,
             "remember_evidence":session.remember_evidence,"profile_path":session.profile_path,
         }
@@ -186,6 +187,15 @@ class GarudanetraSessionManager:
         if not p.is_file():raise FileNotFoundError(str(p))
         return p
 
+    @staticmethod
+    def _tab_snapshot(context):
+        rows=[]
+        for i,p in enumerate(context.pages):
+            try:title=p.title()
+            except Exception:title=""
+            rows.append({"index":i,"url":p.url,"title":title})
+        return rows
+
     def _click_or_fill(self,page,action,payload,session):
         selector=str(payload.get("selector") or "").strip()
         try:
@@ -230,7 +240,7 @@ class GarudanetraSessionManager:
             bind(page)
             with self._lock:session.state="NAVIGATING";session.updated_at=time.time()
             page.goto(session.requested_url,wait_until="domcontentloaded",timeout=self.timeout_ms)
-            with self._lock:session.state="LIVE";session.current_url=page.url;session.title=page.title();session.updated_at=time.time()
+            with self._lock:session.state="LIVE";session.current_url=page.url;session.title=page.title();session.tabs=self._tab_snapshot(context);session.updated_at=time.time()
 
             last_capture=last_text=last_persist=0.0
             while True:
@@ -293,7 +303,7 @@ class GarudanetraSessionManager:
                     try:
                         frame=page.screenshot(type="png")
                         with self._lock:
-                            session.frame=frame;session.current_url=page.url;session.title=page.title();session.updated_at=time.time()
+                            session.frame=frame;session.current_url=page.url;session.title=page.title();session.tabs=self._tab_snapshot(context);session.updated_at=time.time()
                     except Exception as exc:
                         with self._lock:session.last_error=f"{type(exc).__name__}: {exc}"
                     last_capture=now
