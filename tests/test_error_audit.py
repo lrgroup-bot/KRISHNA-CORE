@@ -185,5 +185,17 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn('"agent":"Garuda"',garuda)
         self.assertIn('Garuda requires a research goal',garuda)
 
+    def test_garudanetra_ui_uses_browser_fabric_not_garuda_research(self):
+        web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
+        section=web.split('<section id="garudanetra"',1)[1].split('<section id="narad"',1)[0]
+        self.assertIn('id="garudanetraEngine"',section)
+        self.assertIn('id="garudanetraStream"',section)
+        self.assertIn('id="garudanetraRefs"',section)
+        self.assertIn('id="garudanetraRecording"',section)
+        mission=web.split("async function startGarudanetraMission()",1)[1].split("function naradTriggerChanged",1)[0]
+        self.assertNotIn("/api/garuda/scout",mission)
+        self.assertIn("Garuda owns research; Garudanetra owns browser execution",mission)
+        self.assertIn("/api/garudanetra/fabric",web)
+
 if __name__=="__main__":
     unittest.main()
