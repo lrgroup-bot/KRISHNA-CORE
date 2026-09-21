@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+# LEGACY COMPATIBILITY MODULE.
+# Runtime authority is core.krishna_core.browser_fabric.GarudanetraBrowserFabric
+# plus GarudanetraSessionManager.  This older service is intentionally not imported
+# by server.py and remains only to avoid breaking historical external imports.
+LEGACY_GARUDANETRA_SERVICE = True
+
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from threading import RLock
@@ -19,7 +25,9 @@ class GarudanetraEvent:
 
 
 class GarudanetraService:
-    """KRISHNA private-by-default browser runtime and UI-observation ledger.
+    """Legacy compatibility service; do not use as KRISHNA browser authority.
+
+    KRISHNA private-by-default browser runtime and UI-observation ledger.
 
     Private sessions keep browser state only inside the task folder and delete it on stop.
     Persistent mode is explicit and isolated per project; personal Chrome/Edge profiles are never used.
