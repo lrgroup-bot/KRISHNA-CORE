@@ -65,6 +65,17 @@ New-Item -ItemType Directory -Force "$Runtime\scripts"|Out-Null
 & robocopy "$Source\scripts" "$Runtime\scripts" /E /R:1 /W:1 /XF "*.pyc"
 if($LASTEXITCODE -ge 8){throw "SCRIPT COPY FAILED: robocopy=$LASTEXITCODE"}
 
+# Deploy only the repository-owned 360 preview asset required by /api/avatar360.
+# Private runtime avatar assets (for example dashboard\assets\avatar\krishna.glb)
+# remain runtime-owned and are never overwritten by this deploy.
+$avatarPreviewSource=Join-Path $Source "avatar\krishna_child_360.webp.b64"
+$avatarPreviewDir=Join-Path $Runtime "avatar"
+$avatarPreviewRuntime=Join-Path $avatarPreviewDir "krishna_child_360.webp.b64"
+if(!(Test-Path $avatarPreviewSource)){throw "AVATAR PREVIEW SOURCE MISSING: $avatarPreviewSource"}
+New-Item -ItemType Directory -Force $avatarPreviewDir|Out-Null
+Copy-Item -Force $avatarPreviewSource $avatarPreviewRuntime
+if(!(Test-Path $avatarPreviewRuntime)){throw "AVATAR PREVIEW COPY FAILED: $avatarPreviewRuntime"}
+
 # Test the deployed runtime code, then repository-level contracts against runtime PYTHONPATH.
 $env:PYTHONPATH="$Runtime\core"
 & $Py -m compileall -q "$Runtime\core\krishna_core"
@@ -82,7 +93,11 @@ New-Item -ItemType Directory -Force $deployDir|Out-Null
 $hashes=[ordered]@{}
 $tracked=@()
 $tracked+=Get-ChildItem "$Runtime\core\krishna_core" -File -Recurse -Filter "*.py" -ErrorAction SilentlyContinue
-foreach($p in @("$Runtime\core\web_validation.html","$Runtime\core\dashboard.html")){
+foreach($p in @(
+  "$Runtime\core\web_validation.html",
+  "$Runtime\core\dashboard.html",
+  "$Runtime\avatar\krishna_child_360.webp.b64"
+)){
   if(Test-Path $p){$tracked+=Get-Item $p}
 }
 foreach($file in ($tracked|Sort-Object FullName -Unique)){
