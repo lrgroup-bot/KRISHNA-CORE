@@ -157,6 +157,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(403, {"error": str(exc)})
         except KeyError as exc:
             return self._json(404, {"error": str(exc)})
+        except RuntimeError as exc:
+            return self._json(409, {"error": str(exc)})
+        except Exception as exc:
+            orch.memory.audit("server","unhandled_exception",f"{type(exc).__name__}: {exc}")
+            return self._json(500, {"error": "internal server error", "type": type(exc).__name__})
 
     def do_GET(self):
         return self._dispatch(self._get)
