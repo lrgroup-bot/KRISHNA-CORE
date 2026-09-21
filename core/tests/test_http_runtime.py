@@ -142,6 +142,9 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(self.call("/api/mobile/resume?after=bad", headers=headers)[0], 400)
         self.assertTrue(self.call("/api/mobile/connection")[1]["connected"])
         self.assertEqual(self.call("/api/mobile/control", {"action":"shell"}, headers)[0], 403)
+        for denied in ("filesystem","credentials","trading"):
+            with self.subTest(denied=denied):
+                self.assertEqual(self.call("/api/mobile/control", {"action":denied}, headers)[0], 403)
 
     def test_specialist_team_plan_keeps_krishna_authority(self):
         code,d=self.call("/api/specialist-teams/plan",{"project":"KRISHNA","task":"Fix frontend UI and verify responsive layout"})
