@@ -32,6 +32,7 @@ class WebValidationTests(unittest.TestCase):
             "/api/kabach/projects", "/api/runtime/integrity", "KABACH", "deployIntegrity",
             "/api/commitments", "/api/models", "commitmentSummary", "modelRouter",
             "/api/runtime/audit", "driveAudit",
+            "/api/requirements", "requirementsCount", "loadRequirementsLedger",
         ):
             self.assertIn(token, text)
         self.assertIn("Garudanetra", text)
