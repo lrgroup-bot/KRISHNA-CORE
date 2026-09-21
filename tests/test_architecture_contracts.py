@@ -72,6 +72,12 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertIn("ACCEPT_KRISHNA_RUNTIME.ps1",deploy)
         self.assertIn("refusing final start",deploy)
 
+    def test_server_singleton_runtime_initialization_is_not_duplicated(self):
+        server=self.text("core/krishna_core/server.py")
+        self.assertEqual(server.count("from .wearable_bridge import WearableBridge"),1)
+        self.assertEqual(server.count('_wearables = WearableBridge('),1)
+        self.assertNotIn("uuid, uuid",server)
+
     def test_missed_additions_are_release_contracts(self):
         root=Path(__file__).resolve().parents[1]
         server=self.text("core/krishna_core/server.py")
