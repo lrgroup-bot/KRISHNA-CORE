@@ -20,6 +20,7 @@ class NaradGraphRuntimeTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory()
         root=Path(self.tmp.name)
+        self.root=root
         self.policy=PolicyKernel(root/"policy")
         self.permissions=PermissionRuntime()
         self.bus=AutomationBus()
@@ -122,6 +123,41 @@ class NaradGraphRuntimeTests(unittest.TestCase):
             self.narad.execute(w["id"],approved=True)
         self.assertEqual(len(calls),1)
         self.assertEqual(self.narad.dead_letter_status()["count"],1)
+
+    def test_checkpoint_survives_failure_and_resume_skips_completed_nodes(self):
+        calls={"first":0,"second":0}
+        def first(payload,context):
+            calls["first"]+=1
+            return {"value":11}
+        def fail_second(payload,context):
+            calls["second"]+=1
+            raise RuntimeError("temporary failure")
+        self.actions.register("test.first",first,sources=("job",))
+        self.actions.register("test.second",fail_second,sources=("job",))
+        w=self.narad.create_workflow("resume",{"type":"manual"},[
+            {"id":"first","action":"test.first"},
+            {"id":"second","action":"test.second"},
+        ])
+        self.narad.promote(w["id"],"sandbox")
+        with self.assertRaises(RuntimeError):
+            self.narad.execute(w["id"])
+        self.assertEqual(calls,{"first":1,"second":1})
+        self.assertEqual(len(self.narad.checkpoints),1)
+        run_id=next(iter(self.narad.checkpoints))
+        self.assertEqual(self.narad.checkpoints[run_id]["completed"],["first"])
+
+        self.actions.register(
+            "test.second",
+            lambda payload,context: calls.__setitem__("second",calls["second"]+1) or {"value":22},
+            sources=("job",),
+        )
+        restored=NaradRuntime(self.policy,self.bus,state_path=self.root/"narad.json")
+        restored.bind_sudarshan(self.sudarshan)
+        out=restored.resume_checkpoint(run_id)
+        self.assertTrue(out["verification"]["passed"])
+        self.assertEqual(calls["first"],1)
+        self.assertEqual(calls["second"],2)
+        self.assertEqual(restored.checkpoints,{})
 
     def test_runtime_status_exposes_lean_engine_not_n8n_runtime(self):
         status=self.narad.status()
