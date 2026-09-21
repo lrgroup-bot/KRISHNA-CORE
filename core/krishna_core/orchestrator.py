@@ -93,7 +93,7 @@ class Orchestrator:
         self.kabach = KabachAgent(self.memory)
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
         self.goal_evaluator = GoalEvaluator()
-        self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer)
+        self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
         self._verification_checks = {}
         self.repair_agent = RepairAgent(
             self.investigate,
