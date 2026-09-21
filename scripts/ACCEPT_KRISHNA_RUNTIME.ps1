@@ -58,6 +58,24 @@ try{
   if($requirements.requirement_count -ge 35){Add-Check "Chat requirements ledger" "PASS" ($requirements.requirement_count.ToString()+" canonical requirements") $requirements}
   else{Add-Check "Chat requirements ledger" "FAIL" "Requirement ledger is incomplete" $requirements}
 
+  try{
+    $actionBus=Get-Json "/api/action-bus"
+    $actionNames=@($actionBus.actions|ForEach-Object{$_.name})
+    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister")
+    $missing=@($needed|Where-Object{$_ -notin $actionNames})
+    if($actionBus.owner -eq "KRISHNA Shared Action Bus" -and $missing.Count -eq 0){
+      Add-Check "Shared Action Bus" "PASS" ("registered="+$actionBus.registered_actions+"; Projects/Chats wired") $actionBus
+    }else{
+      Add-Check "Shared Action Bus" "FAIL" ("Missing canonical actions: "+($missing -join ", ")) $actionBus
+    }
+    $probe=Post-Json "/api/action-bus/dispatch" @{action="chat.create";project="general";actor="acceptance";payload=@{project="general";title="Action Bus Acceptance"};idempotency_key="acceptance-chat-create"}
+    if($probe.status -eq "completed" -and $probe.action_id -and $probe.result.chat_id){
+      Add-Check "Shared Action dispatch" "PASS" ("action_id="+$probe.action_id) $probe
+    }else{
+      Add-Check "Shared Action dispatch" "FAIL" "Action envelope did not complete" $probe
+    }
+  }catch{Add-Check "Shared Action Bus" "FAIL" $_.Exception.Message $null}
+
   $narad=Get-Json "/api/narad/status"
   if($narad.name -eq "NARAD"){Add-Check "NARAD runtime" "PASS" ("workflows="+$narad.workflows) $narad}else{Add-Check "NARAD runtime" "FAIL" "NARAD did not report ready" $narad}
   $requiredProviders=@("telegram","discord","slack","whatsapp","gmail","google_drive","google_sheets","google_calendar")
