@@ -87,6 +87,10 @@ Status meanings:
 | Requirement | Status | Evidence / remaining work |
 | --- | --- | --- |
 | Native automation/messenger control plane | VERIFIED boundary | Durable workflow lifecycle and policy gates. |
+| Lean n8n-pattern workflow graph | IMPLEMENTED / RUNTIME VERIFY | Native typed DAG nodes, explicit dependencies, action/job dispatch and safe data mapping are implemented without embedding the n8n runtime. |
+| Sudarshan workflow authority | IMPLEMENTED / RUNTIME VERIFY | Production NARAD binds to Sudarshan; every node enters Action/Job permission gates and leaves through IndependentCriticVerifier. |
+| Bounded retry/backoff | IMPLEMENTED / RUNTIME VERIFY | Retry max is bounded; side-effecting external steps do not retry unless explicitly retry-safe. |
+| Durable checkpoints/resume | IMPLEMENTED / RUNTIME VERIFY | Incomplete runs persist completed node receipts/outputs in the existing NARAD state file; resume skips already verified nodes. |
 | DRAFT → CANDIDATE/SANDBOX → VERIFIED → STABLE | VERIFIED | Runtime/tests. |
 | Execution history and dead letters | IMPLEMENTED / RUNTIME VERIFY | Durable execution history plus identified dead letters and explicit retry lifecycle are implemented. |
 | n8n / Activepieces / generic webhook boundaries | VERIFIED boundary | External execution is high-impact and approval gated. |
@@ -214,3 +218,4 @@ Do **not** build the final `Krishna_AGI.exe` until:
 16. wearable capability registry reports only hardware-verified capabilities.
 17. Shared Action Bus, Agent Runtime, Jobs, Permissions, MCP/A2A adapter and Dispatch acceptance pass.
 18. Priority operational UI controls produce real action receipts and desktop/mobile action state remains coherent.
+19. NARAD runs in typed-dag/sudarshan mode, checkpoint/resume and retry contracts pass, and no embedded n8n runtime is required.
