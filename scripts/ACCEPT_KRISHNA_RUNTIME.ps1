@@ -172,7 +172,13 @@ try{
     $entry=Post-Json "/api/ui-guardian/register" @{name="KRISHNA runtime acceptance";project="KRISHNA";url="$base/";state="candidate";notes="automated runtime acceptance"}
     $eval=Post-Json "/api/ui-guardian/evaluate" @{entry_id=$entry.id}
     if($eval.passed){Add-Check "UI Guardian matrix" "PASS" "All four viewport contracts passed" $eval}
-    else{Add-Check "UI Guardian matrix" "FAIL" ("defects="+@($eval.defects).Count) $eval}
+    else{
+      $defectSummary=@($eval.defects | Select-Object -First 8 | ForEach-Object {
+        $vp=[string]$_.viewport;$kind=[string]$_.kind;$detail=[string]$_.detail
+        ("{0}:{1}:{2}" -f $vp,$kind,$detail)
+      }) -join " | "
+      Add-Check "UI Guardian matrix" "FAIL" ("defects="+@($eval.defects).Count+" · "+$defectSummary) $eval
+    }
   }catch{
     Add-Check "UI Guardian matrix" "FAIL" $_.Exception.Message $null
   }
