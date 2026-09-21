@@ -188,6 +188,8 @@ try{
     }catch{Add-Check "E drive reconciliation audit" "FAIL" $_.Exception.Message $null}
   }else{Add-Check "E drive reconciliation audit" "WARN" "audit script not deployed" $null}
 
+} catch {
+  Add-Check "Acceptance harness" "FAIL" $_.Exception.Message $null
 } finally {
   if($proc -and !$proc.HasExited){
     Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
