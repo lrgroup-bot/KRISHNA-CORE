@@ -301,6 +301,10 @@ class Handler(BaseHTTPRequestHandler):
             project=(query.get("project") or [None])[0]
             try:return self._json(200,orch.gyan_pending(project,100))
             except KeyError:return self._json(404,{"error":"project not registered"})
+        if path == "/api/gyan-bhandar/inventory":
+            project=(query.get("project") or ["KRISHNA"])[0].strip() or "KRISHNA"
+            try:return self._json(200,orch.gyan_inventory(project))
+            except KeyError:return self._json(404,{"error":"project not registered"})
         if path == "/api/gyan-bhandar/theory":
             project=(query.get("project") or ["KRISHNA"])[0].strip() or "KRISHNA"; topic=(query.get("topic") or [""])[0].strip()
             if not topic:return self._json(400,{"error":"topic is required"})
@@ -310,7 +314,10 @@ class Handler(BaseHTTPRequestHandler):
             project=(query.get("project") or ["KRISHNA"])[0].strip() or "KRISHNA"
             topic=(query.get("topic") or [None])[0]
             verified=str((query.get("verified") or ["0"])[0]).lower() in {"1","true","yes"}
-            try:return self._json(200,{"agent":"Gyan-Bhandar","project":project,"learnings":orch.gyan_recall(project,topic,100,verified)})
+            memory_kind=(query.get("kind") or [None])[0]
+            include_superseded=str((query.get("include_superseded") or ["0"])[0]).lower() in {"1","true","yes"}
+            try:return self._json(200,{"agent":"Gyan-Bhandar","project":project,
+                "learnings":orch.gyan_recall(project,topic,100,verified,memory_kind,include_superseded)})
             except KeyError:return self._json(404,{"error":"project not registered"})
         if path == "/api/agi/status":
             return self._json(200, orch.agi_status())
@@ -417,6 +424,9 @@ class Handler(BaseHTTPRequestHandler):
                     "agi_policy_kernel",
                     "independent_critic_verifier",
                     "unified_memory_fabric",
+                    "gyan_typed_memory_categories",
+                    "gyan_learning_supersession",
+                    "gyan_provenance_inventory",
                     "skill_compiler",
                     "benchmark_lab",
                     "native_automation_bus",
@@ -930,7 +940,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/gyan-bhandar/propose":
             project=str(data.get("project") or "KRISHNA").strip(); topic=str(data.get("topic") or "").strip(); lesson=str(data.get("lesson") or "").strip()
             if not topic or not lesson:return self._json(400,{"error":"topic and lesson are required"})
-            try:return self._json(202,orch.gyan_propose(project,topic,lesson,data.get("evidence") or [],float(data.get("confidence") or 0),str(data.get("source") or "research"),bool(data.get("verified",False))))
+            try:return self._json(202,orch.gyan_propose(project,topic,lesson,data.get("evidence") or [],float(data.get("confidence") or 0),
+                str(data.get("source") or "research"),bool(data.get("verified",False)),str(data.get("memory_kind") or "semantic"),
+                data.get("provenance") or {},data.get("supersedes")))
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
@@ -942,8 +954,20 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/gyan-bhandar/store":
             project=str(data.get("project") or "KRISHNA").strip(); topic=str(data.get("topic") or "").strip(); lesson=str(data.get("lesson") or "").strip()
             if not topic or not lesson:return self._json(400,{"error":"topic and lesson are required"})
-            try:return self._json(201,orch.gyan_store(project,topic,lesson,data.get("evidence") or [],float(data.get("confidence") or 0),str(data.get("source") or "sudarshan"),bool(data.get("verified",False))))
+            try:return self._json(201,orch.gyan_store(project,topic,lesson,data.get("evidence") or [],float(data.get("confidence") or 0),
+                str(data.get("source") or "sudarshan"),bool(data.get("verified",False)),str(data.get("memory_kind") or "semantic"),
+                data.get("provenance") or {},data.get("supersedes")))
             except KeyError:return self._json(404,{"error":"project not registered"})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if self.path == "/api/gyan-bhandar/supersede":
+            project=str(data.get("project") or "KRISHNA").strip(); fingerprint=str(data.get("fingerprint") or "").strip()
+            topic=str(data.get("topic") or "").strip(); lesson=str(data.get("lesson") or "").strip()
+            if not fingerprint or not topic or not lesson:return self._json(400,{"error":"fingerprint, topic and lesson are required"})
+            try:return self._json(202,orch.gyan_supersede(project,fingerprint,topic,lesson,data.get("evidence") or [],
+                float(data.get("confidence") or 0),str(data.get("source") or "krishna"),bool(data.get("verified",False)),
+                str(data.get("memory_kind") or "semantic"),data.get("provenance") or {}))
+            except KeyError:return self._json(404,{"error":"learning or project not found"})
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
         if self.path == "/api/gyan-bhandar/strengthen":
