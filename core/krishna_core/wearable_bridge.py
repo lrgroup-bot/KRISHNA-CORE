@@ -18,6 +18,7 @@ class WearableDevice:
     verified:bool=False
     provider:str="generic"
     created_at:float=0.0
+    verification_evidence:str=""
 
 
 class WearableBridge:
@@ -57,17 +58,19 @@ class WearableBridge:
         if unknown:raise ValueError("unsupported wearable capabilities: "+", ".join(unknown))
         name=str(name or "").strip();kind=str(kind or "").strip();provider=str(provider or "generic").strip()
         if not name or not kind:raise ValueError("wearable name and kind are required")
-        row=WearableDevice(str(uuid.uuid4()),name,kind,caps,bool(verified),provider,time.time())
+        row=WearableDevice(str(uuid.uuid4()),name,kind,caps,False,provider,time.time(),"")
         self.devices[row.id]=row;self._save();return asdict(row)
 
-    def verify(self,device_id,capabilities=None):
+    def verify(self,device_id,capabilities=None,evidence=""):
         row=self.devices.get(str(device_id))
         if not row:raise KeyError("wearable device not found")
         if capabilities is not None:
             caps=sorted(set(str(x).strip().lower() for x in capabilities if str(x).strip()))
             if any(x not in self.SAFE_CAPS for x in caps):raise ValueError("unsupported wearable capability")
             row.capabilities=caps
-        row.verified=True;self._save();return asdict(row)
+        evidence=str(evidence or "").strip()
+        if not evidence:raise ValueError("wearable verification requires hardware-test evidence")
+        row.verified=True;row.verification_evidence=evidence[:2000];self._save();return asdict(row)
 
     def list(self):
         rows=[asdict(x) for x in self.devices.values()]
@@ -81,4 +84,4 @@ class WearableBridge:
     def status(self):
         data=self.list();verified=[x for x in data["devices"] if x["verified"]]
         caps=sorted(set(c for x in verified for c in x["capabilities"]))
-        return {**data,"verified_capabilities":caps,"bridge_ready":bool(verified)}
+        return {**data,"verified_capabilities":caps,"bridge_ready":bool(verified),"phone_camera_bridge":"mobile attachment -> local vision","bluetooth_audio_bridge":"OS-managed"}
