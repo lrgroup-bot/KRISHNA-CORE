@@ -42,6 +42,7 @@ class PCObserver:
         self._pressure = {"cpu": False, "memory": False}
         self._project_signatures: dict[str, tuple[int, int]] = {}
         self._last_cpu_times = None
+        self._last_emit_error = None
         self._snapshot = {
             "cpu_percent": None,
             "memory_percent": None,
@@ -192,8 +193,8 @@ class PCObserver:
                 "project": project,
                 "payload": payload or {},
             })
-        except Exception:
-            pass
+        except Exception as exc:
+            self._last_emit_error=f"{type(exc).__name__}: {exc}"
 
     def sample_once(self):
         cpu = self._cpu_percent()
@@ -248,6 +249,7 @@ class PCObserver:
                 "pressure": dict(self._pressure),
                 "projects_watched": len(projects),
                 "checked_at": time.time(),
+                "last_emit_error": self._last_emit_error,
             }
         return self.snapshot()
 
