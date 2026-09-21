@@ -148,6 +148,23 @@ orch.action_bus.register(
     mutating=True,permissions=("browser.act",),
     sources=("pc","system","agent","job","mcp","a2a"),
 )
+
+def _shared_garudanetra_upload_attachment(payload,context):
+    sid=str(payload.get("session_id") or "").strip()
+    chat_id=str(payload.get("chat_id") or "").strip()
+    aid=str(payload.get("attachment_id") or "").strip()
+    selector=str(payload.get("selector") or "").strip()
+    if not sid or not chat_id or not aid or not selector:
+        raise ValueError("session_id, chat_id, attachment_id and selector are required")
+    meta,path=_attachments.resolve(chat_id,aid)
+    return _browser_fabric.command(sid,"upload",{"selector":selector,"path":str(path)})
+
+orch.action_bus.register(
+    "garudanetra.upload_attachment",_shared_garudanetra_upload_attachment,
+    description="Upload a KRISHNA chat attachment into the active Garudanetra page",
+    mutating=True,permissions=("browser.act","chat.read"),
+    sources=("pc","system","agent","job","mcp","a2a"),
+)
 _ui_registry = UIGuardianRegistry(Path(settings.db_path).resolve().parent / ".krishna_state" / "ui-guardian-registry.json")
 _ui_guardian = UIGuardian(_browser_fabric, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
 _narad_scheduler = NaradScheduler(orch.agi.narad)
