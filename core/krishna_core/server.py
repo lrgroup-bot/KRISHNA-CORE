@@ -108,6 +108,46 @@ _browser_fabric = GarudanetraBrowserFabric(RUNTIME_ROOT,inspector=orch.browser,o
 orch.browser = _browser_fabric
 orch.development.browser = _browser_fabric
 _garudanetra = _browser_fabric.sessions
+
+def _shared_garudanetra_start(payload,context):
+    project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+    url=str(payload.get("url") or "").strip()
+    mode=str(payload.get("mode") or "private").strip().lower()
+    return _browser_fabric.create(
+        project,url,mode,persistent_approved=bool(context.get("approved",False)),
+    )
+
+def _shared_garudanetra_control(payload,context):
+    sid=str(payload.get("session_id") or "").strip()
+    action=str(payload.get("action") or "").strip()
+    if not sid or not action:raise ValueError("session_id and action are required")
+    return _browser_fabric.command(sid,action,dict(payload.get("payload") or {}))
+
+def _shared_garudanetra_replay(payload,context):
+    sid=str(payload.get("session_id") or "").strip()
+    if not sid:raise ValueError("session_id is required")
+    steps=payload.get("steps")
+    if steps is not None and not isinstance(steps,list):raise ValueError("steps must be an array")
+    return _browser_fabric.replay(sid,steps=steps,approved=bool(context.get("approved",False)))
+
+orch.action_bus.register(
+    "garudanetra.start",_shared_garudanetra_start,
+    description="Start a canonical Garudanetra browser session",
+    mutating=True,permissions=("browser.read","browser.act"),
+    sources=("pc","system","agent","job","mcp","a2a"),
+)
+orch.action_bus.register(
+    "garudanetra.control",_shared_garudanetra_control,
+    description="Control a canonical Garudanetra browser session",
+    mutating=True,permissions=("browser.act",),
+    sources=("pc","system","agent","job","mcp","a2a"),
+)
+orch.action_bus.register(
+    "garudanetra.replay",_shared_garudanetra_replay,
+    description="Replay recorded Garudanetra steps through the approval gate",
+    mutating=True,permissions=("browser.act",),
+    sources=("pc","system","agent","job","mcp","a2a"),
+)
 _ui_registry = UIGuardianRegistry(Path(settings.db_path).resolve().parent / ".krishna_state" / "ui-guardian-registry.json")
 _ui_guardian = UIGuardian(_browser_fabric, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
 _narad_scheduler = NaradScheduler(orch.agi.narad)
@@ -153,6 +193,26 @@ def mobile_link_state():
             "connected": bool(last_seen and age <= 20.0),
             "age_seconds": None if age is None else round(age, 1),
         }
+
+def _sync_shared_action_to_mobile(event):
+    row=dict(event.get("payload") or {})
+    action_id=str(row.get("action_id") or "")
+    if not action_id:return None
+    sync={
+        "action_id":action_id,"action":row.get("action"),"project":row.get("project"),
+        "status":row.get("status"),"source":row.get("source"),"actor":row.get("actor"),
+        "created_at":row.get("created_at"),"completed_at":row.get("completed_at"),
+    }
+    with _mobile_lock:
+        device=_mobile_link.get("device")
+    if not device:return None
+    return _sessions.publish(
+        device,"action.sync",sync,
+        idempotency_key=f'action-sync:{event.get("topic")}:{action_id}',
+    )
+
+for _topic in ("action.requested","action.completed","action.failed","action.blocked"):
+    orch.agi.bus.subscribe(_topic,_sync_shared_action_to_mobile)
 if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     _BUNDLE_ROOT = Path(sys._MEIPASS)
     DASHBOARD = _BUNDLE_ROOT / "dashboard.html"
@@ -694,6 +754,18 @@ class Handler(BaseHTTPRequestHandler):
             try:limit=max(1,min(int(limit_raw),500))
             except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
             return self._json(200,{"actions":orch.action_bus_recent(limit)})
+        if path == "/api/agents/runtime":
+            return self._json(200,orch.agent_runtime_status())
+        if path == "/api/jobs/runtime":
+            return self._json(200,orch.job_runtime_status())
+        if path == "/api/permissions/runtime":
+            return self._json(200,orch.permission_runtime_status())
+        if path == "/api/protocols/status":
+            return self._json(200,orch.protocol_runtime_status())
+        if path == "/api/dispatch/status":
+            return self._json(200,orch.dispatch_runtime_status())
+        if path == "/api/protocols/mcp/catalog":
+            return self._json(200,orch.protocols.mcp_catalog())
         if path == "/api/resources":
             return self._json(200, orch.governor.snapshot())
         if path == "/api/tasks":
