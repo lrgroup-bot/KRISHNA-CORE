@@ -15,6 +15,11 @@ class WebIntegrityTests(unittest.TestCase):
             needle=f'id="{element_id}"'
             self.assertEqual(self.text.count(needle),1,needle)
 
+    def test_no_duplicate_dom_ids(self):
+        ids=re.findall(r'id="([^"]+)"',self.text)
+        duplicates=sorted({x for x in ids if ids.count(x)>1})
+        self.assertEqual(duplicates,[],duplicates)
+
     def test_no_literal_escape_artifacts(self):
         self.assertNotIn("showView(\\'",self.text)
         self.assertNotIn("</section>\\n<section",self.text)
