@@ -42,7 +42,7 @@ Status meanings:
 | Chromium / Playwright / browser inspection | VERIFIED boundary | Browser operator/UI inspection tests exist. |
 | Live Work panel + Pause / Take Control / Continue / Stop | IMPLEMENTED / RUNTIME VERIFY | Controls now drive the persistent Garudanetra browser session rather than UI-only state. |
 | Actual streamed browser viewport and owner takeover | IMPLEMENTED / RUNTIME VERIFY | Persistent private Chromium session manager streams real PNG browser frames into Sudarshan and accepts owner click/scroll takeover commands; Windows Playwright acceptance remains. |
-| UI Guardian detect → sandbox → verify → promote/rollback | PARTIAL | Repair/browser/verification pieces exist; unified continuous UI Guardian loop remains. |
+| UI Guardian detect → sandbox → verify → promote/rollback | IMPLEMENTED / RUNTIME VERIFY | Objective browser checks now run across the four target viewports; GUI candidates are persisted in Stable/Candidate/Experimental/Rejected registry and Stable promotion requires a passed evaluation plus explicit verification. Automatic repair generation still routes through Developer/shadow workflows. |
 | Private + Task Memory / Persistent Workspace profiles | PARTIAL | Browser state boundaries exist conceptually; explicit profile lifecycle UI/runtime still required. |
 | Learned browser skills saved to Gyan-Bhandar | PARTIAL | Skill and memory fabrics exist; automatic verified browser-skill compilation remains. |
 
@@ -146,7 +146,7 @@ Status meanings:
 | Dockview | ROADMAP | Final workspace shell. |
 | React Flow / xyflow Neural Action Graph | ROADMAP | Final workspace shell. |
 | React Three Fiber avatar/spatial | ROADMAP | Final workspace shell. |
-| GUI Registry Stable / Candidate / Experimental / Rejected | PARTIAL | Verification/promotion concepts exist; dedicated GUI registry remains. |
+| GUI Registry Stable / Candidate / Experimental / Rejected | IMPLEMENTED / RUNTIME VERIFY | Persistent registry and Developer UI are implemented with verified Stable promotion gate. |
 
 ## 13. Glass / XR
 
