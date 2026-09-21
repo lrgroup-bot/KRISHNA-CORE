@@ -27,8 +27,11 @@ class NaradScheduler:
 
     def _loop(self):
         while not self._stop.wait(self.poll_seconds):
-            try:self.runtime.run_due()
-            except Exception:pass
+            try:
+                self.runtime.run_due();self.run_count+=1;self.last_error=None
+            except Exception as exc:
+                self.last_error=f"{type(exc).__name__}: {exc}"
 
     def status(self):
-        return {"running":bool(self._thread and self._thread.is_alive()),"poll_seconds":self.poll_seconds}
+        return {"running":bool(self._thread and self._thread.is_alive()),"poll_seconds":self.poll_seconds,
+                "run_count":self.run_count,"last_error":self.last_error}
