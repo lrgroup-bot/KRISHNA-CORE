@@ -170,6 +170,8 @@ class BrowserOperator:
                 elapsed_ms=int((time.perf_counter() - started) * 1000),
                 layout=layout,
             )
-            report.ok = not report.findings
+            report.ok = not report.findings and not layout.get("horizontal_overflow")
+            out = asdict(report)
+            out["layout"] = layout
             browser.close()
-            return asdict(report)
+            return out

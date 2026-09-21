@@ -38,6 +38,8 @@ class WebValidationTests(unittest.TestCase):
             "/api/commitments", "/api/commitments/update", "/api/autonomy/status", "/api/autonomy/tick", "commitmentSummary", "autonomySummary", "runAutonomyTick", "Auto Inspect", "/api/models", "modelRouter",
             "/api/runtime/audit", "driveAudit",
             "/api/requirements", "requirementsCount", "loadRequirementsLedger",
+            "/api/ui-guardian/registry", "/api/ui-guardian/evaluate", "/api/ui-guardian/transition",
+            "UI Guardian", "Evaluate 4 viewports", "promoteUIGuardian",
             "gyanInventory", "gyanKind", "loadGyanInventory", "supersedeGyan",
             "/api/ui-guardian/registry", "/api/ui-guardian/evaluate", "/api/ui-guardian/transition",
             "uiGuardianRegistry", "Run viewport matrix", "Stable / Candidate / Experimental / Rejected",
@@ -46,7 +48,7 @@ class WebValidationTests(unittest.TestCase):
         self.assertIn("Garudanetra", text)
         self.assertNotIn("Garuda never implements directly", text)
         # High-visibility legacy mojibake must not regress.
-        for broken in ("â€¢â€¢â€¢", "ðŸ¦…", "âŒ¬", "âœ¦", "ï¼‹"):
+        for broken in ("â€¢â€¢â€¢", "ðŸ¦…", "âŒ¬", "âœ¦", "ï¼‹", "â†»", "âœŽ", "Ã—"):
             self.assertNotIn(broken, text)
 
     def test_server_exposes_validation_route(self):
