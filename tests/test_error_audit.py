@@ -218,6 +218,16 @@ class RepositoryErrorAudit(unittest.TestCase):
         for forbidden in ("filesystem.write","system.run","credentials.read","trade.execute"):
             self.assertNotIn(forbidden,mobile)
 
+    def test_avatar_runtime_uses_character_bible_not_two_state_stub(self):
+        server=(ROOT/"core"/"krishna_core"/"server.py").read_text(encoding="utf-8-sig")
+        web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
+        avatar=(ROOT/"core"/"krishna_core"/"avatar_fabric.py").read_text(encoding="utf-8-sig")
+        self.assertIn('orch.agi.avatar.state_for_activity',server)
+        self.assertNotIn('"avatar_state": "FLUTE" if current == "Idle" else "WORKING"',server)
+        self.assertIn("avatarState(d.avatar_state",web)
+        self.assertIn("PERFORMANCE_CHANNELS",avatar)
+        self.assertIn("SURFACE_CONTRACT",avatar)
+
     def test_narad_n8n_dashboard_is_observability_not_embedded_editor(self):
         web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
         self.assertIn('id="naradLoad"',web)
