@@ -48,7 +48,7 @@ class WebValidationTests(unittest.TestCase):
         self.assertIn("Garudanetra", text)
         self.assertNotIn("Garuda never implements directly", text)
         # High-visibility legacy mojibake must not regress.
-        for broken in ("â€¢â€¢â€¢", "ðŸ¦…", "âŒ¬", "âœ¦", "ï¼‹"):
+        for broken in ("â€¢â€¢â€¢", "ðŸ¦…", "âŒ¬", "âœ¦", "ï¼‹", "â†»", "âœŽ", "Ã—"):
             self.assertNotIn(broken, text)
 
     def test_server_exposes_validation_route(self):
