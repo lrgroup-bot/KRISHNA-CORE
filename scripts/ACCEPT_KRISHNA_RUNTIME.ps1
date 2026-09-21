@@ -135,6 +135,14 @@ try{
     else{Add-Check "Gyan-Bhandar promotion" "FAIL" "Verified recall did not return the accepted finding" $recall}
   }else{Add-Check "Gyan-Bhandar promotion" "WARN" "Proposal API did not return an approval id" $proposal}
 
+  # Garudanetra must expose one canonical browser fabric before live work starts.
+  try{
+    $fabric=Get-Json "/api/garudanetra/fabric"
+    if($fabric.canonical_engine -eq "playwright" -and $fabric.owner -eq "garudanetra-browser-fabric"){
+      Add-Check "Garudanetra browser fabric" "PASS" ("canonical="+$fabric.canonical_engine+"; adapters="+@($fabric.adapters.adapters).Count) $fabric
+    }else{Add-Check "Garudanetra browser fabric" "FAIL" "Canonical browser fabric contract is not active" $fabric}
+  }catch{Add-Check "Garudanetra browser fabric" "FAIL" $_.Exception.Message $null}
+
   # Garudanetra must be able to launch the local KRISHNA UI and produce a real frame.
   try{
     $live=Post-Json "/api/garudanetra/session/start" @{project="KRISHNA";url="$base/";mode="task_memory";persistent_approved=$false}
@@ -150,6 +158,29 @@ try{
       $null=Post-Json "/api/garudanetra/session/control" @{session_id=$sid;action="reload";payload=@{}}
       $frame=Invoke-WebRequest -Uri ($base+"/api/garudanetra/frame?id="+$sid) -TimeoutSec 20
       if($frame.RawContentLength -gt 1000){Add-Check "Garudanetra live browser" "PASS" ("frame bytes="+$frame.RawContentLength) $ready}else{Add-Check "Garudanetra live browser" "FAIL" "Browser frame was empty" $ready}
+      if($ready.stream_mode -eq "cdp_screencast"){
+        Add-Check "Garudanetra stream transport" "PASS" "CDP screencast is active" $ready
+      }else{
+        Add-Check "Garudanetra stream transport" "WARN" ("Using "+[string]$ready.stream_mode+"; CDP screencast fallback remains functional") $ready
+      }
+      Start-Sleep -Milliseconds 500
+      try{
+        $semantic=Get-Json ("/api/garudanetra/semantic?id="+$sid)
+        if([int]$semantic.revision -gt 0 -and @($semantic.items).Count -gt 0){
+          Add-Check "Garudanetra semantic observer" "PASS" ("refs="+@($semantic.items).Count+" revision="+$semantic.revision) $semantic
+        }else{Add-Check "Garudanetra semantic observer" "WARN" "Semantic snapshot is available but contains no interactive refs yet" $semantic}
+      }catch{Add-Check "Garudanetra semantic observer" "FAIL" $_.Exception.Message $null}
+      try{
+        $replayGate=Post-Json "/api/garudanetra/session/replay" @{session_id=$sid;approved=$false;steps=@(@{action="click";payload=@{selector="#acceptance-probe"};status="ok"})}
+        if(@($replayGate.blocked).Count -eq 1 -and @($replayGate.queued).Count -eq 0){
+          Add-Check "Garudanetra replay approval gate" "PASS" "Consequential replay was blocked without approval" $replayGate
+        }else{Add-Check "Garudanetra replay approval gate" "FAIL" "Consequential replay bypassed approval gate" $replayGate}
+      }catch{Add-Check "Garudanetra replay approval gate" "FAIL" $_.Exception.Message $null}
+      try{
+        $recording=Get-Json ("/api/garudanetra/recording?id="+$sid)
+        if([int]$recording.count -gt 0){Add-Check "Garudanetra action recording" "PASS" ("steps="+$recording.count) $recording}
+        else{Add-Check "Garudanetra action recording" "WARN" "Recording endpoint is live but no actions were captured yet" $recording}
+      }catch{Add-Check "Garudanetra action recording" "FAIL" $_.Exception.Message $null}
     }else{
       Add-Check "Garudanetra live browser" "FAIL" (($ready.last_error|Out-String).Trim()) $ready
     }
