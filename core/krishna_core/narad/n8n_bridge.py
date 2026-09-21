@@ -43,6 +43,16 @@ class N8nBridge:
                 "body":raw,"host":urlparse(target).hostname,
             }
 
+    def post(self,url,payload=None,headers=None,timeout=None):
+        if timeout is not None:
+            previous=self.timeout
+            try:
+                self.timeout=max(3,min(int(timeout),120))
+                return self.trigger(url,payload,headers)
+            finally:
+                self.timeout=previous
+        return self.trigger(url,payload,headers)
+
     def status(self):
         return {
             "available":True,"mode":"external-webhook-only",
