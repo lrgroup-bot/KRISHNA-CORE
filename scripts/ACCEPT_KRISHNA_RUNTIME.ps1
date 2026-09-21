@@ -25,7 +25,7 @@ $started=Get-Date
 $checks=New-Object System.Collections.Generic.List[object]
 
 function Add-Check([string]$Name,[string]$Status,[string]$Detail,[object]$Evidence=$null){
-  $checks.Add([ordered]@{name=$Name;status=$Status;detail=$Detail;evidence=$Evidence})
+  [void]$checks.Add([ordered]@{name=$Name;status=$Status;detail=$Detail;evidence=$Evidence})
   $color=if($Status -eq "PASS"){"Green"}elseif($Status -eq "WARN"){"Yellow"}else{"Red"}
   Write-Host ("[{0}] {1} - {2}" -f $Status,$Name,$Detail) -ForegroundColor $color
 }
@@ -193,14 +193,15 @@ try{
 } finally {
   if($proc -and !$proc.HasExited){
     Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-    try{$proc.WaitForExit(5000)}catch{}
+    try{[void]$proc.WaitForExit(5000)}catch{}
   }
   if(Test-Path $acceptanceState){Remove-Item -Recurse -Force $acceptanceState -ErrorAction SilentlyContinue}
 }
 
-$fail=@($checks|Where-Object{$_.status -eq "FAIL"}).Count
-$warn=@($checks|Where-Object{$_.status -eq "WARN"}).Count
-$pass=@($checks|Where-Object{$_.status -eq "PASS"}).Count
+$checkRows=@($checks | ForEach-Object { $_ })
+$fail=@($checkRows|Where-Object{$_.status -eq "FAIL"}).Count
+$warn=@($checkRows|Where-Object{$_.status -eq "WARN"}).Count
+$pass=@($checkRows|Where-Object{$_.status -eq "PASS"}).Count
 $report=[ordered]@{
   schema=1
   generated_at=(Get-Date).ToUniversalTime().ToString("o")
@@ -212,7 +213,7 @@ $report=[ordered]@{
   failed=$fail
   duration_seconds=[math]::Round(((Get-Date)-$started).TotalSeconds,2)
   release_ready=($fail -eq 0)
-  checks=@($checks)
+  checks=$checkRows
 }
 $out=Join-Path $reportDir ("runtime-acceptance-"+(Get-Date -Format "yyyyMMdd-HHmmss")+".json")
 $report|ConvertTo-Json -Depth 14|Set-Content -Encoding UTF8 $out
