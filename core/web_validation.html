@@ -1008,10 +1008,18 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 </div>
 <div id="garudanetraState" class="card" style="margin-top:12px"><div class="k">LIVE BROWSER STATUS</div><div class="v">READY</div></div>
 <div class="grid" style="margin-top:12px">
-<div class="card"><div class="k">CONTROL</div><div class="v">KRISHNA / OWNER TAKEOVER</div><p>Use the live Garudanetra panel for pause, continue, tabs, typing, upload and takeover.</p></div>
-<div class="card"><div class="k">EVIDENCE</div><div class="v">CONSOLE · NETWORK · FRAME</div><p>Browser findings remain visible for verification and Task Memory handoff.</p></div>
+<div class="card"><div class="k">CANONICAL ENGINE</div><div id="garudanetraEngine" class="v">PLAYWRIGHT</div><p>One KRISHNA browser authority; optional GitHub adapters never silently replace it.</p></div>
+<div class="card"><div class="k">STREAM</div><div id="garudanetraStream" class="v">IDLE</div><p>CDP screencast first, bounded screenshot fallback.</p></div>
+<div class="card"><div class="k">SEMANTIC REFS</div><div id="garudanetraRefs" class="v">0</div><p>Accessibility-style element map for stable @e-style actions and recovery.</p></div>
+<div class="card"><div class="k">RECORDED STEPS</div><div id="garudanetraRecording" class="v">0</div><p>Values are redacted by default; consequential replay needs approval.</p></div>
+<div class="card"><div class="k">ADAPTERS</div><div id="garudanetraAdapters" class="v">—</div><p>Browser Harness, agent-browser, BrowserCode, OpenDevBrowser, Rustwright, Lucarne, Skyvern, rrweb and other optional providers are capability adapters only.</p></div>
+<div class="card"><div class="k">CONTROL</div><div class="v">KRISHNA / OWNER TAKEOVER</div><p>Use the live panel only when you want to watch or take over. Garudanetra normally works without occupying the workspace.</p></div>
 </div>
-<button class="ghost" style="margin-top:12px" onclick="toggleLiveWork(true)">OPEN LIVE GARUDANETRA PANEL</button>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+<button class="ghost" onclick="toggleLiveWork(true)">OPEN LIVE GARUDANETRA PANEL</button>
+<button class="ghost" onclick="showGarudanetraSemantic()">SHOW SEMANTIC MAP</button>
+<button class="ghost" onclick="showGarudanetraRecording()">SHOW RECORDING</button>
+</div>
 </div></section>
 <section id="narad" class="view panelView"><div class="panelInner">
 <h1 class="panelTitle">NARAD 🪕</h1><p class="panelSub">KRISHNA's durable automation, trigger, connection and messenger control plane. External side effects remain behind Policy Kernel approval.</p>
@@ -1462,8 +1470,13 @@ async function loadKabach(){
 }
 async function loadGarudanetra(){
  try{
-  const sessions=await req('/api/garudanetra/sessions');
+  const [fabric,sessions]=await Promise.all([req('/api/garudanetra/fabric'),req('/api/garudanetra/sessions')]);
   const live=(sessions.sessions||[]).find(x=>!x.stopped&&x.state!=='ERROR');
+  if($('garudanetraEngine'))$('garudanetraEngine').textContent=String(fabric.canonical_engine||'playwright').toUpperCase();
+  if($('garudanetraAdapters')){
+    const configured=((fabric.adapters||{}).configured||[]).filter(x=>x!=='playwright');
+    $('garudanetraAdapters').textContent=configured.length?configured.join(' · '):'NATIVE FABRIC';
+  }
   const st=$('garudanetraState')?.querySelector('.v');
   if(live){
    if(st)st.textContent=String(live.state||'LIVE').toUpperCase();
@@ -1487,7 +1500,13 @@ function renderGarudanetraSession(s){
  $('liveOperation').textContent=(s.title||s.current_url||s.requested_url||'Waiting').slice(0,180);
  const findings=s.findings||[],errors=findings.filter(x=>x.severity==='error'||x.severity==='critical').length;
  $('liveVerification').textContent=errors?errors+' finding'+(errors===1?'':'s'):'No browser errors observed';
- const evidence={session_id:s.session_id,mode:s.mode,state:s.state,url:s.current_url,title:s.title,owner_control:s.owner_control,tabs:s.tabs||[],downloads:s.downloads||[],console:(s.console||[]).slice(-12),network:(s.network||[]).slice(-20),findings:findings.slice(-20),visible_text:(s.visible_text||'').slice(0,1800)};
+ if($('garudanetraStream'))$('garudanetraStream').textContent=String(s.stream_mode||'idle').replaceAll('_',' ').toUpperCase();
+ if($('garudanetraRefs'))$('garudanetraRefs').textContent=String(s.semantic_count||0);
+ if($('garudanetraRecording'))$('garudanetraRecording').textContent=String(s.recording_steps||0);
+ const evidence={session_id:s.session_id,mode:s.mode,state:s.state,url:s.current_url,title:s.title,owner_control:s.owner_control,
+   stream_mode:s.stream_mode,frame_seq:s.frame_seq,semantic_revision:s.semantic_revision,semantic_count:s.semantic_count,
+   recording_steps:s.recording_steps,tabs:s.tabs||[],downloads:s.downloads||[],console:(s.console||[]).slice(-12),
+   network:(s.network||[]).slice(-20),findings:findings.slice(-20),visible_text:(s.visible_text||'').slice(0,1800)};
  $('garudaEvidence').textContent=JSON.stringify(evidence,null,2);
  const frame=$('garudaFrame'),empty=$('garudaFrameEmpty'); if(frame){frame.classList.toggle('owner',garudaOwnerControl);if(s.frame_available){frame.style.display='block';frame.src='/api/garudanetra/frame?id='+encodeURIComponent(s.session_id)+'&t='+Date.now();if(empty)empty.style.display='none'}else{frame.style.display='none';if(empty)empty.style.display='block'}}
  if(s.state==='ERROR'){setOps('work','Garudanetra error','bad');setOps('verify',s.last_error||'Browser error','bad')}
@@ -1495,6 +1514,16 @@ function renderGarudanetraSession(s){
  else if(s.owner_control)setOps('work','Owner control','warn');
  else if(s.paused)setOps('work','Garudanetra paused','warn');
  else setOps('work','Garudanetra live','good');
+}
+async function showGarudanetraSemantic(){
+ if(!garudaSessionId){log('No active Garudanetra session.');return}
+ try{const d=await req('/api/garudanetra/semantic?id='+encodeURIComponent(garudaSessionId));$('garudaEvidence').textContent=JSON.stringify(d,null,2);toggleLiveWork(true)}
+ catch(e){log(e.message)}
+}
+async function showGarudanetraRecording(){
+ if(!garudaSessionId){log('No active Garudanetra session.');return}
+ try{const d=await req('/api/garudanetra/recording?id='+encodeURIComponent(garudaSessionId));$('garudaEvidence').textContent=JSON.stringify(d,null,2);toggleLiveWork(true)}
+ catch(e){log(e.message)}
 }
 async function pollGarudanetraSession(){
  if(!garudaSessionId)return;
@@ -1529,12 +1558,11 @@ async function startGarudanetraMission(){
  toggleLiveWork(true);$('liveState').textContent='STARTING';$('liveOperation').textContent=goal;setOps('work','Garudanetra: '+goal,'good');
  try{
   if(/^https?:\/\//i.test(goal)){await startGarudanetraBrowser(goal);return}
-  const out=await req('/api/garuda/scout',{project:$('project').value||'KRISHNA',goal,limit:10});
-  $('garudaEvidence').textContent=JSON.stringify(out,null,2);$('liveVerification').textContent='Research evidence captured';setOps('verify','Research evidence captured','good');
-  const web=(out.web||[]).find(x=>!x.suspicious&&/^https?:\/\//i.test(x.url||''));const repo=(out.github||[]).find(x=>/^https?:\/\//i.test(x.html_url||x.url||''));
-  const url=web?.url||repo?.html_url||repo?.url;
-  if(url)await startGarudanetraBrowser(url);else{$('liveState').textContent='RESEARCH COMPLETE';setOps('work','Research complete','good')}
- }catch(e){$('garudaEvidence').textContent=e.message;$('liveVerification').textContent='Failed';setOps('verify','Browser/research failure','bad')}
+  $('liveState').textContent='URL REQUIRED';
+  $('liveVerification').textContent='Garuda owns research; Garudanetra owns browser execution';
+  $('garudaEvidence').textContent='Garudanetra requires a concrete http:// or https:// target. Use GARUDA to research/discover sources, then open the selected source with Garudanetra.';
+  setOps('verify','Use Garuda for research, Garudanetra for browser work','warn');
+ }catch(e){$('garudaEvidence').textContent=e.message;$('liveVerification').textContent='Failed';setOps('verify','Garudanetra browser failure','bad')}
 }
 function naradTriggerChanged(){
  const type=$('naradTriggerType').value,box=$('naradTriggerConfig'),v=$('naradTriggerValue');
