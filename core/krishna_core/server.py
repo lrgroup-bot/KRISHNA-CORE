@@ -62,12 +62,12 @@ def _remember_garudanetra_session(snapshot):
         orch.gyan_propose(project,"garudanetra-task-memory:"+sid,lesson,evidence,0.8,
                           "garudanetra_task_memory",False,"evidence",
                           {"session_id":sid,"mode":snapshot.get("mode"),"url":snapshot.get("current_url")})
-        for finding in snapshot.get("findings") or []:
+        for idx,finding in enumerate(snapshot.get("findings") or []):
             if finding.get("kind")!="selector_recovered" or not finding.get("candidate_skill"):
                 continue
             skill=finding["candidate_skill"]
             compiled=orch.agi.skills.compile_candidate(
-                "garudanetra-selector-recovery",
+                f"garudanetra-selector-recovery-{sid[:8]}-{idx+1}",
                 [{"action":"browser_selector_recovery","strategy":skill.get("strategy"),"payload":skill.get("payload") or {}}],
                 project=project,
                 evidence=[{"session_id":sid,"url":snapshot.get("current_url"),"finding":finding}],
@@ -78,6 +78,27 @@ def _remember_garudanetra_session(snapshot):
                                 "compiled_skill":{"path":compiled.get("path"),"digest":compiled.get("digest"),"status":compiled.get("status")}}],
                               0.75,"garudanetra_recovery",False,"skill",
                               {"session_id":sid,"recovery_source":skill.get("source"),"verification_required":True,
+                               "compiled_skill_path":compiled.get("path"),"compiled_skill_digest":compiled.get("digest")})
+        successful=[row for row in (snapshot.get("recording") or [])
+                    if row.get("status")=="ok" and row.get("action") not in {"pause","resume","takeover","stop"}]
+        if len(successful)>=2:
+            steps=[]
+            for row in successful[:80]:
+                payload=dict(row.get("payload") or {})
+                steps.append({"action":"browser_"+str(row.get("action") or "step"),
+                              "payload":payload,
+                              "requires_input":any(str(v)=="[REDACTED]" for v in payload.values())})
+            compiled=orch.agi.skills.compile_candidate(
+                f"garudanetra-workflow-{sid[:8]}",steps,project=project,
+                evidence=[{"session_id":sid,"url":snapshot.get("current_url"),
+                           "title":snapshot.get("title"),"step_count":len(steps)}],
+            )
+            orch.gyan_propose(project,"garudanetra-recorded-workflow",
+                              f"Recorded Garudanetra workflow candidate with {len(steps)} verified runtime step(s).",
+                              [{"session_id":sid,"url":snapshot.get("current_url"),"steps":steps,
+                                "compiled_skill":{"path":compiled.get("path"),"digest":compiled.get("digest"),"status":compiled.get("status")}}],
+                              0.7,"garudanetra_recording",False,"skill",
+                              {"session_id":sid,"verification_required":True,"replay_requires_approval":True,
                                "compiled_skill_path":compiled.get("path"),"compiled_skill_digest":compiled.get("digest")})
     except Exception as exc:
         orch.memory.audit("garudanetra_task_memory","proposal_failed",f"{type(exc).__name__}: {exc}")
