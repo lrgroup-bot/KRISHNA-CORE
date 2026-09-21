@@ -152,11 +152,14 @@ public class MainActivity extends Activity {
         JSONObject ok=new JSONObject();ok.put("ok",true);ok.put("project",project);ok.put("chat_id",chatId);return ok.toString();
       }catch(Exception e){return error(e);}
     }
-    @JavascriptInterface public String chat(String m){
+    @JavascriptInterface public String chat(String m){return chatWithAttachments(m,"[]");}
+    @JavascriptInterface public String chatWithAttachments(String m,String attachmentIdsJson){
       try{
         JSONObject ready=new JSONObject(ensureChat());if(ready.has("error"))return ready.toString();
         String project=ready.optString("project","KRISHNA"),chatId=ready.optString("chat_id","");
-        JSONObject body=new JSONObject();body.put("message",m);body.put("project",project);body.put("chat_id",chatId);body.put("source","mobile");body.put("mode","chat");
+        JSONArray ids=new JSONArray(attachmentIdsJson==null?"[]":attachmentIdsJson);
+        if(ids.length()>3)throw new IllegalArgumentException("at most 3 attachments per request");
+        JSONObject body=new JSONObject();body.put("message",m);body.put("project",project);body.put("chat_id",chatId);body.put("source","mobile");body.put("mode","chat");body.put("attachment_ids",ids);
         return call(CORE,body.toString());
       }catch(Exception e){return error(e);}
     }
