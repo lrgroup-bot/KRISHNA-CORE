@@ -60,7 +60,10 @@ def _dpapi_unprotect(data:bytes,entropy:bytes=b"KRISHNA-SECRET-VAULT-V1")->bytes
     try:
         return ctypes.string_at(out_blob.pbData,out_blob.cbData)
     finally:
-        kernel32.LocalFree(out_blob.pbData)
+        if desc:
+            kernel32.LocalFree(ctypes.cast(desc,ctypes.c_void_p))
+        if out_blob.pbData:
+            kernel32.LocalFree(out_blob.pbData)
 
 
 class SecureSecretVault:
