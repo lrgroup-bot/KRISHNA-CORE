@@ -140,5 +140,18 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn('if path == "/favicon.ico":',server)
         self.assertIn('return self._binary(204, b"", "image/x-icon")',server)
 
+    def test_e_drive_audit_report_is_windows_powershell_51_safe(self):
+        text=(ROOT/"scripts"/"AUDIT_KRISHNA_E_DRIVE.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn('$findingRows=@($findings | ForEach-Object { $_ })',text)
+        self.assertIn('findings=$findingRows',text)
+        self.assertNotIn('findings=@($findings)',text)
+        self.assertIn('OPENMONTAGE_BRIDGE_READY',text)
+
+    def test_start_output_uses_ascii_separators(self):
+        text=(ROOT/"scripts"/"START_KRISHNA.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn('| discovery ON | pairing required',text)
+        self.assertIn('| PRIVATE OVERLAY | pairing required',text)
+        self.assertNotIn(' · ',text)
+
 if __name__=="__main__":
     unittest.main()
