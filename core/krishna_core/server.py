@@ -650,7 +650,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
 
-        if self.path == "/api/ui-guardian/register":
+        if post_path == "/api/ui-guardian/register":
             item=_ui_registry.register(
                 str(data.get("name") or "").strip(),
                 str(data.get("project") or "KRISHNA").strip() or "KRISHNA",
@@ -660,7 +660,7 @@ class Handler(BaseHTTPRequestHandler):
             )
             return self._json(201,item)
 
-        if self.path == "/api/ui-guardian/evaluate":
+        if post_path == "/api/ui-guardian/evaluate":
             entry_id=str(data.get("entry_id") or "").strip()
             if not entry_id:return self._json(400,{"error":"entry_id is required"})
             mark("UI GUARDIAN",f"Evaluating {entry_id[:8]}")
@@ -669,14 +669,14 @@ class Handler(BaseHTTPRequestHandler):
             mark("UI GUARDIAN COMPLETE","PASS" if result.get("passed") else "DEFECTS FOUND")
             return self._json(200,result)
 
-        if self.path == "/api/ui-guardian/transition":
+        if post_path == "/api/ui-guardian/transition":
             entry_id=str(data.get("entry_id") or "").strip()
             target=str(data.get("target") or "").strip()
             if not entry_id or not target:return self._json(400,{"error":"entry_id and target are required"})
             result=_ui_registry.transition(entry_id,target,verified=bool(data.get("verified",False)),notes=str(data.get("notes") or ""))
             return self._json(200,result)
 
-        if self.path == "/api/garudanetra/session/start":
+        if post_path == "/api/garudanetra/session/start":
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
             url=str(data.get("url") or "").strip()
             mode=str(data.get("mode") or "private").strip().lower()
@@ -685,7 +685,7 @@ class Handler(BaseHTTPRequestHandler):
             mark("GARUDANETRA LIVE",f"{project}: {mode}: {url[:120]}")
             return self._json(201,out)
 
-        if self.path == "/api/garudanetra/session/control":
+        if post_path == "/api/garudanetra/session/control":
             sid=str(data.get("session_id") or "").strip()
             action=str(data.get("action") or "").strip()
             if not sid or not action:return self._json(400,{"error":"session_id and action are required"})
@@ -710,7 +710,7 @@ class Handler(BaseHTTPRequestHandler):
             try:return self._json(200,orch.agi.narad.handle_webhook(token,data))
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
 
-        if self.path == "/api/commitments/create":
+        if post_path == "/api/commitments/create":
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
             title=str(data.get("title") or "").strip()
             if not title:return self._json(400,{"error":"title is required"})
@@ -725,17 +725,17 @@ class Handler(BaseHTTPRequestHandler):
                 detail={**detail,"autonomy":autonomy}
             return self._json(201,orch.remember_commitment(project,title,detail,str(data.get("source") or "KRISHNA")))
 
-        if self.path == "/api/commitments/update":
+        if post_path == "/api/commitments/update":
             cid=str(data.get("commitment_id") or "").strip();status=str(data.get("status") or "").strip()
             if not cid or not status:return self._json(400,{"error":"commitment_id and status are required"})
             return self._json(200,orch.complete_commitment(cid,status,data.get("detail")))
 
-        if self.path == "/api/autonomy/tick":
+        if post_path == "/api/autonomy/tick":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"manual autonomy tick must run on KRISHNA PC"})
             return self._json(200,_autonomy.run_once())
 
-        if self.path == "/api/narad/connections/register":
+        if post_path == "/api/narad/connections/register":
             try:
                 return self._json(201,orch.agi.narad_credentials.register(
                     str(data.get("name") or ""),str(data.get("provider") or ""),str(data.get("env_var") or ""),
@@ -743,7 +743,7 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             except ValueError as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/narad/connections/register-secret":
+        if post_path == "/api/narad/connections/register-secret":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"encrypted secret registration must run on KRISHNA PC"})
             try:
@@ -753,46 +753,46 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/narad/connections/delete":
+        if post_path == "/api/narad/connections/delete":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"credential deletion must run on KRISHNA PC"})
             cid=str(data.get("credential_id") or "").strip()
             if not cid:return self._json(400,{"error":"credential_id is required"})
             return self._json(200,{"deleted":orch.agi.narad_credentials.delete(cid)})
 
-        if self.path == "/api/narad/webhooks/provision":
+        if post_path == "/api/narad/webhooks/provision":
             wid=str(data.get("workflow_id") or "").strip()
             if not wid:return self._json(400,{"error":"workflow_id is required"})
             return self._json(201,orch.agi.narad.provision_webhook(wid))
 
-        if self.path == "/api/narad/dead-letters/retry":
+        if post_path == "/api/narad/dead-letters/retry":
             letter_id=str(data.get("letter_id") or "").strip()
             if not letter_id:return self._json(400,{"error":"letter_id is required"})
             return self._json(200,orch.agi.narad.retry_dead_letter(letter_id,bool(data.get("approved",False))))
 
-        if self.path == "/api/narad/scheduler/tick":
+        if post_path == "/api/narad/scheduler/tick":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"manual scheduler tick must run on KRISHNA PC"})
             return self._json(200,orch.agi.narad.run_due())
 
-        if self.path == "/api/narad/workflows/create":
+        if post_path == "/api/narad/workflows/create":
             name=str(data.get("name") or "").strip()
             trigger=data.get("trigger") or {"type":"manual"}
             steps=data.get("steps") or []
             if not name or not isinstance(steps,list): return self._json(400,{"error":"name and steps are required"})
             return self._json(201,orch.agi.narad.create_workflow(name,trigger,steps,data.get("permissions") or []))
 
-        if self.path == "/api/narad/workflows/promote":
+        if post_path == "/api/narad/workflows/promote":
             wid=str(data.get("workflow_id") or "").strip(); state=str(data.get("state") or "").strip()
             if not wid or not state:return self._json(400,{"error":"workflow_id and state are required"})
             return self._json(200,orch.agi.narad.promote(wid,state,verified=bool(data.get("verified",False))))
 
-        if self.path == "/api/narad/workflows/execute":
+        if post_path == "/api/narad/workflows/execute":
             wid=str(data.get("workflow_id") or "").strip()
             if not wid:return self._json(400,{"error":"workflow_id is required"})
             return self._json(200,orch.agi.narad.execute(wid,data.get("context") or {},approved=bool(data.get("approved",False))))
 
-        if self.path == "/api/mobile/pair/request":
+        if post_path == "/api/mobile/pair/request":
             device = str(data.get("device_id", "")).strip()
             if not device:
                 return self._json(400, {"error": "device_id required"})
@@ -801,7 +801,7 @@ class Handler(BaseHTTPRequestHandler):
                 str(data.get("credential_sha256") or ""),
             ))
 
-        if self.path == "/api/mobile/pair/approve":
+        if post_path == "/api/mobile/pair/approve":
             if self.client_address[0] not in ("127.0.0.1", "::1"):
                 return self._json(403, {"error": "approval must be performed on KRISHNA PC"})
             try:
@@ -811,7 +811,7 @@ class Handler(BaseHTTPRequestHandler):
             except PermissionError as exc:
                 return self._json(400, {"error": str(exc)})
 
-        if self.path in ("/api/core/event", "/api/neural/event"):
+        if post_path in ("/api/core/event", "/api/neural/event"):
             source = str(data.get("source", "unknown")).strip() or "unknown"
             kind = str(data.get("kind", "event")).strip() or "event"
             detail = str(data.get("detail", ""))
@@ -822,13 +822,13 @@ class Handler(BaseHTTPRequestHandler):
                 payload=data.get("payload") or {},
             ))
 
-        if self.path in ("/api/mobile-log",):
+        if post_path in ("/api/mobile-log",):
             event = str(data.get("event", ""))
             return self._json(200, orch.handle_event(
                 "mobile", "mobile_log", event, severity="info", project="system",
             ))
 
-        if self.path == "/api/mobile/control":
+        if post_path == "/api/mobile/control":
             action = str(data.get("action", "")).strip().lower()
             project = str(data.get("project", "general")).strip() or "general"
             payload = data.get("payload") or {}
@@ -915,7 +915,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 return self._json(500, {"error": str(exc)})
 
-        if self.path in ("/v1/chat", "/api/core/chat"):
+        if post_path in ("/v1/chat", "/api/core/chat"):
             msg = data.get("message", "")
             if not isinstance(msg, str) or not msg.strip():
                 return self._json(400, {"error": "message must be non-empty text"})
@@ -975,13 +975,13 @@ class Handler(BaseHTTPRequestHandler):
                 activity["current_activity"] = "Error"
                 return self._json(500, {"error": str(exc)})
 
-        if self.path == "/api/specialists/index":
+        if post_path == "/api/specialists/index":
             try:
                 return self._json(200, _specialists.index(data.get("source_root") or None))
             except ValueError as exc:
                 return self._json(400, {"error": str(exc)})
 
-        if self.path == "/api/specialists/select":
+        if post_path == "/api/specialists/select":
             task = str(data.get("task", "")).strip()
             if not task:
                 return self._json(400, {"error": "task is required"})
@@ -989,12 +989,12 @@ class Handler(BaseHTTPRequestHandler):
             plan=_team_planner.plan(task,project,int(data.get("limit",5)))
             return self._json(200, {"selected":plan["agency_advisors"],"team":plan})
 
-        if self.path == "/api/specialist-teams/plan":
+        if post_path == "/api/specialist-teams/plan":
             task=str(data.get("task") or "").strip()
             if not task:return self._json(400,{"error":"task is required"})
             return self._json(200,_team_planner.plan(task,str(data.get("project") or "KRISHNA"),int(data.get("external_limit") or 6)))
 
-        if self.path == "/api/specialists/context":
+        if post_path == "/api/specialists/context":
             try:
                 return self._json(200, _specialists.context(str(data.get("id", ""))))
             except KeyError:
@@ -1002,25 +1002,25 @@ class Handler(BaseHTTPRequestHandler):
             except PermissionError as exc:
                 return self._json(403, {"error": str(exc)})
 
-        if self.path == "/api/plugins/add":
+        if post_path == "/api/plugins/add":
             try:
                 return self._json(200, _plugins.add(data))
             except ValueError as exc:
                 return self._json(400, {"error": str(exc)})
 
-        if self.path == "/api/plugins/enable":
+        if post_path == "/api/plugins/enable":
             try:
                 return self._json(200, _plugins.set_enabled(str(data.get("id", "")).strip(), bool(data.get("enabled", True))))
             except KeyError:
                 return self._json(404, {"error": "plugin not found"})
 
-        if self.path == "/api/plugins/remove":
+        if post_path == "/api/plugins/remove":
             try:
                 return self._json(200, {"removed": _plugins.remove(str(data.get("id", "")).strip())})
             except PermissionError as exc:
                 return self._json(403, {"error": str(exc)})
 
-        if self.path == "/api/chats/create":
+        if post_path == "/api/chats/create":
             project = str(data.get("project", "general")).strip() or "general"
             title = str(data.get("title", "New chat")).strip() or "New chat"
             try:
@@ -1028,7 +1028,7 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:
                 return self._json(404, {"error": "project not registered"})
 
-        if self.path == "/api/chats/move":
+        if post_path == "/api/chats/move":
             chat_id = str(data.get("chat_id", "")).strip()
             project = str(data.get("project", "")).strip()
             if not chat_id or not project:
@@ -1040,7 +1040,7 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as exc:
                 return self._json(400, {"error": str(exc)})
 
-        if self.path == "/api/chats/delete":
+        if post_path == "/api/chats/delete":
             chat_id = str(data.get("chat_id", "")).strip()
             if not chat_id:
                 return self._json(400, {"error": "chat_id is required"})
@@ -1049,7 +1049,7 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError as exc:
                 return self._json(404, {"error": str(exc)})
 
-        if self.path == "/api/chats/rename":
+        if post_path == "/api/chats/rename":
             chat_id = str(data.get("chat_id", "")).strip()
             title = str(data.get("title", "")).strip()
             if not chat_id or not title:
@@ -1061,7 +1061,7 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as exc:
                 return self._json(400, {"error": str(exc)})
 
-        if self.path == "/api/wearables/register":
+        if post_path == "/api/wearables/register":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"wearable registration must run on KRISHNA PC"})
             try:
@@ -1071,7 +1071,7 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             except ValueError as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/wearables/verify":
+        if post_path == "/api/wearables/verify":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"wearable verification must run on KRISHNA PC"})
             did=str(data.get("device_id") or "").strip()
@@ -1083,7 +1083,7 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"wearable device not found"})
             except ValueError as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/resilience/worker/clear-quarantine":
+        if post_path == "/api/resilience/worker/clear-quarantine":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"worker quarantine changes must run on KRISHNA PC"})
             name=str(data.get("worker") or "").strip()
@@ -1091,25 +1091,25 @@ class Handler(BaseHTTPRequestHandler):
             try:return self._json(200,orch.agi.workers.clear_quarantine(name))
             except KeyError:return self._json(404,{"error":"worker not registered"})
 
-        if self.path == "/api/resilience/models/unload":
+        if post_path == "/api/resilience/models/unload":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"model unload must run on KRISHNA PC"})
             model=str(data.get("model") or "").strip()
             try:return self._json(200,_model_memory.unload(model) if model else _model_memory.unload_all())
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/voice/wake/start":
+        if post_path == "/api/voice/wake/start":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"microphone wake service must be controlled on KRISHNA PC"})
             try:return self._json(200,_voice.wake.start())
             except RuntimeError as exc:return self._json(503,{"error":str(exc),"status":_voice.status()})
 
-        if self.path == "/api/voice/wake/stop":
+        if post_path == "/api/voice/wake/stop":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"microphone wake service must be controlled on KRISHNA PC"})
             return self._json(200,_voice.wake.stop())
 
-        if self.path == "/api/voice/tts":
+        if post_path == "/api/voice/tts":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"local TTS must be requested on KRISHNA PC"})
             text_value=str(data.get("text") or "").strip()
@@ -1119,7 +1119,7 @@ class Handler(BaseHTTPRequestHandler):
             try:return self._json(200,{"output_path":_voice.tts.speak(text_value,out_path),"provider":"ai4bharat-indic-tts"})
             except (RuntimeError,ValueError) as exc:return self._json(503,{"error":str(exc)})
 
-        if self.path == "/api/voice/stt":
+        if post_path == "/api/voice/stt":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"local STT must be requested on KRISHNA PC"})
             audio_path=str(data.get("audio_path") or "").strip()
@@ -1127,7 +1127,7 @@ class Handler(BaseHTTPRequestHandler):
             try:return self._json(200,{"text":_voice.stt.transcribe(audio_path),"provider":"ai4bharat-indicconformer"})
             except (RuntimeError,ValueError,FileNotFoundError) as exc:return self._json(503,{"error":str(exc)})
 
-        if self.path == "/api/models/gateways/register":
+        if post_path == "/api/models/gateways/register":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"model gateway secrets must be configured on KRISHNA PC"})
             try:
@@ -1138,14 +1138,14 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/models/gateways/delete":
+        if post_path == "/api/models/gateways/delete":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"model gateway deletion must run on KRISHNA PC"})
             pid=str(data.get("profile_id") or "").strip()
             if not pid:return self._json(400,{"error":"profile_id is required"})
             return self._json(200,{"deleted":orch.model_gateway.delete(pid)})
 
-        if self.path == "/api/projects/register":
+        if post_path == "/api/projects/register":
             try:
                 out = orch.register_project(
                     name=str(data.get("name", "")).strip(),
@@ -1160,7 +1160,7 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, TypeError) as exc:
                 return self._json(400, {"error": str(exc)})
 
-        if self.path == "/api/projects/unregister":
+        if post_path == "/api/projects/unregister":
             name = str(data.get("name", "")).strip()
             try:
                 return self._json(200, orch.unregister_project(name))
@@ -1171,7 +1171,7 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as exc:
                 return self._json(400, {"error": str(exc)})
 
-        if self.path == "/api/e2e/register":
+        if post_path == "/api/e2e/register":
             if self.client_address[0] not in ("127.0.0.1", "::1"):
                 return self._json(403, {"error": "E2E harness registration must be performed on KRISHNA PC"})
             project = str(data.get("project", "")).strip()
@@ -1186,7 +1186,7 @@ class Handler(BaseHTTPRequestHandler):
             except (OSError, ValueError) as exc:
                 return self._json(400, {"error": str(exc)})
 
-        if self.path == "/api/projects/index":
+        if post_path == "/api/projects/index":
             project = str(data.get("project", "")).strip()
             if not project:
                 return self._json(400, {"error": "project is required"})
@@ -1195,7 +1195,7 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:
                 return self._json(404, {"error": "project not registered"})
 
-        if self.path == "/api/investigate":
+        if post_path == "/api/investigate":
             symptom = str(data.get("symptom", "")).strip()
             if not symptom:
                 return self._json(400, {"error": "symptom is required"})
@@ -1211,7 +1211,7 @@ class Handler(BaseHTTPRequestHandler):
                 mark("INVESTIGATION ERROR", str(exc)[:160])
                 return self._json(500, {"error": str(exc)})
 
-        if self.path == "/api/attachments":
+        if post_path == "/api/attachments":
             chat_id=str(data.get("chat_id") or "").strip()
             if not chat_id or not orch.memory.chat(chat_id):return self._json(404,{"error":"chat not found"})
             try:
@@ -1220,7 +1220,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(201,item)
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/attachments/analyze":
+        if post_path == "/api/attachments/analyze":
             chat_id=str(data.get("chat_id") or "").strip();aid=str(data.get("attachment_id") or "").strip()
             if not chat_id or not orch.memory.chat(chat_id):return self._json(404,{"error":"chat not found"})
             if not aid:return self._json(400,{"error":"attachment_id is required"})
@@ -1239,61 +1239,61 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError,PermissionError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
             except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
-        if self.path == "/api/plugins/execute":
+        if post_path == "/api/plugins/execute":
             try:
                 return self._json(200,_plugin_executor.execute(str(data.get("plugin_id") or ""),str(data.get("project") or "KRISHNA"),str(data.get("operation") or "get"),data.get("payload") or {},data.get("auth_env")))
             except KeyError:return self._json(404,{"error":"plugin not found"})
             except (ValueError,PermissionError) as exc:return self._json(403 if isinstance(exc,PermissionError) else 400,{"error":str(exc)})
             except Exception as exc:return self._json(502,{"error":f"plugin request failed: {type(exc).__name__}: {exc}"})
 
-        if self.path == "/api/software-factory/create":
+        if post_path == "/api/software-factory/create":
             project=str(data.get("project") or "").strip(); goal=str(data.get("goal") or "").strip()
             if not project or not goal:return self._json(400,{"error":"project and goal are required"})
             try:return self._json(201,orch.create_software_project_team(project,goal,data.get("deadline_hours"),data.get("start_at"),data.get("end_at")))
             except (ValueError,KeyError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/software-factory/workers/request":
+        if post_path == "/api/software-factory/workers/request":
             try:return self._json(201,orch.request_ephemeral_workers(str(data.get("project") or ""),str(data.get("manager") or ""),str(data.get("role") or ""),int(data.get("count") or 1),str(data.get("reason") or ""),data.get("hr_snapshot"),False))
             except (ValueError,KeyError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/software-factory/workers/approve":
+        if post_path == "/api/software-factory/workers/approve":
             try:return self._json(200,orch.request_ephemeral_workers(str(data.get("project") or ""),str(data.get("manager") or ""),str(data.get("role") or ""),int(data.get("count") or 1),str(data.get("reason") or ""),data.get("hr_snapshot"),True))
             except (ValueError,KeyError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/software-factory/workers/run":
+        if post_path == "/api/software-factory/workers/run":
             try:return self._json(200,orch.run_ephemeral_workers(str(data.get("project") or ""),data.get("request") or {},str(data.get("task") or "")))
             except (ValueError,KeyError,PermissionError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/software-factory/gate":
+        if post_path == "/api/software-factory/gate":
             try:return self._json(200,orch.software_project_gate(str(data.get("project") or ""),str(data.get("stage") or ""),bool(data.get("passed",False)),data.get("evidence") or [],data.get("defects") or []))
             except (ValueError,KeyError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/software-factory/hr":
+        if post_path == "/api/software-factory/hr":
             try:return self._json(200,orch.software_factory_hr(str(data.get("project") or "KRISHNA"),data.get("workers") or [],data.get("deadline_at"),data.get("total_units"),data.get("completed_units")))
             except (ValueError,KeyError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/software-factory/test-plan":
+        if post_path == "/api/software-factory/test-plan":
             return self._json(200,orch.software_factory_test_plan(data.get("project_type","web"),data.get("risk","medium"),bool(data.get("has_ui",True)),bool(data.get("has_api",True))))
 
-        if self.path == "/api/software-factory/testing-lead/verify":
+        if post_path == "/api/software-factory/testing-lead/verify":
             try:return self._json(200,orch.testing_lead_live_verify(str(data.get("project") or "KRISHNA"),str(data.get("url") or ""),data.get("screenshot_dir"),int(data.get("max_controls") or 100)))
             except (ValueError,KeyError,RuntimeError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/gyan-bhandar/archive":
+        if post_path == "/api/gyan-bhandar/archive":
             project=str(data.get("project") or "KRISHNA").strip(); source_path=str(data.get("source_path") or "").strip()
             if not source_path:return self._json(400,{"error":"source_path is required"})
             try:return self._json(201,orch.gyan_archive_file(project,source_path,str(data.get("topic") or ""),bool(data.get("remove_original",False))))
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
-        if self.path == "/api/gyan-bhandar/archive/restore":
+        if post_path == "/api/gyan-bhandar/archive/restore":
             digest=str(data.get("sha256") or "").strip(); destination=str(data.get("destination") or "").strip()
             if not digest or not destination:return self._json(400,{"error":"sha256 and destination are required"})
             try:return self._json(200,orch.gyan_restore_file(digest,destination))
             except (ValueError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
-        if self.path == "/api/gyan-bhandar/compact":
+        if post_path == "/api/gyan-bhandar/compact":
             return self._json(200,orch.gyan_compact())
 
-        if self.path == "/api/gyan-bhandar/propose":
+        if post_path == "/api/gyan-bhandar/propose":
             project=str(data.get("project") or "KRISHNA").strip(); topic=str(data.get("topic") or "").strip(); lesson=str(data.get("lesson") or "").strip()
             if not topic or not lesson:return self._json(400,{"error":"topic and lesson are required"})
             try:return self._json(202,orch.gyan_propose(project,topic,lesson,data.get("evidence") or [],float(data.get("confidence") or 0),
@@ -1302,12 +1302,12 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/gyan-bhandar/decide":
+        if post_path == "/api/gyan-bhandar/decide":
             approval_id=str(data.get("approval_id") or "").strip()
             if not approval_id or "approved" not in data:return self._json(400,{"error":"approval_id and approved are required"})
             try:return self._json(200,orch.gyan_decide(approval_id,bool(data.get("approved"))))
             except KeyError:return self._json(404,{"error":"pending finding not found"})
-        if self.path == "/api/gyan-bhandar/store":
+        if post_path == "/api/gyan-bhandar/store":
             project=str(data.get("project") or "KRISHNA").strip(); topic=str(data.get("topic") or "").strip(); lesson=str(data.get("lesson") or "").strip()
             if not topic or not lesson:return self._json(400,{"error":"topic and lesson are required"})
             try:return self._json(201,orch.gyan_store(project,topic,lesson,data.get("evidence") or [],float(data.get("confidence") or 0),
@@ -1316,7 +1316,7 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/gyan-bhandar/supersede":
+        if post_path == "/api/gyan-bhandar/supersede":
             project=str(data.get("project") or "KRISHNA").strip(); fingerprint=str(data.get("fingerprint") or "").strip()
             topic=str(data.get("topic") or "").strip(); lesson=str(data.get("lesson") or "").strip()
             if not fingerprint or not topic or not lesson:return self._json(400,{"error":"fingerprint, topic and lesson are required"})
@@ -1326,14 +1326,14 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"learning or project not found"})
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/gyan-bhandar/strengthen":
+        if post_path == "/api/gyan-bhandar/strengthen":
             project=str(data.get("project") or "KRISHNA").strip(); topic=str(data.get("topic") or "").strip()
             if not topic:return self._json(400,{"error":"topic is required"})
             try:return self._json(200,orch.gyan_strengthen(project,topic,bool(data.get("use_garuda",True)),int(data.get("limit") or 10)))
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/garuda/scout":
+        if post_path == "/api/garuda/scout":
             project=str(data.get("project") or "KRISHNA").strip()
             goal=str(data.get("goal") or "").strip()
             if not goal:return self._json(400,{"error":"goal is required"})
@@ -1341,45 +1341,45 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/development/git/status":
+        if post_path == "/api/development/git/status":
             project=str(data.get("project","")).strip()
             if not project:return self._json(400,{"error":"project is required"})
             try:return self._json(200,orch.development_git_snapshot(project))
             except KeyError:return self._json(404,{"error":"project not registered"})
 
-        if self.path == "/api/development/git/commit":
+        if post_path == "/api/development/git/commit":
             project=str(data.get("project","")).strip()
             try:return self._json(200,orch.development_commit(project,str(data.get("message","KRISHNA verified change")),data.get("files") or [],bool(data.get("approved",False))))
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,PermissionError) as exc:return self._json(403 if isinstance(exc,PermissionError) else 400,{"error":str(exc)})
 
-        if self.path == "/api/development/git/push":
+        if post_path == "/api/development/git/push":
             project=str(data.get("project","")).strip()
             try:return self._json(200,orch.development_push(project,bool(data.get("approved",False))))
             except KeyError:return self._json(404,{"error":"project not registered"})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
 
-        if self.path == "/api/development/sync":
+        if post_path == "/api/development/sync":
             project=str(data.get("project","")).strip()
             if not project:return self._json(400,{"error":"project is required"})
             try:return self._json(200,orch.development_sync(project))
             except KeyError:return self._json(404,{"error":"project not registered"})
 
-        if self.path == "/api/development/stage":
+        if post_path == "/api/development/stage":
             project=str(data.get("project","")).strip(); files=data.get("files") or []
             if not project or not isinstance(files,list):return self._json(400,{"error":"project and files are required"})
             try:return self._json(200,orch.development_stage(project,files))
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,OSError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/development/verify":
+        if post_path == "/api/development/verify":
             project=str(data.get("project","")).strip(); candidate=str(data.get("candidate_root","")).strip()
             if not project or not candidate:return self._json(400,{"error":"project and candidate_root are required"})
             try:return self._json(200,orch.development_verify(project,candidate,data.get("checks") or [],data.get("frontend_url"),data.get("browser_actions") or [],data.get("api_expectations") or [],data.get("screenshot_path") or None))
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,OSError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/work/run":
+        if post_path == "/api/work/run":
             project = str(data.get("project", "")).strip()
             goal = str(data.get("goal", "")).strip()
             action = str(data.get("action", "")).strip() or None
@@ -1400,7 +1400,7 @@ class Handler(BaseHTTPRequestHandler):
             except RuntimeError as exc:
                 return self._json(409, {"error": str(exc)})
 
-        if self.path == "/api/work/promotion/prepare":
+        if post_path == "/api/work/promotion/prepare":
             project=str(data.get("project","")).strip()
             candidate=str(data.get("candidate_root","")).strip()
             if not project or not candidate: return self._json(400,{"error":"project and candidate_root are required"})
@@ -1408,7 +1408,7 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError as exc: return self._json(404,{"error":str(exc)})
             except ValueError as exc: return self._json(400,{"error":str(exc)})
 
-        if self.path == "/api/work/promotion/apply":
+        if post_path == "/api/work/promotion/apply":
             token=str(data.get("promotion_token","")).strip()
             if not token: return self._json(400,{"error":"promotion_token is required"})
             try: return self._json(200,orch.promote_candidate(token,approved=bool(data.get("approved",False))))
@@ -1416,7 +1416,7 @@ class Handler(BaseHTTPRequestHandler):
             except PermissionError as exc: return self._json(403,{"error":str(exc)})
             except (ValueError,RuntimeError) as exc: return self._json(409,{"error":str(exc)})
 
-        if self.path == "/api/repair/shadow":
+        if post_path == "/api/repair/shadow":
             project = str(data.get("project", "")).strip()
             symptom = str(data.get("symptom", "")).strip()
             action = str(data.get("action", "")).strip()
@@ -1441,7 +1441,7 @@ class Handler(BaseHTTPRequestHandler):
             except RuntimeError as exc:
                 return self._json(409, {"error": str(exc)})
 
-        if self.path == "/api/browser/inspect":
+        if post_path == "/api/browser/inspect":
             project = str(data.get("project", "general"))
             url = str(data.get("url", "")).strip()
             if not url:
@@ -1459,7 +1459,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 return self._json(500, {"error": str(exc)})
 
-        if self.path == "/api/research/github":
+        if post_path == "/api/research/github":
             project = str(data.get("project", "general"))
             query = str(data.get("query", "")).strip()
             if not query:
@@ -1472,7 +1472,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 return self._json(500, {"error": str(exc)})
 
-        if self.path == "/api/goal/evaluate":
+        if post_path == "/api/goal/evaluate":
             project = str(data.get("project", "general"))
             goal = str(data.get("goal", "")).strip()
             checks = data.get("checks") or []
@@ -1480,7 +1480,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"error": "goal is required"})
             return self._json(200, orch.evaluate_goal(project, goal, checks))
 
-        if self.path == "/api/knowledge/ingest":
+        if post_path == "/api/knowledge/ingest":
             project = str(data.get("project", "general"))
             source = str(data.get("source", "manual"))
             text = str(data.get("text", ""))
@@ -1489,14 +1489,14 @@ class Handler(BaseHTTPRequestHandler):
             result = orch.ingest_knowledge(project, source, text, data.get("metadata"))
             return self._json(200, result)
 
-        if self.path == "/api/project-graph/node":
+        if post_path == "/api/project-graph/node":
             name = str(data.get("name", "")).strip()
             if not name:
                 return self._json(400, {"error": "name is required"})
             orch.graph.upsert_node(name, str(data.get("kind", "component")), data.get("metadata") or {})
             return self._json(200, {"ok": True})
 
-        if self.path == "/api/project-graph/link":
+        if post_path == "/api/project-graph/link":
             source = str(data.get("source", "")).strip()
             target = str(data.get("target", "")).strip()
             if not source or not target:
@@ -1504,7 +1504,7 @@ class Handler(BaseHTTPRequestHandler):
             orch.graph.link(source, target, str(data.get("relation", "depends_on")))
             return self._json(200, {"ok": True})
 
-        if self.path == "/api/security/scan-text":
+        if post_path == "/api/security/scan-text":
             path = str(data.get("path", "submitted-text"))
             text = str(data.get("text", ""))
             return self._json(200, {
@@ -1512,7 +1512,7 @@ class Handler(BaseHTTPRequestHandler):
                 "findings": orch.security.scan_text(path, text),
             })
 
-        if self.path == "/api/recovery/execute":
+        if post_path == "/api/recovery/execute":
             step = str(data.get("step", "")).strip()
             if not step:
                 return self._json(400, {"error": "step is required"})
