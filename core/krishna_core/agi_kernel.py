@@ -15,6 +15,7 @@ from .integrations import CodebaseMemoryAdapter, GraftMemoryAdapter, WebhookAdap
 from .narad import NaradRuntime
 from .narad.credentials import NaradCredentialVault
 from .narad.providers import NaradProviderHub
+from .narad.providers import NaradProviderHub
 from .specialist_registry import SpecialistRegistry
 from .context_governor import ContextGovernor
 from .media_adapter import OpenMontageAdapter
@@ -39,6 +40,7 @@ class AGIKernel:
         self.specialists=SpecialistRegistry()
         self.context=ContextGovernor()
         self.narad_credentials=NaradCredentialVault(self.root/"narad"/"credentials.json")
+        self.narad_providers=NaradProviderHub()
         self.narad_providers=NaradProviderHub()
         self.narad=NaradRuntime(
             self.policy,self.bus,
