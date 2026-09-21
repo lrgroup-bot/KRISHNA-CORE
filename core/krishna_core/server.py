@@ -21,7 +21,7 @@ from .wearable_bridge import WearableBridge
 from .specialist_library import SpecialistLibrary
 from .runtime_integrity import RuntimeIntegrity
 from .requirements_ledger import RequirementsLedger
-from .garudanetra_session import GarudanetraSessionManager
+from .browser_fabric import GarudanetraBrowserFabric
 from .ui_guardian import UIGuardian, UIGuardianRegistry
 from .narad.scheduler import NaradScheduler
 from .autonomy_supervisor import AutonomySupervisor
@@ -56,7 +56,8 @@ def _remember_garudanetra_session(snapshot):
     lesson=(snapshot.get("visible_text") or "")[:5000] or ("Garudanetra task-memory session "+sid)
     evidence=[{"url":snapshot.get("current_url"),"title":snapshot.get("title"),
                "findings":snapshot.get("findings") or [],"downloads":snapshot.get("downloads") or [],
-               "console":snapshot.get("console") or [],"network":snapshot.get("network") or []}]
+               "console":snapshot.get("console") or [],"network":snapshot.get("network") or [],
+               "recording":snapshot.get("recording") or [],"semantic_revision":snapshot.get("semantic_revision")}]
     try:
         orch.gyan_propose(project,"garudanetra-task-memory:"+sid,lesson,evidence,0.8,
                           "garudanetra_task_memory",False,"evidence",
@@ -80,9 +81,10 @@ def _remember_garudanetra_session(snapshot):
                                "compiled_skill_path":compiled.get("path"),"compiled_skill_digest":compiled.get("digest")})
     except Exception as exc:
         orch.memory.audit("garudanetra_task_memory","proposal_failed",f"{type(exc).__name__}: {exc}")
-_garudanetra = GarudanetraSessionManager(RUNTIME_ROOT,on_closed=_remember_garudanetra_session)
+_browser_fabric = GarudanetraBrowserFabric(RUNTIME_ROOT,inspector=orch.browser,on_closed=_remember_garudanetra_session)
+_garudanetra = _browser_fabric.sessions
 _ui_registry = UIGuardianRegistry(Path(settings.db_path).resolve().parent / ".krishna_state" / "ui-guardian-registry.json")
-_ui_guardian = UIGuardian(orch.browser, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
+_ui_guardian = UIGuardian(_browser_fabric, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
 _narad_scheduler = NaradScheduler(orch.agi.narad)
 _narad_scheduler.start()
 _autonomy = AutonomySupervisor(orch)
@@ -401,8 +403,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,_voice.status())
         if path == "/api/garuda/status":
             return self._json(200, orch.garuda_status())
+        if path == "/api/garudanetra/fabric":
+            return self._json(200, _browser_fabric.status())
         if path == "/api/garudanetra/sessions":
             return self._json(200, _garudanetra.status())
+        if path == "/api/garudanetra/semantic":
+            sid=(query.get("id") or [""])[0].strip()
+            if not sid:return self._json(400,{"error":"id is required"})
+            return self._json(200,_browser_fabric.semantic_snapshot(sid))
+        if path == "/api/garudanetra/recording":
+            sid=(query.get("id") or [""])[0].strip()
+            if not sid:return self._json(400,{"error":"id is required"})
+            return self._json(200,_browser_fabric.recording(sid))
         if path == "/api/ui-guardian/registry":
             project=(query.get("project") or [None])[0]
             return self._json(200,_ui_registry.list(project))
@@ -413,9 +425,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/garudanetra/frame":
             sid=(query.get("id") or [""])[0].strip()
             if not sid:return self._json(400,{"error":"id is required"})
-            frame=_garudanetra.frame(sid)
+            info=_browser_fabric.frame_info(sid);frame=info.get("bytes")
             if not frame:return self._json(404,{"error":"frame not available yet"})
-            return self._binary_nostore(200,frame,"image/png")
+            return self._binary_nostore(200,frame,info.get("mime") or "image/png")
         if path == "/api/commitments/resume":
             project=(query.get("project") or [None])[0]
             return self._json(200,orch.resume_unfinished_work(project))
@@ -569,6 +581,10 @@ class Handler(BaseHTTPRequestHandler):
                     "garudanetra_task_memory_mode",
                     "garudanetra_persistent_workspace_mode",
                     "garudanetra_self_healing_selector_recovery",
+                    "garudanetra_semantic_accessibility_refs",
+                    "garudanetra_cdp_screencast",
+                    "garudanetra_action_recording_replay",
+                    "garudanetra_optional_browser_adapter_registry",
                     "garudanetra_candidate_skill_compilation",
                     "ui_guardian_viewport_matrix",
                     "gui_registry_stable_candidate_experimental_rejected",
@@ -731,6 +747,13 @@ class Handler(BaseHTTPRequestHandler):
             out=_garudanetra.create(project,url,mode,persistent_approved=approved)
             mark("GARUDANETRA LIVE",f"{project}: {mode}: {url[:120]}")
             return self._json(201,out)
+
+        if post_path == "/api/garudanetra/session/replay":
+            sid=str(data.get("session_id") or "").strip()
+            if not sid:return self._json(400,{"error":"session_id is required"})
+            steps=data.get("steps")
+            if steps is not None and not isinstance(steps,list):return self._json(400,{"error":"steps must be an array"})
+            return self._json(200,_browser_fabric.replay(sid,steps=steps,approved=bool(data.get("approved",False))))
 
         if post_path == "/api/garudanetra/session/control":
             sid=str(data.get("session_id") or "").strip()
