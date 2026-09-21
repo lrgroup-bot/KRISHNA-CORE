@@ -14,6 +14,7 @@ from .plugin_executor import PluginExecutor
 from .attachments import AttachmentStore
 from .vision_adapter import VisionAdapter
 from .native_voice import KrishnaVoiceStack
+from .remote_access import PrivateRemotePolicy
 from .specialist_library import SpecialistLibrary
 from .runtime_integrity import RuntimeIntegrity
 from .requirements_ledger import RequirementsLedger
@@ -31,6 +32,7 @@ _plugin_executor = PluginExecutor(_plugins)
 _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _vision = VisionAdapter()
 _voice = KrishnaVoiceStack(lambda event: orch.handle_event("wakeword","krishna_detected","Local wake word Krishna detected",severity="notice",project="system",payload=event))
+_remote_policy = PrivateRemotePolicy()
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
 _requirements = RequirementsLedger()
@@ -159,7 +161,12 @@ pc_observer.start()
 
 class Handler(BaseHTTPRequestHandler):
     def _authorize(self):
-        local = self.client_address[0] in ("127.0.0.1", "::1")
+        client_ip=self.client_address[0]
+        remote_class=_remote_policy.classify(client_ip)
+        local = client_ip in ("127.0.0.1", "::1")
+        if not remote_class["allowed"]:
+            self._json(403,{"error":"KRISHNA accepts only loopback/LAN or explicitly configured private-overlay clients","network":remote_class})
+            return False
         host = urlparse("//" + self.headers.get("Host", "")).hostname
         if local and host not in ("localhost", "127.0.0.1", "::1", settings.host):
             self._json(403, {"error": "unrecognized local Host"})
@@ -401,7 +408,9 @@ class Handler(BaseHTTPRequestHandler):
                 "deployment_integrity": _integrity.status(),
             })
         if path == "/api/mobile/connection":
-            return self._json(200, mobile_link_state())
+            return self._json(200, {**mobile_link_state(),"remote_policy":_remote_policy.status()})
+        if path == "/api/remote/status":
+            return self._json(200,_remote_policy.status())
         if path == "/api/mobile/resume":
             device, token = self._device_auth()
             if not _pairing.verify(device, token):
@@ -445,6 +454,7 @@ class Handler(BaseHTTPRequestHandler):
                     "mobile_event_bridge",
                     "child_krishna_360_avatar",
                     "mobile_pc_remote_control",
+                    "private_overlay_remote_access_policy",
                     "persistent_project_chats",
                     "local_attachment_vision_reasoning",
                     "local_odia_indicconformer_stt",
