@@ -128,7 +128,8 @@ class Orchestrator:
                     "root": item["root"],
                     "privacy": item["privacy"],
                 })
-            except Exception:
+            except Exception as exc:
+                self.memory.audit("project_restore","failed",f"{item.get('name','unknown')}: {type(exc).__name__}: {exc}")
                 continue
 
     def unregister_project(self, name):
