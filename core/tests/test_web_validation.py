@@ -25,7 +25,7 @@ class WebValidationTests(unittest.TestCase):
         text = (root / "web_validation.html").read_text(encoding="utf-8")
         for token in (
             "ACTIVE WORK", "VERIFICATION", "SYSTEM LOAD",
-            "GARUDANETRA · PRIVATE", "TAKE CONTROL", "CONTINUE",
+            "GARUDANETRA ·", "liveMode", "TAKE CONTROL", "CONTINUE",
             "opsInformer", "liveWork", "refreshCommandCenter",
             "startGarudanetraMission", "/api/garuda/scout", "loadGarudanetra",
             "/api/garudanetra/session/start", "/api/garudanetra/session/control", "/api/garudanetra/frame",
