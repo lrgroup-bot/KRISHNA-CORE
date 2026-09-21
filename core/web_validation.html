@@ -1200,7 +1200,7 @@ document.addEventListener('click',e=>{
 async function loadGarudanetra(){
  try{
   const s=await req('/api/garuda/status');
-  const st=$('garudaStatus'); if(st)st.textContent=String(s.status||s.state||'READY').toUpperCase();
+  const st=$('garudaState')?.querySelector('.v'); if(st)st.textContent=String(s.status||s.state||'READY').toUpperCase();
   setOps('verify','Garudanetra ready','good');
  }catch(e){setOps('verify','Garudanetra unavailable','bad');log(e.message)}
 }
