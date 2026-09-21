@@ -14,6 +14,9 @@ Single control plane, modular workers. `Krishna_AGI.exe` is the only user-facing
 - Critic/Verifier is read-only and independent of mutation workers.
 - Successful verified procedures may become skill candidates; benchmark pass is required for promotion.
 - Native event bus is canonical; n8n/Activepieces are adapters.
+- Sudarshan is the permissioned Action/Job control plane for delegated capabilities; model, MCP/A2A, agent, browser, coding-worker and NARAD workflow entry points must not bypass it.
+- NARAD implements selected n8n workflow patterns natively (typed DAG nodes, triggers, safe mapping, bounded retry, history, dead letters, checkpoints/resume) while rejecting a second embedded n8n runtime.
+- IndependentCriticVerifier is the required exit boundary for Sudarshan-dispatched delegated work.
 - Creator/avatar/revenue systems are capability layers, not owners of the AGI core.
 
 ## Packaging
