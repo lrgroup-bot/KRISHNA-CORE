@@ -21,7 +21,12 @@ class AgentRuntime:
     """
     def __init__(self,action_bus):
         self.action_bus=action_bus
+        self.control_plane=None
         self._agents={}
+
+    def bind_sudarshan(self,control_plane):
+        self.control_plane=control_plane
+        return self.status()
 
     def register(self,agent_id,role,permissions=(),actions=(),enabled=True):
         item=AgentManifest(
@@ -44,6 +49,11 @@ class AgentRuntime:
         if not item.enabled:raise PermissionError(f"agent disabled: {agent_id}")
         if not self._allowed(item,str(action)):
             raise PermissionError(f"agent action not allowed: {agent_id}:{action}")
+        if self.control_plane:
+            return self.control_plane.action(
+                action,payload,project=project,source="agent",actor=item.agent_id,
+                approved=approved,permissions=item.permissions,idempotency_key=idempotency_key,
+            )
         return self.action_bus.dispatch(
             action,payload,project=project,source="agent",actor=item.agent_id,
             approved=approved,permissions=item.permissions,idempotency_key=idempotency_key,
@@ -56,5 +66,5 @@ class AgentRuntime:
         return {
             "owner":"KRISHNA Agent Runtime",
             "agents":self.list(),"count":len(self._agents),
-            "authority":"Shared Action Bus",
+            "authority":"Sudarshan Control Plane" if self.control_plane else "Shared Action Bus",
         }
