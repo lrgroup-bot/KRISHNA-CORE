@@ -177,7 +177,7 @@ try{
         $vp=[string]$_.viewport;$kind=[string]$_.kind;$detail=[string]$_.detail
         ("{0}:{1}:{2}" -f $vp,$kind,$detail)
       }) -join " | "
-      Add-Check "UI Guardian matrix" "FAIL" ("defects="+@($eval.defects).Count+" · "+$defectSummary) $eval
+      Add-Check "UI Guardian matrix" "FAIL" ("defects="+@($eval.defects).Count+" | "+$defectSummary) $eval
     }
   }catch{
     Add-Check "UI Guardian matrix" "FAIL" $_.Exception.Message $null
