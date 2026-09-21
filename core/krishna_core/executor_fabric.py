@@ -1,7 +1,9 @@
 from __future__ import annotations
-import os, shlex, subprocess, sys, time
+import subprocess, sys, time
 from dataclasses import dataclass, asdict
 from pathlib import Path
+
+from .command_line import split_command
 
 @dataclass
 class ExecutionResult:
@@ -23,13 +25,7 @@ class ExecutorFabric:
         decision=self.policy.action("shell", mutating=True, approved=approved)
         if not decision.allowed: raise PermissionError(decision.reason)
         started=time.perf_counter()
-        if isinstance(command,str):
-            raw=command.strip()
-            if not raw:raise ValueError("executor command is empty")
-            args=raw if os.name=="nt" else shlex.split(raw,posix=True)
-        else:
-            args=list(command or [])
-            if not args:raise ValueError("executor command is empty")
+        args=split_command(command,empty_message="executor command is empty")
         cp=subprocess.run(args,cwd=str(cwd),shell=False,text=True,capture_output=True,timeout=timeout)
         shown=command if isinstance(command,str) else " ".join(str(x) for x in args)
         return ExecutionResult("native",cp.returncode==0,shown,cp.returncode,cp.stdout[-12000:],cp.stderr[-12000:],int((time.perf_counter()-started)*1000)).as_dict()
