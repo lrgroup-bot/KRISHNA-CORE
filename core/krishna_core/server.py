@@ -109,6 +109,7 @@ _browser_fabric = GarudanetraBrowserFabric(RUNTIME_ROOT,inspector=orch.browser,o
 # BrowserOperator remains internal as _browser_fabric.inspector.
 orch.browser = _browser_fabric
 orch.development.browser = _browser_fabric
+orch.kabach.bind_privacy_runtime(browser=_browser_fabric,event_bus=orch.agi.bus,gyan_bhandar=orch.gyan_bhandar)
 _garudanetra = _browser_fabric.sessions
 
 def _shared_garudanetra_start(payload,context):
