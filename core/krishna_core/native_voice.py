@@ -30,13 +30,17 @@ class IndicConformerSTT:
     """
     def __init__(self,command=None):
         self.command=CommandTemplate(command or os.getenv("KRISHNA_INDIC_STT_CMD"))
+    LANGUAGES={"or":"odia","hi":"hindi"}
     def status(self):
-        return {"provider":"ai4bharat-indicconformer","language":"odia","local":True,
-                "available":self.command.available(),"config":"KRISHNA_INDIC_STT_CMD"}
-    def transcribe(self,audio_path):
+        return {"provider":"ai4bharat-indicconformer","language":"odia","languages":list(self.LANGUAGES),
+                "local":True,"available":self.command.available(),"config":"KRISHNA_INDIC_STT_CMD",
+                "note":"IndicConformer covers Hindi and Odia here; English speech input uses the browser/OS fallback unless a separate local worker is configured."}
+    def transcribe(self,audio_path,language="or"):
         path=Path(audio_path)
         if not path.is_file():raise FileNotFoundError(str(path))
-        out=self.command.run({"audio":str(path.resolve()),"language":"or"})
+        lang=str(language or "or").strip().lower()
+        if lang not in self.LANGUAGES:raise ValueError("IndicConformer language must be one of: hi, or")
+        out=self.command.run({"audio":str(path.resolve()),"language":lang})
         try:
             data=json.loads(out)
             return str(data.get("text") or data.get("transcript") or "").strip()
@@ -51,16 +55,16 @@ class IndicTTS:
     """
     def __init__(self,command=None):
         self.command=CommandTemplate(command or os.getenv("KRISHNA_INDIC_TTS_CMD"))
-    LANGUAGES={"or":"odia","hi":"hindi","en":"english"}
+    LANGUAGES={"or":"odia","hi":"hindi"}
     def status(self):
         return {"provider":"ai4bharat-indic-tts","language":"odia","languages":list(self.LANGUAGES),
                 "local":True,"available":self.command.available(),"config":"KRISHNA_INDIC_TTS_CMD",
-                "note":"the configured local command decides which requested languages are actually installed"}
+                "note":"AI4Bharat Indic-TTS is used for Hindi/Odia. English output falls back to the browser/OS voice unless another local provider is configured."}
     def speak(self,text,output_path=None,language="or"):
         text=str(text or "").strip()
         if not text:raise ValueError("text is required")
         lang=str(language or "or").strip().lower()
-        if lang not in self.LANGUAGES:raise ValueError("language must be one of: en, hi, or")
+        if lang not in self.LANGUAGES:raise ValueError("AI4Bharat Indic-TTS language must be one of: hi, or")
         output=Path(output_path or ("krishna-"+lang+".wav")).resolve()
         self.command.run({"text":text,"output":str(output),"language":lang})
         if not output.is_file():raise RuntimeError("local TTS command did not create output audio")
