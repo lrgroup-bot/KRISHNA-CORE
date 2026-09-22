@@ -1151,16 +1151,65 @@ class Handler(BaseHTTPRequestHandler):
                 selection=orch.project_perfection.design_submit(sid,cid)
                 project=str(selection.get("project") or "").strip()
                 if not project:return self._json(400,{"error":"design session has no project"})
+                policy=orch.projects.get(project)
+                if not policy:return self._json(404,{"error":"project not registered"})
+                frontend_url=str(data.get("frontend_url") or (selection.get("metadata") or {}).get("frontend_url") or "").strip() or None
+                checks=list(data.get("checks") or policy.verification_checks or [])
                 receipt=orch.dispatch_action(
                     "project.design.implement",
                     {"project":project,"session_id":sid,
-                     "frontend_url":data.get("frontend_url"),
-                     "checks":data.get("checks") or [],
-                     "screenshot_path":data.get("screenshot_path")},
+                     "frontend_url":frontend_url,
+                     "checks":checks,
+                     "screenshot_path":data.get("screenshot_path"),
+                     "axe_required":bool(data.get("axe_required",True)),
+                     "performance_required":bool(data.get("performance_required",True)),
+                     "performance_limits":data.get("performance_limits") or {}},
                     project=project,source="pc",actor="design-studio-submit",
                     permissions=("candidate.write","tests.run","model.use"),
                 )
-                return self._json(200,{"selection":selection,"implementation":receipt["result"]})
+                implementation=receipt["result"]
+                apply_result={"requested":bool(data.get("apply",True)),"applied":False,"reason":"candidate_not_verified"}
+                post_verify=None
+                if bool(data.get("apply",True)) and implementation.get("promotable"):
+                    promotion_info=implementation.get("promotion") or {}
+                    token=str(promotion_info.get("promotion_token") or "")
+                    if not token:raise RuntimeError("verified design candidate has no promotion token")
+                    try:
+                        live=orch.promote_candidate(token,approved=True)
+                        apply_result={**live,"requested":True,"applied":bool(live.get("promoted"))}
+                        if live.get("promoted"):
+                            post_verify=orch.project_perfection.verify_design_candidate(
+                                project,policy.root,checks,frontend_url=frontend_url,
+                                approve_selected_baseline=False,
+                                axe_required=bool(data.get("axe_required",True)),
+                                performance_required=bool(data.get("performance_required",True)),
+                                performance_limits=dict(data.get("performance_limits") or {}),
+                            )
+                            if not post_verify.get("passed"):
+                                orch.promotions.rollback(policy.root,live["backup"],live["diff"])
+                                apply_result.update({
+                                    "status":"rolled_back_post_verify","applied":False,
+                                    "promoted":False,"rolled_back":True,
+                                    "reason":"post-promotion verification failed",
+                                })
+                                orch.memory.audit("design_submit_post_verify","rolled_back",project)
+                            else:
+                                orch.memory.audit("design_submit_post_verify","verified",project)
+                    except PermissionError as exc:
+                        apply_result={"requested":True,"applied":False,"status":"approval_blocked","reason":str(exc)}
+                annotation={
+                    "live_apply":{
+                        "requested":apply_result.get("requested"),"applied":apply_result.get("applied"),
+                        "status":apply_result.get("status"),"rolled_back":apply_result.get("rolled_back",False),
+                        "transaction_id":apply_result.get("transaction_id"),
+                        "post_verified":bool(post_verify and post_verify.get("passed")),
+                    }
+                }
+                orch.project_perfection.design_annotate(sid,annotation)
+                return self._json(200,{
+                    "selection":selection,"implementation":implementation,
+                    "apply":apply_result,"post_verification":post_verify,
+                })
             except KeyError as exc:return self._json(404,{"error":str(exc)})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
