@@ -26,6 +26,24 @@ class RuntimeTests(unittest.TestCase):
         self.assertFalse(result["geometry_ok"])
         self.assertFalse(result["ok"])
 
+    def test_post_apply_verify_requires_every_live_detector(self):
+        browser=Mock();development=Mock()
+        development.verify.return_value={"verified":True}
+        runtime=ProjectPerfectionRuntime(browser,development)
+        runtime.regression_manifest=Mock()
+        runtime.regression_manifest.load.return_value={"routes":["/"]}
+        runtime.regression_runner=Mock()
+        runtime.regression_runner.run.return_value={"passed":True}
+        runtime.browser_audit=Mock(return_value={"ok":True,"viewports":[]})
+        runtime.accessibility_verify=Mock(return_value={"passed":True,"axe":{"available":True}})
+        runtime.performance_verify=Mock(return_value={"passed":True})
+        runtime.browser_chaos_verify=Mock(return_value={"passed":True})
+        result=runtime.post_apply_verify("demo",".","http://127.0.0.1:8000",["pytest"],axe_required=True,performance_required=True)
+        self.assertTrue(result["passed"])
+        runtime.browser_chaos_verify=Mock(return_value={"passed":False})
+        failed=runtime.post_apply_verify("demo",".","http://127.0.0.1:8000",["pytest"],axe_required=True,performance_required=True)
+        self.assertFalse(failed["passed"])
+
     def test_certificate_requires_all_gates(self):
         runtime=ProjectPerfectionRuntime(Mock(),Mock())
         result=runtime.completion_certificate("demo","abc",[{"gate":"requirements","passed":True}])
