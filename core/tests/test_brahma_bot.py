@@ -152,6 +152,24 @@ class BrahmaBotTests(unittest.TestCase):
         self.assertFalse(out["should_learn"])
         self.assertEqual(out["next_action"], "reuse_rishi_knowledge_or_discard_low_value_observation")
 
+    def test_route_knowledge_stays_with_rishi_until_l3(self):
+        out = self.bot.route_knowledge(
+            source="pc",
+            project="KRISHNA",
+            topic="new materials observation",
+            lesson="A new candidate relationship was observed.",
+            evidence=[{"source_ref": "obs-1"}],
+            provenance={"source_ref": "obs-1"},
+            confidence=0.7,
+            maturity="L1",
+            evidence_status="candidate",
+        )
+        self.assertTrue(out["routed_to_rishi"])
+        self.assertTrue(out["requires_more_learning"])
+        self.assertIsNone(out["proposal"])
+        self.assertEqual(len(self.learning.findings), 1)
+        self.assertEqual(len(self.gyan.proposals), 0)
+
     def test_gyan_qc_blocks_unprovenanced_low_maturity_memory(self):
         out = self.bot.qc_for_gyan(
             project="KRISHNA",
@@ -174,7 +192,7 @@ class BrahmaBotTests(unittest.TestCase):
             topic="electronics",
             lesson="Measured regulator behavior supports the candidate diagnosis.",
             evidence=[{"source_ref": "measurement-1"}],
-            provenance={"source_ref": "measurement-1", "mission_id": "m1"},
+            provenance={"source_ref": "measurement-1", "mission_id": "m1", "rishi_finding_id": "rf1"},
             confidence=0.74,
             maturity="L3",
             evidence_status="provisional_supported",
@@ -190,7 +208,12 @@ class BrahmaBotTests(unittest.TestCase):
             topic="vehicle diagnostics",
             lesson="The verified test result resolves the earlier fault hypothesis.",
             evidence=[{"source_ref": "test-verified"}],
-            provenance={"source_ref": "test-verified", "claim_id": "c1"},
+            provenance={
+                "source_ref": "test-verified", "claim_id": "c1",
+                "researching_rishi": "kanada",
+                "verification_agent": "gautama",
+                "compiler": "veda-vyasa",
+            },
             confidence=0.92,
             maturity="L4",
             evidence_status="verified",
