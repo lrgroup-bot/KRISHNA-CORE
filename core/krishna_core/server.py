@@ -924,6 +924,45 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,orch.protocols.mcp_catalog())
         if path == "/api/resources":
             return self._json(200, orch.governor.snapshot())
+        if path == "/api/missions/status":
+            return self._json(200,orch.mission_status())
+        if path == "/api/missions":
+            project=(query.get("project") or [None])[0]
+            status=(query.get("status") or [None])[0]
+            limit_raw=(query.get("limit") or ["100"])[0]
+            try:limit=max(1,min(int(limit_raw),500))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            try:return self._json(200,{"missions":orch.missions.list(project,status,limit)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+        if path == "/api/queue/status":
+            return self._json(200,orch.queue_status())
+        if path == "/api/queue":
+            state=(query.get("state") or [None])[0]
+            mission=(query.get("mission_id") or [None])[0]
+            limit_raw=(query.get("limit") or ["100"])[0]
+            try:limit=max(1,min(int(limit_raw),500))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            try:return self._json(200,{"items":orch.queue.list(state,mission,limit)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+        if path == "/api/checkpoints":
+            mission=(query.get("mission_id") or [""])[0]
+            if not mission:return self._json(400,{"error":"mission_id is required"})
+            return self._json(200,{"checkpoints":orch.missions.checkpoints(mission)})
+        if path == "/api/resource-locks":
+            return self._json(200,orch.resource_lock_status())
+        if path == "/api/events":
+            topic=(query.get("topic") or [None])[0]
+            after=(query.get("after") or [None])[0]
+            limit_raw=(query.get("limit") or ["100"])[0]
+            try:
+                limit=max(1,min(int(limit_raw),500))
+                after_seq=int(after) if after not in (None,"") else None
+            except (TypeError,ValueError):return self._json(400,{"error":"invalid event cursor/limit"})
+            return self._json(200,{"events":orch.lifecycle_bus.recent(topic,limit,after_seq),"status":orch.lifecycle_event_status()})
+        if path == "/api/protocol":
+            return self._json(200,orch.krishna_protocol_status())
+        if path == "/api/models/providers":
+            return self._json(200,orch.model_provider_status())
         if path == "/api/tasks":
             project = (query.get("project") or [None])[0]
             limit_raw = (query.get("limit") or ["100"])[0]
@@ -1552,6 +1591,55 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError as exc:return self._json(404,{"error":str(exc)})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/missions/create":
+            payload={
+                "goal":str(data.get("goal") or ""),"project_id":str(data.get("project_id") or data.get("project") or "KRISHNA"),
+                "parent_mission_id":data.get("parent_mission_id"),"session_id":data.get("session_id"),
+                "priority":int(data.get("priority") or 50),"assigned_agents":data.get("assigned_agents") or [],
+                "required_tools":data.get("required_tools") or [],"permission_profile":str(data.get("permission_profile") or "default"),
+                "resource_budget":data.get("resource_budget") or {},"metadata":data.get("metadata") or {},
+            }
+            try:
+                receipt=orch.dispatch_action("mission.create",payload,project=payload["project_id"],source="pc",actor="mission-http",permissions=("mission.write",))
+                return self._json(201,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/missions/transition":
+            mission_id=str(data.get("mission_id") or "").strip()
+            if not mission_id:return self._json(400,{"error":"mission_id is required"})
+            try:
+                receipt=orch.dispatch_action("mission.transition",data,project=str(data.get("project") or "KRISHNA"),source="pc",actor="mission-http",permissions=("mission.write",))
+                return self._json(200,receipt["result"])
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/missions/checkpoint":
+            mission_id=str(data.get("mission_id") or "").strip()
+            if not mission_id:return self._json(400,{"error":"mission_id is required"})
+            try:
+                receipt=orch.dispatch_action("mission.checkpoint",data,project=str(data.get("project") or "KRISHNA"),source="pc",actor="mission-http",permissions=("mission.write","evidence.write"))
+                return self._json(201,receipt["result"])
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/resource-locks/acquire":
+            try:
+                receipt=orch.dispatch_action("resource.lock.acquire",data,project=str(data.get("project") or "KRISHNA"),source="pc",actor="lock-http",permissions=("resource.lock",))
+                return self._json(201,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError,TypeError) as exc:return self._json(409 if isinstance(exc,RuntimeError) else 400,{"error":str(exc)})
+
+        if post_path == "/api/resource-locks/release":
+            try:
+                receipt=orch.dispatch_action("resource.lock.release",data,project=str(data.get("project") or "KRISHNA"),source="pc",actor="lock-http",permissions=("resource.lock",))
+                return self._json(200,receipt["result"])
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/jobs/submit":
             if self.client_address[0] not in ("127.0.0.1","::1"):
