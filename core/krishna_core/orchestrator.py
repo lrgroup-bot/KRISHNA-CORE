@@ -2,6 +2,7 @@ import uuid
 from pathlib import Path
 
 from .project_perfection_runtime import ProjectPerfectionRuntime
+from .design_implementation import DesignImplementationGuard
 from .memory import MemoryStore
 from .router import ModelRouter
 from .model_gateway import ModelGatewayRegistry
@@ -395,14 +396,71 @@ class Orchestrator:
                 })
             if not candidates:raise RuntimeError("design models did not return valid rendered HTML candidates")
             session=self.project_perfection.design_create(project,candidates[:4])
-            session["research"]={
+            metadata={
                 "goal":goal,
+                "frontend_url":str(payload.get("frontend_url") or ""),
                 "reference_count":len(references),
                 "references":[{"title":x.get("title"),"url":x.get("url"),"source":x.get("source")} for x in references[:12]],
                 "policy":"references are inspiration evidence only; generated previews are original and script-sandboxed",
             }
+            session=self.project_perfection.design_annotate(session["session_id"],metadata)
             self.memory.audit("project_design_research","completed",f"{project}:{len(candidates[:4])} candidates")
             return session
+
+        def project_design_implement_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            sid=str(payload.get("session_id") or "").strip()
+            if not project or not sid:raise ValueError("project and session_id are required")
+            policy=self.projects.get(project)
+            if not policy:raise KeyError(project)
+            state=self.project_perfection.design_get(sid)
+            if state.get("project")!=project:raise PermissionError("design session belongs to another project")
+            if not state.get("submitted") or not state.get("selected"):
+                raise RuntimeError("design must be selected and submitted before implementation")
+            selected=dict(state["selected"])
+            token=DesignImplementationGuard.preview_token(selected.get("preview_url"))
+            selected_html=self.project_perfection.design_preview(token)
+            source_context=DesignImplementationGuard.collect_context(policy.root)
+            if not source_context.get("files"):
+                raise RuntimeError("no eligible frontend source files found in project")
+            metadata=dict(state.get("metadata") or {})
+            goal=str(metadata.get("goal") or payload.get("goal") or "Improve this project UI using the selected design.")
+            plan=self.router.coding_plan(policy.privacy)
+            if not plan:raise RuntimeError("no model available for design implementation")
+            provider=plan[0]["provider"]
+            prompt=DesignImplementationGuard.prompt(goal,selected_html,source_context)
+            raw=self.router.ask(provider,prompt)
+            obj=self.ephemeral_workers._json_object(raw)
+            files=DesignImplementationGuard.validate_patch(policy.root,obj.get("files") or [])
+            staged=self.development.stage(policy.root,files)
+            frontend_url=str(payload.get("frontend_url") or metadata.get("frontend_url") or "").strip() or None
+            checks=list(payload.get("checks") or policy.verification_checks or [])
+            verification=self.development.verify(
+                staged["candidate_root"],checks,frontend_url=frontend_url,
+                screenshot_path=payload.get("screenshot_path") or None,
+            )
+            promotion=self._prepare_promotion_impl(project,staged["candidate_root"]) if verification.get("verified") else None
+            implementation={
+                "project":project,"session_id":sid,"provider":provider,
+                "summary":str(obj.get("summary") or "")[:3000],
+                "files":[x["path"] for x in files],
+                "candidate_root":staged["candidate_root"],
+                "verification":verification,
+                "promotion":promotion,
+                "promotable":bool(verification.get("verified") and promotion),
+                "selected_label":selected.get("label"),
+                "selected_candidate_id":selected.get("id"),
+            }
+            self.project_perfection.design_annotate(sid,{
+                "implementation":{
+                    "provider":provider,"summary":implementation["summary"],"files":implementation["files"],
+                    "candidate_root":implementation["candidate_root"],
+                    "verified":bool(verification.get("verified")),
+                    "promotable":implementation["promotable"],
+                }
+            })
+            self.memory.audit("project_design_implement","verified" if verification.get("verified") else "failed",f"{project}:{sid}")
+            return implementation
 
         def model_complete(payload,context):
             provider=str(payload.get("provider") or "").strip()
@@ -1136,6 +1194,13 @@ class Orchestrator:
             "project.design.research",project_design_research_action,
             description="Research current public UI references and render original Design Studio candidates",
             mutating=True,permissions=("browser.read","model.use"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "project.design.implement",project_design_implement_action,
+            description="Implement the submitted Design Studio selection in an isolated verified candidate",
+            mutating=True,permissions=("candidate.write","tests.run","model.use"),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
 
