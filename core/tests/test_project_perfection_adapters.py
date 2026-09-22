@@ -32,6 +32,16 @@ class AdapterTests(unittest.TestCase):
             cmd=ApiFuzzAdapter.command("schema.yaml")
         self.assertEqual(cmd[:3],["/tools/uvx","schemathesis","run"])
 
+    def test_generated_regression_replays_discovered_state_locator(self):
+        graph={"nodes":[{"url":"http://localhost/"}],"edges":[{
+            "source":"http://localhost/","target":"http://localhost/settings",
+            "action":"click","role":"button","name":"Settings","selector":"#settings"
+        }]}
+        src=RegressionGenerator().generate("demo",graph)
+        self.assertIn("getByRole",src)
+        self.assertIn("Settings",src)
+        self.assertIn("state 1",src)
+
     def test_mutation_requires_all_detected(self):
         self.assertFalse(MutationVerifier().score([{"detected":True},{"detected":False}])["passed"])
         self.assertTrue(MutationVerifier().score([{"detected":True}])["passed"])
