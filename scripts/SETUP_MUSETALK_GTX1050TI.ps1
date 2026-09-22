@@ -16,6 +16,17 @@ function Assert-EPath([string]$Path,[string]$Label){
   }
   return $full
 }
+
+$RuntimeRoot=Assert-EPath $RuntimeRoot "KRISHNA runtime"
+
+function Assert-EPath([string]$Path,[string]$Label){
+  if([string]::IsNullOrWhiteSpace($Path)){throw "$Label path is empty"}
+  $full=[System.IO.Path]::GetFullPath($Path)
+  if($full -notmatch '^[Ee]:\\'){
+    throw "$Label must stay on E:. Refusing path: $full"
+  }
+  return $full
+}
 $RuntimeRoot=Assert-EPath $RuntimeRoot "KRISHNA runtime"
 
 $toolRoot = Join-Path $RuntimeRoot "tools\avatar-video\musetalk"
@@ -128,8 +139,8 @@ Invoke-Checked $uvExe @("python","install",$PythonVersion) "Install managed Pyth
 if(!(Test-Path (Join-Path $envRoot "Scripts\python.exe"))){
   Invoke-Checked $uvExe @("venv",$envRoot,"--python",$PythonVersion,"--managed-python","--seed") "Create E-drive MuseTalk Python environment"
 }
-$envPython=Join-Path $envRoot "Scripts\python.exe"
-$envPip=Join-Path $envRoot "Scripts\pip.exe"
+$envPython=Assert-EPath (Join-Path $envRoot "Scripts\python.exe") "MuseTalk Python"
+$envPip=Assert-EPath (Join-Path $envRoot "Scripts\pip.exe") "MuseTalk pip"
 if(!(Test-Path $envPython)){throw "MuseTalk environment Python missing: $envPython"}
 if(!(Test-Path $envPip)){throw "MuseTalk environment pip missing: $envPip"}
 $actualVersion=(& $envPython -c "import sys;print(sys.version.split()[0])").Trim()
@@ -185,7 +196,7 @@ if($LASTEXITCODE -ne 0 -or ($importProbe -notcontains "IMPORT_OK")){
   throw "MuseTalk dependency import verification failed"
 }
 
-$models=Join-Path $toolRoot "models"
+$models=Assert-EPath (Join-Path $toolRoot "models") "MuseTalk models"
 $weightsInstalled=$false
 if($InstallWeights){
   Invoke-Checked $envPip @("install","--upgrade","huggingface_hub[hf_xet]") "Install Hugging Face downloader"
