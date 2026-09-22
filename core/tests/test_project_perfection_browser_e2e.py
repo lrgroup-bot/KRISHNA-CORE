@@ -16,14 +16,14 @@ class ProjectPerfectionBrowserE2E(unittest.TestCase):
         cls.tmp=tempfile.TemporaryDirectory()
         root=Path(cls.tmp.name)
         (root/"index.html").write_text("""<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>QA Home</title>
+<html lang="en"><head><meta charset="utf-8"><title>QA Home</title><link rel="icon" href="data:,">
 <style>body{font-family:sans-serif}main{max-width:800px;margin:auto}.row{display:flex;gap:12px}</style></head>
 <body><main><h1>QA Home</h1><a href="/second.html">Second</a>
 <label>Name <input id="name" name="name"></label>
 <label>Choice <select id="choice"><option value="a">A</option><option value="b">B</option></select></label>
 <div class="row"><button id="ping" onclick="document.getElementById('out').textContent='pong'">Ping</button><button id="save" onclick="document.body.dataset.saved='1'">Save Settings</button></div>
 <p id="out">ready</p></main></body></html>""",encoding="utf-8")
-        (root/"second.html").write_text("""<!doctype html><html lang="en"><head><title>Second</title></head>
+        (root/"second.html").write_text("""<!doctype html><html lang="en"><head><title>Second</title><link rel="icon" href="data:,"></head>
 <body><main><h1>Second</h1><a href="/index.html">Home</a><button>Okay</button></main></body></html>""",encoding="utf-8")
         class Quiet(SimpleHTTPRequestHandler):
             def log_message(self,format,*args):pass
