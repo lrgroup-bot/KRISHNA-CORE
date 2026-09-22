@@ -124,6 +124,8 @@ jobs:
           EOF
 
           cp mobile_v3/MainActivity.java app/src/main/java/com/krishna/mobile/MainActivity.java
+          cp mobile_v3/HawkeyeEdgeMemory.java app/src/main/java/com/krishna/mobile/HawkeyeEdgeMemory.java
+          cp mobile_v3/HawkeyeEvidenceCuratorBot.java app/src/main/java/com/krishna/mobile/HawkeyeEvidenceCuratorBot.java
           cp mobile_v3/index.html app/src/main/assets/index.html
           cp mobile_v3/realtime-client.js app/src/main/assets/realtime-client.js
           base64 -d avatar/krishna_child_360.webp.b64 > app/src/main/assets/krishna_child_360.webp
@@ -152,6 +154,11 @@ jobs:
           grep -q 'id="diagnosticOverlay"' app/src/main/assets/index.html
           grep -q "renderDiagnosticOverlay" app/src/main/assets/index.html
           grep -q "HAWKEYE · DIAGNOSTIC" app/src/main/assets/index.html
+          grep -q "HAWKEYE · MOBILE BUFFER" app/src/main/assets/index.html
+          grep -q "hawkeyeCurateFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "HawkeyeEvidenceCuratorBot" app/src/main/java/com/krishna/mobile/HawkeyeEvidenceCuratorBot.java
+          grep -q "MOBILE_MAX_BYTES=128L\*1024L\*1024L" app/src/main/java/com/krishna/mobile/HawkeyeEvidenceCuratorBot.java
+          grep -q "MAX_SYNC_ITEMS_PER_TICK\|max_sync_items_per_tick" app/src/main/java/com/krishna/mobile/HawkeyeEvidenceCuratorBot.java
           grep -q "bhumiputraFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "hawkeyeOfflineFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "configureCloudUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
