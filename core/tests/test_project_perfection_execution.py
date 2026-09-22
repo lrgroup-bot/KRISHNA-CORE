@@ -46,16 +46,20 @@ class ExecutionTests(unittest.TestCase):
             store=RegressionManifest()
             receipt=store.persist(td,"demo",{
                 "nodes":[{"url":"http://127.0.0.1:9999/"},{"url":"http://127.0.0.1:9999/settings?tab=ui"}],
-                "edges":[],
+                "edges":[{"source":"http://127.0.0.1:9999/","target":"http://127.0.0.1:9999/settings",
+                          "action":"click","role":"button","name":"Settings","selector":"#settings"}],
             })
             self.assertEqual(receipt["route_count"],2)
             manifest=store.load(td,"demo")
             self.assertIn("/settings?tab=ui",manifest["routes"])
             class Browser:
-                def inspect(self,url):
-                    return {"ok":True,"findings":[],"layout":{}}
+                def inspect(self,url,actions=None):
+                    final="http://127.0.0.1:1234/settings" if actions else url
+                    return {"ok":True,"findings":[],"layout":{},"final_url":final}
             replay=BrowserRegressionRunner().run(Browser(),"http://127.0.0.1:1234/app",manifest)
             self.assertTrue(replay["passed"])
+            self.assertEqual(replay["edge_count"],1)
+            self.assertTrue(replay["edges"][0]["passed"])
             self.assertTrue(any("127.0.0.1:1234" in x["url"] for x in replay["routes"]))
 
     def test_visual_baseline_creation_and_exact_match(self):
