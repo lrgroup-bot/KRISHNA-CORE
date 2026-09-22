@@ -9,8 +9,10 @@ class MuseTalkSetupContractTests(unittest.TestCase):
         for token in (
             'E:\\Krishna-The GOD',
             '[string]$PythonVersion = "3.10.11"',
-            'python-$PythonVersion-amd64.exe',
-            'Python Software Foundation',
+            'uv-x86_64-pc-windows-msvc.zip',
+            'UV_PYTHON_INSTALL_DIR',
+            'UV_CACHE_DIR',
+            'UV_PYTHON_BIN_DIR',
             'torch==2.0.1',
             'torchvision==0.15.2',
             'torchaudio==2.0.2',
@@ -30,9 +32,18 @@ class MuseTalkSetupContractTests(unittest.TestCase):
         ):
             self.assertIn(token,text)
         self.assertIn('PYTHONNOUSERSITE',text)
+        self.assertIn('PYTHONUSERBASE',text)
         self.assertIn('HF_HOME',text)
+        self.assertIn('HF_HUB_CACHE',text)
         self.assertIn('PIP_CACHE_DIR',text)
         self.assertIn('TORCH_HOME',text)
+        self.assertIn('CUDA_CACHE_PATH',text)
+        self.assertIn('MPLCONFIGDIR',text)
+        self.assertIn('NUMBA_CACHE_DIR',text)
+        self.assertIn('KRISHNA E-drive storage guard failed',text)
+        self.assertIn('c_drive_guard_passed=$true',text)
+        self.assertNotIn('Start-Process -FilePath $installer',text)
+        self.assertNotIn('TargetDir=$pythonRoot',text)
         self.assertIn('torch.cuda.is_available()',text)
 
 if __name__=="__main__":
