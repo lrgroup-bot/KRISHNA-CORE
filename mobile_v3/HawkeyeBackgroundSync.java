@@ -31,13 +31,17 @@ public final class HawkeyeBackgroundSync {
     JSONArray pending=HawkeyeEdgeMemory.pending(c,1);JSONObject out=new JSONObject();
     if(pending.length()==0){out.put("status","empty");return out;}
     JSONObject meta=pending.getJSONObject(0);byte[] payload=HawkeyeEdgeMemory.payloadBytes(c,meta);
-    JSONObject body=new JSONObject();body.put("session_id",meta.optString("session_id"));
+    String localSession=meta.optString("session_id","mobile-evidence");
+    android.content.SharedPreferences syncPrefs=c.getSharedPreferences("hawkeye_sync",0);
+    String mapped=syncPrefs.getString("pc_"+localSession,localSession);
+    JSONObject body=new JSONObject();body.put("session_id",mapped);
     body.put("data_b64",Base64.encodeToString(payload,Base64.NO_WRAP));body.put("content_type",meta.optString("content_type","application/octet-stream"));
     body.put("modality",meta.optString("modality","unknown"));body.put("goal",meta.optJSONObject("sensor_context")==null?"":meta.optJSONObject("sensor_context").optString("curator_goal",""));
     JSONObject sensors=meta.optJSONObject("sensor_context");if(sensors==null)sensors=new JSONObject();sensors=new JSONObject(sensors.toString());
     sensors.put("mobile_observation_id",meta.optString("observation_id"));sensors.put("mobile_payload_sha256",meta.optString("payload_sha256"));sensors.put("curator_selected",true);
     body.put("sensor_context",sensors);
     JSONObject response=post(c,"/api/hawkeye/evidence/ingest",body);
+    String pcSession=response.optString("pc_session_id","");if(!pcSession.isEmpty())syncPrefs.edit().putString("pc_"+localSession,pcSession).apply();
     JSONObject receipt=response.optJSONObject("pc_evidence");
     if(receipt!=null&&receipt.optBoolean("retained_pc",false)){
       boolean deleted=HawkeyeEdgeMemory.acknowledge(c,meta.optString("observation_id"));
