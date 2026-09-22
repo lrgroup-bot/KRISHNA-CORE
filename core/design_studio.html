@@ -42,7 +42,13 @@ function pick(c,b){selected=c;[...tabs.children].forEach(x=>x.classList.remove('
 }
 submit.onclick=async()=>{if(!selected)return;submit.disabled=true;statusEl.textContent='Submitting selected design…';
  const r=await fetch('/api/design-studio/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,candidate_id:selected.id})});
- const out=await r.json();if(r.ok){statusEl.textContent='Submitted '+selected.label+'. KRISHNA will implement this candidate and run full regression.'}else{statusEl.textContent=out.error||'Submit failed';submit.disabled=false}
+ const out=await r.json();
+ if(r.ok){
+   const impl=out.implementation||{}, verified=!!(impl.verification&&impl.verification.passed), promotable=!!impl.promotable;
+   statusEl.textContent=verified
+     ? ('Design '+selected.label+' implemented and verified'+(promotable?' · promotion candidate ready.':'.'))
+     : ('Design '+selected.label+' was staged, but verification did not pass. KRISHNA will not promote it.');
+ }else{statusEl.textContent=out.error||'Submit failed';submit.disabled=false}
 };
 load();
 </script>
