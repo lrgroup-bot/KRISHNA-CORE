@@ -32,7 +32,7 @@ class AuditFinding:
 
 class KrishnaProjectAudit:
     WORKERS=(
-        "source","repository","ui","core","avatar","voice","mobile","security","deployment","requirements"
+        "source","repository","ui","core","desktop","avatar","voice","mobile","security","deployment","requirements"
     )
 
     def __init__(self,source_root: str|Path,runtime_root: str|Path):
@@ -196,6 +196,29 @@ class KrishnaProjectAudit:
         self.add("core","durable runtime surfaces","PASS" if not absent else "FAIL",
                  "durable runtime status surfaces are exposed" if not absent else "durable status routes missing",
                  missing=absent)
+
+    def audit_desktop(self):
+        from .windows_desktop_fabric import WindowsDesktopFabric
+        fabric=WindowsDesktopFabric(self.runtime)
+        status=fabric.status(probe=False)
+        code=self._read("core/krishna_core/server.py")
+        wired=all(x in code for x in (
+            "/api/desktop/status","desktop.rpa.validate","desktop.rpa.run",
+            "windows_desktop_fabric_capability_gated",
+        ))
+        self.add("desktop","Windows computer-use boundary","PASS" if wired else "FAIL",
+                 "capability-gated validated-RPA desktop boundary is wired through Sudarshan" if wired else "desktop fabric is not wired through Core",
+                 provider=status.get("provider"),available=bool(status.get("available")),
+                 raw_python_exposed=bool(status.get("raw_python_exposed")),mcp_authority=bool(status.get("mcp_authority")))
+        if status.get("available"):
+            probe=fabric.status(probe=True).get("probe") or {}
+            self.add("desktop","Windows desktop provider runtime","PASS" if probe.get("ok") else "WARN",
+                     "ADH provider installed and doctor probe passed" if probe.get("ok") else "ADH executable exists but doctor probe did not pass",
+                     probe=probe)
+        else:
+            self.add("desktop","Windows desktop provider runtime","WARN",
+                     "ADH is not installed/configured on this runtime; desktop control remains unavailable rather than being falsely reported active",
+                     executable=status.get("executable"))
 
     def audit_avatar(self):
         private=self.runtime/"dashboard"/"assets"/"avatar"/"krishna.glb"
