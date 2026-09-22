@@ -21,6 +21,8 @@ jobs:
           python-version: '3.13'
       - name: Compile all Python sources
         run: python -m compileall -q core tests
+      - name: Run KRISHNA architecture audit
+        run: python scripts/AUDIT_KRISHNA_ARCHITECTURE.py --out architecture-audit.json
       - name: Parse PowerShell scripts
         shell: pwsh
         run: |
