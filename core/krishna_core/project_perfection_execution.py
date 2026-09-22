@@ -392,9 +392,16 @@ class ArtifactExecutor:
         if not devices["passed"] or "\tdevice" not in devices.get("output",""):
             return {"kind":"apk","executed":False,"passed":False,"reason":"no_android_device","devices":devices}
         steps=[]
-        uninstall=self._cmd([adb,"uninstall",package_id],60)
-        uninstall_ok=bool(uninstall.get("passed") or "Unknown package" in uninstall.get("output","") or "not installed" in uninstall.get("output","").lower())
-        steps.append({"name":"clean_uninstall","executed":uninstall.get("executed",False),"passed":uninstall_ok,
+        installed_probe=self._cmd([adb,"shell","pm","path",package_id],30)
+        was_installed=bool(installed_probe.get("passed") and "package:" in installed_probe.get("output",""))
+        if was_installed:
+            uninstall=self._cmd([adb,"uninstall",package_id],60)
+            uninstall_ok=bool(uninstall.get("passed"))
+        else:
+            uninstall={"executed":True,"passed":True,"reason":"package_not_installed","output":installed_probe.get("output","")}
+            uninstall_ok=True
+        steps.append({"name":"clean_uninstall","was_installed":was_installed,
+                      "executed":uninstall.get("executed",False),"passed":uninstall_ok,
                       "output":uninstall.get("output",""),"reason":uninstall.get("reason")})
         steps.append({"name":"install",**self._cmd([adb,"install",str(path)],180)})
         for permission in ("android.permission.CAMERA","android.permission.RECORD_AUDIO","android.permission.POST_NOTIFICATIONS"):
@@ -433,10 +440,17 @@ class ArtifactExecutor:
             return {"kind":"ios","executed":False,"passed":False,"reason":"artifact_missing","artifact":str(path)}
         if not str(bundle_id or "").strip():
             return {"kind":"ios","executed":False,"passed":False,"reason":"bundle_id_required"}
-        clean=self._cmd([xcrun,"simctl","uninstall","booted",bundle_id],60)
-        clean_ok=bool(clean.get("passed") or "not installed" in clean.get("output","").lower() or "No such file" in clean.get("output",""))
+        installed_probe=self._cmd([xcrun,"simctl","get_app_container","booted",bundle_id],30)
+        was_installed=bool(installed_probe.get("passed") and installed_probe.get("output","").strip())
+        if was_installed:
+            clean=self._cmd([xcrun,"simctl","uninstall","booted",bundle_id],60)
+            clean_ok=bool(clean.get("passed"))
+        else:
+            clean={"executed":True,"passed":True,"reason":"bundle_not_installed","output":installed_probe.get("output","")}
+            clean_ok=True
         steps=[
-            {"name":"clean_uninstall","executed":clean.get("executed",False),"passed":clean_ok,
+            {"name":"clean_uninstall","was_installed":was_installed,
+             "executed":clean.get("executed",False),"passed":clean_ok,
              "output":clean.get("output",""),"reason":clean.get("reason")},
             {"name":"install",**self._cmd([xcrun,"simctl","install","booted",str(path)],120)},
             {"name":"launch",**self._cmd([xcrun,"simctl","launch","booted",bundle_id],60)},
