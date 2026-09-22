@@ -105,6 +105,29 @@ class DesignImplementationGuard:
         return clean
 
     @classmethod
+    def visual_edit_prompt(cls, instruction: str, element: dict[str,Any],
+                           context: dict[str,Any], from_box=None, to_box=None) -> str:
+        files="\n\n".join(
+            f"--- FILE {row['path']} ---\n{row['content']}" for row in context.get("files") or []
+        )
+        element_json=json.dumps(element,ensure_ascii=False)[:8000]
+        return (
+            "You are KRISHNA's bounded visual-edit implementation worker. The owner selected one live UI element "
+            "and gave a natural-language edit instruction. Modify only existing frontend source needed for that edit. "
+            "Preserve functionality, data/API wiring, IDs used by tests unless the instruction explicitly requires a structural change, "
+            "accessibility semantics, and responsive behavior. Use Flex/Grid/component structure rather than hard-coded screen coordinates "
+            "unless a coordinate is explicitly a deliberate absolute-position requirement. Do not add trackers, remote scripts, dependencies, "
+            "credentials, backend changes or shell commands.\n\n"
+            f"OWNER INSTRUCTION:\n{str(instruction or '')[:5000]}\n\n"
+            f"SELECTED LIVE ELEMENT:\n{element_json}\n\n"
+            f"DRAG FROM BOX:\n{json.dumps(from_box)}\nDRAG TO BOX:\n{json.dumps(to_box)}\n\n"
+            f"FRONTEND SOURCE CONTEXT:\n{files}\n\n"
+            "Return STRICT JSON only: "
+            '{"summary":"...","files":[{"path":"existing/relative/frontend/file","content":"COMPLETE replacement file contents"}]}. '
+            f"Return at most {cls.MAX_FILES} files. Do not use markdown fences."
+        )
+
+    @classmethod
     def prompt(cls, goal: str, selected_html: str, context: dict[str,Any]) -> str:
         files="\n\n".join(
             f"--- FILE {row['path']} ---\n{row['content']}" for row in context.get("files") or []
