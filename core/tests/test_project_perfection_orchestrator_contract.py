@@ -15,6 +15,27 @@ class ProjectPerfectionOrchestratorContract(unittest.TestCase):
         self.assertIn('VERIFIED_AND_APPLIED',block)
         self.assertIn('ROLLED_BACK_POST_APPLY',block)
 
+    def test_visual_editor_is_point_drag_voice_and_fail_safe_apply(self):
+        root=Path(__file__).resolve().parents[1]
+        editor=(root/"visual_editor.html").read_text(encoding="utf-8")
+        server=(root/"krishna_core"/"server.py").read_text(encoding="utf-8")
+        self.assertIn("pointerdown",editor)
+        self.assertIn("setPointerCapture",editor)
+        self.assertIn("SpeechRecognition",editor)
+        self.assertIn("/api/project-perfection/visual-edit/stage",editor)
+        self.assertIn("/api/project-perfection/visual-edit/apply",editor)
+        self.assertIn('"/api/project-perfection/visual-edit/apply"',server)
+        self.assertIn("post_apply_verify(",server)
+        self.assertIn("promotions.rollback(",server)
+
+    def test_mobile_emulator_retest_uses_single_script_command(self):
+        root=Path(__file__).resolve().parents[2]
+        workflow=(root/".github"/"workflows"/"build-mobile-v3.yml").read_text(encoding="utf-8")
+        verifier=(root/"scripts"/"VERIFY_KRISHNA_APK.py").read_text(encoding="utf-8")
+        self.assertIn("scripts/VERIFY_KRISHNA_APK.py",workflow)
+        self.assertNotIn("PYTHONPATH=core python - <<'PY'",workflow)
+        self.assertIn("ArtifactExecutor().apk",verifier)
+
     def test_operator_finish_script_requests_apply(self):
         script=(Path(__file__).resolve().parents[2]/"scripts"/"FINISH_KRISHNA_PROJECT.ps1").read_text(encoding="utf-8")
         self.assertIn("apply_verified=$true",script)
