@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -249,7 +250,9 @@ class ProjectPerfectionRuntime:
                        backend_required: bool=True, artifact_required: bool=False,
                        security_ok: bool=False, restart_recovery_ok: bool=False,
                        max_mutants: int=8, deadline_minutes: float=60.0,
-                       work_items: list[dict[str, Any]] | None=None) -> dict[str, Any]:
+                       work_items: list[dict[str, Any]] | None=None,
+                       use_candidate_static_preview: bool=False,
+                       restart_recovery_required: bool=True) -> dict[str, Any]:
         """Run the full evidence pipeline once. Failed/missing evidence never becomes COMPLETE."""
         root=Path(project_root).resolve()
         default_work=[
@@ -265,14 +268,29 @@ class ProjectPerfectionRuntime:
         staged=self.development.stage(root,[])
         candidate_root=Path(staged["candidate_root"]).resolve()
         shots=screenshot_dir or str(self.state_root/"runs"/project)
-        exploration=self.explore_and_generate(project,url,screenshot_dir=shots)
-        regression=self.persist_generated_regressions(candidate_root,project,exploration["regression_source"])
-        browser=self.browser_audit(url,screenshot_dir=shots)
-        accessibility=self.accessibility_verify(url)
-        chaos=self.browser_chaos_verify(url)
-        dev=self.development.verify(candidate_root,checks,frontend_url=url)
+        preview_context=self.candidate_static.serve(candidate_root) if use_candidate_static_preview else nullcontext({
+            "available":True,"url":url,"source":"provided_runtime_url",
+        })
+        with preview_context as candidate_preview:
+            effective_url=candidate_preview.get("url")
+            if effective_url:
+                exploration=self.explore_and_generate(project,effective_url,screenshot_dir=shots)
+                browser=self.browser_audit(effective_url,screenshot_dir=shots)
+                accessibility=self.accessibility_verify(effective_url)
+                chaos=self.browser_chaos_verify(effective_url)
+                dev=self.development.verify(candidate_root,checks,frontend_url=effective_url)
+                visual=self.compare_visual_baselines(project,browser,approve_missing=approve_visual_baselines)
+            else:
+                exploration={"ok":False,"graph":{"node_count":0,"edge_count":0},"regression_source":"",
+                             "reason":"candidate_preview_unavailable","exploration":{"findings":[]}}
+                browser={"ok":False,"geometry_ok":False,"viewports":[],"geometry_findings":[],
+                         "reason":"candidate_preview_unavailable"}
+                accessibility={"passed":False,"issues":[{"kind":"candidate_preview_unavailable"}]}
+                chaos={"passed":False,"scenarios":[],"reason":"candidate_preview_unavailable"}
+                dev=self.development.verify(candidate_root,checks)
+                visual={"passed":False,"results":[],"reason":"candidate_preview_unavailable"}
+        regression=self.persist_generated_regressions(candidate_root,project,exploration.get("regression_source") or "")
         mutation=self.run_mutation_testing(candidate_root,checks,max_mutants=max_mutants) if checks else {"executed":0,"passed":False,"score":None}
-        visual=self.compare_visual_baselines(project,browser,approve_missing=approve_visual_baselines)
         api=self.api_fuzz_verify(schema_url,api_base_url) if schema_url else {
             "available":False,"passed":not backend_required,
             "reason":"not_applicable" if not backend_required else "api_schema_or_backend_verification_required",
@@ -298,7 +316,9 @@ class ProjectPerfectionRuntime:
                 return bool((row.get("report") or {}).get("ok"))
             return False
         artifact_restart_ok=bool(installed.get("artifacts")) and all(restart_evidence(x) for x in installed.get("artifacts") or [])
-        effective_restart_ok=artifact_restart_ok if installed.get("artifacts") else bool(restart_recovery_ok)
+        effective_restart_ok=(not restart_recovery_required) or (
+            artifact_restart_ok if installed.get("artifacts") else bool(restart_recovery_ok)
+        )
 
         gates=[
             {"gate":"requirements","passed":bool(requirements_ok),"evidence":["requirements ledger acknowledged"] if requirements_ok else []},
@@ -314,14 +334,16 @@ class ProjectPerfectionRuntime:
             {"gate":"adversarial","passed":bool(chaos.get("passed")) and bool(mutation.get("passed")),
              "evidence":[str(chaos.get("scenarios") or []),str({"mutation_score":mutation.get("score")})]},
             {"gate":"restart_recovery","passed":bool(effective_restart_ok),
-             "evidence":[str({"artifact_restart":artifact_restart_ok,"external_restart_evidence":bool(restart_recovery_ok)})]},
+             "evidence":[str({"required":bool(restart_recovery_required),"artifact_restart":artifact_restart_ok,
+                              "external_restart_evidence":bool(restart_recovery_ok)})]},
             {"gate":"package_build","passed":package_build or not artifact_required,
              "evidence":[str([x.get("path") or x.get("artifact") for x in artifact_rows])]},
             {"gate":"installed_artifact","passed":bool(installed.get("passed")),"evidence":[str(installed.get("artifacts") or installed.get("reason") or "")]},
         ]
         cert=self.completion_certificate(project,build_hash,gates,mutation.get("score"))
         return {
-            "project":project,"team_plan":team_plan,
+            "project":project,"team_plan":team_plan,"candidate_preview":candidate_preview,
+            "effective_url":candidate_preview.get("url") if candidate_preview else url,
             "candidate_root":str(candidate_root),"staged":staged,
             "certificate":cert,"requirements_ok":requirements_ok,
             "exploration":exploration,"regression":regression,"browser":browser,
