@@ -149,6 +149,9 @@ jobs:
           grep -q "Conversation only" app/src/main/assets/index.html
           grep -q "verifyVoice" app/src/main/assets/index.html
           grep -q "startFieldScan" app/src/main/assets/index.html
+          grep -q 'id="diagnosticOverlay"' app/src/main/assets/index.html
+          grep -q "renderDiagnosticOverlay" app/src/main/assets/index.html
+          grep -q "HAWKEYE · DIAGNOSTIC" app/src/main/assets/index.html
           grep -q "bhumiputraFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "hawkeyeOfflineFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "configureCloudUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
