@@ -68,7 +68,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry",
-                     "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/remote/status", "/api/resilience/status", "/api/wearables",
+                     "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
 
@@ -116,6 +116,19 @@ class HTTPRuntimeTests(unittest.TestCase):
     def test_garudanetra_persistent_mode_requires_approval(self):
         code,_=self.call("/api/garudanetra/session/start",{"project":"KRISHNA","url":"http://127.0.0.1:%d/"%self.port,"mode":"persistent_workspace"})
         self.assertEqual(code,403)
+
+    def test_video_avatar_provider_routes_are_local_first(self):
+        code,status=self.call("/api/avatar/video/status")
+        self.assertEqual(code,200)
+        providers={x["provider_id"]:x for x in status["providers"]}
+        self.assertTrue(providers["musetalk"]["free_local"])
+        self.assertFalse(providers["higgsfield"]["free_local"])
+        code,recommended=self.call("/api/avatar/video/recommend?goal=higgsfield%20style%20talking%20video&vram_gb=16")
+        self.assertEqual(code,200)
+        self.assertEqual(recommended["provider_id"],"echomimic_v3")
+        code,contract=self.call("/api/avatar/video/contract?provider=musetalk")
+        self.assertEqual(code,200)
+        self.assertEqual(contract["execution"],"local subprocess adapter")
 
     def test_avatar_asset_audit_fails_closed_without_private_glb(self):
         code,audit=self.call("/api/avatar/asset-audit")
