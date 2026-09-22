@@ -84,6 +84,13 @@ class BhumiputraAgent:
         self.surveys_dir.mkdir(parents=True, exist_ok=True)
         self.evidence_dir = self.state_dir / "mobile-evidence"
         self.evidence_dir.mkdir(parents=True, exist_ok=True)
+        self.evidence_cipher = None
+        self.require_evidence_encryption = False
+
+    def bind_evidence_cipher(self, cipher, *, require_encryption=False):
+        self.evidence_cipher = cipher
+        self.require_evidence_encryption = bool(require_encryption)
+        return {"bound": cipher is not None, "available": bool(getattr(cipher, "available", False)), "required": self.require_evidence_encryption}
 
     @staticmethod
     def _point(value) -> GeoPoint:
@@ -290,11 +297,19 @@ class BhumiputraAgent:
             raise ValueError("invalid session_id")
         digest = hashlib.sha256(raw).hexdigest()
         evidence_id = f"{safe_session}-{digest[:20]}"
-        image = self.evidence_dir / f"{evidence_id}{suffix}"
+        encrypted = bool(self.evidence_cipher is not None and getattr(self.evidence_cipher, "available", False))
+        if self.require_evidence_encryption and not encrypted:
+            raise RuntimeError("Hawkeye PC evidence encryption is required but unavailable")
+        payload_path = self.evidence_dir / (f"{evidence_id}.payload.enc" if encrypted else f"{evidence_id}{suffix}")
         meta = self.evidence_dir / f"{evidence_id}.json"
-        deduplicated = image.exists() and meta.exists()
-        if not image.exists():
-            image.write_bytes(raw)
+        deduplicated = payload_path.exists() and meta.exists()
+        if not payload_path.exists():
+            if encrypted:
+                aad=f"hawkeye:{evidence_id}".encode("utf-8")
+                envelope=self.evidence_cipher.encrypt(raw,aad)
+                payload_path.write_text(json.dumps(envelope,separators=(",",":")),encoding="utf-8")
+            else:
+                payload_path.write_bytes(raw)
         record = {
             "evidence_id": evidence_id,
             "session_id": safe_session,
@@ -307,6 +322,9 @@ class BhumiputraAgent:
             "received_at": time.time(),
             "retained_pc": True,
             "raw_cloud_upload": False,
+            "encrypted_at_rest": encrypted,
+            "encryption": "AES-256-GCM + Windows-DPAPI" if encrypted else "test-platform-plaintext-fallback",
+            "payload_file": payload_path.name,
         }
         meta.write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
         pruned = self._prune_mobile_evidence(max_items=64, max_bytes=192 * 1024 * 1024)
@@ -318,6 +336,7 @@ class BhumiputraAgent:
             "modality": modality,
             "retained_pc": True,
             "deduplicated": deduplicated,
+            "encrypted_at_rest": encrypted,
             "storage_policy": {"max_items": 64, "max_bytes": 192 * 1024 * 1024},
             "pruned": pruned,
         }
@@ -327,7 +346,7 @@ class BhumiputraAgent:
         def pair_bytes(meta_path):
             total = meta_path.stat().st_size if meta_path.exists() else 0
             stem = meta_path.stem
-            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4"):
+            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4", ".payload.enc"):
                 image = self.evidence_dir / f"{stem}{ext}"
                 if image.exists():
                     total += image.stat().st_size
@@ -338,7 +357,7 @@ class BhumiputraAgent:
             old = rows.pop(0)
             removed = pair_bytes(old)
             stem = old.stem
-            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4"):
+            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4", ".payload.enc"):
                 image = self.evidence_dir / f"{stem}{ext}"
                 if image.exists():
                     image.unlink()
@@ -353,11 +372,14 @@ class BhumiputraAgent:
         total = 0
         for meta in rows:
             total += meta.stat().st_size
-            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4"):
+            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4", ".payload.enc"):
                 image = self.evidence_dir / f"{meta.stem}{ext}"
                 if image.exists():
                     total += image.stat().st_size
-        return {"items": len(rows), "bytes": total, "max_items": 64, "max_bytes": 192 * 1024 * 1024}
+        return {"items": len(rows), "bytes": total, "max_items": 64, "max_bytes": 192 * 1024 * 1024,
+                "encryption_bound": self.evidence_cipher is not None,
+                "encryption_available": bool(getattr(self.evidence_cipher, "available", False)) if self.evidence_cipher is not None else False,
+                "encryption_required": self.require_evidence_encryption}
 
     def _survey_path(self, survey_id: str) -> Path:
         safe = "".join(ch for ch in str(survey_id) if ch.isalnum() or ch in "-_")
