@@ -236,6 +236,36 @@ class ArtifactExecutor:
         return {"executed":True,"passed":False,"output":last.get("output",""),
                 "attempts":max(1,int(attempts))}
 
+    def _wait_android_foreground(self, adb: str, package_id: str, attempts: int=15,
+                                 delay_seconds: float=1.0) -> dict[str, Any]:
+        """Wait until Android reports this package as the top activity."""
+        last={"executed":True,"passed":False,"output":""}
+        for attempt in range(1,max(1,int(attempts))+1):
+            last=self._cmd([adb,"shell","dumpsys","activity","top"],30)
+            output=last.get("output","")
+            if last.get("passed") and package_id in output:
+                return {"executed":True,"passed":True,"output":output[-4000:],
+                        "attempts":attempt}
+            if attempt<max(1,int(attempts)) and delay_seconds>0:
+                time.sleep(float(delay_seconds))
+        return {"executed":True,"passed":False,"output":last.get("output","")[-4000:],
+                "attempts":max(1,int(attempts))}
+
+    def _launch_android_app(self, adb: str, package_id: str) -> dict[str, Any]:
+        """Trigger the launcher and verify the resulting process + foreground state."""
+        command=self._cmd([adb,"shell","monkey","-p",package_id,"-c",
+                           "android.intent.category.LAUNCHER","1"],60)
+        process=self._wait_android_process(adb,package_id)
+        foreground=self._wait_android_foreground(adb,package_id)
+        return {
+            "executed":bool(command.get("executed",True)),
+            "passed":bool(process.get("passed") and foreground.get("passed")),
+            "command_passed":bool(command.get("passed")),
+            "command":command,
+            "process":process,
+            "foreground":foreground,
+        }
+
     @staticmethod
     def _health(url: str, timeout_seconds: float=2.0) -> dict[str, Any]:
         try:
@@ -291,15 +321,16 @@ class ArtifactExecutor:
             permission: (permission in permission_text and "granted=true" in permission_text[permission_text.find(permission):permission_text.find(permission)+500])
             for permission in ("android.permission.CAMERA","android.permission.RECORD_AUDIO","android.permission.POST_NOTIFICATIONS")
         }
-        steps.append({"name":"launch",**self._cmd([adb,"shell","monkey","-p",package_id,"-c","android.intent.category.LAUNCHER","1"],30)})
-        process=self._wait_android_process(adb,package_id)
-        steps.append({"name":"process_alive",**process})
+        launch=self._launch_android_app(adb,package_id)
+        steps.append({"name":"launch",**launch})
+        steps.append({"name":"process_alive",**launch["process"]})
         steps.append({"name":"background",**self._cmd([adb,"shell","input","keyevent","3"],15)})
-        steps.append({"name":"foreground",**self._cmd([adb,"shell","monkey","-p",package_id,"-c","android.intent.category.LAUNCHER","1"],30)})
+        foreground=self._launch_android_app(adb,package_id)
+        steps.append({"name":"foreground",**foreground})
         steps.append({"name":"force_stop",**self._cmd([adb,"shell","am","force-stop",package_id],15)})
-        steps.append({"name":"restart",**self._cmd([adb,"shell","monkey","-p",package_id,"-c","android.intent.category.LAUNCHER","1"],30)})
-        restarted=self._wait_android_process(adb,package_id)
-        steps.append({"name":"restart_process_alive",**restarted})
+        restart=self._launch_android_app(adb,package_id)
+        steps.append({"name":"restart",**restart})
+        steps.append({"name":"restart_process_alive",**restart["process"]})
         logs=self._cmd([adb,"logcat","-d","-t","500"],45)
         fatal="FATAL EXCEPTION" in logs.get("output","") and package_id in logs.get("output","")
         permissions_ok=all(permission_verified.values())
