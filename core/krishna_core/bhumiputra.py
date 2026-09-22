@@ -8,6 +8,7 @@ import time
 import uuid
 
 from .field_perception import FieldPerceptionPolicy
+from .vision_adapter import VisionAdapter
 
 
 EARTH_RADIUS_M = 6_371_008.8
@@ -83,11 +84,12 @@ class BhumiputraAgent:
         "as_built_design": "infer visible arrangement only; do not claim original design intent without drawings",
     }
 
-    def __init__(self, state_dir: str | Path):
+    def __init__(self, state_dir: str | Path, vision_adapter=None):
         self.state_dir = Path(state_dir)
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.surveys_dir = self.state_dir / "surveys"
         self.surveys_dir.mkdir(parents=True, exist_ok=True)
+        self.vision = vision_adapter or VisionAdapter()
 
     @staticmethod
     def _point(value) -> GeoPoint:
@@ -243,6 +245,43 @@ class BhumiputraAgent:
             f"Sensor context: {json.dumps(sensors, ensure_ascii=False)[:4000]}."
         )
 
+    def ingest_live_frame(self, session_id: str, data: bytes, content_type: str,
+                          sensor_context=None):
+        session = self.get_live_session(session_id)
+        prompt = self.live_prompt(
+            scene_hint=session.get("scene_hint") or "auto",
+            user_goal=session.get("purpose") or "automatic field scan",
+            sensor_context=sensor_context or {},
+        )
+        result = self.vision.analyze_bytes(data, content_type, prompt)
+        analysis = FieldPerceptionPolicy.redact_sensitive_text(result.get("analysis"))
+        receipt = self.record_live_analysis(
+            session_id,
+            analysis,
+            model=result.get("model"),
+            sensor_context=sensor_context or {},
+            frame_meta={
+                "provider": result.get("provider"),
+                "content_type": content_type,
+                "bytes": len(data or b""),
+                "secret_redaction": True,
+            },
+        )
+        return {
+            "session_id": session_id,
+            "frame_count": receipt["frame_count"],
+            "analysis": analysis,
+            "provider": result.get("provider"),
+            "model": result.get("model"),
+            "evidence_state": "OBSERVED",
+            "confidence": 0.8,
+            "privacy": {
+                "local_vision": bool(result.get("local", True)),
+                "secret_redaction": True,
+                "unknown_face_identity": "UNKNOWN",
+            },
+        }
+
     def record_live_analysis(self, session_id: str, analysis: str, *,
                              model=None, sensor_context=None, frame_meta=None):
         path = self._live_path(session_id)
@@ -252,7 +291,7 @@ class BhumiputraAgent:
         now = time.time()
         item = {
             "at": now,
-            "analysis": str(analysis or "").strip(),
+            "analysis": FieldPerceptionPolicy.redact_sensitive_text(analysis).strip(),
             "model": str(model or ""),
             "sensor_context": dict(sensor_context or {}),
             "frame_meta": dict(frame_meta or {}),
