@@ -475,6 +475,17 @@ try{
     Add-Check "UI Guardian matrix" "FAIL" $_.Exception.Message $null
   }
 
+  $mobileManifestPath=Join-Path $RuntimeRoot "state\deployment\MOBILE_RUNTIME.json"
+  $mobileMainPath=Join-Path $RuntimeRoot "mobile\app-source\MainActivity.java"
+  if((Test-Path $mobileManifestPath) -and (Test-Path $mobileMainPath)){
+    try{
+      $mobileManifest=Get-Content $mobileManifestPath -Raw|ConvertFrom-Json
+      if($mobileManifest.product -eq "mobile_v3" -and $mobileManifest.legacy_companion_authority -eq $false){
+        Add-Check "Canonical mobile runtime" "PASS" ("mobile_v3 @ "+$mobileManifest.source_commit+"; legacy companion has no authority") $mobileManifest
+      }else{Add-Check "Canonical mobile runtime" "FAIL" "MOBILE_RUNTIME.json does not declare mobile_v3 authority" $mobileManifest}
+    }catch{Add-Check "Canonical mobile runtime" "FAIL" $_.Exception.Message $null}
+  }else{Add-Check "Canonical mobile runtime" "FAIL" "mobile_v3 deployed source/manifest is missing" $null}
+
   $mobile=Get-Json "/api/mobile/connection"
   Add-Check "Mobile bridge" ($(if($mobile.connected){"PASS"}else{"WARN"})) ($(if($mobile.connected){"paired mobile is live"}else{"no paired mobile currently connected"})) $mobile
 
