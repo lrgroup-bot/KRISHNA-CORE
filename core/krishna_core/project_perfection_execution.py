@@ -221,6 +221,21 @@ class ArtifactExecutor:
         except subprocess.TimeoutExpired as exc:
             return {"executed":True,"passed":False,"reason":"timeout","detail":str(exc)}
 
+    def _wait_android_process(self, adb: str, package_id: str, attempts: int=15,
+                              delay_seconds: float=1.0) -> dict[str, Any]:
+        """Wait for Android to publish the app PID after an asynchronous launcher event."""
+        last={"executed":True,"passed":False,"output":""}
+        for attempt in range(1,max(1,int(attempts))+1):
+            last=self._cmd([adb,"shell","pidof",package_id],30)
+            output=last.get("output","").strip()
+            if last.get("passed") and output:
+                return {"executed":True,"passed":True,"output":last.get("output",""),
+                        "attempts":attempt}
+            if attempt<max(1,int(attempts)) and delay_seconds>0:
+                time.sleep(float(delay_seconds))
+        return {"executed":True,"passed":False,"output":last.get("output",""),
+                "attempts":max(1,int(attempts))}
+
     @staticmethod
     def _health(url: str, timeout_seconds: float=2.0) -> dict[str, Any]:
         try:
@@ -277,16 +292,14 @@ class ArtifactExecutor:
             for permission in ("android.permission.CAMERA","android.permission.RECORD_AUDIO","android.permission.POST_NOTIFICATIONS")
         }
         steps.append({"name":"launch",**self._cmd([adb,"shell","monkey","-p",package_id,"-c","android.intent.category.LAUNCHER","1"],30)})
-        process=self._cmd([adb,"shell","pidof",package_id],30)
-        process_ok=bool(process.get("passed") and process.get("output","").strip())
-        steps.append({"name":"process_alive","executed":True,"passed":process_ok,"output":process.get("output","")})
+        process=self._wait_android_process(adb,package_id)
+        steps.append({"name":"process_alive",**process})
         steps.append({"name":"background",**self._cmd([adb,"shell","input","keyevent","3"],15)})
         steps.append({"name":"foreground",**self._cmd([adb,"shell","monkey","-p",package_id,"-c","android.intent.category.LAUNCHER","1"],30)})
         steps.append({"name":"force_stop",**self._cmd([adb,"shell","am","force-stop",package_id],15)})
         steps.append({"name":"restart",**self._cmd([adb,"shell","monkey","-p",package_id,"-c","android.intent.category.LAUNCHER","1"],30)})
-        restarted=self._cmd([adb,"shell","pidof",package_id],30)
-        restart_process_ok=bool(restarted.get("passed") and restarted.get("output","").strip())
-        steps.append({"name":"restart_process_alive","executed":True,"passed":restart_process_ok,"output":restarted.get("output","")})
+        restarted=self._wait_android_process(adb,package_id)
+        steps.append({"name":"restart_process_alive",**restarted})
         logs=self._cmd([adb,"logcat","-d","-t","500"],45)
         fatal="FATAL EXCEPTION" in logs.get("output","") and package_id in logs.get("output","")
         permissions_ok=all(permission_verified.values())
