@@ -3031,19 +3031,19 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,orch.gyan_compact())
 
         if post_path == "/api/gyan-bhandar/propose":
-            project=str(data.get("project") or "KRISHNA").strip(); topic=str(data.get("topic") or "").strip(); lesson=str(data.get("lesson") or "").strip()
-            if not topic or not lesson:return self._json(400,{"error":"topic and lesson are required"})
-            try:return self._json(202,orch.gyan_propose(project,topic,lesson,data.get("evidence") or [],float(data.get("confidence") or 0),
-                str(data.get("source") or "research"),bool(data.get("verified",False)),str(data.get("memory_kind") or "semantic"),
-                data.get("provenance") or {},data.get("supersedes")))
+            try:
+                receipt=orch.dispatch_action("gyan.propose",data,project=str(data.get("project") or "KRISHNA"),source="pc",actor="legacy-http")
+                return self._json(202,receipt["result"])
             except KeyError:return self._json(404,{"error":"project not registered"})
-            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+            except (ValueError,TypeError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/gyan-bhandar/decide":
-            approval_id=str(data.get("approval_id") or "").strip()
-            if not approval_id or "approved" not in data:return self._json(400,{"error":"approval_id and approved are required"})
-            try:return self._json(200,orch.gyan_decide(approval_id,bool(data.get("approved"))))
+            try:
+                receipt=orch.dispatch_action("gyan.decide",data,source="pc",actor="legacy-http")
+                return self._json(200,receipt["result"])
             except KeyError:return self._json(404,{"error":"pending finding not found"})
+            except (ValueError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
+
         if post_path == "/api/gyan-bhandar/store":
             project=str(data.get("project") or "KRISHNA").strip(); topic=str(data.get("topic") or "").strip(); lesson=str(data.get("lesson") or "").strip()
             if not topic or not lesson:return self._json(400,{"error":"topic and lesson are required"})
@@ -3055,21 +3055,18 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/gyan-bhandar/supersede":
-            project=str(data.get("project") or "KRISHNA").strip(); fingerprint=str(data.get("fingerprint") or "").strip()
-            topic=str(data.get("topic") or "").strip(); lesson=str(data.get("lesson") or "").strip()
-            if not fingerprint or not topic or not lesson:return self._json(400,{"error":"fingerprint, topic and lesson are required"})
-            try:return self._json(202,orch.gyan_supersede(project,fingerprint,topic,lesson,data.get("evidence") or [],
-                float(data.get("confidence") or 0),str(data.get("source") or "krishna"),bool(data.get("verified",False)),
-                str(data.get("memory_kind") or "semantic"),data.get("provenance") or {}))
+            try:
+                receipt=orch.dispatch_action("gyan.supersede",data,project=str(data.get("project") or "KRISHNA"),source="pc",actor="legacy-http")
+                return self._json(202,receipt["result"])
             except KeyError:return self._json(404,{"error":"learning or project not found"})
-            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+            except (ValueError,TypeError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/gyan-bhandar/strengthen":
-            project=str(data.get("project") or "KRISHNA").strip(); topic=str(data.get("topic") or "").strip()
-            if not topic:return self._json(400,{"error":"topic is required"})
-            try:return self._json(200,orch.gyan_strengthen(project,topic,bool(data.get("use_garuda",True)),int(data.get("limit") or 10)))
+            try:
+                receipt=orch.dispatch_action("gyan.strengthen",data,project=str(data.get("project") or "KRISHNA"),source="pc",actor="legacy-http")
+                return self._json(200,receipt["result"])
             except KeyError:return self._json(404,{"error":"project not registered"})
-            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+            except (ValueError,RuntimeError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/garuda/scout":
             project=str(data.get("project") or "KRISHNA").strip();goal=str(data.get("goal") or "").strip()
