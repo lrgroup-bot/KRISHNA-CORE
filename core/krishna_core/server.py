@@ -590,6 +590,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"attachments":_attachments.list(chat_id)})
         if path == "/api/vision/status":
             return self._json(200,_vision.status())
+        if path == "/api/bhumiputra/status":
+            return self._json(200,orch.bhumiputra.status())
+        if path == "/api/bhumiputra/live/state":
+            session_id=str((query.get("session_id") or [""])[0]).strip()
+            if not session_id:return self._json(400,{"error":"session_id is required"})
+            try:return self._json(200,orch.bhumiputra.get_live_session(session_id))
+            except KeyError:return self._json(404,{"error":"live session not found"})
         if path == "/api/voice/audio":
             audio_id=str((query.get("id") or [""])[0]).strip()
             try:audio_id=str(uuid.UUID(audio_id))
@@ -1796,6 +1803,69 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 mark("INVESTIGATION ERROR", str(exc)[:160])
                 return self._json(500, {"error": str(exc)})
+
+        if post_path == "/api/bhumiputra/live/start":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            payload={
+                "project":project,
+                "purpose":str(data.get("purpose") or "live field scan"),
+                "coordinates":data.get("coordinates") or {},
+                "scene_hint":str(data.get("scene_hint") or "auto"),
+            }
+            receipt=orch.dispatch_action(
+                "bhumiputra.live.start",payload,project=project,source="mobile",
+                actor="bhumiputra-mobile",permissions=("geo.read","survey.write"),
+            )
+            return self._json(201,receipt["result"])
+
+        if post_path == "/api/bhumiputra/live/frame":
+            session_id=str(data.get("session_id") or "").strip()
+            if not session_id:return self._json(400,{"error":"session_id is required"})
+            raw_b64=str(data.get("data_b64") or "").strip()
+            if not raw_b64:return self._json(400,{"error":"data_b64 is required"})
+            try:
+                raw=base64.b64decode(raw_b64,validate=True)
+            except Exception:
+                return self._json(400,{"error":"invalid base64 camera frame"})
+            if len(raw)>5*1024*1024:
+                return self._json(400,{"error":"camera frame exceeds 5 MB"})
+            content_type=str(data.get("content_type") or "image/jpeg").split(";",1)[0].strip().lower()
+            sensor_context=data.get("sensor_context") or {}
+            if not isinstance(sensor_context,dict):return self._json(400,{"error":"sensor_context must be an object"})
+            frame_meta=data.get("frame_meta") or {}
+            if not isinstance(frame_meta,dict):return self._json(400,{"error":"frame_meta must be an object"})
+            try:
+                live=orch.bhumiputra.get_live_session(session_id)
+                prompt=orch.bhumiputra.live_prompt(
+                    scene_hint=str(data.get("scene_hint") or live.get("scene_hint") or "auto"),
+                    user_goal=str(data.get("goal") or live.get("purpose") or "automatic field scan"),
+                    sensor_context=sensor_context,
+                )
+                result=_vision.analyze_bytes(raw,content_type,prompt)
+                receipt=orch.dispatch_action(
+                    "bhumiputra.live.record",
+                    {
+                        "session_id":session_id,
+                        "analysis":result["analysis"],
+                        "model":result["model"],
+                        "sensor_context":sensor_context,
+                        "frame_meta":frame_meta,
+                    },
+                    project=str(live.get("project") or "KRISHNA"),source="mobile",
+                    actor="bhumiputra-mobile",permissions=("survey.write","evidence.write"),
+                )
+                return self._json(200,{
+                    "agent":"Bhumiputra",
+                    "session_id":session_id,
+                    "frame_count":receipt["result"]["frame_count"],
+                    "analysis":result["analysis"],
+                    "model":result["model"],
+                    "local":True,
+                    "truth_policy":receipt["result"]["truth_policy"],
+                })
+            except KeyError:return self._json(404,{"error":"live session not found"})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/attachments":
             chat_id=str(data.get("chat_id") or "").strip()
