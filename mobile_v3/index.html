@@ -61,7 +61,7 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
 <script>
 const labels=['FRONT','FRONT-RIGHT','RIGHT','BACK-RIGHT','BACK','BACK-LEFT','LEFT','FRONT-LEFT'];
 let view=0,drag=false,startX=0,startView=0,mode='FLUTE',lastManual=0,autoTimer=null,busy=false,pendingAttachmentIds=[],pairingRequestedAt=0;
-let fieldStream=null,fieldTimer=null,fieldSession='',fieldBusy=false,fieldFrames=0,fieldGoal='automatic live field scan',fieldAudio=false,fieldProbe=null;
+let fieldStream=null,fieldTimer=null,fieldSession='',fieldBusy=false,fieldFrames=0,fieldGoal='automatic live field scan',fieldAudio=false,fieldProbe=null,fieldVideoClipTimer=null,fieldAudioClipTimer=null,fieldMediaBusy=false;
 const stage=document.getElementById('stage'),sprite=document.getElementById('avatarSprite'),label=document.getElementById('viewLabel'),vp=document.getElementById('avatarViewport');
 function showAvatarView(i,manual=false){view=(i%8+8)%8;sprite.style.transform='translateX('+(-view*12.5)+'%)';label.textContent=labels[view];if(manual)lastManual=Date.now()}
 function step(delta,manual=true){showAvatarView(view+delta,manual)}
@@ -113,6 +113,33 @@ function visualProbe(video){
  fieldProbe=lum;return{quality:Math.max(0,Math.min(1,.45*exposure+.55*detail)),novelty};
 }
 
+function hawkeyeDiagnosticGoal(){const s=String(fieldGoal||'').toLowerCase();return /diagnos|fault|circuit|pcb|motherboard|vehicle|truck|car|bus|bike|machine|motor|bearing|damage|broken|error/.test(s)}
+function hawkeyeSoundGoal(){const s=String(fieldGoal||'').toLowerCase();return /sound|noise|bearing|engine|motor|vibration/.test(s)}
+function supportedRecorderType(modality){
+ const choices=modality==='audio'?['audio/webm;codecs=opus','audio/webm','audio/mp4']:['video/webm;codecs=vp8,opus','video/webm','video/mp4'];
+ if(typeof MediaRecorder==='undefined')return'';for(const t of choices)try{if(MediaRecorder.isTypeSupported(t))return t}catch(_){}return'';
+}
+function blobBase64(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onerror=()=>reject(r.error||new Error('media read failed'));r.onload=()=>resolve(String(r.result||'').split(',')[1]||'');r.readAsDataURL(blob)})}
+async function recordBoundedMedia(modality,durationMs){
+ if(fieldMediaBusy||!fieldStream||!fieldSession||!hawkeyeDiagnosticGoal())return;const mime=supportedRecorderType(modality);if(!mime)return;
+ const tracks=modality==='audio'?fieldStream.getAudioTracks():[...fieldStream.getVideoTracks(),...fieldStream.getAudioTracks()];if(!tracks.length)return;
+ fieldMediaBusy=true;const clones=tracks.map(t=>t.clone());const stream=new MediaStream(clones);const chunks=[];
+ try{
+   const opts=modality==='audio'?{mimeType:mime,audioBitsPerSecond:48000}:{mimeType:mime,videoBitsPerSecond:320000,audioBitsPerSecond:48000};
+   const rec=new MediaRecorder(stream,opts);rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+   const done=new Promise((resolve,reject)=>{rec.onerror=e=>reject(e.error||new Error('media recorder failed'));rec.onstop=resolve});rec.start();setTimeout(()=>{try{if(rec.state!=='inactive')rec.stop()}catch(_){}},durationMs);await done;
+   const blob=new Blob(chunks,{type:rec.mimeType||mime});const max=modality==='audio'?1024*1024:4*1024*1024;if(!blob.size||blob.size>max)return;
+   const b64=await blobBase64(blob),sensors={timestamp_ms:Date.now(),mobile_local_first:true,bounded_clip:true,duration_ms:durationMs};
+   const d=JSON.parse(Krishna.hawkeyeCurateMedia(fieldSession,b64,blob.type||mime,modality,JSON.stringify(sensors),fieldGoal,0.55));
+   if(d.pc_acknowledged&&d.specialist_dispatch)document.getElementById('cameraAnalysis').textContent+=(document.getElementById('cameraAnalysis').textContent?'\n\n':'')+'Specialist: '+String(d.specialist_dispatch.status||'queued');
+ }catch(_){ }finally{for(const t of clones)try{t.stop()}catch(_){}fieldMediaBusy=false}
+}
+function startBoundedMediaCapture(){
+ clearInterval(fieldVideoClipTimer);clearInterval(fieldAudioClipTimer);if(typeof MediaRecorder==='undefined'||!hawkeyeDiagnosticGoal())return;
+ fieldVideoClipTimer=setInterval(()=>recordBoundedMedia('video',4000),30000);setTimeout(()=>recordBoundedMedia('video',4000),6500);
+ if(fieldAudio&&hawkeyeSoundGoal()){fieldAudioClipTimer=setInterval(()=>recordBoundedMedia('audio',3000),20000);setTimeout(()=>recordBoundedMedia('audio',3000),12000)}
+}
+
 async function startFieldScan(){
  if(fieldStream||fieldBusy)return;
  try{
@@ -132,7 +159,7 @@ async function startFieldScan(){
    clearDiagnosticOverlay();
    fieldFrames=0;fieldProbe=null;setMode('WORKING','HAWKEYE LIVE');
    clearInterval(fieldTimer);fieldTimer=setInterval(sampleFieldFrame,5000);
-   setTimeout(sampleFieldFrame,700);
+   startBoundedMediaCapture();setTimeout(sampleFieldFrame,700);
  }catch(e){
    reply('Hawkeye camera: '+e.message,'bad');
    stopFieldScan();
@@ -184,9 +211,9 @@ async function sampleFieldFrame(){
  }finally{fieldBusy=false}
 }
 function stopFieldScan(){
- clearInterval(fieldTimer);fieldTimer=null;
+ clearInterval(fieldTimer);fieldTimer=null;clearInterval(fieldVideoClipTimer);fieldVideoClipTimer=null;clearInterval(fieldAudioClipTimer);fieldAudioClipTimer=null;
  if(fieldStream){for(const t of fieldStream.getTracks())try{t.stop()}catch(e){}}
- fieldStream=null;fieldBusy=false;fieldAudio=false;fieldProbe=null;
+ fieldStream=null;fieldBusy=false;fieldAudio=false;fieldProbe=null;fieldMediaBusy=false;
  clearDiagnosticOverlay();
  document.getElementById('fieldVideo').srcObject=null;
  document.getElementById('cameraLayer').classList.remove('active');
