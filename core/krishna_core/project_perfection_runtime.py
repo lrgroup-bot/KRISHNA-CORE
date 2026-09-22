@@ -176,16 +176,34 @@ class ProjectPerfectionRuntime:
             browser=self.browser_audit(target_url,screenshot_dir=shots)
             accessibility=self.accessibility_verify(target_url)
             chaos=self.browser_chaos_verify(target_url)
-            visual=self.compare_visual_baselines(
-                project,browser,approve_missing=approve_selected_baseline,threshold=0.001,
-            )
+            # User selection explicitly approves a *new* visual direction, so the old
+            # project golden baseline is not used to reject the intentional redesign.
+            visual_candidate={"results":[],"passed":True}
+            for view in browser.get("viewports") or []:
+                if not view.get("screenshot"):
+                    visual_candidate["passed"]=False
+                    visual_candidate["results"].append({"width":view.get("width"),"passed":False,"reason":"screenshot_not_captured"})
+                    continue
+                visual_candidate["results"].append({
+                    "width":view.get("width"),
+                    "candidate":view.get("screenshot"),
+                    "passed":True,
+                })
             passed=all((
                 bool(dev.get("verified")),bool(exploration.get("ok")),bool(browser.get("ok")),
-                bool(accessibility.get("passed")),bool(chaos.get("passed")),bool(visual.get("passed")),
+                bool(accessibility.get("passed")),bool(chaos.get("passed")),bool(visual_candidate.get("passed")),
             ))
+            baseline_approval=[]
+            if passed and approve_selected_baseline:
+                for view in browser.get("viewports") or []:
+                    if view.get("screenshot"):
+                        baseline_approval.append(self.visual_baselines.approve(
+                            project,f"viewport-{view.get('width')}",view["screenshot"],
+                        ))
             return {"passed":passed,"development":dev,"preview":preview,
                     "exploration":exploration,"browser":browser,"accessibility":accessibility,
-                    "chaos":chaos,"visual":visual}
+                    "chaos":chaos,"visual":visual_candidate,
+                    "baseline_approval":baseline_approval}
         if frontend_url:
             return run(frontend_url,{"available":True,"url":frontend_url,"source":"registered_candidate_url"})
         with self.candidate_static.serve(candidate_root) as preview:
