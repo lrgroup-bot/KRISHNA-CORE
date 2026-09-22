@@ -261,6 +261,10 @@ class BrahmaBot:
                importance=0.5, evidence_status="candidate", force=False):
         evidence = list(evidence or [])
         provenance = dict(provenance or {})
+        provenance.setdefault(
+            "brahma_provenance_fingerprint",
+            self.memory_intelligence.provenance_fingerprint(provenance, evidence),
+        )
         plan = self.plan_learning(
             source=source, topic=topic, content=content, modality=modality,
             evidence=evidence, confidence=confidence, novelty=novelty,
@@ -272,6 +276,7 @@ class BrahmaBot:
             **plan,
             "provenance": provenance,
             "recorded_finding": None,
+            "temporal_claim": None,
         }
 
         if plan["should_learn"]:
@@ -356,6 +361,8 @@ class BrahmaBot:
             ))
         )
         evidence_ok = len(evidence) > 0
+        source_summary = self.memory_intelligence.source_summary(evidence)
+        provenance_fingerprint = self.memory_intelligence.provenance_fingerprint(provenance, evidence)
         confidence_ok = confidence >= 0.65
         maturity_ok = self.MATURITY_RANK.get(maturity, -1) >= self.MATURITY_RANK["L3"]
         contradiction_ok = unresolved == 0 and evidence_status not in {"rejected", "contradicted", "unknown"}
@@ -415,6 +422,8 @@ class BrahmaBot:
             "maturity": maturity,
             "evidence_status": evidence_status,
             "evidence_count": len(evidence),
+            "source_independence": source_summary,
+            "provenance_fingerprint": provenance_fingerprint,
             "provenance_ok": provenance_ok,
             "rishi_origin_ok": rishi_origin_ok,
             "review_compile_ok": review_compile_ok,
@@ -438,6 +447,8 @@ class BrahmaBot:
                 "rishi_reviewers": team_context.get("reviewers"),
                 "maturity": maturity,
                 "evidence_status": evidence_status,
+                "provenance_fingerprint": provenance_fingerprint,
+                "source_independence": source_summary,
             }
             qc["proposal"] = self.gyan_bhandar.propose(
                 project,
@@ -586,6 +597,7 @@ class BrahmaBot:
             "qc_reviews": len(qc),
             "recent_decisions": decisions[-10:],
             "recent_qc": qc[-10:],
+            "memory_intelligence": self.memory_intelligence.status(),
             "load_error": self.load_error,
             "ready": self.load_error is None,
         }
