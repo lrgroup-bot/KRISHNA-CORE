@@ -12,7 +12,7 @@ import uuid
 
 REQUIRED_RELEASE_GATES = (
     "requirements", "unit", "integration", "backend_api", "browser_e2e",
-    "ui_geometry", "visual_regression", "responsive", "accessibility",
+    "ui_geometry", "visual_regression", "responsive", "performance", "accessibility",
     "security", "adversarial", "restart_recovery", "package_build",
     "installed_artifact",
 )
@@ -257,6 +257,7 @@ class ProjectPerfectionLoop:
                 "capture_dom_geometry": True,
                 "capture_accessibility_tree": True,
                 "capture_screenshots": True,
+                "capture_performance": True,
                 "generate_deterministic_regressions": True,
             },
             "states": [
