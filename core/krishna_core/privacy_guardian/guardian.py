@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import os
 import uuid
 
@@ -101,12 +102,47 @@ class PrivacyGuardian:
 
     def _remember_summary(self,report: dict):
         safe=self.store.sanitize(report)
+        compact={
+            "audit_id":report.get("audit_id"),
+            "target_type":report.get("target_type"),
+            "profile":report.get("profile"),
+            "policy":report.get("policy"),
+            "test_suite_version":report.get("test_suite_version"),
+            "risk_counts":report.get("risk_counts") or {},
+            "regression_count":len(report.get("regressions") or []),
+            "status":report.get("status") or "completed",
+            "evidence_refs":[{
+                "sha256":x.get("sha256"),
+                "encrypted":bool(x.get("encrypted")),
+                "retention":x.get("retention"),
+            } for x in (report.get("evidence_refs") or []) if isinstance(x,dict)],
+        }
+        compact=self.store.sanitize(compact)
         if self.memory:
             try:
                 self.memory.remember(
                     "KRISHNA","kabach_privacy",
                     str(report.get("audit_id") or "privacy-audit"),
-                    {"summary":safe},
+                    {"summary":compact},
+                )
+            except Exception:
+                pass
+        if self.gyan_bhandar:
+            try:
+                self.gyan_bhandar.store(
+                    "KRISHNA",
+                    "privacy/"+str(report.get("target_type") or "audit"),
+                    json.dumps(compact,ensure_ascii=False,sort_keys=True),
+                    evidence=list(compact.get("evidence_refs") or []),
+                    confidence=1.0,
+                    source="kabach-privacy-guardian",
+                    verified=False,
+                    memory_kind="evidence",
+                    provenance={
+                        "test_suite_version":report.get("test_suite_version"),
+                        "audit_id":report.get("audit_id"),
+                        "privacy_safe_summary":True,
+                    },
                 )
             except Exception:
                 pass
@@ -227,7 +263,7 @@ class PrivacyGuardian:
             metadata={
                 "mission_id":mission_id,
                 "mobsf":self.mobsf.status(),
-                "full_gate_requires_mobsf":raw.get("mobfs_required_for_full_gate"),
+                "full_gate_requires_mobsf":raw.get("mobsf_required_for_full_gate"),
                 "full_gate_requires_dynamic_test":raw.get("dynamic_test_required_for_full_gate"),
             },
             limitations=["Static APK analysis is not equivalent to a real-device dynamic privacy test."],
