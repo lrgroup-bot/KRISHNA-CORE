@@ -83,25 +83,45 @@ class RegressionGenerator:
 
 
 class ApiFuzzAdapter:
-    """Optional Schemathesis adapter; absent dependency is explicit, never silently passed."""
+    """Execute Schemathesis through an installed CLI/module or uvx fallback."""
 
-    def run(self, schema_url: str, base_url: str | None = None, timeout: int = 300) -> dict[str, Any]:
-        cli=shutil.which("schemathesis")
-        if cli:
-            args=[cli,"run",schema_url]
+    @staticmethod
+    def command(schema_url: str, base_url: str | None=None) -> list[str] | None:
+        st=shutil.which("st")
+        legacy=shutil.which("schemathesis")
+        uvx=shutil.which("uvx")
+        if st:
+            args=[st,"run",schema_url]
+        elif legacy:
+            args=[legacy,"run",schema_url]
         elif not getattr(sys,"frozen",False) and importlib.util.find_spec("schemathesis") is not None:
             args=[sys.executable,"-m","schemathesis","run",schema_url]
+        elif uvx:
+            # uvx provisions an isolated ephemeral Schemathesis environment.
+            args=[uvx,"schemathesis","run",schema_url]
         else:
-            return {"available":False,"passed":False,"reason":"schemathesis_unavailable"}
-        if base_url: args += ["--base-url",base_url]
+            return None
+        if base_url:
+            # Current Schemathesis CLI uses --url for an explicit API base URL.
+            args += ["--url",base_url]
+        args += ["--no-color","--output-sanitize=true"]
+        return args
+
+    def run(self, schema_url: str, base_url: str | None = None, timeout: int = 300) -> dict[str, Any]:
+        args=self.command(schema_url,base_url)
+        if not args:
+            return {
+                "available":False,"passed":False,"reason":"schemathesis_unavailable",
+                "provisioning":"Run scripts/SETUP_PROJECT_PERFECTION.ps1 or install uv/uvx.",
+            }
         started=time.perf_counter()
         try:
             p=subprocess.run(args,capture_output=True,text=True,timeout=timeout,shell=False)
             return {"available":True,"passed":p.returncode==0,"exit_code":p.returncode,
-                    "command":args[:2],"output":((p.stdout or "")+"\n"+(p.stderr or ""))[-20000:],
+                    "command":args[:4],"output":((p.stdout or "")+"\n"+(p.stderr or ""))[-20000:],
                     "elapsed_ms":int((time.perf_counter()-started)*1000)}
         except FileNotFoundError as exc:
-            return {"available":False,"passed":False,"error":str(exc)}
+            return {"available":False,"passed":False,"reason":"schemathesis_unavailable","error":str(exc)}
         except subprocess.TimeoutExpired:
             return {"available":True,"passed":False,"error":"api fuzz timeout"}
 
