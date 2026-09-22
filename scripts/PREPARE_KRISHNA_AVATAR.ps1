@@ -125,7 +125,7 @@ $bodyRigAttempted=$false
 $bodyRigMessage="not required or not attempted"
 $blender=Find-Blender
 
-if($TryBodyRig -and !$sourceAudit.body.ready){
+if($TryBodyRig -and $sourceAudit.stage -eq "unrigged"){
   if(!$blender){
     $bodyRigMessage="Blender 3.6+ was not found; local body auto-rig was skipped."
     Write-Warning $bodyRigMessage
@@ -190,6 +190,11 @@ if($TryBodyRig -and !$sourceAudit.body.ready){
       }
     }
   }
+}
+
+if($TryBodyRig -and !$sourceAudit.body.ready -and $sourceAudit.stage -ne "unrigged"){
+  $bodyRigMessage="Existing skin/armature detected; refusing destructive automatic re-rig. Keep the original rig and repair/retarget it as an isolated Blender candidate."
+  Write-Warning $bodyRigMessage
 }
 
 $effectiveAudit=if($candidateAudit){$candidateAudit}else{$sourceAudit}
