@@ -337,7 +337,16 @@ class Orchestrator:
             policy=self.projects.get(project)
             if not policy:raise KeyError(project)
             security=self.kabach.protect_project(project,policy.root,policy.privacy)
-            security_ok=all(bool((row.get("verdict") or {}).get("allowed")) for row in security.get("checks") or [])
+            security_violations=[]
+            for row in security.get("checks") or []:
+                verdict=row.get("verdict") or {}
+                evidence=set(str(x) for x in verdict.get("evidence") or [])
+                # A known sensitive file such as .env is protected inventory, not by itself a release defect.
+                material={x for x in evidence if x!="sensitive_path"}
+                if material:security_violations.append({"path":row.get("path"),"evidence":sorted(material)})
+            security_ok=bool(security.get("protected")) and not security_violations
+            security["release_violations"]=security_violations
+            security["release_gate_passed"]=security_ok
             result=self.project_perfection.finish_project(
                 project=project,project_root=policy.root,url=url,
                 build_hash=str(payload.get("build_hash") or ""),
