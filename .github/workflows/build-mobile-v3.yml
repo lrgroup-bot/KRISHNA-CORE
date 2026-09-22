@@ -113,7 +113,7 @@ jobs:
               android:usesCleartextTraffic="true"
               android:allowBackup="false"
               android:networkSecurityConfig="@xml/network_security_config">
-              <service android:name=".HawkeyeSyncJobService" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="true"/>
+              <service android:name=".HawkeyeSyncJobService" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="false"/>
               <activity android:name=".MainActivity" android:exported="true">
                 <intent-filter>
                   <action android:name="android.intent.action.MAIN"/>
@@ -168,6 +168,7 @@ jobs:
           grep -q "setPeriodic(15L\*60L\*1000L)" app/src/main/java/com/krishna/mobile/HawkeyeBackgroundSync.java
           grep -q "setRequiresBatteryNotLow(true)" app/src/main/java/com/krishna/mobile/HawkeyeBackgroundSync.java
           grep -q "HawkeyeSyncJobService" app/src/main/AndroidManifest.xml
+          grep -q 'android:exported="false"' app/src/main/AndroidManifest.xml
           grep -q "recordBoundedMedia" app/src/main/assets/index.html
           grep -q "videoBitsPerSecond:320000" app/src/main/assets/index.html
           grep -q "audioBitsPerSecond:48000" app/src/main/assets/index.html
