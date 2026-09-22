@@ -97,11 +97,34 @@ class ProjectPerfectionRuntime:
         return self.api_fuzz.run(schema_url,base_url)
 
     def run_mutation_testing(self, candidate_root: str, checks: list[str], max_mutants: int=8) -> dict[str, Any]:
-        return self.mutation_runner.run(
-            candidate_root,
-            lambda:self.development.verify(candidate_root,checks),
-            max_mutants=max_mutants,
-        )
+        """Run mutation testing against code checks and, when possible, the isolated rendered candidate."""
+        with self.candidate_static.serve(candidate_root) as preview:
+            preview_url=preview.get("url")
+            def verify():
+                dev=self.development.verify(candidate_root,checks)
+                browser=None
+                browser_ok=True
+                if preview_url:
+                    try:
+                        browser=self.browser_audit(preview_url,viewports=[390,1440])
+                        browser_ok=bool(browser.get("ok") and browser.get("geometry_ok"))
+                    except Exception as exc:
+                        browser={"ok":False,"error":f"{type(exc).__name__}: {exc}"}
+                        browser_ok=False
+                checks_ok=bool(dev.get("verified")) if checks else True
+                return {
+                    "verified":bool(checks_ok and browser_ok),
+                    "development":dev,
+                    "browser":browser,
+                    "candidate_preview":preview,
+                }
+            result=self.mutation_runner.run(candidate_root,verify,max_mutants=max_mutants)
+            result["candidate_preview"]=preview
+            result["verification_scope"]={
+                "code_checks":list(checks or []),
+                "rendered_candidate":bool(preview_url),
+            }
+            return result
 
     def mutation_score(self, results: list[dict[str, Any]]) -> dict[str, Any]:
         return self.mutation.score(results)
@@ -406,7 +429,7 @@ class ProjectPerfectionRuntime:
                 visual={"passed":False,"results":[],"reason":"candidate_preview_unavailable"}
         regression={"source":regression_source,"manifest":regression_manifest,
                     "prior":prior_regression,"current":current_regression}
-        mutation=self.run_mutation_testing(candidate_root,checks,max_mutants=max_mutants) if checks else {"executed":0,"passed":False,"score":None}
+        mutation=self.run_mutation_testing(candidate_root,checks,max_mutants=max_mutants)
         api=self.api_fuzz_verify(schema_url,api_base_url) if schema_url else {
             "available":False,"passed":not backend_required,
             "reason":"not_applicable" if not backend_required else "api_schema_or_backend_verification_required",
