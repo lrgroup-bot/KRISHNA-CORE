@@ -47,6 +47,7 @@ from .bhumiputra import BhumiputraAgent
 from .hawkeye_learning import HawkeyeLearningRuntime
 from .hawkeye_field_platform import HawkeyeFieldPlatform
 from .krishna_observability import KrishnaObservability
+from .hawkeye_geo_engine import HawkeyeGeoEngine
 from .commitment_ledger import CommitmentLedger
 from .software_factory import SoftwareFactory
 from .ephemeral_workers import EphemeralWorkerRuntime
@@ -115,6 +116,7 @@ class Orchestrator:
         self.hawkeye = self.bhumiputra  # canonical product name; legacy alias retained for API compatibility
         self.hawkeye_learning = HawkeyeLearningRuntime(runtime_state / "hawkeye" / "learning")
         self.hawkeye_field = HawkeyeFieldPlatform(runtime_state / "hawkeye" / "field")
+        self.hawkeye_geo = HawkeyeGeoEngine(runtime_state / "hawkeye" / "geo")
         self.observability = KrishnaObservability(runtime_state / "observability")
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
         self.goal_evaluator = GoalEvaluator()
