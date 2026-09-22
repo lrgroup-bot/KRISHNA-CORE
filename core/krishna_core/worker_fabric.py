@@ -57,8 +57,13 @@ class WorkerFabric:
                 p.terminate()
                 try:p.wait(timeout=5)
                 except Exception:
-                    try:p.kill()
+                    try:p.kill();p.wait(timeout=2)
                     except Exception as exc:w["last_error"]=f"kill_failed: {type(exc).__name__}: {exc}"
+            if p:
+                code=p.poll()
+                w["last_exit"]={"code":code,"at":time.time(),"intentional":True}
+            w["process"]=None
+            w["backoff_until"]=0
             return self.describe(name)
 
     def quarantine(self,name,reason="manual"):
@@ -66,8 +71,10 @@ class WorkerFabric:
             w=self.workers[name];w["quarantined"]=True;w["desired"]=False;w["last_error"]=str(reason)
             p=w.get("process")
             if p and p.poll() is None:
-                try:p.terminate()
+                try:p.terminate();p.wait(timeout=5)
                 except Exception as exc:w["last_error"]=f"terminate_failed: {type(exc).__name__}: {exc}"
+            if p:w["last_exit"]={"code":p.poll(),"at":time.time(),"intentional":True}
+            w["process"]=None;w["backoff_until"]=0
             return self.describe(name)
 
     def clear_quarantine(self,name):
