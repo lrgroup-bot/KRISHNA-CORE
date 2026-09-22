@@ -4,6 +4,8 @@ from dataclasses import dataclass,asdict
 from pathlib import Path
 import json,time
 
+from .field_survey import FieldSurveyEngine
+
 @dataclass(frozen=True)
 class GeoLayer:
  name:str; provider:str; kind:str; offline:bool; analysis:bool; license_mode:str
@@ -24,6 +26,7 @@ LAYERS=(
 class HawkeyeGeoEngine:
  def __init__(self,state_root):
   self.root=Path(state_root);self.root.mkdir(parents=True,exist_ok=True)
+  self.survey=FieldSurveyEngine(self.root/"survey")
  def catalog(self):return [asdict(x) for x in LAYERS]
  def analysis_layers(self):return [asdict(x) for x in LAYERS if x.analysis]
  def unified_view(self,lat,lon):
@@ -39,3 +42,30 @@ class HawkeyeGeoEngine:
    "google_cached":False}
   (d/"manifest.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
   return {"path":str(d),"manifest":manifest}
+
+ def survey_metrics(self,site_id,boundary,record=True):
+  out=self.survey.metrics(boundary)
+  if record:self.survey.record(site_id,"boundary_metrics",out)
+  return out
+
+ def geofence(self,boundary,point):
+  return self.survey.contains(boundary,point)
+
+ def volume_estimate(self,site_id,boundary,depth_samples,record=True):
+  out=self.survey.volume_estimate(boundary,depth_samples)
+  if record:self.survey.record(site_id,"visible_volume",out)
+  return out
+
+ def route_assessment(self,site_id,segments,vehicle=None,record=True):
+  out=self.survey.assess_route(segments,vehicle)
+  if record:self.survey.record(site_id,"route_assessment",out)
+  return out
+
+ def export_boundary(self,site_id,boundary,fmt="geojson"):
+  fmt=str(fmt or "geojson").lower()
+  if fmt=="geojson":return {"format":"geojson","data":self.survey.geojson(site_id,boundary)}
+  if fmt=="kml":return {"format":"kml","data":self.survey.kml(site_id,boundary)}
+  raise ValueError("format must be geojson or kml")
+
+ def history(self,site_id=None,limit=100):
+  return self.survey.history(site_id,limit)
