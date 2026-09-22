@@ -4,6 +4,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 import hashlib,ipaddress,json,re,time
 
+from .privacy_guardian import PrivacyGuardian
+
 _SECRET_PATTERNS=(
  r"(?i)(api[_-]?key|secret|token|password|passwd|private[_-]?key)\s*[:=]\s*[^\s,;]{6,}",
  r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----",
@@ -18,8 +20,45 @@ class KabachVerdict:
 
 class KabachAgent:
     """Deterministic fail-closed security boundary for KRISHNA. It advises/enforces policy; KRISHNA remains authority."""
-    def __init__(self,memory):
+    def __init__(self,memory,state_root=None,browser=None,event_bus=None,gyan_bhandar=None):
         self.memory=memory
+        if state_root is None:
+            try:
+                db_path=Path(memory.db.execute("PRAGMA database_list").fetchone()[2]).resolve()
+                state_root=db_path.parent/".krishna_state"/"privacy"
+            except Exception:
+                state_root=Path.cwd()/".krishna_state"/"privacy"
+        self.privacy=PrivacyGuardian(
+            state_root,memory=memory,browser=browser,event_bus=event_bus,gyan_bhandar=gyan_bhandar,
+        )
+
+    def bind_privacy_runtime(self,**kwargs):
+        return self.privacy.bind_runtime(**kwargs)
+
+    def privacy_status(self):
+        return self.privacy.status()
+
+    def privacy_audit(self,target_type,**kwargs):
+        target=str(target_type or "").strip().lower()
+        if target=="browser":return self.privacy.audit_browser(**kwargs)
+        if target=="network":return self.privacy.audit_network(**kwargs)
+        if target=="web":return self.privacy.audit_web(**kwargs)
+        if target=="mobile":return self.privacy.audit_mobile(**kwargs)
+        if target=="full":return self.privacy.audit_full(**kwargs)
+        raise ValueError("privacy target_type must be browser, network, web, mobile or full")
+
+    def privacy_clean_url(self,url):
+        return self.privacy.clean_url(url)
+
+    def privacy_save_baseline(self,name,report):
+        return self.privacy.save_baseline(name,report)
+
+    def privacy_compare_baseline(self,name,current,**kwargs):
+        return self.privacy.compare_with_baseline(name,current,**kwargs)
+
+    def privacy_release_gate(self,report,policy="STANDARD"):
+        return self.privacy.release_gate(report,policy)
+
 
     def _receipt(self,payload):
         return hashlib.sha256(json.dumps(payload,sort_keys=True,default=str).encode()).hexdigest()
