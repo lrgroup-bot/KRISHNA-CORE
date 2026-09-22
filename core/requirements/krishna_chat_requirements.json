@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-09-21-minimal-sidebar-v1",
+  "version": "2026-09-22-kabach-privacy-guardian-v1",
   "source": "Consolidated from KRISHNA project conversations and verified repository decisions",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -17,7 +17,8 @@
     "Garuda is the research/evidence scout; Garudanetra is the browser/computer fabric. Neither replaces KRISHNA authority.",
     "Every operational dashboard control must resolve to a real runtime contract; mutating priority controls use the Shared Action Bus and receive auditable action receipts.",
     "Every delegated capability enters through Sudarshan's permissioned Action/Job architecture and leaves through the independent verifier; no framework gains authority by being powerful.",
-    "PC human navigation stays minimal: Main Menu exposes only KRISHNA, Sudarshan and Plugins; Projects are expandable folders with nested project chats and Rename/Delete/Share actions; global Chats stays separate with a New Chat control. Internal KRISHNA systems remain runtime capabilities rather than sidebar clutter."
+    "PC human navigation stays minimal: Main Menu exposes only KRISHNA, Sudarshan and Plugins; Projects are expandable folders with nested project chats and Rename/Delete/Share actions; global Chats stays separate with a New Chat control. Internal KRISHNA systems remain runtime capabilities rather than sidebar clutter.",
+    "Privacy Guardian is an internal KABACH/Sudarshan capability only: defensive measurement, privacy regression testing, release gating and self-protection; it never becomes a MAIN MENU item or an anti-detection/tracking-evasion system."
   ],
   "groups": [
     {
@@ -139,11 +140,26 @@
     },
     {
       "id": "kabach",
-      "title": "KABACH",
+      "title": "KABACH — Security & Privacy Guardian",
       "requirements": [
-        "Project defensive-security and boundary guardian under KRISHNA authority.",
-        "Inspect tool permissions, untrusted content and egress boundaries; defensive research may be delegated through Garudanetra.",
-        "Keep evidence/audit for protected project boundaries."
+        "Project defensive-security, privacy-audit and boundary guardian under KRISHNA authority; Sudarshan remains the independent verification/release gate.",
+        "Privacy Guardian is internal only and never appears as a permanent MAIN MENU item.",
+        "Collect only privacy-relevant browser/device/network/mobile/web evidence for owner-controlled or explicitly scoped tests; do not use it to identify unrelated third parties.",
+        "Use local-first privacy storage; normalized history is redacted and sensitive network/device/fingerprint evidence is encrypted where secure Windows storage is available.",
+        "Browser privacy checks reuse Garudanetra/Playwright with temporary isolated contexts and inspect browser exposure, fingerprint surfaces, GPC, permissions, storage, WebRTC candidate types and third-party request domains without retaining raw candidate values.",
+        "Tracking URL cleaning removes only known tracking parameters and preserves unknown/functional parameters by default.",
+        "Tracker intelligence uses provider abstractions and evidence learning; no licensing-restricted tracker database is hard-wired into KRISHNA core and no single observation triggers automatic blocking.",
+        "Network privacy probes are disabled unless an owner-controlled external observation service is explicitly configured; remote probe services require HTTPS.",
+        "Owned KRISHNA web endpoints are checked for HTTPS/redirects, HSTS, CSP, Referrer-Policy, Permissions-Policy, content-type/frame protection, cross-origin headers, cookie attributes and CORS-related exposure.",
+        "KRISHNA Mobile privacy gates include conservative static APK checks, permission inventory when AAPT is available, cleartext URL signals and tracker SDK signatures; full release gates still require real-device/dynamic evidence.",
+        "MobSF/OpenWPM/Exodus/AmIUnique-style systems remain external adapters or methodology references according to their licenses; restrictive code is not merged into KRISHNA core.",
+        "Privacy baselines and regression comparisons preserve test-suite/profile provenance; methodology changes are marked instead of silently comparing incompatible results.",
+        "Privacy risk is described using LOW EXPOSURE, MODERATE EXPOSURE, HIGH LINKABILITY, CONFIGURATION INCONSISTENCY, PRIVACY REGRESSION, UNSUPPORTED and INCONCLUSIVE rather than a fake universal score.",
+        "Never claim fully anonymous, untraceable, impossible to fingerprint or 100% private; report what was tested, observed, unknown and realistically improvable.",
+        "Do not automatically alter browser/system privacy settings or install extensions without configured policy/owner approval.",
+        "Privacy release gates block only required tests/findings defined by policy; informational findings remain informational.",
+        "Inspect tool permissions, untrusted content and egress boundaries; defensive research may be delegated through Garuda/Garudanetra while KRISHNA keeps decision authority.",
+        "Keep evidence/audit receipts for protected project and privacy boundaries."
       ]
     },
     {
@@ -235,6 +251,7 @@
     "No full n8n runtime process/dependency is required for KRISHNA Core.",
     "BRAHMAGYAN L0-L8 maturity gates, Rishi council manifests, dual-track knowledge discipline and provenance contracts pass.",
     "BRAHMAGYAN Shishya execution remains approval-gated, capped and temporary; no permanent research worker fleet is introduced.",
-    "Minimal sidebar contract passes: no internal runtime modules are exposed as Main Menu items; project delete preserves chats by moving them to global Chats."
+    "Minimal sidebar contract passes: no internal runtime modules are exposed as Main Menu items; project delete preserves chats by moving them to global Chats.",
+    "KABACH Privacy Guardian runtime, baseline/regression, link-cleaner, owned-web audit and mobile static privacy gate contracts pass; full browser/network/mobile release claims require real runtime evidence, with external probes/adapters failing honestly when unconfigured."
   ]
 }
