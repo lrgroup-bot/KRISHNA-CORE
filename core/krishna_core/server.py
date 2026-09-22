@@ -1,5 +1,5 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-import json, time, threading, base64, sys, uuid, os
+import json, time, threading, base64, sys, uuid, os, mimetypes
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
@@ -236,6 +236,7 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     WEB_VALIDATION = _BUNDLE_ROOT / "web_validation.html"
     AVATAR_B64 = _BUNDLE_ROOT / "avatar" / "krishna_child_360.webp.b64"
     AVATAR_GLB = _BUNDLE_ROOT / "avatar" / "krishna.glb"
+    AVATAR_ENGINE_ROOT = _BUNDLE_ROOT / "avatar-engine"
 else:
     _CORE_ROOT = Path(__file__).resolve().parents[1]
     _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -243,6 +244,18 @@ else:
     WEB_VALIDATION = _CORE_ROOT / "web_validation.html"
     AVATAR_B64 = _REPO_ROOT / "avatar" / "krishna_child_360.webp.b64"
     AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
+    AVATAR_ENGINE_ROOT = RUNTIME_ROOT / "dashboard" / "assets" / "avatar-engine"
+
+
+def avatar_engine_file(relative_path):
+    root=AVATAR_ENGINE_ROOT.resolve()
+    raw=str(relative_path or "").replace("\\","/").lstrip("/")
+    if not raw or raw.startswith(".") or "/../" in ("/"+raw) or raw.endswith("/.."):
+        return None
+    candidate=(root/raw).resolve()
+    if candidate!=root and root not in candidate.parents:
+        return None
+    return candidate if candidate.is_file() else None
 
 
 def avatar_360_bytes():
@@ -481,11 +494,21 @@ class Handler(BaseHTTPRequestHandler):
             if not WEB_VALIDATION.exists():
                 return self._json(404, {"error": "web validation UI unavailable"})
             return self._html(200, WEB_VALIDATION.read_text(encoding="utf-8"))
+        if path.startswith("/assets/avatar-engine/"):
+            rel=path[len("/assets/avatar-engine/"):]
+            asset=avatar_engine_file(rel)
+            if not asset:return self._json(404,{"error":"local avatar engine asset unavailable"})
+            content_type=mimetypes.guess_type(asset.name)[0] or "application/octet-stream"
+            if asset.suffix in (".mjs",".js"):content_type="text/javascript; charset=utf-8"
+            elif asset.suffix==".wasm":content_type="application/wasm"
+            return self._binary(200,asset.read_bytes(),content_type)
         if path == "/api/avatar/status":
             return self._json(200,{
                 "preview_available": bool(avatar_360_bytes()),
                 "glb_available": AVATAR_GLB.is_file(),
                 "viewer_policy": "local-only",
+                "talkinghead_installed": (AVATAR_ENGINE_ROOT/"talkinghead"/"talkinghead.mjs").is_file(),
+                "model_viewer_installed": (AVATAR_ENGINE_ROOT/"model-viewer"/"model-viewer.min.js").is_file(),
                 **orch.agi.avatar.status(),
             })
         if path == "/api/avatar/performance":
