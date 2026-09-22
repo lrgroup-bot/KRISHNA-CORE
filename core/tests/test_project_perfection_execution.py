@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from krishna_core.project_perfection_execution import (
-    BrowserRegressionRunner, DesignStudio, MutationRunner, RegressionManifest,
+    ArtifactExecutor, BrowserRegressionRunner, DesignStudio, MutationRunner, RegressionManifest,
     RegressionPersister, VisualBaselineStore,
 )
 
@@ -67,6 +67,21 @@ class ExecutionTests(unittest.TestCase):
             self.assertTrue(first["passed"])
             self.assertTrue(second["passed"])
             self.assertEqual(second["mode"],"byte_identical")
+
+    def test_android_process_wait_tolerates_launcher_race(self):
+        class FakeExecutor(ArtifactExecutor):
+            def __init__(self):
+                self.calls=0
+            def _cmd(self,args,timeout=120,cwd=None):
+                self.calls+=1
+                if self.calls<3:
+                    return {"executed":True,"passed":False,"exit_code":1,"output":""}
+                return {"executed":True,"passed":True,"exit_code":0,"output":"4242\n"}
+        executor=FakeExecutor()
+        out=executor._wait_android_process("adb","com.krishna.mobile",attempts=4,delay_seconds=0)
+        self.assertTrue(out["passed"])
+        self.assertEqual(out["attempts"],3)
+        self.assertIn("4242",out["output"])
 
     def test_design_studio_requires_rendered_preview_and_submit(self):
         with tempfile.TemporaryDirectory() as td:
