@@ -1179,7 +1179,8 @@ class Handler(BaseHTTPRequestHandler):
                      "screenshot_path":data.get("screenshot_path"),
                      "axe_required":bool(data.get("axe_required",True)),
                      "performance_required":bool(data.get("performance_required",True)),
-                     "performance_limits":data.get("performance_limits") or {}},
+                     "performance_limits":data.get("performance_limits") or {},
+                     "hawkeye_ui_required":bool(data.get("hawkeye_ui_required",True))},
                     project=project,source="pc",actor="design-studio-submit",
                     permissions=("candidate.write","tests.run","model.use"),
                 )
@@ -1200,6 +1201,7 @@ class Handler(BaseHTTPRequestHandler):
                                 axe_required=bool(data.get("axe_required",True)),
                                 performance_required=bool(data.get("performance_required",True)),
                                 performance_limits=dict(data.get("performance_limits") or {}),
+                                hawkeye_required=bool(data.get("hawkeye_ui_required",True)),
                             )
                             if not post_verify.get("passed"):
                                 orch.promotions.rollback(policy.root,live["backup"],live["diff"])
@@ -1263,7 +1265,8 @@ class Handler(BaseHTTPRequestHandler):
                         "project.visual_edit.implement",
                         {"project":project,"element":element,"instruction":instruction,
                          "from_box":data.get("from_box"),"to_box":data.get("to_box"),
-                         "checks":data.get("checks") or [],"frontend_url":data.get("frontend_url")},
+                         "checks":data.get("checks") or [],"frontend_url":data.get("frontend_url"),
+                         "hawkeye_ui_required":bool(data.get("hawkeye_ui_required",True))},
                         project=project,source="pc",actor="visual-editor",
                         permissions=("candidate.write","tests.run","model.use","browser.read"),
                     )
@@ -1286,7 +1289,8 @@ class Handler(BaseHTTPRequestHandler):
                         "project.visual_edit.implement",
                         {"project":project,"element":element,"instruction":instruction,
                          "from_box":data.get("from_box"),"to_box":data.get("to_box"),
-                         "checks":data.get("checks") or [],"frontend_url":data.get("frontend_url")},
+                         "checks":data.get("checks") or [],"frontend_url":data.get("frontend_url"),
+                         "hawkeye_ui_required":bool(data.get("hawkeye_ui_required",True))},
                         project=project,source="pc",actor="visual-editor-fallback",
                         permissions=("candidate.write","tests.run","model.use","browser.read"),
                     )
