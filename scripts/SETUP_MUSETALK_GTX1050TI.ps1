@@ -133,7 +133,7 @@ if(!(Test-Path $uvExe)){
   if(!$found){throw "uv.exe was not found after extraction"}
   Copy-Item -Force $found.FullName $uvExe
 }
-Invoke-Checked $uvExe @("--version") "Verify portable uv"
+Invoke-Checked $uvExe @("version") "Verify portable uv"
 Invoke-Checked $uvExe @("python","install",$PythonVersion) "Install managed Python $PythonVersion on E"
 
 if(!(Test-Path (Join-Path $envRoot "Scripts\python.exe"))){
