@@ -37,7 +37,7 @@ async function load(){
  if(state.candidates.length)pick(state.candidates[0],tabs.firstElementChild);
 }
 function pick(c,b){selected=c;[...tabs.children].forEach(x=>x.classList.remove('active'));b.classList.add('active');
- const src=c.preview_url||'';viewer.innerHTML='<iframe sandbox="allow-scripts allow-forms allow-same-origin" src="'+src.replaceAll('"','&quot;')+'"></iframe><div class="meta">'+(c.rationale||'Rendered candidate')+'</div>';
+ const src=c.preview_url||'';viewer.innerHTML='<iframe sandbox="allow-forms" src="'+src.replaceAll('"','&quot;')+'"></iframe><div class="meta">'+(c.rationale||'Rendered candidate')+'</div>';
  submit.disabled=false;statusEl.textContent='Selected '+c.label+'. Review the live preview, then submit.';
 }
 submit.onclick=async()=>{if(!selected)return;submit.disabled=true;statusEl.textContent='Submitting selected design…';
