@@ -166,10 +166,118 @@ class AutonomousShishyaLifecycleTests(unittest.TestCase):
     def test_orchestrator_implements_multi_wave_retirement_and_learning(self):
         root=Path(__file__).resolve().parents[1]
         source=(root/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
-        self.assertIn('for wave_no,wave in enumerate(plan["waves"],start=1)',source)
+        self.assertIn("execute_tree",source)
         self.assertIn("ingest_shishya_handover",source)
         self.assertIn("all_shishyas_retired",source)
         self.assertIn("findings_and_provenance_only",source)
+        self.assertIn("descendants inherit parent scope",source)
+
+
+
+
+class NestedRouterStub(RouterStub):
+    def ask(self,provider,prompt):
+        specialty=""
+        for line in prompt.splitlines():
+            if line.startswith("Specialty:"):
+                specialty=line.split(":",1)[1].strip()
+        children=[]
+        if specialty=="Root Biology":
+            children=[
+                {"specialty":"Child Evidence","task":"Check independent evidence","reason":"Independent evidence is separable."},
+                {"specialty":"Child Replication","task":"Check replication","reason":"Replication is a separate uncertainty."},
+            ]
+        elif specialty=="Child Evidence":
+            children=[
+                {"specialty":"Grandchild Statistics","task":"Audit statistics","reason":"Statistical validity needs a specialist."}
+            ]
+        return json.dumps({
+            "summary":f"Completed {specialty}",
+            "findings":[{
+                "finding":f"{specialty} finding",
+                "evidence":["evidence"],
+                "sources":["https://example.org/"+specialty.replace(" ","-").lower()],
+                "confidence":0.7,
+                "knowledge_track":"modern_science",
+                "status":"supported",
+            }],
+            "successful_methods":["review"],
+            "failed_approaches":[],
+            "corrections":[],
+            "reusable_skills":["triage"],
+            "evaluation_results":[],
+            "unresolved_questions":[],
+            "cross_domain_relationships":[],
+            "sub_shishya_requests":children,
+        })
+
+
+class NestedShishyaTreeTests(unittest.TestCase):
+    def setUp(self):
+        self.memory=MemoryStub()
+        self.workers=EphemeralWorkerRuntime(NestedRouterStub(),self.memory,KabachStub(),max_workers=8)
+
+    def _request(self,**overrides):
+        row={
+            "status":"approved","approved_by":"KRISHNA",
+            "requested_count":1,"role":"research-shishya",
+            "manager":"rishi:kashyapa","parent_rishi":"kashyapa",
+            "retention_policy":"findings_and_provenance_only",
+            "assignments":[{"specialty":"Root Biology","task":"Investigate root problem"}],
+            "max_tree_depth":3,
+            "max_tree_nodes":10,
+            "max_children_per_worker":3,
+            "max_concurrent":3,
+        }
+        row.update(overrides)
+        return row
+
+    def test_nested_tree_branches_and_collapses(self):
+        tree=self.workers.execute_tree("KRISHNA",self._request(),"Mission","local_only")
+        self.assertEqual(tree["node_count"],4)
+        self.assertEqual(tree["max_depth_reached"],3)
+        self.assertEqual(tree["level_counts"],{"1":1,"2":2,"3":1})
+        self.assertEqual(len(tree["edges"]),3)
+        self.assertTrue(tree["destroyed"])
+        self.assertTrue(tree["all_nodes_destroyed"])
+        self.assertFalse(tree["live_after_return"])
+        self.assertEqual(self.workers.status()["live_count"],0)
+
+    def test_depth_limit_stops_grandchildren(self):
+        tree=self.workers.execute_tree(
+            "KRISHNA",self._request(max_tree_depth=2),"Mission","local_only"
+        )
+        self.assertEqual(tree["node_count"],3)
+        self.assertEqual(tree["max_depth_reached"],2)
+        self.assertFalse(any(x.get("tree_depth")==3 for x in tree["workers"]))
+
+    def test_total_node_budget_stops_branch_expansion(self):
+        tree=self.workers.execute_tree(
+            "KRISHNA",self._request(max_tree_nodes=2),"Mission","local_only"
+        )
+        self.assertEqual(tree["node_count"],2)
+        self.assertTrue(tree["budget"]["budget_exhausted"])
+
+    def test_tree_persistent_memory_is_compact(self):
+        self.workers.execute_tree("KRISHNA",self._request(),"Mission","local_only")
+        stored=[x for x in self.memory.rows if len(x)>=2 and x[1]=="ephemeral_shishya_tree"][-1]
+        compact=stored[3]
+        self.assertNotIn("workers",compact)
+        self.assertNotIn("edges",compact)
+        self.assertEqual(compact["node_count"],4)
+        self.assertTrue(compact["all_nodes_destroyed"])
+
+    def test_planner_caps_root_count_to_total_tree_budget(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bg=BrahmagyanRuntime(Path(tmp)/"bg",GyanStub(),MemoryStub())
+            m=bg.create_mission("KRISHNA","Large nested study",rishi_id="kashyapa")
+            with patch.dict("os.environ",{
+                "KRISHNA_SHISHYA_MAX_PER_REQUEST":"32",
+                "KRISHNA_SHISHYA_MAX_TREE_NODES":"5",
+            },clear=False):
+                plan=bg.shishya_plan(m["mission_id"],count=12)
+            self.assertEqual(plan["requested_count"],5)
+            self.assertEqual(plan["tree_policy"]["max_nodes"],5)
 
 
 if __name__=="__main__":

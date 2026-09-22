@@ -742,7 +742,8 @@ class BrahmagyanRuntime:
         specs=[str(x).strip() for x in (specialties or []) if str(x).strip()]
         requested=max(1,int(count or len(specs) or len(assignments or []) or 4))
         max_total=max(1,int(os.getenv("KRISHNA_SHISHYA_MAX_PER_REQUEST","32")))
-        requested=min(requested,max_total)
+        tree_nodes=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_TREE_NODES","64")),256))
+        requested=min(requested,max_total,tree_nodes)
         concurrency=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_CONCURRENT","8")),8))
         if not specs:
             specs=[
@@ -768,10 +769,20 @@ class BrahmagyanRuntime:
                 )).strip()[:6000],
             })
         waves=[rows[i:i+concurrency] for i in range(0,len(rows),concurrency)]
+        tree_depth=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_DEPTH","3")),5))
+        tree_children=max(0,min(int(os.getenv("KRISHNA_SHISHYA_MAX_CHILDREN","4")),8))
         return {
             "mission_id":mission_id,"parent_rishi":parent,"project":m["project"],
             "requested_count":requested,"specialties":specs,"assignments":rows,
             "waves":waves,"wave_count":len(waves),"max_concurrent":concurrency,
+            "nested_delegation":True,
+            "tree_policy":{
+                "max_depth":tree_depth,
+                "max_nodes":tree_nodes,
+                "max_children_per_shishya":tree_children,
+                "scope_inheritance":"descendants inherit parent project/privacy/permissions/safety; authority cannot expand",
+                "collapse_policy":"all descendant findings collapse upward into the parent Rishi; temporary identities are destroyed",
+            },
             "ephemeral":True,"approval_required":True,"authority":"Sudarshan + AI-HR + resource governor",
             "preserve_before_retirement":[
                 "verified findings","supporting and contradicting evidence","successful methods","failed approaches",
@@ -850,18 +861,29 @@ class BrahmagyanRuntime:
         parent=str(parent_rishi or batch.get("parent_rishi") or m["lead_rishi"]).strip().lower()
         self.council.get(parent)
         receipt={
-            "mission_id":mission_id,"parent_rishi":parent,"batch_id":batch.get("batch_id"),
+            "mission_id":mission_id,"parent_rishi":parent,
+            "batch_id":batch.get("batch_id") or batch.get("tree_id"),
+            "tree_id":batch.get("tree_id"),
+            "node_count":int(batch.get("node_count") or len(batch.get("workers") or [])),
+            "max_depth_reached":int(batch.get("max_depth_reached") or 1),
+            "level_counts":dict(batch.get("level_counts") or {}),
+            "edges":list(batch.get("edges") or []),
+            "tree_budget":dict(batch.get("budget") or {}),
+            "all_nodes_destroyed":bool(batch.get("all_nodes_destroyed",batch.get("destroyed"))),
             "destroyed":bool(batch.get("destroyed")),"destroyed_at":batch.get("destroyed_at"),
             "retention_policy":"findings_and_provenance_only","workers":[],
             "findings":[],"failed_approaches":[],"unresolved_questions":[],
             "retired_at":self._now(),
         }
-        if not receipt["destroyed"]:
-            raise RuntimeError("Shishya batch cannot be absorbed before worker destruction")
+        if not receipt["destroyed"] or not receipt["all_nodes_destroyed"]:
+            raise RuntimeError("Shishya tree cannot be absorbed before every temporary worker is destroyed")
         for worker in batch.get("workers") or []:
             handover=self._parse_shishya_result(worker.get("result"))
             receipt["workers"].append({
                 "worker_id_hash":worker.get("worker_id_hash"),
+                "parent_worker_hash":worker.get("parent_worker_hash"),
+                "tree_depth":int(worker.get("tree_depth") or 1),
+                "delegation_reason":worker.get("delegation_reason"),
                 "specialty":worker.get("specialty"),
                 "assignment":worker.get("assignment"),
                 "provider":worker.get("provider"),"model":worker.get("model"),

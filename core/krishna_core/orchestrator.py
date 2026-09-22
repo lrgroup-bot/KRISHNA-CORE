@@ -766,40 +766,58 @@ class Orchestrator:
                   "\nBefore handover, include verified/candidate findings, evidence, exact sources/provenance, "
                   "successful methods, failed approaches, corrections, reusable skills, evaluation results, "
                   "unresolved questions and cross-domain relationships. Never hide failed work.")
-            handovers=[];batch_summaries=[];learning_updates=[]
-            for wave_no,wave in enumerate(plan["waves"],start=1):
-                current=self.governor.snapshot()
-                request=self.software_factory.worker_request(
-                    project,"rishi:"+plan["parent_rishi"],"research-shishya",len(wave),
-                    f"BRAHMAGYAN deep research wave {wave_no}/{plan['wave_count']}: "+mission["topic"],
-                    current,approved_by_krishna=True,
-                )
-                request["assignments"]=wave
-                request["parent_rishi"]=plan["parent_rishi"]
-                request["retention_policy"]="findings_and_provenance_only"
-                batch=self.ephemeral_workers.execute(project,request,task,privacy)
-                handover=self.agi.brahmagyan.absorb_shishya(
-                    mission_id,batch,parent_rishi=plan["parent_rishi"],
-                )
-                learning=self.rishi_learning.ingest_shishya_handover(mission,handover)
-                handovers.append(handover);learning_updates.append(learning)
-                batch_summaries.append({
-                    "batch_id":batch.get("batch_id"),"wave":wave_no,
-                    "worker_count":len(batch.get("workers") or []),
-                    "destroyed":bool(batch.get("destroyed")),
-                    "destroyed_at":batch.get("destroyed_at"),
-                    "live_after_return":bool(batch.get("live_after_return")),
-                    "retention_policy":batch.get("retention_policy"),
-                })
-                if not batch.get("destroyed") or batch.get("live_after_return"):
-                    raise RuntimeError("Shishya retirement verification failed")
+            current=self.governor.snapshot()
+            request=self.software_factory.worker_request(
+                project,"rishi:"+plan["parent_rishi"],"research-shishya",plan["requested_count"],
+                "BRAHMAGYAN bounded Shishya research tree: "+mission["topic"],
+                current,approved_by_krishna=True,
+            )
+            request["assignments"]=plan["assignments"]
+            request["parent_rishi"]=plan["parent_rishi"]
+            request["retention_policy"]="findings_and_provenance_only"
+            request["max_tree_depth"]=min(
+                int(payload.get("max_tree_depth") or plan["tree_policy"]["max_depth"]),
+                int(plan["tree_policy"]["max_depth"]),
+            )
+            request["max_tree_nodes"]=min(
+                int(payload.get("max_tree_nodes") or plan["tree_policy"]["max_nodes"]),
+                int(plan["tree_policy"]["max_nodes"]),
+            )
+            request["max_children_per_worker"]=min(
+                int(payload.get("max_children_per_worker") or plan["tree_policy"]["max_children_per_shishya"]),
+                int(plan["tree_policy"]["max_children_per_shishya"]),
+            )
+            request["max_concurrent"]=plan["max_concurrent"]
+            tree=self.ephemeral_workers.execute_tree(project,request,task,privacy)
+            if (
+                not tree.get("destroyed") or tree.get("live_after_return")
+                or not tree.get("all_nodes_destroyed")
+                or self.ephemeral_workers.status().get("live_count")
+            ):
+                raise RuntimeError("nested Shishya retirement verification failed")
+            handover=self.agi.brahmagyan.absorb_shishya(
+                mission_id,tree,parent_rishi=plan["parent_rishi"],
+            )
+            learning=self.rishi_learning.ingest_shishya_handover(mission,handover)
             return {
                 "plan":plan,
-                "batches":batch_summaries,
-                "handovers":handovers,
-                "learning_updates":learning_updates,
-                "all_shishyas_retired":all(x.get("destroyed") and not x.get("live_after_return") for x in batch_summaries),
+                "tree":{
+                    "tree_id":tree.get("tree_id"),
+                    "node_count":tree.get("node_count"),
+                    "max_depth_reached":tree.get("max_depth_reached"),
+                    "level_counts":tree.get("level_counts"),
+                    "edge_count":len(tree.get("edges") or []),
+                    "batch_count":len(tree.get("batches") or []),
+                    "budget":tree.get("budget"),
+                    "destroyed":tree.get("destroyed"),
+                    "all_nodes_destroyed":tree.get("all_nodes_destroyed"),
+                    "live_after_return":tree.get("live_after_return"),
+                },
+                "handover":handover,
+                "learning_update":learning,
+                "all_shishyas_retired":True,
                 "retention_policy":"findings_and_provenance_only",
+                "authority_rule":"descendants inherit parent scope and can request work but cannot grant themselves new permissions",
             }
 
         def mission_create(payload,context):
