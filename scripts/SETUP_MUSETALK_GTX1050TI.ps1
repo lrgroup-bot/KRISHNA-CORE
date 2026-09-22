@@ -10,23 +10,42 @@ Set-StrictMode -Version Latest
 
 $toolRoot = Join-Path $RuntimeRoot "tools\avatar-video\musetalk"
 $envRoot = Join-Path $RuntimeRoot "tools\avatar-video\envs\musetalk"
-$pythonRoot = Join-Path $RuntimeRoot "python310"
 $cacheRoot = Join-Path $RuntimeRoot "cache\avatar-video"
 $downloadRoot = Join-Path $cacheRoot "downloads"
 $tempRoot = Join-Path $cacheRoot "temp"
+$uvRoot = Join-Path $RuntimeRoot "tools\uv-runtime"
+$uvBinRoot = Join-Path $uvRoot "bin"
+$uvCache = Join-Path $RuntimeRoot "cache\uv-runtime"
+$uvPythonRoot = Join-Path $RuntimeRoot "python-managed"
+$uvPythonBin = Join-Path $RuntimeRoot "python-bin"
 $pipCache = Join-Path $RuntimeRoot "cache\pip"
 $hfHome = Join-Path $RuntimeRoot "cache\huggingface"
 $torchHome = Join-Path $RuntimeRoot "cache\torch"
+$cudaCache = Join-Path $RuntimeRoot "cache\cuda"
+$mplCache = Join-Path $RuntimeRoot "cache\matplotlib"
+$numbaCache = Join-Path $RuntimeRoot "cache\numba"
+$pythonUserBase = Join-Path $RuntimeRoot "python-userbase"
 $stateRoot = Join-Path $RuntimeRoot "state\avatar"
 
-New-Item -ItemType Directory -Force -Path $downloadRoot,$tempRoot,$pipCache,$hfHome,$torchHome,$stateRoot | Out-Null
+New-Item -ItemType Directory -Force -Path $downloadRoot,$tempRoot,$uvBinRoot,$uvCache,$uvPythonRoot,$uvPythonBin,$pipCache,$hfHome,$torchHome,$cudaCache,$mplCache,$numbaCache,$pythonUserBase,$stateRoot | Out-Null
 
 $env:TEMP = $tempRoot
 $env:TMP = $tempRoot
+$env:UV_CACHE_DIR = $uvCache
+$env:UV_PYTHON_INSTALL_DIR = $uvPythonRoot
+$env:UV_PYTHON_BIN_DIR = $uvPythonBin
+$env:UV_NO_MODIFY_PATH = "1"
 $env:PIP_CACHE_DIR = $pipCache
+$env:PYTHONUSERBASE = $pythonUserBase
 $env:HF_HOME = $hfHome
-$env:HUGGINGFACE_HUB_CACHE = Join-Path $hfHome "hub"
+$env:HF_HUB_CACHE = Join-Path $hfHome "hub"
+$env:HUGGINGFACE_HUB_CACHE = $env:HF_HUB_CACHE
+$env:HF_ASSETS_CACHE = Join-Path $hfHome "assets"
+$env:HF_XET_CACHE = Join-Path $hfHome "xet"
 $env:TORCH_HOME = $torchHome
+$env:CUDA_CACHE_PATH = $cudaCache
+$env:MPLCONFIGDIR = $mplCache
+$env:NUMBA_CACHE_DIR = $numbaCache
 $env:XDG_CACHE_HOME = Join-Path $RuntimeRoot "cache"
 $env:TRANSFORMERS_CACHE = Join-Path $hfHome "transformers"
 $env:PYTHONNOUSERSITE = "1"
@@ -71,49 +90,34 @@ if(!$ffmpeg){$ffmpeg=(Get-Command ffmpeg -ErrorAction SilentlyContinue)}
 if(!$ffmpeg){throw "FFmpeg is required and was not found."}
 $ffmpegBin=Split-Path $ffmpeg.Source -Parent
 
-$pythonExe=Join-Path $pythonRoot "python.exe"
-if(!(Test-Path $pythonExe)){
-  $installer=Join-Path $downloadRoot ("python-"+$PythonVersion+"-amd64.exe")
-  $url="https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-amd64.exe"
-  if(!(Test-Path $installer)){
-    Write-Host "Downloading official Python $PythonVersion installer to E: ..." -ForegroundColor Cyan
-    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
+$uvExe=Join-Path $uvBinRoot "uv.exe"
+if(!(Test-Path $uvExe)){
+  $uvZip=Join-Path $downloadRoot "uv-x86_64-pc-windows-msvc.zip"
+  $uvUrl="https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip"
+  if(!(Test-Path $uvZip)){
+    Write-Host "Downloading portable uv to E: ..." -ForegroundColor Cyan
+    Invoke-WebRequest -Uri $uvUrl -OutFile $uvZip -UseBasicParsing
   }
-
-  $sig=Get-AuthenticodeSignature $installer
-  if($sig.Status -ne "Valid" -or $sig.SignerCertificate.Subject -notmatch "Python Software Foundation"){
-    throw "Python installer signature validation failed. Status=$($sig.Status) Subject=$($sig.SignerCertificate.Subject)"
-  }
-
-  $installArgs=@(
-    "/quiet",
-    "InstallAllUsers=0",
-    "TargetDir=$pythonRoot",
-    "Include_pip=1",
-    "Include_launcher=0",
-    "Include_doc=0",
-    "Include_test=0",
-    "Include_tcltk=0",
-    "Include_symbols=0",
-    "Include_debug=0",
-    "Shortcuts=0",
-    "AssociateFiles=0",
-    "PrependPath=0"
-  )
-  Write-Host "Installing Python $PythonVersion under $pythonRoot ..." -ForegroundColor Cyan
-  $proc=Start-Process -FilePath $installer -ArgumentList $installArgs -Wait -PassThru
-  if($proc.ExitCode -ne 0){throw "Python installer failed with exit code $($proc.ExitCode)"}
+  $extract=Join-Path $tempRoot "uv-extract"
+  if(Test-Path $extract){Remove-Item -Recurse -Force $extract}
+  New-Item -ItemType Directory -Force -Path $extract | Out-Null
+  Expand-Archive -Path $uvZip -DestinationPath $extract -Force
+  $found=Get-ChildItem $extract -Filter uv.exe -File -Recurse | Select-Object -First 1
+  if(!$found){throw "uv.exe was not found after extraction"}
+  Copy-Item -Force $found.FullName $uvExe
 }
-if(!(Test-Path $pythonExe)){throw "Python 3.10 installation did not create $pythonExe"}
-
-$actualVersion=(& $pythonExe -c "import sys;print(sys.version.split()[0])").Trim()
-if($actualVersion -notlike "3.10*"){throw "Expected Python 3.10, found $actualVersion at $pythonExe"}
+Invoke-Checked $uvExe @("--version") "Verify portable uv"
+Invoke-Checked $uvExe @("python","install",$PythonVersion) "Install managed Python $PythonVersion on E"
 
 if(!(Test-Path (Join-Path $envRoot "Scripts\python.exe"))){
-  Invoke-Checked $pythonExe @("-m","venv",$envRoot) "Create isolated MuseTalk Python environment"
+  Invoke-Checked $uvExe @("venv",$envRoot,"--python",$PythonVersion,"--managed-python","--seed") "Create E-drive MuseTalk Python environment"
 }
 $envPython=Join-Path $envRoot "Scripts\python.exe"
 $envPip=Join-Path $envRoot "Scripts\pip.exe"
+if(!(Test-Path $envPython)){throw "MuseTalk environment Python missing: $envPython"}
+if(!(Test-Path $envPip)){throw "MuseTalk environment pip missing: $envPip"}
+$actualVersion=(& $envPython -c "import sys;print(sys.version.split()[0])").Trim()
+if($actualVersion -notlike "3.10*"){throw "Expected Python 3.10, found $actualVersion"}
 
 Invoke-Checked $envPython @("-m","pip","install","--upgrade","pip","setuptools","wheel") "Upgrade MuseTalk environment tooling"
 
@@ -219,7 +223,7 @@ $report=[ordered]@{
   generated_at=(Get-Date).ToUniversalTime().ToString("o")
   provider="musetalk"
   source_root=$toolRoot
-  python_root=$pythonRoot
+  python_root=$uvPythonRoot
   environment_root=$envRoot
   ffmpeg_bin=$ffmpegBin
   gpu=$gpu
@@ -228,9 +232,37 @@ $report=[ordered]@{
   realtime_module_import_ok=$runtimeImportOk
   weights_installed=$weightsInstalled
   float16_recommended=$true
+  c_drive_guard_passed=$true
+  controlled_paths=$controlledPaths
+  storage_policy="KRISHNA-controlled Python, environments, caches, models and temp files are E-drive-only"
   hardware_profile="GTX 1050 Ti 4GB - supported as low-memory/slow path; upstream 4GB Windows benchmark used RTX 3050 Ti"
   recommended_launch=("python app.py --use_float16 --ffmpeg_path "+$ffmpegBin)
 }
+$controlledPaths=[ordered]@{
+  runtime=$RuntimeRoot
+  source=$toolRoot
+  environment=$envRoot
+  uv=$uvRoot
+  uv_cache=$uvCache
+  managed_python=$uvPythonRoot
+  python_bin=$uvPythonBin
+  pip_cache=$pipCache
+  huggingface=$hfHome
+  torch_cache=$torchHome
+  cuda_cache=$cudaCache
+  matplotlib_cache=$mplCache
+  numba_cache=$numbaCache
+  python_userbase=$pythonUserBase
+  temp=$tempRoot
+  models=$models
+}
+$bad=@()
+foreach($kv in $controlledPaths.GetEnumerator()){
+  $full=[System.IO.Path]::GetFullPath([string]$kv.Value)
+  if($full -notmatch '^[Ee]:\\'){$bad+=($kv.Key+"="+$full)}
+}
+if($bad.Count){throw ("KRISHNA E-drive storage guard failed: "+($bad -join "; "))}
+
 $reportPath=Join-Path $stateRoot "musetalk-runtime.json"
 $tmp=$reportPath+".tmp"
 $report | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 $tmp
@@ -238,13 +270,16 @@ Move-Item -Force $tmp $reportPath
 
 Write-Host ""
 Write-Host "=== KRISHNA MUSETALK SETUP COMPLETE ===" -ForegroundColor Green
-Write-Host ("Python       : "+$actualVersion+" @ "+$pythonRoot)
+Write-Host ("Python       : "+$actualVersion+" @ "+$envPython)
 Write-Host ("Environment  : "+$envRoot)
+Write-Host ("Managed Python: "+$uvPythonRoot)
+Write-Host ("Caches        : "+(Join-Path $RuntimeRoot "cache"))
 Write-Host ("GPU          : "+$torchProbe.device+" ("+$torchProbe.memory_gb+" GB)")
 Write-Host ("PyTorch CUDA : "+$torchProbe.cuda_runtime)
 Write-Host ("FFmpeg       : "+$ffmpegBin)
 Write-Host ("Weights      : "+$(if($weightsInstalled){"READY"}else{"NOT INSTALLED"}))
 Write-Host ("Runtime import: "+$(if($runtimeImportOk){"READY"}else{"NEEDS FOLLOW-UP"}))
+Write-Host ("C-drive guard : PASSED for KRISHNA-controlled paths")
 Write-Host ("Report       : "+$reportPath)
 Write-Host ""
 Write-Host "GTX 1050 Ti mode: use fp16 and expect slower-than-real-time generation." -ForegroundColor Yellow
