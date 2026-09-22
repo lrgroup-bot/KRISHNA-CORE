@@ -742,10 +742,10 @@ class RishiLearningLedger:
             "role":row["role"],
             "subject":subject,
             "finding_count":len(row.get("findings") or []),
-            "direct_finding_count":len([x for x in row.get("findings") or [] if x.get("role") in {"lead","active_collaborator","researcher"}]),
+            "direct_finding_count":len([x for x in row.get("findings") or [] if x.get("role") in DIRECT_LEARNING_ROLES]),
             "topic_count":len(row.get("topics") or {}),
             "bootstrap_complete":all(
-                any(f.get("role") in {"lead","active_collaborator","researcher"} for f in x.get("findings") or [])
+                any(f.get("role") in DIRECT_LEARNING_ROLES for f in x.get("findings") or [])
                 for x in snapshot.values()
             ),
             "policy":"least-trained Rishi and least-researched charter subject are prioritized before repeating well-covered subjects",
@@ -756,7 +756,7 @@ class RishiLearningLedger:
         rows=[]
         for profile in self.council.list():
             row=snapshot[profile["id"]]
-            direct=[x for x in row.get("findings") or [] if x.get("role") in {"lead","active_collaborator","researcher"}]
+            direct=[x for x in row.get("findings") or [] if x.get("role") in DIRECT_LEARNING_ROLES]
             rows.append({
                 "rishi_id":profile["id"],"display_name":profile["display_name"],
                 "finding_count":len(row.get("findings") or []),
@@ -786,7 +786,7 @@ class RishiLearningLedger:
                 "finding_count":len(row.get("findings") or []),
                 "direct_finding_count":len([
                     x for x in row.get("findings") or []
-                    if x.get("role") in {"lead","active_collaborator","researcher"}
+                    if x.get("role") in DIRECT_LEARNING_ROLES
                 ]),
                 "open_question_count":len([x for x in row.get("open_questions") or [] if x.get("status")=="open"]),
                 "mission_count":len(row.get("missions") or []),
