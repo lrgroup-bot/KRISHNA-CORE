@@ -117,8 +117,7 @@ class AvatarAssetInspector:
 
     def __init__(self, report_path: str | Path | None = None):
         self.report_path=Path(report_path).resolve() if report_path else None
-        self._cache_key=None
-        self._cache=None
+        self._cache: dict[str, tuple[int,int,dict]] = {}
 
     def inspect(self, path: str | Path) -> dict:
         asset=Path(path).resolve()
@@ -129,9 +128,10 @@ class AvatarAssetInspector:
                 "checked_at":time.time(),
             }
         stat=asset.stat()
-        key=(str(asset),stat.st_mtime_ns,stat.st_size)
-        if key==self._cache_key and self._cache is not None:
-            return dict(self._cache)
+        cache_key=str(asset)
+        cached=self._cache.get(cache_key)
+        if cached and cached[0]==stat.st_mtime_ns and cached[1]==stat.st_size:
+            return dict(cached[2])
         try:
             doc=_glb_json(asset)
             node_names=[str(x.get("name") or "") for x in (doc.get("nodes") or []) if x.get("name")]
@@ -197,7 +197,7 @@ class AvatarAssetInspector:
                 "available":True,"path":str(asset),"ready":False,"stage":"invalid",
                 "issues":[f"{type(exc).__name__}: {exc}"],"checked_at":time.time(),
             }
-        self._cache_key=key;self._cache=result
+        self._cache[cache_key]=(stat.st_mtime_ns,stat.st_size,result)
         if self.report_path:
             try:
                 self.report_path.parent.mkdir(parents=True,exist_ok=True)
