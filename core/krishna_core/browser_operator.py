@@ -158,6 +158,9 @@ class BrowserOperator:
                     target=Path(screenshot_dir).resolve();target.mkdir(parents=True,exist_ok=True)
                     shot=target/f"viewport-{width}.png";page.screenshot(path=str(shot),full_page=True)
                 findings=self.summarize_findings(console,errors,failed,bad)
+                if not geometry:
+                    findings.append({"kind":"empty_render","severity":"error",
+                                     "detail":"No visible rendered elements were detected in body"})
                 out.append({"width":width,"height":height,"url":page.url,"title":page.title(),
                             "layout":layout,"geometry":geometry,"performance":perf,"findings":findings,
                             "screenshot":str(shot) if shot else None,"ok":not findings and not layout["horizontal_overflow"]})
