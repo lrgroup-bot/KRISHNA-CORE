@@ -192,9 +192,20 @@ class ProjectPerfectionRuntime:
                        screenshot_dir: str | None=None, approve_visual_baselines: bool=False,
                        backend_required: bool=True, artifact_required: bool=False,
                        security_ok: bool=False, restart_recovery_ok: bool=False,
-                       max_mutants: int=8) -> dict[str, Any]:
+                       max_mutants: int=8, deadline_minutes: float=60.0,
+                       work_items: list[dict[str, Any]] | None=None) -> dict[str, Any]:
         """Run the full evidence pipeline once. Failed/missing evidence never becomes COMPLETE."""
         root=Path(project_root).resolve()
+        default_work=[
+            {"id":"browser","role":"browser_qa","estimate_minutes":12},
+            {"id":"geometry","role":"ui_qa","estimate_minutes":10},
+            {"id":"accessibility","role":"accessibility_qa","estimate_minutes":7},
+            {"id":"api","role":"backend_qa","estimate_minutes":10},
+            {"id":"adversarial","role":"adversarial_qa","estimate_minutes":12},
+            {"id":"artifact","role":"release_qa","estimate_minutes":10},
+            {"id":"certificate","role":"independent_verifier","estimate_minutes":5,"parallelizable":False},
+        ]
+        team_plan=self.plan_team(list(work_items or default_work),deadline_minutes)
         staged=self.development.stage(root,[])
         candidate_root=Path(staged["candidate_root"]).resolve()
         shots=screenshot_dir or str(self.state_root/"runs"/project)
@@ -237,7 +248,8 @@ class ProjectPerfectionRuntime:
         ]
         cert=self.completion_certificate(project,build_hash,gates,mutation.get("score"))
         return {
-            "project":project,"candidate_root":str(candidate_root),"staged":staged,
+            "project":project,"team_plan":team_plan,
+            "candidate_root":str(candidate_root),"staged":staged,
             "certificate":cert,"requirements_ok":requirements_ok,
             "exploration":exploration,"regression":regression,"browser":browser,
             "accessibility":accessibility,"chaos":chaos,"development":dev,
