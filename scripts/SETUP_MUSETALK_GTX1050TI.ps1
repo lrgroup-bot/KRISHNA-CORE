@@ -75,10 +75,11 @@ if(!(Test-Path (Join-Path $toolRoot "scripts\realtime_inference.py"))){
   throw "MuseTalk source is missing. Run INSTALL_VIDEO_AVATAR_ENGINES.ps1 first."
 }
 
-function Invoke-Checked([string]$Exe,[string[]]$Args,[string]$Label){
+function Invoke-Checked([string]$Exe,[string[]]$CommandArgs,[string]$Label){
   Write-Host ""
   Write-Host ("== "+$Label+" ==") -ForegroundColor Cyan
-  & $Exe @Args
+  Write-Host ("Command: "+$Exe+" "+($CommandArgs -join " ")) -ForegroundColor DarkGray
+  & $Exe @CommandArgs
   if($LASTEXITCODE -ne 0){throw "$Label failed with exit code $LASTEXITCODE"}
 }
 
@@ -133,11 +134,11 @@ if(!(Test-Path $uvExe)){
   if(!$found){throw "uv.exe was not found after extraction"}
   Copy-Item -Force $found.FullName $uvExe
 }
-Invoke-Checked $uvExe @("self","version") "Verify portable uv"
-Invoke-Checked $uvExe @("python","install",$PythonVersion) "Install managed Python $PythonVersion on E"
+Invoke-Checked -Exe $uvExe -CommandArgs @("self","version") -Label "Verify portable uv"
+Invoke-Checked -Exe $uvExe -CommandArgs @("python","install",$PythonVersion) -Label "Install managed Python $PythonVersion on E"
 
 if(!(Test-Path (Join-Path $envRoot "Scripts\python.exe"))){
-  Invoke-Checked $uvExe @("venv",$envRoot,"--python",$PythonVersion,"--managed-python","--seed") "Create E-drive MuseTalk Python environment"
+  Invoke-Checked -Exe $uvExe -CommandArgs @("venv",$envRoot,"--python",$PythonVersion,"--managed-python","--seed") -Label "Create E-drive MuseTalk Python environment"
 }
 $envPython=Assert-EPath (Join-Path $envRoot "Scripts\python.exe") "MuseTalk Python"
 $envPip=Assert-EPath (Join-Path $envRoot "Scripts\pip.exe") "MuseTalk pip"
