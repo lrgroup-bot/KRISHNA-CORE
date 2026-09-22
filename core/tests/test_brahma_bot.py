@@ -130,6 +130,9 @@ class BrahmaBotTests(unittest.TestCase):
         self.assertEqual(self.learning.findings[0]["role"], "brahma_intake")
         self.assertEqual(len(self.gyan.proposals), 0)
         self.assertGreaterEqual(len(self.learning.questions), 1)
+        self.assertIsNotNone(out["temporal_claim"])
+        self.assertTrue(out["provenance"].get("brahma_provenance_fingerprint"))
+        self.assertEqual(out["temporal_claim"]["rishi_id"], "kanada")
 
     def test_reuses_strong_rishi_knowledge_for_repetitive_low_value_input(self):
         self.learning.existing["kanada"] = [{
@@ -169,6 +172,22 @@ class BrahmaBotTests(unittest.TestCase):
         self.assertIsNone(out["proposal"])
         self.assertEqual(len(self.learning.findings), 1)
         self.assertEqual(len(self.gyan.proposals), 0)
+
+    def test_status_exposes_memory_intelligence_v2(self):
+        self.bot.intake(
+            source="pc",
+            topic="software API version",
+            content="API v2 is observed",
+            evidence=[{"source_ref": "docs-v2"}],
+            provenance={"source_ref": "docs-v2"},
+            confidence=0.7,
+            novelty=0.8,
+            quality=0.9,
+        )
+        status = self.bot.status()
+        self.assertEqual(status["version"], "brahma-learning-governor-v2")
+        self.assertTrue(status["memory_intelligence"]["ready"])
+        self.assertIn("bi_temporal_claims", status["memory_intelligence"]["features"])
 
     def test_gyan_qc_blocks_unprovenanced_low_maturity_memory(self):
         out = self.bot.qc_for_gyan(

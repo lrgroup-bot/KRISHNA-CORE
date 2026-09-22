@@ -30,6 +30,7 @@ from .lan_discovery import LanDiscoveryService
 from .avatar_asset_pipeline import AvatarAssetInspector
 from .video_avatar import VideoAvatarFabric
 from .science_atlas import ScienceFrontierScheduler
+from .brahma_memory_intelligence import BrahmaConsolidationScheduler
 from .windows_desktop_fabric import WindowsDesktopFabric
 from .android_test_fabric import AndroidTestFabric
 
@@ -490,12 +491,61 @@ if str(os.getenv("KRISHNA_SCIENCE_RESEARCH_ENABLED","1")).strip().lower() not in
     _science_frontier_scheduler.start()
 
 
+def _brahma_consolidation_tick():
+    activity_state=activity_snapshot()
+    if str(activity_state.get("current_activity") or "Idle").strip().lower() != "idle":
+        return {"status":"skipped_activity_busy","activity":activity_state.get("current_activity")}
+    snap=pc_observer.snapshot()
+    cpu=float(snap.get("cpu_percent") or 0.0)
+    memory=float(snap.get("memory_percent") or 0.0)
+    max_cpu=float(os.getenv("KRISHNA_BRAHMA_IDLE_MAX_CPU_PERCENT","45"))
+    max_memory=float(os.getenv("KRISHNA_BRAHMA_IDLE_MAX_MEMORY_PERCENT","78"))
+    if cpu>max_cpu or memory>max_memory:
+        return {
+            "status":"skipped_resource_pressure",
+            "cpu_percent":cpu,"memory_percent":memory,
+            "max_cpu_percent":max_cpu,"max_memory_percent":max_memory,
+        }
+    try:
+        with orch.governor.job(timeout=0):
+            consolidation=orch.brahma.consolidate(
+                int(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_MAX_ITEMS","250"))
+            )
+            decay=orch.brahma.decay_scan()
+    except RuntimeError as exc:
+        if "resource governor busy" in str(exc).lower():
+            return {"status":"skipped_resource_governor_busy"}
+        raise
+    result={
+        "status":"completed",
+        "cpu_percent":cpu,
+        "memory_percent":memory,
+        "consolidation":consolidation,
+        "decay":decay,
+    }
+    orch.memory.audit(
+        "brahma_sleep_learning","completed",
+        f"{consolidation.get('consolidation_id')}:{consolidation.get('selected_learning_decisions',0)}:"
+        f"{consolidation.get('duplicates_collapsed',0)}",
+    )
+    return result
+
+
+_brahma_consolidation_scheduler = BrahmaConsolidationScheduler(
+    _brahma_consolidation_tick,
+    interval_seconds=int(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_INTERVAL_SECONDS","1800")),
+)
+if str(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
+    _brahma_consolidation_scheduler.start()
+
+
 def shutdown_runtime_services():
     failures=[]
     services=(
         ("autonomy", _autonomy.stop),
         ("narad_scheduler", _narad_scheduler.stop),
         ("science_frontier_scheduler", _science_frontier_scheduler.stop),
+        ("brahma_consolidation_scheduler", _brahma_consolidation_scheduler.stop),
         ("worker_resilience", _worker_resilience.stop),
         ("pc_observer", pc_observer.stop),
         ("watcher", watcher.stop),
@@ -907,6 +957,24 @@ class Handler(BaseHTTPRequestHandler):
             if not topic:return self._json(400,{"error":"topic is required"})
             try:return self._json(200,orch.brahma.retrieve(topic))
             except KeyError as exc:return self._json(404,{"error":str(exc)})
+
+        if path == "/api/brahma/intelligence/status":
+            return self._json(200,{**orch.brahma.memory_intelligence.status(),"scheduler":_brahma_consolidation_scheduler.status()})
+        if path == "/api/brahma/temporal":
+            topic=str((query.get("topic") or [""])[0]).strip()
+            include=str((query.get("include_superseded") or ["0"])[0]).lower() in {"1","true","yes"}
+            as_of_raw=(query.get("as_of") or [None])[0]
+            limit_raw=(query.get("limit") or ["100"])[0]
+            try:
+                as_of=float(as_of_raw) if as_of_raw not in (None,"") else None
+                limit=max(1,min(int(limit_raw),500))
+            except (TypeError,ValueError):return self._json(400,{"error":"invalid as_of or limit"})
+            return self._json(200,orch.brahma.temporal_query(topic,as_of=as_of,include_superseded=include,limit=limit))
+        if path == "/api/brahma/rishi-graph":
+            topic=str((query.get("topic") or [""])[0]).strip()
+            if not topic:return self._json(400,{"error":"topic is required"})
+            try:return self._json(200,orch.brahma.rishi_graph(topic))
+            except (KeyError,ValueError) as exc:return self._json(400,{"error":str(exc)})
 
         if path == "/api/gyan-bhandar/archive/status":
             return self._json(200,orch.gyan_archive_status())

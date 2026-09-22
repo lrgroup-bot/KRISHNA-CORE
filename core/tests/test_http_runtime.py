@@ -68,6 +68,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/garuda/status", "/api/commitments", "/api/autonomy/status", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/gyan-bhandar/inventory?project=KRISHNA", "/api/software-factory/workers/status",
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
+                     "/api/brahma/status", "/api/brahma/intelligence/status",
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
@@ -376,6 +377,35 @@ class HTTPRuntimeTests(unittest.TestCase):
         })
         self.assertEqual(code,201)
         self.assertEqual(stored["memory_kind"],"evidence")
+
+    def test_brahma_memory_intelligence_http_and_action_contracts(self):
+        code,receipt=self.call("/api/action-bus/dispatch",{
+            "action":"brahma.intake","project":"KRISHNA",
+            "permissions":["memory.write","evidence.write"],
+            "payload":{
+                "topic":"HTTP temporal bearing knowledge",
+                "content":"outer race wear produces periodic vibration",
+                "modality":"sensor",
+                "evidence":[{"source_ref":"http-measurement-1"}],
+                "provenance":{"source_ref":"http-measurement-1","captured_at":100.0},
+                "confidence":0.62,"novelty":0.9,"quality":0.9,"importance":0.8
+            }
+        })
+        self.assertEqual(code,200)
+        self.assertTrue(receipt["result"]["temporal_claim"]["claim_id"])
+        code,history=self.call("/api/brahma/temporal?topic=HTTP%20temporal%20bearing%20knowledge&include_superseded=1")
+        self.assertEqual(code,200)
+        self.assertGreaterEqual(history["count"],1)
+        code,graph=self.call("/api/brahma/rishi-graph?topic=bearing%20vibration")
+        self.assertEqual(code,200)
+        self.assertTrue(graph["lead_rishi"])
+        code,eval_receipt=self.call("/api/action-bus/dispatch",{
+            "action":"brahma.memory.evaluate","project":"KRISHNA",
+            "permissions":["runtime.read"],
+            "payload":{"expected_ids":["x"],"retrieved_ids":["x"]}
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(eval_receipt["result"]["precision"],1.0)
 
     def test_brahmagyan_deep_mission_is_action_native_and_not_instant_truth(self):
         code,status=self.call("/api/brahmagyan/status")

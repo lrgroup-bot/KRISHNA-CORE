@@ -16,9 +16,11 @@ import re
 import time
 import uuid
 
+from .brahma_memory_intelligence import BrahmaMemoryIntelligence
+
 
 class BrahmaBot:
-    VERSION = "brahma-learning-governor-v1"
+    VERSION = "brahma-learning-governor-v2"
     ALLOWED_SOURCES = {"mobile", "pc", "system", "agent", "job", "mcp", "a2a"}
     MATURITY_RANK = {"L0": 0, "L1": 1, "L2": 2, "L3": 3, "L4": 4, "L5": 5}
     VERIFIED_EVIDENCE = {"verified", "replicated", "strongly_supported"}
@@ -35,6 +37,9 @@ class BrahmaBot:
         self.gyan_bhandar = gyan_bhandar
         self.memory = memory
         self.lock = RLock()
+        self.memory_intelligence = BrahmaMemoryIntelligence(
+            self.root / "memory-intelligence", council, rishi_learning, memory
+        )
         self.state = {
             "version": self.VERSION,
             "decisions": [],
@@ -116,21 +121,21 @@ class BrahmaBot:
             "rule": "system/agent events become scoped candidate learning only when informative",
         }
 
-    def _active_learning_score(self, confidence=0.0, novelty=0.0, quality=0.0, importance=0.5):
-        confidence = self._clamp(confidence)
-        novelty = self._clamp(novelty)
-        quality = self._clamp(quality)
-        importance = self._clamp(importance)
-        uncertainty = 1.0 - confidence
-        # Hybrid active-learning gate: uncertain + novel/diverse + usable + mission relevance.
-        score = 0.32 * uncertainty + 0.33 * novelty + 0.20 * quality + 0.15 * importance
-        return {
-            "score": round(score, 4),
-            "uncertainty": round(uncertainty, 4),
-            "novelty": round(novelty, 4),
-            "quality": round(quality, 4),
-            "importance": round(importance, 4),
-        }
+    def _active_learning_score(self, confidence=0.0, novelty=0.0, quality=0.0, importance=0.5,
+                               future_reuse=0.5, knowledge_gap=0.5,
+                               compute_cost=0.2, network_cost=0.1, storage_cost=0.1):
+        """Cost-aware learning value used before starting new Rishi work."""
+        return self.memory_intelligence.learning_value(
+            confidence=confidence,
+            novelty=novelty,
+            quality=quality,
+            importance=importance,
+            future_reuse=future_reuse,
+            knowledge_gap=knowledge_gap,
+            compute_cost=compute_cost,
+            network_cost=network_cost,
+            storage_cost=storage_cost,
+        )
 
     def _team(self, topic, content="", limit=6):
         team = self.council.specialist_team(
@@ -199,7 +204,6 @@ class BrahmaBot:
 
         evidence = list(evidence or [])
         policy = self._source_policy(source, modality)
-        active = self._active_learning_score(confidence, novelty, quality, importance)
         team, lead, reviewers = self._team(topic, content)
 
         existing = self.retrieve(topic, limit_per_rishi=5, team_limit=6)
@@ -208,13 +212,26 @@ class BrahmaBot:
             if float(x.get("confidence") or 0.0) >= 0.80
             and not bool(x.get("unresolved"))
         ]
+        knowledge_gap = 1.0 if not strong_existing else max(0.10, 1.0 - min(len(strong_existing), 5) / 5.0)
+        future_reuse = max(self._clamp(importance), 0.55 if evidence else 0.25)
+        compute_cost = 0.10 if source == "pc" else (0.18 if source == "mobile" else 0.14)
+        network_cost = 0.25 if source == "mobile" else 0.05
+        storage_cost = 0.12 if str(modality or "text").lower() in {"image", "audio", "video", "sensor"} else 0.04
+        active = self._active_learning_score(
+            confidence, novelty, quality, importance,
+            future_reuse=future_reuse,
+            knowledge_gap=knowledge_gap,
+            compute_cost=compute_cost,
+            network_cost=network_cost,
+            storage_cost=storage_cost,
+        )
         diagnostic_terms = {
             "fault", "diagnos", "broken", "failure", "error", "circuit", "vehicle",
             "machine", "medical", "safety", "hazard", "research", "unknown"
         }
         important_text = (topic + " " + content).lower()
         mission_relevant = any(x in important_text for x in diagnostic_terms)
-        threshold = 0.40 if source == "mobile" else 0.32
+        threshold = 0.30 if source == "mobile" else 0.25
         should_learn = bool(force or evidence or mission_relevant or active["score"] >= threshold)
         if strong_existing and active["novelty"] < 0.10 and not evidence and not force:
             should_learn = False
@@ -248,6 +265,10 @@ class BrahmaBot:
                importance=0.5, evidence_status="candidate", force=False):
         evidence = list(evidence or [])
         provenance = dict(provenance or {})
+        provenance.setdefault(
+            "brahma_provenance_fingerprint",
+            self.memory_intelligence.provenance_fingerprint(provenance, evidence),
+        )
         plan = self.plan_learning(
             source=source, topic=topic, content=content, modality=modality,
             evidence=evidence, confidence=confidence, novelty=novelty,
@@ -259,6 +280,7 @@ class BrahmaBot:
             **plan,
             "provenance": provenance,
             "recorded_finding": None,
+            "temporal_claim": None,
         }
 
         if plan["should_learn"]:
@@ -280,6 +302,23 @@ class BrahmaBot:
                 role="brahma_intake",
             )
             decision["recorded_finding"] = finding
+            decision["temporal_claim"] = self.memory_intelligence.temporal_record(
+                topic=plan["topic"],
+                claim=claim,
+                provenance={
+                    **provenance,
+                    "rishi_finding_id": finding.get("finding_id"),
+                    "rishi_lead": lead,
+                },
+                evidence=evidence,
+                rishi_id=lead,
+                evidence_status=status,
+                observed_at=provenance.get("captured_at"),
+                valid_from=provenance.get("valid_from"),
+                valid_to=provenance.get("valid_to"),
+                supersedes=provenance.get("supersedes_temporal_claim"),
+                volatility=provenance.get("volatility"),
+            )
             if plan["active_learning"]["uncertainty"] >= 0.35:
                 self.rishi_learning.add_open_question(
                     lead,
@@ -326,6 +365,8 @@ class BrahmaBot:
             ))
         )
         evidence_ok = len(evidence) > 0
+        source_summary = self.memory_intelligence.source_summary(evidence)
+        provenance_fingerprint = self.memory_intelligence.provenance_fingerprint(provenance, evidence)
         confidence_ok = confidence >= 0.65
         maturity_ok = self.MATURITY_RANK.get(maturity, -1) >= self.MATURITY_RANK["L3"]
         contradiction_ok = unresolved == 0 and evidence_status not in {"rejected", "contradicted", "unknown"}
@@ -385,6 +426,8 @@ class BrahmaBot:
             "maturity": maturity,
             "evidence_status": evidence_status,
             "evidence_count": len(evidence),
+            "source_independence": source_summary,
+            "provenance_fingerprint": provenance_fingerprint,
             "provenance_ok": provenance_ok,
             "rishi_origin_ok": rishi_origin_ok,
             "review_compile_ok": review_compile_ok,
@@ -408,6 +451,8 @@ class BrahmaBot:
                 "rishi_reviewers": team_context.get("reviewers"),
                 "maturity": maturity,
                 "evidence_status": evidence_status,
+                "provenance_fingerprint": provenance_fingerprint,
+                "source_independence": source_summary,
             }
             qc["proposal"] = self.gyan_bhandar.propose(
                 project,
@@ -488,6 +533,59 @@ class BrahmaBot:
             "requires_more_learning": not bool(qc.get("proposal")),
         }
 
+    def temporal_query(self, topic="", *, as_of=None, include_superseded=False, limit=100):
+        return self.memory_intelligence.temporal_query(
+            topic, as_of=as_of, include_superseded=include_superseded, limit=limit
+        )
+
+    def record_contradiction(self, claim_a, claim_b, reason="", evidence=None):
+        return self.memory_intelligence.contradiction_record(
+            claim_a, claim_b, reason=reason, evidence=evidence
+        )
+
+    def resolve_contradiction(self, contradiction_id, resolution):
+        return self.memory_intelligence.contradiction_resolve(contradiction_id, resolution)
+
+    def consolidate(self, max_items=250):
+        with self.lock:
+            decisions = list(self.state.get("decisions") or [])
+        out = self.memory_intelligence.consolidate(decisions, max_items=max_items)
+        if self.memory:
+            self.memory.audit(
+                "brahma_consolidation",
+                "completed",
+                f"{out['consolidation_id']}:{out['selected_learning_decisions']}:{out['duplicates_collapsed']}",
+            )
+        return out
+
+    def memory_evaluate(self, expected_ids=None, retrieved_ids=None):
+        return self.memory_intelligence.evaluate(
+            expected_ids=expected_ids or [], retrieved_ids=retrieved_ids or []
+        )
+
+    def rishi_graph(self, topic, limit=8):
+        return self.memory_intelligence.rishi_graph(topic, limit=limit)
+
+    def teach_back_create(self, *, topic, claim, evidence=None, lead_rishi=None, reviewer_rishi=None):
+        return self.memory_intelligence.teach_back_create(
+            topic=topic,
+            claim=claim,
+            evidence=evidence or [],
+            lead_rishi=lead_rishi,
+            reviewer_rishi=reviewer_rishi,
+        )
+
+    def teach_back_submit(self, challenge_id, *, reviewer_rishi, answer, evidence_refs=None):
+        return self.memory_intelligence.teach_back_submit(
+            challenge_id,
+            reviewer_rishi=reviewer_rishi,
+            answer=answer,
+            evidence_refs=evidence_refs or [],
+        )
+
+    def decay_scan(self, *, now=None, ttl_days=None):
+        return self.memory_intelligence.decay_scan(now=now, ttl_days=ttl_days or {})
+
     def status(self):
         with self.lock:
             decisions = list(self.state.get("decisions") or [])
@@ -503,6 +601,7 @@ class BrahmaBot:
             "qc_reviews": len(qc),
             "recent_decisions": decisions[-10:],
             "recent_qc": qc[-10:],
+            "memory_intelligence": self.memory_intelligence.status(),
             "load_error": self.load_error,
             "ready": self.load_error is None,
         }
