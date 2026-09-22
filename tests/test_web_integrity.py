@@ -86,6 +86,19 @@ class WebIntegrityTests(unittest.TestCase):
         self.assertIn(".homeLegacyDetails{display:none!important}",self.text)
         self.assertIn('id="chatSearch"',self.text)
 
+    def test_avatar_production_runtime_hooks(self):
+        for token in (
+            "KRISHNA_STATE_MOTION","installKrishnaMotionRuntime","installKrishnaAudioLipSync",
+            "/assets/avatar-engine/motion-engine/src/MotionEngine.js",
+            "/assets/avatar-engine/headaudio/dist/headaudio.min.mjs",
+            "/assets/avatar-engine/headaudio/dist/model-en-mixed.bin",
+            "speakKrishnaReply","/api/voice/tts","head.speakAudio",
+            "applyKrishnaAvatarMotion",
+        ):
+            self.assertIn(token,self.text)
+        for state in ("FLUTE","LISTENING","THINKING","SPEAKING","WISDOM","PLAYFUL","PROTECTION","DHYAN","SLEEPING","WAKING"):
+            self.assertIn(state,self.text)
+
     def test_free_plugin_catalog_and_secure_credential_ui(self):
         for element_id in ("pluginCredentialDialog","pluginCredentialInput","pluginAuth","pluginsGrid"):
             self.assertIn(f'id="{element_id}"',self.text)
