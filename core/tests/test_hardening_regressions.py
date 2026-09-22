@@ -20,6 +20,8 @@ from krishna_core.rishi_learning import RishiLearningLedger
 from krishna_core.rishi_council import RishiCouncil
 from krishna_core.science_atlas import ScienceAtlas
 from krishna_core.grand_challenges import GrandChallengeRegistry
+from krishna_core.commitment_ledger import CommitmentLedger
+from krishna_core.worker_fabric import WorkerFabric
 
 
 class _Browser:
@@ -100,6 +102,34 @@ class HardeningRegressionTests(unittest.TestCase):
             backup=Path(out["backup"]).resolve()
             backup.relative_to(backups.resolve())
             self.assertEqual((live/"a.txt").read_text(encoding="utf-8"),"new")
+
+    def test_commitments_validate_initial_status_and_terminal_timestamp(self):
+        with tempfile.TemporaryDirectory() as td:
+            ledger=CommitmentLedger(Path(td)/"c.db")
+            with self.assertRaises(ValueError):
+                ledger.add("KRISHNA","bad",status="invented")
+            done=ledger.add("KRISHNA","done",status="completed")
+            self.assertIsNotNone(done["completed_at"])
+            ledger.close()
+
+    def test_intentional_worker_stop_does_not_become_crash(self):
+        class Proc:
+            pid=321
+            def __init__(self):self.code=None
+            def poll(self):return self.code
+            def terminate(self):self.code=0
+            def wait(self,timeout=None):return self.code
+            def kill(self):self.code=-9
+        with tempfile.TemporaryDirectory() as td:
+            fabric=WorkerFabric(td)
+            fabric.register("x","python worker.py")
+            fabric.workers["x"]["process"]=Proc()
+            fabric.workers["x"]["desired"]=True
+            stopped=fabric.stop("x")
+            self.assertFalse(stopped["running"])
+            self.assertTrue(fabric.workers["x"]["last_exit"]["intentional"])
+            self.assertEqual(fabric.tick(),[])
+            self.assertEqual(fabric.workers["x"]["crashes"],[])
 
     def test_research_state_corruption_never_gets_silently_overwritten(self):
         class Memory:
