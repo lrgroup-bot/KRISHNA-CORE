@@ -62,6 +62,21 @@ class BhumiputraAgentTests(unittest.TestCase):
         self.assertEqual(receipt["frame_count"], 1)
         self.assertIn("foundation", receipt["truth_policy"])
 
+    def test_curated_mobile_evidence_is_bounded_and_deduplicated(self):
+        session = self.agent.start_live_session(project="KRISHNA", purpose="diagnose PCB")
+        raw = b"curated-jpeg-evidence"
+        sensors = {"curator_selected": True, "mobile_observation_id": "HAW-1"}
+        first = self.agent.store_mobile_evidence(session["session_id"], raw, "image/jpeg", sensors)
+        second = self.agent.store_mobile_evidence(session["session_id"], raw, "image/jpeg", sensors)
+        self.assertTrue(first["retained_pc"])
+        self.assertFalse(first["deduplicated"])
+        self.assertTrue(second["deduplicated"])
+        self.assertEqual(first["sha256"], second["sha256"])
+        status = self.agent.mobile_evidence_status()
+        self.assertEqual(status["items"], 1)
+        self.assertLessEqual(status["max_items"], 64)
+        self.assertLessEqual(status["max_bytes"], 192 * 1024 * 1024)
+
     def test_degenerate_boundary_rejected(self):
         with self.assertRaises(ValueError):
             self.agent.boundary_metrics([
