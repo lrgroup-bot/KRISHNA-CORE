@@ -617,7 +617,9 @@ class Orchestrator:
         def brahmagyan_science_background_tick(payload,context):
             snapshot=self.governor.snapshot()
             busy=bool(self.task_ledger.active()) or int(snapshot.get("active_jobs") or 0)>0
-            decision=self.agi.brahmagyan.background_decision(0.0,0.0,busy)
+            cpu=float(payload.get("cpu_percent") or 0.0)
+            ram=float(payload.get("memory_percent") or 0.0)
+            decision=self.agi.brahmagyan.background_decision(cpu,ram,busy)
             if not decision.get("allowed"):
                 return {"ran":False,"reason":"production_busy","decision":decision,"atlas":self.science_atlas.status()}
             status=self.science_atlas.status()
@@ -1566,9 +1568,9 @@ class Orchestrator:
         )
         return receipt.get("result") or {}
 
-    def brahmagyan_science_background_tick(self):
+    def brahmagyan_science_background_tick(self,cpu_percent=0.0,memory_percent=0.0):
         receipt=self.dispatch_action(
-            "brahmagyan.science.background.tick",{},
+            "brahmagyan.science.background.tick",{"cpu_percent":float(cpu_percent or 0.0),"memory_percent":float(memory_percent or 0.0)},
             project="KRISHNA",source="system",actor="science-frontier-scheduler",
             permissions=("web.read","model.use","evidence.write","memory.write","runtime.read"),
         )
