@@ -50,6 +50,7 @@ from .kabach import KabachAgent
 from .bhumiputra import BhumiputraAgent
 from .hawkeye_learning import HawkeyeLearningRuntime
 from .hawkeye_diagnostic import HawkeyeDiagnosticRuntime
+from .hawkeye_reference import HawkeyeReferenceRegistry
 from .universal_learning import UniversalLearningRuntime
 from .hawkeye_field_platform import HawkeyeFieldPlatform
 from .krishna_observability import KrishnaObservability
@@ -125,12 +126,15 @@ class Orchestrator:
         self.bhumiputra = BhumiputraAgent(runtime_state / "bhumiputra")
         self.hawkeye = self.bhumiputra
         self.hawkeye_learning = HawkeyeLearningRuntime(runtime_state / "hawkeye" / "learning")
+        self.hawkeye_reference = HawkeyeReferenceRegistry(runtime_state / "hawkeye" / "references")
         self.hawkeye_diagnostic = HawkeyeDiagnosticRuntime(runtime_state / "hawkeye" / "diagnostic")
+        self.hawkeye_diagnostic.bind_reference_registry(self.hawkeye_reference)
         self.universal_learning = UniversalLearningRuntime(runtime_state / "hawkeye" / "universal-learning")
         self.hawkeye_field = HawkeyeFieldPlatform(runtime_state / "hawkeye" / "field")
         self.hawkeye_geo = HawkeyeGeoEngine(runtime_state / "hawkeye" / "geo")
         self.observability = KrishnaObservability(runtime_state / "observability")
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
+        self.hawkeye_diagnostic.bind_worker_runtime(self.ephemeral_workers,self.governor)
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
         self.gyan_acl = GyanACL(runtime_state / "gyan-acl.json")
