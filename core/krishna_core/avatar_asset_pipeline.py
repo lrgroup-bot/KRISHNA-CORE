@@ -38,6 +38,13 @@ MIXAMO_CORE = (
     "LeftUpLeg","LeftLeg","LeftFoot","LeftToeBase",
     "RightUpLeg","RightLeg","RightFoot","RightToeBase",
 )
+MIXAMO_FINGERS = tuple(
+    side+finger+str(segment)
+    for side in ("Left","Right")
+    for finger in ("HandThumb","HandIndex","HandMiddle","HandRing","HandPinky")
+    for segment in (1,2,3)
+)
+TALKINGHEAD_BONES = MIXAMO_CORE + MIXAMO_FINGERS
 
 
 def _clean_bone_name(name: str) -> str:
@@ -133,7 +140,7 @@ class AvatarAssetInspector:
             skins=doc.get("skins") or []
             animations=doc.get("animations") or []
             animation_names=[str(x.get("name") or f"animation-{i+1}") for i,x in enumerate(animations)]
-            missing_bones=[x for x in MIXAMO_CORE if x not in normalized]
+            missing_bones=[x for x in TALKINGHEAD_BONES if x not in normalized]
             missing_arkit=[x for x in ARKIT_52 if x not in morphs]
             missing_visemes=[x for x in OCULUS_15 if x not in morphs]
             body_ready=bool(skins) and not missing_bones
@@ -153,7 +160,7 @@ class AvatarAssetInspector:
                 stage="facial-rig-incomplete"
             issues=[]
             if not skins:issues.append("no glTF skin/armature binding detected")
-            if missing_bones:issues.append(f"{len(missing_bones)} core Mixamo-compatible bones missing")
+            if missing_bones:issues.append(f"{len(missing_bones)} TalkingHead/Mixamo-compatible pose bones missing")
             if not morphs:issues.append("no named facial morph targets detected")
             elif missing_arkit:issues.append(f"{len(missing_arkit)} ARKit blend shapes missing")
             if missing_visemes:issues.append(f"{len(missing_visemes)} Oculus viseme shapes missing")
@@ -171,7 +178,8 @@ class AvatarAssetInspector:
                 "mesh_count":len(doc.get("meshes") or []),
                 "morph_target_count":len(morphs),
                 "morph_targets":sorted(morphs),
-                "body":{"ready":body_ready,"missing_core_bones":missing_bones,"required_core_bones":list(MIXAMO_CORE)},
+                "body":{"ready":body_ready,"missing_core_bones":missing_bones,"required_core_bones":list(TALKINGHEAD_BONES),
+                        "core_body_bones":list(MIXAMO_CORE),"finger_bones":list(MIXAMO_FINGERS)},
                 "face":{
                     "ready":face_ready,
                     "arkit":{"ready":face_arkit_ready,"present":len(ARKIT_52)-len(missing_arkit),"required":len(ARKIT_52),"missing":missing_arkit},
