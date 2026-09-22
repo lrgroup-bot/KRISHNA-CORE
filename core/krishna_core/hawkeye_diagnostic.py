@@ -187,9 +187,9 @@ class HawkeyeDiagnosticRuntime:
             if warning not in warnings:
                 warnings.insert(0, warning)
 
-        diagram_mode = "reference-aligned" if reference_verified else "visual-inference"
+        diagram_mode = "reference-context" if reference_verified else "visual-inference"
         accuracy_note = (
-            "Aligned to supplied verified reference data; physical measurements are still required for fault confirmation."
+            "Verified reference context is available, but spatial alignment requires a registered reference ID and at least three camera anchors."
             if reference_verified else
             "Camera-only flow is a preliminary visual inference, not a verified schematic or hidden-net map."
         )
