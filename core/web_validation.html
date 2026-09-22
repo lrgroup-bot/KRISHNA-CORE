@@ -2287,9 +2287,10 @@ function openSharedChatFromUrl(){try{const params=new URLSearchParams(location.s
 
 function avatarState(state){
  const next=String(state||'IDLE').toUpperCase();
- [$('krishnaModel'),$('krishnaLiveAvatar')].filter(Boolean).forEach(m=>{m.setAttribute('data-state',next);m.dataset.characterBible='character-bible-v1'});
+ const live=$('krishnaLiveAvatar'),previous=live?.dataset?.state||'';
+ [$('krishnaModel'),live].filter(Boolean).forEach(m=>{m.setAttribute('data-state',next);m.dataset.characterBible='character-bible-v1'});
  const label=$('avatarPerformanceState');if(label)label.textContent=next;
- applyKrishnaAvatarMotion(next);
+ if(previous!==next)applyKrishnaAvatarMotion(next);
 }
 </script>
 <div id="krishnaProjectMenu"
