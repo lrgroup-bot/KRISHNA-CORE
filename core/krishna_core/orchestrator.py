@@ -329,6 +329,34 @@ class Orchestrator:
                 int(payload.get("max_controls") or 100),
             )
 
+        def project_perfection_finish_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            url=str(payload.get("url") or "").strip()
+            if not project or not url:raise ValueError("project and url are required")
+            policy=self.projects.get(project)
+            if not policy:raise KeyError(project)
+            security=self.kabach.protect_project(project,policy.root,policy.privacy)
+            security_ok=all(bool((row.get("verdict") or {}).get("allowed")) for row in security.get("checks") or [])
+            result=self.project_perfection.finish_project(
+                project=project,project_root=policy.root,url=url,
+                build_hash=str(payload.get("build_hash") or ""),
+                checks=list(payload.get("checks") or policy.verification_checks or []),
+                requirements_ok=bool(payload.get("requirements_ok",False)),
+                schema_url=payload.get("schema_url"),api_base_url=payload.get("api_base_url"),
+                artifacts=list(payload.get("artifacts") or []),
+                screenshot_dir=payload.get("screenshot_dir"),
+                approve_visual_baselines=bool(payload.get("approve_visual_baselines",False)),
+                backend_required=bool(payload.get("backend_required",True)),
+                artifact_required=bool(payload.get("artifact_required",False)),
+                security_ok=security_ok,
+                restart_recovery_ok=bool(payload.get("restart_recovery_ok",False)),
+                max_mutants=int(payload.get("max_mutants") or 8),
+            )
+            result["security_report"]=security
+            result["promotion"]=self._prepare_promotion_impl(project,result["candidate_root"]) if result.get("passed") else None
+            self.memory.audit("project_perfection","verified" if result.get("passed") else "not_complete",project)
+            return result
+
         def model_complete(payload,context):
             provider=str(payload.get("provider") or "").strip()
             prompt=str(payload.get("prompt") or "")
@@ -1054,6 +1082,13 @@ class Orchestrator:
             "browser.testing_lead",browser_testing_lead,
             description="Run exhaustive browser verification for the testing lead",
             permissions=("browser.read","browser.test"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "project.perfection.finish",project_perfection_finish_action,
+            description="Run full project discovery, adversarial QA, artifact retest and evidence certification",
+            mutating=True,permissions=("candidate.write","tests.run","browser.test"),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
 
