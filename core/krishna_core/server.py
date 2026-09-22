@@ -110,6 +110,7 @@ _browser_fabric = GarudanetraBrowserFabric(RUNTIME_ROOT,inspector=orch.browser,o
 # BrowserOperator remains internal as _browser_fabric.inspector.
 orch.browser = _browser_fabric
 orch.development.browser = _browser_fabric
+orch.project_perfection.browser = _browser_fabric
 _garudanetra = _browser_fabric.sessions
 
 def _shared_garudanetra_start(payload,context):
