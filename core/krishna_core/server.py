@@ -210,6 +210,7 @@ _browser_fabric = GarudanetraBrowserFabric(RUNTIME_ROOT,inspector=orch.browser,o
 # BrowserOperator remains internal as _browser_fabric.inspector.
 orch.browser = _browser_fabric
 orch.development.browser = _browser_fabric
+orch.project_perfection.browser = _browser_fabric
 _garudanetra = _browser_fabric.sessions
 
 def _shared_garudanetra_start(payload,context):
@@ -336,6 +337,7 @@ for _topic in ("action.requested","action.completed","action.failed","action.blo
 if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     _BUNDLE_ROOT = Path(sys._MEIPASS)
     WEB_VALIDATION = _BUNDLE_ROOT / "web_validation.html"
+    DESIGN_STUDIO = _BUNDLE_ROOT / "design_studio.html"
     AVATAR_B64 = _BUNDLE_ROOT / "avatar" / "krishna_child_360.webp.b64"
     # The private child avatar is owner/runtime data and is deliberately never
     # bundled into KRISHNA.exe. Frozen and source runtimes use the same E: asset.
@@ -346,6 +348,7 @@ else:
     _CORE_ROOT = Path(__file__).resolve().parents[1]
     _REPO_ROOT = Path(__file__).resolve().parents[2]
     WEB_VALIDATION = _CORE_ROOT / "web_validation.html"
+    DESIGN_STUDIO = _CORE_ROOT / "design_studio.html"
     AVATAR_B64 = _REPO_ROOT / "avatar" / "krishna_child_360.webp.b64"
     AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
     AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"
@@ -650,6 +653,10 @@ class Handler(BaseHTTPRequestHandler):
             if 'data-krishna-ui="2026.09-current"' not in ui_text:
                 return self._json(503, {"error": "stale KRISHNA desktop UI refused"})
             return self._html(200, ui_text)
+        if path == "/design-studio":
+            if not DESIGN_STUDIO.exists():
+                return self._json(404, {"error": "design studio unavailable"})
+            return self._html(200, DESIGN_STUDIO.read_text(encoding="utf-8"))
         if path.startswith("/assets/avatar-engine/"):
             rel=path[len("/assets/avatar-engine/"):]
             asset=avatar_engine_file(rel)
@@ -811,6 +818,25 @@ class Handler(BaseHTTPRequestHandler):
             sid=(query.get("id") or [""])[0].strip()
             if not sid:return self._json(400,{"error":"id is required"})
             return self._json(200,_browser_fabric.recording(sid))
+        if path == "/api/garudanetra/element-at":
+            sid=(query.get("id") or [""])[0].strip()
+            if not sid:return self._json(400,{"error":"id is required"})
+            try:
+                x=float((query.get("x") or ["0"])[0]);y=float((query.get("y") or ["0"])[0])
+            except ValueError:return self._json(400,{"error":"x and y must be numeric"})
+            return self._json(200,_browser_fabric.element_at(sid,x,y,normalized=True))
+        if path == "/api/project-perfection/status":
+            return self._json(200,orch.project_perfection.status())
+        if path == "/api/design-studio/session":
+            sid=(query.get("id") or [""])[0].strip()
+            if not sid:return self._json(400,{"error":"id is required"})
+            try:return self._json(200,orch.project_perfection.design_get(sid))
+            except KeyError:return self._json(404,{"error":"design session not found"})
+        if path == "/api/design-studio/preview":
+            token=(query.get("id") or [""])[0].strip()
+            if not token:return self._json(400,{"error":"id is required"})
+            try:return self._html(200,orch.project_perfection.design_preview(token))
+            except KeyError:return self._json(404,{"error":"design preview not found"})
         if path == "/api/ui-guardian/registry":
             project=(query.get("project") or [None])[0]
             return self._json(200,_ui_registry.list(project))
@@ -1039,6 +1065,23 @@ class Handler(BaseHTTPRequestHandler):
                     "unified_model_provider_contract",
                     "privacy_aware_model_routing",
                     "chromium_ui_inspection",
+                    "project_perfection_finish_pipeline",
+                    "deadline_driven_hr_planning",
+                    "recursive_route_state_crawl",
+                    "xy_dom_geometry_verification",
+                    "generated_browser_regression_memory",
+                    "persistent_bug_immune_memory",
+                    "axe_accessibility_verification",
+                    "visual_baseline_regression",
+                    "hawkeye_ui_perceptual_review",
+                    "api_property_fuzzing",
+                    "mutation_testing",
+                    "browser_chaos_testing",
+                    "clean_artifact_retest",
+                    "design_studio_web_research",
+                    "design_studio_rendered_previews",
+                    "point_drag_speak_visual_editor",
+                    "transactional_design_apply_rollback",
                     "garudanetra_private_live_browser",
                     "garudanetra_owner_takeover_stream",
                     "garudanetra_task_memory_mode",
@@ -1282,6 +1325,192 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/design-studio/research":
+            project=str(data.get("project") or "").strip();goal=str(data.get("goal") or "").strip()
+            if not project or not goal:return self._json(400,{"error":"project and goal are required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.design.research",
+                    {"project":project,"goal":goal,"limit":int(data.get("limit") or 12)},
+                    project=project,source="pc",actor="design-studio-http",
+                    permissions=("browser.read","model.use"),
+                )
+                result=receipt["result"]
+                result["studio_url"]="/design-studio?session="+str(result.get("session_id") or "")
+                return self._json(201,result)
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/design-studio/create":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            candidates=data.get("candidates") or []
+            if not isinstance(candidates,list):return self._json(400,{"error":"candidates must be an array"})
+            try:
+                result=orch.project_perfection.design_create(project,candidates)
+                return self._json(201,result)
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/design-studio/submit":
+            sid=str(data.get("session_id") or "").strip();cid=str(data.get("candidate_id") or "").strip()
+            if not sid or not cid:return self._json(400,{"error":"session_id and candidate_id are required"})
+            try:
+                selection=orch.project_perfection.design_submit(sid,cid)
+                project=str(selection.get("project") or "").strip()
+                if not project:return self._json(400,{"error":"design session has no project"})
+                policy=orch.projects.get(project)
+                if not policy:return self._json(404,{"error":"project not registered"})
+                frontend_url=str(data.get("frontend_url") or (selection.get("metadata") or {}).get("frontend_url") or "").strip() or None
+                checks=list(data.get("checks") or policy.verification_checks or [])
+                receipt=orch.dispatch_action(
+                    "project.design.implement",
+                    {"project":project,"session_id":sid,
+                     "frontend_url":frontend_url,
+                     "checks":checks,
+                     "screenshot_path":data.get("screenshot_path"),
+                     "axe_required":bool(data.get("axe_required",True)),
+                     "performance_required":bool(data.get("performance_required",True)),
+                     "performance_limits":data.get("performance_limits") or {},
+                     "hawkeye_ui_required":bool(data.get("hawkeye_ui_required",True))},
+                    project=project,source="pc",actor="design-studio-submit",
+                    permissions=("candidate.write","tests.run","model.use"),
+                )
+                implementation=receipt["result"]
+                apply_result={"requested":bool(data.get("apply",True)),"applied":False,"reason":"candidate_not_verified"}
+                post_verify=None
+                if bool(data.get("apply",True)) and implementation.get("promotable"):
+                    promotion_info=implementation.get("promotion") or {}
+                    token=str(promotion_info.get("promotion_token") or "")
+                    if not token:raise RuntimeError("verified design candidate has no promotion token")
+                    try:
+                        live=orch.promote_candidate(token,approved=True)
+                        apply_result={**live,"requested":True,"applied":bool(live.get("promoted"))}
+                        if live.get("promoted"):
+                            post_verify=orch.project_perfection.verify_design_candidate(
+                                project,policy.root,checks,frontend_url=frontend_url,
+                                approve_selected_baseline=False,
+                                axe_required=bool(data.get("axe_required",True)),
+                                performance_required=bool(data.get("performance_required",True)),
+                                performance_limits=dict(data.get("performance_limits") or {}),
+                                hawkeye_required=bool(data.get("hawkeye_ui_required",True)),
+                            )
+                            if not post_verify.get("passed"):
+                                orch.promotions.rollback(policy.root,live["backup"],live["diff"])
+                                apply_result.update({
+                                    "status":"rolled_back_post_verify","applied":False,
+                                    "promoted":False,"rolled_back":True,
+                                    "reason":"post-promotion verification failed",
+                                })
+                                orch.memory.audit("design_submit_post_verify","rolled_back",project)
+                            else:
+                                orch.memory.audit("design_submit_post_verify","verified",project)
+                    except PermissionError as exc:
+                        apply_result={"requested":True,"applied":False,"status":"approval_blocked","reason":str(exc)}
+                annotation={
+                    "live_apply":{
+                        "requested":apply_result.get("requested"),"applied":apply_result.get("applied"),
+                        "status":apply_result.get("status"),"rolled_back":apply_result.get("rolled_back",False),
+                        "transaction_id":apply_result.get("transaction_id"),
+                        "post_verified":bool(post_verify and post_verify.get("passed")),
+                    }
+                }
+                orch.project_perfection.design_annotate(sid,annotation)
+                return self._json(200,{
+                    "selection":selection,"implementation":implementation,
+                    "apply":apply_result,"post_verification":post_verify,
+                })
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-perfection/visual-intent":
+            payload=dict(data.get("intent") or data)
+            try:return self._json(200,orch.project_perfection.visual_edit_intent(payload))
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-perfection/visual-edit/stage":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"visual source editing must run on KRISHNA PC"})
+            project=str(data.get("project") or "").strip();sid=str(data.get("session_id") or "").strip()
+            if not project or not sid:return self._json(400,{"error":"project and session_id are required"})
+            policy=orch.projects.get(project)
+            if not policy:return self._json(404,{"error":"project not registered"})
+            try:
+                x=float(data.get("x"));y=float(data.get("y"))
+            except (TypeError,ValueError):return self._json(400,{"error":"x and y are required normalized coordinates"})
+            picked=_browser_fabric.element_at(sid,x,y,normalized=True)
+            element=picked.get("element")
+            if not element:return self._json(404,{"error":"no interactive element found at point","selection":picked})
+            action=str(data.get("action") or "").strip().lower()
+            instruction=str(data.get("instruction") or "").strip()
+            semantic_needed=(
+                bool(instruction) and (
+                    not action or action in {"remove","add_component"} or
+                    (action in {"move","resize","restyle"} and not data.get("style_patch")) or
+                    (action=="replace_text" and not data.get("replacement_text"))
+                )
+            )
+            if semantic_needed:
+                try:
+                    receipt=orch.dispatch_action(
+                        "project.visual_edit.implement",
+                        {"project":project,"element":element,"instruction":instruction,
+                         "from_box":data.get("from_box"),"to_box":data.get("to_box"),
+                         "checks":data.get("checks") or [],"frontend_url":data.get("frontend_url"),
+                         "hawkeye_ui_required":bool(data.get("hawkeye_ui_required",True))},
+                        project=project,source="pc",actor="visual-editor",
+                        permissions=("candidate.write","tests.run","model.use","browser.read"),
+                    )
+                    result=receipt["result"];result["selection"]=picked;result["mode"]="semantic_agent"
+                    return self._json(200,result)
+                except PermissionError as exc:return self._json(403,{"error":str(exc),"selection":picked})
+                except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc),"selection":picked})
+            payload={
+                "action":action,"selector":element.get("selector_hint") or element.get("selector"),
+                "instruction":instruction,"from_box":data.get("from_box"),"to_box":data.get("to_box"),
+                "replacement_text":data.get("replacement_text"),"style_patch":data.get("style_patch"),
+                "source_hint":element.get("selector_hint"),
+            }
+            try:
+                result=orch.project_perfection.stage_visual_edit(
+                    policy.root,element,payload,list(data.get("checks") or policy.verification_checks or []),
+                )
+                if not (result.get("edit") or {}).get("applied") and instruction:
+                    receipt=orch.dispatch_action(
+                        "project.visual_edit.implement",
+                        {"project":project,"element":element,"instruction":instruction,
+                         "from_box":data.get("from_box"),"to_box":data.get("to_box"),
+                         "checks":data.get("checks") or [],"frontend_url":data.get("frontend_url"),
+                         "hawkeye_ui_required":bool(data.get("hawkeye_ui_required",True))},
+                        project=project,source="pc",actor="visual-editor-fallback",
+                        permissions=("candidate.write","tests.run","model.use","browser.read"),
+                    )
+                    fallback=receipt["result"];fallback["selection"]=picked;fallback["mode"]="semantic_agent_fallback"
+                    return self._json(200,fallback)
+                result["selection"]=picked;result["mode"]="deterministic"
+                return self._json(200,result)
+            except PermissionError as exc:return self._json(403,{"error":str(exc),"selection":picked})
+            except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc),"selection":picked})
+
+        if post_path == "/api/project-perfection/finish":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"project finishing must run on KRISHNA PC"})
+            project=str(data.get("project") or "").strip();url=str(data.get("url") or "").strip()
+            if not project or not url:return self._json(400,{"error":"project and url are required"})
+            if not orch.projects.get(project):return self._json(404,{"error":"project not registered"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.perfection.finish",
+                    {**data,"project":project,"url":url},
+                    project=project,source="pc",actor="project-perfection-http",
+                    permissions=("candidate.write","tests.run","browser.test"),
+                )
+                result=receipt["result"]
+                mark("PROJECT PERFECTION",f"{project}: {result.get('verdict')}")
+                return self._json(200,result)
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/ui-guardian/register":
             item=_ui_registry.register(

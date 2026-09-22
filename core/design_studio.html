@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRISHNA Design Studio</title>
+<style>
+:root{font-family:Inter,Segoe UI,sans-serif;color-scheme:dark;background:#090b10;color:#f7f8fb}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -20%,#20283b,#090b10 55%);min-height:100vh}
+header{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid #ffffff16;background:#0b0e14d9;backdrop-filter:blur(18px);position:sticky;top:0;z-index:4}
+h1{font-size:18px;margin:0;letter-spacing:.08em}.muted{color:#a8afbd;font-size:12px}
+main{padding:22px;max-width:1600px;margin:auto}.tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.tab{min-width:52px;height:42px;border-radius:13px;border:1px solid #ffffff1f;background:#111722;color:#d9dfeb;font-weight:800;cursor:pointer}
+.tab.active{border-color:#fff;background:#f7f8fb;color:#080a0e;box-shadow:0 8px 30px #ffffff16}
+.viewer{border:1px solid #ffffff1c;border-radius:20px;overflow:hidden;background:#0d111a;min-height:68vh;box-shadow:0 28px 90px #0008}
+.viewer iframe{width:100%;height:68vh;border:0;background:white}.shot{width:100%;height:auto;display:block}.empty{height:68vh;display:grid;place-items:center;color:#929bad}
+footer{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:18px 0}.submit{border:0;border-radius:14px;background:#f7f8fb;color:#090b10;padding:14px 26px;font-weight:900;cursor:pointer}.submit:disabled{opacity:.4;cursor:not-allowed}
+.status{font-size:13px;color:#b7bfce}.meta{padding:12px 16px;border-top:1px solid #ffffff13;color:#aab2c1;font-size:12px}
+</style>
+</head>
+<body>
+<header><div><h1>KRISHNA DESIGN STUDIO</h1><div class="muted">Choose the rendered design you want. A/B/C/D are only preview selectors.</div></div><div id="project" class="muted"></div></header>
+<main>
+<div id="tabs" class="tabs"></div>
+<div id="viewer" class="viewer"><div class="empty">Loading rendered design previews…</div></div>
+<footer><div id="status" class="status">Select a design, then submit.</div><button id="submit" class="submit" disabled>SUBMIT DESIGN</button></footer>
+</main>
+<script>
+const q=new URLSearchParams(location.search),sid=q.get('session');let state=null,selected=null;
+const tabs=document.getElementById('tabs'),viewer=document.getElementById('viewer'),submit=document.getElementById('submit'),statusEl=document.getElementById('status');
+async function load(){
+ if(!sid){viewer.innerHTML='<div class="empty">Missing design session.</div>';return}
+ const r=await fetch('/api/design-studio/session?id='+encodeURIComponent(sid));state=await r.json();
+ if(!r.ok){viewer.innerHTML='<div class="empty">'+(state.error||'Session unavailable')+'</div>';return}
+ document.getElementById('project').textContent=state.project||'';
+ tabs.innerHTML='';
+ state.candidates.forEach((c,i)=>{const b=document.createElement('button');b.className='tab';b.textContent=c.label||String.fromCharCode(65+i);b.onclick=()=>pick(c,b);tabs.appendChild(b)});
+ if(state.candidates.length)pick(state.candidates[0],tabs.firstElementChild);
+}
+function pick(c,b){selected=c;[...tabs.children].forEach(x=>x.classList.remove('active'));b.classList.add('active');
+ const src=c.preview_url||'';viewer.innerHTML='<iframe sandbox="allow-forms" src="'+src.replaceAll('"','&quot;')+'"></iframe><div class="meta">'+(c.rationale||'Rendered candidate')+'</div>';
+ submit.disabled=false;statusEl.textContent='Selected '+c.label+'. Review the live preview, then submit.';
+}
+submit.onclick=async()=>{if(!selected)return;submit.disabled=true;statusEl.textContent='Submitting selected design…';
+ const r=await fetch('/api/design-studio/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,candidate_id:selected.id})});
+ const out=await r.json();
+ if(r.ok){
+   const impl=out.implementation||{}, apply=out.apply||{}, post=out.post_verification||{};
+   const verified=!!(impl.verification&&impl.verification.passed), applied=!!apply.applied, rolled=!!apply.rolled_back;
+   if(applied && post.passed){
+     statusEl.textContent='Design '+selected.label+' applied and verified on the live project.';
+   }else if(rolled){
+     statusEl.textContent='Design '+selected.label+' failed post-apply verification and was automatically rolled back.';
+     submit.disabled=false;
+   }else if(verified){
+     statusEl.textContent='Design '+selected.label+' implemented and verified, but live apply is blocked: '+(apply.reason||'promotion unavailable');
+     submit.disabled=false;
+   }else{
+     statusEl.textContent='Design '+selected.label+' was staged, but verification did not pass. Live project was not changed.';
+     submit.disabled=false;
+   }
+ }else{statusEl.textContent=out.error||'Submit failed';submit.disabled=false}
+};
+load();
+</script>
+</body>
+</html>

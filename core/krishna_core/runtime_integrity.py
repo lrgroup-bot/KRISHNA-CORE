@@ -16,22 +16,57 @@ def _sha256(path:Path)->str:
         for block in iter(lambda:f.read(1024*1024),b""): h.update(block)
     return h.hexdigest()
 
-def _git_head(repo:Path):
+def _git_dir(repo:Path)->Path|None:
+    marker=repo/".git"
     try:
-        head=(repo/".git"/"HEAD").read_text(encoding="utf-8").strip()
+        if marker.is_dir():return marker
+        if marker.is_file():
+            raw=marker.read_text(encoding="utf-8").strip()
+            if raw.lower().startswith("gitdir:"):
+                target=raw.split(":",1)[1].strip()
+                path=Path(target)
+                if not path.is_absolute():path=(repo/path).resolve()
+                return path
+    except OSError:
+        pass
+    return None
+
+def _git_ref(repo:Path,ref:str):
+    git=_git_dir(repo)
+    if not git:return None
+    try:
+        path=git/ref
+        if path.exists():return path.read_text(encoding="utf-8").strip() or None
+        packed=git/"packed-refs"
+        if packed.exists():
+            for line in packed.read_text(encoding="utf-8").splitlines():
+                if line and not line.startswith(("#","^")):
+                    sha,name=line.split(" ",1)
+                    if name.strip()==ref:return sha.strip()
+    except (OSError,ValueError):
+        return None
+    return None
+
+def _git_head(repo:Path):
+    git=_git_dir(repo)
+    if not git:return None
+    try:
+        head=(git/"HEAD").read_text(encoding="utf-8").strip()
         if head.startswith("ref: "):
-            ref=head[5:].strip(); p=repo/".git"/ref
-            if p.exists(): return p.read_text(encoding="utf-8").strip()
-            packed=repo/".git"/"packed-refs"
-            if packed.exists():
-                for line in packed.read_text(encoding="utf-8").splitlines():
-                    if line and not line.startswith(("#","^")):
-                        sha,name=line.split(" ",1)
-                        if name.strip()==ref:return sha.strip()
-            return None
+            return _git_ref(repo,head[5:].strip())
         return head or None
     except OSError:
         return None
+
+def _git_branch(repo:Path):
+    git=_git_dir(repo)
+    if not git:return None
+    try:
+        head=(git/"HEAD").read_text(encoding="utf-8").strip()
+        if head.startswith("ref: refs/heads/"):return head[len("ref: refs/heads/"):].strip() or None
+    except OSError:
+        pass
+    return None
 
 class RuntimeIntegrity:
     def __init__(self,runtime_root=RUNTIME_ROOT,source_root=None):
@@ -46,9 +81,16 @@ class RuntimeIntegrity:
             return {}
     def status(self):
         manifest=self.manifest()
+        source_head=_git_head(self.source)
+        source_branch=_git_branch(self.source)
         if not manifest:
-            return {"status":"UNVERIFIED","synced":False,"reason":"deployment manifest missing",
-                    "manifest_path":str(self.manifest_path),"source_head":_git_head(self.source)}
+            remote_head=_git_ref(self.source,f"refs/remotes/origin/{source_branch}") if source_branch else None
+            return {
+                "status":"UNVERIFIED","synced":False,"reason":"deployment manifest missing",
+                "manifest_path":str(self.manifest_path),"source_head":source_head,
+                "source_branch":source_branch,"remote_head":remote_head,
+                "remote_verified":bool(remote_head),
+            }
         expected=manifest.get("files") or {}
         mismatches=[]; missing=[]
         for rel,sha in expected.items():
@@ -57,21 +99,31 @@ class RuntimeIntegrity:
             try:
                 if _sha256(p)!=sha:mismatches.append(rel)
             except OSError:mismatches.append(rel)
-        source_head=_git_head(self.source)
         deployed=str(manifest.get("commit") or "")
+        branch=str(manifest.get("branch") or source_branch or "")
         source_drift=bool(source_head and deployed and source_head!=deployed)
-        synced=not missing and not mismatches and not source_drift
+        remote_head=_git_ref(self.source,f"refs/remotes/origin/{branch}") if branch else None
+        remote_verified=bool(remote_head)
+        remote_drift=bool(source_head and remote_head and source_head!=remote_head)
+        deployed_remote_drift=bool(deployed and remote_head and deployed!=remote_head)
+        synced=not missing and not mismatches and not source_drift and not remote_drift
         return {
             "status":"SYNCED" if synced else "DRIFT",
             "synced":synced,
             "commit":deployed or None,
-            "branch":manifest.get("branch"),
+            "branch":branch or None,
             "deployed_at":manifest.get("deployed_at"),
             "file_count":len(expected),
             "missing":missing[:100],
             "mismatches":mismatches[:100],
             "source_head":source_head,
+            "source_branch":source_branch,
             "source_drift":source_drift,
+            "remote_head":remote_head,
+            "remote_verified":remote_verified,
+            "remote_drift":remote_drift,
+            "deployed_remote_drift":deployed_remote_drift,
+            "remote_note":"origin ref reflects the last successful git fetch; DEPLOY_KRISHNA_ONCE fetches origin before deployment",
             "manifest_path":str(self.manifest_path),
         }
     @staticmethod
