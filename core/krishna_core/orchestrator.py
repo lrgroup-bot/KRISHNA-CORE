@@ -139,6 +139,7 @@ class Orchestrator:
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
         self.gyan_acl = GyanACL(runtime_state / "gyan-acl.json")
         self.gyan_cipher = GyanEnvelopeCipher()
+        self.hawkeye.bind_evidence_cipher(self.gyan_cipher,require_encryption=(__import__("os").name=="nt"))
         self.gyan_encrypted = GyanEncryptedStore(runtime_state / "gyan-encrypted",self.gyan_cipher)
         self.gyan_context = GyanContextCompiler(self.gyan_bhandar,self.agi.context)
         self.gyan_session = GyanSessionLearning(self.gyan_bhandar)
