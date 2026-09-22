@@ -483,6 +483,55 @@ class Orchestrator:
             handover=self.agi.brahmagyan.absorb_shishya(mission_id,batch)
             return {"plan":plan,"batch":batch,"handover":handover}
 
+        def kabach_privacy_audit(payload,context):
+            target=str(payload.get("target_type") or payload.get("target") or "").strip().lower()
+            profile=str(payload.get("profile") or "BASELINE")
+            policy=str(payload.get("policy") or "STANDARD")
+            mission_id=payload.get("mission_id")
+            if target=="browser":
+                return self.kabach.privacy_audit(
+                    "browser",url=str(payload.get("url") or "about:blank"),
+                    profile=profile,policy=policy,mission_id=mission_id,
+                )
+            if target=="network":
+                return self.kabach.privacy_audit(
+                    "network",profile=profile,policy=policy,mission_id=mission_id,
+                )
+            if target=="web":
+                url=str(payload.get("url") or "").strip()
+                if not url:raise ValueError("url is required for web privacy audit")
+                return self.kabach.privacy_audit(
+                    "web",url,owned=bool(payload.get("owned",True)),
+                    profile=profile,policy=policy,mission_id=mission_id,
+                )
+            if target=="mobile":
+                apk=str(payload.get("apk_path") or "").strip()
+                if not apk:raise ValueError("apk_path is required for mobile privacy audit")
+                return self.kabach.privacy_audit(
+                    "mobile",apk,profile=profile,policy=policy,mission_id=mission_id,
+                )
+            raise ValueError("target_type must be browser, network, web or mobile")
+
+        def kabach_privacy_clean_url(payload,context):
+            return self.kabach.privacy_clean_url(str(payload.get("url") or ""))
+
+        def kabach_privacy_baseline_save(payload,context):
+            return self.kabach.privacy_save_baseline(
+                str(payload.get("name") or ""),payload.get("report") or {},
+            )
+
+        def kabach_privacy_baseline_compare(payload,context):
+            return self.kabach.privacy_compare_baseline(
+                str(payload.get("name") or ""),payload.get("report") or {},
+                mission_id=payload.get("mission_id"),
+                configuration_change=payload.get("configuration_change"),
+            )
+
+        def kabach_privacy_release_gate(payload,context):
+            return self.kabach.privacy_release_gate(
+                payload.get("report") or {},str(payload.get("policy") or "STANDARD"),
+            )
+
         self.action_bus.register(
             "chat.create",chat_create,description="Create a persistent KRISHNA chat",
             mutating=True,permissions=("chat.write",),
@@ -745,6 +794,37 @@ class Orchestrator:
             mutating=True,requires_approval=True,
             permissions=("worker.execute","model.use"),
             sources=("pc","system"),
+        )
+
+        self.action_bus.register(
+            "kabach.privacy.audit",kabach_privacy_audit,
+            description="Run an internal defensive KABACH privacy audit",
+            permissions=("privacy.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "kabach.privacy.clean_url",kabach_privacy_clean_url,
+            description="Preview removal of known tracking parameters while preserving unknown/functional parameters",
+            permissions=("privacy.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "kabach.privacy.baseline.save",kabach_privacy_baseline_save,
+            description="Store a redacted local privacy baseline",
+            mutating=True,permissions=("privacy.write",),
+            sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "kabach.privacy.baseline.compare",kabach_privacy_baseline_compare,
+            description="Compare a privacy audit with a versioned local baseline",
+            permissions=("privacy.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "kabach.privacy.release_gate",kabach_privacy_release_gate,
+            description="Evaluate configured web/mobile privacy release gates for Sudarshan",
+            permissions=("privacy.read","release.verify"),
+            sources=("pc","system","agent","job"),
         )
 
         self.action_bus.register(
