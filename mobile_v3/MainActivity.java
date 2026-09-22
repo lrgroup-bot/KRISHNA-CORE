@@ -47,6 +47,8 @@ public class MainActivity extends Activity {
       requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},42);
     if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)
       requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO},41);
+    if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(android.Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)
+      requestPermissions(new String[]{android.Manifest.permission.CAMERA},43);
     web=new WebView(this);
     web.getSettings().setJavaScriptEnabled(true);
     web.getSettings().setDomStorageEnabled(true);
@@ -74,6 +76,9 @@ public class MainActivity extends Activity {
           ArrayList<String> allowed=new ArrayList<>();
           if(Build.VERSION.SDK_INT<23 || checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED){
             for(String r:request.getResources()) if(PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) allowed.add(r);
+          }
+          if(Build.VERSION.SDK_INT<23 || checkSelfPermission(android.Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED){
+            for(String r:request.getResources()) if(PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) allowed.add(r);
           }
           if(allowed.isEmpty())request.deny();else request.grant(allowed.toArray(new String[0]));
         });
@@ -154,6 +159,32 @@ public class MainActivity extends Activity {
       return call("/api/core/event","{\"source\":\"mobile\",\"kind\":"+JSONObject.quote(kind)+",\"detail\":"+JSONObject.quote(detail)+",\"project\":\"system\"}");
     }
     @JavascriptInterface public String state(){return call("/api/core/state",null);}
+
+    @JavascriptInterface public String bhumiputraStart(String purpose,String sceneHint){
+      try{
+        JSONObject body=new JSONObject();
+        body.put("project","KRISHNA");
+        body.put("purpose",purpose==null||purpose.trim().isEmpty()?"live field scan":purpose.trim());
+        body.put("scene_hint",sceneHint==null||sceneHint.trim().isEmpty()?"auto":sceneHint.trim());
+        return call("/api/bhumiputra/live/start",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String bhumiputraFrame(String sessionId,String dataB64,String contentType,String sensorJson,String goal){
+      try{
+        JSONObject body=new JSONObject();
+        body.put("session_id",sessionId);
+        body.put("data_b64",dataB64);
+        body.put("content_type",contentType==null||contentType.isEmpty()?"image/jpeg":contentType);
+        body.put("goal",goal==null?"":goal);
+        JSONObject sensors=new JSONObject(sensorJson==null||sensorJson.trim().isEmpty()?"{}":sensorJson);
+        body.put("sensor_context",sensors);
+        return call("/api/bhumiputra/live/frame",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String bhumiputraState(String sessionId){
+      try{return call("/api/bhumiputra/live/state?session_id="+URLEncoder.encode(sessionId,"UTF-8"),null);}
+      catch(Exception e){return error(e);}
+    }
 
     @JavascriptInterface public String ensureChat(){
       try{
