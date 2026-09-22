@@ -557,6 +557,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"attachments":_attachments.list(chat_id)})
         if path == "/api/vision/status":
             return self._json(200,_vision.status())
+        if path == "/api/voice/audio":
+            audio_id=str((query.get("id") or [""])[0]).strip()
+            try:audio_id=str(uuid.UUID(audio_id))
+            except (ValueError,AttributeError):return self._json(400,{"error":"valid audio id is required"})
+            audio_path=RUNTIME_ROOT/"state"/"voice"/(audio_id+".wav")
+            if not audio_path.is_file():return self._json(404,{"error":"voice audio not found"})
+            return self._binary_nostore(200,audio_path.read_bytes(),"audio/wav")
         if path == "/api/voice/status":
             return self._json(200,_voice.status())
         if path == "/api/garuda/status":
@@ -1446,10 +1453,15 @@ class Handler(BaseHTTPRequestHandler):
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"local TTS must be requested on KRISHNA PC"})
             text_value=str(data.get("text") or "").strip()
+            language=str(data.get("language") or "or").strip().lower()
             if not text_value:return self._json(400,{"error":"text is required"})
+            if language not in {"en","hi","or"}:return self._json(400,{"error":"language must be one of: en, hi, or"})
             out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
-            out_path=out_dir/(str(uuid.uuid4())+".wav")
-            try:return self._json(200,{"output_path":_voice.tts.speak(text_value,out_path),"provider":"ai4bharat-indic-tts"})
+            audio_id=str(uuid.uuid4());out_path=out_dir/(audio_id+".wav")
+            try:
+                resolved=_voice.tts.speak(text_value,out_path,language=language)
+                return self._json(200,{"output_path":resolved,"audio_id":audio_id,"audio_url":"/api/voice/audio?id="+audio_id,
+                                       "language":language,"provider":"ai4bharat-indic-tts"})
             except (RuntimeError,ValueError) as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/voice/stt":
