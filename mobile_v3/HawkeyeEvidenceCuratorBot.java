@@ -25,7 +25,7 @@ public final class HawkeyeEvidenceCuratorBot {
   private final Context context;
   private long lastSyncMs=0L;
 
-  public HawkeyeEvidenceCuratorBot(Context context){this.context=context.getApplicationContext();}
+  public HawkeyeEvidenceCuratorBot(Context context){this.context=context.getApplicationContext();HawkeyeEdgeMemory.migrateLegacyPlaintext(this.context);}
 
   public synchronized JSONObject captureAndMaybeSync(String sessionId,byte[] jpeg,JSONObject sensors,
                                                      double quality,double novelty,String goal,Uploader uploader)throws Exception{
