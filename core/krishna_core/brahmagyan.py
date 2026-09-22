@@ -64,6 +64,7 @@ class BrahmagyanRuntime:
             "missions":{},"claims":{},"debates":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
             "created_at":time.time(),"version":self.VERSION,
         }
+        self.load_error=None
         self._load()
 
     def _load(self):
@@ -74,9 +75,15 @@ class BrahmagyanRuntime:
                 for key in ("missions","claims","debates","curiosity","shishya_archive","council_proposals"):
                     if key in raw:self.state[key]=raw[key]
         except Exception as exc:
-            self.memory.audit("brahmagyan_state","load_failed",f"{type(exc).__name__}: {exc}")
+            self.load_error=f"{type(exc).__name__}: {exc}"
+            self.memory.audit("brahmagyan_state","load_failed",self.load_error)
+
+    def _healthy(self):
+        if self.load_error:
+            raise RuntimeError("BRAHMAGYAN state is unreadable; refusing to overwrite research state: "+self.load_error)
 
     def _save(self):
+        self._healthy()
         tmp=self.path.with_suffix(".tmp")
         payload=json.dumps(self.state,ensure_ascii=False,indent=2)
         tmp.write_text(payload,encoding="utf-8")
