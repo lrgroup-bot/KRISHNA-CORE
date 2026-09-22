@@ -36,6 +36,52 @@ _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishn
 _sessions = RealtimeSessionStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _plugins = PluginRegistry(Path(settings.db_path).resolve().parent / ".krishna_state")
 _plugin_executor = PluginExecutor(_plugins, orch.secure_vault)
+
+def _plugin_add_action(payload,context):
+    row=dict(payload or {})
+    row["enabled"]=False
+    return _plugins.add(row)
+
+def _plugin_enable_action(payload,context):
+    plugin_id=str(payload.get("id") or "").strip()
+    enabled=bool(payload.get("enabled",True))
+    if enabled and not bool(context.get("approved")):
+        raise PermissionError("enabling a plugin requires explicit owner approval")
+    return _plugins.set_enabled(plugin_id,enabled)
+
+def _plugin_remove_action(payload,context):
+    if not bool(context.get("approved")):
+        raise PermissionError("removing a plugin requires explicit owner approval")
+    return {"removed":_plugins.remove(str(payload.get("id") or "").strip())}
+
+def _plugin_execute_action(payload,context):
+    operation=str(payload.get("operation") or "get").strip().lower()
+    if operation=="post" and not bool(context.get("approved")):
+        raise PermissionError("POST plugin execution requires explicit owner approval")
+    return _plugin_executor.execute(
+        str(payload.get("plugin_id") or ""),
+        str(payload.get("project") or context.get("project") or "KRISHNA"),
+        operation,payload.get("payload") or {},payload.get("auth_env"),
+    )
+
+orch.action_bus.register(
+    "plugin.add",_plugin_add_action,description="Add a disabled plugin manifest",
+    mutating=True,permissions=("plugin.write",),sources=("pc","system"),
+)
+orch.action_bus.register(
+    "plugin.enable",_plugin_enable_action,description="Enable or disable a plugin",
+    mutating=True,permissions=("plugin.write",),sources=("pc","system"),
+)
+orch.action_bus.register(
+    "plugin.remove",_plugin_remove_action,description="Remove a non-builtin plugin manifest",
+    mutating=True,permissions=("plugin.write",),sources=("pc","system"),
+)
+orch.action_bus.register(
+    "plugin.execute",_plugin_execute_action,description="Execute a bounded HTTP plugin request",
+    mutating=True,permissions=("plugin.execute","network.external"),
+    sources=("pc","system","agent","job","mcp","a2a"),
+)
+
 _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 
 def _cleanup_deleted_chat_attachments(event):
@@ -1500,15 +1546,21 @@ class Handler(BaseHTTPRequestHandler):
 
         if post_path == "/api/plugins/add":
             try:
-                return self._json(200, _plugins.add(data))
-            except ValueError as exc:
-                return self._json(400, {"error": str(exc)})
+                receipt=orch.dispatch_action("plugin.add",data,project=str(data.get("project") or "KRISHNA"),source="pc",actor="plugins-ui",permissions=("plugin.write",))
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError) as exc:
+                return self._json(403 if isinstance(exc,PermissionError) else 400,{"error":str(exc)})
 
         if post_path == "/api/plugins/enable":
             try:
-                return self._json(200, _plugins.set_enabled(str(data.get("id", "")).strip(), bool(data.get("enabled", True))))
-            except KeyError:
-                return self._json(404, {"error": "plugin not found"})
+                receipt=orch.dispatch_action(
+                    "plugin.enable",{"id":str(data.get("id") or "").strip(),"enabled":bool(data.get("enabled",True))},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="plugins-ui",
+                    approved=bool(data.get("approved",False)),permissions=("plugin.write",),
+                )
+                return self._json(200,receipt["result"])
+            except KeyError:return self._json(404,{"error":"plugin not found"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
 
         if post_path == "/api/plugins/credential":
             if self.client_address[0] not in ("127.0.0.1","::1"):
@@ -1543,9 +1595,14 @@ class Handler(BaseHTTPRequestHandler):
 
         if post_path == "/api/plugins/remove":
             try:
-                return self._json(200, {"removed": _plugins.remove(str(data.get("id", "")).strip())})
-            except PermissionError as exc:
-                return self._json(403, {"error": str(exc)})
+                receipt=orch.dispatch_action(
+                    "plugin.remove",{"id":str(data.get("id") or "").strip()},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="plugins-ui",
+                    approved=bool(data.get("approved",False)),permissions=("plugin.write",),
+                )
+                return self._json(200,receipt["result"])
+            except KeyError:return self._json(404,{"error":"plugin not found"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
 
         if post_path == "/api/chats/create":
             project=str(data.get("project","general")).strip() or "general"
@@ -1923,9 +1980,19 @@ class Handler(BaseHTTPRequestHandler):
 
         if post_path == "/api/plugins/execute":
             try:
-                return self._json(200,_plugin_executor.execute(str(data.get("plugin_id") or ""),str(data.get("project") or "KRISHNA"),str(data.get("operation") or "get"),data.get("payload") or {},data.get("auth_env")))
+                payload={
+                    "plugin_id":str(data.get("plugin_id") or ""),"project":str(data.get("project") or "KRISHNA"),
+                    "operation":str(data.get("operation") or "get"),"payload":data.get("payload") or {},
+                    "auth_env":data.get("auth_env"),
+                }
+                receipt=orch.dispatch_action(
+                    "plugin.execute",payload,project=payload["project"],source="pc",actor="plugins-ui",
+                    approved=bool(data.get("approved",False)),permissions=("plugin.execute","network.external"),
+                )
+                return self._json(200,receipt["result"])
             except KeyError:return self._json(404,{"error":"plugin not found"})
             except (ValueError,PermissionError) as exc:return self._json(403 if isinstance(exc,PermissionError) else 400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(502,{"error":str(exc)})
             except Exception as exc:return self._json(502,{"error":f"plugin request failed: {type(exc).__name__}: {exc}"})
 
         if post_path == "/api/brahmagyan/projects/add":
