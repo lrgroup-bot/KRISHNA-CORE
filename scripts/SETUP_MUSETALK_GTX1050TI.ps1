@@ -8,6 +8,16 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+function Assert-EPath([string]$Path,[string]$Label){
+  if([string]::IsNullOrWhiteSpace($Path)){throw "$Label path is empty"}
+  $full=[System.IO.Path]::GetFullPath($Path)
+  if($full -notmatch '^[Ee]:\\'){
+    throw "$Label must stay on E:. Refusing path: $full"
+  }
+  return $full
+}
+$RuntimeRoot=Assert-EPath $RuntimeRoot "KRISHNA runtime"
+
 $toolRoot = Join-Path $RuntimeRoot "tools\avatar-video\musetalk"
 $envRoot = Join-Path $RuntimeRoot "tools\avatar-video\envs\musetalk"
 $cacheRoot = Join-Path $RuntimeRoot "cache\avatar-video"
@@ -224,26 +234,6 @@ if($LASTEXITCODE -ne 0 -or (($verify | Out-String) -notmatch "MUSETALK_RUNTIME_O
   $runtimeImportOk=$true
 }
 
-$report=[ordered]@{
-  schema=1
-  generated_at=(Get-Date).ToUniversalTime().ToString("o")
-  provider="musetalk"
-  source_root=$toolRoot
-  python_root=$uvPythonRoot
-  environment_root=$envRoot
-  ffmpeg_bin=$ffmpegBin
-  gpu=$gpu
-  torch=$torchProbe
-  dependencies_import_ok=$true
-  realtime_module_import_ok=$runtimeImportOk
-  weights_installed=$weightsInstalled
-  float16_recommended=$true
-  c_drive_guard_passed=$true
-  controlled_paths=$controlledPaths
-  storage_policy="KRISHNA-controlled Python, environments, caches, models and temp files are E-drive-only"
-  hardware_profile="GTX 1050 Ti 4GB - supported as low-memory/slow path; upstream 4GB Windows benchmark used RTX 3050 Ti"
-  recommended_launch=("python app.py --use_float16 --ffmpeg_path "+$ffmpegBin)
-}
 $controlledPaths=[ordered]@{
   runtime=$RuntimeRoot
   source=$toolRoot
@@ -269,6 +259,27 @@ foreach($kv in $controlledPaths.GetEnumerator()){
 }
 if($bad.Count){throw ("KRISHNA E-drive storage guard failed: "+($bad -join "; "))}
 
+
+$report=[ordered]@{
+  schema=2
+  generated_at=(Get-Date).ToUniversalTime().ToString("o")
+  provider="musetalk"
+  source_root=$toolRoot
+  python_root=$uvPythonRoot
+  environment_root=$envRoot
+  ffmpeg_bin=$ffmpegBin
+  gpu=$gpu
+  torch=$torchProbe
+  dependencies_import_ok=$true
+  realtime_module_import_ok=$runtimeImportOk
+  weights_installed=$weightsInstalled
+  float16_recommended=$true
+  c_drive_guard_passed=$true
+  controlled_paths=$controlledPaths
+  storage_policy="KRISHNA-controlled Python, environments, caches, models and temp files are E-drive-only"
+  hardware_profile="GTX 1050 Ti 4GB - supported as low-memory/slow path; upstream 4GB Windows benchmark used RTX 3050 Ti"
+  recommended_launch=("python app.py --use_float16 --ffmpeg_path "+$ffmpegBin)
+}
 $reportPath=Join-Path $stateRoot "musetalk-runtime.json"
 $tmp=$reportPath+".tmp"
 $report | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 $tmp
