@@ -11,7 +11,7 @@ class AvatarFabric:
 
     VERSION="character-bible-v1"
     BODY=("anigen","poseforge","motius")
-    FACE=("musetalk","liveportrait","liveavatar")
+    FACE=("musetalk","liveportrait","echomimic_v3","wan_animate_2","liveavatar")
 
     VISUAL_IDENTITY={
         "priority":"face-first",
