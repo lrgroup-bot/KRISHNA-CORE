@@ -9,6 +9,7 @@ on:
       - main
       - feature/web-first-validation
       - fix/krishna-ui-runtime-verification
+      - audit/full-project-hardening-20260922
     paths:
       - 'core/**'
       - 'avatar/**'
