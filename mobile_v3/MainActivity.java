@@ -250,6 +250,11 @@ public class MainActivity extends Activity {
       try{return hawkeyeCurator.status().toString();}catch(Exception e){return error(e);}
     }
 
+    @JavascriptInterface public String hawkeyeReference(String referenceId){
+      try{return call("/api/hawkeye/reference/item?reference_id="+URLEncoder.encode(referenceId==null?"":referenceId,"UTF-8"),null);}
+      catch(Exception e){return error(e);}
+    }
+
     JSONObject uploadCuratedEvidence(JSONObject meta,byte[] payload,String contentType,String fallbackGoal)throws Exception{
       JSONObject sensors=meta.optJSONObject("sensor_context");if(sensors==null)sensors=new JSONObject();sensors=new JSONObject(sensors.toString());
       sensors.put("mobile_observation_id",meta.optString("observation_id"));sensors.put("mobile_payload_sha256",meta.optString("payload_sha256"));sensors.put("curator_selected",true);
