@@ -597,6 +597,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,status)
         if path == "/api/hawkeye/learning/missions":
             return self._json(200,{"agent":"hawkeye","missions":orch.hawkeye_learning.daily_missions()})
+        if path == "/api/hawkeye/field/maps":
+            return self._json(200,{"agent":"hawkeye","providers":orch.hawkeye_field.map_stack()})
+        if path == "/api/hawkeye/field/devices":
+            return self._json(200,{"agent":"hawkeye","devices":orch.hawkeye_field.devices()})
+        if path == "/api/hawkeye/field/sync/pending":
+            return self._json(200,{"agent":"hawkeye","items":orch.hawkeye_field.pending()})
         if path in ("/api/hawkeye/live/state", "/api/bhumiputra/live/state"):
             session_id=str((query.get("session_id") or [""])[0]).strip()
             if not session_id:return self._json(400,{"error":"session_id is required"})
