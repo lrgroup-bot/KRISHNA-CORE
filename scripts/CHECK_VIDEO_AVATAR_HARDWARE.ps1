@@ -27,11 +27,17 @@ function Test-Python310 {
       }
     }catch{}
   }
+  $managedRoot=Join-Path $RuntimeRoot "python-managed"
+  $managed=@()
+  if(Test-Path $managedRoot){
+    $managed=Get-ChildItem $managedRoot -Filter python.exe -File -Recurse -ErrorAction SilentlyContinue |
+      Select-Object -ExpandProperty FullName
+  }
   foreach($candidate in @(
+    (Join-Path $RuntimeRoot "tools\avatar-video\envs\musetalk\Scripts\python.exe"),
     (Join-Path $RuntimeRoot "python310\python.exe"),
-    (Join-Path $RuntimeRoot "tools\python310\python.exe"),
-    "C:\Python310\python.exe"
-  )){
+    (Join-Path $RuntimeRoot "tools\python310\python.exe")
+  ) + $managed){
     if(!(Test-Path $candidate)){continue}
     try{
       $v=(& $candidate -c "import sys;print(sys.version.split()[0])").Trim()
@@ -129,7 +135,8 @@ if(!$museInstalled){$museReasons+="MuseTalk source is not installed."}
 if(!$gpu.available){$museReasons+="No NVIDIA GPU detected through nvidia-smi."}
 elseif($vramGb -lt 4){$museReasons+="VRAM is below the 4 GB configuration explicitly tested upstream."}
 if(!$ffmpeg){$museReasons+="FFmpeg is not available on PATH."}
-if(!$python310.available -and !$conda){$museReasons+="Python 3.10/Conda environment creator is not available."}
+# MuseTalk setup bootstraps a managed Python 3.10 with portable uv under E:, so a
+# preinstalled Python/Conda is no longer a blocker.
 
 $liveReasons=@()
 if(!$liveInstalled){$liveReasons+="LivePortrait source is not installed."}
@@ -171,6 +178,7 @@ $report=[ordered]@{
       root=$museRoot
       commit=$museCommit
       upstream_tested_floor_vram_gb=4
+      runtime_bootstrap="portable uv installs managed Python 3.10 under E:\Krishna-The GOD"
       ready_for_runtime_setup=$museReady
       blockers=$museReasons
     }
@@ -199,7 +207,7 @@ Write-Host ("VRAM           : "+$(if($gpu.available){$vramGb.ToString()+" GB"}el
 Write-Host ("CUDA runtime   : "+$(if($gpu.cuda_runtime){$gpu.cuda_runtime}else{"not detected"}))
 Write-Host ("CUDA toolkit   : "+$(if($nvccVersion){$nvccVersion}else{"not detected"}))
 Write-Host ("FFmpeg         : "+$(if($ffmpeg){"READY"}else{"MISSING"}))
-Write-Host ("Python 3.10    : "+$(if($python310.available){"READY "+$python310.version}else{"not detected"}))
+Write-Host ("Python 3.10    : "+$(if($python310.available){"READY "+$python310.version}else{"not installed yet - MuseTalk setup will create it on E:"}))
 Write-Host ("Conda          : "+$(if($conda){"READY"}else{"not detected"}))
 Write-Host ("E: free space  : "+$(if($null -ne $freeGb){$freeGb.ToString()+" GB"}else{"unknown"}))
 Write-Host ("MuseTalk       : "+$(if($museReady){"READY FOR SETUP"}else{"BLOCKED"}))
