@@ -97,7 +97,7 @@ class Orchestrator:
         self.research = GitHubResearchAgent()
         self.garuda = GarudaAgent(self.research, self.memory)
         self.gyan_bhandar = GyanBhandarAgent(self.memory, self.garuda)
-        self.kabach = KabachAgent(self.memory)
+        self.kabach = KabachAgent(self.memory,runtime_state / "privacy",browser=self.browser,gyan_bhandar=self.gyan_bhandar)
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
@@ -118,6 +118,7 @@ class Orchestrator:
         self.protocols.bind_sudarshan(self.sudarshan)
         self.dispatcher.bind_sudarshan(self.sudarshan)
         self.agi.narad.bind_sudarshan(self.sudarshan)
+        self.kabach.bind_privacy_runtime(browser=self.browser,event_bus=self.agi.bus,gyan_bhandar=self.gyan_bhandar)
         if hasattr(self.ephemeral_workers,"bind_sudarshan"):
             self.ephemeral_workers.bind_sudarshan(self.sudarshan)
         self._verification_checks = {}
