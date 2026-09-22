@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass,asdict
 from pathlib import Path
 from urllib.parse import urlparse
-import hashlib,ipaddress,json,re,time
+import hashlib,ipaddress,json,re,socket,time
 
 from .privacy_guardian import PrivacyGuardian
 
@@ -83,11 +83,21 @@ class KabachAgent:
 
     def inspect_egress(self,url,method="GET",allowed_domains=None,payload=None):
         parsed=urlparse(str(url or "")); host=(parsed.hostname or "").lower(); evidence=[]
-        if parsed.scheme not in {"https"}: evidence.append("non_https_or_invalid")
-        try:
-            ip=ipaddress.ip_address(host)
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved: evidence.append("private_or_reserved_ip")
-        except ValueError: pass
+        if parsed.scheme not in {"https"} or not host:evidence.append("non_https_or_invalid")
+        if parsed.username or parsed.password:evidence.append("embedded_url_credentials")
+        if host in {"metadata","metadata.google.internal","instance-data","instance-data.ec2.internal"}:
+            evidence.append("cloud_metadata_target")
+        addresses=[]
+        if host:
+            try:addresses=[ipaddress.ip_address(host.strip("[]"))]
+            except ValueError:
+                try:
+                    addresses=list({ipaddress.ip_address(x[4][0].split("%",1)[0])
+                                    for x in socket.getaddrinfo(host,parsed.port or 443,type=socket.SOCK_STREAM)})
+                except OSError:evidence.append("dns_resolution_failed")
+        if any(ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or
+               ip.is_unspecified or ip.is_multicast for ip in addresses):
+            evidence.append("private_or_reserved_ip")
         allowed={x.lower().strip() for x in (allowed_domains or []) if str(x).strip()}
         if not allowed: evidence.append("egress_default_deny")
         elif host not in allowed and not any(host.endswith("."+x) for x in allowed): evidence.append("domain_not_allowlisted")
