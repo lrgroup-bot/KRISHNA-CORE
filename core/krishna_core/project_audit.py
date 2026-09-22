@@ -73,7 +73,7 @@ class KrishnaProjectAudit:
 
     def audit_repository(self):
         text_ext={".py",".ps1",".html",".js",".mjs",".java",".json",".md",".txt",".yml",".yaml",".toml"}
-        ignored_parts={".git","__pycache__",".venv","node_modules","dist","build"}
+        ignored_parts={".git","__pycache__",".venv","node_modules","dist","build","backups",".krishna_state","reports","workspace"}
         files=[]
         findings={"dangerous":[],"warnings":[],"invalid_json":[],"possible_secrets":[]}
         secret_patterns=(
