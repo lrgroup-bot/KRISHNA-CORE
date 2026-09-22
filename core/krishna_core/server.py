@@ -238,6 +238,7 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     _BUNDLE_ROOT = Path(sys._MEIPASS)
     DASHBOARD = _BUNDLE_ROOT / "dashboard.html"
     WEB_VALIDATION = _BUNDLE_ROOT / "web_validation.html"
+    DESIGN_STUDIO = _BUNDLE_ROOT / "design_studio.html"
     AVATAR_B64 = _BUNDLE_ROOT / "avatar" / "krishna_child_360.webp.b64"
     AVATAR_GLB = _BUNDLE_ROOT / "avatar" / "krishna.glb"
     AVATAR_PRODUCTION_GLB = _BUNDLE_ROOT / "avatar" / "krishna.production.glb"
@@ -247,6 +248,7 @@ else:
     _REPO_ROOT = Path(__file__).resolve().parents[2]
     DASHBOARD = _CORE_ROOT / "dashboard.html"
     WEB_VALIDATION = _CORE_ROOT / "web_validation.html"
+    DESIGN_STUDIO = _CORE_ROOT / "design_studio.html"
     AVATAR_B64 = _REPO_ROOT / "avatar" / "krishna_child_360.webp.b64"
     AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
     AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"
@@ -536,6 +538,10 @@ class Handler(BaseHTTPRequestHandler):
             if not WEB_VALIDATION.exists():
                 return self._json(404, {"error": "web validation UI unavailable"})
             return self._html(200, WEB_VALIDATION.read_text(encoding="utf-8"))
+        if path == "/design-studio":
+            if not DESIGN_STUDIO.exists():
+                return self._json(404, {"error": "design studio unavailable"})
+            return self._html(200, DESIGN_STUDIO.read_text(encoding="utf-8"))
         if path.startswith("/assets/avatar-engine/"):
             rel=path[len("/assets/avatar-engine/"):]
             asset=avatar_engine_file(rel)
@@ -697,6 +703,20 @@ class Handler(BaseHTTPRequestHandler):
             sid=(query.get("id") or [""])[0].strip()
             if not sid:return self._json(400,{"error":"id is required"})
             return self._json(200,_browser_fabric.recording(sid))
+        if path == "/api/garudanetra/element-at":
+            sid=(query.get("id") or [""])[0].strip()
+            if not sid:return self._json(400,{"error":"id is required"})
+            try:
+                x=float((query.get("x") or ["0"])[0]);y=float((query.get("y") or ["0"])[0])
+            except ValueError:return self._json(400,{"error":"x and y must be numeric"})
+            return self._json(200,_browser_fabric.element_at(sid,x,y,normalized=True))
+        if path == "/api/project-perfection/status":
+            return self._json(200,orch.project_perfection.status())
+        if path == "/api/design-studio/session":
+            sid=(query.get("id") or [""])[0].strip()
+            if not sid:return self._json(400,{"error":"id is required"})
+            try:return self._json(200,orch.project_perfection.design_get(sid))
+            except KeyError:return self._json(404,{"error":"design session not found"})
         if path == "/api/ui-guardian/registry":
             project=(query.get("project") or [None])[0]
             return self._json(200,_ui_registry.list(project))
