@@ -8,6 +8,7 @@ import android.webkit.*;
 import android.media.*;
 import android.net.Uri;
 import android.util.Base64;
+import android.location.*;
 import java.net.*;
 import java.io.*;
 import java.util.*;
@@ -47,6 +48,8 @@ public class MainActivity extends Activity {
       requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},42);
     if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)
       requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO},41);
+    if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(android.Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)
+      requestPermissions(new String[]{android.Manifest.permission.CAMERA},43);
     web=new WebView(this);
     web.getSettings().setJavaScriptEnabled(true);
     web.getSettings().setDomStorageEnabled(true);
@@ -74,6 +77,9 @@ public class MainActivity extends Activity {
           ArrayList<String> allowed=new ArrayList<>();
           if(Build.VERSION.SDK_INT<23 || checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED){
             for(String r:request.getResources()) if(PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) allowed.add(r);
+          }
+          if(Build.VERSION.SDK_INT<23 || checkSelfPermission(android.Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED){
+            for(String r:request.getResources()) if(PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) allowed.add(r);
           }
           if(allowed.isEmpty())request.deny();else request.grant(allowed.toArray(new String[0]));
         });
@@ -155,6 +161,62 @@ public class MainActivity extends Activity {
     }
     @JavascriptInterface public String state(){return call("/api/core/state",null);}
 
+    @JavascriptInterface public String hawkeyeMode(){
+      try{
+        JSONObject d=new JSONObject();
+        boolean pc=false;
+        try{JSONObject x=new JSONObject(connection());pc=!x.has("error")&&x.optBoolean("connected",false);}catch(Exception ignored){}
+        d.put("mode",pc?"HAWKEYE_LOCAL":"HAWKEYE_FIELD");
+        d.put("pc_connected",pc);
+        d.put("internet_required",false);
+        d.put("field_capture_local",true);
+        return d.toString();
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String hawkeyeOfflineFrame(String sessionId,String dataB64,String contentType,String sensorJson,String goal){
+      try{
+        File dir=new File(getFilesDir(),"hawkeye-field");if(!dir.exists()&&!dir.mkdirs())throw new IOException("cannot create Hawkeye field store");
+        String safe=(sessionId==null?"field":sessionId).replaceAll("[^A-Za-z0-9_-]","_");
+        File sd=new File(dir,safe);if(!sd.exists()&&!sd.mkdirs())throw new IOException("cannot create Hawkeye session");
+        long now=System.currentTimeMillis();
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
+        try(FileOutputStream out=new FileOutputStream(new File(sd,now+".jpg"))){out.write(bytes);}
+        JSONObject meta=new JSONObject();meta.put("timestamp_ms",now);meta.put("goal",goal==null?"":goal);
+        meta.put("content_type",contentType==null?"image/jpeg":contentType);
+        meta.put("sensor_context",new JSONObject(sensorJson==null||sensorJson.trim().isEmpty()?"{}":sensorJson));
+        try(FileOutputStream out=new FileOutputStream(new File(sd,now+".json"))){out.write(meta.toString(2).getBytes("UTF-8"));}
+        JSONObject d=new JSONObject();d.put("ok",true);d.put("mode","HAWKEYE_FIELD");d.put("stored_local",true);
+        d.put("analysis","Offline field capture saved. Core AI analysis will sync when KRISHNA is reachable; on-device model adapters can replace this capture-only fallback.");
+        return d.toString();
+      }catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String bhumiputraStart(String purpose,String sceneHint){
+      try{
+        JSONObject body=new JSONObject();
+        body.put("project","KRISHNA");
+        body.put("purpose",purpose==null||purpose.trim().isEmpty()?"live field scan":purpose.trim());
+        body.put("scene_hint",sceneHint==null||sceneHint.trim().isEmpty()?"auto":sceneHint.trim());
+        return call("/api/bhumiputra/live/start",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String bhumiputraFrame(String sessionId,String dataB64,String contentType,String sensorJson,String goal){
+      try{
+        JSONObject body=new JSONObject();
+        body.put("session_id",sessionId);
+        body.put("data_b64",dataB64);
+        body.put("content_type",contentType==null||contentType.isEmpty()?"image/jpeg":contentType);
+        body.put("goal",goal==null?"":goal);
+        JSONObject sensors=new JSONObject(sensorJson==null||sensorJson.trim().isEmpty()?"{}":sensorJson);
+        body.put("sensor_context",sensors);
+        return call("/api/bhumiputra/live/frame",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String bhumiputraState(String sessionId){
+      try{return call("/api/bhumiputra/live/state?session_id="+URLEncoder.encode(sessionId,"UTF-8"),null);}
+      catch(Exception e){return error(e);}
+    }
+
     @JavascriptInterface public String ensureChat(){
       try{
         android.content.SharedPreferences p=getSharedPreferences("k",0);
@@ -217,6 +279,22 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    boolean secureCloudUrl(String value){
+      try{
+        URI u=new URI(value);
+        return "https".equalsIgnoreCase(u.getScheme()) && u.getHost()!=null && u.getUserInfo()==null;
+      }catch(Exception ignored){return false;}
+    }
+    @JavascriptInterface public String configureCloudUrl(String value){
+      try{
+        value=value==null?"":value.trim().replaceAll("/+$","");
+        if(!value.isEmpty()&&!secureCloudUrl(value))throw new SecurityException("Cloud gateway must use HTTPS");
+        getSharedPreferences("k",0).edit().putString("cloud_url",value).apply();
+        JSONObject d=new JSONObject();d.put("ok",true);d.put("cloud_url",value);d.put("authority","KRISHNA Core");return d.toString();
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String cloudUrl(){return getSharedPreferences("k",0).getString("cloud_url","");}
+
     boolean privateCoreUrl(String value){
       try{
         URI u=new URI(value);String scheme=u.getScheme(),host=u.getHost();
@@ -257,8 +335,16 @@ public class MainActivity extends Activity {
     String coreBase()throws Exception{
       String base=getSharedPreferences("k",0).getString("core_url","").trim();
       if(base.isEmpty())base=discoverLanCore();
-      if(base.isEmpty())throw new IllegalStateException("KRISHNA Core address is not configured. Enable Mobile LAN on the PC or enter a LAN/Tailscale Core address.");
-      if(!privateCoreUrl(base))throw new SecurityException("Core URL is outside KRISHNA private-network policy");
+      if(base.isEmpty()){
+        String cloud=getSharedPreferences("k",0).getString("cloud_url","").trim();
+        if(secureCloudUrl(cloud))return cloud.replaceAll("/+$","");
+        throw new IllegalStateException("KRISHNA Core is unreachable and no HTTPS cloud gateway is configured.");
+      }
+      if(!privateCoreUrl(base)){
+        String cloud=getSharedPreferences("k",0).getString("cloud_url","").trim();
+        if(secureCloudUrl(cloud))return cloud.replaceAll("/+$","");
+        throw new SecurityException("Core URL is outside KRISHNA private-network policy");
+      }
       return base.replaceAll("/+$","");
     }
     @JavascriptInterface public String configureCoreUrl(String value){
