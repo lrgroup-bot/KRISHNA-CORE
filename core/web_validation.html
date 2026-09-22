@@ -1023,6 +1023,59 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 @media(max-width:1250px){.agentName{display:none}.agentChip{min-width:44px;grid-template-columns:24px 7px;padding:5px 6px}.opsVitals em{display:none!important}.krishnaPopup{width:min(380px,calc(100vw - var(--rail) - 30px));right:15px}}
 @media(max-width:900px){.opsVitals{display:none}.agentRail{justify-content:flex-start}.krishnaPopup{left:84px;right:10px;width:auto;top:80px;bottom:10px}.krishnaPopupLauncher{right:14px;bottom:14px}}
 </style>
+<style id="krishna-ui-v7">
+/* KRISHNA UI v7 — owner surface: KRISHNA + Sudarshan + Plugins only. Internal agents remain behind KRISHNA. */
+.agentRail,#opsEye{display:none!important}
+.opsInformer{
+  top:12px!important;left:18px!important;right:auto!important;
+  width:min(760px,calc(100% - 36px))!important;min-height:50px!important;
+  padding:8px 12px!important;justify-content:flex-start!important;
+  border-radius:14px!important;
+}
+.opsVitals{width:100%;display:grid!important;grid-template-columns:1fr 1.45fr 1fr;gap:12px!important}
+.opsVitals span{min-width:0}.opsVitals em{max-width:190px!important}
+.main>.view{padding-top:68px!important}
+#home .panelInner{padding:0!important}
+#home .holoStage{
+  height:calc(100dvh - 68px)!important;min-height:0!important;
+  display:grid!important;place-items:center!important;overflow:hidden!important;
+}
+#home .holoCore{
+  width:min(52vw,700px)!important;height:min(68dvh,620px)!important;
+  transform:none!important;animation:none!important;filter:none!important;
+}
+#home .holoOrb{display:none!important}
+#home .holoRing{opacity:.34!important;box-shadow:0 0 28px rgba(87,216,239,.10)!important}
+#home .holoRing.r2{border-color:rgba(229,189,103,.38)!important}
+#home .krishnaAvatar{
+  left:50%!important;top:50%!important;
+  width:min(42vw,560px)!important;height:min(72dvh,660px)!important;
+  transform:translate(-50%,-50%)!important;z-index:12!important;
+  overflow:visible!important;
+}
+.krishnaLiveAvatar,.krishnaAvatar model-viewer{
+  width:100%!important;height:100%!important;display:block!important;
+  background:transparent!important;overflow:visible!important;
+}
+.krishnaLiveAvatar canvas{width:100%!important;height:100%!important;display:block!important}
+.avatarFallback{overflow:visible!important}
+.avatarFallback img{max-width:94%!important;max-height:92%!important;object-fit:contain!important;object-position:center center!important}
+#avatarPerformanceState{color:#e8c879}
+@media(max-width:1100px){
+  .opsInformer{width:calc(100% - 36px)!important}
+  .opsVitals{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #home .holoCore{width:min(72vw,640px)!important}
+  #home .krishnaAvatar{width:min(58vw,500px)!important}
+}
+@media(max-width:820px){
+  .opsInformer{left:8px!important;top:8px!important;width:calc(100% - 16px)!important;min-height:46px!important}
+  .opsVitals{grid-template-columns:1fr 1fr}.opsVitals span:nth-child(3){display:none}
+  .main>.view{padding-top:62px!important}
+  #home .holoStage{height:calc(100dvh - 62px)!important}
+  #home .holoCore{width:min(92vw,520px)!important;height:min(64dvh,540px)!important}
+  #home .krishnaAvatar{width:min(86vw,440px)!important;height:min(70dvh,590px)!important}
+}
+</style>
 <script type="importmap">
 {"imports":{"three":"/assets/avatar-engine/three/build/three.module.js","three/addons/":"/assets/avatar-engine/three/examples/jsm/","talkinghead":"/assets/avatar-engine/talkinghead/talkinghead.mjs"}}
 </script>
@@ -1054,21 +1107,12 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 <div id="chatProjectLabel" hidden>KRISHNA</div>
 <div class="sideFoot"><div><span id="dot" class="statusDot"></span><span id="sideStatus" class="txt">Checking Core</span></div></div></aside>
 <main class="main">
-<div id="opsInformer" class="opsInformer">
+<div id="opsInformer" class="opsInformer" aria-label="KRISHNA runtime status">
   <div class="opsVitals">
     <span><b>ACTIVE WORK</b> <i id="opsWorkDot" class="opsDot idle"></i><em id="opsWorkText">Idle</em></span>
     <span><b>VERIFICATION</b> <i id="opsVerifyDot" class="opsDot idle"></i><em id="opsVerifyText">Ready</em></span>
     <span><b>SYSTEM LOAD</b> <i id="opsLoadDot" class="opsDot idle"></i><em id="opsLoadText">—</em></span>
   </div>
-  <div id="agentRail" class="agentRail" aria-label="KRISHNA internal agents">
-    <button id="agentGaruda" class="agentChip idle" type="button" onclick="showView('garuda')" title="Garuda · Idle"><span class="agentLogo">🦅</span><span class="agentName">GARUDA</span><i></i></button>
-    <button id="agentKabach" class="agentChip idle" type="button" onclick="showView('kabach')" title="KABACH · Idle"><span class="agentLogo">🛡</span><span class="agentName">KABACH</span><i></i></button>
-    <button id="agentGarudanetra" class="agentChip idle" type="button" onclick="toggleLiveWork(true)" title="Garudanetra · Idle"><span class="agentLogo">👁</span><span class="agentName">GARUDANETRA</span><i></i></button>
-    <button id="agentNarad" class="agentChip idle" type="button" onclick="showView('narad')" title="NARAD · Idle"><span class="agentLogo">🪕</span><span class="agentName">NARAD</span><i></i></button>
-    <button id="agentBrahmagyan" class="agentChip idle" type="button" onclick="showView('brahmagyan')" title="BRAHMAGYAN · Idle"><span class="agentLogo">ॐ</span><span class="agentName">BRAHMAGYAN</span><i></i></button>
-    <button id="agentGyan" class="agentChip idle" type="button" onclick="showView('gyan')" title="Gyan-Bhandar · Idle"><span class="agentLogo">🧠</span><span class="agentName">GYAN-BHANDAR</span><i></i></button>
-  </div>
-  <button id="opsEye" type="button" onclick="toggleLiveWork()">👁 GARUDANETRA</button>
 </div>
 <div id="liveWork" class="liveWork" hidden>
  <div class="liveHead"><div><strong>👁 GARUDANETRA · <span id="liveMode">PRIVATE</span></strong><small id="liveState">READY</small></div>
@@ -1287,7 +1331,7 @@ async function refreshAgentRail(){
  ];
  await Promise.all(checks.map(async([id,url,judge])=>{try{const d=await req(url);const [state,detail]=judge(d);setAgentChip(id,state,detail)}catch(e){setAgentChip(id,'attention','Unavailable')}}));
 }
-setInterval(refreshAgentRail,4000);setTimeout(refreshAgentRail,650);
+// Internal agents are supervised by KRISHNA's backend; no owner-facing agent rail polling.
 
 function filterSidebarChats(){
  const q=String($('chatSearch')?.value||'').trim().toLowerCase();
@@ -1627,6 +1671,40 @@ async function applyKrishnaAvatarMotion(state){
   if(engine&&spec.action)engine.play(spec.action).catch(()=>{});
  }catch(e){console.warn('KRISHNA state motion',next,e)}
 }
+async function fitKrishnaAvatar(head){
+ try{
+  const THREE=await import('three');
+  const root=head?.armature||head?.scene;
+  if(!root||!head?.camera||!head?.setView)throw new Error('avatar scene unavailable');
+  root.updateWorldMatrix?.(true,true);head.scene?.updateMatrixWorld?.(true);
+  const box=new THREE.Box3().setFromObject(root,true);
+  if(box.isEmpty())throw new Error('avatar bounds unavailable');
+  const size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
+  if(![size.x,size.y,size.z,center.x,center.y,center.z].every(Number.isFinite)||size.y<=0)throw new Error('invalid avatar bounds');
+  const fov=Math.max(1,Number(head.camera.fov)||10)*Math.PI/180;
+  const tan=Math.max(.01,Math.tan(fov/2));
+  const w=Math.max(1,Number(head.nodeAvatar?.clientWidth)||1),h=Math.max(1,Number(head.nodeAvatar?.clientHeight)||1);
+  const aspect=Math.max(.35,w/h);
+  const distance=Math.max(2.4,(size.y*1.18)/(2*tan),(size.x*1.18)/(2*tan*aspect));
+  const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
+  const cameraY=clamp(1-(center.y/(tan*distance)),-4,4);
+  const cameraX=clamp(-(center.x/(tan*distance)),-4,4);
+  head.setView('full',{cameraDistance:distance-12,cameraX,cameraY});
+  if(head.controlsEnd&&head.cameraEnd&&Number.isFinite(center.z)){
+   head.controlsEnd.z=center.z;
+   head.cameraEnd.z=center.z+distance;
+  }
+  head.onResize?.();
+  const framing={bounds:{width:size.x,height:size.y,depth:size.z},center:{x:center.x,y:center.y,z:center.z},distance,cameraX,cameraY};
+  window.krishnaAvatarFraming=framing;
+  return framing;
+ }catch(e){
+  console.warn('KRISHNA automatic avatar framing fallback',e);
+  try{head?.setView?.('full',{cameraDistance:-1.5,cameraY:.35})}catch(_){}
+  window.krishnaAvatarFraming={fallback:true,error:String(e?.message||e)};
+  return window.krishnaAvatarFraming;
+ }
+}
 async function initAvatar(){
  const live=$('krishnaLiveAvatar'),viewer=$('krishnaModel'),fallback=$('avatarFallback'),status=$('avatarStatus');
  const avatar=viewer; // compatibility name retained by the canonical local-avatar contract
@@ -1651,7 +1729,9 @@ async function initAvatar(){
       update:dt=>{for(const fn of (window.krishnaAvatarUpdaters||[])){try{fn(dt)}catch(e){}}}
     });
     await head.showAvatar({url:'/api/avatar.glb',body:'M',avatarMood:'neutral'});
+    const framing=await fitKrishnaAvatar(head);
     window.krishnaTalkingHead=head;
+    live.dataset.framing=framing?.fallback?'fallback':'bounds-fit';
     const motion=await installKrishnaMotionRuntime(head,a);
     const audio=await installKrishnaAudioLipSync(head,a);
     live.dataset.engine='talkinghead';
