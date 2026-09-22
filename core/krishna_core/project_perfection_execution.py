@@ -233,6 +233,12 @@ class DesignStudio:
         safe=re.sub(r"(?is)<script[^>]*>.*?</script>","",str(html or ""))
         safe=re.sub(r"(?i)\son[a-z]+\s*=\s*(['\"]).*?\1","",safe)
         safe=re.sub(r"(?i)javascript\s*:","",safe)
+        csp='<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:; font-src data:; form-action \'none\'; base-uri \'none\'">'
+        if "<head" in safe.lower():
+            pos=safe.lower().find(">",safe.lower().find("<head"))
+            safe=safe[:pos+1]+csp+safe[pos+1:]
+        else:
+            safe=csp+safe
         path=preview_root/f"{token}.html";path.write_text(safe,encoding="utf-8")
         return {"token":token,"path":str(path),"preview_url":f"/api/design-studio/preview?id={token}"}
 
