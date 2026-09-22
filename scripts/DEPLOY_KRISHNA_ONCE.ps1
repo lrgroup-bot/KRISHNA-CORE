@@ -61,6 +61,11 @@ $xd=@();foreach($d in $excludeDirs){$xd+=@("/XD",(Join-Path $Runtime $d))}
 & robocopy "$Source\core" "$Runtime\core" /E /R:1 /W:1 /XF "*.pyc" @xd
 if($LASTEXITCODE -ge 8){throw "CORE COPY FAILED: robocopy=$LASTEXITCODE"}
 
+# The old standalone dashboard is source-owned legacy UI, not runtime state.
+# Remove it explicitly so an obsolete shell cannot be opened from the runtime.
+$legacyDashboard=Join-Path $Runtime "core\dashboard.html"
+if(Test-Path $legacyDashboard){Remove-Item -Force $legacyDashboard}
+
 New-Item -ItemType Directory -Force "$Runtime\scripts"|Out-Null
 & robocopy "$Source\scripts" "$Runtime\scripts" /E /R:1 /W:1 /XF "*.pyc"
 if($LASTEXITCODE -ge 8){throw "SCRIPT COPY FAILED: robocopy=$LASTEXITCODE"}
@@ -132,7 +137,6 @@ $tracked=@()
 $tracked+=Get-ChildItem "$Runtime\core\krishna_core" -File -Recurse -Filter "*.py" -ErrorAction SilentlyContinue
 foreach($p in @(
   "$Runtime\core\web_validation.html",
-  "$Runtime\core\dashboard.html",
   "$Runtime\avatar\krishna_child_360.webp.b64"
 )){
   if(Test-Path $p){$tracked+=Get-Item $p}
