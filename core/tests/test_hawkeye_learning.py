@@ -13,9 +13,10 @@ class HawkeyeLearningRuntimeTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_daily_missions_cover_five_specialists(self):
+    def test_daily_missions_cover_all_specialists(self):
         missions = self.runtime.daily_missions()
         self.assertEqual({m["specialist"] for m in missions}, set(self.runtime.SPECIALISTS))
+        self.assertIn("diagnostic", self.runtime.SPECIALISTS)
         self.assertTrue(all("do not modify production code" in " ".join(m["rules"]) for m in missions))
 
     def test_finding_requires_provenance(self):
