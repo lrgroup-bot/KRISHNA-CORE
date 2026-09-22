@@ -1066,6 +1066,24 @@ class Orchestrator:
     def job_runtime_status(self):
         return self.jobs.status()
 
+    def mission_status(self):
+        return self.missions.status()
+
+    def queue_status(self):
+        return self.queue.status()
+
+    def resource_lock_status(self):
+        return self.resource_locks.status()
+
+    def lifecycle_event_status(self):
+        return self.lifecycle_bus.status()
+
+    def model_provider_status(self):
+        return self.model_providers.status()
+
+    def krishna_protocol_status(self):
+        return self.protocol.status()
+
     def permission_runtime_status(self):
         return self.permissions.status()
 
@@ -1082,10 +1100,13 @@ class Orchestrator:
         return self.action_bus.rollback(action_id,source=source,actor=actor,approved=approved)
 
     def close(self):
-        """Release every database owned by this runtime, including commitments."""
-        self.commitments.close()
-        self.task_ledger.close()
-        self.memory.close()
+        """Release every database owned by this runtime, including durable mission state."""
+        for obj in (
+            self.resource_locks,self.queue,self.mission_budgets,self.missions,self.lifecycle_bus,
+            self.commitments,self.task_ledger,self.memory,
+        ):
+            try:obj.close()
+            except Exception:pass
 
     def _restore_projects(self):
         for item in self.memory.projects():
