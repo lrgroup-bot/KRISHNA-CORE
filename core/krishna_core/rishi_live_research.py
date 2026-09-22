@@ -564,6 +564,7 @@ Return strict JSON:
         max_perspectives=4,
         max_claims=5,
         auto_propose=True,
+        preferred_rishis=None,
     ):
         source_limit = max(2, min(int(source_limit), 12))
         max_perspectives = max(2, min(int(max_perspectives), 6))
@@ -584,7 +585,9 @@ Return strict JSON:
         rid = run["run_id"]
 
         try:
-            perspectives = self.brahmagyan.perspective_plan(mission["mission_id"], max_perspectives)
+            perspectives = self.brahmagyan.perspective_plan(
+                mission["mission_id"], max_perspectives, preferred_rishis=preferred_rishis,
+            )
             self._checkpoint(rid, "scope", details={"perspectives": len(perspectives["perspectives"])})
             self.brahmagyan.advance_phase(mission["mission_id"], "literature", [{"kind": "perspective_plan"}])
 
