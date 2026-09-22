@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
+import hashlib
 import json
 import math
 import time
@@ -81,6 +82,15 @@ class BhumiputraAgent:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.surveys_dir = self.state_dir / "surveys"
         self.surveys_dir.mkdir(parents=True, exist_ok=True)
+        self.evidence_dir = self.state_dir / "mobile-evidence"
+        self.evidence_dir.mkdir(parents=True, exist_ok=True)
+        self.evidence_cipher = None
+        self.require_evidence_encryption = False
+
+    def bind_evidence_cipher(self, cipher, *, require_encryption=False):
+        self.evidence_cipher = cipher
+        self.require_evidence_encryption = bool(require_encryption)
+        return {"bound": cipher is not None, "available": bool(getattr(cipher, "available", False)), "required": self.require_evidence_encryption}
 
     @staticmethod
     def _point(value) -> GeoPoint:
@@ -260,6 +270,117 @@ class BhumiputraAgent:
             raise KeyError(f"live session not found: {session_id}")
         return json.loads(path.read_text(encoding="utf-8"))
 
+    def store_mobile_evidence(self, session_id: str, raw: bytes, content_type="image/jpeg", sensor_context=None):
+        """Persist only curator-selected mobile evidence before the phone deletes its copy.
+
+        Storage is content-addressed per session, bounded, and deduplicated. This method
+        does not perform model inference and therefore does not add compute load.
+        """
+        if not raw:
+            raise ValueError("mobile evidence is empty")
+        kind = str(content_type or "application/octet-stream").split(";", 1)[0].strip().lower()
+        limits = {"image": 2 * 1024 * 1024, "audio": 1024 * 1024, "video": 4 * 1024 * 1024}
+        modality = kind.split("/", 1)[0] if "/" in kind else "unknown"
+        if modality not in limits:
+            raise ValueError("unsupported mobile evidence content type")
+        if len(raw) > limits[modality]:
+            raise ValueError(f"curated {modality} evidence exceeds bounded size")
+        suffix = {
+            "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
+            "audio/webm": ".audio.webm", "audio/mp4": ".audio.mp4", "audio/ogg": ".audio.ogg",
+            "video/webm": ".video.webm", "video/mp4": ".video.mp4",
+        }.get(kind)
+        if not suffix:
+            raise ValueError("unsupported mobile evidence media type")
+        safe_session = "".join(ch for ch in str(session_id or "") if ch.isalnum() or ch in "-_")
+        if not safe_session:
+            raise ValueError("invalid session_id")
+        digest = hashlib.sha256(raw).hexdigest()
+        evidence_id = f"{safe_session}-{digest[:20]}"
+        encrypted = bool(self.evidence_cipher is not None and getattr(self.evidence_cipher, "available", False))
+        if self.require_evidence_encryption and not encrypted:
+            raise RuntimeError("Hawkeye PC evidence encryption is required but unavailable")
+        payload_path = self.evidence_dir / (f"{evidence_id}.payload.enc" if encrypted else f"{evidence_id}{suffix}")
+        meta = self.evidence_dir / f"{evidence_id}.json"
+        deduplicated = payload_path.exists() and meta.exists()
+        if not payload_path.exists():
+            if encrypted:
+                aad=f"hawkeye:{evidence_id}".encode("utf-8")
+                envelope=self.evidence_cipher.encrypt(raw,aad)
+                payload_path.write_text(json.dumps(envelope,separators=(",",":")),encoding="utf-8")
+            else:
+                payload_path.write_bytes(raw)
+        record = {
+            "evidence_id": evidence_id,
+            "session_id": safe_session,
+            "sha256": digest,
+            "bytes": len(raw),
+            "content_type": kind,
+            "modality": modality,
+            "source": "hawkeye-mobile-curator",
+            "sensor_context": dict(sensor_context or {}),
+            "received_at": time.time(),
+            "retained_pc": True,
+            "raw_cloud_upload": False,
+            "encrypted_at_rest": encrypted,
+            "encryption": "AES-256-GCM + Windows-DPAPI" if encrypted else "test-platform-plaintext-fallback",
+            "payload_file": payload_path.name,
+        }
+        meta.write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
+        pruned = self._prune_mobile_evidence(max_items=64, max_bytes=192 * 1024 * 1024)
+        return {
+            "evidence_id": evidence_id,
+            "sha256": digest,
+            "bytes": len(raw),
+            "content_type": kind,
+            "modality": modality,
+            "retained_pc": True,
+            "deduplicated": deduplicated,
+            "encrypted_at_rest": encrypted,
+            "storage_policy": {"max_items": 64, "max_bytes": 192 * 1024 * 1024},
+            "pruned": pruned,
+        }
+
+    def _prune_mobile_evidence(self, *, max_items: int, max_bytes: int):
+        rows = sorted(self.evidence_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
+        def pair_bytes(meta_path):
+            total = meta_path.stat().st_size if meta_path.exists() else 0
+            stem = meta_path.stem
+            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4", ".payload.enc"):
+                image = self.evidence_dir / f"{stem}{ext}"
+                if image.exists():
+                    total += image.stat().st_size
+            return total
+        total = sum(pair_bytes(x) for x in rows)
+        deleted = 0
+        while rows and (len(rows) > max(1, int(max_items)) or total > max(8 * 1024 * 1024, int(max_bytes))):
+            old = rows.pop(0)
+            removed = pair_bytes(old)
+            stem = old.stem
+            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4", ".payload.enc"):
+                image = self.evidence_dir / f"{stem}{ext}"
+                if image.exists():
+                    image.unlink()
+            if old.exists():
+                old.unlink()
+            total = max(0, total - removed)
+            deleted += 1
+        return deleted
+
+    def mobile_evidence_status(self):
+        rows = list(self.evidence_dir.glob("*.json"))
+        total = 0
+        for meta in rows:
+            total += meta.stat().st_size
+            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4", ".payload.enc"):
+                image = self.evidence_dir / f"{meta.stem}{ext}"
+                if image.exists():
+                    total += image.stat().st_size
+        return {"items": len(rows), "bytes": total, "max_items": 64, "max_bytes": 192 * 1024 * 1024,
+                "encryption_bound": self.evidence_cipher is not None,
+                "encryption_available": bool(getattr(self.evidence_cipher, "available", False)) if self.evidence_cipher is not None else False,
+                "encryption_required": self.require_evidence_encryption}
+
     def _survey_path(self, survey_id: str) -> Path:
         safe = "".join(ch for ch in str(survey_id) if ch.isalnum() or ch in "-_")
         if not safe:
@@ -351,6 +472,7 @@ class BhumiputraAgent:
             "state_dir": str(self.state_dir),
             "survey_count": len(surveys),
             "live_sessions": len(list(self.state_dir.glob("live-*.json"))),
+            "mobile_evidence": self.mobile_evidence_status(),
             "scene_modes": sorted(self.SCENE_MODES),
             "structural_truth_policy": dict(self.STRUCTURAL_TRUTH_POLICY),
             "heavy_pipeline": list(self.HEAVY_PIPELINE),

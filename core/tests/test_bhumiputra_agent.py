@@ -62,6 +62,44 @@ class BhumiputraAgentTests(unittest.TestCase):
         self.assertEqual(receipt["frame_count"], 1)
         self.assertIn("foundation", receipt["truth_policy"])
 
+    def test_curated_mobile_evidence_is_bounded_and_deduplicated(self):
+        session = self.agent.start_live_session(project="KRISHNA", purpose="diagnose PCB")
+        raw = b"curated-jpeg-evidence"
+        sensors = {"curator_selected": True, "mobile_observation_id": "HAW-1"}
+        first = self.agent.store_mobile_evidence(session["session_id"], raw, "image/jpeg", sensors)
+        second = self.agent.store_mobile_evidence(session["session_id"], raw, "image/jpeg", sensors)
+        self.assertTrue(first["retained_pc"])
+        self.assertFalse(first["deduplicated"])
+        self.assertTrue(second["deduplicated"])
+        self.assertEqual(first["sha256"], second["sha256"])
+        status = self.agent.mobile_evidence_status()
+        self.assertEqual(status["items"], 1)
+        self.assertLessEqual(status["max_items"], 64)
+        self.assertLessEqual(status["max_bytes"], 192 * 1024 * 1024)
+
+    def test_curated_audio_and_video_are_bounded(self):
+        session=self.agent.start_live_session(project="KRISHNA",purpose="diagnose bearing noise")
+        audio=self.agent.store_mobile_evidence(session["session_id"],b"a"*1024,"audio/webm",{"curator_selected":True})
+        video=self.agent.store_mobile_evidence(session["session_id"],b"v"*2048,"video/webm",{"curator_selected":True})
+        self.assertEqual(audio["modality"],"audio")
+        self.assertEqual(video["modality"],"video")
+        self.assertTrue(audio["retained_pc"])
+        self.assertTrue(video["retained_pc"])
+        with self.assertRaises(ValueError):
+            self.agent.store_mobile_evidence(session["session_id"],b"x"*(1024*1024+1),"audio/webm",{})
+
+    def test_pc_evidence_can_be_encrypted_fail_closed(self):
+        class FakeCipher:
+            available=True
+            def encrypt(self,data,aad=b""):
+                return {"schema":1,"alg":"AES-256-GCM","ciphertext_b64":"TEST","aad":aad.decode("utf-8")}
+        self.agent.bind_evidence_cipher(FakeCipher(),require_encryption=True)
+        session=self.agent.start_live_session(project="KRISHNA",purpose="diagnose PCB")
+        out=self.agent.store_mobile_evidence(session["session_id"],b"secret-image","image/jpeg",{"curator_selected":True})
+        self.assertTrue(out["encrypted_at_rest"])
+        self.assertTrue(any(self.agent.evidence_dir.glob("*.payload.enc")))
+        self.assertFalse(any(self.agent.evidence_dir.glob("*.jpg")))
+
     def test_degenerate_boundary_rejected(self):
         with self.assertRaises(ValueError):
             self.agent.boundary_metrics([
