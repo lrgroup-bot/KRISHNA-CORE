@@ -32,7 +32,7 @@ class HawkeyeDiagnosticRuntimeTests(unittest.TestCase):
     def test_reference_aligned_mode(self):
         raw = '{"device_type":"PCB","analysis":"Boardview aligned","confidence":0.9,"evidence_state":"OBSERVED","components":[],"flows":[],"test_points":[],"warnings":[],"needs_reference":false,"reference_type":"boardview"}'
         out = self.runtime.record_model_result("s2", raw, sensor_context={"boardview_verified": True})
-        self.assertEqual(out["diagram_mode"], "reference-aligned")
+        self.assertEqual(out["diagram_mode"], "reference-context")
         self.assertFalse(out["needs_reference"])
 
     def test_bbox_and_invalid_flow(self):
