@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass, field
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 import json
 import importlib.util
 import shutil
@@ -54,17 +55,26 @@ class RouteStateGraph:
 
 
 class RegressionGenerator:
-    """Generate stable Playwright regression source from discovered public routes."""
+    """Generate portable Playwright regression source from discovered route nodes."""
+
+    @staticmethod
+    def _route(url: str) -> str:
+        p=urlparse(str(url or ""))
+        route=p.path or "/"
+        if p.query:route+="?"+p.query
+        return route
 
     def generate(self, project: str, graph: dict[str, Any]) -> str:
-        routes=sorted({x["url"] for x in graph.get("nodes") or [] if str(x.get("url") or "").startswith(("http://","https://"))})
+        routes=sorted({self._route(x["url"]) for x in graph.get("nodes") or [] if str(x.get("url") or "").startswith(("http://","https://"))})
         lines=["import { test, expect } from '@playwright/test';","",
+               "const baseURL = process.env.KRISHNA_BASE_URL;",
+               "if (!baseURL) throw new Error('KRISHNA_BASE_URL is required for generated regressions');","",
                f"test.describe({json.dumps('KRISHNA generated regression: '+project)}, () => {{"]
-        for i,url in enumerate(routes):
+        for i,route in enumerate(routes):
             lines += [f"  test('route {i+1}', async ({{ page }}) => {{",
                       f"    const errors: string[] = [];",
                       "    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });",
-                      f"    await page.goto({json.dumps(url)}, {{ waitUntil: 'domcontentloaded' }});",
+                      f"    await page.goto(new URL({json.dumps(route)}, baseURL).toString(), {{ waitUntil: 'domcontentloaded' }});",
                       "    await expect(page.locator('body')).toBeVisible();",
                       "    expect(errors).toEqual([]);",
                       "  });"]
