@@ -33,8 +33,13 @@ class PromotionManager:
     def promote(self,project,live_root,candidate_root,verify):
         live=Path(live_root).resolve(); candidate=Path(candidate_root).resolve(); delta=self.diff(live,candidate)
         if not delta["file_count"]: return {"status":"no_changes","promoted":False,"rolled_back":False,"diff":delta}
-        txid=str(uuid.uuid4()); backup=self.backup_root/project/txid; backup.mkdir(parents=True,exist_ok=False)
-        (backup/"manifest.json").write_text(json.dumps({"transaction_id":txid,"project":project,"live_root":str(live),"created_at":time.time(),"diff":delta},indent=2),encoding="utf-8")
+        txid=str(uuid.uuid4())
+        project_key=hashlib.sha256(str(project or "KRISHNA").encode("utf-8")).hexdigest()[:24]
+        backup=(self.backup_root/project_key/txid).resolve()
+        try:backup.relative_to(self.backup_root)
+        except ValueError as exc:raise ValueError("promotion backup path escaped backup root") from exc
+        backup.mkdir(parents=True,exist_ok=False)
+        (backup/"manifest.json").write_text(json.dumps({"transaction_id":txid,"project":str(project),"project_key":project_key,"live_root":str(live),"created_at":time.time(),"diff":delta},indent=2),encoding="utf-8")
         for rel in delta["changed"]+delta["removed"]:
             src=live/rel; dst=backup/"files"/rel; dst.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(src,dst)
         try:
