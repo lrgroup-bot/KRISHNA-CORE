@@ -1335,6 +1335,43 @@ function renderGyanApproval(x){if(!x||!x.approval_id)return;const box=$('gyanPen
 async function decideGyan(id,approved){try{const d=await req('/api/gyan-bhandar/decide',{approval_id:id,approved});$('gyanPending').innerHTML='<div class="card"><div class="v">'+(d.stored?'Saved to Gyan-Bhandar.':'Finding was not stored.')+'</div></div>';if(d.stored){await loadGyan();await loadGyanInventory()}}catch(e){log(e.message)}}
 async function loadGyanPending(){try{const p=$('project').value||'KRISHNA';const d=await req('/api/gyan-bhandar/pending?project='+encodeURIComponent(p));const rows=d.pending||[];if(rows.length)renderGyanApproval(rows[0]);else $('gyanPending').innerHTML=''}catch(e){log(e.message)}}
 
+function closeProjectActionMenu(){
+ const menu=$('krishnaProjectMenu');if(!menu)return;menu.hidden=true;
+ document.querySelectorAll('.projectBranchMore[aria-expanded="true"]').forEach(x=>x.setAttribute('aria-expanded','false'));
+ projectMenuContext=null;
+}
+function openProjectActionMenu(event,project){
+ event.preventDefault();event.stopPropagation();closeChatActionMenu();closeProjectActionMenu();
+ const menu=$('krishnaProjectMenu');if(!menu)return;
+ projectMenuContext={project,button:event.currentTarget};event.currentTarget.setAttribute('aria-expanded','true');
+ positionChatMenu(menu,event.currentTarget);menu.querySelector('button')?.focus({preventScroll:true});
+}
+async function refreshSidebarData(){
+ const p=await req('/api/projects');projects=p.projects||[];syncProjects();await renderSidebarProjectTree();await loadGeneralChats();
+}
+async function executeProjectMenuAction(action){
+ const ctx=projectMenuContext;if(!ctx)return;const p=ctx.project,key=p.name,label=projectLabel(key);closeProjectActionMenu();
+ try{
+  if(action==='rename'){
+   const display=await askText('Rename project:',label);if(!display||!display.trim())return;
+   await actionReq('project.rename',{name:key,display_name:display.trim()},{project:key});
+   await refreshSidebarData();return;
+  }
+  if(action==='share'){
+   const url=location.origin+location.pathname+'?project='+encodeURIComponent(key);
+   try{await navigator.clipboard.writeText(url);log('Project link copied.')}catch(_){await askText('Copy project link:',url)}
+   return;
+  }
+  if(action==='delete'){
+   const ok=await confirmAction('Delete project "'+label+'"? Its chats will be moved back to CHATS; project files are not deleted.');
+   if(!ok)return;
+   const out=await actionReq('project.unregister',{name:key},{project:key,approved:true});
+   expandedProjects.delete(key);saveExpandedProjects();if(($('project')?.value||'KRISHNA')===key)setProjectContext('KRISHNA');
+   await refreshSidebarData();log('Project removed. '+String(out.moved_chats_to_global||0)+' chat(s) moved to CHATS.');return;
+  }
+ }catch(err){log('Project action failed: '+err.message)}
+}
+
 let chatMenuContext=null;
 const pinnedChats=new Set(
     JSON.parse(localStorage.getItem('krishnaPinnedChats')||'[]')
@@ -1425,7 +1462,8 @@ async function executeChatMenuAction(action){
                 pinnedChats.add(ch.chat_id);
 
             savePinnedChats();
-            await loadChats();
+            await renderSidebarProjectTree();
+            await loadGeneralChats();
             return;
         }
 
@@ -1488,6 +1526,18 @@ document.addEventListener('keydown',e=>{
 
 window.addEventListener('resize',closeChatActionMenu);
 window.addEventListener('scroll',closeChatActionMenu,true);
+
+document.addEventListener('click',e=>{
+    const menu=$('krishnaProjectMenu');
+    if(menu && !menu.hidden && !menu.contains(e.target) && !e.target.closest('.projectBranchMore'))closeProjectActionMenu();
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeProjectActionMenu()});
+window.addEventListener('resize',closeProjectActionMenu);
+window.addEventListener('scroll',closeProjectActionMenu,true);
+document.addEventListener('click',e=>{
+    const action=e.target.closest('[data-project-action]');if(!action)return;
+    e.preventDefault();e.stopPropagation();executeProjectMenuAction(action.dataset.projectAction);
+});
 
 document.addEventListener('click',e=>{
     const action=e.target.closest('[data-chat-action]');
@@ -1846,6 +1896,17 @@ function avatarState(state){
  const label=$('avatarPerformanceState');if(label)label.textContent=next;
 }
 </script>
+<div id="krishnaProjectMenu"
+     class="krishnaChatMenu krishnaProjectMenu"
+     role="menu"
+     aria-label="Project actions"
+     hidden>
+    <button type="button" role="menuitem" data-project-action="rename"><span class="menuIcon">✎</span><span>Rename</span></button>
+    <button type="button" role="menuitem" data-project-action="share"><span class="menuIcon">↗</span><span>Share</span></button>
+    <div class="menuSep"></div>
+    <button type="button" role="menuitem" class="menuDanger" data-project-action="delete"><span class="menuIcon">×</span><span>Delete</span></button>
+</div>
+
 <div id="krishnaChatMenu"
      class="krishnaChatMenu"
      role="menu"
