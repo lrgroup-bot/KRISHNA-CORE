@@ -717,6 +717,11 @@ class Handler(BaseHTTPRequestHandler):
             if not sid:return self._json(400,{"error":"id is required"})
             try:return self._json(200,orch.project_perfection.design_get(sid))
             except KeyError:return self._json(404,{"error":"design session not found"})
+        if path == "/api/design-studio/preview":
+            token=(query.get("id") or [""])[0].strip()
+            if not token:return self._json(400,{"error":"id is required"})
+            try:return self._html(200,orch.project_perfection.design_preview(token))
+            except KeyError:return self._json(404,{"error":"design preview not found"})
         if path == "/api/ui-guardian/registry":
             project=(query.get("project") or [None])[0]
             return self._json(200,_ui_registry.list(project))
@@ -1112,6 +1117,23 @@ class Handler(BaseHTTPRequestHandler):
             data = self._body()
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
+
+        if post_path == "/api/design-studio/research":
+            project=str(data.get("project") or "").strip();goal=str(data.get("goal") or "").strip()
+            if not project or not goal:return self._json(400,{"error":"project and goal are required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.design.research",
+                    {"project":project,"goal":goal,"limit":int(data.get("limit") or 12)},
+                    project=project,source="pc",actor="design-studio-http",
+                    permissions=("browser.read","model.use"),
+                )
+                result=receipt["result"]
+                result["studio_url"]="/design-studio?session="+str(result.get("session_id") or "")
+                return self._json(201,result)
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/design-studio/create":
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
