@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 from krishna_core.project_perfection import (
     CompletionProof, DeadlineHR, ElementGeometry, GateEvidence, ImmuneMemory,
@@ -26,6 +28,15 @@ class ProjectPerfectionTests(unittest.TestCase):
         memory = ImmuneMemory()
         with self.assertRaises(ValueError):
             memory.immunize("demo", "390px", "fixed width", "", "fixed")
+
+    def test_immune_memory_survives_restart(self):
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/"immune.json"
+            first=ImmuneMemory(path)
+            row=first.immunize("demo","overflow","fixed width","tests/ui.spec.ts","verified")
+            second=ImmuneMemory(path)
+            self.assertIn(row.bug_id,second.records)
+            self.assertEqual(second.required_tests("demo"),["tests/ui.spec.ts"])
 
     def test_completion_rejects_missing_gate(self):
         proof = CompletionProof()
