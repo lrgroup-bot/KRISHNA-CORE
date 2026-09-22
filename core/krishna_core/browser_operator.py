@@ -105,16 +105,37 @@ class BrowserOperator:
                 page.on("requestfailed",lambda req, bag=failed: bag.append(f"{req.method} {req.url} :: {req.failure}"))
                 page.on("response",lambda resp, bag=bad: bag.append(f"{resp.status} {resp.url}") if resp.status>=400 else None)
                 page.goto(url,wait_until="domcontentloaded"); page.wait_for_timeout(350)
-                geometry=page.evaluate("""() => Array.from(document.querySelectorAll('body *')).filter(el => {
-                  const s=getComputedStyle(el),r=el.getBoundingClientRect();
-                  return s.display!=='none' && s.visibility!=='hidden' && r.width>0 && r.height>0;
-                }).slice(0,5000).map((el,i) => {
-                  const r=el.getBoundingClientRect(),s=getComputedStyle(el);
-                  let selector=el.id ? '#'+el.id : el.tagName.toLowerCase();
-                  if(!el.id && el.classList.length) selector+='.'+Array.from(el.classList).slice(0,2).join('.');
-                  return {selector:selector+'@'+i,x:r.x,y:r.y,width:r.width,height:r.height,visible:true,
-                          text:(el.innerText||'').trim().slice(0,120),z_index:parseInt(s.zIndex)||0};
-                })""")
+                geometry=page.evaluate("""() => {
+                  const els=Array.from(document.querySelectorAll('body *')).filter(el => {
+                    const s=getComputedStyle(el),r=el.getBoundingClientRect();
+                    return s.display!=='none' && s.visibility!=='hidden' && r.width>0 && r.height>0;
+                  }).slice(0,5000);
+                  const indexes=new Map(els.map((el,i)=>[el,i]));
+                  const selectorOf=(el,i)=>{
+                    let selector=el.id ? '#'+el.id : el.tagName.toLowerCase();
+                    if(!el.id && el.classList.length) selector+='.'+Array.from(el.classList).slice(0,2).join('.');
+                    return selector+'@'+i;
+                  };
+                  return els.map((el,i) => {
+                    const r=el.getBoundingClientRect(),s=getComputedStyle(el),ancestors=[];
+                    let p=el.parentElement,hops=0;
+                    while(p && hops<12){
+                      const pi=indexes.get(p);
+                      if(pi!==undefined) ancestors.push(selectorOf(p,pi));
+                      p=p.parentElement;hops++;
+                    }
+                    const tag=el.tagName.toLowerCase(),role=(el.getAttribute('role')||'').toLowerCase();
+                    const interactive=['button','a','input','select','textarea','summary'].includes(tag) ||
+                      ['button','link','checkbox','radio','textbox','combobox','switch','menuitem','tab'].includes(role) ||
+                      el.hasAttribute('tabindex');
+                    return {selector:selectorOf(el,i),x:r.x,y:r.y,width:r.width,height:r.height,visible:true,
+                            text:(el.innerText||el.value||'').trim().slice(0,120),z_index:parseInt(s.zIndex)||0,
+                            ancestors,scroll_width:el.scrollWidth||0,scroll_height:el.scrollHeight||0,
+                            client_width:el.clientWidth||0,client_height:el.clientHeight||0,
+                            overflow_x:s.overflowX||'visible',overflow_y:s.overflowY||'visible',
+                            interactive,pointer_events:s.pointerEvents||'auto',opacity:parseFloat(s.opacity||'1')};
+                  });
+                }""")
                 layout=page.evaluate("""() => ({viewport_width:innerWidth,viewport_height:innerHeight,
                     scroll_width:document.documentElement.scrollWidth,scroll_height:document.documentElement.scrollHeight,
                     horizontal_overflow:document.documentElement.scrollWidth>innerWidth+2})""")
@@ -186,6 +207,43 @@ class BrowserOperator:
                         if self._same_origin(url,absolute) and absolute not in visited and depth<max_depth:
                             queue.append((absolute,depth+1))
                             edges.append({"source":current,"target":absolute,"action":"navigate","label":(anchors.nth(i).inner_text() or "")[:120]})
+                    fields=page.locator("input:not([type=hidden]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]), textarea, select")
+                    field_rows=[]
+                    for fi in range(min(fields.count(),max_controls_per_page)):
+                        field=fields.nth(fi)
+                        try:
+                            tag=(field.evaluate("(el)=>el.tagName.toLowerCase()") or "").lower()
+                            ftype=(field.get_attribute("type") or tag or "text").lower()
+                            name=(field.get_attribute("name") or field.get_attribute("id") or field.get_attribute("aria-label") or f"{tag}-{fi}")[:160]
+                            row={"index":fi,"name":name,"type":ftype,"visible":field.is_visible(),"disabled":field.is_disabled()}
+                            if row["visible"] and not row["disabled"]:
+                                before_valid=field.evaluate("(el)=>typeof el.checkValidity==='function'?el.checkValidity():true")
+                                field.focus(timeout=min(self.timeout_ms,2000))
+                                if tag=="select":
+                                    options=field.locator("option:not([disabled])")
+                                    if options.count():
+                                        value=options.first.get_attribute("value")
+                                        if value is not None:field.select_option(value=value)
+                                elif ftype in {"checkbox","radio"}:
+                                    field.check(timeout=min(self.timeout_ms,2000))
+                                elif ftype not in {"color","range","image"}:
+                                    values={
+                                        "email":"krishna.qa@example.invalid","url":"https://example.invalid/test",
+                                        "number":"1","date":"2026-01-15","datetime-local":"2026-01-15T12:00",
+                                        "time":"12:00","month":"2026-01","week":"2026-W03",
+                                        "password":"Krishna-QA-123!","tel":"+910000000000",
+                                    }
+                                    field.fill(values.get(ftype,"KRISHNA_QA_TEST"))
+                                after_valid=field.evaluate("(el)=>typeof el.checkValidity==='function'?el.checkValidity():true")
+                                row.update({"focus_tested":True,"input_tested":True,
+                                            "valid_before":bool(before_valid),"valid_after":bool(after_valid)})
+                            field_rows.append(row)
+                        except Exception as exc:
+                            field_rows.append({"index":fi,"ok":False,"error":str(exc)[:500]})
+                            findings.append({"kind":"field_interaction_failure","severity":"error","url":current,
+                                             "field_index":fi,"detail":str(exc)[:500]})
+                    if field_rows:
+                        page.goto(current,wait_until="domcontentloaded");page.wait_for_timeout(100)
                     controls=page.locator("button, [role=button], input[type=button], input[type=submit]")
                     control_count=min(controls.count(),max_controls_per_page)
                     state_rows=[]
@@ -231,6 +289,7 @@ class BrowserOperator:
                     findings.extend([{**x,"url":current} for x in local_findings])
                     nodes.append({"url":current,"title":page.title(),"depth":depth,"state_id":state_hash,
                                   "controls":state_rows,"control_count":len(state_rows),
+                                  "fields":field_rows,"field_count":len(field_rows),
                                   "screenshot":str(shot) if shot else None})
                 except Exception as exc:
                     findings.append({"kind":"page_crawl_failure","severity":"critical","url":target,"detail":str(exc)[:700]})
