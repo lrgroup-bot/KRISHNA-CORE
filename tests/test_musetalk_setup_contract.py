@@ -8,7 +8,8 @@ class MuseTalkSetupContractTests(unittest.TestCase):
         text=(ROOT/"scripts"/"SETUP_MUSETALK_GTX1050TI.ps1").read_text(encoding="utf-8-sig")
         for token in (
             'E:\\Krishna-The GOD',
-            'python-3.10.11-amd64.exe',
+            '[string]$PythonVersion = "3.10.11"',
+            'python-$PythonVersion-amd64.exe',
             'Python Software Foundation',
             'torch==2.0.1',
             'torchvision==0.15.2',
