@@ -1693,8 +1693,10 @@ class Handler(BaseHTTPRequestHandler):
             language=str(data.get("language") or "or").strip().lower()
             if not text_value:return self._json(400,{"error":"text is required"})
             if language not in {"en","hi","or"}:return self._json(400,{"error":"language must be one of: en, hi, or"})
-            if language=="en":
-                return self._json(503,{"error":"AI4Bharat Indic-TTS is configured for Hindi/Odia; English uses the browser/OS local speech fallback"})
+            configured=set(_voice.tts.status().get("languages") or [])
+            if language not in configured:
+                fallback="browser/OS local speech" if language=="en" else "configured local voice worker"
+                return self._json(503,{"error":f"local TTS language is not configured: {language}; fallback={fallback}","configured_languages":sorted(configured)})
             out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
             audio_id=str(uuid.uuid4());out_path=out_dir/(audio_id+".wav")
             try:
