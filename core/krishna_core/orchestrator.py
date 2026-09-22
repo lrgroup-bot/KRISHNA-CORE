@@ -162,6 +162,12 @@ class Orchestrator:
         def project_unregister(payload,context):
             return self.unregister_project(str(payload.get("name") or "").strip())
 
+        def project_rename(payload,context):
+            return self.rename_project_display(
+                str(payload.get("name") or "").strip(),
+                str(payload.get("display_name") or "").strip(),
+            )
+
         def work_managed_run(payload,context):
             return self._run_managed_goal_impl(
                 str(payload.get("project") or context.get("project") or ""),
@@ -498,6 +504,10 @@ class Orchestrator:
         )
         self.action_bus.register(
             "project.unregister",project_unregister,description="Unregister a KRISHNA project",
+            mutating=True,permissions=("project.write",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "project.rename",project_rename,description="Rename a project display label without changing its internal project key or root",
             mutating=True,permissions=("project.write",),sources=("pc","system"),
         )
 
@@ -841,6 +851,26 @@ class Orchestrator:
                 self.memory.audit("project_restore","failed",f"{item.get('name','unknown')}: {type(exc).__name__}: {exc}")
                 continue
 
+    def rename_project_display(self, name, display_name):
+        name=str(name or "").strip()
+        display_name=str(display_name or "").strip()[:80]
+        if not name or not display_name:
+            raise ValueError("project name and display name are required")
+        if name=="KRISHNA":
+            raise PermissionError("the primary KRISHNA project display name is fixed")
+        policy=self.projects.get(name)
+        if not policy:
+            raise KeyError(name)
+        metadata=dict(policy.metadata or {})
+        metadata["display_name"]=display_name
+        item=self.register_project(
+            name=policy.name,root=policy.root,privacy=policy.privacy,
+            allowed_actions=list(policy.allowed_actions),verification_checks=list(policy.verification_checks),
+            metadata=metadata,role=policy.role,
+        )
+        self.memory.audit("project_rename","completed",f"{name}:{display_name}")
+        return {**item,"display_name":display_name}
+
     def unregister_project(self, name):
         name = str(name or "").strip()
         if not name:
@@ -849,10 +879,14 @@ class Orchestrator:
             raise PermissionError("the primary KRISHNA project cannot be unregistered")
         if not self.projects.get(name):
             raise KeyError(name)
+        moved=0
+        for chat in self.memory.chats(name,500):
+            self.memory.move_chat(chat["chat_id"],"KRISHNA")
+            moved+=1
         self.memory.delete_project(name)
         self.projects.unregister(name)
-        self.memory.audit("project_unregister", "completed", name)
-        return {"name": name, "removed": True}
+        self.memory.audit("project_unregister", "completed", f"{name}:moved_chats={moved}")
+        return {"name": name, "removed": True, "moved_chats_to_global": moved}
 
     def _run_managed_goal_impl(self, project, goal, action_name=None, components=None, approved=False):
         """Run a bounded managed-work transaction.
