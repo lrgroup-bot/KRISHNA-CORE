@@ -71,8 +71,8 @@ jobs:
               applicationId 'com.krishna.mobile'
               minSdk 26
               targetSdk 35
-              versionCode 36
-              versionName '3.6.0'
+              versionCode 37
+              versionName '3.7.0'
             }
           }
           EOF
@@ -103,6 +103,7 @@ jobs:
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET"/>
+            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
             <uses-permission android:name="android.permission.RECORD_AUDIO"/>
             <uses-permission android:name="android.permission.CAMERA"/>
             <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -123,7 +124,7 @@ jobs:
           </manifest>
           EOF
 
-          cp mobile_v3/MainActivity.java app/src/main/java/com/krishna/mobile/MainActivity.java
+          cp mobile_v3/*.java app/src/main/java/com/krishna/mobile/
           cp mobile_v3/index.html app/src/main/assets/index.html
           cp mobile_v3/realtime-client.js app/src/main/assets/realtime-client.js
           base64 -d avatar/krishna_child_360.webp.b64 > app/src/main/assets/krishna_child_360.webp
@@ -150,6 +151,12 @@ jobs:
           grep -q "verifyVoice" app/src/main/assets/index.html
           grep -q "startFieldScan" app/src/main/assets/index.html
           grep -q "bhumiputraFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "MobileEdgeBot.prepareFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "KRISHNA_EDGE_BOT_V1" app/src/main/java/com/krishna/mobile/MobileEdgeBot.java
+          grep -q "HawkeyeDeviceProfiler.profile" app/src/main/java/com/krishna/mobile/MobileEdgeBot.java
+          grep -q "HawkeyeEdgeMemory.remember" app/src/main/java/com/krishna/mobile/MobileEdgeBot.java
+          grep -q "edgeSamplingMs" app/src/main/assets/index.html
+          grep -q 'android.permission.ACCESS_NETWORK_STATE' app/src/main/AndroidManifest.xml
           grep -q "hawkeyeOfflineFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "configureCloudUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "secureCloudUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
@@ -234,7 +241,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: KRISHNA-v3.6-Hawkeye-Mobile-APK
+          name: KRISHNA-v3.7-Mobile-Edge-APK
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             privacy-apk-report.json
