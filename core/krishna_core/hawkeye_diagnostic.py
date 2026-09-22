@@ -292,7 +292,21 @@ class HawkeyeDiagnosticRuntime:
                 }
                 with self.governor.job(timeout=0):
                     receipt=self.worker_runtime.execute("KRISHNA",request,json.dumps(task,ensure_ascii=False),"local_only")
-                state={"status":"completed","specialty":specialty,"at":time.time(),"destroyed":bool(receipt.get("destroyed")),"worker_count":len(receipt.get("workers") or [])}
+                workers=receipt.get("workers") or []
+                state={"status":"completed","specialty":specialty,"at":time.time(),"destroyed":bool(receipt.get("destroyed")),"worker_count":len(workers)}
+                handover=[]
+                for row in workers[:1]:
+                    handover.append({"specialty":row.get("specialty"),"provider":row.get("provider"),"model":row.get("model"),
+                                     "result":str(row.get("result") or "")[:8000],"security":row.get("security") or {},
+                                     "ended_at":row.get("ended_at")})
+                path=self.state_dir/(self._safe_id(session_id)+".json")
+                try:
+                    saved=json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"session_id":self._safe_id(session_id)}
+                    saved["last_worker_handover"]={"specialty":specialty,"at":time.time(),"findings":handover,
+                                                   "retention_policy":"findings_and_provenance_only","worker_destroyed":bool(receipt.get("destroyed"))}
+                    path.write_text(json.dumps(saved,indent=2,sort_keys=True),encoding="utf-8")
+                except Exception:
+                    pass
             except Exception as exc:
                 state={"status":"deferred","specialty":specialty,"at":time.time(),"error":f"{type(exc).__name__}: {exc}"[:300]}
             with self._worker_lock:
