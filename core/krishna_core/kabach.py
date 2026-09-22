@@ -5,6 +5,9 @@ from urllib.parse import urlparse
 import hashlib,ipaddress,json,re,socket,time
 
 from .privacy_guardian import PrivacyGuardian
+from .security_soc import DefensiveSOC
+from .threat_intel import ThreatIntel
+from .dependency_audit import DependencyAuditor
 
 _SECRET_PATTERNS=(
  r"(?i)(api[_-]?key|secret|token|password|passwd|private[_-]?key)\s*[:=]\s*[^\s,;]{6,}",
@@ -22,6 +25,10 @@ class KabachAgent:
     """Deterministic fail-closed security boundary for KRISHNA. It advises/enforces policy; KRISHNA remains authority."""
     def __init__(self,memory,state_root=None,browser=None,event_bus=None,gyan_bhandar=None):
         self.memory=memory
+        self.soc=DefensiveSOC()
+        self.threat_intel=ThreatIntel()
+        self.dependencies=DependencyAuditor()
+        self.event_bus=event_bus
         if state_root is None:
             try:
                 db_path=Path(memory.db.execute("PRAGMA database_list").fetchone()[2]).resolve()
@@ -33,7 +40,32 @@ class KabachAgent:
         )
 
     def bind_privacy_runtime(self,**kwargs):
+        if kwargs.get("event_bus") is not None:
+            self.bind_security_events(kwargs["event_bus"])
         return self.privacy.bind_runtime(**kwargs)
+
+    def bind_security_events(self,event_bus):
+        self.event_bus=event_bus
+        event_bus.subscribe("*",self._on_security_event)
+        return {"bound":True,"consumer":"KABACH_SOC"}
+
+    def _on_security_event(self,event):
+        payload=event.get("payload") or {}
+        message=str(payload.get("message") or payload.get("detail") or event.get("topic") or "")
+        result=self.soc.ingest({"timestamp":event.get("created_at"),"source":event.get("source"),
+            "event_type":event.get("topic"),"message":message,"severity":payload.get("severity","info"),
+            "actor":payload.get("actor",""),"target":payload.get("target","")})
+        if result["correlation"]["anomaly"] and event.get("topic")!="SUDARSHAN_ALERT":
+            try:self.event_bus.publish("SUDARSHAN_ALERT",{"kind":"security_anomaly","soc":result},source="KABACH")
+            except Exception:pass
+        return result
+
+    def security_status(self):
+        return {"soc":self.soc.status(),"event_bus_bound":self.event_bus is not None,
+                "threat_intel":"advisory_only","dependency_audit":"inventory_only"}
+
+    def audit_dependencies(self,root):
+        return {"inventory":self.dependencies.inventory(root),"sbom":self.dependencies.sbom(root)}
 
     def privacy_status(self):
         return self.privacy.status()
