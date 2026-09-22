@@ -564,6 +564,7 @@ Return strict JSON:
         max_perspectives=4,
         max_claims=5,
         auto_propose=True,
+        preferred_rishis=None,
     ):
         source_limit = max(2, min(int(source_limit), 12))
         max_perspectives = max(2, min(int(max_perspectives), 6))
@@ -579,12 +580,15 @@ Return strict JSON:
             "max_perspectives": max_perspectives,
             "max_claims": max_claims,
             "auto_propose": bool(auto_propose),
+            "science_sources": bool(knowledge_track=="modern_science" and hasattr(self.garuda,"science_scout")),
         }
         run = self._new_run(mission, settings)
         rid = run["run_id"]
 
         try:
-            perspectives = self.brahmagyan.perspective_plan(mission["mission_id"], max_perspectives)
+            perspectives = self.brahmagyan.perspective_plan(
+                mission["mission_id"], max_perspectives, preferred_rishis=preferred_rishis,
+            )
             self._checkpoint(rid, "scope", details={"perspectives": len(perspectives["perspectives"])})
             self.brahmagyan.advance_phase(mission["mission_id"], "literature", [{"kind": "perspective_plan"}])
 
@@ -592,7 +596,10 @@ Return strict JSON:
             queries = [mission["question"]]
             queries.extend(x["research_question"] for x in perspectives["perspectives"])
             for query in queries[:max_perspectives + 1]:
-                report = self.garuda.scout(project, query, source_limit)
+                if mission.get("knowledge_track")=="modern_science" and hasattr(self.garuda,"science_scout"):
+                    report=self.garuda.science_scout(project,query,source_limit)
+                else:
+                    report=self.garuda.scout(project,query,source_limit)
                 reports.append(report)
             sources = []
             seen = set()
@@ -634,11 +641,11 @@ Return strict JSON:
 
             for cid in claim_ids:
                 current = self.brahmagyan.claim(cid)
-                counter_report = self.garuda.scout(
-                    project,
-                    f"{current['claim']} contradicting evidence replication limitations criticism",
-                    source_limit,
-                )
+                counter_query=f"{current['claim']} contradicting evidence replication limitations criticism"
+                if mission.get("knowledge_track")=="modern_science" and hasattr(self.garuda,"science_scout"):
+                    counter_report=self.garuda.science_scout(project,counter_query,source_limit)
+                else:
+                    counter_report=self.garuda.scout(project,counter_query,source_limit)
                 counter_sources = self._normalize_report(counter_report, cap=source_limit * 2)
                 existing_ids = {x.get("source_id") for x in self.brahmagyan._all_evidence_rows(current)}
                 counter_sources = [x for x in counter_sources if x["source_id"] not in existing_ids]

@@ -29,6 +29,7 @@ from .specialist_team import SpecialistTeamPlanner
 from .lan_discovery import LanDiscoveryService
 from .avatar_asset_pipeline import AvatarAssetInspector
 from .video_avatar import VideoAvatarFabric
+from .science_atlas import ScienceFrontierScheduler
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -367,12 +368,27 @@ pc_observer = PCObserver(
 )
 pc_observer.start()
 
+def _science_frontier_tick():
+    snap=pc_observer.snapshot()
+    return orch.brahmagyan_science_background_tick(
+        snap.get("cpu_percent") or 0.0,
+        snap.get("memory_percent") or 0.0,
+    )
+
+_science_frontier_scheduler = ScienceFrontierScheduler(
+    _science_frontier_tick,
+    interval_seconds=int(os.getenv("KRISHNA_SCIENCE_RESEARCH_INTERVAL_SECONDS","1800")),
+)
+if str(os.getenv("KRISHNA_SCIENCE_RESEARCH_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
+    _science_frontier_scheduler.start()
+
 
 def shutdown_runtime_services():
     failures=[]
     services=(
         ("autonomy", _autonomy.stop),
         ("narad_scheduler", _narad_scheduler.stop),
+        ("science_frontier_scheduler", _science_frontier_scheduler.stop),
         ("worker_resilience", _worker_resilience.stop),
         ("pc_observer", pc_observer.stop),
         ("watcher", watcher.stop),
@@ -606,6 +622,16 @@ class Handler(BaseHTTPRequestHandler):
             try:limit=max(1,min(int(limit_raw),200))
             except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
             return self._json(200,{"questions":orch.brahmagyan_curiosity(project,limit)})
+        if path == "/api/brahmagyan/science/status":
+            query_text=str((query.get("query") or [""])[0]).strip()
+            kind=str((query.get("kind") or [""])[0]).strip() or None
+            limit_raw=(query.get("limit") or ["50"])[0]
+            try:limit=max(1,min(int(limit_raw),200))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,{
+                **orch.brahmagyan_science_status(query_text,kind,limit),
+                "scheduler":_science_frontier_scheduler.status(),
+            })
         if path == "/api/brahmagyan/live/status":
             run_id=str((query.get("run_id") or [""])[0]).strip() or None
             project=(query.get("project") or [None])[0]
@@ -1708,6 +1734,67 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"plugin not found"})
             except (ValueError,PermissionError) as exc:return self._json(403 if isinstance(exc,PermissionError) else 400,{"error":str(exc)})
             except Exception as exc:return self._json(502,{"error":f"plugin request failed: {type(exc).__name__}: {exc}"})
+
+        if post_path == "/api/brahmagyan/science/sync":
+            try:
+                return self._json(200,orch.brahmagyan_science_sync(
+                    bool(data.get("include_topics",True)),
+                    data.get("topic_limit"),
+                ))
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/brahmagyan/science/frontier":
+            subject=str(data.get("subject") or "").strip()
+            if not subject:return self._json(400,{"error":"subject is required"})
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            kwargs={
+                "field":data.get("field"),
+                "domain":data.get("domain"),
+                "question":data.get("question"),
+                "rishi_id":data.get("rishi_id"),
+                "stakes":str(data.get("stakes") or "normal"),
+                "privacy":data.get("privacy"),
+                "source_limit":int(data.get("source_limit") or 6),
+                "max_perspectives":int(data.get("max_perspectives") or 5),
+                "max_claims":int(data.get("max_claims") or 5),
+                "question_limit":int(data.get("question_limit") or 8),
+                "auto_propose":bool(data.get("auto_propose",True)),
+                "node_id":data.get("node_id"),
+            }
+            try:return self._json(200,orch.brahmagyan_science_frontier(subject,project,**kwargs))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/brahmagyan/science/seed":
+            subject=str(data.get("subject") or "").strip()
+            if not subject:return self._json(400,{"error":"subject is required"})
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            try:
+                out=orch.dispatch_action(
+                    "brahmagyan.science.frontier.seed",
+                    {
+                        "project":project,"subject":subject,
+                        "field":data.get("field"),"domain":data.get("domain"),
+                        "limit":int(data.get("limit") or 8),
+                    },
+                    project=project,source="pc",actor="science-atlas-http",
+                    permissions=("memory.write",),
+                )
+                return self._json(200,out.get("result") or {})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/brahmagyan/science/tick":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"science frontier tick must run on KRISHNA PC"})
+            snap=pc_observer.snapshot()
+            try:return self._json(200,orch.brahmagyan_science_background_tick(
+                snap.get("cpu_percent") or 0.0,
+                snap.get("memory_percent") or 0.0,
+            ))
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/brahmagyan/live/run":
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
