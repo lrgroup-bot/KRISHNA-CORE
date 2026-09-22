@@ -7,6 +7,9 @@ from typing import Any, Callable
 import json
 import os
 import platform
+import threading
+from contextlib import contextmanager
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import re
 import shutil
 import subprocess
@@ -403,3 +406,39 @@ class VisualCandidateEditor:
             return {"applied":False,"action":action,"reason":"semantic source patch required",
                     "requires_source_agent":True,"requires_regression":True}
         raise ValueError("unsupported visual candidate edit")
+
+
+class CandidateStaticServer:
+    """Loopback-only static preview for isolated candidates that contain index.html."""
+
+    @staticmethod
+    def find_root(candidate_root: str | Path) -> Path | None:
+        root=Path(candidate_root).resolve()
+        direct=root/"index.html"
+        if direct.is_file():return root
+        candidates=[]
+        for path in root.rglob("index.html"):
+            if any(part in {".git",".venv","node_modules","dist","build",".krishna_state"} for part in path.parts):
+                continue
+            candidates.append(path.parent)
+        candidates.sort(key=lambda p:(len(p.parts),str(p)))
+        return candidates[0] if candidates else None
+
+    @contextmanager
+    def serve(self, candidate_root: str | Path):
+        root=self.find_root(candidate_root)
+        if root is None:
+            yield {"available":False,"url":None,"reason":"no_static_index"}
+            return
+        class Quiet(SimpleHTTPRequestHandler):
+            def log_message(self,format,*args):pass
+        def factory(*args,**kwargs):
+            return Quiet(*args,directory=str(root),**kwargs)
+        server=ThreadingHTTPServer(("127.0.0.1",0),factory)
+        thread=threading.Thread(target=server.serve_forever,name="krishna-candidate-preview",daemon=True)
+        thread.start()
+        try:
+            host,port=server.server_address
+            yield {"available":True,"url":f"http://127.0.0.1:{port}/","root":str(root)}
+        finally:
+            server.shutdown();server.server_close();thread.join(timeout=3)
