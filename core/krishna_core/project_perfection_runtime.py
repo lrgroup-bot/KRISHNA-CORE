@@ -278,11 +278,27 @@ class ProjectPerfectionRuntime:
             "reason":"not_applicable" if not backend_required else "api_schema_or_backend_verification_required",
         }
         artifact_rows=list(artifacts or [])
-        package_build=bool(artifact_rows) and all(Path(str(x.get("path") or x.get("artifact") or "")).exists() for x in artifact_rows)
+        def artifact_exists(item):
+            kind=str(item.get("kind") or "").lower()
+            if kind=="web":
+                return bool(str(item.get("url") or item.get("path") or "").startswith(("http://","https://")))
+            return Path(str(item.get("path") or item.get("artifact") or "")).exists()
+        package_build=bool(artifact_rows) and all(artifact_exists(x) for x in artifact_rows)
         installed=self.retest_artifacts(artifact_rows) if artifact_rows else {
             "artifacts":[],"passed":not artifact_required,
             "reason":"not_applicable" if not artifact_required else "artifact_required",
         }
+        def restart_evidence(row):
+            kind=str(row.get("kind") or "").lower()
+            if kind=="exe":
+                return any(x.get("cycle")=="restart" and x.get("passed") for x in row.get("runs") or [])
+            if kind in {"apk","ios"}:
+                return any(x.get("name")=="restart" and x.get("passed") for x in row.get("steps") or [])
+            if kind=="web":
+                return bool((row.get("report") or {}).get("ok"))
+            return False
+        artifact_restart_ok=bool(installed.get("artifacts")) and all(restart_evidence(x) for x in installed.get("artifacts") or [])
+        effective_restart_ok=artifact_restart_ok if installed.get("artifacts") else bool(restart_recovery_ok)
 
         gates=[
             {"gate":"requirements","passed":bool(requirements_ok),"evidence":["requirements ledger acknowledged"] if requirements_ok else []},
@@ -297,7 +313,8 @@ class ProjectPerfectionRuntime:
             {"gate":"security","passed":bool(security_ok),"evidence":["KABACH/independent security gate supplied"] if security_ok else []},
             {"gate":"adversarial","passed":bool(chaos.get("passed")) and bool(mutation.get("passed")),
              "evidence":[str(chaos.get("scenarios") or []),str({"mutation_score":mutation.get("score")})]},
-            {"gate":"restart_recovery","passed":bool(restart_recovery_ok),"evidence":["restart/recovery verification supplied"] if restart_recovery_ok else []},
+            {"gate":"restart_recovery","passed":bool(effective_restart_ok),
+             "evidence":[str({"artifact_restart":artifact_restart_ok,"external_restart_evidence":bool(restart_recovery_ok)})]},
             {"gate":"package_build","passed":package_build or not artifact_required,
              "evidence":[str([x.get("path") or x.get("artifact") for x in artifact_rows])]},
             {"gate":"installed_artifact","passed":bool(installed.get("passed")),"evidence":[str(installed.get("artifacts") or installed.get("reason") or "")]},
