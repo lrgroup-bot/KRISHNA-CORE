@@ -20,7 +20,11 @@ class DevelopmentOperator:
         try:
             p=subprocess.run(args,cwd=str(cwd),capture_output=True,text=True,timeout=timeout,shell=False,env=os.environ.copy())
             out=((p.stdout or "")+"\n"+(p.stderr or "")).strip()[-12000:]
-            return DevStep(" ".join(args[:2]),p.returncode==0,out or f"exit={p.returncode}",int((time.perf_counter()-started)*1000))
+            # Empty stdout/stderr is meaningful for commands such as
+            # `git status --porcelain`: it means the working tree is clean.
+            # Do not replace a successful empty result with "exit=0".
+            detail=out if out else ("" if p.returncode==0 else f"exit={p.returncode}")
+            return DevStep(" ".join(args[:2]),p.returncode==0,detail,int((time.perf_counter()-started)*1000))
         except Exception as exc:
             return DevStep(" ".join(args[:2]),False,f"{type(exc).__name__}: {exc}",int((time.perf_counter()-started)*1000))
 
