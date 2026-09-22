@@ -21,6 +21,14 @@ public class MainActivity extends Activity {
   WebView web;
   Bridge bridge;
   ValueCallback<Uri[]> fileCallback;
+  BroadcastReceiver wakeReceiver=new BroadcastReceiver(){
+    @Override public void onReceive(Context context,Intent intent){
+      if(intent==null||!KrishnaWakeService.ACTION_WAKE.equals(intent.getAction()))return;
+      String phrase=intent.getStringExtra("phrase");
+      if(web!=null)runOnUiThread(()->web.evaluateJavascript(
+        "window.onKrishnaWake&&window.onKrishnaWake("+JSONObject.quote(phrase==null?"Krishna":phrase)+")",null));
+    }
+  };
 
   static final String NOTIFY_CHANNEL="krishna_completed";
   String deviceId(){
@@ -39,6 +47,19 @@ public class MainActivity extends Activity {
     Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,NOTIFY_CHANNEL):new Notification.Builder(this);
     b.setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle("KRISHNA completed work").setContentText(text).setAutoCancel(true);
     ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify((int)(System.currentTimeMillis()&0x7fffffff),b.build());
+  }
+  void startWakeIfReady(){
+    boolean enrolled=getSharedPreferences("k",0).getString("voiceprint","").startsWith("v3:");
+    boolean mic=Build.VERSION.SDK_INT<23||checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED;
+    if(!enrolled||!mic)return;
+    Intent i=new Intent(this,KrishnaWakeService.class).setAction(KrishnaWakeService.ACTION_START);
+    try{if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);}catch(Exception ignored){}
+  }
+  void stopWakeService(){
+    try{
+      Intent i=new Intent(this,KrishnaWakeService.class).setAction(KrishnaWakeService.ACTION_STOP);
+      startService(i);
+    }catch(Exception ignored){stopService(new Intent(this,KrishnaWakeService.class));}
   }
 
   @Override public void onCreate(Bundle b){
@@ -100,8 +121,12 @@ public class MainActivity extends Activity {
     });
     bridge=new Bridge();
     web.addJavascriptInterface(bridge,"Krishna");
+    IntentFilter wakeFilter=new IntentFilter(KrishnaWakeService.ACTION_WAKE);
+    if(Build.VERSION.SDK_INT>=33)registerReceiver(wakeReceiver,wakeFilter,Context.RECEIVER_NOT_EXPORTED);
+    else registerReceiver(wakeReceiver,wakeFilter);
     setContentView(web);
     web.loadUrl("file:///android_asset/index.html");
+    startWakeIfReady();
   }
 
   @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
@@ -117,8 +142,9 @@ public class MainActivity extends Activity {
     if(bridge==null)return;
     new Thread(()->bridge.event(kind,detail)).start();
   }
-  @Override protected void onResume(){super.onResume();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");if(bridge!=null)new Thread(()->bridge.hawkeyeSyncEvidence()).start();}
+  @Override protected void onResume(){super.onResume();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");startWakeIfReady();if(bridge!=null)new Thread(()->bridge.hawkeyeSyncEvidence()).start();}
   @Override protected void onPause(){emitAsync("mobile_background","KRISHNA Mobile entered background");super.onPause();}
+  @Override protected void onDestroy(){try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}super.onDestroy();}
 
   public class Bridge {
     final HawkeyeEvidenceCuratorBot hawkeyeCurator;
@@ -387,6 +413,7 @@ public class MainActivity extends Activity {
         String fp=VoicePrint.capture(MainActivity.this,3200);
         getSharedPreferences("k",0).edit().putString("voiceprint",fp).putString("speaker_engine",SPEAKER_ENGINE).putBoolean("voice_enrolled",true).apply();
         event("voice_enrolled","Local owner voice gate enrolled; device authentication remains authoritative");
+        startWakeIfReady();
         return "{\"ok\":true,\"engine\":\""+SPEAKER_ENGINE+"\",\"security_authority\":\"device_credential\"}";
       }catch(Exception e){return error(e);}
     }
@@ -400,6 +427,13 @@ public class MainActivity extends Activity {
         event(matched?"voice_gate_matched":"voice_gate_rejected","Local owner voice gate score "+String.format(java.util.Locale.US,"%.3f",score));
         JSONObject d=new JSONObject();d.put("matched",matched);d.put("score",score);d.put("security_authority","device_credential");return d.toString();
       }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String wakeStatus(){return KrishnaWakeService.capability(MainActivity.this).toString();}
+    @JavascriptInterface public String wakeStart(){
+      try{startWakeIfReady();return KrishnaWakeService.capability(MainActivity.this).toString();}catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String wakeStop(){
+      try{stopWakeService();return KrishnaWakeService.capability(MainActivity.this).toString();}catch(Exception e){return error(e);}
     }
 
     boolean secureCloudUrl(String value){
