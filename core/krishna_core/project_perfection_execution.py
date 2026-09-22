@@ -4,6 +4,7 @@ from dataclasses import dataclass, asdict
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urljoin, urlparse
 import json
 import os
 import platform
@@ -35,6 +36,66 @@ class RegressionPersister:
         target.parent.mkdir(parents=True,exist_ok=True)
         target.write_text(source,encoding="utf-8")
         return {"path":str(target),"sha256":sha256(source.encode()).hexdigest(),"bytes":len(source.encode()),"persisted":True}
+
+
+class RegressionManifest:
+    """Durable route/state coverage that is executed before fresh rediscovery."""
+
+    @staticmethod
+    def _path(url: str) -> str:
+        p=urlparse(str(url or ""))
+        value=p.path or "/"
+        if p.query:value+="?"+p.query
+        return value
+
+    def persist(self, project_root: str | Path, project: str, graph: dict[str,Any]) -> dict[str,Any]:
+        root=Path(project_root).resolve()
+        target=(root/"tests"/"krishna-generated"/f"{_safe_slug(project)}.graph.json").resolve()
+        target.relative_to(root);target.parent.mkdir(parents=True,exist_ok=True)
+        routes=sorted({self._path(x.get("url")) for x in graph.get("nodes") or [] if x.get("url")})
+        edges=[]
+        for edge in graph.get("edges") or []:
+            edges.append({
+                "source":self._path(edge.get("source")),"target":self._path(edge.get("target")),
+                "action":str(edge.get("action") or ""),"label":str(edge.get("label") or "")[:200],
+                "state_id":edge.get("state_id"),
+            })
+        payload={"version":1,"project":project,"routes":routes,"edges":edges}
+        target.write_text(json.dumps(payload,indent=2),encoding="utf-8")
+        return {"path":str(target),"route_count":len(routes),"edge_count":len(edges),
+                "sha256":sha256(target.read_bytes()).hexdigest(),"persisted":True}
+
+    def load(self, project_root: str | Path, project: str) -> dict[str,Any] | None:
+        root=Path(project_root).resolve()
+        path=(root/"tests"/"krishna-generated"/f"{_safe_slug(project)}.graph.json").resolve()
+        try:path.relative_to(root)
+        except ValueError:return None
+        if not path.is_file():return None
+        try:
+            raw=json.loads(path.read_text(encoding="utf-8"))
+            return raw if isinstance(raw,dict) else None
+        except Exception:
+            return None
+
+
+class BrowserRegressionRunner:
+    """Execute persisted routes with the canonical KRISHNA browser inspector."""
+
+    def run(self, browser, base_url: str, manifest: dict[str,Any] | None) -> dict[str,Any]:
+        if not manifest:
+            return {"available":False,"passed":True,"reason":"no_previous_manifest","routes":[]}
+        rows=[]
+        for route in manifest.get("routes") or []:
+            target=urljoin(base_url,str(route))
+            try:
+                report=browser.inspect(target)
+                rows.append({"route":route,"url":target,"passed":bool(report.get("ok")),
+                             "findings":report.get("findings") or [],"layout":report.get("layout") or {}})
+            except Exception as exc:
+                rows.append({"route":route,"url":target,"passed":False,
+                             "error":f"{type(exc).__name__}: {exc}"})
+        return {"available":True,"routes":rows,"route_count":len(rows),
+                "passed":bool(rows) and all(bool(x.get("passed")) for x in rows)}
 
 
 class VisualBaselineStore:
