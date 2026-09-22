@@ -75,6 +75,31 @@ class ExecutionTests(unittest.TestCase):
             self.assertTrue(second["passed"])
             self.assertEqual(second["mode"],"byte_identical")
 
+    def test_android_readiness_waits_for_framework_services(self):
+        class FakeExecutor(ArtifactExecutor):
+            def __init__(self):
+                self.round=0
+            def _cmd(self,args,timeout=120,cwd=None):
+                cmd=" ".join(args[1:])
+                if cmd=="get-state":
+                    self.round+=1
+                    return {"executed":True,"passed":True,"exit_code":0,"output":"device\n"}
+                if "getprop sys.boot_completed" in cmd:
+                    return {"executed":True,"passed":True,"exit_code":0,
+                            "output":"1\n" if self.round>=2 else "\n"}
+                if "service check package" in cmd:
+                    return {"executed":True,"passed":True,"exit_code":0,
+                            "output":"Service package: found\n" if self.round>=2 else "Service package: not found\n"}
+                if "service check activity" in cmd:
+                    return {"executed":True,"passed":True,"exit_code":0,
+                            "output":"Service activity: found\n" if self.round>=2 else "Service activity: not found\n"}
+                raise AssertionError(args)
+        executor=FakeExecutor()
+        out=executor._wait_android_ready("adb",attempts=3,delay_seconds=0)
+        self.assertTrue(out["passed"])
+        self.assertEqual(out["attempts"],2)
+        self.assertEqual(out["boot"],"1")
+
     def test_android_process_wait_tolerates_launcher_race(self):
         class FakeExecutor(ArtifactExecutor):
             def __init__(self):
