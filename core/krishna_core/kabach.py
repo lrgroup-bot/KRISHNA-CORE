@@ -44,7 +44,8 @@ class KabachAgent:
         if target=="network":return self.privacy.audit_network(**kwargs)
         if target=="web":return self.privacy.audit_web(**kwargs)
         if target=="mobile":return self.privacy.audit_mobile(**kwargs)
-        raise ValueError("privacy target_type must be browser, network, web or mobile")
+        if target=="full":return self.privacy.audit_full(**kwargs)
+        raise ValueError("privacy target_type must be browser, network, web, mobile or full")
 
     def privacy_clean_url(self,url):
         return self.privacy.clean_url(url)
