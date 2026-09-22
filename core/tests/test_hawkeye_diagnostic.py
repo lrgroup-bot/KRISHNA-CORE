@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from krishna_core.hawkeye_diagnostic import HawkeyeDiagnosticRuntime
+from krishna_core.hawkeye_reference import HawkeyeReferenceRegistry
 
 
 class HawkeyeDiagnosticRuntimeTests(unittest.TestCase):
@@ -40,6 +41,36 @@ class HawkeyeDiagnosticRuntimeTests(unittest.TestCase):
         self.assertEqual(out["components"][0]["bbox"], [0.9, 0.9, 0.1, 0.1])
         self.assertEqual(out["components"][0]["confidence"], 1.0)
         self.assertEqual(out["flows"], [])
+
+    def test_verified_reference_overrides_visual_inference(self):
+        refs = HawkeyeReferenceRegistry(Path(self.tmp.name) / "refs")
+        refs.register("board1", "boardview", {"components": [
+            {"id": "A", "x": 0.0, "y": 0.0},
+            {"id": "B", "x": 1.0, "y": 0.0},
+            {"id": "C", "x": 0.0, "y": 1.0},
+        ], "nets": [{"from": "A", "to": "B", "label": "VCC"}]}, verified=True)
+        self.runtime.bind_reference_registry(refs)
+        raw = '{"device_type":"PCB","analysis":"camera inference","confidence":0.6,"evidence_state":"OBSERVED","components":[],"flows":[],"test_points":[],"warnings":[],"needs_reference":true,"reference_type":"boardview"}'
+        out = self.runtime.record_model_result("ref1", raw, goal="diagnose PCB", sensor_context={
+            "reference_id": "board1",
+            "reference_anchors": [
+                {"reference": [0, 0], "image": [0.1, 0.2]},
+                {"reference": [1, 0], "image": [0.9, 0.2]},
+                {"reference": [0, 1], "image": [0.1, 0.8]},
+            ],
+        })
+        self.assertEqual(out["diagram_mode"], "reference-aligned")
+        self.assertFalse(out["needs_reference"])
+        self.assertEqual(out["reference_id"], "board1")
+        self.assertEqual(out["flows"][0]["label"], "VCC")
+        self.assertLess(out["registration_rms"], 1e-8)
+
+    def test_specialist_worker_routing(self):
+        self.assertEqual(self.runtime._worker_specialty("bearing noise diagnosis", "audio"), "AcousticDiagnosticWorker")
+        self.assertEqual(self.runtime._worker_specialty("truck CAN bus ECU fault", "image"), "VehicleDiagnosticWorker")
+        self.assertEqual(self.runtime._worker_specialty("PCB voltage regulator fault", "image"), "ElectronicsDiagnosticWorker")
+        self.assertIsNone(self.runtime._worker_specialty("inspect quarry slope", "image"))
+        self.assertEqual(self.runtime.maybe_dispatch_worker("s-no-worker", {"confidence": 0.2}, goal="PCB fault"), {"status": "not_needed"})
 
     def test_high_voltage_warning_and_persistence(self):
         raw = '{"device_type":"EV inverter","analysis":"Possible 800V DC bus","confidence":0.4,"evidence_state":"INFERRED","components":[],"flows":[],"test_points":[],"warnings":[]}'
