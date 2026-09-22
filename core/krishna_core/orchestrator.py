@@ -359,6 +359,51 @@ class Orchestrator:
             self.memory.audit("project_perfection","verified" if result.get("passed") else "not_complete",project)
             return result
 
+        def project_design_research_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            goal=str(payload.get("goal") or "").strip()
+            if not project or not goal:raise ValueError("project and goal are required")
+            policy=self.projects.get(project)
+            if not policy:raise KeyError(project)
+            report=self.garuda.scout(project,"modern high quality web application UI UX design references "+goal,int(payload.get("limit") or 12))
+            references=[x for x in report.get("web") or [] if not x.get("suspicious")][:12]
+            if not references:raise RuntimeError("no safe public design references were found")
+            plan=self.router.coding_plan(policy.privacy)
+            if not plan:raise RuntimeError("no model available to render design candidates")
+            candidates=[]
+            for idx in range(4):
+                ref=references[idx%len(references)]
+                provider=plan[idx%len(plan)]["provider"]
+                prompt=(
+                    "Create one ORIGINAL single-file HTML/CSS interface preview for KRISHNA Design Studio. "
+                    "Do not copy the reference page. Use its high-level design lessons only. "
+                    "No JavaScript, no external scripts, no remote fonts/assets, no tracking, no forms that submit externally. "
+                    "The preview must be visually complete at desktop size and should reflect the requested product goal. "
+                    f"Project goal: {goal}\nReference title: {ref.get('title')}\nReference summary: {ref.get('summary')}\n"
+                    "Return STRICT JSON only: {\"rationale\":\"...\",\"html\":\"<!doctype html>...\"}."
+                )
+                raw=self.router.ask(provider,prompt)
+                obj=self.ephemeral_workers._json_object(raw)
+                html=str(obj.get("html") or "").strip()
+                if not html.lower().startswith("<!doctype") and "<html" not in html.lower():
+                    continue
+                preview=self.project_perfection.design_save_preview(project,html)
+                candidates.append({
+                    "preview_url":preview["preview_url"],
+                    "reference_url":ref.get("url"),
+                    "rationale":str(obj.get("rationale") or "")[:1200],
+                })
+            if not candidates:raise RuntimeError("design models did not return valid rendered HTML candidates")
+            session=self.project_perfection.design_create(project,candidates[:4])
+            session["research"]={
+                "goal":goal,
+                "reference_count":len(references),
+                "references":[{"title":x.get("title"),"url":x.get("url"),"source":x.get("source")} for x in references[:12]],
+                "policy":"references are inspiration evidence only; generated previews are original and script-sandboxed",
+            }
+            self.memory.audit("project_design_research","completed",f"{project}:{len(candidates[:4])} candidates")
+            return session
+
         def model_complete(payload,context):
             provider=str(payload.get("provider") or "").strip()
             prompt=str(payload.get("prompt") or "")
@@ -1084,6 +1129,13 @@ class Orchestrator:
             "browser.testing_lead",browser_testing_lead,
             description="Run exhaustive browser verification for the testing lead",
             permissions=("browser.read","browser.test"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "project.design.research",project_design_research_action,
+            description="Research current public UI references and render original Design Studio candidates",
+            mutating=True,permissions=("browser.read","model.use"),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
 
