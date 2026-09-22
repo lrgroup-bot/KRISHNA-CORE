@@ -100,7 +100,7 @@ async function startFieldScan(){
    document.getElementById('cameraAnalysis').textContent='Hawkeye live scan started. Hold the camera steady and move around the object for additional viewpoints.';
    document.getElementById('cameraMode').textContent='HAWKEYE · AUTO SCAN';
    fieldFrames=0;setMode('WORKING','HAWKEYE LIVE');
-   clearInterval(fieldTimer);fieldTimer=setInterval(sampleFieldFrame,3000);
+   clearInterval(fieldTimer);const edgeMs=Math.max(4000,Number(Krishna.edgeSamplingMs?Krishna.edgeSamplingMs():6000)||6000);fieldTimer=setInterval(sampleFieldFrame,edgeMs);
    setTimeout(sampleFieldFrame,700);
  }catch(e){
    reply('Hawkeye camera: '+e.message,'bad');
