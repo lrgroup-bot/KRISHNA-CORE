@@ -76,6 +76,19 @@ New-Item -ItemType Directory -Force $avatarPreviewDir|Out-Null
 Copy-Item -Force $avatarPreviewSource $avatarPreviewRuntime
 if(!(Test-Path $avatarPreviewRuntime)){throw "AVATAR PREVIEW COPY FAILED: $avatarPreviewRuntime"}
 
+# Install the browser-side 3D avatar engines locally on E: when missing.
+# TalkingHead is cloned from GitHub at a pinned commit; model-viewer is pinned from npm.
+$avatarEngineInstaller=Join-Path $Runtime "scripts\INSTALL_AVATAR_ENGINE.ps1"
+$talkingHeadAsset=Join-Path $Runtime "dashboard\assets\avatar-engine\talkinghead\talkinghead.mjs"
+$modelViewerAsset=Join-Path $Runtime "dashboard\assets\avatar-engine\model-viewer\model-viewer.min.js"
+if(!(Test-Path $talkingHeadAsset) -or !(Test-Path $modelViewerAsset)){
+  if(!(Test-Path $avatarEngineInstaller)){throw "AVATAR ENGINE INSTALLER MISSING: $avatarEngineInstaller"}
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $avatarEngineInstaller -RuntimeRoot $Runtime
+  if($LASTEXITCODE -ne 0){throw "AVATAR ENGINE INSTALL FAILED"}
+}
+if(!(Test-Path $talkingHeadAsset)){throw "TALKINGHEAD ASSET MISSING AFTER INSTALL: $talkingHeadAsset"}
+if(!(Test-Path $modelViewerAsset)){throw "MODEL-VIEWER ASSET MISSING AFTER INSTALL: $modelViewerAsset"}
+
 # Test the deployed runtime code, then repository-level contracts against runtime PYTHONPATH.
 $env:PYTHONPATH="$Runtime\core"
 & $Py -m compileall -q "$Runtime\core\krishna_core"
