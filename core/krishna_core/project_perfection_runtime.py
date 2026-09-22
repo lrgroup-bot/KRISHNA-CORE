@@ -166,9 +166,29 @@ class ProjectPerfectionRuntime:
     def design_submit(self, session_id: str, candidate_id: str) -> dict[str, Any]:
         return self.design_studio.submit(session_id,candidate_id)
 
+    @staticmethod
+    def performance_verify(browser_report: dict[str,Any], limits: dict[str,float] | None=None,
+                           required: bool=False) -> dict[str,Any]:
+        thresholds=dict(limits or {"load_ms":10000.0,"dom_content_loaded_ms":7000.0})
+        rows=[];violations=[]
+        for view in browser_report.get("viewports") or []:
+            perf=dict(view.get("performance") or {})
+            row={"width":view.get("width"),"metrics":perf};rows.append(row)
+            if required:
+                for metric,limit in thresholds.items():
+                    value=perf.get(metric)
+                    if value is None:
+                        violations.append({"width":view.get("width"),"metric":metric,"reason":"metric_missing"})
+                    elif float(value)>float(limit):
+                        violations.append({"width":view.get("width"),"metric":metric,
+                                           "value":float(value),"limit":float(limit)})
+        return {"required":bool(required),"thresholds":thresholds,"views":rows,
+                "violations":violations,"passed":not required or not violations}
+
     def verify_design_candidate(self, project: str, candidate_root: str, checks: list[str],
                                 frontend_url: str | None=None, approve_selected_baseline: bool=True,
-                                axe_required: bool=False) -> dict[str, Any]:
+                                axe_required: bool=False, performance_required: bool=False,
+                                performance_limits: dict[str,float] | None=None) -> dict[str, Any]:
         """Verify the selected design against the candidate itself when a static preview is possible."""
         def run(target_url: str | None, preview: dict[str,Any]):
             dev=self.development.verify(candidate_root,checks,frontend_url=target_url)
@@ -179,6 +199,7 @@ class ProjectPerfectionRuntime:
             exploration=self.explore_and_generate(project,target_url,screenshot_dir=shots,max_pages=25,max_depth=3)
             browser=self.browser_audit(target_url,screenshot_dir=shots)
             accessibility=self.accessibility_verify(target_url)
+            performance=self.performance_verify(browser,performance_limits,performance_required)
             chaos=self.browser_chaos_verify(target_url)
             # User selection explicitly approves a *new* visual direction, so the old
             # project golden baseline is not used to reject the intentional redesign.
@@ -198,7 +219,7 @@ class ProjectPerfectionRuntime:
             )
             passed=all((
                 bool(dev.get("verified")),bool(exploration.get("ok")),bool(browser.get("ok")),
-                accessibility_ok,bool(chaos.get("passed")),bool(visual_candidate.get("passed")),
+                accessibility_ok,bool(performance.get("passed")),bool(chaos.get("passed")),bool(visual_candidate.get("passed")),
             ))
             baseline_approval=[]
             if passed and approve_selected_baseline:
@@ -209,7 +230,7 @@ class ProjectPerfectionRuntime:
                         ))
             return {"passed":passed,"development":dev,"preview":preview,
                     "exploration":exploration,"browser":browser,"accessibility":accessibility,
-                    "chaos":chaos,"visual":visual_candidate,
+                    "performance":performance,"chaos":chaos,"visual":visual_candidate,
                     "accessibility_strict_required":bool(axe_required),
                     "baseline_approval":baseline_approval}
         if frontend_url:
@@ -260,7 +281,9 @@ class ProjectPerfectionRuntime:
                        work_items: list[dict[str, Any]] | None=None,
                        use_candidate_static_preview: bool=False,
                        restart_recovery_required: bool=True,
-                       axe_required: bool=False) -> dict[str, Any]:
+                       axe_required: bool=False,
+                       performance_required: bool=False,
+                       performance_limits: dict[str,float] | None=None) -> dict[str, Any]:
         """Run the full evidence pipeline once. Failed/missing evidence never becomes COMPLETE."""
         root=Path(project_root).resolve()
         default_work=[
@@ -295,6 +318,7 @@ class ProjectPerfectionRuntime:
                 current_regression=self.regression_runner.run(self.browser,effective_url,current_manifest)
                 browser=self.browser_audit(effective_url,screenshot_dir=shots)
                 accessibility=self.accessibility_verify(effective_url)
+                performance=self.performance_verify(browser,performance_limits,performance_required)
                 chaos=self.browser_chaos_verify(effective_url)
                 dev=self.development.verify(candidate_root,checks,frontend_url=effective_url)
                 visual=self.compare_visual_baselines(project,browser,approve_missing=approve_visual_baselines)
@@ -308,6 +332,8 @@ class ProjectPerfectionRuntime:
                 browser={"ok":False,"geometry_ok":False,"viewports":[],"geometry_findings":[],
                          "reason":"candidate_preview_unavailable"}
                 accessibility={"passed":False,"issues":[{"kind":"candidate_preview_unavailable"}]}
+                performance={"required":bool(performance_required),"passed":not performance_required,
+                             "violations":[{"reason":"candidate_preview_unavailable"}] if performance_required else []}
                 chaos={"passed":False,"scenarios":[],"reason":"candidate_preview_unavailable"}
                 dev=self.development.verify(candidate_root,checks)
                 visual={"passed":False,"results":[],"reason":"candidate_preview_unavailable"}
@@ -355,6 +381,9 @@ class ProjectPerfectionRuntime:
             {"gate":"ui_geometry","passed":bool(browser.get("geometry_ok")),"evidence":[str(browser.get("geometry_findings") or [])]},
             {"gate":"visual_regression","passed":bool(visual.get("passed")),"evidence":[str(visual.get("results") or [])]},
             {"gate":"responsive","passed":bool(browser.get("ok")),"evidence":[str([x.get("width") for x in browser.get("viewports") or []])]},
+            {"gate":"performance","passed":bool(performance.get("passed")),
+             "evidence":[str({"required":performance.get("required"),"thresholds":performance.get("thresholds"),
+                              "violations":performance.get("violations")})]},
             {"gate":"accessibility","passed":bool(accessibility.get("passed")) and (not axe_required or bool((accessibility.get("axe") or {}).get("available"))),
              "evidence":[str({"semantic_issues":accessibility.get("issues") or [],
                               "axe_available":bool((accessibility.get("axe") or {}).get("available")),
@@ -377,7 +406,7 @@ class ProjectPerfectionRuntime:
             "candidate_root":str(candidate_root),"staged":staged,
             "certificate":cert,"requirements_ok":requirements_ok,
             "exploration":exploration,"regression":regression,"browser":browser,
-            "accessibility":accessibility,"chaos":chaos,"development":dev,
+            "accessibility":accessibility,"performance":performance,"chaos":chaos,"development":dev,
             "mutation":mutation,"visual":visual,"api_fuzz":api,
             "artifacts":installed,"gates":gates,
             "verdict":cert["verdict"],"passed":cert["passed"],
