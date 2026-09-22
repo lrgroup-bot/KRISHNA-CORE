@@ -81,6 +81,54 @@ class BrowserOperator:
         failed=[x for x in evidence if not x.get("ok") and not x.get("skipped")]
         return {"url":url,"controls_checked":len(evidence),"evidence":evidence,"findings":findings,"screenshot":str(shot) if shot else None,"ok":not failed and not findings,"elapsed_ms":int((time.perf_counter()-started)*1000)}
 
+    def perfection_scan(self, url: str, viewports: list[int] | None = None, screenshot_dir: str | None = None) -> dict:
+        """Measure the rendered application across a responsive viewport matrix."""
+        try:
+            from playwright.sync_api import sync_playwright
+        except Exception as exc:
+            raise RuntimeError("Chromium operator unavailable") from exc
+        widths = viewports or [375, 390, 430, 768, 1024, 1366, 1440, 1920, 2560]
+        widths = sorted({max(320, min(int(x), 3840)) for x in widths})
+        out=[]; started=time.perf_counter()
+        with sync_playwright() as p:
+            try: browser=p.chromium.launch(channel="chrome",headless=self.headless)
+            except Exception: browser=p.chromium.launch(headless=self.headless)
+            for width in widths:
+                height=844 if width < 768 else 900
+                page=browser.new_page(viewport={"width":width,"height":height})
+                page.set_default_timeout(self.timeout_ms)
+                console=[]; errors=[]; failed=[]; bad=[]
+                page.on("console",lambda msg, bag=console: bag.append(msg.text) if msg.type=="error" else None)
+                page.on("pageerror",lambda exc, bag=errors: bag.append(str(exc)))
+                page.on("requestfailed",lambda req, bag=failed: bag.append(f"{req.method} {req.url} :: {req.failure}"))
+                page.on("response",lambda resp, bag=bad: bag.append(f"{resp.status} {resp.url}") if resp.status>=400 else None)
+                page.goto(url,wait_until="domcontentloaded"); page.wait_for_timeout(350)
+                geometry=page.evaluate("""() => Array.from(document.querySelectorAll('body *')).filter(el => {
+                  const s=getComputedStyle(el),r=el.getBoundingClientRect();
+                  return s.display!=='none' && s.visibility!=='hidden' && r.width>0 && r.height>0;
+                }).slice(0,5000).map((el,i) => {
+                  const r=el.getBoundingClientRect(),s=getComputedStyle(el);
+                  let selector=el.id ? '#'+el.id : el.tagName.toLowerCase();
+                  if(!el.id && el.classList.length) selector+='.'+Array.from(el.classList).slice(0,2).join('.');
+                  return {selector:selector+'@'+i,x:r.x,y:r.y,width:r.width,height:r.height,visible:true,
+                          text:(el.innerText||'').trim().slice(0,120),z_index:parseInt(s.zIndex)||0};
+                })""")
+                layout=page.evaluate("""() => ({viewport_width:innerWidth,viewport_height:innerHeight,
+                    scroll_width:document.documentElement.scrollWidth,scroll_height:document.documentElement.scrollHeight,
+                    horizontal_overflow:document.documentElement.scrollWidth>innerWidth+2})""")
+                shot=None
+                if screenshot_dir:
+                    target=Path(screenshot_dir).resolve();target.mkdir(parents=True,exist_ok=True)
+                    shot=target/f"viewport-{width}.png";page.screenshot(path=str(shot),full_page=True)
+                findings=self.summarize_findings(console,errors,failed,bad)
+                out.append({"width":width,"height":height,"url":page.url,"title":page.title(),
+                            "layout":layout,"geometry":geometry,"findings":findings,
+                            "screenshot":str(shot) if shot else None,"ok":not findings and not layout["horizontal_overflow"]})
+                page.close()
+            browser.close()
+        return {"url":url,"viewports":out,"ok":all(x["ok"] for x in out),
+                "elapsed_ms":int((time.perf_counter()-started)*1000)}
+
     def privacy_probe(self, url: str="about:blank", profile: str="BASELINE") -> dict:
         """Run a local, ephemeral browser privacy probe without activating sensors.
 
