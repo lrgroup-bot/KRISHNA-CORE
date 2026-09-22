@@ -16,7 +16,13 @@ on:
       - 'app/src/main/res/**'
       - 'core/krishna_core/privacy_guardian/**'
       - 'core/tests/test_privacy_guardian.py'
+      - 'core/krishna_core/project_perfection_execution.py'
+      - 'core/tests/test_project_perfection_execution.py'
       - '.github/workflows/build-mobile-v3.yml'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -204,9 +210,30 @@ jobs:
           print("KABACH_MOBILE_PRIVACY_GATE_OK")
           PY
 
+      - name: Clean APK emulator install-launch-restart retest
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -eu
+            PYTHONPATH=core python - <<'PY'
+            import json
+            from pathlib import Path
+            from krishna_core.project_perfection_execution import ArtifactExecutor
+            result=ArtifactExecutor().apk("app/build/outputs/apk/debug/app-debug.apk","com.krishna.mobile")
+            Path("project-perfection-apk-retest.json").write_text(json.dumps(result,indent=2),encoding="utf-8")
+            print(json.dumps(result,indent=2))
+            if not result.get("passed"):
+                raise SystemExit("KRISHNA APK emulator retest failed")
+            PY
+
       - uses: actions/upload-artifact@v4
         with:
           name: KRISHNA-v3.6-Hawkeye-Mobile-APK
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             privacy-apk-report.json
+            project-perfection-apk-retest.json

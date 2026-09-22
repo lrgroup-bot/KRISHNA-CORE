@@ -1,6 +1,10 @@
+import json
 import uuid
 from pathlib import Path
 
+from .project_perfection_runtime import ProjectPerfectionRuntime
+from .design_implementation import DesignImplementationGuard
+from .candidate_repair import CandidateRepairGuard
 from .memory import MemoryStore
 from .router import ModelRouter
 from .model_gateway import ModelGatewayRegistry
@@ -112,6 +116,7 @@ class Orchestrator:
         self.neural = NeuralActionGraph()
         self.browser = BrowserOperator()
         self.development = DevelopmentOperator(self.browser)
+        self.project_perfection = ProjectPerfectionRuntime(self.browser, self.development, state_root=runtime_state / "project-perfection")
         self.research = GitHubResearchAgent()
         self.garuda = GarudaAgent(self.research, self.memory)
         self.gyan_bhandar = GyanBhandarAgent(self.memory, self.garuda)
@@ -333,6 +338,388 @@ class Orchestrator:
                 payload.get("screenshot_dir") or None,
                 int(payload.get("max_controls") or 100),
             )
+
+        def project_perfection_finish_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            url=str(payload.get("url") or "").strip()
+            if not project or not url:raise ValueError("project and url are required")
+            policy=self.projects.get(project)
+            if not policy:raise KeyError(project)
+
+            def security_for(root):
+                report=self.kabach.protect_project(project,root,policy.privacy)
+                violations=[]
+                for row in report.get("checks") or []:
+                    verdict=row.get("verdict") or {}
+                    evidence=set(str(x) for x in verdict.get("evidence") or [])
+                    material={x for x in evidence if x!="sensitive_path"}
+                    if material:violations.append({"path":row.get("path"),"evidence":sorted(material)})
+                passed=bool(report.get("protected")) and not violations
+                report["release_violations"]=violations
+                report["release_gate_passed"]=passed
+                return report,passed
+
+            def run_once(root, target_url, use_static):
+                security,security_ok=security_for(root)
+                result=self.project_perfection.finish_project(
+                    project=project,project_root=root,url=target_url,
+                    build_hash=str(payload.get("build_hash") or ""),
+                    checks=list(payload.get("checks") or policy.verification_checks or []),
+                    requirements_ok=bool(payload.get("requirements_ok",False)),
+                    schema_url=payload.get("schema_url"),api_base_url=payload.get("api_base_url"),
+                    artifacts=list(payload.get("artifacts") or []),
+                    screenshot_dir=payload.get("screenshot_dir"),
+                    approve_visual_baselines=bool(payload.get("approve_visual_baselines",False)),
+                    backend_required=bool(payload.get("backend_required",True)),
+                    artifact_required=bool(payload.get("artifact_required",False)),
+                    security_ok=security_ok,
+                    restart_recovery_ok=bool(payload.get("restart_recovery_ok",False)),
+                    max_mutants=int(payload.get("max_mutants") or 8),
+                    deadline_minutes=float(payload.get("deadline_minutes") or 60),
+                    work_items=list(payload.get("work_items") or []),
+                    use_candidate_static_preview=bool(use_static),
+                    restart_recovery_required=bool(payload.get("restart_recovery_required",True)),
+                    axe_required=bool(payload.get("axe_required",True)),
+                    performance_required=bool(payload.get("performance_required",True)),
+                    performance_limits=dict(payload.get("performance_limits") or {}),
+                    hawkeye_required=bool(payload.get("hawkeye_ui_required",True)),
+                )
+                result["security_report"]=security
+                return result
+
+            result=run_once(policy.root,url,bool(payload.get("use_candidate_static_preview",False)))
+            repair_history=[]
+            auto_repair=bool(payload.get("auto_repair",True))
+            max_rounds=max(0,min(int(payload.get("max_repair_rounds") or 3),3))
+            repairable={"unit","integration","browser_e2e","ui_geometry","visual_regression",
+                        "responsive","performance","accessibility","adversarial"}
+            for round_no in range(1,max_rounds+1):
+                if result.get("passed") or not auto_repair:break
+                failed=[g for g in result.get("gates") or [] if not g.get("passed")]
+                failed_names={str(g.get("gate") or "") for g in failed}
+                # Missing visual baseline is approval/evidence, not a source-code defect.
+                visual_rows=(result.get("visual") or {}).get("results") or []
+                if failed_names=={"visual_regression"} and visual_rows and all(x.get("reason")=="baseline_missing" for x in visual_rows):
+                    break
+                code_failed=sorted(failed_names & repairable)
+                if not code_failed:break
+                candidate=str(result.get("candidate_root") or "")
+                if not candidate:break
+                source_context=CandidateRepairGuard.collect_context(candidate,code_failed)
+                if not source_context.get("files"):
+                    repair_history.append({"round":round_no,"status":"blocked","reason":"no repairable source context","failed_gates":code_failed})
+                    break
+                plan=self.router.coding_plan(policy.privacy)
+                if not plan:
+                    repair_history.append({"round":round_no,"status":"blocked","reason":"no model available","failed_gates":code_failed})
+                    break
+                provider=plan[(round_no-1)%len(plan)]["provider"]
+                prompt=CandidateRepairGuard.prompt(failed,source_context)
+                raw=self.router.ask(provider,prompt)
+                obj=self.ephemeral_workers._json_object(raw)
+                try:
+                    files=CandidateRepairGuard.validate_patch(candidate,obj.get("files") or [])
+                    security_blocks=[]
+                    for row in files:
+                        verdict=self.kabach.inspect_text(row["content"],row["path"])
+                        if not verdict.get("allowed"):security_blocks.append({"path":row["path"],"verdict":verdict})
+                    if security_blocks:
+                        repair_history.append({"round":round_no,"status":"blocked","reason":"KABACH rejected candidate patch",
+                                               "security":security_blocks,"failed_gates":code_failed})
+                        break
+                    changed=CandidateRepairGuard.apply(candidate,files)
+                except (ValueError,PermissionError,OSError) as exc:
+                    repair_history.append({"round":round_no,"status":"blocked","reason":f"{type(exc).__name__}: {exc}",
+                                           "failed_gates":code_failed})
+                    break
+                repair_history.append({
+                    "round":round_no,"status":"patched","provider":provider,
+                    "summary":str(obj.get("summary") or "")[:3000],
+                    "files":changed,"failed_gates":code_failed,
+                })
+                candidate_url=str(payload.get("candidate_url") or "").strip()
+                use_static=not bool(candidate_url) and bool(self.project_perfection.candidate_static.find_entry(candidate))
+                retry_url=candidate_url or url
+                result=run_once(candidate,retry_url,use_static)
+
+            result["repair_history"]=repair_history
+            result["auto_repair_attempted"]=bool(repair_history)
+            if result.get("passed") and repair_history:
+                last=repair_history[-1]
+                repaired_gates=list(last.get("failed_gates") or [])
+                detector_map={
+                    "unit":{"kind":"verification_steps","checks":list(payload.get("checks") or policy.verification_checks or [])},
+                    "integration":{"kind":"development_integration","checks":list(payload.get("checks") or policy.verification_checks or [])},
+                    "browser_e2e":{"kind":"route_regression_manifest","manifest":((result.get("regression") or {}).get("manifest") or {}).get("path"),
+                                   "routes":((result.get("regression") or {}).get("current") or {}).get("route_count")},
+                    "ui_geometry":{"kind":"xy_geometry_matrix","viewports":[x.get("width") for x in (result.get("browser") or {}).get("viewports") or []]},
+                    "visual_regression":{"kind":"golden_visual_baselines","results":[
+                        {"width":x.get("width"),"baseline":x.get("baseline"),"threshold":x.get("threshold")}
+                        for x in (result.get("visual") or {}).get("results") or []
+                    ]},
+                    "responsive":{"kind":"responsive_viewport_matrix","viewports":[x.get("width") for x in (result.get("browser") or {}).get("viewports") or []]},
+                    "performance":{"kind":"performance_thresholds","thresholds":(result.get("performance") or {}).get("thresholds")},
+                    "accessibility":{"kind":"semantic_plus_axe","axe_available":bool(((result.get("accessibility") or {}).get("axe") or {}).get("available"))},
+                    "adversarial":{"kind":"chaos_plus_mutation","mutation_score":(result.get("mutation") or {}).get("score"),
+                                   "chaos":[x.get("name") for x in (result.get("chaos") or {}).get("scenarios") or []]},
+                }
+                detector_evidence={gate:detector_map.get(gate,{"kind":"completion_gate","gate":gate}) for gate in repaired_gates}
+                detector=json.dumps(detector_evidence,sort_keys=True,default=str)
+                immune=self.project_perfection.immunize_bug(
+                    project,
+                    "failed_gates:"+",".join(repaired_gates),
+                    str(last.get("summary") or "verified auto-repair"),
+                    detector,
+                    str((result.get("certificate") or {}).get("certificate_id") or "verified"),
+                )
+                result["immune_memory"]=immune
+                result["immune_detectors"]=detector_evidence
+            else:
+                result["immune_memory"]=None
+
+            critic_checks=[{
+                "name":g.get("gate"),"passed":bool(g.get("passed")),
+                "status":"pass" if g.get("passed") else "fail",
+            } for g in result.get("gates") or []]
+            critic=self.agi.critic.judge(
+                critic_checks,
+                evidence=[{
+                    "certificate_id":(result.get("certificate") or {}).get("certificate_id"),
+                    "build_hash":(result.get("certificate") or {}).get("build_hash"),
+                    "mutation_score":(result.get("mutation") or {}).get("score"),
+                    "browser_nodes":((result.get("exploration") or {}).get("graph") or {}).get("node_count"),
+                }],
+            )
+            result["independent_critic"]=critic
+            if not critic.get("passed"):
+                result["passed"]=False
+                result["verdict"]="NOT_COMPLETE_INDEPENDENT_REVIEW"
+
+            qa_review={"executed":False,"reason":"disabled"}
+            if bool(payload.get("run_qa_workers",True)):
+                try:
+                    plan=result.get("team_plan") or {}
+                    count=max(1,min(int(plan.get("recommended_workers") or 1),self.ephemeral_workers.max_workers,8))
+                    assignments=[]
+                    roles=list((plan.get("assignments") or {}).keys()) or ["qa_reviewer"]
+                    page_rows=((result.get("exploration") or {}).get("exploration") or {}).get("nodes") or []
+                    page_urls=[str(x.get("url") or "") for x in page_rows[:40]]
+                    gate_summary=[{"gate":x.get("gate"),"passed":x.get("passed")} for x in result.get("gates") or []]
+                    for idx in range(count):
+                        role=roles[idx%len(roles)]
+                        assigned_pages=page_urls[idx::count]
+                        assignments.append({
+                            "specialty":role,
+                            "task":(
+                                "Independently audit KRISHNA's supplied verification evidence. Do not claim tests you did not run. "
+                                f"Gate summary: {gate_summary}. Assigned discovered pages: {assigned_pages}. "
+                                "Identify contradictions, missing evidence, suspicious passes, or unresolved risk only."
+                            ),
+                        })
+                    req=self.software_factory.worker_request(
+                        project,"project_perfection","qa_reviewer",count,
+                        "Independent post-verification evidence review",plan,approved_by_krishna=True,
+                    )
+                    req["assignments"]=assignments
+                    qa_review=self.ephemeral_workers.execute(
+                        project,req,"Review Project Perfection evidence independently",policy.privacy,
+                    )
+                    qa_review["executed"]=True
+                except Exception as exc:
+                    qa_review={"executed":False,"reason":f"{type(exc).__name__}: {exc}"}
+            result["qa_worker_review"]=qa_review
+
+            result["promotion"]=self._prepare_promotion_impl(project,result["candidate_root"]) if result.get("passed") else None
+            result["live_apply"]=None
+            result["post_apply_verification"]=None
+            if result.get("passed") and bool(payload.get("apply_verified",False)):
+                promotion=result.get("promotion") or {}
+                token=str(promotion.get("promotion_token") or "")
+                if not token:
+                    result["passed"]=False
+                    result["verdict"]="NOT_COMPLETE_PROMOTION_TOKEN_MISSING"
+                else:
+                    try:
+                        live=self.promote_candidate(token,approved=True)
+                        result["live_apply"]=live
+                        if live.get("promoted"):
+                            post=self.project_perfection.post_apply_verify(
+                                project,policy.root,url,
+                                list(payload.get("checks") or policy.verification_checks or []),
+                                axe_required=bool(payload.get("axe_required",True)),
+                                performance_required=bool(payload.get("performance_required",True)),
+                                performance_limits=dict(payload.get("performance_limits") or {}),
+                                hawkeye_required=bool(payload.get("hawkeye_ui_required",True)),
+                            )
+                            result["post_apply_verification"]=post
+                            if not post.get("passed"):
+                                self.promotions.rollback(policy.root,live["backup"],live["diff"])
+                                live.update({
+                                    "status":"rolled_back_post_apply","promoted":False,
+                                    "rolled_back":True,"reason":"live post-apply verification failed",
+                                })
+                                result["passed"]=False
+                                result["verdict"]="ROLLED_BACK_POST_APPLY"
+                                self.memory.audit("project_perfection_post_apply","rolled_back",project)
+                            else:
+                                result["verdict"]="VERIFIED_AND_APPLIED"
+                                self.memory.audit("project_perfection_post_apply","verified",project)
+                        elif live.get("rolled_back"):
+                            result["passed"]=False
+                            result["verdict"]="ROLLED_BACK_DURING_PROMOTION"
+                    except PermissionError as exc:
+                        result["live_apply"]={"status":"approval_blocked","promoted":False,"rolled_back":False,"reason":str(exc)}
+                        result["passed"]=False
+                        result["verdict"]="VERIFIED_NOT_APPLIED"
+            self.memory.audit("project_perfection","verified" if result.get("passed") else "not_complete",project)
+            return result
+
+        def project_design_research_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            goal=str(payload.get("goal") or "").strip()
+            if not project or not goal:raise ValueError("project and goal are required")
+            policy=self.projects.get(project)
+            if not policy:raise KeyError(project)
+            report=self.garuda.scout(project,"modern high quality web application UI UX design references "+goal,int(payload.get("limit") or 12))
+            references=[x for x in report.get("web") or [] if not x.get("suspicious")][:12]
+            if not references:raise RuntimeError("no safe public design references were found")
+            plan=self.router.coding_plan(policy.privacy)
+            if not plan:raise RuntimeError("no model available to render design candidates")
+            candidates=[]
+            for idx in range(4):
+                ref=references[idx%len(references)]
+                provider=plan[idx%len(plan)]["provider"]
+                prompt=(
+                    "Create one ORIGINAL single-file HTML/CSS interface preview for KRISHNA Design Studio. "
+                    "Do not copy the reference page. Use its high-level design lessons only. "
+                    "No JavaScript, no external scripts, no remote fonts/assets, no tracking, no forms that submit externally. "
+                    "The preview must be visually complete at desktop size and should reflect the requested product goal. "
+                    f"Project goal: {goal}\nReference title: {ref.get('title')}\nReference summary: {ref.get('summary')}\n"
+                    "Return STRICT JSON only: {\"rationale\":\"...\",\"html\":\"<!doctype html>...\"}."
+                )
+                raw=self.router.ask(provider,prompt)
+                obj=self.ephemeral_workers._json_object(raw)
+                html=str(obj.get("html") or "").strip()
+                if not html.lower().startswith("<!doctype") and "<html" not in html.lower():
+                    continue
+                preview=self.project_perfection.design_save_preview(project,html)
+                candidates.append({
+                    "preview_url":preview["preview_url"],
+                    "reference_url":ref.get("url"),
+                    "rationale":str(obj.get("rationale") or "")[:1200],
+                })
+            if not candidates:raise RuntimeError("design models did not return valid rendered HTML candidates")
+            session=self.project_perfection.design_create(project,candidates[:4])
+            metadata={
+                "goal":goal,
+                "frontend_url":str(payload.get("frontend_url") or ""),
+                "reference_count":len(references),
+                "references":[{"title":x.get("title"),"url":x.get("url"),"source":x.get("source")} for x in references[:12]],
+                "policy":"references are inspiration evidence only; generated previews are original and script-sandboxed",
+            }
+            session=self.project_perfection.design_annotate(session["session_id"],metadata)
+            self.memory.audit("project_design_research","completed",f"{project}:{len(candidates[:4])} candidates")
+            return session
+
+        def project_design_implement_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            sid=str(payload.get("session_id") or "").strip()
+            if not project or not sid:raise ValueError("project and session_id are required")
+            policy=self.projects.get(project)
+            if not policy:raise KeyError(project)
+            state=self.project_perfection.design_get(sid)
+            if state.get("project")!=project:raise PermissionError("design session belongs to another project")
+            if not state.get("submitted") or not state.get("selected"):
+                raise RuntimeError("design must be selected and submitted before implementation")
+            selected=dict(state["selected"])
+            token=DesignImplementationGuard.preview_token(selected.get("preview_url"))
+            selected_html=self.project_perfection.design_preview(token)
+            source_context=DesignImplementationGuard.collect_context(policy.root)
+            if not source_context.get("files"):
+                raise RuntimeError("no eligible frontend source files found in project")
+            metadata=dict(state.get("metadata") or {})
+            goal=str(metadata.get("goal") or payload.get("goal") or "Improve this project UI using the selected design.")
+            plan=self.router.coding_plan(policy.privacy)
+            if not plan:raise RuntimeError("no model available for design implementation")
+            provider=plan[0]["provider"]
+            prompt=DesignImplementationGuard.prompt(goal,selected_html,source_context)
+            raw=self.router.ask(provider,prompt)
+            obj=self.ephemeral_workers._json_object(raw)
+            files=DesignImplementationGuard.validate_patch(policy.root,obj.get("files") or [])
+            staged=self.development.stage(policy.root,files)
+            frontend_url=str(payload.get("frontend_url") or metadata.get("frontend_url") or "").strip() or None
+            checks=list(payload.get("checks") or policy.verification_checks or [])
+            verification=self.project_perfection.verify_design_candidate(
+                project,staged["candidate_root"],checks,
+                frontend_url=frontend_url,approve_selected_baseline=True,
+                axe_required=bool(payload.get("axe_required",True)),
+                performance_required=bool(payload.get("performance_required",True)),
+                performance_limits=dict(payload.get("performance_limits") or {}),
+                hawkeye_required=bool(payload.get("hawkeye_ui_required",True)),
+            )
+            promotion=self._prepare_promotion_impl(project,staged["candidate_root"]) if verification.get("passed") else None
+            implementation={
+                "project":project,"session_id":sid,"provider":provider,
+                "summary":str(obj.get("summary") or "")[:3000],
+                "files":[x["path"] for x in files],
+                "candidate_root":staged["candidate_root"],
+                "verification":verification,
+                "promotion":promotion,
+                "promotable":bool(verification.get("passed") and promotion),
+                "selected_label":selected.get("label"),
+                "selected_candidate_id":selected.get("id"),
+            }
+            self.project_perfection.design_annotate(sid,{
+                "implementation":{
+                    "provider":provider,"summary":implementation["summary"],"files":implementation["files"],
+                    "candidate_root":implementation["candidate_root"],
+                    "verified":bool(verification.get("passed")),
+                    "promotable":implementation["promotable"],
+                }
+            })
+            self.memory.audit("project_design_implement","verified" if verification.get("passed") else "failed",f"{project}:{sid}")
+            return implementation
+
+        def project_visual_edit_agent_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            element=dict(payload.get("element") or {})
+            instruction=str(payload.get("instruction") or "").strip()
+            if not project or not element or not instruction:
+                raise ValueError("project, element and instruction are required")
+            policy=self.projects.get(project)
+            if not policy:raise KeyError(project)
+            source_context=DesignImplementationGuard.collect_context(policy.root)
+            if not source_context.get("files"):raise RuntimeError("no eligible frontend source files found")
+            plan=self.router.coding_plan(policy.privacy)
+            if not plan:raise RuntimeError("no model available for visual editing")
+            provider=plan[0]["provider"]
+            prompt=DesignImplementationGuard.visual_edit_prompt(
+                instruction,element,source_context,payload.get("from_box"),payload.get("to_box"),
+            )
+            raw=self.router.ask(provider,prompt)
+            obj=self.ephemeral_workers._json_object(raw)
+            files=DesignImplementationGuard.validate_patch(policy.root,obj.get("files") or [])
+            staged=self.development.stage(policy.root,files)
+            checks=list(payload.get("checks") or policy.verification_checks or [])
+            frontend_url=str(payload.get("frontend_url") or "").strip() or None
+            verification=self.project_perfection.verify_design_candidate(
+                project,staged["candidate_root"],checks,frontend_url=frontend_url,
+                approve_selected_baseline=False,axe_required=bool(payload.get("axe_required",True)),
+                performance_required=bool(payload.get("performance_required",True)),
+                performance_limits=dict(payload.get("performance_limits") or {}),
+                hawkeye_required=bool(payload.get("hawkeye_ui_required",True)),
+            )
+            promotion=self._prepare_promotion_impl(project,staged["candidate_root"]) if verification.get("passed") else None
+            result={
+                "project":project,"provider":provider,"instruction":instruction[:2000],
+                "summary":str(obj.get("summary") or "")[:3000],
+                "files":[x["path"] for x in files],"candidate_root":staged["candidate_root"],
+                "verification":verification,"promotion":promotion,
+                "promotable":bool(verification.get("passed") and promotion),
+                "element":element,
+            }
+            self.memory.audit("project_visual_edit","verified" if verification.get("passed") else "failed",project)
+            return result
 
         def model_complete(payload,context):
             provider=str(payload.get("provider") or "").strip()
@@ -1106,6 +1493,34 @@ class Orchestrator:
         )
 
         self.action_bus.register(
+            "project.design.research",project_design_research_action,
+            description="Research current public UI references and render original Design Studio candidates",
+            mutating=True,permissions=("browser.read","model.use"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "project.design.implement",project_design_implement_action,
+            description="Implement the submitted Design Studio selection in an isolated verified candidate",
+            mutating=True,permissions=("candidate.write","tests.run","model.use"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "project.visual_edit.implement",project_visual_edit_agent_action,
+            description="Implement a point/drag/speak visual edit in an isolated verified frontend candidate",
+            mutating=True,permissions=("candidate.write","tests.run","model.use","browser.read"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "project.perfection.finish",project_perfection_finish_action,
+            description="Run full project discovery, adversarial QA, artifact retest and evidence certification",
+            mutating=True,permissions=("candidate.write","tests.run","browser.test"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
             "model.complete",model_complete,
             description="Run an approved model provider under KRISHNA privacy and free-only policy",
             permissions=("model.use",),
@@ -1743,7 +2158,18 @@ class Orchestrator:
             for name in policy.verification_checks:
                 fn=self._verification_checks.get((project,name))
                 if fn: checks.append((name,lambda fn=fn,root=root:fn(root)))
-            return self.verifier.run(checks)
+            if checks:
+                return self.verifier.run(checks)
+            if policy.verification_checks:
+                dev=self.development.verify(root,list(policy.verification_checks))
+                return {
+                    "verified":bool(dev.get("verified")),
+                    "checks":list(dev.get("steps") or []),
+                    "passed":sum(1 for x in dev.get("steps") or [] if x.get("ok")),
+                    "failed":sum(1 for x in dev.get("steps") or [] if not x.get("ok")),
+                    "source":"DevelopmentOperator",
+                }
+            return {"verified":False,"checks":[],"passed":0,"failed":0,"reason":"no verification checks registered"}
         result=self.promotions.promote(project,policy.root,item["candidate_root"],verify)
         self.memory.audit(token,result["status"],project)
         if item.get("task_id"):
