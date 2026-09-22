@@ -593,6 +593,14 @@ class BrowserOperator:
                 shot = str(target)
 
             visible_text = page.locator("body").inner_text()[:12000]
+            state_signature = page.evaluate("""() => {
+              const t=(document.body?.innerText||'').slice(0,6000);
+              const c=Array.from(document.querySelectorAll('button,a[href],input,[role=button]'))
+                .slice(0,300).map(x=>[(x.innerText||x.getAttribute('aria-label')||x.getAttribute('value')||'').trim(),x.tagName]).flat().join('|');
+              return t+'::'+c;
+            }""")
+            state_url=urldefrag(page.url)[0]
+            state_id=sha256((state_url+"|"+state_signature).encode()).hexdigest()[:20]
             layout = page.evaluate("""() => {
               const de=document.documentElement, b=document.body;
               const vw=window.innerWidth, vh=window.innerHeight;
@@ -622,5 +630,7 @@ class BrowserOperator:
             report.ok = not report.findings and not layout.get("horizontal_overflow")
             out = asdict(report)
             out["layout"] = layout
+            out["state_id"] = state_id
+            out["state_url"] = state_url
             browser.close()
             return out
