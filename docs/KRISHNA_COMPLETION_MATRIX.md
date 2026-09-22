@@ -231,6 +231,7 @@ Do **not** build the final `Krishna_AGI.exe` until:
 | Permanent deterministic regressions | IMPLEMENTED / RUNTIME VERIFY | Generated route regression source + persistent manifest + runner; repaired defects persist detector evidence in Immune Memory. |
 | Accessibility | IMPLEMENTED / RUNTIME VERIFY | Semantic sanity checks plus optional/strict local axe-core execution. |
 | Visual regression | IMPLEMENTED / RUNTIME VERIFY | Controlled golden baseline storage and pixel diff; intentional selected redesign creates a new approved baseline only after candidate verification. |
+| Hawkeye UI perceptual review | IMPLEMENTED / RUNTIME VERIFY | Local-only VisionAdapter reviews bounded page/viewport screenshots for high-confidence visible defects; it cannot override deterministic evidence and fails honestly when the local vision model is unavailable. |
 | Performance gates | IMPLEMENTED / RUNTIME VERIFY | Browser timing metrics are checked against explicit thresholds when required. |
 | API property/fuzz testing | IMPLEMENTED ADAPTER / RUNTIME VERIFY | Schemathesis adapter; verified deploy provisions the dependency locally on E:. |
 | Mutation testing | IMPLEMENTED / RUNTIME VERIFY | Reversible mutations run only inside isolated candidates and must be detected by verification. |
