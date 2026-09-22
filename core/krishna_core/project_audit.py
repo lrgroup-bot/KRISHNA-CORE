@@ -9,6 +9,7 @@ slice of the project and returns evidence. The coordinator never mutates product
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import argparse
+import ast
 import json
 import re
 import time
@@ -81,6 +82,31 @@ class KrishnaProjectAudit:
             re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}"),
             re.compile(r"\bAIza[0-9A-Za-z_-]{20,}"),
         )
+
+        def scan_python(rel,text):
+            try:tree=ast.parse(text,filename=str(rel))
+            except SyntaxError as exc:
+                findings["dangerous"].append({"file":str(rel),"issue":"python syntax","line":exc.lineno,"detail":exc.msg})
+                return
+            for node in ast.walk(tree):
+                if isinstance(node,ast.Call):
+                    for kw in node.keywords:
+                        if kw.arg=="shell" and isinstance(kw.value,ast.Constant) and kw.value.value is True:
+                            findings["dangerous"].append({"file":str(rel),"issue":"subprocess shell=True","line":getattr(node,"lineno",None)})
+                    fn=node.func
+                    if isinstance(fn,ast.Attribute) and isinstance(fn.value,ast.Name) and fn.value.id=="os" and fn.attr=="system":
+                        findings["dangerous"].append({"file":str(rel),"issue":"os.system","line":getattr(node,"lineno",None)})
+                if isinstance(node,ast.Raise) and isinstance(node.exc,ast.Call):
+                    fn=node.exc.func
+                    if isinstance(fn,ast.Name) and fn.id=="NotImplementedError":
+                        findings["warnings"].append({"file":str(rel),"issue":"NotImplementedError","line":getattr(node,"lineno",None)})
+                if isinstance(node,ast.ExceptHandler) and node.type is not None:
+                    broad=isinstance(node.type,ast.Name) and node.type.id=="Exception"
+                    if broad and len(node.body)==1 and isinstance(node.body[0],ast.Pass):
+                        findings["warnings"].append({"file":str(rel),"issue":"broad exception swallowed","line":getattr(node,"lineno",None)})
+            for match in re.finditer(r"(?im)^\s*#.*\b(?:TODO|FIXME)\b",text):
+                findings["warnings"].append({"file":str(rel),"issue":"TODO/FIXME","line":text.count("\n",0,match.start())+1})
+
         for path in sorted(self.source.rglob("*")):
             if not path.is_file() or path.suffix.lower() not in text_ext:continue
             rel=path.relative_to(self.source)
@@ -93,22 +119,17 @@ class KrishnaProjectAudit:
             if path.suffix.lower()==".json":
                 try:json.loads(text)
                 except Exception as exc:findings["invalid_json"].append({"file":str(rel),"error":f"{type(exc).__name__}: {exc}"})
-            definite=(
-                ("shell=True",r"shell\s*=\s*True"),
-                ("os.system",r"\bos\.system\s*\("),
-                ("subprocess shell",r"subprocess\.[A-Za-z_]+\([^\n]{0,500}shell\s*=\s*True"),
-                ("TLS verify disabled",r"verify\s*=\s*False"),
-            )
-            for label,pattern in definite:
-                if re.search(pattern,text):
-                    findings["dangerous"].append({"file":str(rel),"issue":label})
-            for label,pattern in (
-                ("TODO/FIXME",r"\b(?:TODO|FIXME)\b"),
-                ("NotImplementedError",r"\bNotImplementedError\b"),
-                ("broad exception swallowed",r"except\s+Exception(?:\s+as\s+\w+)?\s*:\s*(?:#.*\n\s*)?pass\b"),
-            ):
-                if re.search(pattern,text,re.I if label=="TODO/FIXME" else 0):
-                    findings["warnings"].append({"file":str(rel),"issue":label})
+            if path.suffix.lower()==".py":
+                scan_python(rel,text)
+            else:
+                for label,pattern in (
+                    ("shell=True",r"shell\s*=\s*True"),
+                    ("TLS verify disabled",r"verify\s*=\s*False"),
+                ):
+                    if re.search(pattern,text):
+                        findings["dangerous"].append({"file":str(rel),"issue":label})
+                for match in re.finditer(r"(?im)^\s*(?:#|//|<!--).*\b(?:TODO|FIXME)\b",text):
+                    findings["warnings"].append({"file":str(rel),"issue":"TODO/FIXME","line":text.count("\n",0,match.start())+1})
             for pattern in secret_patterns:
                 if pattern.search(text):
                     findings["possible_secrets"].append({"file":str(rel),"pattern":pattern.pattern})
