@@ -20,8 +20,8 @@ class HawkeyeDiagnosticRuntime:
     _TRIGGERS = (
         "circuit", "pcb", "board", "motherboard", "electronic", "wiring", "relay",
         "fuse", "connector", "schematic", "signal flow", "power flow", "voltage",
-        "vehicle", "car", "truck", "bus", "bike", "motorcycle", "obd", "can",
-        "j1939", "ecu", "diagnos", "bearing", "motor", "pump", "sound fault",
+        "vehicle", "car", "truck", "bus", "bike", "motorcycle", "obd", "can bus", "can-fd",
+        "j1939", "ecu", "diagnose", "diagnosis", "diagnostic", "bearing", "motor", "pump", "sound fault",
     )
     _HAZARDS = ("mains", "high voltage", "high-voltage", "hv battery", "traction battery", "400v", "800v", "230v", "415v")
 
@@ -31,8 +31,8 @@ class HawkeyeDiagnosticRuntime:
 
     @classmethod
     def should_activate(cls, goal: str) -> bool:
-        text = str(goal or "").lower()
-        return bool(text.strip()) and any(term in text for term in cls._TRIGGERS)
+        text = str(goal or "").lower().strip()
+        return bool(text) and any(re.search(r"(?<![a-z0-9_])" + re.escape(term) + r"(?![a-z0-9_])", text) for term in cls._TRIGGERS)
 
     @staticmethod
     def _safe_id(value):
