@@ -1563,7 +1563,7 @@ async function selectSpecialists(){const task=$('specialistTask').value.trim();i
 async function runGaruda(){const goal=$('garudaGoal').value.trim();if(!goal)return;const project=$('project').value||'KRISHNA';$('garudaState').querySelector('.v').textContent='SCOUTING WEB + GITHUB…';$('garudaResults').innerHTML='';try{const d=await actionReq('garuda.scout',{project,goal,limit:10},{project});const rows=[];(d.github||[]).slice(0,8).forEach(x=>rows.push('<div class="card"><div class="k">GITHUB CANDIDATE</div><div class="v">'+escapeHtml(x.full_name||'')+'</div><p>'+escapeHtml(x.description||'')+'</p><div class="pluginMeta">Stars '+escapeHtml(x.stars)+' · License '+escapeHtml(x.license||'review required')+' · Fit '+escapeHtml(x.fit_terms||0)+'</div></div>'));(d.web||[]).slice(0,8).forEach(x=>rows.push('<div class="card"><div class="k">WEB DISCOVERY</div><div class="v">'+escapeHtml(x.title||'')+'</div><p>'+escapeHtml(x.summary||'')+'</p><div class="pluginMeta">'+(x.suspicious?'UNTRUSTED/SUSPICIOUS CONTENT FLAGGED':'UNTRUSTED EXTERNAL EVIDENCE')+'</div></div>'));$('garudaResults').innerHTML=rows.join('')||'<div class="card">No candidates returned.</div>';$('garudaState').querySelector('.v').textContent='HANDED TO KRISHNA · '+(d.github||[]).length+' GITHUB · '+(d.web||[]).length+' WEB';log(d)}catch(e){$('garudaState').querySelector('.v').textContent='SCOUT FAILED';log(e.message)}}
 async function registerProject(){const name=$('projectRegName').value.trim(),root=$('projectRegRoot').value.trim(),privacy=$('projectRegPrivacy').value,role=$('projectRegRole').value;if(!name||!root){log('Project name and root are required.');return}try{const d=await actionReq('project.register',{name,root,privacy,role,allowed_actions:[],verification_checks:[],metadata:{registered_from:'web',role}},{project:name});log(d);$('projectRegName').value='';$('projectRegRoot').value='';await refresh();showView('projects')}catch(e){log(e.message)}}
 async function loadTasks(){try{const d=await req('/api/tasks'),box=$('taskCards');box.innerHTML='';if($('holoTaskCount'))$('holoTaskCount').textContent=(d.active||[]).length+' active · '+(d.tasks||[]).length+' recorded';if(!(d.tasks||[]).length){box.innerHTML='<div class="card"><div class="k">NO RECORDED TASKS</div><div class="v">KRISHNA is idle</div></div>';return}(d.tasks||[]).forEach(t=>{const x=document.createElement('div');x.className='card';x.style.marginBottom='10px';x.innerHTML='<div class="k"></div><div class="v"></div><p style="color:var(--muted)"></p><div class="taskActions"></div>';x.querySelector('.k').textContent=(t.status||'').toUpperCase()+' · '+(t.phase||'');x.querySelector('.v').textContent=t.goal||'Task';x.querySelector('p').textContent='Project: '+t.project+' · '+t.task_id;const a=x.querySelector('.taskActions');if(t.promotion_token){const b=document.createElement('button');b.className='approve';b.textContent='Approve verified promotion';b.onclick=()=>applyPromotion(t.promotion_token);a.appendChild(b)}const open=document.createElement('button');open.textContent='Open in Sudarshan';open.onclick=()=>{showView('sudarshan');$('input').value='Show me the current verified state of task '+t.task_id};a.appendChild(open);box.appendChild(x)})}catch(e){log(e.message)}}
-async function applyPromotion(token){if(!await confirmAction('Apply this verified candidate to the live project? KRISHNA will use its promotion and rollback gate.'))return;try{const d=await req('/api/work/promotion/apply',{promotion_token:token,approved:true});log(d);$('sudarshanState').textContent=d.rolled_back?'ROLLED BACK':'PROMOTED';await loadTasks()}catch(e){log(e.message);$('sudarshanState').textContent='PROMOTION BLOCKED'}}
+async function applyPromotion(token){if(!await confirmAction('Apply this verified candidate to the live project? KRISHNA will use its promotion and rollback gate.'))return;try{const d=await actionReq('promotion.apply',{promotion_token:token},{approved:true});log(d);$('sudarshanState').textContent=d.rolled_back?'ROLLED BACK':'PROMOTED';await loadTasks()}catch(e){log(e.message);$('sudarshanState').textContent='PROMOTION BLOCKED'}}
 function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function addMsg(role,text){const w=$('welcome');if(w)w.remove();const d=document.createElement('div');d.className='msg '+(role==='user'?'you':'');const a=document.createElement('div');a.className='avatar';a.textContent=role==='user'?'Y':'K';const b=document.createElement('div');const who=document.createElement('div');who.className='who';who.textContent=role==='user'?'YOU':'KRISHNA';const body=document.createElement('div');body.className='bubble';body.textContent=text;b.append(who,body);d.append(a,b);$('messages').appendChild(d);$('messages').scrollTop=$('messages').scrollHeight}
 async function createChatForProject(project,title){const p=project||'KRISHNA';return actionReq('chat.create',{project:p,title:title||'New Sudarshan chat'},{project:p})}
@@ -1592,7 +1592,7 @@ async function loadPlugins(){
          const ok=await confirmAction('Enable plugin "'+p.name+'"? Its declared permissions and network access become available only through KRISHNA/Sudarshan policy.');
          if(!ok)return;
        }
-       await req('/api/plugins/enable',{id:p.id,enabled:enabling,approved:enabling,project:$('project')?.value||'KRISHNA'});
+       await actionReq('plugin.enable',{id:p.id,enabled:enabling},{project:$('project')?.value||'KRISHNA',approved:enabling});
        await loadPlugins()
      }catch(e){log(e.message)}
    };
@@ -1619,16 +1619,16 @@ function requestPluginCredential(name,authType){
 }
 async function connectPluginCredential(id,name,authType){
  const secret=await requestPluginCredential(name,authType);if(!secret)return;
- try{await req('/api/plugins/credential',{plugin_id:id,secret});log(name+' credential connected securely.');await loadPlugins()}catch(e){log(e.message)}
+ try{await actionReq('plugin.credential.set',{plugin_id:id,secret},{approved:true});log(name+' credential connected securely.');await loadPlugins()}catch(e){log(e.message)}
 }
 async function addPlugin(){
  const name=$('pluginName').value.trim();if(!name)return;
  try{
-  const added=await req('/api/plugins/add',{name,kind:$('pluginKind').value,endpoint:$('pluginEndpoint').value.trim(),auth_type:$('pluginAuth').value,permissions:[],project_scope:['*'],risk:'medium',enabled:false,free:false});
+  const added=await actionReq('plugin.add',{name,kind:$('pluginKind').value,endpoint:$('pluginEndpoint').value.trim(),auth_type:$('pluginAuth').value,permissions:[],project_scope:['*'],risk:'medium',enabled:false,free:false});
   $('pluginName').value='';$('pluginEndpoint').value='';log('Plugin added: '+added.name+' (disabled until explicitly enabled; cost/license not yet verified).');await loadPlugins()
  }catch(e){log(e.message)}
 }
-async function indexProject(){try{log(await req('/api/projects/index',{project:$('project').value}));showView('system')}catch(e){log(e.message);showView('system')}}
+async function indexProject(){try{const p=$('project').value;log(await actionReq('project.index',{project:p},{project:p}));showView('system')}catch(e){log(e.message);showView('system')}}
 async function investigate(){const s=await askText('Describe the problem:');if(!s)return;try{log(await req('/api/investigate',{project:$('project').value||'general',symptom:s}));showView('system')}catch(e){log(e.message);showView('system')}}
 async function inspectUI(){const u=await askText('URL to inspect:','http://127.0.0.1:8766/');if(!u)return;try{log(await req('/api/browser/inspect',{project:$('project').value||'general',url:u}));showView('system')}catch(e){log(e.message);showView('system')}}
 async function research(){const q=await askText('What should KRISHNA research on GitHub?');if(!q)return;try{log(await req('/api/research/github',{project:$('project').value||'general',query:q}));showView('system')}catch(e){log(e.message);showView('system')}}
@@ -1815,10 +1815,10 @@ async function loadGyanInventory(){
  }catch(e){log(e.message)}
 }
 async function loadGyan(includeSuperseded=false){try{const p=$('project').value||'KRISHNA',topic=$('gyanTopic')?$('gyanTopic').value.trim():'',kind=$('gyanKind')?$('gyanKind').value:'';let url='/api/gyan-bhandar?project='+encodeURIComponent(p)+(topic?'&topic='+encodeURIComponent(topic):'')+(kind?'&kind='+encodeURIComponent(kind):'');if(includeSuperseded)url+='&include_superseded=1';const d=await req(url);const box=$('gyanResults');box.innerHTML='';if(!(d.learnings||[]).length){box.innerHTML='<div class="card"><div class="v">No stored learning for this selection yet.</div></div>';return}(d.learnings||[]).forEach(x=>{const e=document.createElement('div');e.className='card';e.style.marginBottom='10px';e.innerHTML='<div class="k"></div><div class="v"></div><p></p><small class="workspaceMeta"></small><div class="taskActions"></div>';e.querySelector('.k').textContent=String(x.memory_kind||'semantic').toUpperCase()+' · '+(x.status||'candidate').toUpperCase()+' · '+Math.round((x.confidence||0)*100)+'%';e.querySelector('.v').textContent=x.topic;e.querySelector('p').textContent=x.lesson;e.querySelector('small').textContent='source '+(x.source||'unknown')+' · provenance '+JSON.stringify(x.provenance||{});if(x.status!=='superseded'){const b=document.createElement('button');b.textContent='Supersede';b.onclick=()=>supersedeGyan(x);e.querySelector('.taskActions').appendChild(b)}box.appendChild(e)})}catch(e){log(e.message)}}
-async function strengthenGyan(){try{const topic=$('gyanTopic').value.trim();if(!topic)return;const p=$('project').value||'KRISHNA',kind=$('gyanKind')?.value||'semantic';$('gyanResults').innerHTML='<div class="card"><div class="v">KRISHNA is analysing the topic and gathering evidence…</div></div>';const d=await req('/api/gyan-bhandar/strengthen',{project:p,topic,use_garuda:true,limit:10});const t=d.current_theory?.theory||{};const lesson=[...(t.verified_lessons||[]),...(t.candidate_lessons||[])].join('\n')||('Research completed for '+topic+'. Review evidence before knowledge promotion.');const proposal=await req('/api/gyan-bhandar/propose',{project:p,topic,lesson,evidence:d.new_evidence||[],confidence:(d.new_evidence||[]).length?0.7:0.3,source:'user_requested_research',verified:false,memory_kind:kind,provenance:{source:'garudanetra',evidence_count:(d.new_evidence||[]).length}});$('gyanResults').innerHTML='<div class="card"><div class="k">FINDINGS — NOT YET STORED</div><pre class="log"></pre></div>';$('gyanResults').querySelector('pre').textContent=JSON.stringify(d,null,2);renderGyanApproval(proposal)}catch(e){log(e.message)}}
-async function supersedeGyan(x){const lesson=await askText('Replacement learning for '+x.topic+':',x.lesson);if(!lesson||lesson===x.lesson)return;try{const p=$('project').value||'KRISHNA';const proposal=await req('/api/gyan-bhandar/supersede',{project:p,fingerprint:x.fingerprint,topic:x.topic,lesson,evidence:[],confidence:x.confidence||0.5,source:'owner_supersession',verified:false,memory_kind:x.memory_kind||'semantic',provenance:{supersedes:x.fingerprint}});renderGyanApproval(proposal)}catch(e){log(e.message)}}
+async function strengthenGyan(){try{const topic=$('gyanTopic').value.trim();if(!topic)return;const p=$('project').value||'KRISHNA',kind=$('gyanKind')?.value||'semantic';$('gyanResults').innerHTML='<div class="card"><div class="v">KRISHNA is analysing the topic and gathering evidence…</div></div>';const d=await actionReq('gyan.strengthen',{project:p,topic,use_garuda:true,limit:10},{project:p});const t=d.current_theory?.theory||{};const lesson=[...(t.verified_lessons||[]),...(t.candidate_lessons||[])].join('\n')||('Research completed for '+topic+'. Review evidence before knowledge promotion.');const proposal=await actionReq('gyan.propose',{project:p,topic,lesson,evidence:d.new_evidence||[],confidence:(d.new_evidence||[]).length?0.7:0.3,source:'user_requested_research',verified:false,memory_kind:kind,provenance:{source:'garudanetra',evidence_count:(d.new_evidence||[]).length}},{project:p});$('gyanResults').innerHTML='<div class="card"><div class="k">FINDINGS — NOT YET STORED</div><pre class="log"></pre></div>';$('gyanResults').querySelector('pre').textContent=JSON.stringify(d,null,2);renderGyanApproval(proposal)}catch(e){log(e.message)}}
+async function supersedeGyan(x){const lesson=await askText('Replacement learning for '+x.topic+':',x.lesson);if(!lesson||lesson===x.lesson)return;try{const p=$('project').value||'KRISHNA';const proposal=await actionReq('gyan.supersede',{project:p,fingerprint:x.fingerprint,topic:x.topic,lesson,evidence:[],confidence:x.confidence||0.5,source:'owner_supersession',verified:false,memory_kind:x.memory_kind||'semantic',provenance:{supersedes:x.fingerprint}},{project:p});renderGyanApproval(proposal)}catch(e){log(e.message)}}
 function renderGyanApproval(x){const box=$('gyanPending');if(!box||!x)return;if(!x.approval_id){if(x.routed_to_rishi||x.brahma?.routed_to_rishi){const b=x.brahma||{};box.innerHTML='<div class="gyanApproval"><div><div class="k">BRAHMA LEARNING QC</div><strong>Routed to the Rishi learning path.</strong><small>'+(x.requires_more_learning?'This knowledge is not mature enough for Gyan-Bhandar yet. The responsible Rishi must research/cross-check it before BRAHMA can create a promotion proposal.':'BRAHMA is quality-checking the Rishi-backed candidate.')+'</small></div></div>';}return;}box.innerHTML='<div class="gyanApproval"><div><div class="k">KNOWLEDGE PROMOTION APPROVAL</div><strong>Save these findings to Gyan-Bhandar?</strong><small>BRAHMA QC and the Rishi learning path have admitted this candidate. Approval applies only to this finding.</small></div><div class="approvalActions"><button class="primary" id="gyanYes">Save</button><button class="ghost danger" id="gyanNo">Do not save</button></div></div>';$('gyanYes').onclick=()=>decideGyan(x.approval_id,true);$('gyanNo').onclick=()=>decideGyan(x.approval_id,false)}
-async function decideGyan(id,approved){try{const d=await req('/api/gyan-bhandar/decide',{approval_id:id,approved});$('gyanPending').innerHTML='<div class="card"><div class="v">'+(d.stored?'Saved to Gyan-Bhandar.':'Finding was not stored.')+'</div></div>';if(d.stored){await loadGyan();await loadGyanInventory()}}catch(e){log(e.message)}}
+async function decideGyan(id,approved){try{const d=await actionReq('gyan.decide',{approval_id:id,approved});$('gyanPending').innerHTML='<div class="card"><div class="v">'+(d.stored?'Saved to Gyan-Bhandar.':'Finding was not stored.')+'</div></div>';if(d.stored){await loadGyan();await loadGyanInventory()}}catch(e){log(e.message)}}
 async function loadGyanPending(){try{const p=$('project').value||'KRISHNA';const d=await req('/api/gyan-bhandar/pending?project='+encodeURIComponent(p));const rows=d.pending||[];if(rows.length)renderGyanApproval(rows[0]);else $('gyanPending').innerHTML=''}catch(e){log(e.message)}}
 
 function closeProjectActionMenu(){
@@ -2044,13 +2044,13 @@ async function loadUIGuardian(){
 }
 async function registerUIGuardian(){
  const name=$('uiGuardianName').value.trim(),url=$('uiGuardianUrl').value.trim(),state=$('uiGuardianState').value;if(!name||!url){log('UI Guardian requires name and URL.');return}
- try{await req('/api/ui-guardian/register',{name,project:$('project').value||'KRISHNA',url,state});$('uiGuardianName').value='';await loadUIGuardian()}catch(e){log(e.message)}
+ try{await actionReq('ui.guardian.register',{name,project:$('project').value||'KRISHNA',url,state});$('uiGuardianName').value='';await loadUIGuardian()}catch(e){log(e.message)}
 }
 async function evaluateUIGuardian(id){
- setOps('verify','UI Guardian evaluating','warn');try{const d=await req('/api/ui-guardian/evaluate',{entry_id:id});setOps('verify',d.passed?'UI Guardian PASS':'UI defects found',d.passed?'good':'bad');await loadUIGuardian()}catch(e){setOps('verify','UI Guardian failed','bad');log(e.message)}
+ setOps('verify','UI Guardian evaluating','warn');try{const d=await actionReq('ui.guardian.evaluate',{entry_id:id});setOps('verify',d.passed?'UI Guardian PASS':'UI defects found',d.passed?'good':'bad');await loadUIGuardian()}catch(e){setOps('verify','UI Guardian failed','bad');log(e.message)}
 }
 async function promoteUIGuardian(id){
- try{await req('/api/ui-guardian/transition',{entry_id:id,target:'stable',verified:true,notes:'Promoted after passed UI Guardian evaluation and owner-triggered independent verification gate.'});await loadUIGuardian()}catch(e){log(e.message)}
+ try{await actionReq('ui.guardian.transition',{entry_id:id,target:'stable',verified:true,notes:'Promoted after passed UI Guardian evaluation and owner-triggered independent verification gate.'});await loadUIGuardian()}catch(e){log(e.message)}
 }
 async function loadCommitments(){
  try{
@@ -2083,7 +2083,7 @@ async function setCommitmentAutonomy(x,operation){
  const detail=(x.detail&&typeof x.detail==='object')?{...x.detail}:{};
  if(operation){detail.autonomy={...(detail.autonomy||{}),enabled:true,operation,goal:detail.goal||x.title,interval_seconds:300}}
  else detail.autonomy={...(detail.autonomy||{}),enabled:false};
- try{await req('/api/commitments/update',{commitment_id:x.commitment_id,status:x.status||'planned',detail});await loadCommitments()}catch(e){log(e.message)}
+ try{await actionReq('commitment.update',{commitment_id:x.commitment_id,status:x.status||'planned',detail});await loadCommitments()}catch(e){log(e.message)}
 }
 async function runAutonomyTick(){try{const d=await req('/api/autonomy/tick',{});log(d);await loadCommitments()}catch(e){log(e.message)}}
 async function loadUIRegistry(){
@@ -2096,18 +2096,18 @@ async function loadUIRegistry(){
 }
 async function uiGuardianRegister(){
  const url=($('devUrl')?.value||'').trim();if(!url){log('Frontend URL is required.');return}
- try{await req('/api/ui-guardian/register',{name:($('project').value||'KRISHNA')+' UI',project:$('project').value||'KRISHNA',url,state:'candidate'});await loadUIRegistry()}catch(e){log(e.message)}
+ try{await actionReq('ui.guardian.register',{name:($('project').value||'KRISHNA')+' UI',project:$('project').value||'KRISHNA',url,state:'candidate'});await loadUIRegistry()}catch(e){log(e.message)}
 }
 async function uiGuardianEvaluate(id){
- try{$('devOutput').textContent='UI Guardian is testing four viewport contracts…';const d=await req('/api/ui-guardian/evaluate',{entry_id:id});$('devOutput').textContent=JSON.stringify(d,null,2);await loadUIRegistry();setOps('verify',d.passed?'UI Guardian PASS':'UI defects found',d.passed?'good':'bad')}catch(e){$('devOutput').textContent=e.message;setOps('verify','UI Guardian failed','bad')}
+ try{$('devOutput').textContent='UI Guardian is testing four viewport contracts…';const d=await actionReq('ui.guardian.evaluate',{entry_id:id});$('devOutput').textContent=JSON.stringify(d,null,2);await loadUIRegistry();setOps('verify',d.passed?'UI Guardian PASS':'UI defects found',d.passed?'good':'bad')}catch(e){$('devOutput').textContent=e.message;setOps('verify','UI Guardian failed','bad')}
 }
 async function uiGuardianPromote(id){
  const ok=await confirmAction('Promote this passed candidate to Stable? This records an explicit verification decision.');if(!ok)return;
- try{await req('/api/ui-guardian/transition',{entry_id:id,target:'stable',verified:true,notes:'Explicit promotion after passed UI Guardian evaluation'});await loadUIRegistry()}catch(e){log(e.message)}
+ try{await actionReq('ui.guardian.transition',{entry_id:id,target:'stable',verified:true,notes:'Explicit promotion after passed UI Guardian evaluation'});await loadUIRegistry()}catch(e){log(e.message)}
 }
 async function uiGuardianReject(id){
  const ok=await confirmAction('Reject this GUI candidate?');if(!ok)return;
- try{await req('/api/ui-guardian/transition',{entry_id:id,target:'rejected',verified:false});await loadUIRegistry()}catch(e){log(e.message)}
+ try{await actionReq('ui.guardian.transition',{entry_id:id,target:'rejected',verified:false});await loadUIRegistry()}catch(e){log(e.message)}
 }
 async function loadMobilePairing(){
  try{
@@ -2119,7 +2119,7 @@ async function loadMobilePairing(){
 }
 async function approveMobilePairing(id){
  const ok=await confirmAction('Approve this KRISHNA Mobile device? The phone already holds its credential; no pairing code is used.');if(!ok)return;
- try{await req('/api/mobile/pair/approve',{request_id:id});await loadMobilePairing()}catch(e){log(e.message)}
+ try{await actionReq('mobile.pair.approve',{request_id:id},{approved:true});await loadMobilePairing()}catch(e){log(e.message)}
 }
 async function loadExtendedRuntime(){
  try{
@@ -2150,11 +2150,11 @@ async function loadRuntimeAudit(){
 async function registerModelGateway(){
  const name=$('gatewayName').value.trim(),base_url=$('gatewayUrl').value.trim(),model=$('gatewayModel').value.trim(),api_key=$('gatewayKey').value,free_only=$('gatewayFreeOnly').checked;
  if(!name||!base_url||!model||!api_key){log('Gateway name, URL, model and API key are required.');return}
- try{await req('/api/models/gateways/register',{name,base_url,model,api_key,free_only,enabled:true});$('gatewayKey').value='';await loadModelRouter()}catch(e){log(e.message)}
+ try{await actionReq('model.gateway.register',{name,base_url,model,api_key,free_only,enabled:true},{approved:true});$('gatewayKey').value='';await loadModelRouter()}catch(e){log(e.message)}
 }
 async function deleteModelGateway(id){
  if(!await confirmAction('Delete this model gateway profile and encrypted API key?'))return;
- try{await req('/api/models/gateways/delete',{profile_id:id});await loadModelRouter()}catch(e){log(e.message)}
+ try{await actionReq('model.gateway.delete',{profile_id:id},{approved:true});await loadModelRouter()}catch(e){log(e.message)}
 }
 async function loadModelRouter(){
  try{
@@ -2324,16 +2324,16 @@ function renderNaradDeadLetters(rows){
 async function registerNaradConnection(){
  const name=$('naradConnName').value.trim(),provider=$('naradConnProvider').value.trim(),env_var=$('naradConnEnv').value.trim();
  if(!name||!provider||!env_var){log('Connection name, provider and environment variable name are required.');return}
- try{await req('/api/narad/connections/register',{name,provider,env_var});$('naradConnName').value='';$('naradConnProvider').value='';$('naradConnEnv').value='';await loadNarad()}catch(e){log(e.message)}
+ try{await actionReq('narad.connection.register',{name,provider,env_var});$('naradConnName').value='';$('naradConnProvider').value='';$('naradConnEnv').value='';await loadNarad()}catch(e){log(e.message)}
 }
 async function registerNaradSecret(){
  const name=$('naradConnName').value.trim(),provider=$('naradConnProvider').value.trim(),secret=$('naradConnSecret').value;
  if(!name||!provider||!secret){log('Connection name, provider and secret are required.');return}
- try{await req('/api/narad/connections/register-secret',{name,provider,secret});$('naradConnSecret').value='';await loadNarad()}catch(e){log(e.message)}
+ try{await actionReq('narad.connection.secret',{name,provider,secret},{approved:true});$('naradConnSecret').value='';await loadNarad()}catch(e){log(e.message)}
 }
 async function deleteNaradConnection(id){
  if(!await confirmAction('Delete this credential reference and its encrypted secret, if any?'))return;
- try{await req('/api/narad/connections/delete',{credential_id:id});await loadNarad()}catch(e){log(e.message)}
+ try{await actionReq('narad.connection.delete',{credential_id:id},{approved:true});await loadNarad()}catch(e){log(e.message)}
 }
 function populateNaradCredentialSelect(rows){
  const selects=[$('naradProviderCred'),$('naradN8nCred')].filter(Boolean);
