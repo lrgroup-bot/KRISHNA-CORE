@@ -375,6 +375,7 @@ class Orchestrator:
                     axe_required=bool(payload.get("axe_required",True)),
                     performance_required=bool(payload.get("performance_required",True)),
                     performance_limits=dict(payload.get("performance_limits") or {}),
+                    hawkeye_required=bool(payload.get("hawkeye_ui_required",True)),
                 )
                 result["security_report"]=security
                 return result
@@ -541,6 +542,7 @@ class Orchestrator:
                                 axe_required=bool(payload.get("axe_required",True)),
                                 performance_required=bool(payload.get("performance_required",True)),
                                 performance_limits=dict(payload.get("performance_limits") or {}),
+                                hawkeye_required=bool(payload.get("hawkeye_ui_required",True)),
                             )
                             result["post_apply_verification"]=post
                             if not post.get("passed"):
@@ -646,6 +648,7 @@ class Orchestrator:
                 axe_required=bool(payload.get("axe_required",True)),
                 performance_required=bool(payload.get("performance_required",True)),
                 performance_limits=dict(payload.get("performance_limits") or {}),
+                hawkeye_required=bool(payload.get("hawkeye_ui_required",True)),
             )
             promotion=self._prepare_promotion_impl(project,staged["candidate_root"]) if verification.get("passed") else None
             implementation={
@@ -697,6 +700,7 @@ class Orchestrator:
                 approve_selected_baseline=False,axe_required=bool(payload.get("axe_required",True)),
                 performance_required=bool(payload.get("performance_required",True)),
                 performance_limits=dict(payload.get("performance_limits") or {}),
+                hawkeye_required=bool(payload.get("hawkeye_ui_required",True)),
             )
             promotion=self._prepare_promotion_impl(project,staged["candidate_root"]) if verification.get("passed") else None
             result={
