@@ -32,7 +32,7 @@ orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _sessions = RealtimeSessionStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _plugins = PluginRegistry(Path(settings.db_path).resolve().parent / ".krishna_state")
-_plugin_executor = PluginExecutor(_plugins)
+_plugin_executor = PluginExecutor(_plugins, orch.secure_vault)
 _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _vision = VisionAdapter()
 _voice = KrishnaVoiceStack(lambda event: orch.handle_event("wakeword","krishna_detected","Local wake word Krishna detected",severity="notice",project="system",payload=event))
@@ -1292,6 +1292,37 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, _plugins.set_enabled(str(data.get("id", "")).strip(), bool(data.get("enabled", True))))
             except KeyError:
                 return self._json(404, {"error": "plugin not found"})
+
+        if post_path == "/api/plugins/credential":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"plugin credential registration must run on KRISHNA PC"})
+            plugin_id=str(data.get("plugin_id") or "").strip()
+            secret=str(data.get("secret") or "")
+            if not plugin_id or not secret:
+                return self._json(400,{"error":"plugin_id and secret are required"})
+            item=next((x for x in _plugins.list() if x.get("id")==plugin_id),None)
+            if not item:return self._json(404,{"error":"plugin not found"})
+            auth=str(item.get("auth_type") or "none")
+            if auth not in {"token","api_key"}:
+                return self._json(400,{"error":"this plugin requires local or provider-specific OAuth; raw account passwords are not accepted"})
+            try:
+                ref=orch.secure_vault.put("Plugin "+item.get("name",plugin_id),"plugin:"+plugin_id,secret)
+                updated=_plugins.set_credential(plugin_id,ref["id"])
+                return self._json(201,{"plugin":updated,"credential":{"id":ref["id"],"backend":ref["backend"],"available":ref["available"]}})
+            except (ValueError,RuntimeError) as exc:
+                return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/plugins/credential/delete":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"plugin credential deletion must run on KRISHNA PC"})
+            plugin_id=str(data.get("plugin_id") or "").strip()
+            item=next((x for x in _plugins.list() if x.get("id")==plugin_id),None)
+            if not item:return self._json(404,{"error":"plugin not found"})
+            ref=str(item.get("credential_ref") or "").strip()
+            if ref:
+                try:orch.secure_vault.delete(ref)
+                except RuntimeError as exc:return self._json(400,{"error":str(exc)})
+            return self._json(200,{"plugin":_plugins.clear_credential(plugin_id)})
 
         if post_path == "/api/plugins/remove":
             try:
