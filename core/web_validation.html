@@ -1326,6 +1326,7 @@ async function runAll(){const tests=[['Health','/api/status'],['Dashboard','/api
 document.querySelectorAll('.nav button').forEach(b=>{b.setAttribute('aria-label',b.textContent.trim());b.title=b.textContent.trim()});document.querySelector('.send').setAttribute('aria-label','Send message');$('input').setAttribute('aria-label','Message to KRISHNA');
 async function initAvatar(){
  const live=$('krishnaLiveAvatar'),viewer=$('krishnaModel'),fallback=$('avatarFallback'),status=$('avatarStatus');
+ const avatar=viewer; // compatibility name retained by the canonical local-avatar contract
  if(!viewer||!fallback)return;
  const showFallback=msg=>{if(live)live.hidden=true;viewer.hidden=true;fallback.hidden=false;if(status)status.textContent=msg};
  showFallback('Checking local 3D avatar engine…');
@@ -1365,7 +1366,7 @@ async function initAvatar(){
    if(!customElements.get('model-viewer'))throw new Error('local model-viewer was not registered');
    viewer.addEventListener('load',()=>{viewer.hidden=false;fallback.hidden=true;if(status)status.textContent='KRISHNA 3D · compatibility viewer'},{once:true});
    viewer.addEventListener('error',()=>showFallback('3D model could not render · showing local preview'),{once:true});
-   viewer.setAttribute('src','/api/avatar.glb');viewer.hidden=false;
+   avatar.setAttribute('src','/api/avatar.glb');viewer.hidden=false;
    if(status)status.textContent='Loading KRISHNA 3D compatibility viewer…';
   }catch(viewerError){
    console.warn('KRISHNA model-viewer fallback',viewerError);
