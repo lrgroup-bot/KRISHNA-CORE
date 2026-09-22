@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
-import hashlib
 import json
 import math
 import time
 import uuid
+
+from .field_perception import FieldPerceptionPolicy
+from .vision_adapter import VisionAdapter
 
 
 EARTH_RADIUS_M = 6_371_008.8
@@ -32,7 +34,7 @@ class BhumiputraAgent:
     """
 
     AGENT_ID = "bhumiputra"
-    VERSION = "0.1.0"
+    VERSION = "0.2.0"
 
     HEAVY_PIPELINE = (
         "mobile-camera-ingest",
@@ -64,6 +66,11 @@ class BhumiputraAgent:
         "road": ("road", "track", "haul road", "culvert", "turning radius", "clearance"),
         "machinery": ("excavator", "loader", "truck", "crane", "drill", "crusher"),
         "utility": ("transmission tower", "telecom tower", "pole", "substation", "pipeline"),
+        "people": ("person", "people", "face", "ppe", "worker", "crowd"),
+        "vehicle": ("car", "bike", "motorcycle", "bus", "truck", "dashboard", "number plate", "license plate"),
+        "electronics": ("pcb", "motherboard", "circuit", "connector", "wire", "device", "electronics"),
+        "document": ("document", "label", "sign", "screen", "ocr", "serial number", "asset tag"),
+        "hazard": ("fire", "smoke", "leak", "exposed wire", "obstacle", "open edge"),
         "general": (),
     }
 
@@ -77,20 +84,12 @@ class BhumiputraAgent:
         "as_built_design": "infer visible arrangement only; do not claim original design intent without drawings",
     }
 
-    def __init__(self, state_dir: str | Path):
+    def __init__(self, state_dir: str | Path, vision_adapter=None):
         self.state_dir = Path(state_dir)
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.surveys_dir = self.state_dir / "surveys"
         self.surveys_dir.mkdir(parents=True, exist_ok=True)
-        self.evidence_dir = self.state_dir / "mobile-evidence"
-        self.evidence_dir.mkdir(parents=True, exist_ok=True)
-        self.evidence_cipher = None
-        self.require_evidence_encryption = False
-
-    def bind_evidence_cipher(self, cipher, *, require_encryption=False):
-        self.evidence_cipher = cipher
-        self.require_evidence_encryption = bool(require_encryption)
-        return {"bound": cipher is not None, "available": bool(getattr(cipher, "available", False)), "required": self.require_evidence_encryption}
+        self.vision = vision_adapter or VisionAdapter()
 
     @staticmethod
     def _point(value) -> GeoPoint:
@@ -201,6 +200,7 @@ class BhumiputraAgent:
             "frame_count": 0,
             "latest_analysis": None,
             "truth_policy": dict(self.STRUCTURAL_TRUTH_POLICY),
+            "perception_policy": FieldPerceptionPolicy.status(),
             "privacy": {
                 "camera_transport": "paired KRISHNA private-network endpoint",
                 "vision_provider": "local-only",
@@ -220,21 +220,67 @@ class BhumiputraAgent:
         hint = str(scene_hint or "auto").strip().lower()
         sensors = dict(sensor_context or {})
         return (
-            "You are Bhumiputra, KRISHNA's field geo-engineering and visible-structure inspection specialist. "
+            "You are Bhumiputra, KRISHNA's live field perception, geo-engineering and inspection specialist. "
             "Analyze ONLY what can be supported by this camera frame and supplied sensor context. "
             "Automatically identify whether the scene is terrain/quarry, building/tower/bridge, road, machinery, "
-            "utility infrastructure, or general. For structures, identify visible structural system/components "
-            "(columns, beams, bracing, slabs, walls, roof, tower members, joints), apparent materials, geometry, "
-            "access/clearance, visible deterioration or damage indicators, and measurements only when scale/depth "
-            "evidence is supplied. For terrain, identify slopes, exposed rock/soil, access routes, drainage and "
-            "survey gaps. Never claim hidden reinforcement, foundation condition, certified load capacity, exact "
-            "material grade, subsurface reserves, or original design intent from imagery alone. Mark each important "
-            "finding as observed, estimated, inferred, or unknown. Return a concise field result with: scene_type, "
-            "visible_components, measurements_or_estimates, visible_condition, hazards_or_access_constraints, "
-            "recommended_next_scan, unknowns, and confidence. "
+            "utility infrastructure, people, vehicle, electronics/device, document/screen, hazard, or general. "
+            "For structures/buildings, identify visible structural system/components (columns, beams, bracing, slabs, "
+            "walls, openings, facade, stairs, roof, tower members, joints), apparent materials, access/clearance, "
+            "visible cracks/spalling/corrosion/deformation/dampness and measurements only when scale/depth evidence exists. "
+            "For terrain/quarry, identify slopes, exposed rock/soil, access routes, drainage, excavation activity and survey gaps. "
+            "For vehicles, report category, visible make/model cues, registration/asset markings when requested, body/tyre/light/glass "
+            "condition, dashboard indicators and visible leaks/smoke/damaged parts; hidden mechanical diagnosis requires OBD/CAN or measurements. "
+            "For electronics, identify visible PCB/components/connectors/cables, labels, damaged/burnt/corroded areas and explain likely functional "
+            "blocks or signal/power flow without inventing electrical measurements. For people, report count, visible PPE/activity and face presence; "
+            "identify a person only if an explicitly enrolled, consented local face profile is supplied, otherwise identity is UNKNOWN. "
+            "Read ordinary signs, serial/model numbers, asset tags and requested plate text. Detect hazards such as fire/smoke, exposed wiring, leaks, "
+            "obstacles/open edges and missing visible PPE. Compare with prior observations when temporal context is supplied and state what changed. "
+            "Never claim hidden reinforcement, foundation condition, certified load capacity, exact material grade, subsurface reserves or original "
+            "design intent from imagery alone. Mark important findings as observed, measured, estimated, inferred or unknown. "
+            + FieldPerceptionPolicy.prompt_rules() + " "
+            "Return a concise field result with: scene_type, visible_components, text_or_asset_markings, people_and_ppe, "
+            "vehicle_or_equipment_details, measurements_or_estimates, visible_condition, hazards_or_access_constraints, "
+            "temporal_changes, recommended_next_scan, unknowns, evidence_state and confidence. "
             f"Scene hint: {hint}. User goal: {str(user_goal or 'automatic field scan')}. "
             f"Sensor context: {json.dumps(sensors, ensure_ascii=False)[:4000]}."
         )
+
+    def ingest_live_frame(self, session_id: str, data: bytes, content_type: str,
+                          sensor_context=None):
+        session = self.get_live_session(session_id)
+        prompt = self.live_prompt(
+            scene_hint=session.get("scene_hint") or "auto",
+            user_goal=session.get("purpose") or "automatic field scan",
+            sensor_context=sensor_context or {},
+        )
+        result = self.vision.analyze_bytes(data, content_type, prompt)
+        analysis = FieldPerceptionPolicy.redact_sensitive_text(result.get("analysis"))
+        receipt = self.record_live_analysis(
+            session_id,
+            analysis,
+            model=result.get("model"),
+            sensor_context=sensor_context or {},
+            frame_meta={
+                "provider": result.get("provider"),
+                "content_type": content_type,
+                "bytes": len(data or b""),
+                "secret_redaction": True,
+            },
+        )
+        return {
+            "session_id": session_id,
+            "frame_count": receipt["frame_count"],
+            "analysis": analysis,
+            "provider": result.get("provider"),
+            "model": result.get("model"),
+            "evidence_state": "OBSERVED",
+            "confidence": 0.8,
+            "privacy": {
+                "local_vision": bool(result.get("local", True)),
+                "secret_redaction": True,
+                "unknown_face_identity": "UNKNOWN",
+            },
+        }
 
     def record_live_analysis(self, session_id: str, analysis: str, *,
                              model=None, sensor_context=None, frame_meta=None):
@@ -245,7 +291,7 @@ class BhumiputraAgent:
         now = time.time()
         item = {
             "at": now,
-            "analysis": str(analysis or "").strip(),
+            "analysis": FieldPerceptionPolicy.redact_sensitive_text(analysis).strip(),
             "model": str(model or ""),
             "sensor_context": dict(sensor_context or {}),
             "frame_meta": dict(frame_meta or {}),
@@ -269,117 +315,6 @@ class BhumiputraAgent:
         if not path.exists():
             raise KeyError(f"live session not found: {session_id}")
         return json.loads(path.read_text(encoding="utf-8"))
-
-    def store_mobile_evidence(self, session_id: str, raw: bytes, content_type="image/jpeg", sensor_context=None):
-        """Persist only curator-selected mobile evidence before the phone deletes its copy.
-
-        Storage is content-addressed per session, bounded, and deduplicated. This method
-        does not perform model inference and therefore does not add compute load.
-        """
-        if not raw:
-            raise ValueError("mobile evidence is empty")
-        kind = str(content_type or "application/octet-stream").split(";", 1)[0].strip().lower()
-        limits = {"image": 2 * 1024 * 1024, "audio": 1024 * 1024, "video": 4 * 1024 * 1024}
-        modality = kind.split("/", 1)[0] if "/" in kind else "unknown"
-        if modality not in limits:
-            raise ValueError("unsupported mobile evidence content type")
-        if len(raw) > limits[modality]:
-            raise ValueError(f"curated {modality} evidence exceeds bounded size")
-        suffix = {
-            "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
-            "audio/webm": ".audio.webm", "audio/mp4": ".audio.mp4", "audio/ogg": ".audio.ogg",
-            "video/webm": ".video.webm", "video/mp4": ".video.mp4",
-        }.get(kind)
-        if not suffix:
-            raise ValueError("unsupported mobile evidence media type")
-        safe_session = "".join(ch for ch in str(session_id or "") if ch.isalnum() or ch in "-_")
-        if not safe_session:
-            raise ValueError("invalid session_id")
-        digest = hashlib.sha256(raw).hexdigest()
-        evidence_id = f"{safe_session}-{digest[:20]}"
-        encrypted = bool(self.evidence_cipher is not None and getattr(self.evidence_cipher, "available", False))
-        if self.require_evidence_encryption and not encrypted:
-            raise RuntimeError("Hawkeye PC evidence encryption is required but unavailable")
-        payload_path = self.evidence_dir / (f"{evidence_id}.payload.enc" if encrypted else f"{evidence_id}{suffix}")
-        meta = self.evidence_dir / f"{evidence_id}.json"
-        deduplicated = payload_path.exists() and meta.exists()
-        if not payload_path.exists():
-            if encrypted:
-                aad=f"hawkeye:{evidence_id}".encode("utf-8")
-                envelope=self.evidence_cipher.encrypt(raw,aad)
-                payload_path.write_text(json.dumps(envelope,separators=(",",":")),encoding="utf-8")
-            else:
-                payload_path.write_bytes(raw)
-        record = {
-            "evidence_id": evidence_id,
-            "session_id": safe_session,
-            "sha256": digest,
-            "bytes": len(raw),
-            "content_type": kind,
-            "modality": modality,
-            "source": "hawkeye-mobile-curator",
-            "sensor_context": dict(sensor_context or {}),
-            "received_at": time.time(),
-            "retained_pc": True,
-            "raw_cloud_upload": False,
-            "encrypted_at_rest": encrypted,
-            "encryption": "AES-256-GCM + Windows-DPAPI" if encrypted else "test-platform-plaintext-fallback",
-            "payload_file": payload_path.name,
-        }
-        meta.write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
-        pruned = self._prune_mobile_evidence(max_items=64, max_bytes=192 * 1024 * 1024)
-        return {
-            "evidence_id": evidence_id,
-            "sha256": digest,
-            "bytes": len(raw),
-            "content_type": kind,
-            "modality": modality,
-            "retained_pc": True,
-            "deduplicated": deduplicated,
-            "encrypted_at_rest": encrypted,
-            "storage_policy": {"max_items": 64, "max_bytes": 192 * 1024 * 1024},
-            "pruned": pruned,
-        }
-
-    def _prune_mobile_evidence(self, *, max_items: int, max_bytes: int):
-        rows = sorted(self.evidence_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
-        def pair_bytes(meta_path):
-            total = meta_path.stat().st_size if meta_path.exists() else 0
-            stem = meta_path.stem
-            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4", ".payload.enc"):
-                image = self.evidence_dir / f"{stem}{ext}"
-                if image.exists():
-                    total += image.stat().st_size
-            return total
-        total = sum(pair_bytes(x) for x in rows)
-        deleted = 0
-        while rows and (len(rows) > max(1, int(max_items)) or total > max(8 * 1024 * 1024, int(max_bytes))):
-            old = rows.pop(0)
-            removed = pair_bytes(old)
-            stem = old.stem
-            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4", ".payload.enc"):
-                image = self.evidence_dir / f"{stem}{ext}"
-                if image.exists():
-                    image.unlink()
-            if old.exists():
-                old.unlink()
-            total = max(0, total - removed)
-            deleted += 1
-        return deleted
-
-    def mobile_evidence_status(self):
-        rows = list(self.evidence_dir.glob("*.json"))
-        total = 0
-        for meta in rows:
-            total += meta.stat().st_size
-            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4", ".payload.enc"):
-                image = self.evidence_dir / f"{meta.stem}{ext}"
-                if image.exists():
-                    total += image.stat().st_size
-        return {"items": len(rows), "bytes": total, "max_items": 64, "max_bytes": 192 * 1024 * 1024,
-                "encryption_bound": self.evidence_cipher is not None,
-                "encryption_available": bool(getattr(self.evidence_cipher, "available", False)) if self.evidence_cipher is not None else False,
-                "encryption_required": self.require_evidence_encryption}
 
     def _survey_path(self, survey_id: str) -> Path:
         safe = "".join(ch for ch in str(survey_id) if ch.isalnum() or ch in "-_")
@@ -472,9 +407,9 @@ class BhumiputraAgent:
             "state_dir": str(self.state_dir),
             "survey_count": len(surveys),
             "live_sessions": len(list(self.state_dir.glob("live-*.json"))),
-            "mobile_evidence": self.mobile_evidence_status(),
             "scene_modes": sorted(self.SCENE_MODES),
             "structural_truth_policy": dict(self.STRUCTURAL_TRUTH_POLICY),
+            "perception": FieldPerceptionPolicy.status(),
             "heavy_pipeline": list(self.HEAVY_PIPELINE),
             "main_loop_blocking": False,
             "menu_visible": False,
