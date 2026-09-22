@@ -144,6 +144,12 @@ class ProjectPerfectionRuntime:
                              "error":f"{type(exc).__name__}: {exc}"})
         return {"artifacts":rows,"passed":bool(rows) and all(bool(x.get("passed")) for x in rows)}
 
+    def design_save_preview(self, project: str, html: str) -> dict[str, Any]:
+        return self.design_studio.save_preview(project,html)
+
+    def design_preview(self, token: str) -> str:
+        return self.design_studio.preview(token)
+
     def design_create(self, project: str, candidates: list[dict[str, Any]]) -> dict[str, Any]:
         return self.design_studio.create(project,candidates)
 
