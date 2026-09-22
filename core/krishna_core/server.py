@@ -272,6 +272,139 @@ orch.action_bus.register(
 )
 _ui_registry = UIGuardianRegistry(Path(settings.db_path).resolve().parent / ".krishna_state" / "ui-guardian-registry.json")
 _ui_guardian = UIGuardian(_browser_fabric, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
+
+# Server-owned services join the same Shared Action Bus instead of becoming
+# parallel mutation authorities. Compatibility HTTP routes below delegate to
+# these same actions and the owner UI consumes auditable action receipts.
+def _plugin_credential_set_action(payload,context):
+    plugin_id=str(payload.get("plugin_id") or "").strip()
+    secret=str(payload.get("secret") or "")
+    if not plugin_id or not secret:raise ValueError("plugin_id and secret are required")
+    item=next((x for x in _plugins.list() if x.get("id")==plugin_id),None)
+    if not item:raise KeyError("plugin not found")
+    auth=str(item.get("auth_type") or "none")
+    if auth not in {"token","api_key"}:
+        raise ValueError("this plugin requires local or provider-specific OAuth; raw account passwords are not accepted")
+    ref=orch.secure_vault.put("Plugin "+item.get("name",plugin_id),"plugin:"+plugin_id,secret)
+    updated=_plugins.set_credential(plugin_id,ref["id"])
+    return {"plugin":updated,"credential":{"id":ref["id"],"backend":ref["backend"],"available":ref["available"]}}
+
+def _plugin_credential_delete_action(payload,context):
+    plugin_id=str(payload.get("plugin_id") or "").strip()
+    item=next((x for x in _plugins.list() if x.get("id")==plugin_id),None)
+    if not item:raise KeyError("plugin not found")
+    ref=str(item.get("credential_ref") or "").strip()
+    if ref:orch.secure_vault.delete(ref)
+    return {"plugin":_plugins.clear_credential(plugin_id)}
+
+def _project_index_action(payload,context):
+    project=str(payload.get("project") or context.get("project") or "").strip()
+    if not project:raise ValueError("project is required")
+    return orch.index_project(project)
+
+def _ui_guardian_register_action(payload,context):
+    return _ui_registry.register(
+        str(payload.get("name") or "").strip(),
+        str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA",
+        str(payload.get("url") or "").strip(),
+        str(payload.get("state") or "candidate"),
+        str(payload.get("notes") or ""),
+    )
+
+def _ui_guardian_evaluate_action(payload,context):
+    entry_id=str(payload.get("entry_id") or "").strip()
+    if not entry_id:raise ValueError("entry_id is required")
+    with orch.governor.job(timeout=0):
+        return _ui_guardian.evaluate_entry(entry_id)
+
+def _ui_guardian_transition_action(payload,context):
+    entry_id=str(payload.get("entry_id") or "").strip()
+    target=str(payload.get("target") or "").strip()
+    if not entry_id or not target:raise ValueError("entry_id and target are required")
+    return _ui_registry.transition(entry_id,target,verified=bool(payload.get("verified",False)),notes=str(payload.get("notes") or ""))
+
+def _commitment_update_action(payload,context):
+    cid=str(payload.get("commitment_id") or "").strip()
+    if not cid:raise ValueError("commitment_id is required")
+    return orch.complete_commitment(cid,str(payload.get("status") or "planned"),payload.get("detail"))
+
+def _mobile_pair_approve_action(payload,context):
+    result=_pairing.approve(str(payload.get("request_id") or "").strip())
+    orch.handle_event("device_pairing","device_approved",result.get("device_id",""),severity="notice",project="system",payload={"mode":result.get("mode")})
+    return result
+
+def _model_gateway_register_action(payload,context):
+    return orch.model_gateway.register(
+        payload.get("name"),payload.get("base_url"),payload.get("model"),payload.get("api_key"),
+        bool(payload.get("free_only",True)),bool(payload.get("enabled",True)),
+    )
+
+def _model_gateway_delete_action(payload,context):
+    return {"deleted":orch.model_gateway.delete(str(payload.get("profile_id") or "").strip())}
+
+def _narad_connection_register_action(payload,context):
+    return orch.agi.narad_credentials.register(
+        str(payload.get("name") or ""),str(payload.get("provider") or ""),str(payload.get("env_var") or ""),
+        str(payload.get("header") or "Authorization"),str(payload.get("scheme") or "Bearer"),
+    )
+
+def _narad_connection_secret_action(payload,context):
+    return orch.agi.narad_credentials.register_secret(
+        str(payload.get("name") or ""),str(payload.get("provider") or ""),str(payload.get("secret") or ""),
+        str(payload.get("header") or "Authorization"),str(payload.get("scheme") or "Bearer"),
+    )
+
+def _narad_connection_delete_action(payload,context):
+    return {"deleted":orch.agi.narad_credentials.delete(str(payload.get("credential_id") or "").strip())}
+
+def _gyan_propose_action(payload,context):
+    return orch.gyan_propose(
+        str(payload.get("project") or context.get("project") or "KRISHNA"),str(payload.get("topic") or ""),
+        str(payload.get("lesson") or ""),payload.get("evidence") or [],float(payload.get("confidence") or 0),
+        str(payload.get("source") or "research"),bool(payload.get("verified",False)),
+        str(payload.get("memory_kind") or "semantic"),payload.get("provenance") or {},payload.get("supersedes"),
+    )
+
+def _gyan_decide_action(payload,context):
+    return orch.gyan_decide(str(payload.get("approval_id") or ""),bool(payload.get("approved")))
+
+def _gyan_supersede_action(payload,context):
+    return orch.gyan_supersede(
+        str(payload.get("project") or context.get("project") or "KRISHNA"),str(payload.get("fingerprint") or ""),
+        str(payload.get("topic") or ""),str(payload.get("lesson") or ""),payload.get("evidence") or [],
+        float(payload.get("confidence") or 0),str(payload.get("source") or "krishna"),bool(payload.get("verified",False)),
+        str(payload.get("memory_kind") or "semantic"),payload.get("provenance") or {},
+    )
+
+def _gyan_strengthen_action(payload,context):
+    return orch.gyan_strengthen(
+        str(payload.get("project") or context.get("project") or "KRISHNA"),str(payload.get("topic") or ""),
+        bool(payload.get("use_garuda",True)),int(payload.get("limit") or 10),
+    )
+
+for _name,_handler,_desc,_mutating,_approval,_permissions in (
+    ("plugin.credential.set",_plugin_credential_set_action,"Store an encrypted plugin credential reference",True,True,("plugin.write","credential.write")),
+    ("plugin.credential.delete",_plugin_credential_delete_action,"Delete an encrypted plugin credential reference",True,True,("plugin.write","credential.write")),
+    ("project.index",_project_index_action,"Index a registered project into KRISHNA structural memory",True,False,("project.read","memory.write")),
+    ("ui.guardian.register",_ui_guardian_register_action,"Register a GUI candidate for viewport verification",True,False,("ui.write",)),
+    ("ui.guardian.evaluate",_ui_guardian_evaluate_action,"Evaluate a GUI candidate across verified viewports",False,False,("browser.test","ui.read")),
+    ("ui.guardian.transition",_ui_guardian_transition_action,"Transition a GUI registry candidate state",True,False,("ui.write",)),
+    ("commitment.update",_commitment_update_action,"Update an explicit KRISHNA commitment/autonomy state",True,False,("work.write",)),
+    ("mobile.pair.approve",_mobile_pair_approve_action,"Approve a pending KRISHNA Mobile device pairing",True,True,("mobile.pair",)),
+    ("model.gateway.register",_model_gateway_register_action,"Register an encrypted model gateway profile",True,True,("model.admin","credential.write")),
+    ("model.gateway.delete",_model_gateway_delete_action,"Delete a model gateway profile and encrypted key",True,True,("model.admin","credential.write")),
+    ("narad.connection.register",_narad_connection_register_action,"Register a NARAD environment credential reference",True,False,("narad.write",)),
+    ("narad.connection.secret",_narad_connection_secret_action,"Register a DPAPI-encrypted NARAD credential",True,True,("narad.write","credential.write")),
+    ("narad.connection.delete",_narad_connection_delete_action,"Delete a NARAD credential reference",True,True,("narad.write","credential.write")),
+    ("gyan.propose",_gyan_propose_action,"Route a knowledge candidate through Rishi and BRAHMA QC",True,False,("memory.write","evidence.write")),
+    ("gyan.decide",_gyan_decide_action,"Approve or reject a pending Gyan promotion",True,False,("memory.write",)),
+    ("gyan.supersede",_gyan_supersede_action,"Propose supersession of an existing Gyan item",True,False,("memory.write","evidence.write")),
+    ("gyan.strengthen",_gyan_strengthen_action,"Research and strengthen evidence for a Gyan topic",False,False,("web.read","evidence.write")),
+):
+    orch.action_bus.register(
+        _name,_handler,description=_desc,mutating=_mutating,requires_approval=_approval,
+        permissions=_permissions,sources=("pc","system"),
+    )
 _narad_scheduler = NaradScheduler(orch.agi.narad)
 _narad_scheduler.start()
 _autonomy = AutonomySupervisor(orch)
