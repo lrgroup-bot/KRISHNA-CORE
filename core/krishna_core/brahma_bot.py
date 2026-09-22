@@ -330,13 +330,29 @@ class BrahmaBot:
         maturity_ok = self.MATURITY_RANK.get(maturity, -1) >= self.MATURITY_RANK["L3"]
         contradiction_ok = unresolved == 0 and evidence_status not in {"rejected", "contradicted", "unknown"}
         status_ok = evidence_status in self.CANDIDATE_EVIDENCE
-        candidate_pass = all((provenance_ok, evidence_ok, confidence_ok, maturity_ok, contradiction_ok, status_ok))
+        rishi_origin_ok = bool(any(provenance.get(k) for k in (
+            "rishi_finding_id", "researching_rishi", "rishi_id", "rishi_lead",
+            "brahmagyan_claim_id", "mission_id",
+        )))
+        candidate_pass = all((
+            provenance_ok, evidence_ok, confidence_ok, maturity_ok,
+            contradiction_ok, status_ok, rishi_origin_ok,
+        ))
 
+        knowledge_kind = str(memory_kind or "semantic").strip().lower()
+        review_compile_ok = (
+            knowledge_kind not in {"semantic", "skill", "graph"}
+            or (
+                str(provenance.get("verification_agent") or "").strip().lower() == "gautama"
+                and str(provenance.get("compiler") or "").strip().lower() == "veda-vyasa"
+            )
+        )
         verified = bool(
             candidate_pass
             and self.MATURITY_RANK.get(maturity, -1) >= self.MATURITY_RANK["L4"]
             and evidence_status in self.VERIFIED_EVIDENCE
             and confidence >= 0.80
+            and review_compile_ok
         )
 
         reasons = []
@@ -352,6 +368,10 @@ class BrahmaBot:
             reasons.append("unresolved contradictions remain")
         if not status_ok or evidence_status in {"rejected", "contradicted", "unknown"}:
             reasons.append("evidence status is not admissible")
+        if not rishi_origin_ok:
+            reasons.append("knowledge must originate from a Rishi learning/research path")
+        if candidate_pass and not review_compile_ok and knowledge_kind in {"semantic", "skill", "graph"}:
+            reasons.append("Gautama review + Veda Vyasa compilation are required before verified knowledge status")
 
         qc_id = str(uuid.uuid4())
         qc = {
@@ -366,6 +386,8 @@ class BrahmaBot:
             "evidence_status": evidence_status,
             "evidence_count": len(evidence),
             "provenance_ok": provenance_ok,
+            "rishi_origin_ok": rishi_origin_ok,
+            "review_compile_ok": review_compile_ok,
             "unresolved_contradictions": unresolved,
             "reasons": reasons,
             "rishi_context": {
@@ -412,6 +434,59 @@ class BrahmaBot:
                 f"{project}:{topic}:{qc_id}:{','.join(reasons)[:500]}",
             )
         return qc
+
+    def route_knowledge(self, *, source, project, topic, lesson, evidence=None, provenance=None,
+                        confidence=0.0, maturity="L0", evidence_status="candidate",
+                        memory_kind="semantic", modality="text", novelty=0.5, quality=0.7,
+                        importance=0.7, unresolved_contradictions=0, supersedes=None):
+        """Canonical production path for candidate knowledge.
+
+        Every knowledge candidate is first assigned to a Rishi ledger. Only mature
+        candidates then proceed to BRAHMA QC and the existing Gyan approval queue.
+        """
+        source = str(source or "system").strip().lower()
+        if source not in self.ALLOWED_SOURCES:
+            source = "agent"
+        evidence = list(evidence or [])
+        provenance = dict(provenance or {})
+        intake = self.intake(
+            source=source, topic=topic, content=lesson, modality=modality,
+            evidence=evidence, provenance=provenance, confidence=confidence,
+            novelty=novelty, quality=quality, importance=importance,
+            evidence_status=evidence_status, force=True,
+        )
+        finding = intake.get("recorded_finding") or {}
+        routed_provenance = {
+            **provenance,
+            "rishi_finding_id": finding.get("finding_id"),
+            "rishi_lead": intake.get("lead_rishi"),
+            "brahma_intake_decision_id": intake.get("decision_id"),
+        }
+        level = str(maturity or "L0").upper()
+        if self.MATURITY_RANK.get(level, -1) < self.MATURITY_RANK["L3"]:
+            return {
+                "agent": "BRAHMA BOT",
+                "routed_to_rishi": True,
+                "rishi_intake": intake,
+                "qc": None,
+                "proposal": None,
+                "requires_more_learning": True,
+                "next_action": "Rishi research/cross-check must mature this candidate to L3+ before Gyan proposal",
+            }
+        qc = self.qc_for_gyan(
+            project=project, topic=topic, lesson=lesson, evidence=evidence,
+            provenance=routed_provenance, confidence=confidence, maturity=level,
+            evidence_status=evidence_status, unresolved_contradictions=unresolved_contradictions,
+            memory_kind=memory_kind, source="brahma:"+source, supersedes=supersedes,
+        )
+        return {
+            "agent": "BRAHMA BOT",
+            "routed_to_rishi": True,
+            "rishi_intake": intake,
+            "qc": qc,
+            "proposal": qc.get("proposal"),
+            "requires_more_learning": not bool(qc.get("proposal")),
+        }
 
     def status(self):
         with self.lock:
