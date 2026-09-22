@@ -89,9 +89,17 @@ try{
     if($agents.owner -eq "KRISHNA Agent Runtime" -and @($agents.agents).Count -ge 5 -and $agents.authority -eq "Sudarshan Control Plane"){
       Add-Check "Agent Runtime" "PASS" ("agents="+$agents.count+"; Sudarshan authority") $agents
     }else{Add-Check "Agent Runtime" "FAIL" "Agent Runtime manifest registry is incomplete" $agents}
-    if($jobs.owner -eq "KRISHNA Job Runtime" -and $jobs.authority -eq "Shared Action Bus"){
-      Add-Check "Job Runtime" "PASS" "Durable TaskLedger-backed jobs use Shared Action Bus" $jobs
-    }else{Add-Check "Job Runtime" "FAIL" "Job Runtime authority mismatch" $jobs}
+    $jobRuntimeReady=(
+      $jobs.owner -eq "KRISHNA Job Runtime" -and
+      $jobs.mode -eq "durable-queue-inline-worker" -and
+      $jobs.authority -eq "Shared Action Bus + durable backend queue" -and
+      $jobs.queue.owner -eq "KRISHNA Durable Queue" -and
+      $jobs.queue.completion_rule -eq "pending == 0 AND processing == 0" -and
+      $jobs.missions.owner -eq "KRISHNA Mission Engine"
+    )
+    if($jobRuntimeReady){
+      Add-Check "Job Runtime" "PASS" ("Mission Engine + durable queue; pending="+$jobs.queue.pending+" processing="+$jobs.queue.processing+"; Shared Action Bus authority") $jobs
+    }else{Add-Check "Job Runtime" "FAIL" "Job Runtime durable mission/queue authority mismatch" $jobs}
     if($permissions.owner -eq "KRISHNA Permission Runtime"){
       Add-Check "Permission Runtime" "PASS" "Delegated capabilities are explicit" $permissions
     }else{Add-Check "Permission Runtime" "FAIL" "Permission Runtime unavailable" $permissions}
@@ -102,10 +110,33 @@ try{
       Add-Check "Dispatch Runtime" "PASS" ("targets="+(@($dispatch.targets) -join ",")+"; Sudarshan authority") $dispatch
     }else{Add-Check "Dispatch Runtime" "FAIL" "Dispatch Runtime unavailable" $dispatch}
 
+    $missionStatus=Get-Json "/api/missions/status"
+    $queueStatus=Get-Json "/api/queue/status"
+    $protocolStatus=Get-Json "/api/protocol"
+    if(
+      $missionStatus.owner -eq "KRISHNA Mission Engine" -and
+      @($missionStatus.states).Count -eq 12 -and
+      $queueStatus.owner -eq "KRISHNA Durable Queue" -and
+      $queueStatus.completion_rule -eq "pending == 0 AND processing == 0" -and
+      $protocolStatus.version -eq "1.0"
+    ){
+      Add-Check "Phase 1 durable foundation" "PASS" ("missions="+(@($missionStatus.states).Count)+" states; queue backend authoritative; protocol="+$protocolStatus.version) @{missions=$missionStatus;queue=$queueStatus;protocol=$protocolStatus}
+    }else{Add-Check "Phase 1 durable foundation" "FAIL" "Mission/queue/protocol foundation contract mismatch" @{missions=$missionStatus;queue=$queueStatus;protocol=$protocolStatus}}
+
     $jobProbe=Post-Json "/api/jobs/submit" @{action="chat.create";project="general";actor="acceptance-job";permissions=@("chat.write");payload=@{project="general";title="Job Runtime Acceptance"};idempotency_key="acceptance-job-chat"}
-    if($jobProbe.status -eq "completed" -and $jobProbe.job_id -and $jobProbe.action.action_id -and $jobProbe.verified){
-      Add-Check "Job dispatch" "PASS" ("job_id="+$jobProbe.job_id+" action_id="+$jobProbe.action.action_id) $jobProbe
-    }else{Add-Check "Job dispatch" "FAIL" "Durable job did not produce an action receipt" $jobProbe}
+    $queueAfterJob=Get-Json "/api/queue/status"
+    $missionRows=Get-Json ("/api/missions?project=general&limit=100")
+    $jobMission=@($missionRows.missions|Where-Object{$_.mission_id -eq $jobProbe.mission_id})|Select-Object -First 1
+    if(
+      $jobProbe.status -eq "completed" -and
+      $jobProbe.job_id -and $jobProbe.mission_id -and $jobProbe.queue_id -and
+      $jobProbe.action.action_id -and $jobProbe.verified -and
+      $jobMission.status -eq "COMPLETED" -and
+      [int]$queueAfterJob.pending -eq 0 -and [int]$queueAfterJob.processing -eq 0 -and
+      $queueAfterJob.drained
+    ){
+      Add-Check "Job dispatch" "PASS" ("job_id="+$jobProbe.job_id+" mission_id="+$jobProbe.mission_id+" queue_id="+$jobProbe.queue_id+" action_id="+$jobProbe.action.action_id) $jobProbe
+    }else{Add-Check "Job dispatch" "FAIL" "Durable job/mission/queue did not reach verified backend completion" @{job=$jobProbe;mission=$jobMission;queue=$queueAfterJob}}
 
     $mcpProbe=Post-Json "/api/protocols/mcp/call" @{tool="chat.create";project="general";principal="acceptance-mcp";permissions=@("chat.write");args=@{project="general";title="MCP Acceptance"};request_id="acceptance-mcp-chat"}
     if($mcpProbe.status -eq "completed" -and $mcpProbe.source -eq "mcp" -and $mcpProbe.verified){
