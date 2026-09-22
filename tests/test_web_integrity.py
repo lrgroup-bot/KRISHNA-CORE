@@ -47,7 +47,9 @@ class WebIntegrityTests(unittest.TestCase):
         node=shutil.which("node")
         if not node:self.skipTest("node is unavailable")
         scripts=[body for attrs,body in re.findall(r"<script\b([^>]*)>([\s\S]*?)</script>",self.text,flags=re.I)
-                 if not re.search(r"\bsrc\s*=",attrs,re.I) and body.strip()]
+                 if not re.search(r"\bsrc\s*=",attrs,re.I)
+                 and not re.search(r'\btype\s*=\s*["\']importmap["\']',attrs,re.I)
+                 and body.strip()]
         self.assertTrue(scripts)
         with tempfile.TemporaryDirectory() as td:
             for i,body in enumerate(scripts):
@@ -61,6 +63,15 @@ class WebIntegrityTests(unittest.TestCase):
     def test_attachment_control_present(self):
         self.assertIn('id="attachInput"',self.text)
         self.assertIn('uploadAttachment(this)',self.text)
+
+    def test_project_create_entry_and_local_avatar_engine_hooks(self):
+        self.assertIn('title="Create project"',self.text)
+        self.assertIn('onclick="openNewProjectWizard()"',self.text)
+        self.assertIn('id="krishnaLiveAvatar"',self.text)
+        self.assertIn('"talkinghead":"/assets/avatar-engine/talkinghead/talkinghead.mjs"',self.text)
+        self.assertIn('src="/assets/avatar-engine/model-viewer/model-viewer.min.js"',self.text)
+        self.assertNotIn('ajax.googleapis.com/ajax/libs/model-viewer',self.text)
+
 
 if __name__=="__main__":
     unittest.main()

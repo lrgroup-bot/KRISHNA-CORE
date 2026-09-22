@@ -119,6 +119,23 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn('dashboard\\assets\\avatar',text)
         self.assertNotIn('Copy-Item -Force "$Source\\dashboard\\assets\\avatar',text)
 
+    def test_avatar_engine_is_local_pinned_and_served_from_runtime(self):
+        installer=(ROOT/"scripts"/"INSTALL_AVATAR_ENGINE.ps1").read_text(encoding="utf-8-sig")
+        deploy=(ROOT/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8-sig")
+        server=(ROOT/"core"/"krishna_core"/"server.py").read_text(encoding="utf-8-sig")
+        web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
+        self.assertIn("met4citizen/TalkingHead",installer)
+        self.assertIn("eed58d198076a7e1e825f804802921c4d3804d46",installer)
+        self.assertIn("@google/model-viewer@$ModelViewerVersion",installer)
+        self.assertIn("dashboard\\assets\\avatar-engine",deploy)
+        self.assertIn("INSTALL_AVATAR_ENGINE.ps1",deploy)
+        self.assertIn('path.startswith("/assets/avatar-engine/")',server)
+        self.assertIn('"talkinghead_installed"',server)
+        self.assertIn('"model_viewer_installed"',server)
+        self.assertIn("await import('talkinghead')",web)
+        self.assertIn('src="/assets/avatar-engine/model-viewer/model-viewer.min.js"',web)
+        self.assertNotIn("ajax.googleapis.com/ajax/libs/model-viewer",web)
+
     def test_live_ui_inspection_does_not_require_network_idle(self):
         text=(ROOT/"core"/"krishna_core"/"browser_operator.py").read_text(encoding="utf-8-sig")
         inspect=text.split("    def inspect(",1)[1]
@@ -165,6 +182,8 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn('<span>PROJECTS</span>',aside)
         self.assertIn('id="projectMenuTree"',aside)
         self.assertIn('<span>CHATS</span>',aside)
+        self.assertIn('title="Create project"',aside)
+        self.assertIn('onclick="openNewProjectWizard()"',aside)
         self.assertIn('title="Add new chat"',aside)
         self.assertIn('id="recentChats"',aside)
         self.assertNotIn('Project Chats',aside)
