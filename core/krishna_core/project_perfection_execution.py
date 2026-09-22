@@ -114,8 +114,13 @@ class BrowserRegressionRunner:
                 passed=bool(report.get("ok"))
                 if expected and expected!=(edge.get("source") or ""):
                     passed=passed and actual==urlparse(expected).path
+                expected_state=str(edge.get("state_id") or "")
+                actual_state=str(report.get("state_id") or "")
+                state_match=(not expected_state) or (actual_state==expected_state)
+                passed=bool(passed and state_match)
                 edges.append({**edge,"url":source,"passed":passed,"final_url":report.get("final_url"),
-                              "findings":report.get("findings") or []})
+                              "expected_state_id":expected_state or None,"actual_state_id":actual_state or None,
+                              "state_match":state_match,"findings":report.get("findings") or []})
             except Exception as exc:
                 edges.append({**edge,"url":source,"passed":False,"error":f"{type(exc).__name__}: {exc}"})
         route_ok=bool(routes) and all(bool(x.get("passed")) for x in routes)
