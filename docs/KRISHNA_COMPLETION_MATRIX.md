@@ -219,3 +219,33 @@ Do **not** build the final `Krishna_AGI.exe` until:
 17. Shared Action Bus, Agent Runtime, Jobs, Permissions, MCP/A2A adapter and Dispatch acceptance pass.
 18. Priority operational UI controls produce real action receipts and desktop/mobile action state remains coherent.
 19. NARAD runs in typed-dag/sudarshan mode, checkpoint/resume and retry contracts pass, and no embedded n8n runtime is required.
+
+
+## 14. Project Perfection / Design Studio
+
+| Requirement | Status | Evidence / remaining work |
+| --- | --- | --- |
+| Deadline-driven HR sizing | IMPLEMENTED / RUNTIME VERIFY | `DeadlineHR` sizes bounded parallel workers from serial/parallel estimates and deadline budget. |
+| Recursive route/state discovery | IMPLEMENTED / RUNTIME VERIFY | Garudanetra/Playwright same-origin crawler records pages, controls, fields, state hashes and edges; potentially mutating controls are skipped by default. |
+| X/Y geometry verification | IMPLEMENTED / RUNTIME VERIFY | Multi-viewport DOM boxes are checked for overflow and substantial overlap. |
+| Permanent deterministic regressions | IMPLEMENTED / RUNTIME VERIFY | Generated route regression source + persistent manifest + runner; repaired defects persist detector evidence in Immune Memory. |
+| Accessibility | IMPLEMENTED / RUNTIME VERIFY | Semantic sanity checks plus optional/strict local axe-core execution. |
+| Visual regression | IMPLEMENTED / RUNTIME VERIFY | Controlled golden baseline storage and pixel diff; intentional selected redesign creates a new approved baseline only after candidate verification. |
+| Performance gates | IMPLEMENTED / RUNTIME VERIFY | Browser timing metrics are checked against explicit thresholds when required. |
+| API property/fuzz testing | IMPLEMENTED ADAPTER / RUNTIME VERIFY | Schemathesis adapter; verified deploy provisions the dependency locally on E:. |
+| Mutation testing | IMPLEMENTED / RUNTIME VERIFY | Reversible mutations run only inside isolated candidates and must be detected by verification. |
+| Browser chaos | IMPLEMENTED / RUNTIME VERIFY | Ephemeral-context API 500/abort, offline reload, denied permissions and double-click scenarios. |
+| Candidate auto-repair | IMPLEMENTED / RUNTIME VERIFY | Up to three bounded model-assisted repair rounds; KABACH filters patches; no live tree mutation during repair. |
+| Independent Critic + QA worker review | IMPLEMENTED / RUNTIME VERIFY | Completion gates feed IndependentCriticVerifier and bounded ephemeral QA reviewers. |
+| Definition of Done certificate | IMPLEMENTED / RUNTIME VERIFY | Missing/failed required gate produces NOT_COMPLETE; percent-complete cannot override evidence. |
+| Windows EXE retest | IMPLEMENTED CI / RUNTIME VERIFY | Windows workflow builds EXE then launch/restart retests it. |
+| Android APK retest | IMPLEMENTED CI / DEVICE VERIFY | Android workflow boots emulator, installs/launches/backgrounds/restarts APK and inspects fatal logs. |
+| iOS retest executor | IMPLEMENTED BOUNDARY / ENVIRONMENT-DEPENDENT | simctl executor exists; requires a macOS simulator/device and an iOS artifact. |
+| Design web research | IMPLEMENTED / RUNTIME VERIFY | Garuda researches current public UI references; references are evidence/inspiration only. |
+| Rendered A/B/C/D previews | IMPLEMENTED / RUNTIME VERIFY | Design Studio shows actual script-sandboxed rendered candidates; labels are selection handles, not abstract styles. |
+| Submit → implement → verify → apply | IMPLEMENTED / RUNTIME VERIFY | Submit invokes bounded frontend implementation, candidate verification, transactional promotion, live post-apply verification and automatic rollback on failure. |
+| Point/drag/speak editor | IMPLEMENTED / RUNTIME VERIFY | Garudanetra point selection maps live element metadata to candidate source; deterministic edits or bounded semantic model edits run in isolated candidates. |
+| One-command Finish Project | IMPLEMENTED / RUNTIME VERIFY | `scripts/FINISH_KRISHNA_PROJECT.ps1` runs the governed pipeline, auto-repair, independent review, verified apply, live post-apply verification and rollback. |
+| Verified deployment integration | IMPLEMENTED / RUNTIME VERIFY | `DEPLOY_KRISHNA_ONCE.ps1` provisions Project Perfection dependencies and `ACCEPT_KRISHNA_RUNTIME.ps1` checks runtime/UI/action contracts. |
+
+Project Perfection is not allowed to report RELEASE_GATES_PASSED unless all applicable required gates have evidence. Environment-specific hardware/provider checks remain runtime acceptance, not source-code claims.
