@@ -6,6 +6,8 @@ import re
 import threading
 import time
 
+from .diagnostic_engines import DiagnosticEngineRegistry
+
 
 class HawkeyeDiagnosticRuntime:
     """Evidence-gated live diagnostics with a normalized camera-overlay contract."""
@@ -36,6 +38,7 @@ class HawkeyeDiagnosticRuntime:
         self._worker_active = False
         self._worker_last = {}
         self._worker_status = {}
+        self.engines = DiagnosticEngineRegistry()
 
     def bind_reference_registry(self, registry):
         self.reference_registry = registry
@@ -213,6 +216,11 @@ class HawkeyeDiagnosticRuntime:
             "components": components, "flows": flows, "test_points": test_points,
             "diagram_mode": diagram_mode, "accuracy_note": accuracy_note,
         }
+        result["engine_evidence"] = self.engines.evaluate(
+            sensors,
+            goal=goal,
+            modality=str(sensors.get("modality") or "image"),
+        )
         reference_id=self._text(sensors.get("reference_id"),120)
         anchors=sensors.get("reference_anchors") or []
         if reference_id and self.reference_registry is not None and isinstance(anchors,list) and len(anchors)>=3:
@@ -327,5 +335,6 @@ class HawkeyeDiagnosticRuntime:
             "main_loop_blocking": False, "session_count": len(list(self.state_dir.glob("*.json"))),
             "reference_registry_bound": self.reference_registry is not None,
             "worker_runtime_bound": self.worker_runtime is not None,
-            "worker_dispatch": self.worker_status(), "ready": True,
+            "worker_dispatch": self.worker_status(),
+            "diagnostic_engines": self.engines.status(), "ready": True,
         }
