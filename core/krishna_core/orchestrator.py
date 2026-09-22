@@ -592,6 +592,47 @@ class Orchestrator:
             handover=self.agi.brahmagyan.absorb_shishya(mission_id,batch)
             return {"plan":plan,"batch":batch,"handover":handover}
 
+        def mission_create(payload,context):
+            project=str(payload.get("project_id") or payload.get("project") or context.get("project") or "KRISHNA")
+            mission=self.missions.create(
+                str(payload.get("goal") or ""),project_id=project,
+                parent_mission_id=payload.get("parent_mission_id"),session_id=payload.get("session_id"),
+                priority=int(payload.get("priority") or 50),assigned_agents=payload.get("assigned_agents") or [],
+                required_tools=payload.get("required_tools") or [],
+                permission_profile=str(payload.get("permission_profile") or "default"),
+                resource_budget=payload.get("resource_budget") or {},metadata=payload.get("metadata") or {},
+            )
+            self.mission_budgets.configure(mission["mission_id"],mission.get("resource_budget") or {})
+            return mission
+
+        def mission_transition(payload,context):
+            return self.missions.transition(
+                str(payload.get("mission_id") or ""),str(payload.get("status") or ""),
+                current_step=payload.get("current_step"),progress=payload.get("progress"),
+                error=payload.get("error"),verification_status=payload.get("verification_status"),
+                rollback_point=payload.get("rollback_point"),metadata_patch=payload.get("metadata_patch") or {},
+            )
+
+        def mission_checkpoint(payload,context):
+            return self.missions.checkpoint(
+                str(payload.get("mission_id") or ""),str(payload.get("label") or "checkpoint"),
+                payload.get("state") or {},bool(payload.get("trusted",True)),
+            )
+
+        def resource_lock_acquire(payload,context):
+            return self.resource_locks.acquire(
+                str(payload.get("lock_type") or ""),str(payload.get("target") or ""),
+                mode=str(payload.get("mode") or "write"),owner_token=payload.get("owner_token"),
+                mission_id=payload.get("mission_id"),agent_id=str(context.get("actor") or ""),
+                ttl=payload.get("ttl"),metadata=payload.get("metadata") or {},
+            )
+
+        def resource_lock_release(payload,context):
+            ok=self.resource_locks.release(
+                str(payload.get("lock_id") or ""),str(payload.get("owner_token") or "")
+            )
+            return {"released":bool(ok),"lock_id":str(payload.get("lock_id") or "")}
+
         def kabach_privacy_audit(payload,context):
             target=self.kabach.privacy.classify_target(payload)
             profile=str(payload.get("profile") or "BASELINE")
@@ -632,6 +673,32 @@ class Orchestrator:
 
         def kabach_privacy_release_gate(payload,context):
             return self.kabach.privacy_release_gate(payload.get("report") or {},str(payload.get("policy") or "STANDARD"))
+
+        self.action_bus.register(
+            "mission.create",mission_create,description="Create a durable KRISHNA Mission",
+            mutating=True,permissions=("mission.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "mission.transition",mission_transition,description="Advance a durable KRISHNA Mission state",
+            mutating=True,permissions=("mission.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "mission.checkpoint",mission_checkpoint,description="Create a durable mission recovery checkpoint",
+            mutating=True,permissions=("mission.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "resource.lock.acquire",resource_lock_acquire,description="Acquire a durable scoped KRISHNA resource lock",
+            mutating=True,permissions=("resource.lock",),
+            sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "resource.lock.release",resource_lock_release,description="Release an owned KRISHNA resource lock",
+            mutating=True,permissions=("resource.lock",),
+            sources=("pc","system","agent","job"),
+        )
 
         self.action_bus.register(
             "chat.create",chat_create,description="Create a persistent KRISHNA chat",
