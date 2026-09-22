@@ -8,6 +8,7 @@ import android.webkit.*;
 import android.media.*;
 import android.net.Uri;
 import android.util.Base64;
+import android.location.*;
 import java.net.*;
 import java.io.*;
 import java.util.*;
@@ -159,6 +160,36 @@ public class MainActivity extends Activity {
       return call("/api/core/event","{\"source\":\"mobile\",\"kind\":"+JSONObject.quote(kind)+",\"detail\":"+JSONObject.quote(detail)+",\"project\":\"system\"}");
     }
     @JavascriptInterface public String state(){return call("/api/core/state",null);}
+
+    @JavascriptInterface public String hawkeyeMode(){
+      try{
+        JSONObject d=new JSONObject();
+        boolean pc=false;
+        try{JSONObject x=new JSONObject(connection());pc=!x.has("error")&&x.optBoolean("connected",false);}catch(Exception ignored){}
+        d.put("mode",pc?"HAWKEYE_LOCAL":"HAWKEYE_FIELD");
+        d.put("pc_connected",pc);
+        d.put("internet_required",false);
+        d.put("field_capture_local",true);
+        return d.toString();
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String hawkeyeOfflineFrame(String sessionId,String dataB64,String contentType,String sensorJson,String goal){
+      try{
+        File dir=new File(getFilesDir(),"hawkeye-field");if(!dir.exists()&&!dir.mkdirs())throw new IOException("cannot create Hawkeye field store");
+        String safe=(sessionId==null?"field":sessionId).replaceAll("[^A-Za-z0-9_-]","_");
+        File sd=new File(dir,safe);if(!sd.exists()&&!sd.mkdirs())throw new IOException("cannot create Hawkeye session");
+        long now=System.currentTimeMillis();
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
+        try(FileOutputStream out=new FileOutputStream(new File(sd,now+".jpg"))){out.write(bytes);}
+        JSONObject meta=new JSONObject();meta.put("timestamp_ms",now);meta.put("goal",goal==null?"":goal);
+        meta.put("content_type",contentType==null?"image/jpeg":contentType);
+        meta.put("sensor_context",new JSONObject(sensorJson==null||sensorJson.trim().isEmpty()?"{}":sensorJson));
+        try(FileOutputStream out=new FileOutputStream(new File(sd,now+".json"))){out.write(meta.toString(2).getBytes("UTF-8"));}
+        JSONObject d=new JSONObject();d.put("ok",true);d.put("mode","HAWKEYE_FIELD");d.put("stored_local",true);
+        d.put("analysis","Offline field capture saved. Core AI analysis will sync when KRISHNA is reachable; on-device model adapters can replace this capture-only fallback.");
+        return d.toString();
+      }catch(Exception e){return error(e);}
+    }
 
     @JavascriptInterface public String bhumiputraStart(String purpose,String sceneHint){
       try{
