@@ -1147,8 +1147,23 @@ class Handler(BaseHTTPRequestHandler):
         if post_path == "/api/design-studio/submit":
             sid=str(data.get("session_id") or "").strip();cid=str(data.get("candidate_id") or "").strip()
             if not sid or not cid:return self._json(400,{"error":"session_id and candidate_id are required"})
-            try:return self._json(200,orch.project_perfection.design_submit(sid,cid))
+            try:
+                selection=orch.project_perfection.design_submit(sid,cid)
+                project=str(selection.get("project") or "").strip()
+                if not project:return self._json(400,{"error":"design session has no project"})
+                receipt=orch.dispatch_action(
+                    "project.design.implement",
+                    {"project":project,"session_id":sid,
+                     "frontend_url":data.get("frontend_url"),
+                     "checks":data.get("checks") or [],
+                     "screenshot_path":data.get("screenshot_path")},
+                    project=project,source="pc",actor="design-studio-submit",
+                    permissions=("candidate.write","tests.run","model.use"),
+                )
+                return self._json(200,{"selection":selection,"implementation":receipt["result"]})
             except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/project-perfection/visual-intent":
             payload=dict(data.get("intent") or data)
