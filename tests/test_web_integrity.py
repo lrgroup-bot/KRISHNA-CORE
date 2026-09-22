@@ -86,6 +86,15 @@ class WebIntegrityTests(unittest.TestCase):
         self.assertIn(".homeLegacyDetails{display:none!important}",self.text)
         self.assertIn('id="chatSearch"',self.text)
 
+    def test_free_plugin_catalog_and_secure_credential_ui(self):
+        for element_id in ("pluginCredentialDialog","pluginCredentialInput","pluginAuth","pluginsGrid"):
+            self.assertIn(f'id="{element_id}"',self.text)
+        self.assertIn("FREE / OSS CATALOG",self.text)
+        self.assertIn("function requestPluginCredential(",self.text)
+        self.assertIn("function connectPluginCredential(",self.text)
+        self.assertIn("'/api/plugins/credential'",self.text)
+        self.assertIn("Do not enter your normal website password",self.text)
+
 
 if __name__=="__main__":
     unittest.main()
