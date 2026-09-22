@@ -13,6 +13,7 @@ class FullUIFunctionContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.html=WEB.read_text(encoding="utf-8")
         cls.server=SERVER.read_text(encoding="utf-8")
+        cls.orchestrator=(ROOT/"core"/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
         cls.functions=set(re.findall(r"(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(",cls.html))
 
     def test_every_textbox_select_and_textarea_is_wired(self):
@@ -67,6 +68,13 @@ class FullUIFunctionContractTests(unittest.TestCase):
         for pattern in patterns:
             endpoints.update(re.findall(pattern,self.html))
         missing=[ep for ep in sorted(endpoints) if ep not in self.server]
+        self.assertEqual(missing,[],missing)
+
+    def test_every_shared_action_called_by_ui_is_registered(self):
+        actions=set(re.findall(r"actionReq\(\s*['\"]([^'\"]+)",self.html))
+        registration_surface=self.server+"\n"+self.orchestrator
+        missing=[action for action in sorted(actions)
+                 if f'"{action}"' not in registration_surface and f"'{action}'" not in registration_surface]
         self.assertEqual(missing,[],missing)
 
     def test_current_owner_surface_and_language_controls(self):
