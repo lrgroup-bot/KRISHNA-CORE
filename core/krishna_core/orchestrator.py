@@ -3,6 +3,7 @@ from pathlib import Path
 
 from .project_perfection_runtime import ProjectPerfectionRuntime
 from .design_implementation import DesignImplementationGuard
+from .candidate_repair import CandidateRepairGuard
 from .memory import MemoryStore
 from .router import ModelRouter
 from .model_gateway import ModelGatewayRegistry
@@ -336,35 +337,114 @@ class Orchestrator:
             if not project or not url:raise ValueError("project and url are required")
             policy=self.projects.get(project)
             if not policy:raise KeyError(project)
-            security=self.kabach.protect_project(project,policy.root,policy.privacy)
-            security_violations=[]
-            for row in security.get("checks") or []:
-                verdict=row.get("verdict") or {}
-                evidence=set(str(x) for x in verdict.get("evidence") or [])
-                # A known sensitive file such as .env is protected inventory, not by itself a release defect.
-                material={x for x in evidence if x!="sensitive_path"}
-                if material:security_violations.append({"path":row.get("path"),"evidence":sorted(material)})
-            security_ok=bool(security.get("protected")) and not security_violations
-            security["release_violations"]=security_violations
-            security["release_gate_passed"]=security_ok
-            result=self.project_perfection.finish_project(
-                project=project,project_root=policy.root,url=url,
-                build_hash=str(payload.get("build_hash") or ""),
-                checks=list(payload.get("checks") or policy.verification_checks or []),
-                requirements_ok=bool(payload.get("requirements_ok",False)),
-                schema_url=payload.get("schema_url"),api_base_url=payload.get("api_base_url"),
-                artifacts=list(payload.get("artifacts") or []),
-                screenshot_dir=payload.get("screenshot_dir"),
-                approve_visual_baselines=bool(payload.get("approve_visual_baselines",False)),
-                backend_required=bool(payload.get("backend_required",True)),
-                artifact_required=bool(payload.get("artifact_required",False)),
-                security_ok=security_ok,
-                restart_recovery_ok=bool(payload.get("restart_recovery_ok",False)),
-                max_mutants=int(payload.get("max_mutants") or 8),
-                deadline_minutes=float(payload.get("deadline_minutes") or 60),
-                work_items=list(payload.get("work_items") or []),
-            )
-            result["security_report"]=security
+
+            def security_for(root):
+                report=self.kabach.protect_project(project,root,policy.privacy)
+                violations=[]
+                for row in report.get("checks") or []:
+                    verdict=row.get("verdict") or {}
+                    evidence=set(str(x) for x in verdict.get("evidence") or [])
+                    material={x for x in evidence if x!="sensitive_path"}
+                    if material:violations.append({"path":row.get("path"),"evidence":sorted(material)})
+                passed=bool(report.get("protected")) and not violations
+                report["release_violations"]=violations
+                report["release_gate_passed"]=passed
+                return report,passed
+
+            def run_once(root, target_url, use_static):
+                security,security_ok=security_for(root)
+                result=self.project_perfection.finish_project(
+                    project=project,project_root=root,url=target_url,
+                    build_hash=str(payload.get("build_hash") or ""),
+                    checks=list(payload.get("checks") or policy.verification_checks or []),
+                    requirements_ok=bool(payload.get("requirements_ok",False)),
+                    schema_url=payload.get("schema_url"),api_base_url=payload.get("api_base_url"),
+                    artifacts=list(payload.get("artifacts") or []),
+                    screenshot_dir=payload.get("screenshot_dir"),
+                    approve_visual_baselines=bool(payload.get("approve_visual_baselines",False)),
+                    backend_required=bool(payload.get("backend_required",True)),
+                    artifact_required=bool(payload.get("artifact_required",False)),
+                    security_ok=security_ok,
+                    restart_recovery_ok=bool(payload.get("restart_recovery_ok",False)),
+                    max_mutants=int(payload.get("max_mutants") or 8),
+                    deadline_minutes=float(payload.get("deadline_minutes") or 60),
+                    work_items=list(payload.get("work_items") or []),
+                    use_candidate_static_preview=bool(use_static),
+                    restart_recovery_required=bool(payload.get("restart_recovery_required",True)),
+                )
+                result["security_report"]=security
+                return result
+
+            result=run_once(policy.root,url,bool(payload.get("use_candidate_static_preview",False)))
+            repair_history=[]
+            auto_repair=bool(payload.get("auto_repair",True))
+            max_rounds=max(0,min(int(payload.get("max_repair_rounds") or 3),3))
+            repairable={"unit","integration","browser_e2e","ui_geometry","visual_regression",
+                        "responsive","accessibility","adversarial"}
+            for round_no in range(1,max_rounds+1):
+                if result.get("passed") or not auto_repair:break
+                failed=[g for g in result.get("gates") or [] if not g.get("passed")]
+                failed_names={str(g.get("gate") or "") for g in failed}
+                # Missing visual baseline is approval/evidence, not a source-code defect.
+                visual_rows=(result.get("visual") or {}).get("results") or []
+                if failed_names=={"visual_regression"} and visual_rows and all(x.get("reason")=="baseline_missing" for x in visual_rows):
+                    break
+                code_failed=sorted(failed_names & repairable)
+                if not code_failed:break
+                candidate=str(result.get("candidate_root") or "")
+                if not candidate:break
+                source_context=CandidateRepairGuard.collect_context(candidate,code_failed)
+                if not source_context.get("files"):
+                    repair_history.append({"round":round_no,"status":"blocked","reason":"no repairable source context","failed_gates":code_failed})
+                    break
+                plan=self.router.coding_plan(policy.privacy)
+                if not plan:
+                    repair_history.append({"round":round_no,"status":"blocked","reason":"no model available","failed_gates":code_failed})
+                    break
+                provider=plan[(round_no-1)%len(plan)]["provider"]
+                prompt=CandidateRepairGuard.prompt(failed,source_context)
+                raw=self.router.ask(provider,prompt)
+                obj=self.ephemeral_workers._json_object(raw)
+                try:
+                    files=CandidateRepairGuard.validate_patch(candidate,obj.get("files") or [])
+                    security_blocks=[]
+                    for row in files:
+                        verdict=self.kabach.inspect_text(row["content"],row["path"])
+                        if not verdict.get("allowed"):security_blocks.append({"path":row["path"],"verdict":verdict})
+                    if security_blocks:
+                        repair_history.append({"round":round_no,"status":"blocked","reason":"KABACH rejected candidate patch",
+                                               "security":security_blocks,"failed_gates":code_failed})
+                        break
+                    changed=CandidateRepairGuard.apply(candidate,files)
+                except (ValueError,PermissionError,OSError) as exc:
+                    repair_history.append({"round":round_no,"status":"blocked","reason":f"{type(exc).__name__}: {exc}",
+                                           "failed_gates":code_failed})
+                    break
+                repair_history.append({
+                    "round":round_no,"status":"patched","provider":provider,
+                    "summary":str(obj.get("summary") or "")[:3000],
+                    "files":changed,"failed_gates":code_failed,
+                })
+                candidate_url=str(payload.get("candidate_url") or "").strip()
+                use_static=not bool(candidate_url) and bool(self.project_perfection.candidate_static.find_entry(candidate))
+                retry_url=candidate_url or url
+                result=run_once(candidate,retry_url,use_static)
+
+            result["repair_history"]=repair_history
+            result["auto_repair_attempted"]=bool(repair_history)
+            if result.get("passed") and repair_history:
+                detector="checks:"+",".join(str(x) for x in (payload.get("checks") or policy.verification_checks or []))
+                last=repair_history[-1]
+                immune=self.project_perfection.immunize_bug(
+                    project,
+                    "failed_gates:"+",".join(last.get("failed_gates") or []),
+                    str(last.get("summary") or "verified auto-repair"),
+                    detector,
+                    str((result.get("certificate") or {}).get("certificate_id") or "verified"),
+                )
+                result["immune_memory"]=immune
+            else:
+                result["immune_memory"]=None
             result["promotion"]=self._prepare_promotion_impl(project,result["candidate_root"]) if result.get("passed") else None
             self.memory.audit("project_perfection","verified" if result.get("passed") else "not_complete",project)
             return result
