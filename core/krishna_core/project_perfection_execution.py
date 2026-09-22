@@ -43,6 +43,15 @@ class VisualBaselineStore:
     def __init__(self, root: str | Path):
         self.root=Path(root).resolve()
 
+    def approve(self, project: str, key: str, screenshot: str | Path) -> dict[str,Any]:
+        shot=Path(screenshot).resolve()
+        if not shot.is_file():raise FileNotFoundError(str(shot))
+        base=self.root/_safe_slug(project)/(f"{_safe_slug(key)}.png")
+        base.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copy2(shot,base)
+        return {"approved":True,"baseline":str(base),"source":str(shot),
+                "sha256":sha256(shot.read_bytes()).hexdigest()}
+
     def compare(self, project: str, key: str, screenshot: str | Path, approve_missing: bool=False,
                 max_changed_ratio: float=0.001) -> dict[str, Any]:
         shot=Path(screenshot).resolve()
