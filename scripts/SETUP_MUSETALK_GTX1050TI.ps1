@@ -157,22 +157,29 @@ Invoke-Checked $envPip @(
   "--index-url","https://download.pytorch.org/whl/cu118"
 ) "Install PyTorch 2.0.1 CUDA 11.8"
 
-$probeJson=& $envPython -c @"
-import json, torch
-d={
-  "torch":torch.__version__,
-  "cuda_available":torch.cuda.is_available(),
-  "cuda_runtime":torch.version.cuda,
-  "arch_list":torch.cuda.get_arch_list() if torch.cuda.is_available() else [],
+$probeScript=Assert-EPath (Join-Path $tempRoot "musetalk_cuda_probe.py") "CUDA probe"
+$probeSource=@'
+import json
+import torch
+
+d = {
+    "torch": torch.__version__,
+    "cuda_available": torch.cuda.is_available(),
+    "cuda_runtime": torch.version.cuda,
+    "arch_list": torch.cuda.get_arch_list() if torch.cuda.is_available() else [],
 }
 if torch.cuda.is_available():
- d.update({
-   "device":torch.cuda.get_device_name(0),
-   "capability":"%d.%d"%torch.cuda.get_device_capability(0),
-   "memory_gb":round(torch.cuda.get_device_properties(0).total_memory/1024**3,2),
- })
+    major, minor = torch.cuda.get_device_capability(0)
+    props = torch.cuda.get_device_properties(0)
+    d.update({
+        "device": torch.cuda.get_device_name(0),
+        "capability": f"{major}.{minor}",
+        "memory_gb": round(props.total_memory / 1024**3, 2),
+    })
 print(json.dumps(d))
-"@
+'@
+[System.IO.File]::WriteAllText($probeScript,$probeSource,(New-Object System.Text.UTF8Encoding($false)))
+$probeJson=& $envPython $probeScript
 if($LASTEXITCODE -ne 0){throw "PyTorch CUDA probe failed"}
 $torchProbe=($probeJson | Select-Object -Last 1 | ConvertFrom-Json)
 if(!$torchProbe.cuda_available){
