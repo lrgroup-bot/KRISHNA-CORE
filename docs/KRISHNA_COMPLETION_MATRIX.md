@@ -97,6 +97,16 @@ Status meanings:
 | QC provenance / evidence / maturity / contradiction gates | VERIFIED BY UNIT CONTRACTS / CI PENDING | Candidate promotion requires traceable provenance, evidence, confidence, maturity and no unresolved contradiction; only strong L4+ evidence may be marked verified. |
 | Gautama and Veda Vyasa remain evidence reviewer/compiler | VERIFIED boundary | BRAHMA governs routing/QC and does not replace Gautama epistemic review or Veda Vyasa compilation. |
 | No silent direct truth write | VERIFIED boundary | BRAHMA creates a Gyan proposal only after QC; Gyan-Bhandar keeps durable memory authority and its normal approval path. |
+| Bi-temporal knowledge history | IMPLEMENTED / RUNTIME VERIFY | BRAHMA records valid-time and learned-time separately, preserves superseded claims, and supports point-in-time queries without deleting history. |
+| Source-family / contamination control | IMPLEMENTED / RUNTIME VERIFY | Evidence is grouped into independent source families so copied/related sources do not inflate evidence counts; source independence is attached to BRAHMA QC provenance. |
+| Cost-aware Learning Value Score | IMPLEMENTED / RUNTIME VERIFY | Learning decisions combine uncertainty, novelty, evidence quality, importance, future reuse and Rishi knowledge gap, discounted by compute/network/storage cost. |
+| Idle/sleep-time consolidation | IMPLEMENTED DETERMINISTIC FOUNDATION / RUNTIME VERIFY | BRAHMA can consolidate duplicate learning decisions during idle work without direct Gyan promotion; deeper model-assisted reflection remains governed by Rishi/BRAHMAGYAN jobs. |
+| Memory evaluation harness | IMPLEMENTED / RUNTIME VERIFY | BRAHMA reports retrieval precision/recall/F1 plus duplicate, stale, contradiction and provenance-completeness metrics; external LoCoMo/LongMemEval/BEAM adapters remain optional future benchmark connectors. |
+| Contradiction graph | IMPLEMENTED / RUNTIME VERIFY | Contradictory temporal claims are linked and resolved without erasing either claim or its evidence history. |
+| Provenance fingerprinting | IMPLEMENTED / RUNTIME VERIFY | Learning/QC derives stable SHA-256 provenance fingerprints across source references and evidence metadata. |
+| Rishi knowledge graph / council formation | IMPLEMENTED / RUNTIME VERIFY | BRAHMA emits lead/collaborator/Gautama-review/Vyasa-compile relationships and shared-domain edges for each learning topic. |
+| Independent Rishi teach-back | IMPLEMENTED FOUNDATION / RUNTIME VERIFY | BRAHMA creates blinded challenges for a different Rishi and scores conclusion/evidence reconstruction before a result can be treated as additional verification evidence. |
+| Freshness / forgetting / decay | IMPLEMENTED / RUNTIME VERIFY | Time-sensitive claims receive volatility-aware TTL review; stale knowledge is marked for re-verification and never silently deleted. |
 
 ## 5. NARAD
 
