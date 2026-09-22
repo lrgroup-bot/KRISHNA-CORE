@@ -418,26 +418,31 @@ class VisualCandidateEditor:
 
 
 class CandidateStaticServer:
-    """Loopback-only static preview for isolated candidates that contain index.html."""
+    """Loopback-only static preview for isolated candidates with a safe HTML entry."""
 
-    @staticmethod
-    def find_root(candidate_root: str | Path) -> Path | None:
+    ENTRY_NAMES=("index.html","dashboard.html","web_validation.html")
+
+    @classmethod
+    def find_entry(cls, candidate_root: str | Path) -> Path | None:
         root=Path(candidate_root).resolve()
-        direct=root/"index.html"
-        if direct.is_file():return root
+        direct=[root/name for name in cls.ENTRY_NAMES]
+        for path in direct:
+            if path.is_file():return path
         candidates=[]
-        for path in root.rglob("index.html"):
-            if any(part in {".git",".venv","node_modules","dist","build",".krishna_state"} for part in path.parts):
-                continue
-            candidates.append(path.parent)
-        candidates.sort(key=lambda p:(len(p.parts),str(p)))
+        for name in cls.ENTRY_NAMES:
+            for path in root.rglob(name):
+                if any(part in {".git",".venv","node_modules","dist","build",".krishna_state"} for part in path.parts):
+                    continue
+                candidates.append(path)
+        candidates.sort(key=lambda p:(cls.ENTRY_NAMES.index(p.name) if p.name in cls.ENTRY_NAMES else 99,len(p.parts),str(p)))
         return candidates[0] if candidates else None
 
     @contextmanager
     def serve(self, candidate_root: str | Path):
-        root=self.find_root(candidate_root)
-        if root is None:
-            yield {"available":False,"url":None,"reason":"no_static_index"}
+        root=Path(candidate_root).resolve()
+        entry=self.find_entry(root)
+        if entry is None:
+            yield {"available":False,"url":None,"reason":"no_static_html_entry"}
             return
         class Quiet(SimpleHTTPRequestHandler):
             def log_message(self,format,*args):pass
@@ -448,6 +453,7 @@ class CandidateStaticServer:
         thread.start()
         try:
             host,port=server.server_address
-            yield {"available":True,"url":f"http://127.0.0.1:{port}/","root":str(root)}
+            rel=str(entry.relative_to(root)).replace("\\","/")
+            yield {"available":True,"url":f"http://127.0.0.1:{port}/"+rel,"root":str(root),"entry":rel}
         finally:
             server.shutdown();server.server_close();thread.join(timeout=3)
