@@ -107,7 +107,10 @@ class ProjectPerfectionRuntime:
                 if preview_url:
                     try:
                         browser=self.browser_audit(preview_url,viewports=[390,1440])
-                        browser_ok=bool(browser.get("ok") and browser.get("geometry_ok"))
+                        views=list(browser.get("viewports") or [])
+                        visible_geometry=bool(views) and all(bool(v.get("geometry")) for v in views)
+                        browser_ok=bool(browser.get("ok") and browser.get("geometry_ok") and visible_geometry)
+                        browser["mutation_visible_geometry"]=visible_geometry
                     except Exception as exc:
                         browser={"ok":False,"error":f"{type(exc).__name__}: {exc}"}
                         browser_ok=False
