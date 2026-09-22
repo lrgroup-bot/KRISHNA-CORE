@@ -1113,6 +1113,56 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
 
+        if post_path == "/api/design-studio/create":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            candidates=data.get("candidates") or []
+            if not isinstance(candidates,list):return self._json(400,{"error":"candidates must be an array"})
+            try:
+                result=orch.project_perfection.design_create(project,candidates)
+                return self._json(201,result)
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/design-studio/submit":
+            sid=str(data.get("session_id") or "").strip();cid=str(data.get("candidate_id") or "").strip()
+            if not sid or not cid:return self._json(400,{"error":"session_id and candidate_id are required"})
+            try:return self._json(200,orch.project_perfection.design_submit(sid,cid))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+
+        if post_path == "/api/project-perfection/visual-intent":
+            payload=dict(data.get("intent") or data)
+            try:return self._json(200,orch.project_perfection.visual_edit_intent(payload))
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-perfection/finish":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"project finishing must run on KRISHNA PC"})
+            project=str(data.get("project") or "").strip();url=str(data.get("url") or "").strip()
+            if not project or not url:return self._json(400,{"error":"project and url are required"})
+            policy=orch.projects.get(project)
+            if not policy:return self._json(404,{"error":"project not registered"})
+            security=orch.kabach.protect_project(project,policy.root,policy.privacy)
+            security_ok=all(bool((row.get("verdict") or {}).get("allowed")) for row in security.get("checks") or [])
+            try:
+                result=orch.project_perfection.finish_project(
+                    project=project,project_root=policy.root,url=url,
+                    build_hash=str(data.get("build_hash") or ""),
+                    checks=list(data.get("checks") or policy.verification_checks or []),
+                    requirements_ok=bool(data.get("requirements_ok",False)),
+                    schema_url=data.get("schema_url"),api_base_url=data.get("api_base_url"),
+                    artifacts=list(data.get("artifacts") or []),
+                    screenshot_dir=data.get("screenshot_dir"),
+                    approve_visual_baselines=bool(data.get("approve_visual_baselines",False)),
+                    backend_required=bool(data.get("backend_required",True)),
+                    artifact_required=bool(data.get("artifact_required",False)),
+                    security_ok=security_ok,
+                    restart_recovery_ok=bool(data.get("restart_recovery_ok",False)),
+                    max_mutants=int(data.get("max_mutants") or 8),
+                )
+                result["security_report"]=security
+                mark("PROJECT PERFECTION",f"{project}: {result.get('verdict')}")
+                return self._json(200,result)
+            except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
+
         if post_path == "/api/ui-guardian/register":
             item=_ui_registry.register(
                 str(data.get("name") or "").strip(),
