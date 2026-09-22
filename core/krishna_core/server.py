@@ -928,6 +928,7 @@ class Handler(BaseHTTPRequestHandler):
                     "persistent_bug_immune_memory",
                     "axe_accessibility_verification",
                     "visual_baseline_regression",
+                    "hawkeye_ui_perceptual_review",
                     "api_property_fuzzing",
                     "mutation_testing",
                     "browser_chaos_testing",
