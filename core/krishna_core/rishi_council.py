@@ -2,6 +2,99 @@ from __future__ import annotations
 from dataclasses import asdict,dataclass
 
 
+MEDICAL_ENGINEERING_DOMAINS={
+    "biomedical_engineering":{
+        "display_name":"Biomedical Engineering",
+        "description":"Engineering design applied to anatomy, physiology, diagnosis, treatment and restoration of biological function.",
+        "aliases":("biomedical engineering","bioengineering","medical engineering","biomedical device","medical device design"),
+        "team":("sushruta","bharadvaja","kanada","vishwamitra","gautama","veda-vyasa"),
+        "evidence_rules":(
+            "separate engineering feasibility from clinical effectiveness",
+            "human-use claims require appropriate clinical evidence",
+            "device safety and regulatory constraints remain explicit",
+        ),
+    },
+    "biomechanical_engineering":{
+        "display_name":"Biomechanical Engineering",
+        "description":"Mechanical forces, motion, load transfer and structural mechanics in tissues, joints, implants and biological systems.",
+        "aliases":("biomechanical engineering","biomechanics","gait mechanics","tissue mechanics","orthopaedic mechanics","orthopedic mechanics"),
+        "team":("sushruta","kanada","bharadvaja","gautama","veda-vyasa"),
+        "evidence_rules":(
+            "distinguish computational models from measured human biomechanics",
+            "state material and boundary-condition assumptions",
+            "validate simulations against experimental or clinical measurements",
+        ),
+    },
+    "neural_engineering":{
+        "display_name":"Neural Engineering",
+        "description":"Engineering methods for measuring, modelling, interfacing with, repairing or augmenting nervous-system function.",
+        "aliases":("neural engineering","neuroengineering","brain computer interface","brain-computer interface","neural interface","neuroprosthetic","neuroprosthetics"),
+        "team":("sushruta","kapila","patanjali","bharadvaja","gautama","veda-vyasa"),
+        "evidence_rules":(
+            "separate neural measurement from claims about cognition or consciousness",
+            "human enhancement claims require stronger evidence than device feasibility",
+            "invasive neural-device risks and reversibility must be explicit",
+        ),
+    },
+    "medical_imaging":{
+        "display_name":"Medical Imaging / Bioimaging",
+        "description":"Physics, instrumentation, reconstruction and software for X-ray, CT, MRI, ultrasound, nuclear and other biomedical imaging.",
+        "aliases":("medical imaging","bioimaging","radiology imaging","x-ray imaging","xray imaging","mri","magnetic resonance imaging","ct imaging","computed tomography","ultrasound imaging"),
+        "team":("sushruta","kanada","atri","bharadvaja","gautama","veda-vyasa"),
+        "evidence_rules":(
+            "separate image formation physics from diagnostic interpretation",
+            "report sensitivity, specificity and validation population for diagnostic AI",
+            "radiation or contrast exposure must be considered where relevant",
+        ),
+    },
+    "biomaterials":{
+        "display_name":"Biomaterials",
+        "description":"Natural and synthetic materials designed to interact with biological systems in implants, scaffolds, prostheses and tissue engineering.",
+        "aliases":("biomaterials","biomaterial","tissue scaffold","tissue scaffolds","implant material","implant materials","biocompatibility","bioactive material"),
+        "team":("sushruta","kanada","vishwamitra","bharadvaja","gautama","veda-vyasa"),
+        "evidence_rules":(
+            "separate material properties from biological response",
+            "in-vitro compatibility is not equivalent to long-term human biocompatibility",
+            "degradation, toxicity, immune response and mechanical failure require explicit review",
+        ),
+    },
+    "clinical_engineering":{
+        "display_name":"Clinical Engineering",
+        "description":"Safe selection, deployment, maintenance, integration and lifecycle management of medical technology in healthcare environments.",
+        "aliases":("clinical engineering","hospital engineering","medical equipment management","healthcare technology management","medical device maintenance"),
+        "team":("sushruta","bharadvaja","jamadagni","vashistha","gautama","veda-vyasa"),
+        "evidence_rules":(
+            "patient safety and device reliability take precedence over convenience",
+            "maintenance, calibration, cybersecurity and incident history must be considered",
+            "local regulatory and hospital-governance requirements remain explicit",
+        ),
+    },
+    "medical_radiation_sciences":{
+        "display_name":"Medical Radiation Sciences / Radiation Physics",
+        "description":"Radiation physics, dosimetry, radiation protection, radiotherapy technology and nuclear-medicine instrumentation.",
+        "aliases":("medical radiation science","medical radiation sciences","radiation physics","medical physics","radiology physics","radiation protection","dosimetry","nuclear medicine","radiotherapy physics"),
+        "team":("sushruta","kanada","atri","jamadagni","gautama","veda-vyasa"),
+        "evidence_rules":(
+            "dose, exposure pathway and uncertainty must be quantified where possible",
+            "diagnostic, therapeutic and occupational exposures must not be conflated",
+            "radiation-safety and regulatory controls require independent review",
+        ),
+    },
+    "medical_ai_engineering":{
+        "display_name":"AI & Engineering for Medical Applications",
+        "description":"Machine learning, data engineering, decision support, multimodal analysis and diagnostic or operational AI used in healthcare.",
+        "aliases":("medical ai","healthcare ai","clinical ai","ai for medical applications","medical machine learning","clinical machine learning","diagnostic ai","healthcare data science"),
+        "team":("sushruta","vishwamitra","bharadvaja","gautama","jamadagni","veda-vyasa"),
+        "evidence_rules":(
+            "model performance must be tied to a defined dataset and population",
+            "external validation is distinct from internal validation",
+            "bias, calibration, failure modes, privacy and clinical workflow effects require review",
+            "algorithmic output is not itself a clinical diagnosis",
+        ),
+    },
+}
+
+
 @dataclass(frozen=True)
 class RishiProfile:
     id:str
@@ -32,7 +125,10 @@ COUNCIL=(
         "What exists today that KRISHNA does not yet know or know how to use?","curious, frontier-seeking and inventive",
         ("important frontier claims require Gautama review","experimental claims stay provisional until reproduced or independently supported")),
     RishiProfile("sushruta","Sushruta","rishi","Chief Medical & Biomedical Scientist",
-        ("medicine","surgery","anatomy","physiology","pathology","diagnostics","pharmacology","biomedical engineering","medical devices","clinical research"),
+        ("medicine","surgery","anatomy","physiology","pathology","diagnostics","pharmacology",
+         "biomedical engineering","biomechanical engineering","neural engineering","medical imaging","bioimaging",
+         "biomaterials","clinical engineering","medical radiation sciences","radiation physics","nuclear medicine",
+         "medical ai","healthcare ai","medical devices","clinical research"),
         "What does the best available clinical and biomedical evidence support?","precise, clinical and evidence-tiered",
         ("animal experiment is not proven human treatment","single study is not consensus","preprint is not clinical guideline","historical medicine is not modern clinical recommendation")),
     RishiProfile("kashyapa","Kashyapa","rishi","Life Sciences & Living Systems Scholar",
@@ -94,11 +190,67 @@ class RishiCouncil:
     def list(self):
         return [x.as_dict() for x in COUNCIL]
 
+    @staticmethod
+    def medical_engineering_matches(topic):
+        text=str(topic or "").lower()
+        matches=[]
+        for domain_id,row in MEDICAL_ENGINEERING_DOMAINS.items():
+            hits=[alias for alias in row["aliases"] if alias in text]
+            if hits:
+                matches.append({
+                    "domain_id":domain_id,
+                    "display_name":row["display_name"],
+                    "description":row["description"],
+                    "matched_aliases":hits,
+                    "team":list(row["team"]),
+                    "evidence_rules":list(row["evidence_rules"]),
+                })
+        return matches
+
+    def medical_engineering_domains(self):
+        return [
+            {
+                "domain_id":domain_id,
+                "display_name":row["display_name"],
+                "description":row["description"],
+                "aliases":list(row["aliases"]),
+                "team":list(row["team"]),
+                "evidence_rules":list(row["evidence_rules"]),
+            }
+            for domain_id,row in MEDICAL_ENGINEERING_DOMAINS.items()
+        ]
+
+    def specialist_team(self,topic,limit=6):
+        limit=max(1,min(int(limit),8))
+        medical=self.medical_engineering_matches(topic)
+        ids=[]
+        if medical:
+            for match in medical:
+                for rid in match["team"]:
+                    if rid not in ids:ids.append(rid)
+        for profile in self.select(topic,limit):
+            if profile["id"] not in ids:ids.append(profile["id"])
+        ids=ids[:limit]
+        if "gautama" not in ids and len(ids)<limit:ids.append("gautama")
+        if "veda-vyasa" not in ids and len(ids)<limit:ids.append("veda-vyasa")
+        return {
+            "topic":str(topic or ""),
+            "medical_engineering_domains":medical,
+            "members":[self.get(x) for x in ids],
+            "policy":"modern specialist roles are KRISHNA design assignments; they do not claim the historical/traditional figures practiced these modern engineering disciplines",
+        }
+
     def select(self,topic,limit=4):
         text=str(topic or "").lower()
         scored=[]
+        medical=self.medical_engineering_matches(text)
+        medical_priority={}
+        for match in medical:
+            for pos,rid in enumerate(match["team"]):
+                medical_priority[rid]=max(medical_priority.get(rid,0),20-pos)
         for item in COUNCIL:
-            score=sum(2 for d in item.domains if d in text)
+            score=medical_priority.get(item.id,0)
+            score+=sum(2 for d in item.domains if d in text)
             score+=sum(1 for token in item.role.lower().replace("&"," ").split() if len(token)>4 and token in text)
             if score:scored.append((score,item.id))
         scored.sort(key=lambda x:(-x[0],x[1]))
@@ -114,4 +266,5 @@ class RishiCouncil:
             "running_processes":0,
             "policy":"profiles are permanent; model workers activate only for missions; historical association is not treated as modern scientific authorship",
             "members":self.list(),
+            "medical_engineering_domains":self.medical_engineering_domains(),
         }
