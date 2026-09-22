@@ -344,8 +344,8 @@ class ArtifactExecutor:
                 package_text=package_service.get("output","").lower()
                 activity_text=activity_service.get("output","").lower()
                 if (boot.get("passed") and boot_text=="1" and
-                        package_service.get("passed") and "found" in package_text and
-                        activity_service.get("passed") and "found" in activity_text):
+                        package_service.get("passed") and "found" in package_text and "not found" not in package_text and
+                        activity_service.get("passed") and "found" in activity_text and "not found" not in activity_text):
                     return {"executed":True,"passed":True,"attempts":attempt,"state":state_text,
                             "boot":boot_text,"package_service":package_service.get("output","")[-1000:],
                             "activity_service":activity_service.get("output","")[-1000:]}
