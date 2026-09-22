@@ -156,6 +156,19 @@ jobs:
           grep -q "setAllowUniversalAccessFromFileURLs(false)" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "privateCoreUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "configurePc" app/src/main/assets/index.html
+          grep -q 'id="voiceLang"' app/src/main/assets/index.html
+          grep -q "or-IN" app/src/main/assets/index.html
+          grep -q "hi-IN" app/src/main/assets/index.html
+          grep -q "en-IN" app/src/main/assets/index.html
+          grep -q "not-a-mobile-control-route" app/src/main/java/com/krishna/mobile/MainActivity.java
+          python - <<'PY'
+          from pathlib import Path
+          mobile=Path("app/src/main/java/com/krishna/mobile/MainActivity.java").read_text(encoding="utf-8")
+          core=mobile.split("String coreBase()throws Exception{",1)[1].split("@JavascriptInterface public String configureCoreUrl",1)[0]
+          if "cloud_url" in core or "secureCloudUrl(cloud)" in core:
+              raise SystemExit("KRISHNA Mobile control path leaked to a public cloud URL")
+          print("KRISHNA_MOBILE_PRIVATE_CONTROL_OK")
+          PY
           if grep -q "192\.168\.0\.106" app/src/main/java/com/krishna/mobile/MainActivity.java; then echo "stale hard-coded PC IP leaked into mobile build" >&2; exit 1; fi
           if grep -q "workspaceBtn\|runTool" app/src/main/assets/index.html; then echo "dashboard/tool UI leaked into conversation-only mobile" >&2; exit 1; fi
 
