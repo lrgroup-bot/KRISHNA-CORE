@@ -87,7 +87,20 @@ if (!$env:KRISHNA_ALLOW_ACTIONS) { $env:KRISHNA_ALLOW_ACTIONS="0" }
 $integrityJson=& $py -c "import json; from krishna_core.runtime_integrity import RuntimeIntegrity; print(json.dumps(RuntimeIntegrity().status()))"
 if($LASTEXITCODE -ne 0){throw "Runtime integrity check could not run"}
 $integrity=$integrityJson|ConvertFrom-Json
-if($integrity.status -eq "DRIFT"){throw ("KRISHNA runtime drift detected. Missing={0}; mismatches={1}; source_drift={2}" -f (($integrity.missing -join ',')),(($integrity.mismatches -join ',')),$integrity.source_drift)}
+if($integrity.status -eq "DRIFT"){
+    if($authoritative -and (Test-Path "$authoritative\.git")){
+        Write-Host "KRISHNA runtime drift detected. Re-running verified deployment..." -ForegroundColor Yellow
+        $deploy=Join-Path $authoritative "scripts\DEPLOY_KRISHNA_ONCE.ps1"
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $deploy -SkipStart
+        if($LASTEXITCODE -ne 0){throw "Automatic drift reconciliation deployment failed"}
+        $integrityJson=& $py -c "import json; from krishna_core.runtime_integrity import RuntimeIntegrity; print(json.dumps(RuntimeIntegrity().status()))"
+        if($LASTEXITCODE -ne 0){throw "Post-reconciliation integrity check could not run"}
+        $integrity=$integrityJson|ConvertFrom-Json
+    }
+    if($integrity.status -eq "DRIFT"){
+        throw ("KRISHNA runtime drift remains after reconciliation. Missing={0}; mismatches={1}; source_drift={2}" -f (($integrity.missing -join ',')),(($integrity.mismatches -join ',')),$integrity.source_drift)
+    }
+}
 if($integrity.status -eq "UNVERIFIED"){Write-Host "KRISHNA runtime has no verified deployment manifest." -ForegroundColor Yellow}
 
 Write-Host ""
