@@ -239,6 +239,7 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     DASHBOARD = _BUNDLE_ROOT / "dashboard.html"
     WEB_VALIDATION = _BUNDLE_ROOT / "web_validation.html"
     DESIGN_STUDIO = _BUNDLE_ROOT / "design_studio.html"
+    VISUAL_EDITOR = _BUNDLE_ROOT / "visual_editor.html"
     AVATAR_B64 = _BUNDLE_ROOT / "avatar" / "krishna_child_360.webp.b64"
     AVATAR_GLB = _BUNDLE_ROOT / "avatar" / "krishna.glb"
     AVATAR_PRODUCTION_GLB = _BUNDLE_ROOT / "avatar" / "krishna.production.glb"
@@ -249,6 +250,7 @@ else:
     DASHBOARD = _CORE_ROOT / "dashboard.html"
     WEB_VALIDATION = _CORE_ROOT / "web_validation.html"
     DESIGN_STUDIO = _CORE_ROOT / "design_studio.html"
+    VISUAL_EDITOR = _CORE_ROOT / "visual_editor.html"
     AVATAR_B64 = _REPO_ROOT / "avatar" / "krishna_child_360.webp.b64"
     AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
     AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"
@@ -542,6 +544,10 @@ class Handler(BaseHTTPRequestHandler):
             if not DESIGN_STUDIO.exists():
                 return self._json(404, {"error": "design studio unavailable"})
             return self._html(200, DESIGN_STUDIO.read_text(encoding="utf-8"))
+        if path == "/visual-editor":
+            if not VISUAL_EDITOR.exists():
+                return self._json(404, {"error": "visual editor unavailable"})
+            return self._html(200, VISUAL_EDITOR.read_text(encoding="utf-8"))
         if path.startswith("/assets/avatar-engine/"):
             rel=path[len("/assets/avatar-engine/"):]
             asset=avatar_engine_file(rel)
@@ -1298,9 +1304,51 @@ class Handler(BaseHTTPRequestHandler):
                     fallback=receipt["result"];fallback["selection"]=picked;fallback["mode"]="semantic_agent_fallback"
                     return self._json(200,fallback)
                 result["selection"]=picked;result["mode"]="deterministic"
+                if result.get("promotable") and not result.get("promotion"):
+                    result["promotion"]=orch._prepare_promotion_impl(project,result["candidate_root"])
                 return self._json(200,result)
             except PermissionError as exc:return self._json(403,{"error":str(exc),"selection":picked})
             except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc),"selection":picked})
+
+        if post_path == "/api/project-perfection/visual-edit/apply":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"visual source editing must run on KRISHNA PC"})
+            project=str(data.get("project") or "").strip()
+            token=str(data.get("promotion_token") or "").strip()
+            if not project or not token:
+                return self._json(400,{"error":"project and promotion_token are required"})
+            policy=orch.projects.get(project)
+            if not policy:return self._json(404,{"error":"project not registered"})
+            sid=str(data.get("session_id") or "").strip()
+            frontend_url=str(data.get("frontend_url") or "").strip()
+            if not frontend_url and sid:
+                try:frontend_url=str((_garudanetra.status(sid) or {}).get("current_url") or "").strip()
+                except Exception:frontend_url=""
+            if not frontend_url:
+                return self._json(400,{"error":"frontend_url or live Garudanetra session is required for post-apply verification"})
+            checks=list(data.get("checks") or policy.verification_checks or [])
+            try:
+                live=orch.promote_candidate(token,approved=True)
+                if not live.get("promoted"):
+                    return self._json(409,{**live,"applied":False,"reason":live.get("reason") or "promotion failed"})
+                post=orch.project_perfection.post_apply_verify(
+                    project,policy.root,frontend_url,checks,
+                    axe_required=bool(data.get("axe_required",True)),
+                    performance_required=bool(data.get("performance_required",True)),
+                    performance_limits=dict(data.get("performance_limits") or {}),
+                    hawkeye_required=bool(data.get("hawkeye_ui_required",True)),
+                )
+                if not post.get("passed"):
+                    orch.promotions.rollback(policy.root,live["backup"],live["diff"])
+                    orch.memory.audit("visual_edit_apply","rolled_back",project)
+                    return self._json(200,{
+                        **live,"applied":False,"promoted":False,"rolled_back":True,
+                        "reason":"post-apply verification failed","post_verification":post,
+                    })
+                orch.memory.audit("visual_edit_apply","verified",project)
+                return self._json(200,{**live,"applied":True,"rolled_back":False,"post_verification":post})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/project-perfection/finish":
             if self.client_address[0] not in ("127.0.0.1","::1"):
