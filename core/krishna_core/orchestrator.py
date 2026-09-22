@@ -501,14 +501,14 @@ class Orchestrator:
                 url=str(payload.get("url") or "").strip()
                 if not url:raise ValueError("url is required for web privacy audit")
                 return self.kabach.privacy_audit(
-                    "web",url,owned=bool(payload.get("owned",True)),
+                    "web",url=url,owned=bool(payload.get("owned",True)),
                     profile=profile,policy=policy,mission_id=mission_id,
                 )
             if target=="mobile":
                 apk=str(payload.get("apk_path") or "").strip()
                 if not apk:raise ValueError("apk_path is required for mobile privacy audit")
                 return self.kabach.privacy_audit(
-                    "mobile",apk,profile=profile,policy=policy,mission_id=mission_id,
+                    "mobile",apk_path=apk,profile=profile,policy=policy,mission_id=mission_id,
                 )
             raise ValueError("target_type must be browser, network, web or mobile")
 
