@@ -301,6 +301,31 @@ class ArtifactExecutor:
         except subprocess.TimeoutExpired as exc:
             return {"executed":True,"passed":False,"reason":"timeout","detail":str(exc)}
 
+    @staticmethod
+    def _terminate_process_tree(proc) -> dict[str, Any]:
+        if proc is None:
+            return {"passed":True,"reason":"no_process"}
+        pid=getattr(proc,"pid",None)
+        if platform.system().lower()=="windows" and pid:
+            try:
+                p=subprocess.run(["taskkill","/PID",str(pid),"/T","/F"],capture_output=True,text=True,timeout=15,shell=False)
+                try:proc.wait(timeout=5)
+                except Exception:pass
+                time.sleep(0.25)
+                return {"passed":p.returncode==0 or proc.poll() is not None,"pid":pid,
+                        "output":((p.stdout or "")+"\n"+(p.stderr or ""))[-4000:]}
+            except Exception as exc:
+                return {"passed":False,"pid":pid,"error":f"{type(exc).__name__}: {exc}"}
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+                try:proc.wait(timeout=5)
+                except Exception:
+                    proc.kill();proc.wait(timeout=5)
+            return {"passed":True,"pid":pid}
+        except Exception as exc:
+            return {"passed":False,"pid":pid,"error":f"{type(exc).__name__}: {exc}"}
+
     def _wait_android_process(self, adb: str, package_id: str, attempts: int=15,
                               delay_seconds: float=1.0) -> dict[str, Any]:
         """Wait for Android to publish the app PID after an asynchronous launcher event."""
@@ -377,10 +402,10 @@ class ArtifactExecutor:
                 except Exception as exc:
                     runs.append({"cycle":cycle,"passed":False,"error":f"{type(exc).__name__}: {exc}"})
                 finally:
-                    if proc and proc.poll() is None:
-                        proc.terminate()
-                        try:proc.wait(timeout=5)
-                        except Exception:proc.kill()
+                    termination=self._terminate_process_tree(proc)
+                    if runs:
+                        runs[-1]["termination"]=termination
+                        runs[-1]["passed"]=bool(runs[-1].get("passed") and termination.get("passed"))
             staged_hash=sha256(staged.read_bytes()).hexdigest() if staged.is_file() else None
         return {"kind":"exe","executed":True,"artifact":str(path),"artifact_sha256":artifact_hash,
                 "clean_install":True,"sandbox_copy_verified":staged_hash==artifact_hash,
