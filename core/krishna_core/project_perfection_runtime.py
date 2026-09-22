@@ -4,6 +4,10 @@ from dataclasses import asdict
 from typing import Any
 
 from .project_perfection import ElementGeometry, GateEvidence, ProjectPerfectionLoop, WorkItem
+from .project_perfection_adapters import (
+    ApiFuzzAdapter, ArtifactRetest, ChaosVerifier, MutationVerifier,
+    RegressionGenerator, RouteStateGraph, VisualEditIntent,
+)
 
 
 class ProjectPerfectionRuntime:
@@ -13,6 +17,13 @@ class ProjectPerfectionRuntime:
         self.browser = browser
         self.development = development
         self.loop = ProjectPerfectionLoop(max_workers=max_workers)
+        self.state_graph = RouteStateGraph()
+        self.regressions = RegressionGenerator()
+        self.api_fuzz = ApiFuzzAdapter()
+        self.chaos = ChaosVerifier()
+        self.mutation = MutationVerifier()
+        self.artifacts = ArtifactRetest()
+        self.visual_edit = VisualEditIntent()
 
     def plan_team(self, work: list[dict[str, Any]], deadline_minutes: float) -> dict[str, Any]:
         items = [WorkItem(
@@ -36,6 +47,25 @@ class ProjectPerfectionRuntime:
         report["geometry_ok"]=all(x["ok"] for x in geometry_findings)
         report["ok"]=bool(report.get("ok") and report["geometry_ok"])
         return report
+
+    def explore_and_generate(self, project: str, url: str, screenshot_dir: str | None = None, max_controls: int = 200) -> dict[str, Any]:
+        exploration=self.browser.exhaustive_clickthrough(url,screenshot_dir=screenshot_dir,max_controls=max_controls)
+        graph=self.state_graph.build(exploration)
+        regression=self.regressions.generate(project,graph)
+        return {"exploration":exploration,"graph":graph,"regression_source":regression,
+                "ok":bool(exploration.get("ok"))}
+
+    def api_fuzz_verify(self, schema_url: str, base_url: str | None = None) -> dict[str, Any]:
+        return self.api_fuzz.run(schema_url,base_url)
+
+    def mutation_score(self, results: list[dict[str, Any]]) -> dict[str, Any]:
+        return self.mutation.score(results)
+
+    def artifact_retest_contract(self, kind: str, artifact: str) -> dict[str, Any]:
+        return self.artifacts.contract(kind,artifact)
+
+    def visual_edit_intent(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self.visual_edit.normalize(payload)
 
     def completion_certificate(self, project: str, build_hash: str, gates: list[dict[str, Any]], mutation_detection: float | None = None) -> dict[str, Any]:
         evidence=[GateEvidence(
