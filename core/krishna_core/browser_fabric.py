@@ -149,7 +149,7 @@ class GarudanetraBrowserFabric:
                 "private_sessions","task_memory","persistent_workspace",
                 "semantic_snapshot_refs","self_healing_recovery","cdp_screencast",
                 "owner_takeover","recording","bounded_replay","console_network_evidence",
-                "ui_guardian","development_verification","candidate_skill_learning",
+                "ui_guardian","development_verification","candidate_skill_learning","privacy_probe",
             ],
         }
 
@@ -164,6 +164,9 @@ class GarudanetraBrowserFabric:
 
     def inspect(self,*args,**kwargs):
         return self.inspector.inspect(*args,**kwargs)
+
+    def privacy_probe(self,*args,**kwargs):
+        return self.inspector.privacy_probe(*args,**kwargs)
 
     def exhaustive_clickthrough(self,*args,**kwargs):
         return self.inspector.exhaustive_clickthrough(*args,**kwargs)
