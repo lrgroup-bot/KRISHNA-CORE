@@ -260,6 +260,36 @@ class ProjectPerfectionRuntime:
                 "edit":applied,"verification":verification,
                 "promotable":bool(applied.get("applied") and verification and verification.get("verified"))}
 
+    def post_apply_verify(self, project: str, project_root: str, url: str, checks: list[str],
+                          axe_required: bool=True, performance_required: bool=True,
+                          performance_limits: dict[str,float] | None=None) -> dict[str, Any]:
+        """Read-only verification of the live tree after transactional promotion."""
+        root=Path(project_root).resolve()
+        dev=self.development.verify(root,list(checks or []),frontend_url=url)
+        manifest=self.regression_manifest.load(root,project)
+        regression=self.regression_runner.run(self.browser,url,manifest)
+        shots=str(self.state_root/"post-apply"/project)
+        browser=self.browser_audit(url,screenshot_dir=shots)
+        accessibility=self.accessibility_verify(url)
+        performance=self.performance_verify(browser,performance_limits,performance_required)
+        chaos=self.browser_chaos_verify(url)
+        accessibility_ok=bool(accessibility.get("passed")) and (
+            not axe_required or bool((accessibility.get("axe") or {}).get("available"))
+        )
+        passed=all((
+            bool(dev.get("verified")),
+            bool(regression.get("passed")),
+            bool(browser.get("ok")),
+            accessibility_ok,
+            bool(performance.get("passed")),
+            bool(chaos.get("passed")),
+        ))
+        return {
+            "passed":passed,"development":dev,"regression":regression,"browser":browser,
+            "accessibility":accessibility,"performance":performance,"chaos":chaos,
+            "axe_required":bool(axe_required),"live_root":str(root),"url":url,
+        }
+
     def completion_certificate(self, project: str, build_hash: str, gates: list[dict[str, Any]],
                                mutation_detection: float | None = None) -> dict[str, Any]:
         evidence=[GateEvidence(
