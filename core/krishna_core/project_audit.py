@@ -32,7 +32,7 @@ class AuditFinding:
 
 class KrishnaProjectAudit:
     WORKERS=(
-        "source","ui","core","avatar","voice","mobile","security","deployment","requirements"
+        "source","repository","ui","core","avatar","voice","mobile","security","deployment","requirements"
     )
 
     def __init__(self,source_root: str|Path,runtime_root: str|Path):
@@ -69,6 +69,56 @@ class KrishnaProjectAudit:
         self.add("source","stale UI source removal","PASS" if not present else "WARN",
                  "legacy UI snapshots are absent" if not present else "stale UI snapshots remain in source",
                  present=present)
+
+    def audit_repository(self):
+        text_ext={".py",".ps1",".html",".js",".mjs",".java",".json",".md",".txt",".yml",".yaml",".toml"}
+        ignored_parts={".git","__pycache__",".venv","node_modules","dist","build"}
+        files=[]
+        findings={"dangerous":[],"warnings":[],"invalid_json":[],"possible_secrets":[]}
+        secret_patterns=(
+            re.compile(r"\bsk-[A-Za-z0-9_-]{20,}"),
+            re.compile(r"\bghp_[A-Za-z0-9]{20,}"),
+            re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}"),
+            re.compile(r"\bAIza[0-9A-Za-z_-]{20,}"),
+        )
+        for path in sorted(self.source.rglob("*")):
+            if not path.is_file() or path.suffix.lower() not in text_ext:continue
+            rel=path.relative_to(self.source)
+            if any(part in ignored_parts for part in rel.parts):continue
+            files.append(str(rel).replace("\\","/"))
+            try:text=path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                findings["warnings"].append({"file":str(rel),"issue":"not utf-8 text"})
+                continue
+            if path.suffix.lower()==".json":
+                try:json.loads(text)
+                except Exception as exc:findings["invalid_json"].append({"file":str(rel),"error":f"{type(exc).__name__}: {exc}"})
+            definite=(
+                ("shell=True",r"shell\s*=\s*True"),
+                ("os.system",r"\bos\.system\s*\("),
+                ("subprocess shell",r"subprocess\.[A-Za-z_]+\([^\n]{0,500}shell\s*=\s*True"),
+                ("TLS verify disabled",r"verify\s*=\s*False"),
+            )
+            for label,pattern in definite:
+                if re.search(pattern,text):
+                    findings["dangerous"].append({"file":str(rel),"issue":label})
+            for label,pattern in (
+                ("TODO/FIXME",r"\b(?:TODO|FIXME)\b"),
+                ("NotImplementedError",r"\bNotImplementedError\b"),
+                ("broad exception swallowed",r"except\s+Exception(?:\s+as\s+\w+)?\s*:\s*(?:#.*\n\s*)?pass\b"),
+            ):
+                if re.search(pattern,text,re.I if label=="TODO/FIXME" else 0):
+                    findings["warnings"].append({"file":str(rel),"issue":label})
+            for pattern in secret_patterns:
+                if pattern.search(text):
+                    findings["possible_secrets"].append({"file":str(rel),"pattern":pattern.pattern})
+        tracked_env=[x for x in files if Path(x).name==".env"]
+        if tracked_env:findings["dangerous"].extend({"file":x,"issue":"tracked .env"} for x in tracked_env)
+        failures=findings["dangerous"]+findings["invalid_json"]+findings["possible_secrets"]
+        self.add("repository","whole-source security/syntax scan","PASS" if not failures else "FAIL",
+                 f"{len(files)} text/source files scanned" if not failures else "repository-wide static scan found blocking defects",
+                 file_count=len(files),failures=failures,warnings=findings["warnings"][:100],
+                 warning_count=len(findings["warnings"]))
 
     def audit_ui(self):
         html=self._read("core/web_validation.html")
