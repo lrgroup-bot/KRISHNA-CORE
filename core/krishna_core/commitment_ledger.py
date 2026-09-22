@@ -17,11 +17,13 @@ class CommitmentLedger:
             self.db.commit()
     def add(self,project,title,detail=None,source="KRISHNA",status="decided"):
         title=str(title or "").strip()
-        if not title: raise ValueError("commitment title is required")
-        cid=str(uuid.uuid4()); now=time.time()
+        status=str(status or "").strip()
+        if not title:raise ValueError("commitment title is required")
+        if status not in self.OPEN|self.DONE:raise ValueError("invalid commitment status")
+        cid=str(uuid.uuid4());now=time.time();completed=now if status in self.DONE else None
         with self.lock:
-            self.db.execute("INSERT INTO commitments VALUES(?,?,?,?,?,?,?,?,NULL)",
-                (cid,str(project or "KRISHNA"),title,json.dumps(detail or {}),status,str(source or "KRISHNA"),now,now))
+            self.db.execute("INSERT INTO commitments VALUES(?,?,?,?,?,?,?,?,?)",
+                (cid,str(project or "KRISHNA"),title,json.dumps(detail or {}),status,str(source or "KRISHNA"),now,now,completed))
             self.db.commit()
         return self.get(cid)
     def get(self,cid):
