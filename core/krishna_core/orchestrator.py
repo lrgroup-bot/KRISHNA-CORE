@@ -2296,14 +2296,52 @@ class Orchestrator:
         return self.garuda.scout(project,goal,limit)
 
     def gyan_store(self, project, topic, lesson, evidence=None, confidence=0.0, source="sudarshan", verified=False,
-                   memory_kind="semantic", provenance=None, supersedes=None):
+                   memory_kind="evidence", provenance=None, supersedes=None):
         if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
-        return self.gyan_bhandar.store(project,topic,lesson,evidence,confidence,source,verified,memory_kind,provenance,supersedes)
+        kind=str(memory_kind or "evidence").strip().lower()
+        if kind in {"semantic","skill","graph"}:
+            raise PermissionError("knowledge memory must route Rishi -> BRAHMA QC -> Gyan proposal/approval; direct store is evidence/episodic only")
+        prov={**(provenance or {}),"operational_evidence":True,"qc_policy":"raw/operational evidence is not promoted knowledge"}
+        return self.gyan_bhandar.store(project,topic,lesson,evidence,confidence,source,verified,kind,prov,supersedes)
 
     def gyan_propose(self, project, topic, lesson, evidence=None, confidence=0.0, source="research", verified=False,
                      memory_kind="semantic", provenance=None, supersedes=None):
         if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
-        return self.gyan_bhandar.propose(project,topic,lesson,evidence,confidence,source,verified,memory_kind,provenance,supersedes)
+        prov=dict(provenance or {})
+        if not prov.get("source_ref"):
+            prov["source_ref"]=(
+                prov.get("source_url") or prov.get("attachment_sha256") or prov.get("compiled_skill_digest")
+                or prov.get("session_id") or prov.get("file") or prov.get("commit")
+            )
+        route_source=str(source or "agent").strip().lower()
+        if route_source not in self.brahma.ALLOWED_SOURCES:
+            route_source="agent"
+        maturity=str(prov.get("maturity") or "L0").upper()
+        evidence_status=str(prov.get("evidence_status") or ("verified" if verified else "candidate")).lower()
+        route=self.brahma.route_knowledge(
+            source=route_source,project=project,topic=topic,lesson=lesson,
+            evidence=evidence or [],provenance=prov,confidence=confidence,
+            maturity=maturity,evidence_status=evidence_status,memory_kind=memory_kind,
+            modality=str(prov.get("modality") or "text"),
+            novelty=float(prov.get("novelty") if prov.get("novelty") is not None else 0.5),
+            quality=float(prov.get("quality") if prov.get("quality") is not None else max(float(confidence or 0),0.5)),
+            importance=float(prov.get("importance") if prov.get("importance") is not None else 0.7),
+            unresolved_contradictions=int(prov.get("unresolved_contradictions") or 0),
+            supersedes=supersedes,
+        )
+        proposal=route.get("proposal")
+        if proposal:
+            return {**proposal,"brahma":{
+                "routed_to_rishi":True,
+                "lead_rishi":(route.get("rishi_intake") or {}).get("lead_rishi"),
+                "qc_id":((route.get("qc") or {}).get("qc_id")),
+                "verified_for_gyan":bool((route.get("qc") or {}).get("verified_for_gyan")),
+            }}
+        return {
+            "approval_id":None,"stored":False,"requires_user_approval":False,
+            "routed_to_rishi":True,"requires_more_learning":True,
+            "brahma":route,
+        }
 
     def gyan_pending(self, project=None, limit=100):
         if project and project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
@@ -2356,7 +2394,12 @@ class Orchestrator:
     def gyan_supersede(self, project, fingerprint, topic, lesson, evidence=None, confidence=0.0, source="krishna",
                        verified=False, memory_kind="semantic", provenance=None):
         if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
-        return self.gyan_bhandar.supersede(project,fingerprint,topic,lesson,evidence,confidence,source,verified,memory_kind,provenance)
+        old=[x for x in self.gyan_bhandar.recall(project,None,500,False,None,True) if x.get("fingerprint")==fingerprint]
+        if not old:raise KeyError(fingerprint)
+        prov={**(provenance or {}),"supersedes":fingerprint}
+        return self.gyan_propose(
+            project,topic,lesson,evidence or [],confidence,source,verified,memory_kind,prov,fingerprint,
+        )
 
     def gyan_theory(self, project, topic, limit=25):
         if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
@@ -2493,14 +2536,20 @@ class Orchestrator:
         if not passed and defects:
             result["defect_routes"]=[{"defect":d,"team":self.software_factory.route_defect(d)} for d in defects]
         if passed and stage in {"testing_lead","project_manager","handover"}:
-            self.gyan_bhandar.store(project,"software_factory:"+stage,"Verified factory gate passed",evidence or [],1.0,"software_factory",True)
+            self.gyan_store(
+                project,"software_factory:"+stage,"Verified factory gate passed",evidence or [],1.0,
+                "software_factory",True,"evidence",{"stage":stage,"source_ref":"software-factory-gate:"+stage},
+            )
         return result
 
     def _testing_lead_live_verify_impl(self,project,url,screenshot_dir=None,max_controls=100):
         if project!="KRISHNA" and not self.projects.get(project): raise KeyError(project)
         result=self.browser.exhaustive_clickthrough(url,screenshot_dir,max_controls)
         if result.get("ok"):
-            self.gyan_bhandar.store(project,"testing_lead_live_verification","Live UI click-through passed",[result],1.0,"testing_lead",True)
+            self.gyan_store(
+                project,"testing_lead_live_verification","Live UI click-through passed",[result],1.0,
+                "testing_lead",True,"evidence",{"source_ref":"testing-lead-live-verification","url":url},
+            )
         return result
 
     def testing_lead_live_verify(self,project,url,screenshot_dir=None,max_controls=100):
