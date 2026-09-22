@@ -44,6 +44,7 @@ public class MainActivity extends Activity {
   @Override public void onCreate(Bundle b){
     super.onCreate(b);
     ensureNotifications();
+    HawkeyeBackgroundSync.schedule(this);
     if(Build.VERSION.SDK_INT>=33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED)
       requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},42);
     if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)
@@ -116,11 +117,12 @@ public class MainActivity extends Activity {
     if(bridge==null)return;
     new Thread(()->bridge.event(kind,detail)).start();
   }
-  @Override protected void onResume(){super.onResume();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");}
+  @Override protected void onResume(){super.onResume();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");if(bridge!=null)new Thread(()->bridge.hawkeyeSyncEvidence()).start();}
   @Override protected void onPause(){emitAsync("mobile_background","KRISHNA Mobile entered background");super.onPause();}
 
   public class Bridge {
-    Bridge(){ensureCredential();deviceId();}
+    final HawkeyeEvidenceCuratorBot hawkeyeCurator;
+    Bridge(){ensureCredential();deviceId();hawkeyeCurator=new HawkeyeEvidenceCuratorBot(MainActivity.this);}
     String token(){return getSharedPreferences("k",0).getString("device_credential","");}
     String credentialHash()throws Exception{
       byte[] digest=java.security.MessageDigest.getInstance("SHA-256").digest(token().getBytes("UTF-8"));
@@ -160,6 +162,7 @@ public class MainActivity extends Activity {
       return call("/api/core/event","{\"source\":\"mobile\",\"kind\":"+JSONObject.quote(kind)+",\"detail\":"+JSONObject.quote(detail)+",\"project\":\"system\"}");
     }
     @JavascriptInterface public String state(){return call("/api/core/state",null);}
+
     @JavascriptInterface public String edgeBotStatus(){
       try{return MobileEdgeBot.status(MainActivity.this).toString();}
       catch(Exception e){return error(e);}
@@ -199,13 +202,12 @@ public class MainActivity extends Activity {
     }
     @JavascriptInterface public String hawkeyeOfflineFrame(String sessionId,String dataB64,String contentType,String sensorJson,String goal){
       try{
-        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
-        JSONObject sensors=new JSONObject(sensorJson==null||sensorJson.trim().isEmpty()?"{}":sensorJson);
-        MobileEdgeBot.PreparedFrame prepared=MobileEdgeBot.prepareFrame(MainActivity.this,sessionId,bytes,sensors,goal);
-        JSONObject d=prepared.result;
-        d.put("mode","HAWKEYE_FIELD");
-        d.put("analysis","Mobile edge bot processed and retained this observation locally. PC transfer is deferred until KRISHNA is reachable and the traffic/load policy allows it.");
-        return d.toString();
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);JSONObject sensors=new JSONObject(sensorJson==null||sensorJson.trim().isEmpty()?"{}":sensorJson);
+        sensors.put("curator_selected",true);sensors.put("curator_goal",goal==null?"":goal);sensors.put("offline_capture",true);
+        JSONObject meta=HawkeyeEdgeMemory.rememberMedia(MainActivity.this,sessionId,"offline-frame",bytes,contentType,"image",sensors,0.5,"OBSERVED","encrypted offline fallback");
+        HawkeyeEdgeMemory.enforceBudget(MainActivity.this,128L*1024L*1024L,48,24L*60L*60L*1000L);
+        JSONObject d=new JSONObject();d.put("ok",true);d.put("mode","HAWKEYE_FIELD");d.put("stored_local",true);d.put("encrypted_at_rest",true);
+        d.put("observation_id",meta.optString("observation_id"));d.put("analysis","Encrypted offline evidence saved; bounded background sync will retry when KRISHNA is reachable.");return d.toString();
       }catch(Exception e){return error(e);}
     }
 
@@ -215,9 +217,85 @@ public class MainActivity extends Activity {
         body.put("project","KRISHNA");
         body.put("purpose",purpose==null||purpose.trim().isEmpty()?"live field scan":purpose.trim());
         body.put("scene_hint",sceneHint==null||sceneHint.trim().isEmpty()?"auto":sceneHint.trim());
-        return call("/api/bhumiputra/live/start",body.toString());
+        String raw=call("/api/bhumiputra/live/start",body.toString());
+        try{
+          JSONObject d=new JSONObject(raw);String sid=d.optString("session_id","");
+          if(!sid.isEmpty())getSharedPreferences("hawkeye_sync",0).edit().putString("pc_"+sid,sid).apply();
+        }catch(Exception ignored){}
+        return raw;
       }catch(Exception e){return error(e);}
     }
+
+    @JavascriptInterface public String hawkeyeCurateFrame(String sessionId,String dataB64,String contentType,String sensorJson,String goal,double quality,double novelty){
+      try{
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
+        if(bytes.length>2*1024*1024)throw new IllegalArgumentException("mobile curated frame exceeds 2 MB");
+        JSONObject sensors=new JSONObject(sensorJson==null||sensorJson.trim().isEmpty()?"{}":sensorJson);
+        final String type=contentType==null||contentType.isEmpty()?"image/jpeg":contentType;
+        final String task=goal==null?"":goal;
+        JSONObject out=hawkeyeCurator.captureAndMaybeSync(sessionId,bytes,sensors,quality,novelty,task,
+          (meta,jpeg)->uploadCuratedEvidence(meta,jpeg,type,task));
+        return out.toString();
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String hawkeyeCurateMedia(String sessionId,String dataB64,String contentType,String modality,String sensorJson,String goal,double quality){
+      try{
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);JSONObject sensors=new JSONObject(sensorJson==null||sensorJson.trim().isEmpty()?"{}":sensorJson);
+        final String task=goal==null?"":goal;
+        JSONObject out=hawkeyeCurator.captureMedia(sessionId,bytes,contentType,modality,sensors,quality,task,(meta,payload)->uploadCuratedEvidence(meta,payload,meta.optString("content_type",contentType),task));
+        return out.toString();
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String hawkeyeSyncEvidence(){
+      try{
+        JSONObject out=hawkeyeCurator.syncOne((meta,jpeg)->{
+          JSONObject sensors=meta.optJSONObject("sensor_context");if(sensors==null)sensors=new JSONObject();
+          return uploadCuratedEvidence(meta,jpeg,meta.optString("content_type","image/jpeg"),sensors.optString("curator_goal",""));
+        });
+        return out.toString();
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String hawkeyeEvidenceStatus(){
+      try{return hawkeyeCurator.status().toString();}catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String hawkeyeReference(String referenceId){
+      try{return call("/api/hawkeye/reference/item?reference_id="+URLEncoder.encode(referenceId==null?"":referenceId,"UTF-8"),null);}
+      catch(Exception e){return error(e);}
+    }
+
+    JSONObject uploadCuratedEvidence(JSONObject meta,byte[] payload,String contentType,String fallbackGoal)throws Exception{
+      JSONObject sensors=meta.optJSONObject("sensor_context");if(sensors==null)sensors=new JSONObject();sensors=new JSONObject(sensors.toString());
+      sensors.put("mobile_observation_id",meta.optString("observation_id"));sensors.put("mobile_payload_sha256",meta.optString("payload_sha256"));sensors.put("curator_selected",true);
+      String localSession=meta.optString("session_id","field"),goal=sensors.optString("curator_goal",fallbackGoal==null?"":fallbackGoal),pcSession=resolvePcHawkeyeSession(localSession,goal);
+      JSONObject body=new JSONObject();body.put("session_id",pcSession);body.put("data_b64",Base64.encodeToString(payload,Base64.NO_WRAP));
+      body.put("content_type",contentType==null||contentType.isEmpty()?"application/octet-stream":contentType);body.put("modality",meta.optString("modality","unknown"));
+      body.put("goal",goal);body.put("sensor_context",sensors);
+      JSONObject result=new JSONObject(call("/api/hawkeye/evidence/ingest",body.toString()));
+      if(result.has("error")&&result.optString("error").toLowerCase(java.util.Locale.US).contains("live session not found")){
+        getSharedPreferences("hawkeye_sync",0).edit().remove("pc_"+localSession).apply();pcSession=createPcHawkeyeSession(localSession,goal);body.put("session_id",pcSession);
+        result=new JSONObject(call("/api/hawkeye/evidence/ingest",body.toString()));
+      }
+      if(!result.has("error")){
+        String returned=result.optString("pc_session_id",pcSession);
+        if(!returned.isEmpty())getSharedPreferences("hawkeye_sync",0).edit().putString("pc_"+localSession,returned).apply();
+        result.put("mobile_session_id",localSession);result.put("pc_session_id",returned);
+      }return result;
+    }
+    String resolvePcHawkeyeSession(String localSession,String goal)throws Exception{
+      android.content.SharedPreferences p=getSharedPreferences("hawkeye_sync",0);
+      String mapped=p.getString("pc_"+localSession,"");if(!mapped.isEmpty())return mapped;
+      if(localSession!=null&&!localSession.startsWith("offline-")){p.edit().putString("pc_"+localSession,localSession).apply();return localSession;}
+      return createPcHawkeyeSession(localSession,goal);
+    }
+    String createPcHawkeyeSession(String localSession,String goal)throws Exception{
+      JSONObject body=new JSONObject();body.put("project","KRISHNA");body.put("purpose",goal==null||goal.trim().isEmpty()?"mobile curated evidence":goal.trim());body.put("scene_hint","auto");
+      JSONObject d=new JSONObject(call("/api/hawkeye/live/start",body.toString()));
+      if(d.has("error"))throw new IOException(d.optString("error"));
+      String sid=d.optString("session_id","");if(sid.isEmpty())throw new IOException("PC did not create Hawkeye session");
+      getSharedPreferences("hawkeye_sync",0).edit().putString("pc_"+localSession,sid).apply();return sid;
+    }
+
     @JavascriptInterface public String bhumiputraFrame(String sessionId,String dataB64,String contentType,String sensorJson,String goal){
       try{
         byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);

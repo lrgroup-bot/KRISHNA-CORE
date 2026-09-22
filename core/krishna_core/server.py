@@ -725,6 +725,20 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,status)
         if path == "/api/hawkeye/learning/missions":
             return self._json(200,{"agent":"hawkeye","missions":orch.hawkeye_learning.daily_missions()})
+        if path == "/api/hawkeye/diagnostic/status":
+            return self._json(200,orch.hawkeye_diagnostic.status())
+        if path == "/api/hawkeye/reference/status":
+            return self._json(200,orch.hawkeye_reference.status())
+        if path == "/api/hawkeye/reference/item":
+            reference_id=str((query.get("reference_id") or [""])[0]).strip()
+            if not reference_id:return self._json(400,{"error":"reference_id is required"})
+            try:return self._json(200,orch.hawkeye_reference.get(reference_id))
+            except KeyError:return self._json(404,{"error":"reference not found"})
+        if path == "/api/hawkeye/diagnostic/session":
+            session_id=str((query.get("session_id") or [""])[0]).strip()
+            if not session_id:return self._json(400,{"error":"session_id is required"})
+            try:return self._json(200,orch.hawkeye_diagnostic.get_session(session_id))
+            except KeyError:return self._json(404,{"error":"diagnostic session not found"})
         if path == "/api/hawkeye/field/maps":
             return self._json(200,{"agent":"hawkeye","providers":orch.hawkeye_field.map_stack(),
                                    "geo_catalog":orch.hawkeye_geo.catalog()})
@@ -2315,8 +2329,32 @@ class Handler(BaseHTTPRequestHandler):
             payload={"project":project,"purpose":str(data.get("purpose") or "live field scan"),
                      "coordinates":data.get("coordinates") or {},
                      "scene_hint":str(data.get("scene_hint") or "auto")}
-            session=orch.hawkeye.start_live_session(project,payload["purpose"],payload["coordinates"],payload["scene_hint"])
+            session=orch.hawkeye.start_live_session(
+                project=project,purpose=payload["purpose"],coordinates=payload["coordinates"],scene_hint=payload["scene_hint"]
+            )
+            session["diagnostic"]=orch.hawkeye_diagnostic.should_activate(payload["purpose"])
+            if session["diagnostic"]:session["diagnostic_specialist"]="HAWKEYE DIAGNOSTIC"
             return self._json(201,session)
+
+        if post_path == "/api/hawkeye/reference/register":
+            reference_id=str(data.get("reference_id") or "").strip()
+            kind=str(data.get("kind") or "").strip().lower()
+            if not reference_id or not kind:return self._json(400,{"error":"reference_id and kind are required"})
+            try:
+                if isinstance(data.get("data"),dict):
+                    out=orch.hawkeye_reference.register(reference_id,kind,data["data"],verified=bool(data.get("verified",False)),source_name=str(data.get("source_name") or ""))
+                else:
+                    out=orch.hawkeye_reference.register_source(reference_id,kind,str(data.get("source_text") or ""),verified=bool(data.get("verified",False)),source_name=str(data.get("source_name") or ""))
+                return self._json(201,out)
+            except (ValueError,TypeError,json.JSONDecodeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/reference/align":
+            reference_id=str(data.get("reference_id") or "").strip();anchors=data.get("anchors") or []
+            if not reference_id:return self._json(400,{"error":"reference_id is required"})
+            try:return self._json(200,orch.hawkeye_reference.overlay(reference_id,anchors))
+            except KeyError:return self._json(404,{"error":"reference not found"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/hawkeye/learn/capture":
             utterance=str(data.get("utterance") or "").strip()
@@ -2337,6 +2375,55 @@ class Handler(BaseHTTPRequestHandler):
                 out["sound"]=orch.universal_learning.classify_sound_request(utterance,data.get("audio_observations") or {})
             return self._json(201,out)
 
+        if post_path == "/api/hawkeye/evidence/ingest":
+            mobile_session_id=str(data.get("session_id") or "").strip() or "mobile-evidence"
+            raw_b64=str(data.get("data_b64") or "").strip()
+            if not raw_b64:return self._json(400,{"error":"data_b64 is required"})
+            try:raw=base64.b64decode(raw_b64,validate=True)
+            except Exception:return self._json(400,{"error":"invalid base64 Hawkeye evidence"})
+            content_type=str(data.get("content_type") or "application/octet-stream").split(";",1)[0].strip().lower()
+            modality=str(data.get("modality") or (content_type.split("/",1)[0] if "/" in content_type else "unknown")).strip().lower()
+            if modality not in {"image","audio","video"}:return self._json(400,{"error":"modality must be image, audio, or video"})
+            sensor_context=data.get("sensor_context") or {}
+            if not isinstance(sensor_context,dict):return self._json(400,{"error":"sensor_context must be an object"})
+            goal=str(data.get("goal") or "mobile curated evidence").strip()
+            try:
+                try:session=orch.hawkeye.get_live_session(mobile_session_id);session_id=mobile_session_id
+                except KeyError:
+                    session=orch.hawkeye.start_live_session(project="KRISHNA",purpose=goal,coordinates={},scene_hint="auto")
+                    session_id=session["session_id"]
+                sensor_context=dict(sensor_context);sensor_context["mobile_session_id"]=mobile_session_id;sensor_context["curator_selected"]=True
+                pc_evidence=orch.hawkeye.store_mobile_evidence(session_id,raw,content_type,sensor_context)
+                diagnostic=orch.hawkeye_diagnostic.should_activate(goal)
+                if modality=="image":
+                    if diagnostic:
+                        prompt=orch.hawkeye_diagnostic.vision_prompt(goal=goal,sensor_context=sensor_context)
+                        with orch.governor.job(timeout=0):vision=_vision.analyze_bytes(raw,content_type,prompt)
+                        result=orch.hawkeye_diagnostic.record_model_result(session_id,vision.get("analysis") or "",goal=goal,sensor_context=sensor_context,model=vision.get("model") or "")
+                        field=orch.hawkeye.record_live_analysis(session_id,result["analysis"],model=vision.get("model"),sensor_context=sensor_context,frame_meta={"content_type":content_type,"diagnostic":True,"curated":True})
+                        result["frame_count"]=field["frame_count"]
+                    else:
+                        prompt=orch.hawkeye.live_prompt(scene_hint=session.get("scene_hint") or "auto",user_goal=goal,sensor_context=sensor_context)
+                        with orch.governor.job(timeout=0):vision=_vision.analyze_bytes(raw,content_type,prompt)
+                        field=orch.hawkeye.record_live_analysis(session_id,vision.get("analysis") or "",model=vision.get("model"),sensor_context=sensor_context,frame_meta={"content_type":content_type,"diagnostic":False,"curated":True})
+                        result={"diagnostic":False,"analysis":vision.get("analysis") or "","confidence":0.0,"evidence_state":"OBSERVED","model":vision.get("model"),"local":bool(vision.get("local",True)),"frame_count":field["frame_count"]}
+                else:
+                    previous={}
+                    try:previous=(orch.hawkeye_diagnostic.get_session(session_id).get("last_result") or {})
+                    except KeyError:pass
+                    result={"diagnostic":diagnostic,"analysis":f"Curated {modality} evidence retained for bounded specialist review.","confidence":float(previous.get("confidence") or 0.0),"evidence_state":"OBSERVED","modality":modality}
+                    if previous:
+                        result["prior_visual_analysis"]=str(previous.get("analysis") or "")[:2000]
+                        result["needs_reference"]=bool(previous.get("needs_reference",False))
+                        result["warnings"]=list(previous.get("warnings") or [])[:8]
+                result["session_id"]=session_id;result["pc_session_id"]=session_id;result["mobile_session_id"]=mobile_session_id
+                result["pc_evidence"]=pc_evidence
+                if diagnostic:
+                    result["specialist_dispatch"]=orch.hawkeye_diagnostic.maybe_dispatch_worker(session_id,result,goal=goal,modality=modality,evidence=pc_evidence)
+                return self._json(200,result)
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
         if post_path in ("/api/hawkeye/live/frame", "/api/bhumiputra/live/frame"):
             session_id=str(data.get("session_id") or "").strip()
             if not session_id:return self._json(400,{"error":"session_id is required"})
@@ -2348,7 +2435,46 @@ class Handler(BaseHTTPRequestHandler):
             content_type=str(data.get("content_type") or "image/jpeg").split(";",1)[0].strip().lower()
             sensor_context=data.get("sensor_context") or {}
             if not isinstance(sensor_context,dict):return self._json(400,{"error":"sensor_context must be an object"})
-            return self._json(200,orch.hawkeye.ingest_live_frame(session_id,raw,content_type,sensor_context))
+            try:session=orch.hawkeye.get_live_session(session_id)
+            except KeyError:return self._json(404,{"error":"live session not found"})
+            goal=str(data.get("goal") or session.get("purpose") or "live field scan").strip()
+            try:
+                pc_evidence=None
+                if bool(sensor_context.get("curator_selected",False)):
+                    pc_evidence=orch.hawkeye.store_mobile_evidence(session_id,raw,content_type,sensor_context)
+                if orch.hawkeye_diagnostic.should_activate(goal):
+                    prompt=orch.hawkeye_diagnostic.vision_prompt(goal=goal,sensor_context=sensor_context)
+                    with orch.governor.job(timeout=0):
+                        vision=_vision.analyze_bytes(raw,content_type,prompt)
+                    result=orch.hawkeye_diagnostic.record_model_result(
+                        session_id,vision.get("analysis") or "",goal=goal,sensor_context=sensor_context,model=vision.get("model") or ""
+                    )
+                    field=orch.hawkeye.record_live_analysis(
+                        session_id,result["analysis"],model=vision.get("model"),sensor_context=sensor_context,
+                        frame_meta={"content_type":content_type,"diagnostic":True,"diagram_mode":result.get("diagram_mode")},
+                    )
+                    result["session_id"]=session_id
+                    result["frame_count"]=field["frame_count"]
+                    if pc_evidence is not None:result["pc_evidence"]=pc_evidence
+                    return self._json(200,result)
+                prompt=orch.hawkeye.live_prompt(
+                    scene_hint=session.get("scene_hint") or "auto",user_goal=goal,sensor_context=sensor_context
+                )
+                with orch.governor.job(timeout=0):
+                    vision=_vision.analyze_bytes(raw,content_type,prompt)
+                field=orch.hawkeye.record_live_analysis(
+                    session_id,vision.get("analysis") or "",model=vision.get("model"),sensor_context=sensor_context,
+                    frame_meta={"content_type":content_type,"diagnostic":False},
+                )
+                out={
+                    "session_id":session_id,"frame_count":field["frame_count"],"diagnostic":False,
+                    "analysis":vision.get("analysis") or "","confidence":0.0,"evidence_state":"OBSERVED",
+                    "model":vision.get("model"),"local":bool(vision.get("local",True)),
+                }
+                if pc_evidence is not None:out["pc_evidence"]=pc_evidence
+                return self._json(200,out)
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/investigate":
             symptom = str(data.get("symptom", "")).strip()

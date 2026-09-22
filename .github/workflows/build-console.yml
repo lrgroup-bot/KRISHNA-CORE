@@ -41,7 +41,7 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pyinstaller playwright pywebview
+          python -m pip install pyinstaller playwright pywebview "cryptography==50.0.1"
 
       - name: Compile sources
         shell: pwsh

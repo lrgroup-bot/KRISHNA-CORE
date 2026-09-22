@@ -38,6 +38,7 @@ class HawkeyeLearningRuntime:
         "behavior": "What observable behavior occurred?",
         "temporal": "What changed compared with 5 seconds, 5 minutes or previous sessions?",
         "reasoner": "What conclusions are supported by multiple independent sources?",
+        "diagnostic": "What fault hypotheses are supported, what test should come next, and was the repair verified?",
     }
 
     RESEARCH_FIELDS = {
@@ -46,6 +47,7 @@ class HawkeyeLearningRuntime:
         "behavior": ("observable behavior", "HCI", "engagement", "speech patterns", "gesture patterns", "deception limitations"),
         "temporal": ("change detection", "tracking", "temporal models", "sequence analysis", "memory"),
         "reasoner": ("evidence fusion", "uncertainty", "provenance", "causal reasoning", "verification"),
+        "diagnostic": ("electronics diagnostics", "vehicle diagnostics", "machine condition monitoring", "acoustic diagnostics", "circuit analysis", "fault isolation", "repair verification"),
     }
 
     ALLOWED_EVIDENCE_STATES = {"candidate", "replicated", "verified", "rejected"}
