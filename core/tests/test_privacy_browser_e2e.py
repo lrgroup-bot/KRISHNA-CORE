@@ -20,7 +20,7 @@ import urllib.request
 class PrivacyBrowserE2E(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.temp=tempfile.TemporaryDirectory()
+        cls.temp=tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         cls.root=Path(cls.temp.name)
         with socket.socket() as sock:
             sock.bind(("127.0.0.1",0));cls.port=sock.getsockname()[1]
@@ -47,9 +47,15 @@ class PrivacyBrowserE2E(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.proc.terminate()
-        try:cls.proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:cls.proc.kill()
-        cls.log.close();cls.temp.cleanup()
+        try:
+            cls.proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            cls.proc.kill()
+            try:cls.proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:pass
+        cls.log.flush()
+        cls.log.close()
+        cls.temp.cleanup()
 
     @classmethod
     def call(cls,path,data=None):
