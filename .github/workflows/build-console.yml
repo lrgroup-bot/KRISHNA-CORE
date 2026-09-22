@@ -13,6 +13,12 @@ on:
       - 'avatar/**'
       - 'scripts/**'
       - '.github/workflows/build-console.yml'
+  pull_request:
+    paths:
+      - 'core/**'
+      - 'avatar/**'
+      - 'scripts/**'
+      - '.github/workflows/build-console.yml'
   workflow_dispatch:
 
 jobs:
@@ -50,6 +56,7 @@ jobs:
             --collect-all playwright `
             --add-data "core/dashboard.html;." `
             --add-data "core/web_validation.html;." `
+            --add-data "core/design_studio.html;." `
             --add-data "avatar/krishna_child_360.webp.b64;avatar" `
             core/krishna_desktop.py
 
@@ -63,6 +70,7 @@ jobs:
             --collect-all playwright `
             --add-data "core/dashboard.html;." `
             --add-data "core/web_validation.html;." `
+            --add-data "core/design_studio.html;." `
             --add-data "avatar/krishna_child_360.webp.b64;avatar" `
             core/krishna_console.py
 
@@ -105,6 +113,22 @@ jobs:
           $env:PYTHONPATH = (Join-Path (Get-Location) "core")
           python -m unittest discover -s core/tests -p "test_*.py"
 
+      - name: Clean EXE launch-restart retest
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = (Join-Path (Get-Location) "core")
+          @'
+          import json
+          from pathlib import Path
+          from krishna_core.project_perfection_execution import ArtifactExecutor
+          result=ArtifactExecutor().exe(Path("dist/KRISHNA.exe"),startup_seconds=5)
+          Path("project-perfection-exe-retest.json").write_text(json.dumps(result,indent=2),encoding="utf-8")
+          print(json.dumps(result,indent=2))
+          if not result.get("passed"):
+              raise SystemExit("KRISHNA EXE clean launch/restart retest failed")
+          '@ | Set-Content -LiteralPath project-perfection-exe-retest.py -Encoding UTF8
+          python project-perfection-exe-retest.py
+
       - uses: actions/upload-artifact@v4
         with:
           name: KRISHNA-Windows-App
@@ -113,3 +137,4 @@ jobs:
             dist/KRISHNA-Console.exe
             scripts/PATCH_KRISHNA_V3.ps1
             scripts/START_KRISHNA.ps1
+            project-perfection-exe-retest.json
