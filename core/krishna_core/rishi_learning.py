@@ -484,6 +484,66 @@ class RishiLearningLedger:
         row["findings"]=(row.get("findings") or [])[-max(1,min(int(limit),200)):]
         return row
 
+    def next_learning_assignment(self):
+        """Balance autonomous learning across the permanent council first."""
+        with self.lock:
+            snapshot=json.loads(json.dumps(self.state["rishis"]))
+        candidates=[]
+        for profile in self.council.list():
+            rid=profile["id"];row=snapshot[rid]
+            subjects=list((row.get("charter") or {}).get("primary_subjects") or profile.get("domains") or [])
+            if not subjects:continue
+            topic_rows=row.get("topics") or {}
+            best_subject=min(
+                subjects,
+                key=lambda s:(
+                    int((topic_rows.get(str(s).lower()) or {}).get("research_count") or 0),
+                    float((topic_rows.get(str(s).lower()) or {}).get("last_researched_at") or 0),
+                    str(s),
+                ),
+            )
+            candidates.append((
+                len(row.get("findings") or []),
+                len(topic_rows),
+                float(row.get("last_learned_at") or 0),
+                rid,
+                best_subject,
+            ))
+        if not candidates:return None
+        candidates.sort(key=lambda x:(x[0],x[1],x[2],x[3]))
+        _,_,_,rid,subject=candidates[0]
+        row=snapshot[rid]
+        return {
+            "rishi_id":rid,
+            "display_name":row["display_name"],
+            "role":row["role"],
+            "subject":subject,
+            "finding_count":len(row.get("findings") or []),
+            "topic_count":len(row.get("topics") or {}),
+            "bootstrap_complete":all(len(x.get("findings") or [])>0 for x in snapshot.values()),
+            "policy":"least-trained Rishi and least-researched charter subject are prioritized before repeating well-covered subjects",
+        }
+
+    def bootstrap_status(self):
+        with self.lock:snapshot=json.loads(json.dumps(self.state["rishis"]))
+        rows=[]
+        for profile in self.council.list():
+            row=snapshot[profile["id"]]
+            rows.append({
+                "rishi_id":profile["id"],"display_name":profile["display_name"],
+                "finding_count":len(row.get("findings") or []),
+                "topic_count":len(row.get("topics") or {}),
+                "last_learned_at":row.get("last_learned_at"),
+                "ready":len(row.get("findings") or [])>0,
+            })
+        return {
+            "complete":all(x["ready"] for x in rows),
+            "ready_count":len([x for x in rows if x["ready"]]),
+            "total_rishis":len(rows),
+            "rishis":rows,
+            "next_assignment":self.next_learning_assignment(),
+        }
+
     def dashboard(self,limit_findings=8):
         rows=[]
         with self.lock:
@@ -503,6 +563,7 @@ class RishiLearningLedger:
         return {
             "version":self.VERSION,
             "rishis":rows,
+            "bootstrap":self.bootstrap_status(),
             "classical_source_registry":dict(CLASSICAL_SOURCE_REGISTRY),
             "policy":"show learned findings with evidence state and maturity; unresolved or low-maturity material remains visibly provisional",
         }
