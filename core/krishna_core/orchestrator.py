@@ -49,6 +49,7 @@ from .ephemeral_workers import EphemeralWorkerRuntime
 from .agi_kernel import AGIKernel
 from .requirements_ledger import RequirementsLedger
 from .rishi_live_research import RishiLiveResearchExecutor
+from .science_atlas import ScienceAtlas
 
 
 class Orchestrator:
@@ -127,6 +128,11 @@ class Orchestrator:
             self.agi.brahmagyan,
             self.garuda,
             self._route_model,
+            self.memory,
+        )
+        self.science_atlas = ScienceAtlas(
+            runtime_state / "science-atlas",
+            self.agi.brahmagyan.council,
             self.memory,
         )
         self._verification_checks = {}
@@ -540,6 +546,100 @@ class Orchestrator:
                 str(payload.get("reason") or ""),
             )
 
+        def brahmagyan_science_status(payload,context):
+            query=str(payload.get("query") or "").strip()
+            kind=str(payload.get("kind") or "").strip() or None
+            return {
+                "status":self.science_atlas.status(),
+                "results":self.science_atlas.search(query,kind,int(payload.get("limit") or 50)) if query else [],
+            }
+
+        def brahmagyan_science_sync(payload,context):
+            include_topics=bool(payload.get("include_topics",True))
+            topic_limit=payload.get("topic_limit")
+            if topic_limit is not None:topic_limit=int(topic_limit)
+            return self.science_atlas.sync_openalex(include_topics,topic_limit)
+
+        def brahmagyan_science_route(payload,context):
+            return self.science_atlas.route(
+                str(payload.get("subject") or ""),
+                payload.get("field"),payload.get("domain"),int(payload.get("limit") or 6),
+            )
+
+        def brahmagyan_science_frontier_seed(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA")
+            return self.science_atlas.seed_curiosity(
+                self.agi.brahmagyan,
+                str(payload.get("subject") or ""),
+                payload.get("field"),payload.get("domain"),
+                project,int(payload.get("limit") or 8),
+            )
+
+        def brahmagyan_science_frontier_run(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            if project!="KRISHNA":
+                policy=self.projects.get(project)
+                if not policy:raise KeyError(project)
+                default_privacy=policy.privacy
+            else:
+                default_privacy="approved_cloud"
+            subject=str(payload.get("subject") or "").strip()
+            if not subject:raise ValueError("subject is required")
+            field=payload.get("field");domain=payload.get("domain")
+            program=self.science_atlas.research_program(
+                subject,field,domain,int(payload.get("question_limit") or 8),
+            )
+            questions=program.get("questions") or []
+            question=str(payload.get("question") or (questions[0] if questions else "")).strip()
+            if not question:raise ValueError("frontier research question is required")
+            rishis=(program.get("team") or {}).get("rishis") or []
+            lead=str(payload.get("rishi_id") or (rishis[0]["id"] if rishis else "bharadvaja"))
+            result=self.rishi_live.run(
+                project,subject,question,
+                rishi_id=lead,knowledge_track="modern_science",
+                stakes=str(payload.get("stakes") or "normal"),
+                privacy=str(payload.get("privacy") or default_privacy),
+                source_limit=int(payload.get("source_limit") or 6),
+                max_perspectives=int(payload.get("max_perspectives") or 5),
+                max_claims=int(payload.get("max_claims") or 5),
+                auto_propose=bool(payload.get("auto_propose",True)),
+            )
+            run=result.get("run") or {};mission=result.get("mission") or {}
+            dossier=result.get("dossier") or {};score=dossier.get("scorecard") or {}
+            node_id=str(payload.get("node_id") or subject)
+            coverage=self.science_atlas.record_research(
+                node_id,mission.get("mission_id"),run.get("run_id"),
+                maturity="L4" if score.get("cross_checked_claims") else "L0-L3",
+                unresolved=int(score.get("unresolved_contradictions") or 0),
+            )
+            return {"program":program,"research":result,"coverage":coverage}
+
+        def brahmagyan_science_background_tick(payload,context):
+            snapshot=self.governor.snapshot()
+            busy=bool(self.task_ledger.active()) or int(snapshot.get("active_jobs") or 0)>0
+            decision=self.agi.brahmagyan.background_decision(0.0,0.0,busy)
+            if not decision.get("allowed"):
+                return {"ran":False,"reason":"production_busy","decision":decision,"atlas":self.science_atlas.status()}
+            status=self.science_atlas.status()
+            if int((status.get("loaded_counts") or {}).get("topics") or 0)==0:
+                self.science_atlas.sync_openalex(True,None)
+            node=self.science_atlas.next_subject("topic")
+            if not node:return {"ran":False,"reason":"science_atlas_empty","atlas":self.science_atlas.status()}
+            result=brahmagyan_science_frontier_run({
+                "project":"KRISHNA",
+                "subject":node["subject"],
+                "field":node.get("field"),
+                "domain":node.get("domain"),
+                "node_id":node["id"],
+                "question_limit":8,
+                "source_limit":6,
+                "max_perspectives":5,
+                "max_claims":5,
+                "stakes":"normal",
+                "auto_propose":True,
+            },context)
+            return {"ran":True,"node":node,"result":result}
+
         def brahmagyan_background_check(payload,context):
             resources=self.governor.snapshot()
             cpu=float(resources.get("cpu_percent") or resources.get("cpu") or 0)
@@ -928,6 +1028,43 @@ class Orchestrator:
             mutating=True,permissions=("memory.write",),
             sources=("pc","system","agent","job"),
         )
+        self.action_bus.register(
+            "brahmagyan.science.status",brahmagyan_science_status,
+            description="Inspect BRAHMAGYAN Science Atlas coverage and taxonomy",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.science.sync",brahmagyan_science_sync,
+            description="Synchronize the OpenAlex CC0 science taxonomy into BRAHMAGYAN",
+            mutating=True,permissions=("web.read","memory.write"),
+            sources=("pc","system","job"),
+        )
+        self.action_bus.register(
+            "brahmagyan.science.route",brahmagyan_science_route,
+            description="Route a science subject to the most relevant Rishi research team",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.science.frontier.seed",brahmagyan_science_frontier_seed,
+            description="Generate mechanism/counterfactual science questions and queue them as Rishi curiosity missions",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.science.frontier.run",brahmagyan_science_frontier_run,
+            description="Run one evidence-gated frontier science research mission through Rishi Live",
+            mutating=True,permissions=("web.read","model.use","evidence.write","memory.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.science.background.tick",brahmagyan_science_background_tick,
+            description="Run at most one resource-aware autonomous Science Atlas frontier mission",
+            mutating=True,permissions=("web.read","model.use","evidence.write","memory.write","runtime.read"),
+            sources=("system","job","pc"),
+        )
+
         self.action_bus.register(
             "brahmagyan.background.check",brahmagyan_background_check,
             description="Check whether production resources permit optional background learning",
@@ -1404,6 +1541,38 @@ class Orchestrator:
     def brahmagyan_live_status(self,run_id=None,project=None,limit=50):
         if run_id:return self.rishi_live.get(run_id)
         return {"status":self.rishi_live.status(),"runs":self.rishi_live.list(project,limit)}
+
+    def brahmagyan_science_status(self,query="",kind=None,limit=50):
+        return {
+            "status":self.science_atlas.status(),
+            "results":self.science_atlas.search(query,kind,limit) if query else [],
+        }
+
+    def brahmagyan_science_sync(self,include_topics=True,topic_limit=None):
+        receipt=self.dispatch_action(
+            "brahmagyan.science.sync",
+            {"include_topics":bool(include_topics),"topic_limit":topic_limit},
+            project="KRISHNA",source="pc",actor="science-atlas",
+            permissions=("web.read","memory.write"),
+        )
+        return receipt.get("result") or {}
+
+    def brahmagyan_science_frontier(self,subject,project="KRISHNA",**kwargs):
+        receipt=self.dispatch_action(
+            "brahmagyan.science.frontier.run",
+            {"subject":subject,"project":project,**kwargs},
+            project=project,source="pc",actor="science-frontier",
+            permissions=("web.read","model.use","evidence.write","memory.write"),
+        )
+        return receipt.get("result") or {}
+
+    def brahmagyan_science_background_tick(self):
+        receipt=self.dispatch_action(
+            "brahmagyan.science.background.tick",{},
+            project="KRISHNA",source="system",actor="science-frontier-scheduler",
+            permissions=("web.read","model.use","evidence.write","memory.write","runtime.read"),
+        )
+        return receipt.get("result") or {}
 
     def create_software_project_team(self,project,goal,deadline_hours=None,start_at=None,end_at=None):
         if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)
