@@ -199,7 +199,6 @@ class BrahmaBot:
 
         evidence = list(evidence or [])
         policy = self._source_policy(source, modality)
-        active = self._active_learning_score(confidence, novelty, quality, importance)
         team, lead, reviewers = self._team(topic, content)
 
         existing = self.retrieve(topic, limit_per_rishi=5, team_limit=6)
@@ -227,7 +226,7 @@ class BrahmaBot:
         }
         important_text = (topic + " " + content).lower()
         mission_relevant = any(x in important_text for x in diagnostic_terms)
-        threshold = 0.40 if source == "mobile" else 0.32
+        threshold = 0.30 if source == "mobile" else 0.25
         should_learn = bool(force or evidence or mission_relevant or active["score"] >= threshold)
         if strong_existing and active["novelty"] < 0.10 and not evidence and not force:
             should_learn = False
