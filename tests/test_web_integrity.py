@@ -72,18 +72,25 @@ class WebIntegrityTests(unittest.TestCase):
         self.assertIn('src="/assets/avatar-engine/model-viewer/model-viewer.min.js"',self.text)
         self.assertNotIn('ajax.googleapis.com/ajax/libs/model-viewer',self.text)
 
-    def test_v6_popup_agent_rail_and_voice_contract(self):
-        for element_id in ("agentRail","agentGaruda","agentKabach","agentGarudanetra","agentNarad","agentBrahmagyan","agentGyan",
-                           "krishnaPopupLauncher","krishnaPopup","krishnaPopupBody","krishnaPopupInput","krishnaMic","krishnaVoiceLang"):
+    def test_v7_owner_surface_popup_voice_and_avatar_framing_contract(self):
+        for element_id in ("krishnaPopupLauncher","krishnaPopup","krishnaPopupBody","krishnaPopupInput","krishnaMic","krishnaVoiceLang"):
             self.assertIn(f'id="{element_id}"',self.text)
-        self.assertIn("function refreshAgentRail()",self.text)
+        owner_strip=self.text.split('<div id="opsInformer"',1)[1].split('<div id="liveWork"',1)[0]
+        for internal in ("agentRail","agentGaruda","agentKabach","agentGarudanetra","agentNarad","agentBrahmagyan","agentGyan","opsEye","GARUDA","KABACH","GARUDANETRA","NARAD","BRAHMAGYAN","GYAN-BHANDAR"):
+            self.assertNotIn(internal,owner_strip)
+        self.assertNotIn("setInterval(refreshAgentRail,4000)",self.text)
         self.assertIn("function sendKrishnaPopup()",self.text)
         self.assertIn("function toggleKrishnaVoice()",self.text)
+        self.assertIn("async function fitKrishnaAvatar(head)",self.text)
+        self.assertIn("new THREE.Box3().setFromObject(root,true)",self.text)
+        self.assertIn("head.setView('full',{cameraDistance:distance-12,cameraX,cameraY})",self.text)
+        self.assertIn("live.dataset.framing=framing?.fallback?'fallback':'bounds-fit'",self.text)
         self.assertIn('value="en-IN"',self.text)
         self.assertIn('value="hi-IN"',self.text)
         self.assertIn('value="or-IN"',self.text)
         self.assertIn(".top{display:none!important}",self.text)
         self.assertIn(".homeLegacyDetails{display:none!important}",self.text)
+        self.assertIn('<style id="krishna-ui-v7">',self.text)
         self.assertIn('id="chatSearch"',self.text)
 
     def test_avatar_production_runtime_hooks(self):
