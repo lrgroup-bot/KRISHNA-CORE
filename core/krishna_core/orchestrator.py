@@ -747,28 +747,60 @@ class Orchestrator:
             return self.agi.brahmagyan.shishya_plan(
                 str(payload.get("mission_id") or ""),
                 payload.get("specialties") or [],payload.get("count"),
+                payload.get("parent_rishi"),payload.get("assignments") or [],
             )
 
         def brahmagyan_shishya_execute(payload,context):
             mission_id=str(payload.get("mission_id") or "").strip()
             plan=self.agi.brahmagyan.shishya_plan(
                 mission_id,payload.get("specialties") or [],payload.get("count"),
+                payload.get("parent_rishi"),payload.get("assignments") or [],
             )
             mission=self.agi.brahmagyan.mission(mission_id)
             project=mission["project"]
             if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)
             policy=self.projects.get(project) if project!="KRISHNA" else None
             privacy=policy.privacy if policy else "approved_cloud"
-            request=self.software_factory.worker_request(
-                project,"rishi:"+mission["lead_rishi"],"research-shishya",plan["requested_count"],
-                "BRAHMAGYAN deep research: "+mission["topic"],
-                self.governor.snapshot(),approved_by_krishna=True,
-            )
-            task=(self.agi.brahmagyan.deep_prompt(mission_id)+"\nShishya specialties: "+", ".join(plan["specialties"])+
-                  "\nBefore handover, explicitly include: verified findings; successful methods; failed approaches; corrections; reusable skills; evaluation results; research trajectory; sources/provenance; unresolved questions; and cross-domain relationships. Do not hide failed work.")
-            batch=self.ephemeral_workers.execute(project,request,task,privacy)
-            handover=self.agi.brahmagyan.absorb_shishya(mission_id,batch)
-            return {"plan":plan,"batch":batch,"handover":handover}
+            task=(self.agi.brahmagyan.deep_prompt(mission_id)+
+                  f"\nParent Rishi: {plan['parent_rishi']}"+
+                  "\nBefore handover, include verified/candidate findings, evidence, exact sources/provenance, "
+                  "successful methods, failed approaches, corrections, reusable skills, evaluation results, "
+                  "unresolved questions and cross-domain relationships. Never hide failed work.")
+            handovers=[];batch_summaries=[];learning_updates=[]
+            for wave_no,wave in enumerate(plan["waves"],start=1):
+                current=self.governor.snapshot()
+                request=self.software_factory.worker_request(
+                    project,"rishi:"+plan["parent_rishi"],"research-shishya",len(wave),
+                    f"BRAHMAGYAN deep research wave {wave_no}/{plan['wave_count']}: "+mission["topic"],
+                    current,approved_by_krishna=True,
+                )
+                request["assignments"]=wave
+                request["parent_rishi"]=plan["parent_rishi"]
+                request["retention_policy"]="findings_and_provenance_only"
+                batch=self.ephemeral_workers.execute(project,request,task,privacy)
+                handover=self.agi.brahmagyan.absorb_shishya(
+                    mission_id,batch,parent_rishi=plan["parent_rishi"],
+                )
+                learning=self.rishi_learning.ingest_shishya_handover(mission,handover)
+                handovers.append(handover);learning_updates.append(learning)
+                batch_summaries.append({
+                    "batch_id":batch.get("batch_id"),"wave":wave_no,
+                    "worker_count":len(batch.get("workers") or []),
+                    "destroyed":bool(batch.get("destroyed")),
+                    "destroyed_at":batch.get("destroyed_at"),
+                    "live_after_return":bool(batch.get("live_after_return")),
+                    "retention_policy":batch.get("retention_policy"),
+                })
+                if not batch.get("destroyed") or batch.get("live_after_return"):
+                    raise RuntimeError("Shishya retirement verification failed")
+            return {
+                "plan":plan,
+                "batches":batch_summaries,
+                "handovers":handovers,
+                "learning_updates":learning_updates,
+                "all_shishyas_retired":all(x.get("destroyed") and not x.get("live_after_return") for x in batch_summaries),
+                "retention_policy":"findings_and_provenance_only",
+            }
 
         def mission_create(payload,context):
             project=str(payload.get("project_id") or payload.get("project") or context.get("project") or "KRISHNA")
