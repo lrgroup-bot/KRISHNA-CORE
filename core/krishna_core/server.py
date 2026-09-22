@@ -1833,6 +1833,25 @@ class Handler(BaseHTTPRequestHandler):
             session=orch.hawkeye.start_live_session(project,payload["purpose"],payload["coordinates"],payload["scene_hint"])
             return self._json(201,session)
 
+        if post_path == "/api/hawkeye/learn/capture":
+            utterance=str(data.get("utterance") or "").strip()
+            source_type=str(data.get("source_type") or "mobile").strip()
+            source_ref=str(data.get("source_ref") or "").strip()
+            modalities=data.get("modalities") or []
+            if not isinstance(modalities,list):return self._json(400,{"error":"modalities must be an array"})
+            subject=str(data.get("subject") or "").strip()
+            analysis=str(data.get("analysis") or "").strip()
+            confidence=float(data.get("confidence") or 0.0)
+            evidence_state=str(data.get("evidence_state") or "UNKNOWN")
+            out=orch.universal_learning.ingest(
+                utterance=utterance,source_type=source_type,source_ref=source_ref,
+                modalities=modalities,subject=subject,confidence=confidence,
+                analysis=analysis,evidence_state=evidence_state,
+            )
+            if "audio" in [str(x).lower() for x in modalities]:
+                out["sound"]=orch.universal_learning.classify_sound_request(utterance,data.get("audio_observations") or {})
+            return self._json(201,out)
+
         if post_path in ("/api/hawkeye/live/frame", "/api/bhumiputra/live/frame"):
             session_id=str(data.get("session_id") or "").strip()
             if not session_id:return self._json(400,{"error":"session_id is required"})

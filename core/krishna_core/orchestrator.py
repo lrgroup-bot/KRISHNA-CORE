@@ -45,6 +45,7 @@ from .gyan_bhandar import GyanBhandarAgent
 from .kabach import KabachAgent
 from .bhumiputra import BhumiputraAgent
 from .hawkeye_learning import HawkeyeLearningRuntime
+from .universal_learning import UniversalLearningRuntime
 from .hawkeye_field_platform import HawkeyeFieldPlatform
 from .krishna_observability import KrishnaObservability
 from .hawkeye_geo_engine import HawkeyeGeoEngine
@@ -117,6 +118,7 @@ class Orchestrator:
         self.bhumiputra = BhumiputraAgent(runtime_state / "bhumiputra")
         self.hawkeye = self.bhumiputra
         self.hawkeye_learning = HawkeyeLearningRuntime(runtime_state / "hawkeye" / "learning")
+        self.universal_learning = UniversalLearningRuntime(runtime_state / "hawkeye" / "universal-learning")
         self.hawkeye_field = HawkeyeFieldPlatform(runtime_state / "hawkeye" / "field")
         self.hawkeye_geo = HawkeyeGeoEngine(runtime_state / "hawkeye" / "geo")
         self.observability = KrishnaObservability(runtime_state / "observability")

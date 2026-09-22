@@ -161,6 +161,22 @@ public class MainActivity extends Activity {
     }
     @JavascriptInterface public String state(){return call("/api/core/state",null);}
 
+    @JavascriptInterface public String hawkeyeLearnCapture(String utterance,String sourceType,String sourceRef,String modalitiesJson,String subject,String analysis,double confidence,String evidenceState,String audioObservationsJson){
+      try{
+        JSONObject body=new JSONObject();
+        body.put("utterance",utterance==null?"":utterance);
+        body.put("source_type",sourceType==null?"mobile":sourceType);
+        body.put("source_ref",sourceRef==null?"":sourceRef);
+        body.put("modalities",new JSONArray(modalitiesJson==null||modalitiesJson.trim().isEmpty()?"[]":modalitiesJson));
+        body.put("subject",subject==null?"":subject);
+        body.put("analysis",analysis==null?"":analysis);
+        body.put("confidence",Math.max(0,Math.min(1,confidence)));
+        body.put("evidence_state",evidenceState==null?"UNKNOWN":evidenceState);
+        body.put("audio_observations",new JSONObject(audioObservationsJson==null||audioObservationsJson.trim().isEmpty()?"{}":audioObservationsJson));
+        return call("/api/hawkeye/learn/capture",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+
     @JavascriptInterface public String hawkeyeMode(){
       try{
         JSONObject d=new JSONObject();
