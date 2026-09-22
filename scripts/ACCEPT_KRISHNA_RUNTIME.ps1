@@ -84,9 +84,56 @@ try{
   else{Add-Check "Chat requirements ledger" "FAIL" "Requirement ledger is incomplete" $requirements}
 
   try{
+    $perfection=Get-Json "/api/project-perfection/status"
+    $exec=$perfection.execution
+    $ready=(
+      $exec.recursive_crawl -and
+      $exec.accessibility_scan -and
+      $exec.browser_chaos -and
+      $exec.regression_persistence -and
+      $exec.mutation_runner -and
+      $exec.visual_baselines -and
+      $exec.design_studio -and
+      $exec.point_to_source_mapping -and
+      $exec.candidate_visual_edit -and
+      $exec.finish_project_pipeline
+    )
+    if($ready){
+      Add-Check "Project Perfection runtime" "PASS" "Full finish-project execution stack is registered" $perfection
+    }else{
+      Add-Check "Project Perfection runtime" "FAIL" "One or more Project Perfection executors are unavailable" $perfection
+    }
+
+    $studioPage=Invoke-WebRequest -Method Get -Uri ($base+"/design-studio") -TimeoutSec 20
+    if($studioPage.StatusCode -eq 200 -and [string]$studioPage.Content -match "KRISHNA DESIGN STUDIO"){
+      Add-Check "Design Studio UI" "PASS" "Rendered-preview selection surface is deployed" @{status=$studioPage.StatusCode}
+    }else{
+      Add-Check "Design Studio UI" "FAIL" "Design Studio page is missing or stale" @{status=$studioPage.StatusCode}
+    }
+
+    $design=Post-Json "/api/design-studio/create" @{
+      project="KRISHNA";
+      candidates=@(
+        @{preview_url="$base/";rationale="acceptance candidate A"},
+        @{preview_url="$base/";rationale="acceptance candidate B"}
+      )
+    }
+    $loaded=Get-Json ("/api/design-studio/session?id="+$design.session_id)
+    $chosen=@($loaded.candidates)[0]
+    $submitted=Post-Json "/api/design-studio/submit" @{session_id=$design.session_id;candidate_id=$chosen.id}
+    if($submitted.submitted -and $submitted.selected.id -eq $chosen.id -and $submitted.requires_full_regression){
+      Add-Check "Design Studio selection" "PASS" "A/B rendered selection persists and requires full regression" $submitted
+    }else{
+      Add-Check "Design Studio selection" "FAIL" "Design selection/submit contract failed" $submitted
+    }
+  }catch{
+    Add-Check "Project Perfection runtime" "FAIL" $_.Exception.Message $null
+  }
+
+  try{
     $actionBus=Get-Json "/api/action-bus"
     $actionNames=@($actionBus.actions|ForEach-Object{$_.name})
-    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","project.rename","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","worker.ephemeral.execute","browser.inspect","browser.testing_lead","development.git.status","development.git.commit","development.git.push","development.sync","development.stage","development.verify","work.managed.run","repair.shadow","promotion.prepare","promotion.apply","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment","brahmagyan.mission.create","brahmagyan.questions.add","brahmagyan.deep.discover","brahmagyan.claim.record","brahmagyan.evidence.add","brahmagyan.contradiction.resolve","brahmagyan.claim.advance","brahmagyan.claim.compile","brahmagyan.claim.promote","brahmagyan.curiosity.add","brahmagyan.gaps.generate","brahmagyan.council.propose","brahmagyan.background.check","brahmagyan.shishya.plan","brahmagyan.shishya.execute")
+    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","project.rename","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","worker.ephemeral.execute","browser.inspect","browser.testing_lead","project.design.research","project.perfection.finish","development.git.status","development.git.commit","development.git.push","development.sync","development.stage","development.verify","work.managed.run","repair.shadow","promotion.prepare","promotion.apply","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment","brahmagyan.mission.create","brahmagyan.questions.add","brahmagyan.deep.discover","brahmagyan.claim.record","brahmagyan.evidence.add","brahmagyan.contradiction.resolve","brahmagyan.claim.advance","brahmagyan.claim.compile","brahmagyan.claim.promote","brahmagyan.curiosity.add","brahmagyan.gaps.generate","brahmagyan.council.propose","brahmagyan.background.check","brahmagyan.shishya.plan","brahmagyan.shishya.execute")
     $missing=@($needed|Where-Object{$_ -notin $actionNames})
     if($actionBus.owner -eq "KRISHNA Shared Action Bus" -and $missing.Count -eq 0){
       Add-Check "Shared Action Bus" "PASS" ("registered="+$actionBus.registered_actions+"; Projects/Chats wired") $actionBus
@@ -325,6 +372,18 @@ try{
         $semantic=Get-Json ("/api/garudanetra/semantic?id="+$sid)
         if([int]$semantic.revision -gt 0 -and @($semantic.items).Count -gt 0){
           Add-Check "Garudanetra semantic observer" "PASS" ("refs="+@($semantic.items).Count+" revision="+$semantic.revision) $semantic
+          try{
+            $first=@($semantic.items)[0]
+            $vw=[double]$ready.viewport.width;$vh=[double]$ready.viewport.height
+            $nx=([double]$first.x+([double]$first.width/2.0))/$vw
+            $ny=([double]$first.y+([double]$first.height/2.0))/$vh
+            $picked=Get-Json ("/api/garudanetra/element-at?id="+$sid+"&x="+$nx+"&y="+$ny)
+            if($picked.element -and $picked.element.ref){
+              Add-Check "Garudanetra point-to-element" "PASS" ("selected="+$picked.element.ref+" "+$picked.element.selector_hint) $picked
+            }else{
+              Add-Check "Garudanetra point-to-element" "FAIL" "Live visual point did not resolve to a semantic element" $picked
+            }
+          }catch{Add-Check "Garudanetra point-to-element" "FAIL" $_.Exception.Message $null}
         }else{Add-Check "Garudanetra semantic observer" "WARN" "Semantic snapshot is available but contains no interactive refs yet" $semantic}
       }catch{Add-Check "Garudanetra semantic observer" "FAIL" $_.Exception.Message $null}
       try{
