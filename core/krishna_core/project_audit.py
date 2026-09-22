@@ -295,6 +295,17 @@ class KrishnaProjectAudit:
         self.add("mobile","conversation-only client","PASS" if not forbidden and not required else "FAIL",
                  "mobile UI remains conversation-first" if not forbidden and not required else "mobile UI contract mismatch",
                  forbidden=forbidden,missing_required=required)
+        from .android_test_fabric import AndroidTestFabric
+        provider=AndroidTestFabric(self.runtime).status(probe=False)
+        server=self._read("core/krishna_core/server.py")
+        wired=all(x in server for x in ("/api/mobile/testing/status","/api/mobile/testing/run","mobile.test.run","android_artemis_test_fabric_capability_gated"))
+        self.add("mobile","Android real-device QA boundary","PASS" if wired else "FAIL",
+                 "ARTEMIS testing provider is capability-gated through Sudarshan" if wired else "Android QA provider is not fully wired",
+                 provider=provider.get("provider"),available=bool(provider.get("available")),auto_install=provider.get("auto_install"))
+        if not provider.get("available"):
+            self.add("mobile","Android real-device QA runtime","WARN",
+                     "ARTEMIS is not installed/configured on this runtime; real-device automation must remain unavailable until explicitly installed",
+                     executable=provider.get("executable"))
 
     def audit_security(self):
         root=self.source/"core"/"krishna_core"/"privacy_guardian"
