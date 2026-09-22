@@ -140,13 +140,26 @@ class BrowserOperator:
                 layout=page.evaluate("""() => ({viewport_width:innerWidth,viewport_height:innerHeight,
                     scroll_width:document.documentElement.scrollWidth,scroll_height:document.documentElement.scrollHeight,
                     horizontal_overflow:document.documentElement.scrollWidth>innerWidth+2})""")
+                perf=page.evaluate("""() => {
+                  const nav=performance.getEntriesByType('navigation')[0]||{};
+                  const paints=Object.fromEntries(performance.getEntriesByType('paint').map(x=>[x.name,x.startTime]));
+                  const load=(nav.loadEventEnd||nav.duration||0)-(nav.startTime||0);
+                  return {
+                    ttfb_ms:Math.max(0,(nav.responseStart||0)-(nav.requestStart||nav.startTime||0)),
+                    dom_content_loaded_ms:Math.max(0,(nav.domContentLoadedEventEnd||0)-(nav.startTime||0)),
+                    load_ms:Math.max(0,load),
+                    first_paint_ms:paints['first-paint']??null,
+                    first_contentful_paint_ms:paints['first-contentful-paint']??null,
+                    resource_count:performance.getEntriesByType('resource').length
+                  };
+                }""")
                 shot=None
                 if screenshot_dir:
                     target=Path(screenshot_dir).resolve();target.mkdir(parents=True,exist_ok=True)
                     shot=target/f"viewport-{width}.png";page.screenshot(path=str(shot),full_page=True)
                 findings=self.summarize_findings(console,errors,failed,bad)
                 out.append({"width":width,"height":height,"url":page.url,"title":page.title(),
-                            "layout":layout,"geometry":geometry,"findings":findings,
+                            "layout":layout,"geometry":geometry,"performance":perf,"findings":findings,
                             "screenshot":str(shot) if shot else None,"ok":not findings and not layout["horizontal_overflow"]})
                 page.close()
             browser.close()
