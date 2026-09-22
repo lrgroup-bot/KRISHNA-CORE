@@ -19,6 +19,9 @@ class RequirementsLedger:
             "schema":raw.get("schema"),
             "version":raw.get("version"),
             "source":raw.get("source"),
+            "canonicality":dict(raw.get("canonicality") or {}),
+            "status_model":list(raw.get("status_model") or []),
+            "phase_order":list(raw.get("phase_order") or []),
             "non_negotiables":list(raw.get("non_negotiables") or []),
             "groups":groups,
             "release_gates":list(raw.get("release_gates") or []),
@@ -28,7 +31,9 @@ class RequirementsLedger:
     def prompt_contract(self):
         data=self.snapshot()
         rules="\n".join("- "+x for x in data["non_negotiables"])
-        return "Canonical KRISHNA requirements (user-approved project contract):\n"+rules
+        canon=data.get("canonicality") or {}
+        source=canon.get("requirements_source") or "core/requirements/krishna_chat_requirements.json"
+        return "Canonical KRISHNA requirements (user-approved project contract; source="+source+"):\n"+rules
 
     def search(self,query):
         q=str(query or "").strip().lower()
