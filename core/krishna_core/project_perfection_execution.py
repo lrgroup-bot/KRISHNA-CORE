@@ -7,6 +7,7 @@ from typing import Any, Callable
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import tempfile
@@ -225,6 +226,23 @@ class DesignStudio:
 
     def __init__(self, root: str | Path):
         self.root=Path(root).resolve(); self.root.mkdir(parents=True,exist_ok=True)
+
+    def save_preview(self, project: str, html: str) -> dict[str, Any]:
+        token=sha256(f"{project}|{time.time_ns()}|{len(html)}".encode()).hexdigest()[:24]
+        preview_root=self.root/"previews";preview_root.mkdir(parents=True,exist_ok=True)
+        safe=re.sub(r"(?is)<script[^>]*>.*?</script>","",str(html or ""))
+        safe=re.sub(r"(?i)\son[a-z]+\s*=\s*(['\"]).*?\1","",safe)
+        safe=re.sub(r"(?i)javascript\s*:","",safe)
+        path=preview_root/f"{token}.html";path.write_text(safe,encoding="utf-8")
+        return {"token":token,"path":str(path),"preview_url":f"/api/design-studio/preview?id={token}"}
+
+    def preview(self, token: str) -> str:
+        safe=_safe_slug(token)
+        path=(self.root/"previews"/f"{safe}.html").resolve()
+        preview_root=(self.root/"previews").resolve()
+        path.relative_to(preview_root)
+        if not path.is_file():raise KeyError("design preview not found")
+        return path.read_text(encoding="utf-8")
 
     def create(self, project: str, candidates: list[dict[str, Any]]) -> dict[str, Any]:
         if not 1<=len(candidates)<=8: raise ValueError("1-8 rendered candidates required")
