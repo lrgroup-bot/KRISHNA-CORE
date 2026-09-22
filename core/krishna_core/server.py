@@ -854,6 +854,26 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,orch.secure_vault.list())
         if path == "/api/gyan-bhandar/archive/status":
             return self._json(200,orch.gyan_archive_status())
+        if path == "/api/gyan-bhandar/security":
+            try:return self._json(200,orch.gyan_security_status())
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+        if path == "/api/gyan-bhandar/context":
+            project=(query.get("project") or ["KRISHNA"])[0].strip() or "KRISHNA"
+            topic=(query.get("topic") or [""])[0]
+            kind=(query.get("kind") or [None])[0]
+            verified=str((query.get("verified") or ["0"])[0]).lower() in {"1","true","yes"}
+            principal=(query.get("principal") or ["owner"])[0]
+            try:return self._json(200,orch.gyan_compile_context(project,topic,50,verified,kind,principal))
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+        if path == "/api/gyan-bhandar/context-uri":
+            uri=(query.get("uri") or [""])[0];principal=(query.get("principal") or ["owner"])[0]
+            if not uri:return self._json(400,{"error":"uri is required"})
+            try:return self._json(200,orch.gyan_compile_uri(uri,50,principal))
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
         if path == "/api/gyan-bhandar/pending":
             project=(query.get("project") or [None])[0]
             try:return self._json(200,orch.gyan_pending(project,100))
@@ -1064,6 +1084,11 @@ class Handler(BaseHTTPRequestHandler):
                     "gyan_typed_memory_categories",
                     "gyan_learning_supersession",
                     "gyan_provenance_inventory",
+                    "gyan_project_scoped_context_compiler",
+                    "gyan_acl_fail_closed",
+                    "gyan_session_learning_candidates",
+                    "gyan_envelope_encryption_capability_gated",
+                    "gyan_verified_local_replication",
                     "skill_compiler",
                     "benchmark_lab",
                     "native_automation_bus",
@@ -2219,6 +2244,64 @@ class Handler(BaseHTTPRequestHandler):
         if post_path == "/api/software-factory/testing-lead/verify":
             try:return self._json(200,orch.testing_lead_live_verify(str(data.get("project") or "KRISHNA"),str(data.get("url") or ""),data.get("screenshot_dir"),int(data.get("max_controls") or 100)))
             except (ValueError,KeyError,RuntimeError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gyan-bhandar/acl/grant":
+            try:
+                receipt=orch.dispatch_action(
+                    "gyan.acl.grant",
+                    {"project":data.get("project") or "KRISHNA","principal":data.get("principal"),"permissions":data.get("permissions") or []},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="gyan-security",
+                    approved=bool(data.get("approved",False)),permissions=("memory.admin",),
+                )
+                return self._json(200,receipt["result"])
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+
+        if post_path == "/api/gyan-bhandar/acl/revoke":
+            try:
+                receipt=orch.dispatch_action(
+                    "gyan.acl.revoke",
+                    {"project":data.get("project") or "KRISHNA","principal":data.get("principal")},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="gyan-security",
+                    approved=bool(data.get("approved",False)),permissions=("memory.admin",),
+                )
+                return self._json(200,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+
+        if post_path == "/api/gyan-bhandar/session/capture":
+            try:
+                receipt=orch.dispatch_action(
+                    "gyan.session.capture",
+                    {"project":data.get("project") or "KRISHNA","chat_id":data.get("chat_id"),"summary":data.get("summary"),
+                     "evidence":data.get("evidence") or [],"provenance":data.get("provenance") or {}},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="gyan-session",
+                    permissions=("memory.write",),
+                )
+                return self._json(202,receipt["result"])
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gyan-bhandar/replica/snapshot":
+            try:
+                receipt=orch.dispatch_action(
+                    "gyan.replica.snapshot",{"label":data.get("label") or "gyan"},
+                    project="KRISHNA",source="pc",actor="gyan-security",
+                    approved=bool(data.get("approved",False)),permissions=("memory.admin","filesystem.write"),
+                )
+                return self._json(201,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,OSError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gyan-bhandar/encrypted/store":
+            try:
+                receipt=orch.dispatch_action(
+                    "gyan.encrypted.put",
+                    {"record_id":data.get("record_id"),"payload":data.get("payload") or {},"project":data.get("project") or "KRISHNA"},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="gyan-security",
+                    approved=bool(data.get("approved",False)),permissions=("memory.admin","memory.write"),
+                )
+                return self._json(201,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(503 if isinstance(exc,RuntimeError) else 400,{"error":str(exc)})
 
         if post_path == "/api/gyan-bhandar/archive":
             project=str(data.get("project") or "KRISHNA").strip(); source_path=str(data.get("source_path") or "").strip()
