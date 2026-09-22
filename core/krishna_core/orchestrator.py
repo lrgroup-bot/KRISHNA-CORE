@@ -446,6 +446,59 @@ class Orchestrator:
                 result["immune_memory"]=immune
             else:
                 result["immune_memory"]=None
+
+            critic_checks=[{
+                "name":g.get("gate"),"passed":bool(g.get("passed")),
+                "status":"pass" if g.get("passed") else "fail",
+            } for g in result.get("gates") or []]
+            critic=self.agi.critic.judge(
+                critic_checks,
+                evidence=[{
+                    "certificate_id":(result.get("certificate") or {}).get("certificate_id"),
+                    "build_hash":(result.get("certificate") or {}).get("build_hash"),
+                    "mutation_score":(result.get("mutation") or {}).get("score"),
+                    "browser_nodes":((result.get("exploration") or {}).get("graph") or {}).get("node_count"),
+                }],
+            )
+            result["independent_critic"]=critic
+            if not critic.get("passed"):
+                result["passed"]=False
+                result["verdict"]="NOT_COMPLETE_INDEPENDENT_REVIEW"
+
+            qa_review={"executed":False,"reason":"disabled"}
+            if bool(payload.get("run_qa_workers",True)):
+                try:
+                    plan=result.get("team_plan") or {}
+                    count=max(1,min(int(plan.get("recommended_workers") or 1),self.ephemeral_workers.max_workers,8))
+                    assignments=[]
+                    roles=list((plan.get("assignments") or {}).keys()) or ["qa_reviewer"]
+                    page_rows=((result.get("exploration") or {}).get("exploration") or {}).get("nodes") or []
+                    page_urls=[str(x.get("url") or "") for x in page_rows[:40]]
+                    gate_summary=[{"gate":x.get("gate"),"passed":x.get("passed")} for x in result.get("gates") or []]
+                    for idx in range(count):
+                        role=roles[idx%len(roles)]
+                        assigned_pages=page_urls[idx::count]
+                        assignments.append({
+                            "specialty":role,
+                            "task":(
+                                "Independently audit KRISHNA's supplied verification evidence. Do not claim tests you did not run. "
+                                f"Gate summary: {gate_summary}. Assigned discovered pages: {assigned_pages}. "
+                                "Identify contradictions, missing evidence, suspicious passes, or unresolved risk only."
+                            ),
+                        })
+                    req=self.software_factory.worker_request(
+                        project,"project_perfection","qa_reviewer",count,
+                        "Independent post-verification evidence review",plan,approved_by_krishna=True,
+                    )
+                    req["assignments"]=assignments
+                    qa_review=self.ephemeral_workers.execute(
+                        project,req,"Review Project Perfection evidence independently",policy.privacy,
+                    )
+                    qa_review["executed"]=True
+                except Exception as exc:
+                    qa_review={"executed":False,"reason":f"{type(exc).__name__}: {exc}"}
+            result["qa_worker_review"]=qa_review
+
             result["promotion"]=self._prepare_promotion_impl(project,result["candidate_root"]) if result.get("passed") else None
             self.memory.audit("project_perfection","verified" if result.get("passed") else "not_complete",project)
             return result
