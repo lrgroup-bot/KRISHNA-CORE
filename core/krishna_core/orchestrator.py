@@ -43,6 +43,7 @@ from .development_operator import DevelopmentOperator
 from .garuda import GarudaAgent
 from .gyan_bhandar import GyanBhandarAgent
 from .kabach import KabachAgent
+from .bhumiputra import BhumiputraAgent
 from .commitment_ledger import CommitmentLedger
 from .software_factory import SoftwareFactory
 from .ephemeral_workers import EphemeralWorkerRuntime
@@ -107,6 +108,7 @@ class Orchestrator:
         self.garuda = GarudaAgent(self.research, self.memory)
         self.gyan_bhandar = GyanBhandarAgent(self.memory, self.garuda)
         self.kabach = KabachAgent(self.memory,runtime_state / "privacy",browser=self.browser,gyan_bhandar=self.gyan_bhandar)
+        self.bhumiputra = BhumiputraAgent(runtime_state / "bhumiputra")
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
@@ -270,6 +272,30 @@ class Orchestrator:
                 payload.get("api_expectations") or [],
                 payload.get("screenshot_path") or None,
             )
+
+        def bhumiputra_status(payload,context):
+            return self.bhumiputra.status()
+
+        def bhumiputra_boundary_validate(payload,context):
+            return self.bhumiputra.boundary_metrics(payload.get("points") or payload.get("boundary") or [])
+
+        def bhumiputra_survey_plan(payload,context):
+            return self.bhumiputra.plan_survey(
+                payload.get("points") or payload.get("boundary") or [],
+                project=str(payload.get("project") or context.get("project") or "KRISHNA"),
+                purpose=str(payload.get("purpose") or "field geo-engineering"),
+                vehicle_profile=payload.get("vehicle_profile") or {},
+                requested_outputs=payload.get("requested_outputs") or None,
+            )
+
+        def bhumiputra_observation_record(payload,context):
+            return self.bhumiputra.record_observation(
+                str(payload.get("survey_id") or ""),
+                payload.get("observation") or {},
+            )
+
+        def bhumiputra_survey_get(payload,context):
+            return self.bhumiputra.get_survey(str(payload.get("survey_id") or ""))
 
         def worker_ephemeral_execute(payload,context):
             project=str(payload.get("project") or context.get("project") or "KRISHNA")
@@ -1175,6 +1201,37 @@ class Orchestrator:
         )
 
         self.action_bus.register(
+            "bhumiputra.status",bhumiputra_status,
+            description="Inspect the isolated Bhumiputra field geo-engineering agent",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "bhumiputra.boundary.validate",bhumiputra_boundary_validate,
+            description="Validate a coordinate polygon and compute preliminary boundary metrics",
+            permissions=("geo.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "bhumiputra.survey.plan",bhumiputra_survey_plan,
+            description="Create an isolated field GeoVision survey plan and state package",
+            mutating=True,permissions=("geo.read","survey.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "bhumiputra.observation.record",bhumiputra_observation_record,
+            description="Persist mobile/GNSS/camera field evidence for a Bhumiputra survey",
+            mutating=True,permissions=("survey.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "bhumiputra.survey.get",bhumiputra_survey_get,
+            description="Read a Bhumiputra survey package",
+            permissions=("geo.read","evidence.read"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
             "kabach.privacy.audit",kabach_privacy_audit,
             description="Run an internal defensive KABACH privacy audit",
             permissions=("privacy.read",),
@@ -1246,6 +1303,12 @@ class Orchestrator:
             "narad","durable automation and provider workflow runtime",
             permissions=("narad.write","narad.test","narad.execute","send_external"),
             actions=("narad.*",),
+        )
+
+        self.agent_runtime.register(
+            "bhumiputra","isolated field geospatial/geological engineering specialist",
+            permissions=("runtime.read","geo.read","survey.write","evidence.read","evidence.write","worker.execute"),
+            actions=("bhumiputra.*",),
         )
 
         for profile in self.agi.brahmagyan.council.list():
