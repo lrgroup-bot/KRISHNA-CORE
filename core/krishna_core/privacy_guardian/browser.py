@@ -278,7 +278,10 @@ def summarize_browser_observation(observation: dict, *, profile: str, url: str,
         },
         "permissions":permissions,
         "storage":storage,
-        "webrtc":webrtc or {"available":False,"state":"not_run"},
+        "webrtc":(
+            {k:webrtc.get(k) for k in ("available","candidateTypes","candidateCount","hostExposed","publicCandidateExposed","relayObserved","mdnsMasked")}
+            if webrtc else {"available":False,"state":"not_run"}
+        ),
         "findings":findings,
         "raw_fingerprint_uploaded":False,
     }
