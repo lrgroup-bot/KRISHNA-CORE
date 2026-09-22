@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from hashlib import sha256
+from pathlib import Path
 from typing import Any, Iterable
 import json
 import math
@@ -133,10 +134,29 @@ class RegressionRecord:
 
 
 class ImmuneMemory:
-    """A repaired objective defect is not closed until a regression detector exists."""
+    """Persistent bug-to-regression memory. Restarting KRISHNA must not forget learned defects."""
 
-    def __init__(self) -> None:
+    def __init__(self, path: str | Path | None=None) -> None:
+        self.path=Path(path).resolve() if path else None
         self.records: dict[str, RegressionRecord] = {}
+        self._load()
+
+    def _load(self):
+        if not self.path or not self.path.is_file():return
+        try:
+            raw=json.loads(self.path.read_text(encoding="utf-8"))
+            for row in raw.get("records") or []:
+                record=RegressionRecord(**row)
+                self.records[record.bug_id]=record
+        except Exception:
+            self.records={}
+
+    def _save(self):
+        if not self.path:return
+        self.path.parent.mkdir(parents=True,exist_ok=True)
+        tmp=self.path.with_suffix(self.path.suffix+".tmp")
+        tmp.write_text(json.dumps({"version":1,"records":[asdict(x) for x in self.records.values()]},indent=2),encoding="utf-8")
+        tmp.replace(self.path)
 
     def immunize(self, project: str, trigger: str, root_cause: str, regression_test: str, verification: str) -> RegressionRecord:
         if not regression_test.strip():
@@ -144,6 +164,7 @@ class ImmuneMemory:
         digest = sha256(f"{project}|{trigger}|{root_cause}".encode()).hexdigest()[:12]
         record = RegressionRecord(f"BUG-{digest.upper()}", project, trigger, root_cause, regression_test, verification)
         self.records[record.bug_id] = record
+        self._save()
         return record
 
     def required_tests(self, project: str) -> list[str]:
@@ -193,10 +214,10 @@ class ProjectPerfectionLoop:
     DevelopmentOperator, CriticVerifier, KABACH and ephemeral Shishya runtime.
     """
 
-    def __init__(self, max_workers: int = 8):
+    def __init__(self, max_workers: int = 8, immune_path: str | Path | None=None):
         self.hr = DeadlineHR()
         self.geometry = UIGeometryVerifier()
-        self.immune = ImmuneMemory()
+        self.immune = ImmuneMemory(immune_path)
         self.completion = CompletionProof()
         self.max_workers = max(1, int(max_workers))
 
