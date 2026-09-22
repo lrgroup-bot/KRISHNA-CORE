@@ -16,6 +16,8 @@ import re
 import time
 import uuid
 
+from .brahma_memory_intelligence import BrahmaMemoryIntelligence
+
 
 class BrahmaBot:
     VERSION = "brahma-learning-governor-v2"
@@ -35,6 +37,9 @@ class BrahmaBot:
         self.gyan_bhandar = gyan_bhandar
         self.memory = memory
         self.lock = RLock()
+        self.memory_intelligence = BrahmaMemoryIntelligence(
+            self.root / "memory-intelligence", council, rishi_learning, memory
+        )
         self.state = {
             "version": self.VERSION,
             "decisions": [],
