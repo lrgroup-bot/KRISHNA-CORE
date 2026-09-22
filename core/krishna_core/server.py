@@ -1183,9 +1183,32 @@ class Handler(BaseHTTPRequestHandler):
             picked=_browser_fabric.element_at(sid,x,y,normalized=True)
             element=picked.get("element")
             if not element:return self._json(404,{"error":"no interactive element found at point","selection":picked})
+            action=str(data.get("action") or "").strip().lower()
+            instruction=str(data.get("instruction") or "").strip()
+            semantic_needed=(
+                bool(instruction) and (
+                    not action or action in {"remove","add_component"} or
+                    (action in {"move","resize","restyle"} and not data.get("style_patch")) or
+                    (action=="replace_text" and not data.get("replacement_text"))
+                )
+            )
+            if semantic_needed:
+                try:
+                    receipt=orch.dispatch_action(
+                        "project.visual_edit.implement",
+                        {"project":project,"element":element,"instruction":instruction,
+                         "from_box":data.get("from_box"),"to_box":data.get("to_box"),
+                         "checks":data.get("checks") or [],"frontend_url":data.get("frontend_url")},
+                        project=project,source="pc",actor="visual-editor",
+                        permissions=("candidate.write","tests.run","model.use","browser.read"),
+                    )
+                    result=receipt["result"];result["selection"]=picked;result["mode"]="semantic_agent"
+                    return self._json(200,result)
+                except PermissionError as exc:return self._json(403,{"error":str(exc),"selection":picked})
+                except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc),"selection":picked})
             payload={
-                "action":data.get("action"),"selector":element.get("selector_hint") or element.get("selector"),
-                "instruction":data.get("instruction"),"from_box":data.get("from_box"),"to_box":data.get("to_box"),
+                "action":action,"selector":element.get("selector_hint") or element.get("selector"),
+                "instruction":instruction,"from_box":data.get("from_box"),"to_box":data.get("to_box"),
                 "replacement_text":data.get("replacement_text"),"style_patch":data.get("style_patch"),
                 "source_hint":element.get("selector_hint"),
             }
@@ -1193,8 +1216,20 @@ class Handler(BaseHTTPRequestHandler):
                 result=orch.project_perfection.stage_visual_edit(
                     policy.root,element,payload,list(data.get("checks") or policy.verification_checks or []),
                 )
-                result["selection"]=picked
+                if not (result.get("edit") or {}).get("applied") and instruction:
+                    receipt=orch.dispatch_action(
+                        "project.visual_edit.implement",
+                        {"project":project,"element":element,"instruction":instruction,
+                         "from_box":data.get("from_box"),"to_box":data.get("to_box"),
+                         "checks":data.get("checks") or [],"frontend_url":data.get("frontend_url")},
+                        project=project,source="pc",actor="visual-editor-fallback",
+                        permissions=("candidate.write","tests.run","model.use","browser.read"),
+                    )
+                    fallback=receipt["result"];fallback["selection"]=picked;fallback["mode"]="semantic_agent_fallback"
+                    return self._json(200,fallback)
+                result["selection"]=picked;result["mode"]="deterministic"
                 return self._json(200,result)
+            except PermissionError as exc:return self._json(403,{"error":str(exc),"selection":picked})
             except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc),"selection":picked})
 
         if post_path == "/api/project-perfection/finish":
