@@ -76,8 +76,17 @@ try{
   }
 
   $integrity=Get-Json "/api/runtime/integrity"
-  if($integrity.status -eq "SYNCED"){Add-Check "Deployment integrity" "PASS" ("SYNCED "+$integrity.commit) $integrity}
-  else{Add-Check "Deployment integrity" "FAIL" ($integrity.status+" - source/runtime must match") $integrity}
+  if(
+    $integrity.status -eq "SYNCED" -and
+    $integrity.remote_verified -and
+    -not $integrity.remote_drift -and
+    $integrity.source_head -eq $integrity.commit -and
+    $integrity.remote_head -eq $integrity.commit
+  ){
+    Add-Check "Deployment integrity" "PASS" ("GitHub origin = source = deployed runtime @ "+$integrity.commit) $integrity
+  }else{
+    Add-Check "Deployment integrity" "FAIL" ($integrity.status+" - GitHub origin, E:\KRISHNA-SOURCE and deployed runtime must match") $integrity
+  }
 
   $requirements=Get-Json "/api/requirements"
   if($requirements.requirement_count -ge 35){Add-Check "Chat requirements ledger" "PASS" ($requirements.requirement_count.ToString()+" canonical requirements") $requirements}
