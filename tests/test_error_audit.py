@@ -153,28 +153,37 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn('| PRIVATE OVERLAY | pairing required',text)
         self.assertNotIn(' · ',text)
 
-    def test_sidebar_has_project_names_and_separate_gpt_style_chats(self):
+    def test_sidebar_is_minimal_with_expandable_projects_and_separate_chats(self):
         web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
         aside=web.split('<aside class="side">',1)[1].split('</aside>',1)[0]
-        self.assertIn('id="projectMenuToggle"',aside)
-        self.assertIn('<span class="txt">Project</span>',aside)
+        self.assertIn('<div class="section">MAIN MENU</div>',aside)
+        self.assertIn("<span class=\"txt\">KRISHNA</span>",aside)
+        self.assertIn("<span class=\"txt\">Sudarshan</span>",aside)
+        self.assertIn("<span class=\"txt\">Plugins</span>",aside)
+        for hidden_runtime in ("KABACH","Garuda","Garudanetra","BRAHMAGYAN","Gyan-Bhandar","NARAD","Specialists","Developer","UI Guardian","Work progress","Activity","System","TOOLS"):
+            self.assertNotIn(hidden_runtime,aside)
+        self.assertIn('<span>PROJECTS</span>',aside)
         self.assertIn('id="projectMenuTree"',aside)
-        self.assertIn('id="chatMenuToggle"',aside)
-        self.assertIn('<span class="txt">Chats</span>',aside)
+        self.assertIn('<span>CHATS</span>',aside)
+        self.assertIn('title="Add new chat"',aside)
         self.assertIn('id="recentChats"',aside)
         self.assertNotIn('Project Chats',aside)
         self.assertIn('function loadGeneralChats()',web)
         self.assertIn("ch.project==='KRISHNA'||ch.project==='general'",web)
         self.assertIn('function selectSidebarProject(name)',web)
+        self.assertIn("className='projectBranch'+(expanded?' expanded':'')",web)
+        self.assertIn("className='projectNestedChats'",web)
+        self.assertIn("openProjectActionMenu",web)
+        self.assertIn("data-project-action=\"rename\"",web)
+        self.assertIn("data-project-action=\"share\"",web)
+        self.assertIn("data-project-action=\"delete\"",web)
 
-    def test_garuda_and_garudanetra_are_distinct_ui_and_runtime_roles(self):
+    def test_garuda_and_garudanetra_are_distinct_internal_runtime_roles(self):
         web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
         garuda=(ROOT/"core"/"krishna_core"/"garuda.py").read_text(encoding="utf-8-sig")
         aside=web.split('<aside class="side">',1)[1].split('</aside>',1)[0]
-        self.assertIn("showView('garuda')",aside)
-        self.assertIn('<span class="txt">Garuda</span>',aside)
-        self.assertIn("showView('garudanetra')",aside)
-        self.assertIn('<span class="txt">Garudanetra</span>',aside)
+        self.assertNotIn("<span class=\"txt\">Garuda</span>",aside)
+        self.assertNotIn("<span class=\"txt\">Garudanetra</span>",aside)
         self.assertIn('<section id="garuda" class="view panelView">',web)
         self.assertIn('<section id="garudanetra" class="view panelView">',web)
         self.assertIn('id="garudaGoal"',web)
