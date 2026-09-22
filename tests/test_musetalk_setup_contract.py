@@ -45,6 +45,11 @@ class MuseTalkSetupContractTests(unittest.TestCase):
         self.assertNotIn('Start-Process -FilePath $installer',text)
         self.assertNotIn('TargetDir=$pythonRoot',text)
         self.assertIn('torch.cuda.is_available()',text)
+        self.assertIn('Assert-EPath',text)
+        self.assertIn('Get-FileHash -Algorithm SHA256',text)
+        self.assertNotIn('python.org/ftp/python',text)
+        self.assertNotIn('TargetDir=',text)
+        self.assertNotIn('InstallAllUsers=',text)
 
 if __name__=="__main__":
     unittest.main()
