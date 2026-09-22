@@ -1,3 +1,4 @@
+import json
 import uuid
 from pathlib import Path
 
@@ -436,16 +437,35 @@ class Orchestrator:
             result["repair_history"]=repair_history
             result["auto_repair_attempted"]=bool(repair_history)
             if result.get("passed") and repair_history:
-                detector="checks:"+",".join(str(x) for x in (payload.get("checks") or policy.verification_checks or []))
                 last=repair_history[-1]
+                repaired_gates=list(last.get("failed_gates") or [])
+                detector_map={
+                    "unit":{"kind":"verification_steps","checks":list(payload.get("checks") or policy.verification_checks or [])},
+                    "integration":{"kind":"development_integration","checks":list(payload.get("checks") or policy.verification_checks or [])},
+                    "browser_e2e":{"kind":"route_regression_manifest","manifest":((result.get("regression") or {}).get("manifest") or {}).get("path"),
+                                   "routes":((result.get("regression") or {}).get("current") or {}).get("route_count")},
+                    "ui_geometry":{"kind":"xy_geometry_matrix","viewports":[x.get("width") for x in (result.get("browser") or {}).get("viewports") or []]},
+                    "visual_regression":{"kind":"golden_visual_baselines","results":[
+                        {"width":x.get("width"),"baseline":x.get("baseline"),"threshold":x.get("threshold")}
+                        for x in (result.get("visual") or {}).get("results") or []
+                    ]},
+                    "responsive":{"kind":"responsive_viewport_matrix","viewports":[x.get("width") for x in (result.get("browser") or {}).get("viewports") or []]},
+                    "performance":{"kind":"performance_thresholds","thresholds":(result.get("performance") or {}).get("thresholds")},
+                    "accessibility":{"kind":"semantic_plus_axe","axe_available":bool(((result.get("accessibility") or {}).get("axe") or {}).get("available"))},
+                    "adversarial":{"kind":"chaos_plus_mutation","mutation_score":(result.get("mutation") or {}).get("score"),
+                                   "chaos":[x.get("name") for x in (result.get("chaos") or {}).get("scenarios") or []]},
+                }
+                detector_evidence={gate:detector_map.get(gate,{"kind":"completion_gate","gate":gate}) for gate in repaired_gates}
+                detector=json.dumps(detector_evidence,sort_keys=True,default=str)
                 immune=self.project_perfection.immunize_bug(
                     project,
-                    "failed_gates:"+",".join(last.get("failed_gates") or []),
+                    "failed_gates:"+",".join(repaired_gates),
                     str(last.get("summary") or "verified auto-repair"),
                     detector,
                     str((result.get("certificate") or {}).get("certificate_id") or "verified"),
                 )
                 result["immune_memory"]=immune
+                result["immune_detectors"]=detector_evidence
             else:
                 result["immune_memory"]=None
 
