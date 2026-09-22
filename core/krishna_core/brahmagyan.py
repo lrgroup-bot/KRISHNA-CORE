@@ -735,40 +735,147 @@ class BrahmagyanRuntime:
             "policy":"checkpoint and release resources whenever production workloads need CPU/GPU/RAM; no autonomous background daemon in v1",
         }
 
-    def shishya_plan(self,mission_id,specialties=None,count=None):
+    def shishya_plan(self,mission_id,specialties=None,count=None,parent_rishi=None,assignments=None):
         m=self.mission(mission_id)
+        parent=str(parent_rishi or m["lead_rishi"]).strip().lower()
+        self.council.get(parent)
         specs=[str(x).strip() for x in (specialties or []) if str(x).strip()]
-        requested=int(count or len(specs) or 1)
-        requested=max(1,min(requested,4))
-        if not specs:specs=["Evidence Review"]
-        specs=(specs+["Evidence Review"]*requested)[:requested]
+        requested=max(1,int(count or len(specs) or len(assignments or []) or 4))
+        max_total=max(1,int(os.getenv("KRISHNA_SHISHYA_MAX_PER_REQUEST","32")))
+        requested=min(requested,max_total)
+        concurrency=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_CONCURRENT","8")),8))
+        if not specs:
+            specs=[
+                "Primary Source Discovery",
+                "Contradiction and Negative Evidence",
+                "Replication and Methods Audit",
+                "Cross-Domain Hypothesis Review",
+            ]
+            if m.get("dual_track_required"):specs.append("Vedic/Classical Provenance Review")
+        while len(specs)<requested:
+            specs.append(f"Specialist Research {len(specs)+1}")
+        specs=specs[:requested]
+        raw_assign=list(assignments or [])
+        rows=[]
+        for i in range(requested):
+            supplied=raw_assign[i] if i<len(raw_assign) and isinstance(raw_assign[i],dict) else {}
+            rows.append({
+                "index":i+1,
+                "specialty":str(supplied.get("specialty") or specs[i]).strip()[:240],
+                "task":str(supplied.get("task") or (
+                    f"Investigate the mission from the {specs[i]} perspective. "
+                    "Find evidence, contradictions, failed approaches, useful methods, unresolved questions and provenance."
+                )).strip()[:6000],
+            })
+        waves=[rows[i:i+concurrency] for i in range(0,len(rows),concurrency)]
         return {
-            "mission_id":mission_id,"parent_rishi":m["lead_rishi"],"project":m["project"],
-            "requested_count":requested,"specialties":specs,"ephemeral":True,
-            "approval_required":True,"authority":"Sudarshan + AI-HR",
+            "mission_id":mission_id,"parent_rishi":parent,"project":m["project"],
+            "requested_count":requested,"specialties":specs,"assignments":rows,
+            "waves":waves,"wave_count":len(waves),"max_concurrent":concurrency,
+            "ephemeral":True,"approval_required":True,"authority":"Sudarshan + AI-HR + resource governor",
             "preserve_before_retirement":[
-                "verified findings","successful methods","failed approaches","corrections","reusable skills",
-                "evaluation results","research trajectory","sources","provenance","useful context","cross-domain relationships",
+                "verified findings","supporting and contradicting evidence","successful methods","failed approaches",
+                "corrections","reusable skills","evaluation results","sources","provenance","unresolved questions",
+                "cross-domain relationships",
             ],
-            "resource_policy":"max 4 BRAHMAGYAN Shishyas per batch; retire immediately after handover",
+            "retention_policy":"findings_and_provenance_only",
+            "destruction_policy":"retire every Shishya immediately after verified handover; keep no live worker identity/state",
+            "resource_policy":(
+                f"up to {concurrency} concurrent Shishyas per wave; up to {max_total} per request; "
+                "Rishi may request later waves while the mission remains active and resource budgets permit"
+            ),
         }
 
-    def absorb_shishya(self,mission_id,batch):
+    @staticmethod
+    def _parse_shishya_result(text):
+        raw=str(text or "").strip()
+        if not raw:return {"summary":"","findings":[],"failed_approaches":[],"unresolved_questions":[]}
+        candidates=[raw]
+        if "```" in raw:
+            parts=raw.split("```")
+            for part in parts:
+                part=part.strip()
+                if part.lower().startswith("json"):part=part[4:].strip()
+                if part.startswith("{") and part.endswith("}"):candidates.append(part)
+        if "{" in raw and "}" in raw:
+            candidates.append(raw[raw.find("{"):raw.rfind("}")+1])
+        data=None
+        for candidate in candidates:
+            try:
+                value=json.loads(candidate)
+                if isinstance(value,dict):
+                    data=value;break
+            except Exception:
+                continue
+        if data is None:
+            return {
+                "summary":raw[:6000],
+                "findings":[{
+                    "finding":raw[:4000],"evidence":[],"sources":[],
+                    "confidence":0.0,"knowledge_track":"general","status":"provisional_unstructured",
+                }],
+                "failed_approaches":[],"unresolved_questions":[],
+                "successful_methods":[],"corrections":[],"reusable_skills":[],
+                "evaluation_results":[],"cross_domain_relationships":[],
+            }
+        findings=[]
+        for item in data.get("findings") or []:
+            if isinstance(item,str):
+                item={"finding":item}
+            if not isinstance(item,dict):continue
+            finding=str(item.get("finding") or item.get("claim") or "").strip()
+            if not finding:continue
+            findings.append({
+                "finding":finding[:4000],
+                "evidence":[str(x).strip()[:1600] for x in (item.get("evidence") or []) if str(x).strip()],
+                "sources":[str(x).strip()[:2000] for x in (item.get("sources") or []) if str(x).strip()],
+                "confidence":max(0.0,min(float(item.get("confidence") or 0.0),1.0)),
+                "knowledge_track":str(item.get("knowledge_track") or "general")[:80],
+                "status":str(item.get("status") or "candidate")[:80],
+            })
+        return {
+            "summary":str(data.get("summary") or "")[:6000],
+            "findings":findings,
+            "successful_methods":[str(x).strip()[:2000] for x in (data.get("successful_methods") or []) if str(x).strip()],
+            "failed_approaches":[str(x).strip()[:2000] for x in (data.get("failed_approaches") or []) if str(x).strip()],
+            "corrections":[str(x).strip()[:2000] for x in (data.get("corrections") or []) if str(x).strip()],
+            "reusable_skills":[str(x).strip()[:1200] for x in (data.get("reusable_skills") or []) if str(x).strip()],
+            "evaluation_results":[str(x).strip()[:2000] for x in (data.get("evaluation_results") or []) if str(x).strip()],
+            "unresolved_questions":[str(x).strip()[:2000] for x in (data.get("unresolved_questions") or []) if str(x).strip()],
+            "cross_domain_relationships":[str(x).strip()[:2000] for x in (data.get("cross_domain_relationships") or []) if str(x).strip()],
+        }
+
+    def absorb_shishya(self,mission_id,batch,parent_rishi=None):
         m=self.mission(mission_id)
+        parent=str(parent_rishi or batch.get("parent_rishi") or m["lead_rishi"]).strip().lower()
+        self.council.get(parent)
         receipt={
-            "mission_id":mission_id,"parent_rishi":m["lead_rishi"],"batch_id":batch.get("batch_id"),
-            "destroyed":bool(batch.get("destroyed")),"workers":[],
+            "mission_id":mission_id,"parent_rishi":parent,"batch_id":batch.get("batch_id"),
+            "destroyed":bool(batch.get("destroyed")),"destroyed_at":batch.get("destroyed_at"),
+            "retention_policy":"findings_and_provenance_only","workers":[],
+            "findings":[],"failed_approaches":[],"unresolved_questions":[],
             "retired_at":self._now(),
         }
+        if not receipt["destroyed"]:
+            raise RuntimeError("Shishya batch cannot be absorbed before worker destruction")
         for worker in batch.get("workers") or []:
+            handover=self._parse_shishya_result(worker.get("result"))
             receipt["workers"].append({
-                "worker_id":worker.get("worker_id"),"provider":worker.get("provider"),"model":worker.get("model"),
-                "result":worker.get("result"),"security":worker.get("security"),
+                "worker_id_hash":worker.get("worker_id_hash"),
+                "specialty":worker.get("specialty"),
+                "assignment":worker.get("assignment"),
+                "provider":worker.get("provider"),"model":worker.get("model"),
+                "security":worker.get("security"),
                 "started_at":worker.get("started_at"),"ended_at":worker.get("ended_at"),
+                "handover":handover,
             })
+            for finding in handover.get("findings") or []:
+                receipt["findings"].append({**finding,"specialty":worker.get("specialty")})
+            receipt["failed_approaches"].extend(handover.get("failed_approaches") or [])
+            receipt["unresolved_questions"].extend(handover.get("unresolved_questions") or [])
         with self.lock:
             self.state["shishya_archive"].append(receipt)
-            self.state["shishya_archive"]=self.state["shishya_archive"][-500:]
+            self.state["shishya_archive"]=self.state["shishya_archive"][-1000:]
             self.state["missions"][mission_id]["shishya_batches"].append(receipt["batch_id"])
             self.state["missions"][mission_id]["updated_at"]=self._now();self._save()
         self.memory.remember(m["project"],"brahmagyan_shishya_handover",m["topic"],receipt)
