@@ -16,29 +16,19 @@ function Get-CommandPath([string]$Name){
 }
 
 function Test-Python310 {
-  $result=[ordered]@{available=$false;launcher=$null;version=$null;path=$null}
-  $py=Get-CommandPath "py.exe"
-  if($py){
-    try{
-      $version=(& $py -3.10 -c "import sys;print(sys.version.split()[0]);print(sys.executable)" 2>$null)
-      if($LASTEXITCODE -eq 0 -and $version.Count -ge 2){
-        $result.available=$true;$result.launcher="$py -3.10";$result.version=$version[0];$result.path=$version[1]
-        return $result
-      }
-    }catch{}
-  }
-  $managedRoot=Join-Path $RuntimeRoot "python-managed"
-  $managed=@()
-  if(Test-Path $managedRoot){
-    $managed=Get-ChildItem $managedRoot -Filter python.exe -File -Recurse -ErrorAction SilentlyContinue |
-      Select-Object -ExpandProperty FullName
-  }
-  foreach($candidate in @(
+  $result=[ordered]@{available=$false;launcher=$null;version=$null;path=$null;storage="E-only"}
+  $candidates=@(
     (Join-Path $RuntimeRoot "tools\avatar-video\envs\musetalk\Scripts\python.exe"),
-    (Join-Path $RuntimeRoot "python310\python.exe"),
-    (Join-Path $RuntimeRoot "tools\python310\python.exe")
-  ) + $managed){
+    (Join-Path $RuntimeRoot "tools\avatar-video\envs\liveportrait\Scripts\python.exe")
+  )
+  $managedRoot=Join-Path $RuntimeRoot "python-managed"
+  if(Test-Path $managedRoot){
+    $candidates+=@(Get-ChildItem $managedRoot -Filter python.exe -File -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
+  }
+  foreach($candidate in ($candidates | Select-Object -Unique)){
     if(!(Test-Path $candidate)){continue}
+    $full=[System.IO.Path]::GetFullPath($candidate)
+    if($full -notmatch '^[Ee]:\\'){continue}
     try{
       $v=(& $candidate -c "import sys;print(sys.version.split()[0])").Trim()
       if($v -like "3.10*"){
