@@ -271,6 +271,13 @@ class DesignStudio:
         if not path.is_file(): raise KeyError("design session not found")
         return json.loads(path.read_text(encoding="utf-8"))
 
+    def annotate(self, session_id: str, metadata: dict[str, Any]) -> dict[str, Any]:
+        path=self.root/f"{_safe_slug(session_id)}.json"
+        state=self.get(session_id)
+        state["metadata"]={**dict(state.get("metadata") or {}),**dict(metadata or {})}
+        path.write_text(json.dumps(state,indent=2),encoding="utf-8")
+        return state
+
     def submit(self, session_id: str, candidate_id: str) -> dict[str, Any]:
         path=self.root/f"{_safe_slug(session_id)}.json"
         state=self.get(session_id)
