@@ -77,6 +77,19 @@ def _extract_ascii(blob: bytes, min_len: int=6, max_strings: int=20000) -> list[
 def _aapt_permissions(apk: Path) -> dict:
     exe=shutil.which("aapt2") or shutil.which("aapt")
     if not exe:
+        sdk=os.getenv("ANDROID_HOME") or os.getenv("ANDROID_SDK_ROOT")
+        if sdk:
+            build_tools=Path(sdk)/"build-tools"
+            candidates=[]
+            if build_tools.is_dir():
+                for child in build_tools.iterdir():
+                    for name in ("aapt2.exe","aapt2","aapt.exe","aapt"):
+                        p=child/name
+                        if p.is_file():candidates.append(p)
+            if candidates:
+                candidates.sort(key=lambda p:p.parent.name,reverse=True)
+                exe=str(candidates[0])
+    if not exe:
         return {"available":False,"permissions":[],"raw_retained":False}
     commands=[
         [exe,"dump","permissions",str(apk)],
