@@ -638,6 +638,16 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,orch.ephemeral_worker_status())
         if path == "/api/kabach/projects":
             return self._json(200,orch.protect_registered_projects())
+        if path == "/api/kabach/privacy/status":
+            return self._json(200,orch.kabach.privacy_status())
+        if path == "/api/kabach/privacy/history":
+            limit_raw=(query.get("limit") or ["50"])[0]
+            try:limit=max(1,min(int(limit_raw),500))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            rows=orch.kabach.privacy.history(limit)
+            return self._json(200,{"history":rows,"count":len(rows)})
+        if path == "/api/kabach/privacy/metrics":
+            return self._json(200,orch.kabach.privacy.metrics())
         if path == "/api/commitments":
             project=(query.get("project") or [None])[0]
             return self._json(200,orch.commitments_status(project))
@@ -1954,6 +1964,60 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"error": "source and target are required"})
             orch.graph.link(source, target, str(data.get("relation", "depends_on")))
             return self._json(200, {"ok": True})
+
+        if post_path == "/api/kabach/privacy/audit":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            payload={
+                "target_type":str(data.get("target_type") or data.get("target") or "").strip().lower(),
+                "url":data.get("url"),"web_url":data.get("web_url"),"apk_path":data.get("apk_path"),
+                "owned":bool(data.get("owned",True)),"profile":str(data.get("profile") or "BASELINE"),
+                "policy":str(data.get("policy") or "STANDARD"),"mission_id":data.get("mission_id"),
+            }
+            try:
+                receipt=orch.dispatch_action("kabach.privacy.audit",payload,project=project,source="pc",actor="privacy-http",permissions=("privacy.read",))
+                return self._json(200,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/kabach/privacy/clean-url":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            try:
+                receipt=orch.dispatch_action("kabach.privacy.clean_url",{"url":str(data.get("url") or "")},project=project,source="pc",actor="privacy-http",permissions=("privacy.read",))
+                return self._json(200,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/kabach/privacy/baseline":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            try:
+                receipt=orch.dispatch_action("kabach.privacy.baseline.save",{"name":str(data.get("name") or ""),"report":data.get("report") or {}},project=project,source="pc",actor="privacy-http",permissions=("privacy.write",))
+                return self._json(200,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/kabach/privacy/compare":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            try:
+                receipt=orch.dispatch_action(
+                    "kabach.privacy.baseline.compare",
+                    {"name":str(data.get("name") or ""),"report":data.get("report") or {},"mission_id":data.get("mission_id"),"configuration_change":data.get("configuration_change")},
+                    project=project,source="pc",actor="privacy-http",permissions=("privacy.read",),
+                )
+                return self._json(200,receipt["result"])
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/kabach/privacy/release-gate":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            try:
+                receipt=orch.dispatch_action(
+                    "kabach.privacy.release_gate",{"report":data.get("report") or {},"policy":str(data.get("policy") or "STANDARD")},
+                    project=project,source="pc",actor="privacy-http",permissions=("privacy.read","release.verify"),
+                )
+                return self._json(200,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/security/scan-text":
             path = str(data.get("path", "submitted-text"))
