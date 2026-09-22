@@ -28,6 +28,10 @@ class PluginManifest:
     risk: str = "medium"
     enabled: bool = False
     builtin: bool = False
+    source_url: str = ""
+    license: str = ""
+    free: bool = False
+    credential_ref: str = ""
     created_at: float = 0.0
     updated_at: float = 0.0
 
@@ -75,13 +79,16 @@ class PluginRegistry:
 
     def _seed(self):
         defaults = [
-            {"id":"pc","name":"PC","description":"Local registered projects, browser inspection, logs and approved PC actions.","kind":"local","auth_type":"local","permissions":["projects.read","files.read","browser.inspect","logs.read"],"risk":"high","builtin":True},
-            {"id":"github","name":"GitHub","description":"Repositories, issues, pull requests and CI workflows through an authorized connector.","kind":"connector","auth_type":"oauth","permissions":["repos.read","issues.read","pull_requests.read","actions.read"],"risk":"medium","builtin":True},
+            {"id":"pc","name":"PC","description":"Local registered projects, browser inspection, logs and approved PC actions.","kind":"local","auth_type":"local","permissions":["projects.read","files.read","browser.inspect","logs.read"],"risk":"high","builtin":True,"source_url":"local://krishna-pc","license":"KRISHNA-local","free":True},
+            {"id":"github","name":"GitHub","description":"Repositories, issues, pull requests and CI workflows through an authorized connector.","kind":"connector","auth_type":"oauth","permissions":["repos.read","issues.read","pull_requests.read","actions.read"],"risk":"medium","builtin":True,"source_url":"https://github.com","license":"service-connector","free":True},
+            {"id":"ollama","name":"Ollama","description":"Free local model runtime already supported by KRISHNA; no cloud credential required.","kind":"local","auth_type":"local","permissions":["models.local","models.invoke"],"risk":"low","builtin":True,"source_url":"https://github.com/ollama/ollama","license":"MIT","free":True},
+            {"id":"mcp-servers","name":"MCP Servers","description":"Free reference MCP servers from the Model Context Protocol project. Install only the servers KRISHNA explicitly approves.","kind":"mcp","auth_type":"local","permissions":["tools.discover","tools.connect"],"risk":"medium","builtin":True,"source_url":"https://github.com/modelcontextprotocol/servers","license":"Apache-2.0/MIT transition","free":True},
+            {"id":"activepieces","name":"Activepieces Community","description":"Free self-hosted community automation connector. Enterprise-only code is excluded from KRISHNA's free catalog.","kind":"connector","auth_type":"token","permissions":["workflows.read","workflows.run"],"risk":"medium","builtin":True,"source_url":"https://github.com/activepieces/activepieces","license":"MIT core / separate EE","free":True},
         ]
         changed = False
         for row in defaults:
             if row["id"] not in self._items:
-                row["enabled"] = False
+                row.setdefault("enabled", False)
                 self._items[row["id"]] = self._coerce(row)
                 changed = True
         if changed:
@@ -115,6 +122,8 @@ class PluginRegistry:
             kind=kind, endpoint=str(data.get("endpoint") or "")[:1000],
             auth_type=auth, permissions=perms, project_scope=scope, risk=risk,
             enabled=bool(data.get("enabled", False)), builtin=bool(data.get("builtin", False)),
+            source_url=str(data.get("source_url") or "")[:1000], license=str(data.get("license") or "")[:120],
+            free=bool(data.get("free", False)), credential_ref=str(data.get("credential_ref") or "")[:160],
             created_at=created, updated_at=updated,
         )
 
@@ -138,6 +147,29 @@ class PluginRegistry:
                 raise KeyError(plugin_id)
             item.enabled = bool(enabled)
             item.updated_at = time.time()
+            self._save()
+            return item.public()
+
+    def set_credential(self, plugin_id: str, credential_ref: str) -> dict:
+        ref=str(credential_ref or "").strip()
+        if not ref:
+            raise ValueError("credential_ref is required")
+        with self.lock:
+            item=self._items.get(plugin_id)
+            if not item:
+                raise KeyError(plugin_id)
+            item.credential_ref=ref
+            item.updated_at=time.time()
+            self._save()
+            return item.public()
+
+    def clear_credential(self, plugin_id: str) -> dict:
+        with self.lock:
+            item=self._items.get(plugin_id)
+            if not item:
+                raise KeyError(plugin_id)
+            item.credential_ref=""
+            item.updated_at=time.time()
             self._save()
             return item.public()
 
