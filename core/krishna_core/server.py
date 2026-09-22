@@ -2320,7 +2320,8 @@ class Handler(BaseHTTPRequestHandler):
                     pc_evidence=orch.hawkeye.store_mobile_evidence(session_id,raw,content_type,sensor_context)
                 if orch.hawkeye_diagnostic.should_activate(goal):
                     prompt=orch.hawkeye_diagnostic.vision_prompt(goal=goal,sensor_context=sensor_context)
-                    vision=_vision.analyze_bytes(raw,content_type,prompt)
+                    with orch.governor.job(timeout=0):
+                        vision=_vision.analyze_bytes(raw,content_type,prompt)
                     result=orch.hawkeye_diagnostic.record_model_result(
                         session_id,vision.get("analysis") or "",goal=goal,sensor_context=sensor_context,model=vision.get("model") or ""
                     )
@@ -2335,7 +2336,8 @@ class Handler(BaseHTTPRequestHandler):
                 prompt=orch.hawkeye.live_prompt(
                     scene_hint=session.get("scene_hint") or "auto",user_goal=goal,sensor_context=sensor_context
                 )
-                vision=_vision.analyze_bytes(raw,content_type,prompt)
+                with orch.governor.job(timeout=0):
+                    vision=_vision.analyze_bytes(raw,content_type,prompt)
                 field=orch.hawkeye.record_live_analysis(
                     session_id,vision.get("analysis") or "",model=vision.get("model"),sensor_context=sensor_context,
                     frame_meta={"content_type":content_type,"diagnostic":False},
