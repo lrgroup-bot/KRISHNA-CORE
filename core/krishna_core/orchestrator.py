@@ -297,6 +297,26 @@ class Orchestrator:
         def bhumiputra_survey_get(payload,context):
             return self.bhumiputra.get_survey(str(payload.get("survey_id") or ""))
 
+        def bhumiputra_live_start(payload,context):
+            return self.bhumiputra.start_live_session(
+                project=str(payload.get("project") or context.get("project") or "KRISHNA"),
+                purpose=str(payload.get("purpose") or "live field scan"),
+                coordinates=payload.get("coordinates") or {},
+                scene_hint=str(payload.get("scene_hint") or "auto"),
+            )
+
+        def bhumiputra_live_record(payload,context):
+            return self.bhumiputra.record_live_analysis(
+                str(payload.get("session_id") or ""),
+                str(payload.get("analysis") or ""),
+                model=payload.get("model"),
+                sensor_context=payload.get("sensor_context") or {},
+                frame_meta=payload.get("frame_meta") or {},
+            )
+
+        def bhumiputra_live_get(payload,context):
+            return self.bhumiputra.get_live_session(str(payload.get("session_id") or ""))
+
         def worker_ephemeral_execute(payload,context):
             project=str(payload.get("project") or context.get("project") or "KRISHNA")
             policy=self.projects.get(project) if project!="KRISHNA" else None
@@ -1227,6 +1247,25 @@ class Orchestrator:
         self.action_bus.register(
             "bhumiputra.survey.get",bhumiputra_survey_get,
             description="Read a Bhumiputra survey package",
+            permissions=("geo.read","evidence.read"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "bhumiputra.live.start",bhumiputra_live_start,
+            description="Start an isolated Bhumiputra live camera/field session",
+            mutating=True,permissions=("geo.read","survey.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "bhumiputra.live.record",bhumiputra_live_record,
+            description="Persist a local-AI analysis result from a sampled live camera frame",
+            mutating=True,permissions=("survey.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "bhumiputra.live.get",bhumiputra_live_get,
+            description="Read Bhumiputra live camera session state",
             permissions=("geo.read","evidence.read"),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
