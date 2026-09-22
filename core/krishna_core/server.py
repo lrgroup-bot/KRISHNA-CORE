@@ -908,6 +908,24 @@ class Handler(BaseHTTPRequestHandler):
             try:return self._json(200,orch.brahma.retrieve(topic))
             except KeyError as exc:return self._json(404,{"error":str(exc)})
 
+        if path == "/api/brahma/intelligence/status":
+            return self._json(200,orch.brahma.memory_intelligence.status())
+        if path == "/api/brahma/temporal":
+            topic=str((query.get("topic") or [""])[0]).strip()
+            include=str((query.get("include_superseded") or ["0"])[0]).lower() in {"1","true","yes"}
+            as_of_raw=(query.get("as_of") or [None])[0]
+            limit_raw=(query.get("limit") or ["100"])[0]
+            try:
+                as_of=float(as_of_raw) if as_of_raw not in (None,"") else None
+                limit=max(1,min(int(limit_raw),500))
+            except (TypeError,ValueError):return self._json(400,{"error":"invalid as_of or limit"})
+            return self._json(200,orch.brahma.temporal_query(topic,as_of=as_of,include_superseded=include,limit=limit))
+        if path == "/api/brahma/rishi-graph":
+            topic=str((query.get("topic") or [""])[0]).strip()
+            if not topic:return self._json(400,{"error":"topic is required"})
+            try:return self._json(200,orch.brahma.rishi_graph(topic))
+            except (KeyError,ValueError) as exc:return self._json(400,{"error":str(exc)})
+
         if path == "/api/gyan-bhandar/archive/status":
             return self._json(200,orch.gyan_archive_status())
         if path == "/api/gyan-bhandar/security":
