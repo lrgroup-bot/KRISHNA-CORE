@@ -163,7 +163,7 @@ jobs:
           grep -q "hawkeyeOfflineFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "configureCloudUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "secureCloudUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
-          grep -q "HAWKEYE · FIELD OFFLINE" app/src/main/assets/index.html
+          grep -q "mobile_local_first:true" app/src/main/assets/index.html
           grep -q 'android.permission.CAMERA' app/src/main/AndroidManifest.xml
           grep -q "ensureChat" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "task.completed" app/src/main/java/com/krishna/mobile/MainActivity.java
