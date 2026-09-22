@@ -99,6 +99,7 @@ $required=@(
   (Join-Path $talkAssets "dynamicbones.mjs"),
   (Join-Path $talkAssets "retargeter.mjs"),
   (Join-Path $headAudioAssets "dist\headaudio.min.mjs"),
+  (Join-Path $headAudioAssets "dist\model-en-mixed.bin"),
   (Join-Path $headAudioAssets "modules\headworklet.mjs"),
   (Join-Path $motionAssets "src\MotionEngine.js"),
   (Join-Path $motionAssets "src\motions.json"),
