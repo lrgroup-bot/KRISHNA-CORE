@@ -101,3 +101,24 @@ Adapters that are not installed must report unavailable rather than being simula
 - truck/haul-road cost-routing worker
 - KML/KMZ/GeoJSON and 3D export
 - survey recording and final engineering evidence package
+
+## Expanded live perception (v0.2)
+
+The live-camera contract now covers these scene families in addition to terrain and structures:
+
+- people: person count, visible PPE/activity and face presence
+- vehicles: category, visible make/model cues, requested plate/asset markings, tyres/lights/body/dashboard condition
+- electronics: PCB/components/connectors/cables, labels, visible burns/corrosion/broken traces and likely functional blocks
+- documents/screens: ordinary OCR for signs, labels, serial/model numbers and asset tags
+- hazards: smoke/fire, exposed wiring, leaks, obstacles/open edges and visible PPE gaps
+- temporal change: what entered/left/moved or visibly changed between observations
+
+BhumiputraAgent.ingest_live_frame now performs the real local VisionAdapter call, applies the Bhumiputra scene prompt, redacts authentication secrets, records the result into the live session and returns a concise observation to mobile.
+
+### Face recognition boundary
+
+Face detection/presence is available through the local vision path. Identity recognition is intentionally limited to explicitly enrolled, consented local profiles. The dedicated biometric identity adapter is still adapter_required; an unknown person's identity must remain UNKNOWN, and no cloud biometric provider is used.
+
+### Sensitive Input Guard
+
+KRISHNA may detect that a login/authentication screen is visible and that secret entry is occurring so it can warn about camera exposure or shoulder-surfing. It must never reveal, reconstruct, transcribe, store, sync or learn passwords, PINs, OTPs, API keys, bearer/session tokens or similar credentials. Server-side redaction is applied before live analysis is persisted.
