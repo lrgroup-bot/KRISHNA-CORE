@@ -50,6 +50,31 @@ try{
   $health=Wait-Core
   Add-Check "Core health" "PASS" ("ONLINE on "+$base) $health
 
+  try{
+    $uiResponse=Invoke-WebRequest -Method Get -Uri ($base+"/") -TimeoutSec 20
+    $uiHtml=[string]$uiResponse.Content
+    $mainMenuMatch=[regex]::Match($uiHtml,'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">')
+    $mainMenu=if($mainMenuMatch.Success){$mainMenuMatch.Groups[1].Value}else{""}
+    $uiCurrent=(
+      $uiHtml -match 'data-krishna-ui="2026\.09-current"' -and
+      $uiHtml -match 'name="krishna-ui-version" content="2026\.09-current"' -and
+      $mainMenu -match "showView\('home'\)" -and
+      $mainMenu -match "showView\('sudarshan'\)" -and
+      $mainMenu -match "showView\('plugins'\)" -and
+      $mainMenu -notmatch "showView\('(kabach|garuda|garudanetra|brahmagyan|gyan|narad|specialists|developer|work|activity|system)'\)" -and
+      $uiHtml -match 'SUDARSHAN CLEAN CHAT MODE' -and
+      $uiHtml -match '#sudarshan \.sudarshanBar\{\s*display:none !important;' -and
+      $uiHtml -match '#sudarshan \.holoRail\{\s*display:none !important;'
+    )
+    if($uiCurrent){
+      Add-Check "Current KRISHNA UI" "PASS" "2026.09 current design; minimal MAIN MENU + clean Sudarshan conversation workspace" @{version="2026.09-current";main_menu=$mainMenu}
+    }else{
+      Add-Check "Current KRISHNA UI" "FAIL" "Old or mismatched KRISHNA desktop design detected" @{version_marker=($uiHtml -match '2026\.09-current');main_menu=$mainMenu}
+    }
+  }catch{
+    Add-Check "Current KRISHNA UI" "FAIL" $_.Exception.Message $null
+  }
+
   $integrity=Get-Json "/api/runtime/integrity"
   if($integrity.status -eq "SYNCED"){Add-Check "Deployment integrity" "PASS" ("SYNCED "+$integrity.commit) $integrity}
   else{Add-Check "Deployment integrity" "FAIL" ($integrity.status+" - source/runtime must match") $integrity}
