@@ -3,7 +3,8 @@ import unittest
 from pathlib import Path
 
 from krishna_core.project_perfection_execution import (
-    DesignStudio, MutationRunner, RegressionPersister, VisualBaselineStore,
+    BrowserRegressionRunner, DesignStudio, MutationRunner, RegressionManifest,
+    RegressionPersister, VisualBaselineStore,
 )
 
 
@@ -26,6 +27,23 @@ class ExecutionTests(unittest.TestCase):
             self.assertEqual(out["executed"],1)
             self.assertTrue(out["passed"])
             self.assertEqual(path.read_text(encoding="utf-8"),original)
+
+    def test_regression_manifest_persists_portable_routes_and_replays(self):
+        with tempfile.TemporaryDirectory() as td:
+            store=RegressionManifest()
+            receipt=store.persist(td,"demo",{
+                "nodes":[{"url":"http://127.0.0.1:9999/"},{"url":"http://127.0.0.1:9999/settings?tab=ui"}],
+                "edges":[],
+            })
+            self.assertEqual(receipt["route_count"],2)
+            manifest=store.load(td,"demo")
+            self.assertIn("/settings?tab=ui",manifest["routes"])
+            class Browser:
+                def inspect(self,url):
+                    return {"ok":True,"findings":[],"layout":{}}
+            replay=BrowserRegressionRunner().run(Browser(),"http://127.0.0.1:1234/app",manifest)
+            self.assertTrue(replay["passed"])
+            self.assertTrue(any("127.0.0.1:1234" in x["url"] for x in replay["routes"]))
 
     def test_visual_baseline_creation_and_exact_match(self):
         with tempfile.TemporaryDirectory() as td:
