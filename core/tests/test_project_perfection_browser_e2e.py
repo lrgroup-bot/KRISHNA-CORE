@@ -20,7 +20,7 @@ class ProjectPerfectionBrowserE2E(unittest.TestCase):
 <style>body{font-family:sans-serif}main{max-width:800px;margin:auto}.row{display:flex;gap:12px}</style></head>
 <body><main><h1>QA Home</h1><a href="/second.html">Second</a>
 <label>Name <input id="name" name="name"></label>
-<select id="choice"><option value="a">A</option><option value="b">B</option></select>
+<label>Choice <select id="choice"><option value="a">A</option><option value="b">B</option></select></label>
 <div class="row"><button id="ping" onclick="document.getElementById('out').textContent='pong'">Ping</button></div>
 <p id="out">ready</p></main></body></html>""",encoding="utf-8")
         (root/"second.html").write_text("""<!doctype html><html lang="en"><head><title>Second</title></head>
@@ -50,6 +50,7 @@ class ProjectPerfectionBrowserE2E(unittest.TestCase):
 
         a11y=browser.accessibility_scan(self.url)
         self.assertTrue(a11y["passed"],a11y)
+        self.assertTrue(a11y["axe"]["available"],a11y)
 
         chaos=browser.chaos_scan(self.url)
         self.assertTrue(chaos["passed"],chaos)
