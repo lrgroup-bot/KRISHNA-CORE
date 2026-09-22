@@ -149,7 +149,7 @@ class VisualBaselineStore:
 class MutationRunner:
     """Apply reversible mutations only inside isolated candidate workspaces."""
 
-    EXTENSIONS={".py",".js",".jsx",".ts",".tsx",".java"}
+    EXTENSIONS={".py",".js",".jsx",".ts",".tsx",".java",".html",".htm",".css",".scss"}
     EXCLUDES={".git",".venv","node_modules","dist","build",".krishna_state"}
 
     @staticmethod
@@ -157,6 +157,17 @@ class MutationRunner:
         rules=[]
         if suffix==".py":
             rules=[(" is None"," is not None"),(" == "," != "),(" True"," False"),(" False"," True")]
+        elif suffix in {".html",".htm"}:
+            lower=text.lower()
+            if "</head>" in lower:
+                idx=lower.index("</head>")
+                return text[:idx]+'<style data-krishna-mutant>html body{visibility:hidden!important}</style>'+text[idx:],"hide rendered body"
+            if "<body" in lower:
+                idx=lower.index(">",lower.index("<body"))
+                return text[:idx+1]+'<div style="position:fixed;left:-99999px">KRISHNA_MUTANT</div>'+text[idx+1:],"inject offscreen layout mutant"
+            return None
+        elif suffix in {".css",".scss"}:
+            return "html body{visibility:hidden!important}\n"+text,"hide rendered body"
         else:
             rules=[(" === "," !== "),(" == "," != "),(" true"," false"),(" false"," true")]
         for old,new in rules:
