@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import json
 import re
+import threading
 import time
 
 
@@ -28,6 +29,22 @@ class HawkeyeDiagnosticRuntime:
     def __init__(self, state_dir: str | Path):
         self.state_dir = Path(state_dir)
         self.state_dir.mkdir(parents=True, exist_ok=True)
+        self.reference_registry = None
+        self.worker_runtime = None
+        self.governor = None
+        self._worker_lock = threading.RLock()
+        self._worker_active = False
+        self._worker_last = {}
+        self._worker_status = {}
+
+    def bind_reference_registry(self, registry):
+        self.reference_registry = registry
+        return self.status()
+
+    def bind_worker_runtime(self, worker_runtime, governor):
+        self.worker_runtime = worker_runtime
+        self.governor = governor
+        return self.status()
 
     @classmethod
     def should_activate(cls, goal: str) -> bool:
@@ -196,6 +213,23 @@ class HawkeyeDiagnosticRuntime:
             "components": components, "flows": flows, "test_points": test_points,
             "diagram_mode": diagram_mode, "accuracy_note": accuracy_note,
         }
+        reference_id=self._text(sensors.get("reference_id"),120)
+        anchors=sensors.get("reference_anchors") or []
+        if reference_id and self.reference_registry is not None and isinstance(anchors,list) and len(anchors)>=3:
+            try:
+                aligned=self.reference_registry.overlay(reference_id,anchors)
+                result["overlay"]=aligned
+                result["components"]=aligned["components"]
+                result["flows"]=aligned["flows"]
+                result["test_points"]=aligned.get("test_points") or []
+                result["diagram_mode"]="reference-aligned"
+                result["accuracy_note"]=aligned["accuracy_note"]
+                result["needs_reference"]=False
+                result["reference_type"]=aligned.get("reference_kind") or result["reference_type"]
+                result["reference_id"]=reference_id
+                result["registration_rms"]=aligned.get("registration_rms")
+            except Exception as exc:
+                result.setdefault("warnings",[]).append("Reference alignment unavailable: "+str(exc)[:180])
         if not obj:
             result.update({"confidence": 0.0, "evidence_state": "UNKNOWN", "components": [], "flows": [], "test_points": []})
             result["overlay"].update({"components": [], "flows": [], "test_points": []})
@@ -224,6 +258,51 @@ class HawkeyeDiagnosticRuntime:
             raise KeyError(session_id)
         return json.loads(path.read_text(encoding="utf-8"))
 
+    @staticmethod
+    def _worker_specialty(goal, modality):
+        text=str(goal or "").lower()
+        if modality=="audio" or any(x in text for x in ("sound","noise","vibration","bearing")):return "AcousticDiagnosticWorker"
+        if any(x in text for x in ("vehicle","truck","car","bus","bike","motorcycle","obd","can bus","j1939","ecu","engine")):return "VehicleDiagnosticWorker"
+        if any(x in text for x in ("circuit","pcb","board","motherboard","electronic","wiring","relay","fuse","connector","voltage")):return "ElectronicsDiagnosticWorker"
+        return None
+
+    def maybe_dispatch_worker(self, session_id, result, *, goal="", modality="image", evidence=None):
+        specialty=self._worker_specialty(goal,modality)
+        if not specialty or self.worker_runtime is None or self.governor is None:return {"status":"not_needed"}
+        now=time.time();key=self._safe_id(session_id)+":"+specialty
+        confidence=float((result or {}).get("confidence") or 0.0);warnings=(result or {}).get("warnings") or []
+        if modality=="image" and confidence>=0.85 and not warnings and not (result or {}).get("needs_reference",False):return {"status":"not_needed","reason":"high_confidence_no_escalation"}
+        with self._worker_lock:
+            if self._worker_active:return {"status":"busy","specialty":specialty}
+            if now-float(self._worker_last.get(key) or 0)<60:return {"status":"cooldown","specialty":specialty}
+            self._worker_active=True;self._worker_last[key]=now;self._worker_status[key]={"status":"queued","specialty":specialty,"at":now}
+        task={
+            "goal":str(goal or "")[:1000],"modality":str(modality or "image"),
+            "analysis":str((result or {}).get("analysis") or "")[:5000],
+            "confidence":confidence,"evidence_state":str((result or {}).get("evidence_state") or "UNKNOWN"),
+            "warnings":warnings[:8],"needs_reference":bool((result or {}).get("needs_reference",False)),
+            "pc_evidence":dict(evidence or {}),
+        }
+        def run():
+            try:
+                request={
+                    "status":"approved","approved_by":"KRISHNA","requested_count":1,"manager":"HAWKEYE DIAGNOSTIC","role":specialty,
+                    "assignments":[{"specialty":specialty,"task":"Review the bounded diagnostic evidence summary, identify the most supported fault hypotheses, and specify the next safest measurement/test. Do not invent measurements."}],
+                    "retention_policy":"findings_and_provenance_only","allow_sub_shishyas":False,
+                }
+                with self.governor.job(timeout=0):
+                    receipt=self.worker_runtime.execute("KRISHNA",request,json.dumps(task,ensure_ascii=False),"local_only")
+                state={"status":"completed","specialty":specialty,"at":time.time(),"destroyed":bool(receipt.get("destroyed")),"worker_count":len(receipt.get("workers") or [])}
+            except Exception as exc:
+                state={"status":"deferred","specialty":specialty,"at":time.time(),"error":f"{type(exc).__name__}: {exc}"[:300]}
+            with self._worker_lock:
+                self._worker_status[key]=state;self._worker_active=False
+        threading.Thread(target=run,name="hawkeye-diagnostic-worker",daemon=True).start()
+        return {"status":"queued","specialty":specialty,"cooldown_seconds":60}
+
+    def worker_status(self):
+        with self._worker_lock:return {"active":self._worker_active,"recent":dict(self._worker_status)}
+
     def status(self):
         return {
             "specialist": self.SPECIALIST_NAME, "specialist_id": self.SPECIALIST_ID,
@@ -231,5 +310,8 @@ class HawkeyeDiagnosticRuntime:
             "temporary_workers": list(self.TEMPORARY_WORKERS), "live_overlay": True,
             "overlay_schema": "hawkeye.diagnostic-overlay.v1", "camera_only_diagram_mode": "visual-inference",
             "reference_alignment": ["schematic", "boardview", "netlist", "service-manual"],
-            "main_loop_blocking": False, "session_count": len(list(self.state_dir.glob("*.json"))), "ready": True,
+            "main_loop_blocking": False, "session_count": len(list(self.state_dir.glob("*.json"))),
+            "reference_registry_bound": self.reference_registry is not None,
+            "worker_runtime_bound": self.worker_runtime is not None,
+            "worker_dispatch": self.worker_status(), "ready": True,
         }
