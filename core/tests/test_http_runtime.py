@@ -329,17 +329,53 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertFalse(self.call("/api/capabilities")[1]["mutating_actions_enabled"])
 
     def test_gyan_typed_supersession_approval(self):
-        code,p=self.call("/api/gyan-bhandar/propose",{"project":"KRISHNA","topic":"HTTP memory","lesson":"first","memory_kind":"semantic","provenance":{"source":"http"}})
+        low_code,low=self.call("/api/gyan-bhandar/propose",{
+            "project":"KRISHNA","topic":"HTTP low maturity","lesson":"raw candidate","memory_kind":"semantic",
+            "evidence":[{"source_ref":"http-low"}],"confidence":0.6,
+            "provenance":{"source_ref":"http-low","maturity":"L1","evidence_status":"candidate"},
+        })
+        self.assertEqual(low_code,202)
+        self.assertTrue(low["routed_to_rishi"])
+        self.assertTrue(low["requires_more_learning"])
+        self.assertIsNone(low["approval_id"])
+
+        code,p=self.call("/api/gyan-bhandar/propose",{
+            "project":"KRISHNA","topic":"HTTP memory","lesson":"first","memory_kind":"semantic",
+            "evidence":[{"source_ref":"http-e1"}],"confidence":0.8,
+            "provenance":{"source_ref":"http-e1","maturity":"L3","evidence_status":"provisional_supported"},
+        })
         self.assertEqual(code,202)
+        self.assertTrue(p["brahma"]["routed_to_rishi"])
+        self.assertTrue(p["approval_id"])
         code,d=self.call("/api/gyan-bhandar/decide",{"approval_id":p["approval_id"],"approved":True})
         self.assertEqual(code,200); fp=d["learning"]["fingerprint"]
-        code,p2=self.call("/api/gyan-bhandar/supersede",{"project":"KRISHNA","fingerprint":fp,"topic":"HTTP memory","lesson":"second","memory_kind":"semantic","provenance":{"reason":"new evidence"}})
+        code,p2=self.call("/api/gyan-bhandar/supersede",{
+            "project":"KRISHNA","fingerprint":fp,"topic":"HTTP memory","lesson":"second","memory_kind":"semantic",
+            "evidence":[{"source_ref":"http-e2"}],"confidence":0.82,
+            "provenance":{"source_ref":"http-e2","maturity":"L3","evidence_status":"provisional_supported","reason":"new evidence"},
+        })
         self.assertEqual(code,202)
+        self.assertTrue(p2["approval_id"])
         self.assertEqual(self.call("/api/gyan-bhandar/decide",{"approval_id":p2["approval_id"],"approved":True})[0],200)
         rows=self.call("/api/gyan-bhandar?project=KRISHNA&include_superseded=1")[1]["learnings"]
         self.assertTrue(any(x["status"]=="superseded" for x in rows))
         inv=self.call("/api/gyan-bhandar/inventory?project=KRISHNA")[1]
         self.assertGreaterEqual(inv["kinds"]["semantic"]["superseded"],1)
+
+    def test_gyan_direct_store_is_evidence_only(self):
+        code,blocked=self.call("/api/gyan-bhandar/store",{
+            "project":"KRISHNA","topic":"bypass","lesson":"must not become semantic truth",
+            "memory_kind":"semantic","verified":True,
+        })
+        self.assertEqual(code,403)
+        self.assertIn("Rishi",blocked["error"])
+        code,stored=self.call("/api/gyan-bhandar/store",{
+            "project":"KRISHNA","topic":"runtime evidence","lesson":"verified runtime event",
+            "memory_kind":"evidence","verified":True,"evidence":[{"run_id":"r1"}],
+            "provenance":{"run_id":"r1"},
+        })
+        self.assertEqual(code,201)
+        self.assertEqual(stored["memory_kind"],"evidence")
 
     def test_brahmagyan_deep_mission_is_action_native_and_not_instant_truth(self):
         code,status=self.call("/api/brahmagyan/status")
