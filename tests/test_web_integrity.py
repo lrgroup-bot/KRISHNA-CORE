@@ -72,6 +72,20 @@ class WebIntegrityTests(unittest.TestCase):
         self.assertIn('src="/assets/avatar-engine/model-viewer/model-viewer.min.js"',self.text)
         self.assertNotIn('ajax.googleapis.com/ajax/libs/model-viewer',self.text)
 
+    def test_v6_popup_agent_rail_and_voice_contract(self):
+        for element_id in ("agentRail","agentGaruda","agentKabach","agentGarudanetra","agentNarad","agentBrahmagyan","agentGyan",
+                           "krishnaPopupLauncher","krishnaPopup","krishnaPopupBody","krishnaPopupInput","krishnaMic","krishnaVoiceLang"):
+            self.assertIn(f'id="{element_id}"',self.text)
+        self.assertIn("function refreshAgentRail()",self.text)
+        self.assertIn("function sendKrishnaPopup()",self.text)
+        self.assertIn("function toggleKrishnaVoice()",self.text)
+        self.assertIn('value="en-IN"',self.text)
+        self.assertIn('value="hi-IN"',self.text)
+        self.assertIn('value="or-IN"',self.text)
+        self.assertIn(".top{display:none!important}",self.text)
+        self.assertIn(".homeLegacyDetails{display:none!important}",self.text)
+        self.assertIn('id="chatSearch"',self.text)
+
 
 if __name__=="__main__":
     unittest.main()
