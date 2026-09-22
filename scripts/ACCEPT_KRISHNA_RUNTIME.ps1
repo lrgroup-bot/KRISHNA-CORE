@@ -96,6 +96,7 @@ try{
       $exec.design_studio -and
       $exec.point_to_source_mapping -and
       $exec.candidate_visual_edit -and
+      $exec.hawkeye_ui_review -and
       $exec.finish_project_pipeline
     )
     if($ready){
