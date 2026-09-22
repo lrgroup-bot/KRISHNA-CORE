@@ -62,7 +62,7 @@ const frame=document.getElementById('frame'), overlay=document.getElementById('o
 const selectedEl=document.getElementById('selected'), statusEl=document.getElementById('status'), candidateEl=document.getElementById('candidate');
 const instruction=document.getElementById('instruction'), action=document.getElementById('action'), applyBtn=document.getElementById('apply');
 document.getElementById('headline').textContent=project+(session?' · '+session.slice(0,8):'');
-let picked=null,start=null,current=null,promotionToken='',refreshTimer=null,frameVersion=0;
+let picked=null,start=null,current=null,lastDrag=null,selectedPoint=null,sessionViewport={width:1,height:1},promotionToken='',refreshTimer=null,frameVersion=0;
 
 function norm(ev){
  const r=overlay.getBoundingClientRect();
@@ -85,7 +85,7 @@ async function pickAt(p){
  const out=await r.json(); if(!r.ok||!out.element){picked=null;selectedEl.textContent=out.error||'No selectable element at this point.';drawRect('box',null);return}
  picked=out.element;
  const vp=await fetch('/api/garudanetra/session?id='+encodeURIComponent(session)).then(x=>x.json()).catch(()=>({}));
- const vw=Number((vp.viewport||{}).width||1),vh=Number((vp.viewport||{}).height||1);
+ const vw=Number((vp.viewport||{}).width||1),vh=Number((vp.viewport||{}).height||1);sessionViewport={width:vw,height:vh};
  drawRect('box',[Number(picked.x||0)/vw,Number(picked.y||0)/vh,Number(picked.width||0)/vw,Number(picked.height||0)/vh]);
  selectedEl.textContent=(picked.role||picked.tag||'element')+' · '+(picked.name||picked.text||picked.selector_hint||'unnamed')+'\n'+(picked.selector_hint||'');
 }
@@ -93,20 +93,21 @@ overlay.addEventListener('pointerdown',ev=>{start=norm(ev);current=start;overlay
 overlay.addEventListener('pointermove',ev=>{if(!start)return;current=norm(ev);drawRect('drag',boxFrom(start,current))});
 overlay.addEventListener('pointerup',async ev=>{
  current=norm(ev);try{overlay.releasePointerCapture(ev.pointerId)}catch(e){}
- const distance=Math.hypot(current.x-start.x,current.y-start.y),origin=start;start=null;
+ const distance=Math.hypot(current.x-start.x,current.y-start.y),origin=start,destination=current;start=null;
+ selectedPoint=origin;lastDrag=distance>.025?{from:origin,to:destination}:null;
  await pickAt(origin);
- if(distance>.025){action.value='move'; if(!instruction.value.trim())instruction.value='Move the selected element to the dragged position while preserving responsive layout, accessibility, and existing functionality.'}
+ if(lastDrag){action.value='move'; if(!instruction.value.trim())instruction.value='Move the selected element to the dragged position while preserving responsive layout, accessibility, and existing functionality.'}
 });
 overlay.addEventListener('pointercancel',()=>{start=null;drawRect('drag',null)});
 
 document.getElementById('stage').onclick=async()=>{
  if(!picked){statusEl.textContent='Select an element first.';return}
- const p=start||current||{x:.5,y:.5};
- const from=current&&picked?[
-   Number(picked.x||0)/Math.max(frame.naturalWidth||1,1),Number(picked.y||0)/Math.max(frame.naturalHeight||1,1),
-   Number(picked.width||0)/Math.max(frame.naturalWidth||1,1),Number(picked.height||0)/Math.max(frame.naturalHeight||1,1)
+ const p=selectedPoint||current||{x:.5,y:.5};
+ const from=picked?[
+   Number(picked.x||0)/Math.max(sessionViewport.width,1),Number(picked.y||0)/Math.max(sessionViewport.height,1),
+   Number(picked.width||0)/Math.max(sessionViewport.width,1),Number(picked.height||0)/Math.max(sessionViewport.height,1)
  ]:null;
- const to=(current&&p)?boxFrom(p,current):null;
+ const to=lastDrag&&from?[from[0]+(lastDrag.to.x-lastDrag.from.x),from[1]+(lastDrag.to.y-lastDrag.from.y),from[2],from[3]]:null;
  statusEl.textContent='Staging source patch and running verification…';applyBtn.disabled=true;promotionToken='';
  const body={project,session_id:session,x:(p.x||0),y:(p.y||0),action:action.value,instruction:instruction.value.trim(),
              replacement_text:document.getElementById('replacement').value||null,from_box:from,to_box:to,
@@ -126,7 +127,7 @@ document.getElementById('stage').onclick=async()=>{
 applyBtn.onclick=async()=>{
  if(!promotionToken)return;
  applyBtn.disabled=true;statusEl.textContent='Applying verified candidate, then re-running live verification…';
- const body={project,promotion_token:promotionToken,frontend_url:frontend||null,hawkeye_ui_required:true};
+ const body={project,promotion_token:promotionToken,session_id:session,frontend_url:frontend||null,hawkeye_ui_required:true};
  const r=await fetch('/api/project-perfection/visual-edit/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
  const out=await r.json();candidateEl.textContent=JSON.stringify(out,null,2);
  if(r.ok&&out.applied&&out.post_verification&&out.post_verification.passed){
