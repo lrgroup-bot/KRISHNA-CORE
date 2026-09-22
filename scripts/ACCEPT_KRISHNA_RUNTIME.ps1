@@ -89,7 +89,7 @@ try{
   }
 
   $requirements=Get-Json "/api/requirements"
-  if($requirements.requirement_count -ge 35){Add-Check "Chat requirements ledger" "PASS" ($requirements.requirement_count.ToString()+" canonical requirements") $requirements}
+  if($requirements.requirement_count -ge 150 -and $requirements.version -eq "2026-09-23-master-ledger-v1"){Add-Check "Chat requirements ledger" "PASS" ($requirements.requirement_count.ToString()+" canonical requirements; master ledger v1") $requirements}
   else{Add-Check "Chat requirements ledger" "FAIL" "Requirement ledger is incomplete" $requirements}
 
   try{
@@ -141,7 +141,7 @@ try{
   try{
     $actionBus=Get-Json "/api/action-bus"
     $actionNames=@($actionBus.actions|ForEach-Object{$_.name})
-    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","project.rename","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","worker.ephemeral.execute","browser.inspect","browser.testing_lead","project.design.research","project.design.implement","project.visual_edit.implement","project.perfection.finish","development.git.status","development.git.commit","development.git.push","development.sync","development.stage","development.verify","work.managed.run","repair.shadow","promotion.prepare","promotion.apply","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment","brahmagyan.mission.create","brahmagyan.questions.add","brahmagyan.deep.discover","brahmagyan.claim.record","brahmagyan.evidence.add","brahmagyan.contradiction.resolve","brahmagyan.claim.advance","brahmagyan.claim.compile","brahmagyan.claim.promote","brahmagyan.curiosity.add","brahmagyan.gaps.generate","brahmagyan.council.propose","brahmagyan.background.check","brahmagyan.shishya.plan","brahmagyan.shishya.execute")
+    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","project.rename","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","worker.ephemeral.execute","browser.inspect","browser.testing_lead","project.design.research","project.design.implement","project.visual_edit.implement","project.perfection.finish","development.git.status","development.git.commit","development.git.push","development.sync","development.stage","development.verify","work.managed.run","repair.shadow","promotion.prepare","promotion.apply","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment","brahmagyan.mission.create","brahmagyan.questions.add","brahmagyan.deep.discover","brahmagyan.claim.record","brahmagyan.evidence.add","brahmagyan.contradiction.resolve","brahmagyan.claim.advance","brahmagyan.claim.compile","brahmagyan.claim.promote","brahmagyan.curiosity.add","brahmagyan.gaps.generate","brahmagyan.council.propose","brahmagyan.background.check","brahmagyan.shishya.plan","brahmagyan.shishya.execute","plugin.credential.set","plugin.credential.delete","project.index","ui.guardian.register","ui.guardian.evaluate","ui.guardian.transition","commitment.update","mobile.pair.approve","model.gateway.register","model.gateway.delete","narad.connection.register","narad.connection.secret","narad.connection.delete","narad.webhook.provision","gyan.propose","gyan.decide","gyan.supersede","gyan.strengthen","attachment.add","autonomy.tick")
     $missing=@($needed|Where-Object{$_ -notin $actionNames})
     if($actionBus.owner -eq "KRISHNA Shared Action Bus" -and $missing.Count -eq 0){
       Add-Check "Shared Action Bus" "PASS" ("registered="+$actionBus.registered_actions+"; Projects/Chats wired") $actionBus
@@ -233,6 +233,39 @@ try{
       Add-Check "Unified dispatch" "PASS" ("action_id="+$dispatchProbe.action_id) $dispatchProbe
     }else{Add-Check "Unified dispatch" "FAIL" "Unified Dispatch did not produce an action receipt" $dispatchProbe}
   }catch{Add-Check "Agent-native runtime layers" "FAIL" $_.Exception.Message $null}
+
+  try{
+    $hawkeye=Get-Json "/api/hawkeye/status"
+    $diag=Get-Json "/api/hawkeye/diagnostic/status"
+    $specialistNames=@($hawkeye.specialists.psobject.Properties.Name)
+    $needSpecialists=@("PERCEPTION","PHYSIO","BEHAVIOR","TEMPORAL","DIAGNOSTIC","REASONER")
+    $missingHawkeye=@($needSpecialists|Where-Object{$_ -notin $specialistNames})
+    if($hawkeye.canonical_live_coordinator -and $missingHawkeye.Count -eq 0 -and $hawkeye.bhumiputra_role -match "field perception"){
+      Add-Check "Unified HAWKEYE live coordinator" "PASS" ("specialists="+($specialistNames -join ",")) $hawkeye
+    }else{Add-Check "Unified HAWKEYE live coordinator" "FAIL" ("missing="+($missingHawkeye -join ",")) $hawkeye}
+
+    $engineNames=@($diag.diagnostic_engines.psobject.Properties.Name)
+    if("electronics" -in $engineNames -and "vehicle" -in $engineNames -and "acoustic" -in $engineNames -and -not $diag.diagnostic_engines.vehicle.auto_transmit -and -not $diag.diagnostic_engines.vehicle.ecu_programming){
+      Add-Check "HAWKEYE diagnostic engines" "PASS" "Electronics + read-only vehicle + acoustic evidence engines registered" $diag.diagnostic_engines
+    }else{Add-Check "HAWKEYE diagnostic engines" "FAIL" "Diagnostic engine registry is incomplete or unsafe" $diag.diagnostic_engines}
+
+    if($hawkeye.perception.sensitive_input_guard.return_secret_value -eq $false -and $hawkeye.perception.face_recognition.unknown_person_identity -eq "UNKNOWN"){
+      Add-Check "BHUMIPUTRA privacy-bounded perception" "PASS" "Credential values are redacted; unknown identity remains UNKNOWN" $hawkeye.perception
+    }else{Add-Check "BHUMIPUTRA privacy-bounded perception" "FAIL" "Field perception privacy contract mismatch" $hawkeye.perception}
+
+    $fieldProbe=Post-Json "/api/hawkeye/geo/survey" @{
+      site_id="acceptance-field";
+      boundary=@(
+        @{lat=20.3000;lon=85.8000},
+        @{lat=20.3000;lon=85.8010},
+        @{lat=20.3010;lon=85.8010},
+        @{lat=20.3010;lon=85.8000}
+      )
+    }
+    if([double]$fieldProbe.area_m2 -gt 1000 -and [double]$fieldProbe.perimeter_m -gt 100 -and $fieldProbe.evidence_state -eq "MEASURED"){
+      Add-Check "HAWKEYE field survey engine" "PASS" ("area_m2="+$fieldProbe.area_m2+" perimeter_m="+$fieldProbe.perimeter_m) $fieldProbe
+    }else{Add-Check "HAWKEYE field survey engine" "FAIL" "Field survey geometry contract failed" $fieldProbe}
+  }catch{Add-Check "HAWKEYE consolidated runtime" "FAIL" $_.Exception.Message $null}
 
   $narad=Get-Json "/api/narad/status"
   if($narad.name -eq "NARAD" -and $narad.sudarshan_bound -and $narad.workflow_engine -eq "typed-dag/sudarshan"){
@@ -485,6 +518,14 @@ try{
       }else{Add-Check "Canonical mobile runtime" "FAIL" "MOBILE_RUNTIME.json does not declare mobile_v3 authority" $mobileManifest}
     }catch{Add-Check "Canonical mobile runtime" "FAIL" $_.Exception.Message $null}
   }else{Add-Check "Canonical mobile runtime" "FAIL" "mobile_v3 deployed source/manifest is missing" $null}
+
+  $wakeSource=Join-Path $RuntimeRoot "mobile\app-source\KrishnaWakeService.java"
+  if(Test-Path $wakeSource){
+    $wakeCode=Get-Content $wakeSource -Raw
+    if($wakeCode -match "createOnDeviceSpeechRecognizer" -and $wakeCode -match "wake_is_authentication" -and $wakeCode -match "local_only"){
+      Add-Check "Android local wake source" "PASS" "On-device Krishna wake service deployed; wake remains activation only" @{path=$wakeSource}
+    }else{Add-Check "Android local wake source" "FAIL" "Deployed wake source does not satisfy local-only activation contract" @{path=$wakeSource}}
+  }else{Add-Check "Android local wake source" "FAIL" "KrishnaWakeService.java is missing from canonical mobile deployment" $null}
 
   $mobile=Get-Json "/api/mobile/connection"
   Add-Check "Mobile bridge" ($(if($mobile.connected){"PASS"}else{"WARN"})) ($(if($mobile.connected){"paired mobile is live"}else{"no paired mobile currently connected"})) $mobile
