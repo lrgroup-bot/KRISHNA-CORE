@@ -92,7 +92,7 @@ class KrishnaProjectAudit:
                 if isinstance(node,ast.Call):
                     for kw in node.keywords:
                         if kw.arg=="shell" and isinstance(kw.value,ast.Constant) and kw.value.value is True:
-                            findings["dangerous"].append({"file":str(rel),"issue":"subprocess shell=True","line":getattr(node,"lineno",None)})
+                            findings["dangerous"].append({"file":str(rel),"issue":"subprocess shell execution enabled","line":getattr(node,"lineno",None)})
                     fn=node.func
                     if isinstance(fn,ast.Attribute) and isinstance(fn.value,ast.Name) and fn.value.id=="os" and fn.attr=="system":
                         findings["dangerous"].append({"file":str(rel),"issue":"os.system","line":getattr(node,"lineno",None)})
@@ -123,7 +123,7 @@ class KrishnaProjectAudit:
                 scan_python(rel,text)
             else:
                 for label,pattern in (
-                    ("shell=True",r"shell\s*=\s*True"),
+                    ("subprocess shell execution enabled",r"shell\s*=\s*True"),
                     ("TLS verify disabled",r"verify\s*=\s*False"),
                 ):
                     if re.search(pattern,text):
