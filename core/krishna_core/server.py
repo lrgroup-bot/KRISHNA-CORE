@@ -400,6 +400,33 @@ def _narad_webhook_provision_action(payload,context):
     if not wid:raise ValueError("workflow_id is required")
     return orch.agi.narad.provision_webhook(wid)
 
+def _kabach_dependencies_action(payload,context):
+    project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+    root=RUNTIME_ROOT if project=="KRISHNA" else Path((orch.projects.get(project) or (_ for _ in ()).throw(KeyError(project))).root)
+    return orch.kabach.audit_dependencies(root)
+
+def _kabach_domain_action(payload,context):
+    return orch.kabach.inspect_domain(str(payload.get("domain") or ""))
+
+def _kabach_ops_http_action(payload,context):
+    return orch.kabach.monitor_http(str(payload.get("url") or ""),approved_private=bool(context.get("approved")))
+
+def _kabach_business_action(payload,context):
+    return orch.kabach.normalize_public_businesses(payload.get("rows") or [])
+
+def _kabach_windows_plan_action(payload,context):
+    return orch.kabach.windows_remote_plan(
+        str(payload.get("host") or ""),str(payload.get("operation") or ""),
+        owned_or_authorized=bool(payload.get("owned_or_authorized",False)),
+        approved=bool(context.get("approved")),
+    )
+
+def _kabach_harness_begin_action(payload,context):
+    return orch.kabach.harness_begin(str(payload.get("goal") or ""))
+
+def _kabach_harness_evaluate_action(payload,context):
+    return orch.kabach.harness_evaluate(str(payload.get("harness_id") or ""),payload.get("checks") or [])
+
 for _name,_handler,_desc,_mutating,_approval,_permissions in (
     ("plugin.credential.set",_plugin_credential_set_action,"Store an encrypted plugin credential reference",True,True,("plugin.write","credential.write")),
     ("plugin.credential.delete",_plugin_credential_delete_action,"Delete an encrypted plugin credential reference",True,True,("plugin.write","credential.write")),
@@ -421,6 +448,13 @@ for _name,_handler,_desc,_mutating,_approval,_permissions in (
     ("attachment.add",_attachment_add_action,"Attach a bounded file to a persistent KRISHNA chat",True,False,("chat.write","filesystem.write")),
     ("autonomy.tick",_autonomy_tick_action,"Run one bounded safe autonomy-supervisor pass",True,False,("work.execute","runtime.read")),
     ("narad.webhook.provision",_narad_webhook_provision_action,"Provision a one-time-secret NARAD webhook endpoint",True,False,("narad.write",)),
+    ("kabach.dependencies.audit",_kabach_dependencies_action,"Inventory dependencies and generate a local SBOM without mutation",False,False,("security.read","project.read")),
+    ("kabach.domain.inspect",_kabach_domain_action,"Inspect DNS/TLS state for one explicit domain",False,False,("security.read","network.read")),
+    ("kabach.ops.http",_kabach_ops_http_action,"Check one explicit authorized HTTP endpoint without scanning",False,False,("security.read","network.read")),
+    ("kabach.business.normalize",_kabach_business_action,"Normalize supplied public-business facts without harvesting private data",False,False,("research.read",)),
+    ("kabach.windows.plan",_kabach_windows_plan_action,"Plan an authorized Windows management operation without executing transport",False,False,("security.read","device.read")),
+    ("kabach.harness.begin",_kabach_harness_begin_action,"Start a bounded maker/checker evidence harness",True,False,("work.write",)),
+    ("kabach.harness.evaluate",_kabach_harness_evaluate_action,"Evaluate maker/checker evidence and require verified or blocked completion",True,False,("work.write","tests.run")),
 ):
     orch.action_bus.register(
         _name,_handler,description=_desc,mutating=_mutating,requires_approval=_approval,
