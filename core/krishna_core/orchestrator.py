@@ -2064,7 +2064,18 @@ class Orchestrator:
             for name in policy.verification_checks:
                 fn=self._verification_checks.get((project,name))
                 if fn: checks.append((name,lambda fn=fn,root=root:fn(root)))
-            return self.verifier.run(checks)
+            if checks:
+                return self.verifier.run(checks)
+            if policy.verification_checks:
+                dev=self.development.verify(root,list(policy.verification_checks))
+                return {
+                    "verified":bool(dev.get("verified")),
+                    "checks":list(dev.get("steps") or []),
+                    "passed":sum(1 for x in dev.get("steps") or [] if x.get("ok")),
+                    "failed":sum(1 for x in dev.get("steps") or [] if not x.get("ok")),
+                    "source":"DevelopmentOperator",
+                }
+            return {"verified":False,"checks":[],"passed":0,"failed":0,"reason":"no verification checks registered"}
         result=self.promotions.promote(project,policy.root,item["candidate_root"],verify)
         self.memory.audit(token,result["status"],project)
         if item.get("task_id"):
