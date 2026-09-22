@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "version": "2026-09-21-minimal-sidebar-v1",
-  "source": "Consolidated from KRISHNA project conversations and verified repository decisions",
+  "version": "2026-09-23-master-ledger-v1",
+  "source": "Canonical KRISHNA requirements consolidated from project conversations and verified repository decisions through 2026-09-23",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
     "KRISHNA is standalone and independent; E:\\KRISHNA-SOURCE is authoritative code and E:\\Krishna-The GOD is runtime/state/models/assets.",
@@ -17,7 +17,12 @@
     "Garuda is the research/evidence scout; Garudanetra is the browser/computer fabric. Neither replaces KRISHNA authority.",
     "Every operational dashboard control must resolve to a real runtime contract; mutating priority controls use the Shared Action Bus and receive auditable action receipts.",
     "Every delegated capability enters through Sudarshan's permissioned Action/Job architecture and leaves through the independent verifier; no framework gains authority by being powerful.",
-    "PC human navigation stays minimal: Main Menu exposes only KRISHNA, Sudarshan and Plugins; Projects are expandable folders with nested project chats and Rename/Delete/Share actions; global Chats stays separate with a New Chat control. Internal KRISHNA systems remain runtime capabilities rather than sidebar clutter."
+    "PC human navigation stays minimal: Main Menu exposes only KRISHNA, Sudarshan and Plugins; Projects are expandable folders with nested project chats and Rename/Delete/Share actions; global Chats stays separate with a New Chat control. Internal KRISHNA systems remain runtime capabilities rather than sidebar clutter.",
+    "Every user-approved KRISHNA idea must exist in this canonical ledger before implementation is called complete; implementation sessions must not rely on chat memory alone.",
+    "Do not blindly merge stale or diverged feature branches. Reconcile useful changes onto the current integration line and preserve tests/evidence.",
+    "Exactly one canonical mobile runtime and one canonical live HAWKEYE coordinator are allowed; compatibility copies must be explicitly marked and must not become competing authorities.",
+    "Unused, duplicated, legacy and compatibility modules must be discoverable by the architecture audit; deletion requires proof that no runtime/deployment path still depends on them.",
+    "Implemented means more than source presence: applicable unit, integration, Windows/Android/device and post-deploy evidence must be recorded before VERIFIED."
   ],
   "groups": [
     {
@@ -221,6 +226,91 @@
         "WearableBridge records only verified device capabilities; vendor camera/display/gesture support is never claimed before hardware adapter testing.",
         "Phase 1 wearable bridge is Bluetooth audio/microphone/speaker plus phone camera; vendor display/camera and gesture/IMU/wrist/ring remain capability-gated."
       ]
+    },
+    {
+      "id": "mobile_edge_intelligence",
+      "title": "Mobile edge intelligence and evidence lifecycle",
+      "requirements": [
+        "MobileEdgeBot is the phone-side load governor for camera evidence: adaptive sampling, compression, deduplication, battery/thermal/network awareness and bounded storage.",
+        "EvidenceCuratorBot decides what evidence is worth keeping; heavy raw camera streams are not sent continuously to the PC.",
+        "Selected mobile evidence is encrypted at rest, retained until durable PC acknowledgement, then eligible for deletion; unselected/stale/over-budget evidence is deleted locally.",
+        "Phone-only offline Hawkeye must continue useful local capture and lightweight perception without Internet/Wi-Fi/LAN, then synchronize selected evidence later.",
+        "PC performs heavy reasoning only when needed and only on curator-selected evidence; resource governance must prevent PC or mobile overload.",
+        "Repository mobile_v3 and deployed mobile companion must converge into one canonical Android runtime before stable release."
+      ]
+    },
+    {
+      "id": "hawkeye_live_intelligence",
+      "title": "HAWKEYE unified live intelligence",
+      "requirements": [
+        "HAWKEYE is one coordinated live intelligence system, not six disconnected labels or learning-only definitions.",
+        "PERCEPTION answers what is actually seen/heard; PHYSIO handles measurable physical signals; BEHAVIOR handles observable actions; TEMPORAL compares change over time; DIAGNOSTIC forms fault hypotheses and next tests; REASONER fuses independent evidence and uncertainty.",
+        "All six specialists receive bounded evidence through one Hawkeye coordinator and produce typed MEASURED / OBSERVED / INFERRED / PREDICTED / UNKNOWN outputs.",
+        "The coordinator must separate live perception from long-term Hawkeye learning; research findings cannot directly overwrite production behavior.",
+        "Hawkeye may learn through KRISHNA/Rishi research, sandboxing, benchmarks, provenance, security/license checks and verified promotion.",
+        "Mobile camera/audio/sensors are first-class Hawkeye inputs; future glasses are another Device Mesh node, not a separate brain."
+      ]
+    },
+    {
+      "id": "bhumiputra_field_perception",
+      "title": "BHUMIPUTRA field and visible-structure perception",
+      "requirements": [
+        "BHUMIPUTRA handles terrain/quarry, road, building, bridge, tower, machinery and utility visible-scene inspection behind HAWKEYE/KRISHNA.",
+        "Building analysis includes visible structural system/components, floors/openings/facade/roof/access, apparent materials, visible deterioration and measurement only with scale/depth evidence.",
+        "Field perception includes people/PPE counting and observable activity, OCR/signage/equipment labels, asset tags, requested vehicle plates, vehicles, electronics, hazards and temporal visible change.",
+        "Face matching is local-only and limited to explicitly enrolled/consented profiles; unknown identity remains UNKNOWN and sensitive traits are never inferred.",
+        "Authentication secrets visible in camera frames are never reconstructed, revealed, stored, synchronized or learned.",
+        "Camera-only terrain cannot claim mineral grade/reserves and camera-only structures cannot claim hidden reinforcement/foundation/load capacity without supporting evidence."
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "title": "Electronics vehicle and acoustic diagnostics",
+      "requirements": [
+        "ElectronicsDiagnosticWorker must evolve from a role/prompt into a bounded specialist engine using verified schematic/boardview/netlist/service-manual references plus instrument/telemetry evidence when available.",
+        "VehicleDiagnosticWorker must support read-only diagnostic adapters for OBD-II/CAN/J1939/ECU/service data where owner-authorized hardware exists; automatic ECU programming or CAN transmission is not implied.",
+        "AcousticDiagnosticWorker must support baseline-aware sound/vibration evidence and must not claim a specific hidden fault from sound alone without adequate corroboration.",
+        "HAWKEYE DIAGNOSTIC coordinates test -> measurement -> hypothesis -> next test -> repair -> retest and preserves uncertainty/evidence.",
+        "Live circuit overlays may show verified component/connectivity/power/signal flow only after reference alignment; otherwise overlays remain explicitly visual inference.",
+        "Hazardous-voltage and unsafe physical-test recommendations are blocked or clearly gated."
+      ]
+    },
+    {
+      "id": "geo_field_stack",
+      "title": "Geo field mapping survey and AR",
+      "requirements": [
+        "Field mapping combines OSM/MapLibre/PMTiles/Cesium/OpenDroneMap or NodeODM/KartaView/Bhuvan where terms permit, with provenance for every analytical layer.",
+        "Four-coordinate/geofence field jobs may guide camera scans, visible terrain/stone estimates, access/truck-route observation, terrain-safe path suggestions, overlays, spoken guidance and evidence recording.",
+        "Offline field packs support map/terrain/survey evidence without requiring continuous network access.",
+        "Photogrammetry/orthophoto/DEM/point-cloud/3D-mesh processing is a PC-heavy worker and must be resource governed.",
+        "Depth/ARCore/GNSS/RTK/IMU inputs are capability-gated; metric accuracy claims require calibrated evidence.",
+        "Historical/change analysis compares dated observations and preserves uncertainty; licensed map imagery is not silently cached or used for machine training contrary to terms."
+      ]
+    },
+    {
+      "id": "brahma_memory_intelligence",
+      "title": "BRAHMA memory intelligence and Gyan QC",
+      "requirements": [
+        "BRAHMA governs what needs to be learned and is the QC head for Gyan-Bhandar; scholarship/learning belongs to the Rishis.",
+        "BRAHMA supports bi-temporal knowledge, supersession, contradiction graphs, source-family independence, provenance fingerprints and point-in-time retrieval.",
+        "Learning-value decisions consider uncertainty, novelty, quality, importance, future reuse, Rishi knowledge gap and resource cost.",
+        "Idle-time consolidation may organize candidate memory but cannot silently promote trusted Gyan.",
+        "Memory quality is evaluated for precision/recall/F1 where testable, duplication, freshness, contradiction and provenance completeness.",
+        "Rishi collaboration graphs and blinded teach-back verification may test understanding before promotion.",
+        "Volatile/stale knowledge is queued for re-verification rather than silently deleted or trusted forever."
+      ]
+    },
+    {
+      "id": "release_governance",
+      "title": "Integration duplication and release governance",
+      "requirements": [
+        "One current integration line owns KRISHNA; historical feature branches and copied source bundles are not runtime authorities.",
+        "Every open/diverged PR is classified as merge/reconcile/supersede before stable release.",
+        "Branch protection/ruleset, required checks and deployment-manifest integrity are release governance requirements.",
+        "Static architecture audit reports duplicate module/class/function candidates, modules with no inbound references, compatibility copies and stale generated/source-tree artifacts.",
+        "A module reported unused is only a candidate for removal until dynamic entrypoints, packaging, scripts and deployment references are checked.",
+        "KRISHNA_SOURCE_TREE and test/release reports must be regenerated or clearly marked snapshots so they cannot contradict live source."
+      ]
     }
   ],
   "release_gates": [
@@ -249,6 +339,86 @@
     "No full n8n runtime process/dependency is required for KRISHNA Core.",
     "BRAHMAGYAN L0-L8 maturity gates, Rishi council manifests, dual-track knowledge discipline and provenance contracts pass.",
     "BRAHMAGYAN Shishya execution remains approval-gated, capped and temporary; no permanent research worker fleet is introduced.",
-    "Minimal sidebar contract passes: no internal runtime modules are exposed as Main Menu items; project delete preserves chats by moving them to global Chats."
+    "Minimal sidebar contract passes: no internal runtime modules are exposed as Main Menu items; project delete preserves chats by moving them to global Chats.",
+    "Unified HAWKEYE coordinator acceptance proves PERCEPTION/PHYSIO/BEHAVIOR/TEMPORAL/DIAGNOSTIC/REASONER evidence flow without parallel competing authorities.",
+    "BHUMIPUTRA live perception acceptance covers structures/terrain/OCR/assets/vehicle/electronics/hazards/temporal paths with credential redaction and consent-scoped face policy.",
+    "Mobile edge acceptance proves offline bounded capture, encrypted retention, selective sync, ACK-before-delete and one canonical Android runtime.",
+    "Electronics/vehicle/acoustic specialist adapters fail honestly when hardware/reference providers are absent and never fabricate measurements.",
+    "Architecture duplication/orphan audit is reviewed before stable release; compatibility copies are explicitly justified or removed.",
+    "All open/diverged KRISHNA PRs are reconciled or superseded against the canonical integration line before final packaging."
+  ],
+  "canonicality": {
+    "requirements_source": "core/requirements/krishna_chat_requirements.json",
+    "implementation_status_projection": "docs/KRISHNA_COMPLETION_MATRIX.md",
+    "rule": "A feature is not complete because a file, class, UI card, PR, or passing build exists. Completion requires the applicable source, integration, runtime/device and post-deploy evidence gates.",
+    "stale_artifacts_must_not_override_this_ledger": true
+  },
+  "status_model": [
+    "VERIFIED",
+    "IMPLEMENTED_RUNTIME_VERIFY",
+    "DEVICE_VERIFY",
+    "PARTIAL",
+    "MISSING",
+    "ROADMAP",
+    "SUPERSEDED",
+    "BLOCKED_ENVIRONMENT"
+  ],
+  "phase_order": [
+    {
+      "phase": 0,
+      "name": "Master requirements and evidence ledger"
+    },
+    {
+      "phase": 1,
+      "name": "Git branch and integration consolidation"
+    },
+    {
+      "phase": 2,
+      "name": "PC source-runtime integrity and core control plane"
+    },
+    {
+      "phase": 3,
+      "name": "PC UI control-by-control verification"
+    },
+    {
+      "phase": 4,
+      "name": "Canonical mobile runtime and edge intelligence"
+    },
+    {
+      "phase": 5,
+      "name": "Voice and production avatar"
+    },
+    {
+      "phase": 6,
+      "name": "Unified HAWKEYE live intelligence"
+    },
+    {
+      "phase": 7,
+      "name": "BHUMIPUTRA field perception"
+    },
+    {
+      "phase": 8,
+      "name": "Deep electronics vehicle and acoustic diagnostics"
+    },
+    {
+      "phase": 9,
+      "name": "BRAHMA Rishi Gyan knowledge lifecycle"
+    },
+    {
+      "phase": 10,
+      "name": "KABACH SOC and governed autonomy"
+    },
+    {
+      "phase": 11,
+      "name": "Geo field 2D 3D AR and survey stack"
+    },
+    {
+      "phase": 12,
+      "name": "Autonomous project completion and recovery"
+    },
+    {
+      "phase": 13,
+      "name": "Full Windows Android device acceptance and stable release"
+    }
   ]
 }
