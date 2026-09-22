@@ -59,6 +59,11 @@ Status: IN PROGRESS
    - The immediate post-restart `pidof` check could run before Android published the restarted PID.
    - Added bounded PID polling for both initial launch and restart, plus a regression test covering delayed PID publication.
 
+8. A later emulator run exposed another slow-runner race: the foreground launcher command could exceed its command timeout even though Android subsequently brought KRISHNA up and restart verification succeeded.
+   - Reworked Android launch/foreground/restart verification to gate on observed app PID plus Android top-activity state.
+   - Launcher-command timeout is retained as diagnostic evidence instead of being treated as a false runtime failure when the required foreground state is independently verified.
+   - Added regression coverage for delayed foreground publication.
+
 ### Merge-order rule
 
 The safe order is now fixed:
