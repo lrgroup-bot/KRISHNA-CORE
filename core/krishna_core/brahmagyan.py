@@ -181,9 +181,24 @@ class BrahmagyanRuntime:
             m["updated_at"]=self._now();self._save()
             return json.loads(json.dumps(m))
 
-    def perspective_plan(self,mission_id,limit=5):
+    def perspective_plan(self,mission_id,limit=5,preferred_rishis=None):
         m=self.mission(mission_id)
-        selected=self.council.select(f"{m['topic']} {m['question']}",max(1,min(int(limit),6)))
+        limit=max(3,min(int(limit),8))
+        preferred=[]
+        for rid in preferred_rishis or []:
+            rid=str(rid or "").strip().lower()
+            if not rid or rid in preferred:continue
+            self.council.get(rid)
+            preferred.append(rid)
+        core=[x for x in ("gautama","veda-vyasa") if x in {p["id"] for p in self.council.list()}]
+        specialist_slots=max(1,limit-len(core))
+        ordered=[x for x in preferred if x not in core][:specialist_slots]
+        for profile in self.council.select(f"{m['topic']} {m['question']}",limit):
+            if profile["id"] not in ordered and profile["id"] not in core and len(ordered)<specialist_slots:
+                ordered.append(profile["id"])
+        for rid in core:
+            if rid not in ordered:ordered.append(rid)
+        selected=[self.council.get(x) for x in ordered[:limit]]
         rows=[]
         seen=set()
         for r in selected:
@@ -205,7 +220,8 @@ class BrahmagyanRuntime:
             live["research_questions"]=existing[:300]
             live["updated_at"]=self._now();self._save()
         return {"mission_id":mission_id,"perspectives":rows,
-                "policy":"multi-perspective questions broaden retrieval; they are not independent evidence by themselves"}
+                "preferred_rishis":preferred,
+                "policy":"Science Atlas/mission specialists are preserved when supplied; multi-perspective questions broaden retrieval but are not independent evidence by themselves"}
 
     @staticmethod
     def _all_evidence_rows(c):
