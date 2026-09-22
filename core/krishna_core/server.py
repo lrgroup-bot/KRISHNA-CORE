@@ -590,6 +590,30 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"attachments":_attachments.list(chat_id)})
         if path == "/api/vision/status":
             return self._json(200,_vision.status())
+        if path in ("/api/hawkeye/status", "/api/bhumiputra/status"):
+            status=orch.hawkeye.status()
+            status["agent"]="hawkeye"
+            status["legacy_api_alias"]="/api/bhumiputra/status"
+            return self._json(200,status)
+        if path == "/api/hawkeye/learning/missions":
+            return self._json(200,{"agent":"hawkeye","missions":orch.hawkeye_learning.daily_missions()})
+        if path == "/api/hawkeye/field/maps":
+            return self._json(200,{"agent":"hawkeye","providers":orch.hawkeye_field.map_stack(),
+                                   "geo_catalog":orch.hawkeye_geo.catalog()})
+        if path == "/api/hawkeye/field/devices":
+            return self._json(200,{"agent":"hawkeye","devices":orch.hawkeye_field.devices()})
+        if path == "/api/hawkeye/field/sync/pending":
+            return self._json(200,{"agent":"hawkeye","items":orch.hawkeye_field.pending()})
+        if path == "/api/hawkeye/geo/view":
+            try:
+                lat=float((query.get("lat") or [""])[0]);lon=float((query.get("lon") or [""])[0])
+            except (TypeError,ValueError):return self._json(400,{"error":"lat and lon are required numeric values"})
+            return self._json(200,orch.hawkeye_geo.unified_view(lat,lon))
+        if path in ("/api/hawkeye/live/state", "/api/bhumiputra/live/state"):
+            session_id=str((query.get("session_id") or [""])[0]).strip()
+            if not session_id:return self._json(400,{"error":"session_id is required"})
+            try:return self._json(200,orch.hawkeye.get_live_session(session_id))
+            except KeyError:return self._json(404,{"error":"live session not found"})
         if path == "/api/voice/audio":
             audio_id=str((query.get("id") or [""])[0]).strip()
             try:audio_id=str(uuid.UUID(audio_id))
@@ -1800,6 +1824,27 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, orch.index_project(project))
             except KeyError:
                 return self._json(404, {"error": "project not registered"})
+
+        if post_path in ("/api/hawkeye/live/start", "/api/bhumiputra/live/start"):
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            payload={"project":project,"purpose":str(data.get("purpose") or "live field scan"),
+                     "coordinates":data.get("coordinates") or {},
+                     "scene_hint":str(data.get("scene_hint") or "auto")}
+            session=orch.hawkeye.start_live_session(project,payload["purpose"],payload["coordinates"],payload["scene_hint"])
+            return self._json(201,session)
+
+        if post_path in ("/api/hawkeye/live/frame", "/api/bhumiputra/live/frame"):
+            session_id=str(data.get("session_id") or "").strip()
+            if not session_id:return self._json(400,{"error":"session_id is required"})
+            raw_b64=str(data.get("data_b64") or "").strip()
+            if not raw_b64:return self._json(400,{"error":"data_b64 is required"})
+            try:raw=base64.b64decode(raw_b64,validate=True)
+            except Exception:return self._json(400,{"error":"invalid base64 camera frame"})
+            if len(raw)>5*1024*1024:return self._json(400,{"error":"camera frame exceeds 5 MB"})
+            content_type=str(data.get("content_type") or "image/jpeg").split(";",1)[0].strip().lower()
+            sensor_context=data.get("sensor_context") or {}
+            if not isinstance(sensor_context,dict):return self._json(400,{"error":"sensor_context must be an object"})
+            return self._json(200,orch.hawkeye.ingest_live_frame(session_id,raw,content_type,sensor_context))
 
         if post_path == "/api/investigate":
             symptom = str(data.get("symptom", "")).strip()
