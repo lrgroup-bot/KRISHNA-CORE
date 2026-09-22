@@ -136,7 +136,7 @@ class PrivacyGuardian:
                       mission_id: str|None=None) -> dict:
         if not self.browser or not hasattr(self.browser,"privacy_probe"):
             report=PrivacyAuditReport(
-                audit_id=str(uuid.uuid4()),target_type="browser",profile=_profile(profile),
+                audit_id=audit_id,target_type="browser",profile=_profile(profile),
                 policy=_policy(policy),created_at=utc_now(),test_suite_version=self.VERSION,
                 findings=[PrivacyFinding(
                     test="browser.runtime",state="failed",
@@ -148,12 +148,13 @@ class PrivacyGuardian:
             )
             return self._finalize(report)
         self._emit("privacy.audit.started",{"target_type":"browser","profile":str(profile)})
+        audit_id=str(uuid.uuid4())
         raw=self.browser.privacy_probe(url=url,profile=_profile(profile).value)
         findings=[_finding(x) for x in raw.get("findings") or []]
         fingerprint=raw.get("fingerprint") or {}
         if fingerprint:
             evidence_ref=self.store.store_sensitive_evidence(
-                str(uuid.uuid4()),"browser-fingerprint",fingerprint,
+                audit_id,"browser-fingerprint",fingerprint,
                 PrivacyRetentionClass.SECURITY_EVIDENCE,
             )
         else:evidence_ref=None
@@ -233,6 +234,92 @@ class PrivacyGuardian:
         )
         return self._finalize(report)
 
+    def classify_target(self,request: dict|None=None) -> str:
+        data=dict(request or {})
+        explicit=str(data.get("target_type") or data.get("target") or "").strip().lower()
+        if explicit in {"browser","network","web","mobile","full"}:
+            return explicit
+        if str(data.get("apk_path") or "").strip():
+            return "mobile"
+        if str(data.get("url") or "").strip() and bool(data.get("web_endpoint",False)):
+            return "web"
+        return "full"
+
+    def audit_full(self,*,url: str="about:blank",web_url: str|None=None,apk_path: str|None=None,
+                   profile="BASELINE",policy="STANDARD",mission_id=None) -> dict:
+        """Run every locally available privacy lane and keep unsupported external lanes honest."""
+        self._emit("privacy.audit.started",{"target_type":"full","profile":str(profile)})
+        reports={}
+        errors={}
+        try:
+            reports["browser"]=self.audit_browser(
+                url=url,profile=profile,policy=policy,mission_id=mission_id,
+            )
+        except Exception as exc:
+            errors["browser"]=f"{type(exc).__name__}: {exc}"
+        try:
+            reports["network"]=self.audit_network(
+                profile=profile,policy=policy,mission_id=mission_id,
+            )
+        except Exception as exc:
+            errors["network"]=f"{type(exc).__name__}: {exc}"
+        if web_url:
+            try:
+                reports["web"]=self.audit_web(
+                    web_url,owned=True,profile="WEB_ENDPOINT",
+                    policy="WEB_RELEASE",mission_id=mission_id,
+                )
+            except Exception as exc:
+                errors["web"]=f"{type(exc).__name__}: {exc}"
+        if apk_path:
+            try:
+                reports["mobile"]=self.audit_mobile(
+                    apk_path,profile="KRISHNA_MOBILE",
+                    policy="MOBILE_RELEASE",mission_id=mission_id,
+                )
+            except Exception as exc:
+                errors["mobile"]=f"{type(exc).__name__}: {exc}"
+        risk_counts={}
+        regression_count=0
+        for report in reports.values():
+            regression_count+=len(report.get("regressions") or [])
+            for key,value in (report.get("risk_counts") or {}).items():
+                risk_counts[key]=risk_counts.get(key,0)+int(value or 0)
+        out={
+            "audit_id":str(uuid.uuid4()),
+            "target_type":"full",
+            "profile":_profile(profile).value,
+            "policy":_policy(policy).value,
+            "created_at":utc_now(),
+            "test_suite_version":self.VERSION,
+            "reports":reports,
+            "errors":errors,
+            "risk_counts":risk_counts,
+            "regression_count":regression_count,
+            "network_external_probe_configured":bool(self.network.status().get("configured")),
+            "mobile_dynamic_verified":False if apk_path else None,
+            "definition_of_done":{
+                "browser_real_runtime":bool(reports.get("browser") and not errors.get("browser")),
+                "web_real_endpoint":bool(web_url and reports.get("web") and not errors.get("web")),
+                "network_external_runtime":bool(self.network.status().get("configured") and reports.get("network") and not errors.get("network")),
+                "mobile_real_apk_static":bool(apk_path and reports.get("mobile") and not errors.get("mobile")),
+                "mobile_dynamic_runtime":False,
+            },
+            "limitations":[
+                "External IP/DNS/TLS observations require an explicitly configured KRISHNA-controlled probe.",
+                "A full mobile release claim requires real-device dynamic testing in addition to static APK analysis.",
+            ],
+        }
+        safe=self.store.sanitize(out)
+        self.store.append_history(safe,PrivacyRetentionClass.REGRESSION_HISTORY)
+        self._remember_summary(safe)
+        self._emit("privacy.audit.completed",{
+            "audit_id":out["audit_id"],"target_type":"full",
+            "lanes":sorted(reports),"errors":sorted(errors),
+            "regressions":regression_count,
+        })
+        return out
+
     def clean_url(self,url: str) -> dict:
         result=clean_tracking_url(url)
         self._emit("privacy.link.cleaned",{"changed":result.get("changed"),"removed_count":len(result.get("removed") or [])})
@@ -306,6 +393,7 @@ class PrivacyGuardian:
                 "mobile_static_apk_audit":True,
                 "mobsf_adapter_boundary":True,
                 "external_network_probe_client":True,
+                "full_target_classifier":True,
             },
             "conditional_or_external":{
                 "dns_leak_probe":"requires owner-controlled external DNS service",
