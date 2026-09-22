@@ -1165,29 +1165,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403,{"error":"project finishing must run on KRISHNA PC"})
             project=str(data.get("project") or "").strip();url=str(data.get("url") or "").strip()
             if not project or not url:return self._json(400,{"error":"project and url are required"})
-            policy=orch.projects.get(project)
-            if not policy:return self._json(404,{"error":"project not registered"})
-            security=orch.kabach.protect_project(project,policy.root,policy.privacy)
-            security_ok=all(bool((row.get("verdict") or {}).get("allowed")) for row in security.get("checks") or [])
+            if not orch.projects.get(project):return self._json(404,{"error":"project not registered"})
             try:
-                result=orch.project_perfection.finish_project(
-                    project=project,project_root=policy.root,url=url,
-                    build_hash=str(data.get("build_hash") or ""),
-                    checks=list(data.get("checks") or policy.verification_checks or []),
-                    requirements_ok=bool(data.get("requirements_ok",False)),
-                    schema_url=data.get("schema_url"),api_base_url=data.get("api_base_url"),
-                    artifacts=list(data.get("artifacts") or []),
-                    screenshot_dir=data.get("screenshot_dir"),
-                    approve_visual_baselines=bool(data.get("approve_visual_baselines",False)),
-                    backend_required=bool(data.get("backend_required",True)),
-                    artifact_required=bool(data.get("artifact_required",False)),
-                    security_ok=security_ok,
-                    restart_recovery_ok=bool(data.get("restart_recovery_ok",False)),
-                    max_mutants=int(data.get("max_mutants") or 8),
+                receipt=orch.dispatch_action(
+                    "project.perfection.finish",
+                    {**data,"project":project,"url":url},
+                    project=project,source="pc",actor="project-perfection-http",
+                    permissions=("candidate.write","tests.run","browser.test"),
                 )
-                result["security_report"]=security
+                result=receipt["result"]
                 mark("PROJECT PERFECTION",f"{project}: {result.get('verdict')}")
                 return self._json(200,result)
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/ui-guardian/register":
