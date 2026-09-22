@@ -927,31 +927,19 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 <link rel="icon" href="data:,">
 </head><body><div id="notice" role="status" aria-live="polite"></div><dialog id="actionDialog" aria-labelledby="dialogLabel"><form method="dialog"><label id="dialogLabel" for="dialogInput"></label><input id="dialogInput" class="input" autocomplete="off"><div class="dialogActions"><button class="ghost" value="cancel">Cancel</button><button id="dialogAccept" class="primary" value="accept">Continue</button></div></form></dialog><div class="app">
 <aside class="side"><div class="brand">KRISHNA<small>ALMIGHTY · LOCAL COMMAND CORE</small></div>
-<div class="section">MAIN MENU</div><div class="nav">
+<div class="section">MAIN MENU</div><div class="nav mainMenuNav">
 <button class="active" onclick="showView('home')"><span class="ico">ॐ</span><span class="txt">KRISHNA</span></button>
 <button onclick="showView('sudarshan')"><span class="ico">☸</span><span class="txt">Sudarshan</span></button>
-<div class="projectMenuWrap">
-<button id="projectMenuToggle" class="projectMenuToggle" type="button" onclick="toggleProjectMenu()" aria-expanded="true"><span class="ico">◇</span><span class="txt">Project</span><span id="projectMenuChevron" class="projectMenuChevron">⌄</span></button>
-<div id="projectMenuTree" class="projectMenuTree" aria-label="Projects"></div>
+<div class="mainMenuDivider"></div>
+<button class="mainMenuPlugin" onclick="showView('plugins')"><span class="ico">⌘</span><span class="txt">Plugins</span></button>
 </div>
-<div class="chatMenuWrap">
-<div class="chatMenuHead"><button id="chatMenuToggle" type="button" onclick="toggleChatMenu()" aria-expanded="true"><span class="ico">☸</span><span class="txt">Chats</span><span class="chatMenuChevron">⌄</span></button><button class="miniAdd" title="New chat" onclick="newGeneralChat()">＋</button></div>
-<div id="recentChats" class="chatMenuList" aria-label="Chats"></div>
+<div class="sidebarWorkspace">
+ <div class="sideSectionHead"><span>PROJECTS</span></div>
+ <div id="projectMenuTree" class="projectMenuTree" aria-label="Projects"></div>
+ <div class="sideSectionHead chatsHead"><span>CHATS</span><button class="miniAdd" title="Add new chat" aria-label="Add new chat" onclick="newGeneralChat()">＋</button></div>
+ <div id="recentChats" class="chatMenuList" aria-label="Chats"></div>
 </div>
-<button onclick="showView('kabach')"><span class="ico">🛡</span><span class="txt">KABACH</span></button>
-<button onclick="showView('garuda')"><span id="garudaMenuIcon" class="ico garudaIcon">🦅</span><span class="txt">Garuda</span></button>
-<button onclick="showView('garudanetra')"><span id="garudanetraMenuIcon" class="ico garudaIcon">👁</span><span class="txt">Garudanetra</span></button>
-<button onclick="showView('brahmagyan');loadBrahmagyan()"><span class="ico">ॐ</span><span class="txt">BRAHMAGYAN</span></button>
-<button onclick="showView('gyan')"><span class="ico gyanBrain">🧠</span><span class="txt">Gyan-Bhandar</span></button>
-<button onclick="showView('narad');loadNarad()"><span class="ico">🪕</span><span class="txt">NARAD</span></button>
-<button onclick="showView('plugins')"><span class="ico">⌘</span><span class="txt">Plugins</span></button>
-<button onclick="showView('specialists')"><span class="ico">✦</span><span class="txt">Specialists</span></button>
-<button onclick="showView('development')"><span class="ico">⌬</span><span class="txt">Developer</span></button>
-<button onclick="showView('uiGuardian');loadUIGuardian()"><span class="ico">▣</span><span class="txt">UI Guardian</span></button>
-<button onclick="showView('work');loadTasks()"><span class="ico">▷</span><span class="txt">Work progress</span></button><button onclick="showView('activity')"><span class="ico">◉</span><span class="txt">Activity</span></button>
-<button onclick="showView('system')"><span class="ico">⚙</span><span class="txt">System</span></button></div>
 <div id="chatProjectLabel" hidden>KRISHNA</div>
-<div class="section">TOOLS</div><div class="nav"><button onclick="investigate()"><span class="ico">⌕</span><span class="txt">Investigate</span></button><button onclick="inspectUI()"><span class="ico">▣</span><span class="txt">Inspect UI</span></button><button onclick="research()"><span class="ico">⌁</span><span class="txt">Research</span></button></div>
 <div class="sideFoot"><div><span id="dot" class="statusDot"></span><span id="sideStatus" class="txt">Checking Core</span></div></div></aside>
 <main class="main">
 <div id="opsInformer" class="opsInformer">
@@ -967,7 +955,7 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
  <div class="garudaTakeover"><input id="garudaTypeText" class="input" placeholder="Owner typing — active only after TAKE CONTROL"><button onclick="garudaTypeText()">TYPE</button><input id="garudaUploadSelector" class="input" placeholder="file input selector, e.g. input[type=file]"><button onclick="garudaUploadPending()">UPLOAD ATTACHMENT</button></div>
  <div class="liveMeta"><span>Current operation: <b id="liveOperation">Waiting</b></span><span>Verification: <b id="liveVerification">Ready</b></span><span>Tabs: <b id="liveTabs">0</b></span></div>
  <div class="liveViewport"><div class="garudaFrameWrap"><img id="garudaFrame" class="garudaFrame" alt="Garudanetra live browser stream"><div id="garudaFrameEmpty" class="garudaFrameEmpty">Waiting for Chromium frame…</div></div><div id="garudaEvidence" class="garudaEvidence">No browser evidence yet.</div></div>
-</div><div class="sceneGrid"></div><header class="top"><div class="crumb"><span id="modeBadge" style="color:var(--gold);margin-right:8px">KRISHNA</span><span id="pageTitle">Almighty Core</span> <span style="color:#596474">/</span> <span id="projectName">general</span></div><div class="topActions"><span id="contextBadge" class="pill">KRISHNA</span><button class="ghost chatScopedTop legacyChatAction" onclick="moveCurrentChat()" style="display:none">Move chat</button><button class="ghost danger chatScopedTop legacyChatAction" onclick="deleteCurrentChat()" style="display:none">Delete chat</button><button id="topPlugins" class="ghost" onclick="showView('plugins')">Plugins</button><span id="online" class="pill">CHECKING</span></div></header>
+</div><div class="sceneGrid"></div><header class="top"><div class="crumb"><span id="modeBadge" style="color:var(--gold);margin-right:8px">KRISHNA</span><span id="pageTitle">Almighty Core</span> <span style="color:#596474">/</span> <span id="projectName">general</span></div><div class="topActions"><span id="contextBadge" class="pill">KRISHNA</span><button class="ghost chatScopedTop legacyChatAction" onclick="moveCurrentChat()" style="display:none">Move chat</button><button class="ghost danger chatScopedTop legacyChatAction" onclick="deleteCurrentChat()" style="display:none">Delete chat</button><span id="online" class="pill">CHECKING</span></div></header>
 <select id="project" style="display:none"></select><section id="home" class="view active panelView"><div class="panelInner"><div class="holoStage"><div class="holoCore"><div class="holoRing r1"></div><div class="holoRing r2"></div><div class="holoRing r3"></div><div class="holoOrb"></div><div id="krishnaAvatar" class="krishnaAvatar"><model-viewer id="krishnaModel" alt="KRISHNA avatar" camera-controls disable-zoom autoplay shadow-intensity="1" interaction-prompt="none" hidden></model-viewer><div id="avatarFallback" class="avatarFallback"><img src="/api/avatar360" alt="KRISHNA avatar preview"><small id="avatarStatus">KRISHNA preview · local mode</small></div><div class="k" style="margin-top:6px">CHARACTER STATE · <span id="avatarPerformanceState">FLUTE</span></div></div><div class="holoNode n1">NEURAL ACTION GRAPH</div><div class="holoNode n2">SYSTEM OBSERVER</div><div class="holoNode n3">VERIFICATION GATE</div><div class="holoNode n4">SUDARSHAN ONLINE</div><div class="holoLabel"><strong>KRISHNA</strong><span>ALMIGHTY CORE</span></div></div></div><div style="text-align:center;margin:-20px 0 28px"><button class="primary" style="padding:12px 22px" onclick="showView('sudarshan');newChat()">ENTER SUDARSHAN ☸</button></div><div class="grid"><div class="card"><div class="k">ROLE</div><div class="v">Almighty Core</div></div><div class="card"><div class="k">WORKSPACE</div><div class="v">Sudarshan</div></div><div class="card"><div class="k">AUTHORITY</div><div class="v">Policy + Verification</div></div></div></div></section>
 <section id="sudarshan" class="view chatView">
 <div class="sudarshanBar"><span class="miniCore">☸</span><button class="ghost" onclick="newChat()">＋ New</button><button class="ghost" onclick="loadChats()">↻ Chats</button><button class="ghost legacyChatAction" onclick="renameCurrentChat()">✎ Rename</button><button class="ghost legacyChatAction" onclick="moveCurrentChat()">◇ Move</button><button class="ghost danger legacyChatAction" onclick="deleteCurrentChat()">× Delete</button><button class="ghost" onclick="loadTasks()">▷ Work</button><span class="spacer"></span><span id="sudarshanState" class="workChip">READY</span></div>
