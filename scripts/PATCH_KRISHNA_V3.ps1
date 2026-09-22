@@ -63,6 +63,7 @@ function Is-Protected([string]$RelativePath) {
 # Only these v3 runtime locations are eligible for installation.
 $RuntimeSources = @(
     @{ Source = "core\krishna_core"; Destination = "core\krishna_core" },
+    @{ Source = "core\requirements"; Destination = "core\requirements" },
     @{ Source = "core\dashboard.html"; Destination = "core\dashboard.html" },
     @{ Source = "core\design_studio.html"; Destination = "core\design_studio.html" },
     @{ Source = "core\krishna_console.py"; Destination = "core\krishna_console.py" },
