@@ -1362,6 +1362,7 @@ async function initAvatar(){
     customElements.whenDefined('model-viewer'),
     new Promise((_,reject)=>setTimeout(()=>reject(new Error('local model-viewer timeout')),4500))
    ]);
+   if(!customElements.get('model-viewer'))throw new Error('local model-viewer was not registered');
    viewer.addEventListener('load',()=>{viewer.hidden=false;fallback.hidden=true;if(status)status.textContent='KRISHNA 3D · compatibility viewer'},{once:true});
    viewer.addEventListener('error',()=>showFallback('3D model could not render · showing local preview'),{once:true});
    viewer.setAttribute('src','/api/avatar.glb');viewer.hidden=false;
