@@ -382,6 +382,22 @@ def _gyan_strengthen_action(payload,context):
         bool(payload.get("use_garuda",True)),int(payload.get("limit") or 10),
     )
 
+def _attachment_add_action(payload,context):
+    chat_id=str(payload.get("chat_id") or "").strip()
+    if not chat_id:raise ValueError("chat_id is required")
+    return _attachments.save(
+        chat_id,str(payload.get("name") or "attachment"),
+        str(payload.get("data_b64") or ""),str(payload.get("content_type") or "application/octet-stream"),
+    )
+
+def _autonomy_tick_action(payload,context):
+    return _autonomy.run_once()
+
+def _narad_webhook_provision_action(payload,context):
+    wid=str(payload.get("workflow_id") or "").strip()
+    if not wid:raise ValueError("workflow_id is required")
+    return orch.agi.narad.provision_webhook(wid)
+
 for _name,_handler,_desc,_mutating,_approval,_permissions in (
     ("plugin.credential.set",_plugin_credential_set_action,"Store an encrypted plugin credential reference",True,True,("plugin.write","credential.write")),
     ("plugin.credential.delete",_plugin_credential_delete_action,"Delete an encrypted plugin credential reference",True,True,("plugin.write","credential.write")),
@@ -400,6 +416,9 @@ for _name,_handler,_desc,_mutating,_approval,_permissions in (
     ("gyan.decide",_gyan_decide_action,"Approve or reject a pending Gyan promotion",True,False,("memory.write",)),
     ("gyan.supersede",_gyan_supersede_action,"Propose supersession of an existing Gyan item",True,False,("memory.write","evidence.write")),
     ("gyan.strengthen",_gyan_strengthen_action,"Research and strengthen evidence for a Gyan topic",False,False,("web.read","evidence.write")),
+    ("attachment.add",_attachment_add_action,"Attach a bounded file to a persistent KRISHNA chat",True,False,("chat.write","filesystem.write")),
+    ("autonomy.tick",_autonomy_tick_action,"Run one bounded safe autonomy-supervisor pass",True,False,("work.execute","runtime.read")),
+    ("narad.webhook.provision",_narad_webhook_provision_action,"Provision a one-time-secret NARAD webhook endpoint",True,False,("narad.write",)),
 ):
     orch.action_bus.register(
         _name,_handler,description=_desc,mutating=_mutating,requires_approval=_approval,
