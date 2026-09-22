@@ -13,12 +13,17 @@ on:
     paths:
       - 'mobile_v3/**'
       - 'app/src/main/res/**'
+      - 'core/krishna_core/privacy_guardian/**'
+      - 'core/tests/test_privacy_guardian.py'
       - '.github/workflows/build-mobile-v3.yml'
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -145,7 +150,41 @@ jobs:
           if grep -q "192\.168\.0\.106" app/src/main/java/com/krishna/mobile/MainActivity.java; then echo "stale hard-coded PC IP leaked into mobile build" >&2; exit 1; fi
           if grep -q "workspaceBtn\|runTool" app/src/main/assets/index.html; then echo "dashboard/tool UI leaked into conversation-only mobile" >&2; exit 1; fi
 
+      - name: KABACH real APK privacy gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=core python - <<'PY'
+          import json
+          from pathlib import Path
+          from krishna_core.privacy_guardian.mobile import basic_apk_privacy_audit
+          from krishna_core.privacy_guardian.policy import evaluate_release_gate
+
+          apk=Path("app/build/outputs/apk/debug/app-debug.apk")
+          report=basic_apk_privacy_audit(apk)
+          wrapped={"target_type":"mobile","findings":report["findings"]}
+          gate=evaluate_release_gate(wrapped,"MOBILE_RELEASE")
+          findings={x["test"]:x for x in report["findings"]}
+          permissions=findings["mobile.permissions"]
+          trackers=findings["mobile.trackers.static"]["evidence"].get("tracker_signatures") or []
+          cleartext=findings["mobile.cleartext_urls"]["evidence"].get("cleartext_hosts") or []
+          if permissions["state"]=="unsupported":
+              raise SystemExit("KABACH mobile gate: aapt2 permission scan was unavailable")
+          if trackers:
+              raise SystemExit("KABACH mobile gate: unexpected tracker signatures: "+",".join(trackers))
+          if cleartext:
+              raise SystemExit("KABACH mobile gate: non-loopback cleartext host strings: "+",".join(cleartext))
+          if not gate["passed"]:
+              raise SystemExit("KABACH mobile release gate failed: "+json.dumps(gate))
+          Path("privacy-apk-report.json").write_text(json.dumps({
+              "apk_sha256":report["apk_sha256"],"findings":report["findings"],"gate":gate,
+          },indent=2),encoding="utf-8")
+          print("KABACH_MOBILE_PRIVACY_GATE_OK")
+          PY
+
       - uses: actions/upload-artifact@v4
         with:
           name: KRISHNA-v3.5-Conversation-Mobile-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            privacy-apk-report.json
