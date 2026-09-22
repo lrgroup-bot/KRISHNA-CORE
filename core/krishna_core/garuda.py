@@ -192,6 +192,65 @@ class GarudaAgent:
         self._set(working=False,phase="HANDED_TO_KRISHNA",source=None,found=len(report["web"])+len(report.get("github") or []))
         return report
 
+    def classical_scout(self, project, goal, limit=10):
+        """Search a provenance-constrained Vedic/Upanishadic source track.
+
+        The returned material is classical textual/historical evidence only and
+        must never be counted as experimental support for a modern scientific claim.
+        """
+        goal=str(goal or "").strip()
+        if not goal:raise ValueError("classical research goal is required")
+        queries=[
+            f"site:vedicheritage.gov.in {goal} Upanishad",
+            f"site:vedicheritage.gov.in {goal} Veda",
+            f"site:vedicheritage.gov.in {goal} Brahmana Aranyaka Vedanga",
+        ]
+        rows=[];errors={}
+        for idx,query in enumerate(queries):
+            self._set(working=True,phase="CLASSICAL_SCOUTING",source="vedic_heritage",goal=goal,project=project)
+            try:
+                for item in self._web(query,max(3,min(int(limit),12))):
+                    host=(urllib.parse.urlparse(item.url).hostname or "").lower()
+                    if not host.endswith("vedicheritage.gov.in"):continue
+                    item.source="vedic_heritage"
+                    item.relevance+=4
+                    rows.append(item)
+            except Exception as exc:
+                errors[f"vedic_heritage_{idx+1}"]=f"{type(exc).__name__}: {exc}"
+        # Stable source anchors ensure the corpus hierarchy remains visible even
+        # when a public search engine returns no topic-specific result.
+        anchors=[
+            WebCandidate(
+                "Vedic Heritage Portal — Upanishads",
+                "https://vedicheritage.gov.in/upanishads/",
+                "Government of India / IGNCA portal page describing and indexing the Upanishads and their Vedic affiliations.",
+                "vedic_heritage",3,False,
+            ),
+            WebCandidate(
+                "Vedic Heritage Portal — About Project",
+                "https://vedicheritage.gov.in/about-project/",
+                "Portal scope includes Vedic Samhitas, Brahmanas, Aranyakas, Upanishads, Vedangas, manuscripts and published textual traditions.",
+                "vedic_heritage",2,False,
+            ),
+        ]
+        rows.extend(anchors)
+        ranked=self._dedupe_and_rank(rows)[:max(2,min(int(limit)*2,24))]
+        report={
+            "agent":"Garuda","role":"classical_textual_research","project":project,"goal":goal,
+            "web":[asdict(x) for x in ranked],"github":[],"errors":errors,
+            "coverage":["Vedic Heritage Portal","Vedas","Brahmanas","Aranyakas","Upanishads","Vedangas"],
+            "classical_protocol":{
+                "track":"vedic_classical",
+                "source_authority":"Vedic Heritage Portal / IGNCA / Ministry of Culture, Government of India",
+                "scientific_evidence_weight":0,
+                "rule":"classical resemblance never verifies a modern scientific claim; preserve source layer, context, translation and chronology",
+            },
+        }
+        self.memory.remember(project,"garuda_classical_research",goal,{"report":report})
+        self.memory.audit("garuda_classical_scout","completed",f"{project}:{len(ranked)} classical candidates")
+        self._set(working=False,phase="HANDED_TO_KRISHNA",source=None,found=len(ranked))
+        return report
+
     @staticmethod
     def _terms(text):
         return {x for x in re.findall(r"[a-z0-9][a-z0-9_+.-]{2,}",str(text).lower()) if len(x)>2}
@@ -219,7 +278,7 @@ class GarudaAgent:
     @staticmethod
     def _source_weight(source):
         return {
-            "clinicaltrials":7,"europepmc":7,"openalex":6,"crossref":6,
+            "clinicaltrials":7,"europepmc":7,"openalex":6,"crossref":6,"vedic_heritage":6,
             "arxiv":5,"github":4,"npm":3,"web":2,"hackernews":1,
         }.get(source,1)
 

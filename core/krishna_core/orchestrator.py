@@ -50,6 +50,7 @@ from .agi_kernel import AGIKernel
 from .requirements_ledger import RequirementsLedger
 from .rishi_live_research import RishiLiveResearchExecutor
 from .science_atlas import ScienceAtlas
+from .rishi_learning import RishiLearningLedger, CouncilCollaborationEngine
 from .durable_event_bus import DurableEventBus
 from .mission_engine import MissionEngine
 from .durable_queue import DurableQueue
@@ -140,12 +141,25 @@ class Orchestrator:
         self.kabach.bind_privacy_runtime(browser=self.browser,event_bus=self.lifecycle_bus,gyan_bhandar=self.gyan_bhandar)
         if hasattr(self.ephemeral_workers,"bind_sudarshan"):
             self.ephemeral_workers.bind_sudarshan(self.sudarshan)
+        self.rishi_learning = RishiLearningLedger(
+            runtime_state / "rishi-learning",
+            self.agi.brahmagyan.council,
+            self.memory,
+        )
+        self.rishi_collaboration = CouncilCollaborationEngine(
+            self.rishi_learning,
+            self.agi.brahmagyan.council,
+            self._route_model,
+            self.memory,
+        )
         self.rishi_live = RishiLiveResearchExecutor(
             runtime_state / "rishi-live",
             self.agi.brahmagyan,
             self.garuda,
             self._route_model,
             self.memory,
+            learning_ledger=self.rishi_learning,
+            collaboration_engine=self.rishi_collaboration,
         )
         self.science_atlas = ScienceAtlas(
             runtime_state / "science-atlas",
@@ -565,6 +579,24 @@ class Orchestrator:
                 str(payload.get("reason") or ""),
             )
 
+        def brahmagyan_rishi_topics(payload,context):
+            return self.rishi_learning.topic_matrix()
+
+        def brahmagyan_rishi_learning(payload,context):
+            rid=str(payload.get("rishi_id") or "").strip().lower()
+            topic=str(payload.get("topic") or "").strip() or None
+            if rid:
+                return self.rishi_learning.profile(rid,topic,int(payload.get("limit") or 50))
+            return self.rishi_learning.dashboard(int(payload.get("limit") or 8))
+
+        def brahmagyan_rishi_collaboration(payload,context):
+            cid=str(payload.get("collaboration_id") or "").strip()
+            if cid:return self.rishi_learning.collaboration(cid)
+            return {
+                "status":self.rishi_collaboration.status(),
+                "bootstrap":self.rishi_learning.bootstrap_status(),
+            }
+
         def brahmagyan_science_status(payload,context):
             query=str(payload.get("query") or "").strip()
             kind=str(payload.get("kind") or "").strip() or None
@@ -642,6 +674,25 @@ class Orchestrator:
             decision=self.agi.brahmagyan.background_decision(cpu,ram,busy)
             if not decision.get("allowed"):
                 return {"ran":False,"reason":"production_busy","decision":decision,"atlas":self.science_atlas.status()}
+            bootstrap=self.rishi_learning.bootstrap_status()
+            if not bootstrap.get("complete"):
+                assignment=bootstrap.get("next_assignment")
+                if not assignment:return {"ran":False,"reason":"no_rishi_learning_assignment","bootstrap":bootstrap}
+                result=brahmagyan_science_frontier_run({
+                    "project":"KRISHNA",
+                    "subject":assignment["subject"],
+                    "rishi_id":assignment["rishi_id"],
+                    "node_id":f"rishi-bootstrap:{assignment['rishi_id']}:{assignment['subject']}",
+                    "question_limit":8,
+                    "source_limit":6,
+                    "max_perspectives":6,
+                    "max_claims":5,
+                    "stakes":"normal",
+                    "auto_propose":True,
+                },context)
+                return {"ran":True,"mode":"rishi_bootstrap","assignment":assignment,"result":result,
+                        "bootstrap":self.rishi_learning.bootstrap_status()}
+
             status=self.science_atlas.status()
             if int((status.get("loaded_counts") or {}).get("topics") or 0)==0:
                 self.science_atlas.sync_openalex(True,None)
@@ -655,12 +706,13 @@ class Orchestrator:
                 "node_id":node["id"],
                 "question_limit":8,
                 "source_limit":6,
-                "max_perspectives":5,
+                "max_perspectives":6,
                 "max_claims":5,
                 "stakes":"normal",
                 "auto_propose":True,
             },context)
-            return {"ran":True,"node":node,"result":result}
+            return {"ran":True,"mode":"science_atlas","node":node,"result":result,
+                    "bootstrap":bootstrap}
 
         def brahmagyan_background_check(payload,context):
             resources=self.governor.snapshot()
@@ -1117,6 +1169,25 @@ class Orchestrator:
             mutating=True,permissions=("memory.write",),
             sources=("pc","system","agent","job"),
         )
+        self.action_bus.register(
+            "brahmagyan.rishi.topics",brahmagyan_rishi_topics,
+            description="Show which subjects each Rishi owns, frontier focus and classical source lens",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.rishi.learning",brahmagyan_rishi_learning,
+            description="Show what each Rishi has learned, findings, evidence state, open questions and mission history",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.rishi.collaboration",brahmagyan_rishi_collaboration,
+            description="Inspect all-council knowledge sharing and balanced learning bootstrap state",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
         self.action_bus.register(
             "brahmagyan.science.status",brahmagyan_science_status,
             description="Inspect BRAHMAGYAN Science Atlas coverage and taxonomy",
@@ -1651,6 +1722,17 @@ class Orchestrator:
     def brahmagyan_live_status(self,run_id=None,project=None,limit=50):
         if run_id:return self.rishi_live.get(run_id)
         return {"status":self.rishi_live.status(),"runs":self.rishi_live.list(project,limit)}
+
+    def brahmagyan_rishi_topics(self):
+        return self.rishi_learning.topic_matrix()
+
+    def brahmagyan_rishi_learning(self,rishi_id=None,topic=None,limit=50):
+        if rishi_id:return self.rishi_learning.profile(rishi_id,topic,limit)
+        return self.rishi_learning.dashboard(min(int(limit),20))
+
+    def brahmagyan_rishi_collaboration(self,collaboration_id=None):
+        if collaboration_id:return self.rishi_learning.collaboration(collaboration_id)
+        return {"status":self.rishi_collaboration.status(),"bootstrap":self.rishi_learning.bootstrap_status()}
 
     def brahmagyan_science_status(self,query="",kind=None,limit=50):
         return {

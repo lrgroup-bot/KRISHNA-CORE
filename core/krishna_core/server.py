@@ -622,6 +622,20 @@ class Handler(BaseHTTPRequestHandler):
             try:limit=max(1,min(int(limit_raw),200))
             except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
             return self._json(200,{"questions":orch.brahmagyan_curiosity(project,limit)})
+        if path == "/api/brahmagyan/rishis/topics":
+            return self._json(200,orch.brahmagyan_rishi_topics())
+        if path == "/api/brahmagyan/rishis/learning":
+            rid=str((query.get("rishi_id") or [""])[0]).strip() or None
+            topic=str((query.get("topic") or [""])[0]).strip() or None
+            limit_raw=(query.get("limit") or ["50"])[0]
+            try:limit=max(1,min(int(limit_raw),200))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            try:return self._json(200,orch.brahmagyan_rishi_learning(rid,topic,limit))
+            except KeyError:return self._json(404,{"error":"Rishi not found"})
+        if path == "/api/brahmagyan/rishis/collaboration":
+            cid=str((query.get("collaboration_id") or [""])[0]).strip() or None
+            try:return self._json(200,orch.brahmagyan_rishi_collaboration(cid))
+            except KeyError:return self._json(404,{"error":"collaboration not found"})
         if path == "/api/brahmagyan/science/status":
             query_text=str((query.get("query") or [""])[0]).strip()
             kind=str((query.get("kind") or [""])[0]).strip() or None
