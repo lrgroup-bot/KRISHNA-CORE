@@ -268,11 +268,18 @@ class ArchitectureContracts(unittest.TestCase):
         server=self.text("core/krishna_core/server.py")
         rpc=self.text("core/krishna_core/mobile_rpc.py")
         mobile=self.text("mobile_v3/MainActivity.java")
+        mobile_ui=self.text("mobile_v3/index.html")
         requirements=self.text("core/requirements/krishna_chat_requirements.json")
         for dangerous in ("system.run","filesystem.write","credentials.read","trade.execute"):
             self.assertNotIn('"'+dangerous+'"',rpc)
         for token in ("privateCoreUrl","100&&d>=64&&d<=127","credential_sha256","pairingRequest"):
             self.assertIn(token,mobile)
+        core_base=mobile.split("String coreBase()throws Exception{",1)[1].split("@JavascriptInterface public String configureCoreUrl",1)[0]
+        self.assertNotIn("cloud_url",core_base)
+        self.assertNotIn("secureCloudUrl(cloud)",core_base)
+        self.assertIn("not-a-mobile-control-route",mobile)
+        for token in ('id="voiceLang"',"or-IN","hi-IN","en-IN","कृष्ण","କୃଷ୍ଣ"):
+            self.assertIn(token,mobile_ui)
         self.assertIn("public Internet",requirements)
         self.assertIn("raw shell",requirements)
         self.assertIn("/api/mobile/pair/pending",server)

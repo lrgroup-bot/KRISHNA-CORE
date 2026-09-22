@@ -457,6 +457,7 @@ class RishiLearningLedger:
         self.memory=memory
         self.lock=RLock()
         self.state={"version":self.VERSION,"rishis":{},"collaborations":{},"created_at":time.time()}
+        self.load_error=None
         self._load()
         self._ensure_profiles()
 
@@ -469,9 +470,15 @@ class RishiLearningLedger:
                 self.state.setdefault("rishis",{})
                 self.state.setdefault("collaborations",{})
         except Exception as exc:
-            if self.memory:self.memory.audit("rishi_learning","load_failed",f"{type(exc).__name__}: {exc}")
+            self.load_error=f"{type(exc).__name__}: {exc}"
+            if self.memory:self.memory.audit("rishi_learning","load_failed",self.load_error)
+
+    def _healthy(self):
+        if self.load_error:
+            raise RuntimeError("Rishi learning state is unreadable; refusing to overwrite it: "+self.load_error)
 
     def _save(self):
+        self._healthy()
         tmp=self.path.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.state,ensure_ascii=False,indent=2),encoding="utf-8")
         os.replace(tmp,self.path)
@@ -502,7 +509,7 @@ class RishiLearningLedger:
                     "classical_lens":list(charter.get("classical_lens") or []),
                 }
                 changed=True
-            if changed:self._save()
+            if changed and not self.load_error:self._save()
 
     @staticmethod
     def _terms(text):

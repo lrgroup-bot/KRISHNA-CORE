@@ -30,13 +30,113 @@ from .lan_discovery import LanDiscoveryService
 from .avatar_asset_pipeline import AvatarAssetInspector
 from .video_avatar import VideoAvatarFabric
 from .science_atlas import ScienceFrontierScheduler
+from .windows_desktop_fabric import WindowsDesktopFabric
+from .android_test_fabric import AndroidTestFabric
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _sessions = RealtimeSessionStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _plugins = PluginRegistry(Path(settings.db_path).resolve().parent / ".krishna_state")
 _plugin_executor = PluginExecutor(_plugins, orch.secure_vault)
+
+def _plugin_add_action(payload,context):
+    row=dict(payload or {})
+    row["enabled"]=False
+    return _plugins.add(row)
+
+def _plugin_enable_action(payload,context):
+    plugin_id=str(payload.get("id") or "").strip()
+    enabled=bool(payload.get("enabled",True))
+    if enabled and not bool(context.get("approved")):
+        raise PermissionError("enabling a plugin requires explicit owner approval")
+    return _plugins.set_enabled(plugin_id,enabled)
+
+def _plugin_remove_action(payload,context):
+    if not bool(context.get("approved")):
+        raise PermissionError("removing a plugin requires explicit owner approval")
+    return {"removed":_plugins.remove(str(payload.get("id") or "").strip())}
+
+def _plugin_execute_action(payload,context):
+    operation=str(payload.get("operation") or "get").strip().lower()
+    if operation=="post" and not bool(context.get("approved")):
+        raise PermissionError("POST plugin execution requires explicit owner approval")
+    return _plugin_executor.execute(
+        str(payload.get("plugin_id") or ""),
+        str(payload.get("project") or context.get("project") or "KRISHNA"),
+        operation,payload.get("payload") or {},payload.get("auth_env"),
+    )
+
+orch.action_bus.register(
+    "plugin.add",_plugin_add_action,description="Add a disabled plugin manifest",
+    mutating=True,permissions=("plugin.write",),sources=("pc","system"),
+)
+orch.action_bus.register(
+    "plugin.enable",_plugin_enable_action,description="Enable or disable a plugin",
+    mutating=True,permissions=("plugin.write",),sources=("pc","system"),
+)
+orch.action_bus.register(
+    "plugin.remove",_plugin_remove_action,description="Remove a non-builtin plugin manifest",
+    mutating=True,permissions=("plugin.write",),sources=("pc","system"),
+)
+orch.action_bus.register(
+    "plugin.execute",_plugin_execute_action,description="Execute a bounded HTTP plugin request",
+    mutating=True,permissions=("plugin.execute","network.external"),
+    sources=("pc","system","agent","job","mcp","a2a"),
+)
+
+def _desktop_validate_action(payload,context):
+    return _desktop_fabric.validate(
+        str(payload.get("workflow") or ""),payload.get("variables"),payload.get("task"),
+    )
+
+def _desktop_run_action(payload,context):
+    return _desktop_fabric.run(
+        str(payload.get("workflow") or ""),payload.get("variables"),payload.get("task"),
+        approved=bool(context.get("approved",False)),
+    )
+
+orch.action_bus.register(
+    "desktop.rpa.validate",_desktop_validate_action,
+    description="Validate a bounded Windows desktop RPA workflow",
+    permissions=("desktop.read","tests.run"),sources=("pc","system","agent","job"),
+)
+orch.action_bus.register(
+    "desktop.rpa.run",_desktop_run_action,
+    description="Run an approved validated Windows desktop RPA workflow",
+    mutating=True,requires_approval=True,permissions=("desktop.control",),
+    sources=("pc","system","agent","job"),
+)
+
+def _android_test_run_action(payload,context):
+    return _android_test_fabric.run_task(
+        str(payload.get("instruction") or ""),str(payload.get("profile") or "flash"),
+        approved=bool(context.get("approved",False)),
+    )
+
+orch.action_bus.register(
+    "mobile.test.run",_android_test_run_action,
+    description="Run an owner-approved KRISHNA Android QA task through ARTEMIS",
+    mutating=True,requires_approval=True,permissions=("mobile.test","device.control"),
+    sources=("pc","system","agent","job"),
+)
+
 _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krishna_state")
+
+def _cleanup_deleted_chat_attachments(event):
+    payload=dict(event.get("payload") or {})
+    if str(payload.get("action") or "")!="chat.delete" or str(payload.get("status") or "")!="completed":
+        return None
+    chat_id=str((payload.get("payload") or {}).get("chat_id") or "").strip()
+    if not chat_id:return None
+    try:
+        result=_attachments.delete_chat(chat_id)
+        orch.memory.audit("attachment_cleanup","completed",f"{chat_id}:{result.get('files',0)} files")
+        return result
+    except Exception as exc:
+        orch.memory.audit("attachment_cleanup","failed",f"{chat_id}:{type(exc).__name__}: {exc}")
+        return {"error":f"{type(exc).__name__}: {exc}"}
+
+orch.lifecycle_bus.subscribe("action.completed",_cleanup_deleted_chat_attachments)
 _vision = VisionAdapter()
 _voice = KrishnaVoiceStack(lambda event: orch.handle_event("wakeword","krishna_detected","Local wake word Krishna detected",severity="notice",project="system",payload=event))
 _remote_policy = PrivateRemotePolicy()
@@ -235,16 +335,16 @@ for _topic in ("action.requested","action.completed","action.failed","action.blo
     orch.agi.bus.subscribe(_topic,_sync_shared_action_to_mobile)
 if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     _BUNDLE_ROOT = Path(sys._MEIPASS)
-    DASHBOARD = _BUNDLE_ROOT / "dashboard.html"
     WEB_VALIDATION = _BUNDLE_ROOT / "web_validation.html"
     AVATAR_B64 = _BUNDLE_ROOT / "avatar" / "krishna_child_360.webp.b64"
-    AVATAR_GLB = _BUNDLE_ROOT / "avatar" / "krishna.glb"
-    AVATAR_PRODUCTION_GLB = _BUNDLE_ROOT / "avatar" / "krishna.production.glb"
-    AVATAR_ENGINE_ROOT = _BUNDLE_ROOT / "avatar-engine"
+    # The private child avatar is owner/runtime data and is deliberately never
+    # bundled into KRISHNA.exe. Frozen and source runtimes use the same E: asset.
+    AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
+    AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"
+    AVATAR_ENGINE_ROOT = RUNTIME_ROOT / "dashboard" / "assets" / "avatar-engine"
 else:
     _CORE_ROOT = Path(__file__).resolve().parents[1]
     _REPO_ROOT = Path(__file__).resolve().parents[2]
-    DASHBOARD = _CORE_ROOT / "dashboard.html"
     WEB_VALIDATION = _CORE_ROOT / "web_validation.html"
     AVATAR_B64 = _REPO_ROOT / "avatar" / "krishna_child_360.webp.b64"
     AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
@@ -272,6 +372,8 @@ def avatar_360_bytes():
 
 _avatar_inspector = AvatarAssetInspector(RUNTIME_ROOT / "state" / "avatar" / "asset-audit.json")
 _video_avatar = VideoAvatarFabric(RUNTIME_ROOT)
+_desktop_fabric = WindowsDesktopFabric(RUNTIME_ROOT)
+_android_test_fabric = AndroidTestFabric(RUNTIME_ROOT)
 
 def avatar_asset_status():
     source=_avatar_inspector.inspect(AVATAR_GLB)
@@ -527,14 +629,27 @@ class Handler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query)
 
         if path in ("/", "/dashboard"):
-            ui = WEB_VALIDATION if WEB_VALIDATION.exists() else DASHBOARD
-            return self._html(200, ui.read_text(encoding="utf-8"))
+            if not WEB_VALIDATION.exists():
+                return self._json(503, {
+                    "error": "current KRISHNA desktop UI is unavailable",
+                    "required_ui_version": "2026.09-current",
+                })
+            ui_text=WEB_VALIDATION.read_text(encoding="utf-8")
+            if 'data-krishna-ui="2026.09-current"' not in ui_text:
+                return self._json(503, {
+                    "error": "stale KRISHNA desktop UI refused",
+                    "required_ui_version": "2026.09-current",
+                })
+            return self._html(200, ui_text)
         if path == "/favicon.ico":
             return self._binary(204, b"", "image/x-icon")
         if path in ("/web", "/web-test", "/validation"):
             if not WEB_VALIDATION.exists():
-                return self._json(404, {"error": "web validation UI unavailable"})
-            return self._html(200, WEB_VALIDATION.read_text(encoding="utf-8"))
+                return self._json(503, {"error": "current KRISHNA desktop UI unavailable"})
+            ui_text=WEB_VALIDATION.read_text(encoding="utf-8")
+            if 'data-krishna-ui="2026.09-current"' not in ui_text:
+                return self._json(503, {"error": "stale KRISHNA desktop UI refused"})
+            return self._html(200, ui_text)
         if path.startswith("/assets/avatar-engine/"):
             rel=path[len("/assets/avatar-engine/"):]
             asset=avatar_engine_file(rel)
@@ -741,6 +856,26 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,orch.secure_vault.list())
         if path == "/api/gyan-bhandar/archive/status":
             return self._json(200,orch.gyan_archive_status())
+        if path == "/api/gyan-bhandar/security":
+            try:return self._json(200,orch.gyan_security_status())
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+        if path == "/api/gyan-bhandar/context":
+            project=(query.get("project") or ["KRISHNA"])[0].strip() or "KRISHNA"
+            topic=(query.get("topic") or [""])[0]
+            kind=(query.get("kind") or [None])[0]
+            verified=str((query.get("verified") or ["0"])[0]).lower() in {"1","true","yes"}
+            principal=(query.get("principal") or ["owner"])[0]
+            try:return self._json(200,orch.gyan_compile_context(project,topic,50,verified,kind,principal))
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+        if path == "/api/gyan-bhandar/context-uri":
+            uri=(query.get("uri") or [""])[0];principal=(query.get("principal") or ["owner"])[0]
+            if not uri:return self._json(400,{"error":"uri is required"})
+            try:return self._json(200,orch.gyan_compile_uri(uri,50,principal))
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
         if path == "/api/gyan-bhandar/pending":
             project=(query.get("project") or [None])[0]
             try:return self._json(200,orch.gyan_pending(project,100))
@@ -855,6 +990,16 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,remote)
         if path == "/api/resilience/status":
             return self._json(200,{"worker_supervisor":_worker_resilience.status(),"model_memory":_model_memory.status()})
+        if path == "/api/desktop/status":
+            probe=str((query.get("probe") or ["0"])[0]).lower() in {"1","true","yes"}
+            if probe and self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"desktop provider probing is local-PC only"})
+            return self._json(200,_desktop_fabric.status(probe=probe))
+        if path == "/api/mobile/testing/status":
+            probe=str((query.get("probe") or ["0"])[0]).lower() in {"1","true","yes"}
+            if probe and self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"Android test provider probing is local-PC only"})
+            return self._json(200,_android_test_fabric.status(probe=probe))
         if path in ("/api/wearables","/api/wearables/status"):
             return self._json(200,_wearables.status())
         if path == "/api/mobile/resume":
@@ -913,6 +1058,8 @@ class Handler(BaseHTTPRequestHandler):
                     "watcher_transitions",
                     "neural_action_graph",
                     "pc_resource_observer",
+                    "windows_desktop_fabric_capability_gated",
+                    "android_artemis_test_fabric_capability_gated",
                     "registered_project_change_observer",
                     "mobile_event_bridge",
                     "mobile_zero_code_client_hash_pairing",
@@ -939,6 +1086,11 @@ class Handler(BaseHTTPRequestHandler):
                     "gyan_typed_memory_categories",
                     "gyan_learning_supersession",
                     "gyan_provenance_inventory",
+                    "gyan_project_scoped_context_compiler",
+                    "gyan_acl_fail_closed",
+                    "gyan_session_learning_candidates",
+                    "gyan_envelope_encryption_capability_gated",
+                    "gyan_verified_local_replication",
                     "skill_compiler",
                     "benchmark_lab",
                     "native_automation_bus",
@@ -1091,6 +1243,45 @@ class Handler(BaseHTTPRequestHandler):
             data = self._body()
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
+
+        if post_path == "/api/mobile/testing/run":
+            try:
+                receipt=orch.dispatch_action(
+                    "mobile.test.run",
+                    {"instruction":data.get("instruction"),"profile":data.get("profile") or "flash"},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="mobile-test-fabric",
+                    approved=bool(data.get("approved",False)),permissions=("mobile.test","device.control"),
+                )
+                return self._json(200,receipt["result"])
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/desktop/rpa/validate":
+            try:
+                receipt=orch.dispatch_action(
+                    "desktop.rpa.validate",
+                    {"workflow":data.get("workflow"),"variables":data.get("variables"),"task":data.get("task")},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="desktop-fabric",
+                    permissions=("desktop.read","tests.run"),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,FileNotFoundError,PermissionError) as exc:
+                return self._json(403 if isinstance(exc,PermissionError) else 400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/desktop/rpa/run":
+            try:
+                receipt=orch.dispatch_action(
+                    "desktop.rpa.run",
+                    {"workflow":data.get("workflow"),"variables":data.get("variables"),"task":data.get("task")},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="desktop-fabric",
+                    approved=bool(data.get("approved",False)),permissions=("desktop.control",),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/ui-guardian/register":
             item=_ui_registry.register(
@@ -1473,15 +1664,21 @@ class Handler(BaseHTTPRequestHandler):
 
         if post_path == "/api/plugins/add":
             try:
-                return self._json(200, _plugins.add(data))
-            except ValueError as exc:
-                return self._json(400, {"error": str(exc)})
+                receipt=orch.dispatch_action("plugin.add",data,project=str(data.get("project") or "KRISHNA"),source="pc",actor="plugins-ui",permissions=("plugin.write",))
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError) as exc:
+                return self._json(403 if isinstance(exc,PermissionError) else 400,{"error":str(exc)})
 
         if post_path == "/api/plugins/enable":
             try:
-                return self._json(200, _plugins.set_enabled(str(data.get("id", "")).strip(), bool(data.get("enabled", True))))
-            except KeyError:
-                return self._json(404, {"error": "plugin not found"})
+                receipt=orch.dispatch_action(
+                    "plugin.enable",{"id":str(data.get("id") or "").strip(),"enabled":bool(data.get("enabled",True))},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="plugins-ui",
+                    approved=bool(data.get("approved",False)),permissions=("plugin.write",),
+                )
+                return self._json(200,receipt["result"])
+            except KeyError:return self._json(404,{"error":"plugin not found"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
 
         if post_path == "/api/plugins/credential":
             if self.client_address[0] not in ("127.0.0.1","::1"):
@@ -1516,9 +1713,14 @@ class Handler(BaseHTTPRequestHandler):
 
         if post_path == "/api/plugins/remove":
             try:
-                return self._json(200, {"removed": _plugins.remove(str(data.get("id", "")).strip())})
-            except PermissionError as exc:
-                return self._json(403, {"error": str(exc)})
+                receipt=orch.dispatch_action(
+                    "plugin.remove",{"id":str(data.get("id") or "").strip()},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="plugins-ui",
+                    approved=bool(data.get("approved",False)),permissions=("plugin.write",),
+                )
+                return self._json(200,receipt["result"])
+            except KeyError:return self._json(404,{"error":"plugin not found"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
 
         if post_path == "/api/chats/create":
             project=str(data.get("project","general")).strip() or "general"
@@ -1609,6 +1811,10 @@ class Handler(BaseHTTPRequestHandler):
             language=str(data.get("language") or "or").strip().lower()
             if not text_value:return self._json(400,{"error":"text is required"})
             if language not in {"en","hi","or"}:return self._json(400,{"error":"language must be one of: en, hi, or"})
+            configured=set(_voice.tts.status().get("languages") or [])
+            if language not in configured:
+                fallback="browser/OS local speech" if language=="en" else "configured local voice worker"
+                return self._json(503,{"error":f"local TTS language is not configured: {language}; fallback={fallback}","configured_languages":sorted(configured)})
             out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
             audio_id=str(uuid.uuid4());out_path=out_dir/(audio_id+".wav")
             try:
@@ -1621,8 +1827,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"local STT must be requested on KRISHNA PC"})
             audio_path=str(data.get("audio_path") or "").strip()
+            language=str(data.get("language") or "or").strip().lower()
             if not audio_path:return self._json(400,{"error":"audio_path is required"})
-            try:return self._json(200,{"text":_voice.stt.transcribe(audio_path),"provider":"ai4bharat-indicconformer"})
+            if language not in {"hi","or"}:return self._json(400,{"error":"local IndicConformer STT language must be one of: hi, or"})
+            try:return self._json(200,{"text":_voice.stt.transcribe(audio_path,language=language),"provider":"ai4bharat-indicconformer","language":language})
             except (RuntimeError,ValueError,FileNotFoundError) as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/models/gateways/register":
@@ -1911,9 +2119,19 @@ class Handler(BaseHTTPRequestHandler):
 
         if post_path == "/api/plugins/execute":
             try:
-                return self._json(200,_plugin_executor.execute(str(data.get("plugin_id") or ""),str(data.get("project") or "KRISHNA"),str(data.get("operation") or "get"),data.get("payload") or {},data.get("auth_env")))
+                payload={
+                    "plugin_id":str(data.get("plugin_id") or ""),"project":str(data.get("project") or "KRISHNA"),
+                    "operation":str(data.get("operation") or "get"),"payload":data.get("payload") or {},
+                    "auth_env":data.get("auth_env"),
+                }
+                receipt=orch.dispatch_action(
+                    "plugin.execute",payload,project=payload["project"],source="pc",actor="plugins-ui",
+                    approved=bool(data.get("approved",False)),permissions=("plugin.execute","network.external"),
+                )
+                return self._json(200,receipt["result"])
             except KeyError:return self._json(404,{"error":"plugin not found"})
             except (ValueError,PermissionError) as exc:return self._json(403 if isinstance(exc,PermissionError) else 400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(502,{"error":str(exc)})
             except Exception as exc:return self._json(502,{"error":f"plugin request failed: {type(exc).__name__}: {exc}"})
 
         if post_path == "/api/brahmagyan/projects/add":
@@ -2047,6 +2265,64 @@ class Handler(BaseHTTPRequestHandler):
         if post_path == "/api/software-factory/testing-lead/verify":
             try:return self._json(200,orch.testing_lead_live_verify(str(data.get("project") or "KRISHNA"),str(data.get("url") or ""),data.get("screenshot_dir"),int(data.get("max_controls") or 100)))
             except (ValueError,KeyError,RuntimeError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gyan-bhandar/acl/grant":
+            try:
+                receipt=orch.dispatch_action(
+                    "gyan.acl.grant",
+                    {"project":data.get("project") or "KRISHNA","principal":data.get("principal"),"permissions":data.get("permissions") or []},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="gyan-security",
+                    approved=bool(data.get("approved",False)),permissions=("memory.admin",),
+                )
+                return self._json(200,receipt["result"])
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+
+        if post_path == "/api/gyan-bhandar/acl/revoke":
+            try:
+                receipt=orch.dispatch_action(
+                    "gyan.acl.revoke",
+                    {"project":data.get("project") or "KRISHNA","principal":data.get("principal")},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="gyan-security",
+                    approved=bool(data.get("approved",False)),permissions=("memory.admin",),
+                )
+                return self._json(200,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+
+        if post_path == "/api/gyan-bhandar/session/capture":
+            try:
+                receipt=orch.dispatch_action(
+                    "gyan.session.capture",
+                    {"project":data.get("project") or "KRISHNA","chat_id":data.get("chat_id"),"summary":data.get("summary"),
+                     "evidence":data.get("evidence") or [],"provenance":data.get("provenance") or {}},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="gyan-session",
+                    permissions=("memory.write",),
+                )
+                return self._json(202,receipt["result"])
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gyan-bhandar/replica/snapshot":
+            try:
+                receipt=orch.dispatch_action(
+                    "gyan.replica.snapshot",{"label":data.get("label") or "gyan"},
+                    project="KRISHNA",source="pc",actor="gyan-security",
+                    approved=bool(data.get("approved",False)),permissions=("memory.admin","filesystem.write"),
+                )
+                return self._json(201,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,OSError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gyan-bhandar/encrypted/store":
+            try:
+                receipt=orch.dispatch_action(
+                    "gyan.encrypted.put",
+                    {"record_id":data.get("record_id"),"payload":data.get("payload") or {},"project":data.get("project") or "KRISHNA"},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="gyan-security",
+                    approved=bool(data.get("approved",False)),permissions=("memory.admin","memory.write"),
+                )
+                return self._json(201,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(503 if isinstance(exc,RuntimeError) else 400,{"error":str(exc)})
 
         if post_path == "/api/gyan-bhandar/archive":
             project=str(data.get("project") or "KRISHNA").strip(); source_path=str(data.get("source_path") or "").strip()

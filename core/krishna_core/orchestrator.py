@@ -65,6 +65,7 @@ from .resource_locks import ResourceLockManager
 from .mission_budget import MissionBudgetManager
 from .provider_contract import UnifiedProviderRegistry
 from .krishna_protocol import KrishnaProtocol
+from .gyan_security import GyanACL,GyanEnvelopeCipher,GyanEncryptedStore,GyanContextCompiler,GyanSessionLearning,GyanReplicaManager
 
 
 class Orchestrator:
@@ -125,6 +126,12 @@ class Orchestrator:
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
+        self.gyan_acl = GyanACL(runtime_state / "gyan-acl.json")
+        self.gyan_cipher = GyanEnvelopeCipher()
+        self.gyan_encrypted = GyanEncryptedStore(runtime_state / "gyan-encrypted",self.gyan_cipher)
+        self.gyan_context = GyanContextCompiler(self.gyan_bhandar,self.agi.context)
+        self.gyan_session = GyanSessionLearning(self.gyan_bhandar)
+        self.gyan_replica = GyanReplicaManager(self.db_path,Path(self.db_path).resolve().parent / "backups" / "gyan")
         self.permissions = PermissionRuntime()
         self.lifecycle_bus = DurableEventBus(self.db_path,compatibility_bus=self.agi.bus)
         self.missions = MissionEngine(self.db_path,event_bus=self.lifecycle_bus)
@@ -874,6 +881,28 @@ class Orchestrator:
             )
             return {"released":bool(ok),"lock_id":str(payload.get("lock_id") or "")}
 
+        def gyan_acl_grant(payload,context):
+            if not bool(context.get("approved",False)):raise PermissionError("Gyan ACL changes require explicit owner approval")
+            return self.gyan_acl.grant(str(payload.get("project") or "KRISHNA"),str(payload.get("principal") or ""),payload.get("permissions") or [])
+        def gyan_acl_revoke(payload,context):
+            if not bool(context.get("approved",False)):raise PermissionError("Gyan ACL changes require explicit owner approval")
+            return {"revoked":self.gyan_acl.revoke(str(payload.get("project") or "KRISHNA"),str(payload.get("principal") or ""))}
+        def gyan_session_capture(payload,context):
+            return self.gyan_session.capture(
+                str(payload.get("project") or context.get("project") or "KRISHNA"),
+                str(payload.get("chat_id") or ""),str(payload.get("summary") or ""),
+                payload.get("evidence") or [],payload.get("provenance") or {},
+            )
+        def gyan_replica_snapshot(payload,context):
+            if not bool(context.get("approved",False)):raise PermissionError("Gyan replica snapshot requires owner approval")
+            return self.gyan_replica.snapshot(str(payload.get("label") or "gyan"))
+        def gyan_encrypted_put(payload,context):
+            if not bool(context.get("approved",False)):raise PermissionError("encrypted Gyan storage requires owner approval")
+            return self.gyan_encrypted.put(
+                str(payload.get("record_id") or ""),payload.get("payload") or {},
+                str(payload.get("project") or context.get("project") or "KRISHNA"),
+            )
+
         def kabach_privacy_audit(payload,context):
             target=self.kabach.privacy.classify_target(payload)
             profile=str(payload.get("profile") or "BASELINE")
@@ -914,6 +943,27 @@ class Orchestrator:
 
         def kabach_privacy_release_gate(payload,context):
             return self.kabach.privacy_release_gate(payload.get("report") or {},str(payload.get("policy") or "STANDARD"))
+
+        self.action_bus.register(
+            "gyan.acl.grant",gyan_acl_grant,description="Grant scoped delegated Gyan access",
+            mutating=True,requires_approval=True,permissions=("memory.admin",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "gyan.acl.revoke",gyan_acl_revoke,description="Revoke scoped delegated Gyan access",
+            mutating=True,requires_approval=True,permissions=("memory.admin",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "gyan.session.capture",gyan_session_capture,description="Capture a session-learning candidate for Gyan approval",
+            mutating=True,permissions=("memory.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "gyan.replica.snapshot",gyan_replica_snapshot,description="Create a verified local Gyan database replica snapshot",
+            mutating=True,requires_approval=True,permissions=("memory.admin","filesystem.write"),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "gyan.encrypted.put",gyan_encrypted_put,description="Store an owner-approved encrypted Gyan payload",
+            mutating=True,requires_approval=True,permissions=("memory.admin","memory.write"),sources=("pc","system"),
+        )
 
         self.action_bus.register(
             "mission.create",mission_create,description="Create a durable KRISHNA Mission",
@@ -1793,6 +1843,25 @@ class Orchestrator:
     def gyan_strengthen(self, project, topic, use_garuda=True, limit=10):
         if project != "KRISHNA" and not self.projects.get(project): raise KeyError(project)
         return self.gyan_bhandar.strengthen(project,topic,use_garuda,limit)
+
+    def gyan_security_status(self):
+        return {
+            "acl":self.gyan_acl.status(),
+            "encryption":self.gyan_cipher.status(),
+            "replication":self.gyan_replica.status(),
+            "context_policy":"project-scoped; verified first; candidates explicitly labeled",
+            "session_learning":"candidate-only until Gyan approval",
+        }
+
+    def gyan_compile_context(self,project,topic="",limit=50,verified_only=False,memory_kind=None,principal="owner"):
+        if not self.gyan_acl.permits(project,principal,"read"):raise PermissionError("Gyan read denied by project ACL")
+        if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)
+        return self.gyan_context.compile(project,topic,limit,verified_only,memory_kind)
+
+    def gyan_compile_uri(self,uri,limit=50,principal="owner"):
+        req=self.gyan_context.parse_uri(uri)
+        if not self.gyan_acl.permits(req["project"],principal,"read"):raise PermissionError("Gyan URI read denied by project ACL")
+        return self.gyan_context.compile_uri(uri,limit)
 
     def brahmagyan_status(self):
         return self.agi.brahmagyan.status()

@@ -48,7 +48,20 @@ class AttachmentStore:
         row,path=self.resolve(chat_id,attachment_id)
         data=path.read_bytes()
         if len(data)>int(max_bytes):raise ValueError("attachment exceeds read limit")
+        digest=hashlib.sha256(data).hexdigest()
+        if digest!=str(row.get("sha256") or ""):
+            raise ValueError("attachment integrity check failed")
+        if len(data)!=int(row.get("bytes") or -1):
+            raise ValueError("attachment size metadata mismatch")
         return row,data
+
+    def delete_chat(self,chat_id):
+        folder=self._folder(chat_id)
+        if not folder.exists():return {"deleted":True,"files":0}
+        count=sum(1 for p in folder.iterdir() if p.is_file())
+        import shutil
+        shutil.rmtree(folder)
+        return {"deleted":True,"files":count}
 
     def list(self,chat_id):
         folder=self._folder(chat_id)

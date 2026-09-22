@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
+import socket
 import tempfile
 import time
 import urllib.request
@@ -43,12 +45,31 @@ class ModelGatewayRegistry:
     def _validate_url(value:str)->str:
         value=str(value or "").strip().rstrip("/")
         p=urlparse(value)
-        if p.scheme not in ("http","https") or not p.netloc:
+        if p.scheme not in ("http","https") or not p.netloc or not p.hostname:
             raise ValueError("gateway base_url must be http:// or https://")
-        host=(p.hostname or "").lower()
-        if p.scheme!="https" and host not in {"localhost","127.0.0.1","::1"}:
+        if p.username or p.password or p.fragment:
+            raise ValueError("gateway base_url must not embed credentials or fragments")
+        host=(p.hostname or "").strip().lower()
+        if host in {"metadata.google.internal","metadata","instance-data","instance-data.ec2.internal"}:
+            raise PermissionError("cloud metadata gateway target is blocked")
+        addresses=[]
+        try:addresses=[ipaddress.ip_address(host.strip("[]"))]
+        except ValueError:
+            try:
+                addresses=list({ipaddress.ip_address(row[4][0].split("%",1)[0])
+                    for row in socket.getaddrinfo(host,p.port or (443 if p.scheme=="https" else 80),type=socket.SOCK_STREAM)})
+            except OSError as exc:raise ValueError("gateway hostname could not be resolved") from exc
+        for addr in addresses:
+            if addr.is_link_local or addr.is_unspecified or addr.is_multicast or addr.is_reserved:
+                raise PermissionError("link-local/reserved gateway target is blocked")
+        local=host=="localhost" or bool(addresses and all(x.is_loopback for x in addresses))
+        if p.scheme!="https" and not local:
             raise ValueError("non-local cloud gateway must use https")
         return value
+
+    def _healthy(self):
+        if self.load_error:
+            raise RuntimeError("model gateway registry is unreadable; refusing to overwrite it: "+self.load_error)
 
     def _load(self):
         if not self.path.exists():return
@@ -61,6 +82,7 @@ class ModelGatewayRegistry:
             self.load_error=f"{type(exc).__name__}: {exc}"
 
     def _save(self):
+        self._healthy()
         self.path.parent.mkdir(parents=True,exist_ok=True)
         payload={"schema":1,"profiles":[asdict(x) for x in self.profiles.values()]}
         fd,tmp=tempfile.mkstemp(prefix="model-gateways-",suffix=".json",dir=str(self.path.parent))
@@ -71,6 +93,7 @@ class ModelGatewayRegistry:
             if os.path.exists(tmp):os.unlink(tmp)
 
     def register(self,name,base_url,model,api_key,free_only=True,enabled=True):
+        self._healthy()
         name=str(name or "").strip();model=str(model or "").strip()
         if not name or not model:raise ValueError("gateway name and model are required")
         url=self._validate_url(base_url)
@@ -79,6 +102,7 @@ class ModelGatewayRegistry:
         self.profiles[row.id]=row;self._save();return self.describe(row.id)
 
     def delete(self,profile_id):
+        self._healthy()
         key=str(profile_id)
         row=self.profiles.get(key)
         if not row:return False

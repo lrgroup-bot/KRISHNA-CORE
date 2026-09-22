@@ -63,7 +63,8 @@ function Is-Protected([string]$RelativePath) {
 # Only these v3 runtime locations are eligible for installation.
 $RuntimeSources = @(
     @{ Source = "core\krishna_core"; Destination = "core\krishna_core" },
-    @{ Source = "core\dashboard.html"; Destination = "core\dashboard.html" },
+    @{ Source = "core\requirements"; Destination = "core\requirements" },
+    @{ Source = "core\web_validation.html"; Destination = "core\web_validation.html" },
     @{ Source = "core\krishna_console.py"; Destination = "core\krishna_console.py" },
     @{ Source = "core\krishna_desktop.py"; Destination = "core\krishna_desktop.py" },
     @{ Source = "core\.env.example"; Destination = "core\.env.example" }
@@ -124,9 +125,20 @@ if ($missingPackage.Count -gt 0) {
     $missingPackage | ForEach-Object { Write-Host "  ! $_" -ForegroundColor Yellow }
 }
 
+
+$currentUi=Join-Path $TargetRoot "core\web_validation.html"
+if(Test-Path -LiteralPath $currentUi){
+    $uiText=Get-Content -LiteralPath $currentUi -Raw
+    if($uiText -notmatch 'data-krishna-ui="2026\.09-current"'){
+        throw "STALE KRISHNA UI DETECTED: $currentUi. Use the verified deployment; refusing to preserve an old desktop design."
+    }
+}else{
+    throw "CURRENT KRISHNA UI MISSING AFTER PATCH: $currentUi"
+}
+
 Write-Host ""
 Write-Host "PRESERVATION GUARANTEE" -ForegroundColor Yellow
-Write-Host "This patch installs only missing v3 Core/dashboard runtime files."
+Write-Host "This patch installs only missing v3 Core/current-UI runtime files and refuses a stale desktop design."
 Write-Host "It does NOT overwrite or delete krishna.glb, existing core\krishna.py,"
 Write-Host "mobile gateway/certificates/device credentials, Ollama models, state data,"
 Write-Host "memory/database files, or .env."

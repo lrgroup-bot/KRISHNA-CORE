@@ -61,6 +61,11 @@ $xd=@();foreach($d in $excludeDirs){$xd+=@("/XD",(Join-Path $Runtime $d))}
 & robocopy "$Source\core" "$Runtime\core" /E /R:1 /W:1 /XF "*.pyc" @xd
 if($LASTEXITCODE -ge 8){throw "CORE COPY FAILED: robocopy=$LASTEXITCODE"}
 
+# The old standalone dashboard is source-owned legacy UI, not runtime state.
+# Remove it explicitly so an obsolete shell cannot be opened from the runtime.
+$legacyDashboard=Join-Path $Runtime "core\dashboard.html"
+if(Test-Path $legacyDashboard){Remove-Item -Force $legacyDashboard}
+
 New-Item -ItemType Directory -Force "$Runtime\scripts"|Out-Null
 & robocopy "$Source\scripts" "$Runtime\scripts" /E /R:1 /W:1 /XF "*.pyc"
 if($LASTEXITCODE -ge 8){throw "SCRIPT COPY FAILED: robocopy=$LASTEXITCODE"}
@@ -106,6 +111,13 @@ if(Test-Path $avatarPrepare){
   }
 }
 
+# Ensure Gyan-Bhandar AES-GCM envelope encryption dependency is installed only
+# inside KRISHNA's E: virtual environment/cache. DPAPI remains the Windows key wrapper.
+$gyanSecuritySetup=Join-Path $Runtime "scripts\SETUP_GYAN_SECURITY.ps1"
+if(!(Test-Path $gyanSecuritySetup)){throw "GYAN SECURITY SETUP MISSING: $gyanSecuritySetup"}
+& powershell -NoProfile -ExecutionPolicy Bypass -File $gyanSecuritySetup -RuntimeRoot $Runtime
+if($LASTEXITCODE -ne 0){throw "GYAN SECURITY SETUP FAILED"}
+
 # Test the deployed runtime code, then repository-level contracts against runtime PYTHONPATH.
 $env:PYTHONPATH="$Runtime\core"
 & $Py -m compileall -q "$Runtime\core\krishna_core"
@@ -125,7 +137,6 @@ $tracked=@()
 $tracked+=Get-ChildItem "$Runtime\core\krishna_core" -File -Recurse -Filter "*.py" -ErrorAction SilentlyContinue
 foreach($p in @(
   "$Runtime\core\web_validation.html",
-  "$Runtime\core\dashboard.html",
   "$Runtime\avatar\krishna_child_360.webp.b64"
 )){
   if(Test-Path $p){$tracked+=Get-Item $p}

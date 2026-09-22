@@ -91,20 +91,39 @@ def _glb_json(path: Path) -> dict:
 
 
 def _target_names(document: dict) -> set[str]:
+    """Return only names backed by actual morph-target slots.
+
+    Exporters commonly store targetNames in mesh extras while target accessor sets
+    live on primitives. Metadata labels without primitive targets are not a facial rig.
+    """
     names=set()
     for mesh in document.get("meshes") or []:
-        extras=mesh.get("extras") or {}
-        for name in extras.get("targetNames") or []:
-            if name:
-                names.add(str(name))
-    # Some exporters place target names in primitive extras.
-    for mesh in document.get("meshes") or []:
-        for primitive in mesh.get("primitives") or []:
-            extras=primitive.get("extras") or {}
-            for name in extras.get("targetNames") or []:
-                if name:
-                    names.add(str(name))
+        primitives=mesh.get("primitives") or []
+        max_targets=max([len(p.get("targets") or []) for p in primitives] or [0])
+        if max_targets:
+            for name in list((mesh.get("extras") or {}).get("targetNames") or [])[:max_targets]:
+                if name:names.add(str(name))
+        for primitive in primitives:
+            count=len(primitive.get("targets") or [])
+            if not count:continue
+            for name in list((primitive.get("extras") or {}).get("targetNames") or [])[:count]:
+                if name:names.add(str(name))
     return names
+
+
+def _best_skin_joint_names(document: dict) -> set[str]:
+    nodes=document.get("nodes") or []
+    best=set()
+    for skin in document.get("skins") or []:
+        names=set()
+        for raw_index in skin.get("joints") or []:
+            try:index=int(raw_index)
+            except (TypeError,ValueError):continue
+            if index<0 or index>=len(nodes):continue
+            name=str((nodes[index] or {}).get("name") or "")
+            if name:names.add(_clean_bone_name(name))
+        if len(names)>len(best):best=names
+    return best
 
 
 class AvatarAssetInspector:
@@ -138,9 +157,10 @@ class AvatarAssetInspector:
             normalized={_clean_bone_name(x) for x in node_names}
             morphs=_target_names(doc)
             skins=doc.get("skins") or []
+            joint_names=_best_skin_joint_names(doc)
             animations=doc.get("animations") or []
             animation_names=[str(x.get("name") or f"animation-{i+1}") for i,x in enumerate(animations)]
-            missing_bones=[x for x in TALKINGHEAD_BONES if x not in normalized]
+            missing_bones=[x for x in TALKINGHEAD_BONES if x not in joint_names]
             missing_arkit=[x for x in ARKIT_52 if x not in morphs]
             missing_visemes=[x for x in OCULUS_15 if x not in morphs]
             body_ready=bool(skins) and not missing_bones
@@ -172,6 +192,7 @@ class AvatarAssetInspector:
                 "glb_version":2,
                 "generator":str((doc.get("asset") or {}).get("generator") or ""),
                 "skin_count":len(skins),
+                "skin_joint_count":len(joint_names),
                 "animation_count":len(animations),
                 "animation_names":animation_names[:100],
                 "node_count":len(doc.get("nodes") or []),

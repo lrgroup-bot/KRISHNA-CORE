@@ -39,7 +39,14 @@ class PrivateRemotePolicy:
 
     @staticmethod
     def _lan(ip):
-        return ip.is_loopback or ip.is_private or ip.is_link_local
+        if ip.is_loopback or ip.is_link_local:return True
+        lan=(
+            ipaddress.ip_network("10.0.0.0/8"),
+            ipaddress.ip_network("172.16.0.0/12"),
+            ipaddress.ip_network("192.168.0.0/16"),
+            ipaddress.ip_network("fc00::/7"),
+        )
+        return any(ip in net for net in lan)
 
     def classify(self,address:str)->dict:
         try:ip=ipaddress.ip_address(str(address))

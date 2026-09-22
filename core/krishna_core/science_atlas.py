@@ -122,6 +122,7 @@ class ScienceAtlas:
             "last_sync_at":None,
             "sync_source":"OpenAlex CC0",
         }
+        self.load_error=None
         self._load()
 
     def _load(self):
@@ -133,9 +134,15 @@ class ScienceAtlas:
                 self.state.setdefault("taxonomy",{"domains":[],"fields":[],"subfields":[],"topics":[]})
                 self.state.setdefault("research",{})
         except Exception as exc:
-            if self.memory:self.memory.audit("science_atlas","load_failed",f"{type(exc).__name__}: {exc}")
+            self.load_error=f"{type(exc).__name__}: {exc}"
+            if self.memory:self.memory.audit("science_atlas","load_failed",self.load_error)
+
+    def _healthy(self):
+        if self.load_error:
+            raise RuntimeError("Science Atlas state is unreadable; refusing to overwrite it: "+self.load_error)
 
     def _save(self):
+        self._healthy()
         tmp=self.path.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.state,ensure_ascii=False,indent=2),encoding="utf-8")
         os.replace(tmp,self.path)

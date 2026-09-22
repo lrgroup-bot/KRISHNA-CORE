@@ -19,16 +19,6 @@ function Assert-EPath([string]$Path,[string]$Label){
 
 $RuntimeRoot=Assert-EPath $RuntimeRoot "KRISHNA runtime"
 
-function Assert-EPath([string]$Path,[string]$Label){
-  if([string]::IsNullOrWhiteSpace($Path)){throw "$Label path is empty"}
-  $full=[System.IO.Path]::GetFullPath($Path)
-  if($full -notmatch '^[Ee]:\\'){
-    throw "$Label must stay on E:. Refusing path: $full"
-  }
-  return $full
-}
-$RuntimeRoot=Assert-EPath $RuntimeRoot "KRISHNA runtime"
-
 $toolRoot = Join-Path $RuntimeRoot "tools\avatar-video\musetalk"
 $envRoot = Join-Path $RuntimeRoot "tools\avatar-video\envs\musetalk"
 $cacheRoot = Join-Path $RuntimeRoot "cache\avatar-video"

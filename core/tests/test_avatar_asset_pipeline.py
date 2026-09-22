@@ -24,7 +24,8 @@ class AvatarAssetPipelineTests(unittest.TestCase):
                 "asset":{"version":"2.0","generator":"unit-test"},
                 "nodes":[{"name":"mixamorig"+name} for name in TALKINGHEAD_BONES],
                 "skins":[{"joints":list(range(len(TALKINGHEAD_BONES)))}],
-                "meshes":[{"extras":{"targetNames":list(ARKIT_52)+list(OCULUS_15)}}],
+                "meshes":[{"extras":{"targetNames":list(ARKIT_52)+list(OCULUS_15)},
+                           "primitives":[{"targets":[{} for _ in range(len(ARKIT_52)+len(OCULUS_15))]}]}],
                 "animations":[{"name":"idle"},{"name":"flute"}],
             }
             write_glb(asset,document)
@@ -55,12 +56,44 @@ class AvatarAssetPipelineTests(unittest.TestCase):
                 "asset":{"version":"2.0"},
                 "nodes":[{"name":x} for x in core],
                 "skins":[{"joints":list(range(len(core)))}],
-                "meshes":[{"extras":{"targetNames":list(ARKIT_52)+list(OCULUS_15)}}],
+                "meshes":[{"extras":{"targetNames":list(ARKIT_52)+list(OCULUS_15)},
+                           "primitives":[{"targets":[{} for _ in range(len(ARKIT_52)+len(OCULUS_15))]}]}],
             })
             report=AvatarAssetInspector().inspect(asset)
             self.assertFalse(report["body"]["ready"])
             self.assertFalse(report["ready"])
             self.assertTrue(any("HandThumb" in x for x in report["body"]["missing_core_bones"]))
+
+    def test_named_nodes_not_bound_to_skin_are_not_a_valid_body_rig(self):
+        with tempfile.TemporaryDirectory() as td:
+            asset=Path(td)/"fake-rig.glb"
+            nodes=[{"name":x} for x in TALKINGHEAD_BONES]+[{"name":"OnlyJoint"}]
+            target_names=list(ARKIT_52)+list(OCULUS_15)
+            write_glb(asset,{
+                "asset":{"version":"2.0"},
+                "nodes":nodes,
+                "skins":[{"joints":[len(nodes)-1]}],
+                "meshes":[{"extras":{"targetNames":target_names},
+                           "primitives":[{"targets":[{} for _ in target_names]}]}],
+            })
+            report=AvatarAssetInspector().inspect(asset)
+            self.assertFalse(report["body"]["ready"])
+            self.assertFalse(report["ready"])
+            self.assertEqual(report["skin_joint_count"],1)
+
+    def test_facial_target_names_without_morph_slots_are_not_a_face_rig(self):
+        with tempfile.TemporaryDirectory() as td:
+            asset=Path(td)/"fake-face.glb"
+            write_glb(asset,{
+                "asset":{"version":"2.0"},
+                "nodes":[{"name":x} for x in TALKINGHEAD_BONES],
+                "skins":[{"joints":list(range(len(TALKINGHEAD_BONES)))}],
+                "meshes":[{"extras":{"targetNames":list(ARKIT_52)+list(OCULUS_15)}}],
+            })
+            report=AvatarAssetInspector().inspect(asset)
+            self.assertFalse(report["face"]["ready"])
+            self.assertFalse(report["ready"])
+            self.assertEqual(report["morph_target_count"],0)
 
     def test_invalid_glb_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:

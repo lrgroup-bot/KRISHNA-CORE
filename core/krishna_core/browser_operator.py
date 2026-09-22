@@ -59,18 +59,29 @@ class BrowserOperator:
             except Exception: browser=p.chromium.launch(headless=self.headless)
             page=browser.new_page(); page.set_default_timeout(self.timeout_ms)
             page_errors=[]; page.on("pageerror",lambda e:page_errors.append(str(e)))
-            page.goto(url,wait_until="networkidle")
+            # Polling dashboards may never reach network-idle. DOM readiness plus a
+            # bounded settle window is deterministic and matches the normal inspector.
+            page.goto(url,wait_until="domcontentloaded")
+            page.wait_for_timeout(500)
             controls=page.locator("button, a[href], input[type=button], input[type=submit], [role=button]")
             count=min(controls.count(),max(1,int(max_controls)))
+            consequential=("delete","remove","send","submit","approve","reject","promote","execute",
+                           "run","start","stop","unload","clear","revoke","grant","pair","connect",
+                           "install","enable","disable","save","upload","commit","push","deploy","rollback")
             for i in range(count):
                 try:
-                    control=controls.nth(i); label=(control.inner_text() or control.get_attribute("aria-label") or control.get_attribute("value") or "")[:160]
-                    href=control.get_attribute("href"); before=page.url
+                    control=controls.nth(i)
+                    label=(control.inner_text() or control.get_attribute("aria-label") or control.get_attribute("value") or "")[:160]
+                    href=control.get_attribute("href");before=page.url
+                    normalized=" ".join(str(label or "").lower().split())
+                    input_type=str(control.get_attribute("type") or "").lower()
+                    if input_type=="submit" or any(word in normalized for word in consequential):
+                        evidence.append({"index":i,"label":label,"skipped":"consequential_control"});continue
                     if href and (href.startswith("http") and not href.startswith(url.split("/",3)[0]+"//"+url.split("/",3)[2])):
-                        evidence.append({"index":i,"label":label,"skipped":"external_navigation"}); continue
-                    control.click(timeout=min(self.timeout_ms,5000)); page.wait_for_timeout(150)
+                        evidence.append({"index":i,"label":label,"skipped":"external_navigation"});continue
+                    control.click(timeout=min(self.timeout_ms,5000));page.wait_for_timeout(150)
                     evidence.append({"index":i,"label":label,"before":before,"after":page.url,"ok":True})
-                    if page.url!=before: page.go_back(wait_until="domcontentloaded")
+                    if page.url!=before:page.go_back(wait_until="domcontentloaded")
                 except Exception as exc:
                     evidence.append({"index":i,"ok":False,"error":str(exc)[:500]})
             findings.extend(self.summarize_findings(page_errors=page_errors))

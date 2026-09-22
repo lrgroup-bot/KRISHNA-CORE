@@ -306,7 +306,7 @@ public class MainActivity extends Activity {
         value=value==null?"":value.trim().replaceAll("/+$","");
         if(!value.isEmpty()&&!secureCloudUrl(value))throw new SecurityException("Cloud gateway must use HTTPS");
         getSharedPreferences("k",0).edit().putString("cloud_url",value).apply();
-        JSONObject d=new JSONObject();d.put("ok",true);d.put("cloud_url",value);d.put("authority","KRISHNA Core");return d.toString();
+        JSONObject d=new JSONObject();d.put("ok",true);d.put("cloud_url",value);d.put("authority","not-a-mobile-control-route");d.put("note","Public cloud URLs are never used for KRISHNA Mobile device-authenticated Core control.");return d.toString();
       }catch(Exception e){return error(e);}
     }
     @JavascriptInterface public String cloudUrl(){return getSharedPreferences("k",0).getString("cloud_url","");}
@@ -351,16 +351,10 @@ public class MainActivity extends Activity {
     String coreBase()throws Exception{
       String base=getSharedPreferences("k",0).getString("core_url","").trim();
       if(base.isEmpty())base=discoverLanCore();
-      if(base.isEmpty()){
-        String cloud=getSharedPreferences("k",0).getString("cloud_url","").trim();
-        if(secureCloudUrl(cloud))return cloud.replaceAll("/+$","");
-        throw new IllegalStateException("KRISHNA Core is unreachable and no HTTPS cloud gateway is configured.");
-      }
-      if(!privateCoreUrl(base)){
-        String cloud=getSharedPreferences("k",0).getString("cloud_url","").trim();
-        if(secureCloudUrl(cloud))return cloud.replaceAll("/+$","");
+      if(base.isEmpty())
+        throw new IllegalStateException("KRISHNA Core is unreachable. Use LAN or an approved private overlay such as Tailscale.");
+      if(!privateCoreUrl(base))
         throw new SecurityException("Core URL is outside KRISHNA private-network policy");
-      }
       return base.replaceAll("/+$","");
     }
     @JavascriptInterface public String configureCoreUrl(String value){

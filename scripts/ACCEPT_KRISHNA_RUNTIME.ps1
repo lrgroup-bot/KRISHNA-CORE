@@ -209,7 +209,44 @@ try{
 
   $voice=Get-Json "/api/voice/status"
   $voiceReady=($voice.stt.available -and $voice.tts.available -and $voice.wake.available)
-  Add-Check "Native Odia voice + wake" ($(if($voiceReady){"PASS"}else{"WARN"})) ($(if($voiceReady){"Indic STT/TTS and Krishna wake runtime ready"}else{"Local voice boundaries installed; model/worker/wake assets still require runtime configuration"})) $voice
+  Add-Check "Native Odia/Hindi voice + wake" ($(if($voiceReady){"PASS"}else{"WARN"})) ($(if($voiceReady){"Indic STT/TTS and Krishna wake runtime ready"}else{"Voice boundaries installed; Hindi/Odia model workers and/or wake assets still require runtime configuration"})) $voice
+
+  if($voice.tts.available){
+    $voiceFailures=@()
+    foreach($sample in @(
+      @{language="hi";text="नमस्ते, मैं कृष्ण हूँ।"},
+      @{language="or";text="ନମସ୍କାର, ମୁଁ କୃଷ୍ଣ।"}
+    )){
+      try{
+        $ttsProbe=Post-Json "/api/voice/tts" $sample
+        if(!$ttsProbe.audio_id -or !$ttsProbe.audio_url){$voiceFailures += ($sample.language+":missing audio receipt")}
+      }catch{$voiceFailures += ($sample.language+":"+($_.Exception.Message))}
+    }
+    if($voiceFailures.Count -eq 0){
+      Add-Check "Hindi/Odia TTS invocation" "PASS" "Configured local Indic TTS produced both Hindi and Odia audio receipts" $voice.tts
+    }else{
+      Add-Check "Hindi/Odia TTS invocation" "FAIL" ("Configured TTS claims available but invocation failed: "+($voiceFailures -join " | ")) $voiceFailures
+    }
+  }else{
+    Add-Check "Hindi/Odia TTS invocation" "WARN" "Local Indic TTS worker is not configured, so real audio could not be invoked" $voice.tts
+  }
+
+  $avatar=Get-Json "/api/avatar/status"
+  if($avatar.glb_available){
+    $stage=[string]$avatar.asset_pipeline.source.stage
+    if($avatar.asset_pipeline.source.ready){
+      Add-Check "KRISHNA avatar production rig" "PASS" ("Private GLB ready; stage="+$stage+"; body+ARKit52+Oculus15 verified") $avatar.asset_pipeline.source
+    }else{
+      Add-Check "KRISHNA avatar production rig" "WARN" ("Private GLB loaded but not production-ready; stage="+$stage+"; "+(@($avatar.asset_pipeline.source.issues) -join "; ")) $avatar.asset_pipeline.source
+    }
+  }else{
+    Add-Check "KRISHNA avatar production rig" "WARN" "Private krishna.glb is not available in this isolated acceptance runtime" $avatar
+  }
+  if($avatar.talkinghead_installed -and $avatar.model_viewer_installed -and $avatar.headaudio_installed -and $avatar.motion_engine_installed){
+    Add-Check "KRISHNA avatar engines" "PASS" "TalkingHead, model-viewer, HeadAudio and MotionEngine are installed" $avatar
+  }else{
+    Add-Check "KRISHNA avatar engines" "WARN" "One or more local avatar engines are not installed in the acceptance runtime" $avatar
+  }
 
   $vision=Get-Json "/api/vision/status"
   Add-Check "Local multimodal vision" ($(if($vision.available){"PASS"}else{"WARN"})) ($(if($vision.available){"Local vision model "+$vision.model+" available"}else{"Local vision adapter installed; configured multimodal Ollama model is unavailable"})) $vision

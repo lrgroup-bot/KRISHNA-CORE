@@ -40,7 +40,7 @@
         "Integration order is Shared Action Bus -> Projects/Chats -> Agent Runtime -> Jobs -> Permissions -> Audit/Rollback -> MCP/A2A -> Dispatch -> Desktop/Mobile sync -> Garuda/Garudanetra.",
         "Operational UI controls must be backed by real runtime behavior; priority mutating controls dispatch named Shared Actions and expose an action_id receipt.",
         "Agents, jobs, MCP and A2A adapters do not call runtime internals directly; delegated execution resolves through explicit action manifests and capabilities.",
-        "Jobs reuse the durable TaskLedger instead of creating a competing job authority.",
+        "Jobs use the durable Mission Engine + backend-owned queue as execution authority; TaskLedger remains a compatibility/read surface and never competes with Mission state.",
         "MCP/A2A are authenticated adapter boundaries over Shared Actions, not public unauthenticated control planes.",
         "Desktop/mobile action state sync uses the existing authenticated realtime event store and does not turn KRISHNA Mobile into a dashboard or raw host-control client.",
         "Project-code rollback remains under verified PromotionManager backups/post-checks; Shared Action rollback never weakens project promotion safeguards."

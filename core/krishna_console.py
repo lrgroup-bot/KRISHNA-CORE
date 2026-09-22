@@ -190,7 +190,8 @@ Anything else is a normal persistent conversation with KRISHNA.
         return True, project, chat_id
 
     if cmd == "/clear":
-        os.system("cls" if os.name == "nt" else "clear")
+        # ANSI clear avoids invoking a shell. Windows Terminal/modern consoles support it.
+        print("\x1b[2J\x1b[H", end="", flush=True)
         banner()
         return True, project, chat_id
 

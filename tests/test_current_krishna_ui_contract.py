@@ -28,6 +28,24 @@ class CurrentKrishnaUIContractTests(unittest.TestCase):
         self.assertRegex(self.html,r'#sudarshan \.sudarshanBar\{\s*display:none !important;')
         self.assertRegex(self.html,r'#sudarshan \.holoRail\{\s*display:none !important;')
 
+    def test_legacy_dashboard_is_absent_and_deploy_purges_runtime_copy(self):
+        self.assertFalse((self.root/"core"/"dashboard.html").exists())
+        deploy=(self.root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
+        self.assertIn('$legacyDashboard=Join-Path $Runtime "core\\dashboard.html"',deploy)
+        self.assertIn('Remove-Item -Force $legacyDashboard',deploy)
+
+    def test_manual_windows_build_uses_canonical_desktop_shell(self):
+        build=(self.root/"BUILD_KRISHNA_AGI.ps1").read_text(encoding="utf-8")
+        self.assertIn("krishna_desktop.py",build)
+        self.assertIn("web_validation.html",build)
+        self.assertIn("--collect-all webview",build)
+        self.assertNotIn("core\\run_core.py",build)
+
+    def test_start_reconciles_runtime_drift_through_verified_deploy(self):
+        start=(self.root/"scripts"/"START_KRISHNA.ps1").read_text(encoding="utf-8")
+        self.assertIn("Re-running verified deployment",start)
+        self.assertIn("Automatic drift reconciliation deployment failed",start)
+
     def test_runtime_acceptance_rejects_old_ui(self):
         for token in (
             'Current KRISHNA UI',
