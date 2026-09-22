@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import re
 import shutil
+import sqlite3
 import subprocess
 import tempfile
 import time
@@ -205,6 +206,56 @@ class MutationRunner:
                 "rule":"mutation is performed only in candidate workspace and always restored"}
 
 
+class DatabaseChaosRunner:
+    """Inject a real SQLite exclusive-lock fault into a temporary database copy."""
+
+    def run(self, database: str | Path, lock_timeout: float=0.15) -> dict[str, Any]:
+        source=Path(database).resolve()
+        if not source.is_file():
+            return {"applicable":True,"executed":False,"passed":False,"reason":"database_missing","database":str(source)}
+        started=time.perf_counter()
+        with tempfile.TemporaryDirectory(prefix="krishna-db-chaos-") as td:
+            target=Path(td)/source.name
+            shutil.copy2(source,target)
+            primary=sqlite3.connect(str(target),timeout=lock_timeout)
+            secondary=None
+            injection_observed=False
+            recovery_observed=False
+            injection_error=None
+            try:
+                primary.execute("BEGIN EXCLUSIVE")
+                secondary=sqlite3.connect(str(target),timeout=lock_timeout)
+                try:
+                    secondary.execute("CREATE TABLE krishna_chaos_probe(id INTEGER)")
+                    secondary.commit()
+                except sqlite3.OperationalError as exc:
+                    injection_error=str(exc)
+                    injection_observed="locked" in injection_error.lower()
+                primary.rollback()
+                if secondary:
+                    try: secondary.close()
+                    except Exception: pass
+                secondary=sqlite3.connect(str(target),timeout=1.0)
+                secondary.execute("CREATE TABLE IF NOT EXISTS krishna_chaos_probe(id INTEGER)")
+                secondary.commit()
+                recovery_observed=True
+            finally:
+                try: primary.close()
+                except Exception: pass
+                if secondary:
+                    try: secondary.close()
+                    except Exception: pass
+            return {
+                "applicable":True,"executed":True,
+                "source_database":str(source),"temporary_database":str(target),
+                "fault":"sqlite_exclusive_lock","injection_observed":injection_observed,
+                "injection_error":injection_error,"recovery_observed":recovery_observed,
+                "passed":bool(injection_observed and recovery_observed),
+                "elapsed_ms":int((time.perf_counter()-started)*1000),
+                "safety":"fault injected only into an isolated temporary database copy",
+            }
+
+
 class ArtifactExecutor:
     """Clean-ish runtime retests using tools already present on the host."""
 
@@ -236,24 +287,32 @@ class ArtifactExecutor:
             return {"kind":"exe","executed":False,"passed":False,"reason":"windows_required"}
         if not path.is_file():
             return {"kind":"exe","executed":False,"passed":False,"reason":"artifact_missing","artifact":str(path)}
+        artifact_hash=sha256(path.read_bytes()).hexdigest()
         runs=[]
-        for cycle in ("launch","restart"):
-            proc=None
-            try:
-                proc=subprocess.Popen([str(path),*(args or [])],cwd=str(path.parent),
-                                      stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-                time.sleep(max(0.2,float(startup_seconds)))
-                alive=proc.poll() is None
-                health=self._health(health_url) if health_url else {"passed":alive,"reachable":alive}
-                runs.append({"cycle":cycle,"alive":alive,"health":health,"passed":alive and health["passed"]})
-            except Exception as exc:
-                runs.append({"cycle":cycle,"passed":False,"error":f"{type(exc).__name__}: {exc}"})
-            finally:
-                if proc and proc.poll() is None:
-                    proc.terminate()
-                    try: proc.wait(timeout=5)
-                    except Exception: proc.kill()
-        return {"kind":"exe","executed":True,"artifact":str(path),"runs":runs,"passed":all(x["passed"] for x in runs)}
+        with tempfile.TemporaryDirectory(prefix="krishna-exe-clean-install-") as td:
+            sandbox=Path(td).resolve()
+            staged=sandbox/path.name
+            shutil.copy2(path,staged)
+            for cycle in ("launch","restart"):
+                proc=None
+                try:
+                    proc=subprocess.Popen([str(staged),*(args or [])],cwd=str(sandbox),
+                                          stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                    time.sleep(max(0.2,float(startup_seconds)))
+                    alive=proc.poll() is None
+                    health=self._health(health_url) if health_url else {"passed":alive,"reachable":alive}
+                    runs.append({"cycle":cycle,"alive":alive,"health":health,"passed":alive and health["passed"]})
+                except Exception as exc:
+                    runs.append({"cycle":cycle,"passed":False,"error":f"{type(exc).__name__}: {exc}"})
+                finally:
+                    if proc and proc.poll() is None:
+                        proc.terminate()
+                        try: proc.wait(timeout=5)
+                        except Exception: proc.kill()
+            staged_hash=sha256(staged.read_bytes()).hexdigest() if staged.is_file() else None
+        return {"kind":"exe","executed":True,"artifact":str(path),"artifact_sha256":artifact_hash,
+                "clean_install":True,"sandbox_copy_verified":staged_hash==artifact_hash,
+                "runs":runs,"passed":bool(staged_hash==artifact_hash and all(x["passed"] for x in runs))}
 
     def apk(self, artifact: str | Path, package_id: str="com.krishna.mobile") -> dict[str, Any]:
         path=Path(artifact).resolve()
@@ -266,7 +325,12 @@ class ArtifactExecutor:
         if not devices["passed"] or "\tdevice" not in devices.get("output",""):
             return {"kind":"apk","executed":False,"passed":False,"reason":"no_android_device","devices":devices}
         steps=[]
-        steps.append({"name":"install",**self._cmd([adb,"install","-r",str(path)],180)})
+        uninstall=self._cmd([adb,"uninstall",package_id],60)
+        # "Unknown package" is an acceptable clean-install precondition.
+        uninstall_ok=bool(uninstall.get("passed") or "Unknown package" in uninstall.get("output","") or "not installed" in uninstall.get("output","").lower())
+        steps.append({"name":"clean_uninstall","executed":uninstall.get("executed",False),"passed":uninstall_ok,
+                      "output":uninstall.get("output",""),"reason":uninstall.get("reason")})
+        steps.append({"name":"install",**self._cmd([adb,"install",str(path)],180)})
         for permission in ("android.permission.CAMERA","android.permission.RECORD_AUDIO","android.permission.POST_NOTIFICATIONS"):
             grant=self._cmd([adb,"shell","pm","grant",package_id,permission],30)
             steps.append({"name":"grant_"+permission.rsplit(".",1)[-1].lower(),"permission":permission,**grant})
@@ -293,8 +357,7 @@ class ArtifactExecutor:
         return {"kind":"apk","executed":True,"artifact":str(path),"steps":steps,
                 "permissions":permission_verified,"permissions_passed":permissions_ok,
                 "fatal_in_logs":fatal,"log_tail":logs.get("output","")[-8000:],
-                "passed":all(x["passed"] for x in steps) and permissions_ok and not fatal}
-
+                "clean_install":True,"passed":all(x["passed"] for x in steps) and permissions_ok and not fatal}
     def ios(self, artifact: str | Path, bundle_id: str) -> dict[str, Any]:
         path=Path(artifact).resolve()
         xcrun=shutil.which("xcrun")
@@ -302,14 +365,20 @@ class ArtifactExecutor:
             return {"kind":"ios","executed":False,"passed":False,"reason":"macos_simulator_required"}
         if not path.exists():
             return {"kind":"ios","executed":False,"passed":False,"reason":"artifact_missing","artifact":str(path)}
+        if not str(bundle_id or "").strip():
+            return {"kind":"ios","executed":False,"passed":False,"reason":"bundle_id_required"}
+        clean=self._cmd([xcrun,"simctl","uninstall","booted",bundle_id],60)
+        clean_ok=bool(clean.get("passed") or "not installed" in clean.get("output","").lower() or "No such file" in clean.get("output",""))
         steps=[
+            {"name":"clean_uninstall","executed":clean.get("executed",False),"passed":clean_ok,
+             "output":clean.get("output",""),"reason":clean.get("reason")},
             {"name":"install",**self._cmd([xcrun,"simctl","install","booted",str(path)],120)},
             {"name":"launch",**self._cmd([xcrun,"simctl","launch","booted",bundle_id],60)},
             {"name":"terminate",**self._cmd([xcrun,"simctl","terminate","booted",bundle_id],30)},
             {"name":"restart",**self._cmd([xcrun,"simctl","launch","booted",bundle_id],60)},
         ]
         return {"kind":"ios","executed":True,"artifact":str(path),"steps":steps,
-                "passed":all(x["passed"] for x in steps)}
+                "clean_install":True,"passed":all(x["passed"] for x in steps)}
 
 
 @dataclass
