@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
+import re
 
 
 @dataclass(frozen=True)
@@ -166,6 +167,19 @@ class FieldPerceptionPolicy:
         )
 
     @classmethod
+    def redact_sensitive_text(cls,text):
+        value=str(text or "")
+        patterns=(
+            r"(?i)\b(password|passwd|pwd)\s*[:=]\s*[^\s,;]+",
+            r"(?i)\b(pin|otp)\s*[:=]\s*[A-Za-z0-9._-]+",
+            r"(?i)\b(api[_ -]?key|access[_ -]?token|session[_ -]?token|bearer)\s*[:= ]\s*[A-Za-z0-9._~+\-/=]{4,}",
+            r"(?i)\bauthorization\s*:\s*bearer\s+[A-Za-z0-9._~+\-/=]{4,}",
+        )
+        for pattern in patterns:
+            value=re.sub(pattern,lambda m: m.group(1)+": [SECRET REDACTED]" if m.lastindex else "[SECRET REDACTED]",value)
+        return value
+
+    @classmethod
     def status(cls):
         return {
             "owner":"KRISHNA Hawkeye/Bhumiputra",
@@ -175,6 +189,7 @@ class FieldPerceptionPolicy:
                 "supported_scope":"explicitly enrolled + consented local profiles only",
                 "unknown_person_identity":"UNKNOWN",
                 "cloud_biometrics":False,
+                "identity_adapter_state":"adapter_required",
             },
             "sensitive_input_guard":{
                 "detect_login_surface":True,
