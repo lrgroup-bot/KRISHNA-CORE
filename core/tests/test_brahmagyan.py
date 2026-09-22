@@ -122,12 +122,19 @@ class BrahmagyanTests(unittest.TestCase):
         self.assertIsNotNone(allowed["next_question"])
         self.assertIn("no autonomous background daemon",allowed["policy"])
 
-    def test_shishya_plan_is_temporary_and_capped(self):
+    def test_shishya_plan_is_temporary_multi_wave_and_resource_bounded(self):
         m=self.bg.create_mission("KRISHNA","Oncology evidence review",rishi_id="sushruta",knowledge_track="modern_science")
-        plan=self.bg.shishya_plan(m["mission_id"],["Molecular Biology","Oncology","Clinical Trials","Pharmacology","Evidence Review"],10)
-        self.assertEqual(plan["requested_count"],4)
+        plan=self.bg.shishya_plan(
+            m["mission_id"],
+            ["Molecular Biology","Oncology","Clinical Trials","Pharmacology","Evidence Review"],
+            10,
+        )
+        self.assertEqual(plan["requested_count"],10)
+        self.assertGreaterEqual(plan["wave_count"],2)
+        self.assertLessEqual(max(len(x) for x in plan["waves"]),8)
         self.assertTrue(plan["ephemeral"])
         self.assertTrue(plan["approval_required"])
+        self.assertEqual(plan["retention_policy"],"findings_and_provenance_only")
         self.assertIn("failed approaches",plan["preserve_before_retirement"])
 
     def test_gap_engine_generates_missing_questions_and_can_queue_them(self):
