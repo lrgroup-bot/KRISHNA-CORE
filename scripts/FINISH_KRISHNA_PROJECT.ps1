@@ -29,6 +29,7 @@ $body=[ordered]@{
   restart_recovery_required=(-not $NoRestartGate)
   performance_required=(-not $NoPerformanceGate)
   axe_required=(-not $NoAxeGate)
+  hawkeye_ui_required=$true
   approve_visual_baselines=[bool]$ApproveVisualBaselines
   auto_repair=$true
   max_repair_rounds=3
