@@ -139,11 +139,25 @@
     },
     {
       "id": "kabach",
-      "title": "KABACH",
+      "title": "KABACH — Security & Privacy Guardian",
       "requirements": [
-        "Project defensive-security and boundary guardian under KRISHNA authority.",
-        "Inspect tool permissions, untrusted content and egress boundaries; defensive research may be delegated through Garudanetra.",
-        "Keep evidence/audit for protected project boundaries."
+        "Project defensive-security, privacy-audit and boundary guardian under KRISHNA authority; Sudarshan remains the independent verification/release gate.",
+        "Privacy Guardian is internal only and never appears as a permanent MAIN MENU item.",
+        "Collect only privacy-relevant browser/device/network/mobile/web evidence for owner-controlled or explicitly scoped tests; do not use it to identify unrelated third parties.",
+        "Use local-first privacy storage; normalized history is redacted and sensitive network/device/fingerprint evidence is encrypted where secure Windows storage is available.",
+        "Browser privacy checks reuse Garudanetra/Playwright with temporary isolated contexts and inspect browser exposure, fingerprint surfaces, GPC, permissions, storage, WebRTC candidate types and third-party request domains without retaining raw candidate values.",
+        "Tracking URL cleaning removes only known tracking parameters and preserves unknown/functional parameters by default.",
+        "Tracker intelligence uses provider abstractions and evidence learning; no licensing-restricted tracker database is hard-wired into KRISHNA core and no single observation triggers automatic blocking.",
+        "Network privacy probes are disabled unless an owner-controlled external observation service is explicitly configured; remote probe services require HTTPS.",
+        "Owned KRISHNA web endpoints are checked for HTTPS/redirects, HSTS, CSP, Referrer-Policy, Permissions-Policy, content-type/frame protection, cross-origin headers, cookie attributes and CORS-related exposure.",
+        "KRISHNA Mobile privacy gates include conservative static APK checks, permission inventory when AAPT is available, cleartext URL signals and tracker SDK signatures; full release gates still require real-device/dynamic evidence.",
+        "MobSF/OpenWPM/Exodus/AmIUnique-style systems remain external adapters or methodology references according to their licenses; restrictive code is not merged into KRISHNA core.",
+        "Privacy baselines and regression comparisons preserve test-suite/profile provenance; methodology changes are marked instead of silently comparing incompatible results.",
+        "Privacy risk is descriptive rather than a fake universal score; never claim fully anonymous, untraceable, impossible to fingerprint or 100% private.",
+        "Do not automatically alter browser/system privacy settings or install extensions without configured policy/owner approval.",
+        "Privacy release gates block only required tests/findings defined by policy; informational findings remain informational.",
+        "Inspect tool permissions, untrusted content and egress boundaries; defensive research may be delegated through Garuda/Garudanetra while KRISHNA keeps decision authority.",
+        "Keep evidence/audit receipts for protected project and privacy boundaries."
       ]
     },
     {
