@@ -83,6 +83,20 @@ class ExecutionTests(unittest.TestCase):
         self.assertEqual(out["attempts"],3)
         self.assertIn("4242",out["output"])
 
+    def test_android_foreground_wait_uses_observed_top_activity(self):
+        class FakeExecutor(ArtifactExecutor):
+            def __init__(self):
+                self.calls=0
+            def _cmd(self,args,timeout=120,cwd=None):
+                self.calls+=1
+                if self.calls<2:
+                    return {"executed":True,"passed":True,"exit_code":0,"output":"ACTIVITY com.android.launcher"}
+                return {"executed":True,"passed":True,"exit_code":0,"output":"ACTIVITY com.krishna.mobile/.MainActivity"}
+        executor=FakeExecutor()
+        out=executor._wait_android_foreground("adb","com.krishna.mobile",attempts=3,delay_seconds=0)
+        self.assertTrue(out["passed"])
+        self.assertEqual(out["attempts"],2)
+
     def test_design_studio_requires_rendered_preview_and_submit(self):
         with tempfile.TemporaryDirectory() as td:
             studio=DesignStudio(td)
