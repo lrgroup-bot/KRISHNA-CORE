@@ -590,12 +590,17 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"attachments":_attachments.list(chat_id)})
         if path == "/api/vision/status":
             return self._json(200,_vision.status())
-        if path == "/api/bhumiputra/status":
-            return self._json(200,orch.bhumiputra.status())
-        if path == "/api/bhumiputra/live/state":
+        if path in ("/api/hawkeye/status", "/api/bhumiputra/status"):
+            status=orch.hawkeye.status()
+            status["agent"]="hawkeye"
+            status["legacy_api_alias"]="/api/bhumiputra/status"
+            return self._json(200,status)
+        if path == "/api/hawkeye/learning/missions":
+            return self._json(200,{"agent":"hawkeye","missions":orch.hawkeye_learning.daily_missions()})
+        if path in ("/api/hawkeye/live/state", "/api/bhumiputra/live/state"):
             session_id=str((query.get("session_id") or [""])[0]).strip()
             if not session_id:return self._json(400,{"error":"session_id is required"})
-            try:return self._json(200,orch.bhumiputra.get_live_session(session_id))
+            try:return self._json(200,orch.hawkeye.get_live_session(session_id))
             except KeyError:return self._json(404,{"error":"live session not found"})
         if path == "/api/voice/audio":
             audio_id=str((query.get("id") or [""])[0]).strip()
