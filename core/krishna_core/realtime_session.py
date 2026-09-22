@@ -1,7 +1,7 @@
 """Durable realtime session/event log used by mobile transports."""
 from __future__ import annotations
 from pathlib import Path
-import hashlib,json,threading,time,uuid
+import hashlib,json,shutil,threading,time,uuid
 
 
 class RealtimeSessionStore:
@@ -25,7 +25,7 @@ class RealtimeSessionStore:
         p=self._path(d)
         legacy=self._legacy_path(d)
         if not p.exists() and legacy.exists() and legacy.resolve()!=p.resolve():
-            legacy.replace(p)
+            shutil.copy2(legacy,p)
         if not p.exists():return {"schema":2,"next_seq":1,"events":[],"seen":{}}
         try:data=json.loads(p.read_text("utf-8"))
         except Exception as exc:
