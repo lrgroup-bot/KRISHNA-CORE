@@ -167,7 +167,8 @@ class ProjectPerfectionRuntime:
         return self.design_studio.submit(session_id,candidate_id)
 
     def verify_design_candidate(self, project: str, candidate_root: str, checks: list[str],
-                                frontend_url: str | None=None, approve_selected_baseline: bool=True) -> dict[str, Any]:
+                                frontend_url: str | None=None, approve_selected_baseline: bool=True,
+                                axe_required: bool=False) -> dict[str, Any]:
         """Verify the selected design against the candidate itself when a static preview is possible."""
         def run(target_url: str | None, preview: dict[str,Any]):
             dev=self.development.verify(candidate_root,checks,frontend_url=target_url)
@@ -192,9 +193,12 @@ class ProjectPerfectionRuntime:
                     "candidate":view.get("screenshot"),
                     "passed":True,
                 })
+            accessibility_ok=bool(accessibility.get("passed")) and (
+                not axe_required or bool((accessibility.get("axe") or {}).get("available"))
+            )
             passed=all((
                 bool(dev.get("verified")),bool(exploration.get("ok")),bool(browser.get("ok")),
-                bool(accessibility.get("passed")),bool(chaos.get("passed")),bool(visual_candidate.get("passed")),
+                accessibility_ok,bool(chaos.get("passed")),bool(visual_candidate.get("passed")),
             ))
             baseline_approval=[]
             if passed and approve_selected_baseline:
@@ -206,6 +210,7 @@ class ProjectPerfectionRuntime:
             return {"passed":passed,"development":dev,"preview":preview,
                     "exploration":exploration,"browser":browser,"accessibility":accessibility,
                     "chaos":chaos,"visual":visual_candidate,
+                    "accessibility_strict_required":bool(axe_required),
                     "baseline_approval":baseline_approval}
         if frontend_url:
             return run(frontend_url,{"available":True,"url":frontend_url,"source":"registered_candidate_url"})
@@ -254,7 +259,8 @@ class ProjectPerfectionRuntime:
                        max_mutants: int=8, deadline_minutes: float=60.0,
                        work_items: list[dict[str, Any]] | None=None,
                        use_candidate_static_preview: bool=False,
-                       restart_recovery_required: bool=True) -> dict[str, Any]:
+                       restart_recovery_required: bool=True,
+                       axe_required: bool=False) -> dict[str, Any]:
         """Run the full evidence pipeline once. Failed/missing evidence never becomes COMPLETE."""
         root=Path(project_root).resolve()
         default_work=[
@@ -349,7 +355,11 @@ class ProjectPerfectionRuntime:
             {"gate":"ui_geometry","passed":bool(browser.get("geometry_ok")),"evidence":[str(browser.get("geometry_findings") or [])]},
             {"gate":"visual_regression","passed":bool(visual.get("passed")),"evidence":[str(visual.get("results") or [])]},
             {"gate":"responsive","passed":bool(browser.get("ok")),"evidence":[str([x.get("width") for x in browser.get("viewports") or []])]},
-            {"gate":"accessibility","passed":bool(accessibility.get("passed")),"evidence":[str(accessibility.get("issues") or [])]},
+            {"gate":"accessibility","passed":bool(accessibility.get("passed")) and (not axe_required or bool((accessibility.get("axe") or {}).get("available"))),
+             "evidence":[str({"semantic_issues":accessibility.get("issues") or [],
+                              "axe_available":bool((accessibility.get("axe") or {}).get("available")),
+                              "axe_violations":(accessibility.get("axe") or {}).get("violations") or [],
+                              "axe_required":bool(axe_required)})]},
             {"gate":"security","passed":bool(security_ok),"evidence":["KABACH/independent security gate supplied"] if security_ok else []},
             {"gate":"adversarial","passed":bool(chaos.get("passed")) and bool(mutation.get("passed")),
              "evidence":[str(chaos.get("scenarios") or []),str({"mutation_score":mutation.get("score")})]},
