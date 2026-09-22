@@ -80,6 +80,43 @@ class BrahmagyanTests(unittest.TestCase):
         self.assertEqual(len(self.gyan.proposals),1)
         self.assertTrue(self.gyan.proposals[0]["kwargs"]["verified"])
 
+    def test_trusted_promotion_passes_through_bound_brahma_qc(self):
+        m=self.bg.create_mission("KRISHNA","Verified materials measurement",rishi_id="kanada",knowledge_track="modern_science")
+        c=self.bg.record_claim(m["mission_id"],"Measured material response is reproducible",[
+            {"title":"Primary A","identifier":"doi:a","primary":True,"source_type":"paper"}
+        ],knowledge_track="modern_science")
+        self.bg.advance_claim(c["claim_id"],"L1",{})
+        self.bg.advance_claim(c["claim_id"],"L2",{"context_summary":"Methods, scope and limitations reviewed."})
+        self.bg.advance_claim(c["claim_id"],"L3",{"verified_by":"gautama","confidence":.9})
+        self.bg.add_evidence(c["claim_id"],"supporting",{
+            "title":"Independent B","identifier":"doi:b","primary":True,"source_type":"paper"
+        })
+        self.bg.advance_claim(c["claim_id"],"L4",{
+            "verified_by":"gautama","cross_check_notes":["independent support checked"],
+            "evidence_status":"strongly_supported","confidence":.92,
+        })
+        self.bg.compile_claim(c["claim_id"],"veda-vyasa")
+
+        seen={}
+        def qc(**kwargs):
+            seen.update(kwargs)
+            proposal=self.gyan.propose(
+                kwargs["project"],kwargs["topic"],kwargs["lesson"],kwargs["evidence"],kwargs["confidence"],
+                source="BRAHMA-QC",verified=True,memory_kind=kwargs["memory_kind"],
+                provenance={**kwargs["provenance"],"brahma_qc":"passed"},
+            )
+            return {"candidate_passed":True,"verified_for_gyan":True,"reasons":[],"proposal":proposal}
+
+        self.bg.bind_gyan_qc(qc)
+        out=self.bg.propose_to_gyan(c["claim_id"])
+        self.assertTrue(out["brahma_qc"]["candidate_passed"])
+        self.assertEqual(seen["maturity"],"L4")
+        self.assertEqual(seen["evidence_status"],"strongly_supported")
+        self.assertEqual(seen["unresolved_contradictions"],0)
+        self.assertEqual(len(self.gyan.proposals),1)
+        self.assertEqual(self.gyan.proposals[0]["kwargs"]["source"],"BRAHMA-QC")
+        self.assertEqual(self.gyan.proposals[0]["kwargs"]["provenance"]["brahma_qc"],"passed")
+
     def test_contradiction_is_preserved_and_must_be_resolved(self):
         m=self.bg.create_mission("KRISHNA","Materials science",rishi_id="kanada",knowledge_track="modern_science")
         c=self.bg.record_claim(m["mission_id"],"Material claim",[

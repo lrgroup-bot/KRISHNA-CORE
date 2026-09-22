@@ -59,6 +59,7 @@ class BrahmagyanRuntime:
         self.gyan=gyan
         self.memory=memory
         self.council=RishiCouncil()
+        self.gyan_qc=None
         self.lock=RLock()
         self.state={
             "missions":{},"claims":{},"debates":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
@@ -66,6 +67,11 @@ class BrahmagyanRuntime:
         }
         self.load_error=None
         self._load()
+
+    def bind_gyan_qc(self,qc):
+        """Bind BRAHMA's QC gate without changing Gyan-Bhandar storage authority."""
+        self.gyan_qc=qc
+        return {"bound":qc is not None,"authority":"BRAHMA QC -> Gyan proposal/approval"}
 
     def _load(self):
         if not self.path.is_file():return
@@ -652,12 +658,27 @@ class BrahmagyanRuntime:
             "knowledge_version":c["knowledge_version"],
         }
         evidence=list(c.get("sources") or [])+list(c.get("supporting_evidence") or [])+list(c.get("qualifying_evidence") or [])
+        if self.gyan_qc is not None:
+            qc=self.gyan_qc(
+                project=c["project"],topic=c["topic"],lesson=c["claim"],evidence=evidence,
+                provenance=provenance,confidence=c["confidence"],maturity=c["maturity"],
+                evidence_status=c["evidence_status"],
+                unresolved_contradictions=ready["unresolved_contradictions"],
+                memory_kind="semantic",source="BRAHMAGYAN",
+            )
+            if not qc.get("candidate_passed") or not qc.get("proposal"):
+                raise ValueError("BRAHMA QC rejected Gyan promotion: "+", ".join(qc.get("reasons") or ["quality gate failed"]))
+            proposal=qc["proposal"]
+            self.memory.audit("brahmagyan_gyan","waiting_approval",f"{claim_id}:{proposal['approval_id']}:brahma_qc")
+            return {"readiness":ready,"brahma_qc":qc,"proposal":proposal}
+
+        # Compatibility fallback for isolated unit use. Production KRISHNA binds BRAHMA QC.
         proposal=self.gyan.propose(
             c["project"],c["topic"],c["claim"],evidence,c["confidence"],
             source="BRAHMAGYAN",verified=True,memory_kind="semantic",provenance=provenance,
         )
-        self.memory.audit("brahmagyan_gyan","waiting_approval",f"{claim_id}:{proposal['approval_id']}")
-        return {"readiness":ready,"proposal":proposal}
+        self.memory.audit("brahmagyan_gyan","waiting_approval",f"{claim_id}:{proposal['approval_id']}:qc_unbound")
+        return {"readiness":ready,"proposal":proposal,"brahma_qc":{"bound":False}}
 
     def supersede_claim(self,claim_id,replacement_claim_id):
         with self.lock:

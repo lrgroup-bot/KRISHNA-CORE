@@ -900,6 +900,14 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,orch.model_gateway.list())
         if path == "/api/secure-vault/status":
             return self._json(200,orch.secure_vault.list())
+        if path == "/api/brahma/status":
+            return self._json(200,orch.brahma.status())
+        if path == "/api/brahma/retrieve":
+            topic=str((query.get("topic") or [""])[0]).strip()
+            if not topic:return self._json(400,{"error":"topic is required"})
+            try:return self._json(200,orch.brahma.retrieve(topic))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+
         if path == "/api/gyan-bhandar/archive/status":
             return self._json(200,orch.gyan_archive_status())
         if path == "/api/gyan-bhandar/security":
@@ -1146,6 +1154,10 @@ class Handler(BaseHTTPRequestHandler):
                     "agi_policy_kernel",
                     "independent_critic_verifier",
                     "unified_memory_fabric",
+                    "brahma_learning_governor",
+                    "brahma_mobile_pc_learning_router",
+                    "brahma_rishi_context_retrieval",
+                    "brahma_gyan_qc_gate",
                     "gyan_typed_memory_categories",
                     "gyan_learning_supersession",
                     "gyan_provenance_inventory",
@@ -2373,6 +2385,22 @@ class Handler(BaseHTTPRequestHandler):
             )
             if "audio" in [str(x).lower() for x in modalities]:
                 out["sound"]=orch.universal_learning.classify_sound_request(utterance,data.get("audio_observations") or {})
+            origin="pc" if source_type.lower()=="pc" else "mobile"
+            modality=(str(modalities[0]).lower() if len(modalities)==1 else ("multimodal" if modalities else "text"))
+            brahma_evidence=[{"source_ref":source_ref,"source_type":source_type}] if source_ref else []
+            out["brahma"]=orch.brahma.intake(
+                source=origin,
+                topic=subject or utterance or "Hawkeye learning observation",
+                content=analysis or utterance,
+                modality=modality,
+                evidence=brahma_evidence,
+                provenance={"source_ref":source_ref,"source_type":source_type,"hawkeye_learning_id":out.get("learning_id")},
+                confidence=confidence,
+                novelty=float(data.get("novelty") if data.get("novelty") is not None else 0.5),
+                quality=float(data.get("quality") if data.get("quality") is not None else max(confidence,0.5)),
+                importance=float(data.get("importance") if data.get("importance") is not None else (0.8 if subject else 0.5)),
+                evidence_status=evidence_state.lower(),
+            )
             return self._json(201,out)
 
         if post_path == "/api/hawkeye/evidence/ingest":
@@ -2420,6 +2448,26 @@ class Handler(BaseHTTPRequestHandler):
                 result["pc_evidence"]=pc_evidence
                 if diagnostic:
                     result["specialist_dispatch"]=orch.hawkeye_diagnostic.maybe_dispatch_worker(session_id,result,goal=goal,modality=modality,evidence=pc_evidence)
+                evidence_ref={
+                    "observation_id":sensor_context.get("mobile_observation_id") or sensor_context.get("observation_id"),
+                    "pc_evidence_id":pc_evidence.get("evidence_id") if isinstance(pc_evidence,dict) else None,
+                    "sha256":pc_evidence.get("sha256") if isinstance(pc_evidence,dict) else None,
+                    "modality":modality,
+                }
+                result["brahma"]=orch.brahma.intake(
+                    source="mobile",topic=goal,content=str(result.get("analysis") or ""),
+                    modality=modality,evidence=[evidence_ref],
+                    provenance={
+                        "observation_id":evidence_ref.get("observation_id"),
+                        "session_id":session_id,"mobile_session_id":mobile_session_id,
+                        "source_ref":evidence_ref.get("sha256"),
+                    },
+                    confidence=float(result.get("confidence") or 0.0),
+                    novelty=float(sensor_context.get("curator_novelty") or 0.5),
+                    quality=float(sensor_context.get("curator_quality") or 0.5),
+                    importance=0.9 if diagnostic else 0.6,
+                    evidence_status=str(result.get("evidence_state") or "candidate").lower(),
+                )
                 return self._json(200,result)
             except ValueError as exc:return self._json(400,{"error":str(exc)})
             except RuntimeError as exc:return self._json(503,{"error":str(exc)})
@@ -2763,9 +2811,10 @@ class Handler(BaseHTTPRequestHandler):
             project=str(data.get("project") or "KRISHNA").strip(); topic=str(data.get("topic") or "").strip(); lesson=str(data.get("lesson") or "").strip()
             if not topic or not lesson:return self._json(400,{"error":"topic and lesson are required"})
             try:return self._json(201,orch.gyan_store(project,topic,lesson,data.get("evidence") or [],float(data.get("confidence") or 0),
-                str(data.get("source") or "sudarshan"),bool(data.get("verified",False)),str(data.get("memory_kind") or "semantic"),
+                str(data.get("source") or "sudarshan"),bool(data.get("verified",False)),str(data.get("memory_kind") or "evidence"),
                 data.get("provenance") or {},data.get("supersedes")))
             except KeyError:return self._json(404,{"error":"project not registered"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/gyan-bhandar/supersede":
