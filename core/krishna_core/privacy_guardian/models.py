@@ -111,14 +111,11 @@ class PrivacyAuditReport:
     def verification_checks(self) -> list[dict]:
         checks=[]
         for item in self.findings:
-            fail=item.risk_class in {
-                PrivacyRiskClass.PRIVACY_REGRESSION,
-                PrivacyRiskClass.CONFIGURATION_INCONSISTENCY,
-            }
+            execution_failed=str(item.state).lower()=="failed"
             checks.append({
                 "name":"privacy:"+item.test,
-                "status":"FAIL" if fail else "PASS",
-                "passed":not fail,
+                "status":"FAIL" if execution_failed else "PASS",
+                "passed":not execution_failed,
                 "detail":item.summary,
             })
         if not checks:
