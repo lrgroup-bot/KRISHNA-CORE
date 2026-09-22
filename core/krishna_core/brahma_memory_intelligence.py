@@ -705,3 +705,71 @@ class BrahmaMemoryIntelligence:
             "load_error": self.load_error,
             "ready": self.load_error is None,
         }
+
+
+class BrahmaConsolidationScheduler:
+    """Low-frequency scheduler for deterministic BRAHMA housekeeping only.
+
+    The supplied tick owns resource/idle policy. This class only supplies a
+    bounded daemon lifecycle, observability, and a manual run_once contract.
+    It intentionally performs no model call or deep Rishi research itself.
+    """
+
+    def __init__(self, tick, interval_seconds=1800):
+        self.tick = tick
+        self.interval_seconds = max(300, int(interval_seconds))
+        self._stop = threading.Event()
+        self._thread = None
+        self.run_count = 0
+        self.skip_count = 0
+        self.last_result = None
+        self.last_error = None
+        self.last_run_at = None
+
+    def run_once(self):
+        try:
+            result = self.tick()
+            self.last_result = result
+            self.last_run_at = time.time()
+            self.last_error = None
+            if isinstance(result, dict) and str(result.get("status") or "").startswith("skipped"):
+                self.skip_count += 1
+            else:
+                self.run_count += 1
+            return result
+        except Exception as exc:
+            self.last_error = f"{type(exc).__name__}: {exc}"
+            self.last_run_at = time.time()
+            return {"status": "error", "error": self.last_error}
+
+    def start(self):
+        if self._thread and self._thread.is_alive():
+            return self.status()
+        self._stop.clear()
+        self._thread = threading.Thread(
+            target=self._loop, name="brahma-memory-consolidation", daemon=True
+        )
+        self._thread.start()
+        return self.status()
+
+    def stop(self):
+        self._stop.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=2)
+        return self.status()
+
+    def _loop(self):
+        while not self._stop.wait(self.interval_seconds):
+            self.run_once()
+
+    def status(self):
+        return {
+            "running": bool(self._thread and self._thread.is_alive()),
+            "interval_seconds": self.interval_seconds,
+            "run_count": self.run_count,
+            "skip_count": self.skip_count,
+            "last_run_at": self.last_run_at,
+            "last_result": self.last_result,
+            "last_error": self.last_error,
+            "policy": "deterministic consolidation/decay only; deep Rishi research is not run by this scheduler",
+        }
