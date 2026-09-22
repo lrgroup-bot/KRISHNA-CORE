@@ -242,10 +242,14 @@ class DesignStudio:
         (self.root/f"{sid}.json").write_text(json.dumps(state,indent=2),encoding="utf-8")
         return state
 
-    def submit(self, session_id: str, candidate_id: str) -> dict[str, Any]:
+    def get(self, session_id: str) -> dict[str, Any]:
         path=self.root/f"{_safe_slug(session_id)}.json"
         if not path.is_file(): raise KeyError("design session not found")
-        state=json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def submit(self, session_id: str, candidate_id: str) -> dict[str, Any]:
+        path=self.root/f"{_safe_slug(session_id)}.json"
+        state=self.get(session_id)
         chosen=next((x for x in state["candidates"] if x["id"]==candidate_id),None)
         if not chosen: raise KeyError("design candidate not found")
         state["selected"]=chosen;state["submitted"]=True;state["submitted_at"]=time.time()
