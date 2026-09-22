@@ -68,7 +68,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry",
-                     "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/performance", "/api/remote/status", "/api/resilience/status", "/api/wearables",
+                     "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
 
@@ -101,6 +101,7 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(self.call("/api/remote/status")[1]["mode"],"private-network-only")
         voice=self.call("/api/voice/status")[1]
         self.assertEqual(voice["language"],"or-IN");self.assertEqual(voice["wake"]["wake_word"],"Krishna")
+        self.assertEqual(set(voice["tts"]["languages"]),{"en","hi","or"})
         vision=self.call("/api/vision/status")[1];self.assertTrue(vision["local"])
         resilience=self.call("/api/resilience/status")[1]
         self.assertIn("worker_supervisor",resilience);self.assertIn("model_memory",resilience)
@@ -115,6 +116,16 @@ class HTTPRuntimeTests(unittest.TestCase):
     def test_garudanetra_persistent_mode_requires_approval(self):
         code,_=self.call("/api/garudanetra/session/start",{"project":"KRISHNA","url":"http://127.0.0.1:%d/"%self.port,"mode":"persistent_workspace"})
         self.assertEqual(code,403)
+
+    def test_avatar_asset_audit_fails_closed_without_private_glb(self):
+        code,audit=self.call("/api/avatar/asset-audit")
+        self.assertEqual(code,200)
+        self.assertIn("source",audit)
+        self.assertIn("production",audit)
+        self.assertIn("active",audit)
+        self.assertIn("promotion_policy",audit)
+        if not audit["source"].get("available"):
+            self.assertFalse(audit["active_ready"])
 
     def test_avatar_preview_is_real_webp(self):
         code, body = self.call("/api/avatar360")
