@@ -372,9 +372,9 @@ class PrivacyGuardian:
             raise KeyError(f"privacy baseline not found: {name}")
         result=compare_reports(base.get("report") or {},current or {},mission_id=mission_id,configuration_change=configuration_change)
         if result.get("regression_count"):
-            self._emit("privacy.regression.detected",{
-                "baseline":name,"count":result["regression_count"],"mission_id":mission_id,
-            })
+            alert={"kind":"privacy_regression","baseline":name,"count":result["regression_count"],"mission_id":mission_id}
+            self._emit("privacy.regression.detected",alert)
+            self._emit("SUDARSHAN_ALERT",alert)
         return result
 
     def compare_browser_profiles(self,a: dict,b: dict) -> dict:
@@ -385,10 +385,13 @@ class PrivacyGuardian:
         gate["sudarshan_required"]=True
         gate["release_blocked"]=not gate["passed"]
         gate["policy_note"]="Informational findings do not block unless the configured policy makes the test mandatory."
-        self._emit("privacy.release_gate",{
+        gate_event={
             "passed":gate["passed"],"policy":gate["policy"],"target_type":gate["target_type"],
             "blocking_count":len(gate["blocking_findings"])+len(gate["missing_required"]),
-        })
+        }
+        self._emit("privacy.release_gate",gate_event)
+        if not gate["passed"]:
+            self._emit("SUDARSHAN_ALERT",{"kind":"privacy_release_gate_failed",**gate_event})
         return gate
 
     def history(self,limit=50) -> list[dict]:
