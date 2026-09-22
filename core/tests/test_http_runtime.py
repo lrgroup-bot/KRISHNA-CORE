@@ -69,7 +69,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/gyan-bhandar/pending", "/api/gyan-bhandar/inventory?project=KRISHNA", "/api/software-factory/workers/status",
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
-                     "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry",
+                     "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
@@ -132,6 +132,18 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(code,200)
         self.assertGreater(d["count"],0)
         self.assertTrue(any("mobile" in (x.get("group","")+x.get("title","")+x.get("requirement","")).lower() for x in d["matches"]))
+
+    def test_project_perfection_and_design_studio_surfaces(self):
+        code,status=self.call("/api/project-perfection/status")
+        self.assertEqual(code,200)
+        execution=status["execution"]
+        for key in ("recursive_crawl","accessibility_scan","browser_chaos","regression_persistence",
+                    "mutation_runner","visual_baselines","design_studio","point_to_source_mapping",
+                    "candidate_visual_edit","hawkeye_ui_review","finish_project_pipeline"):
+            self.assertTrue(execution[key],key)
+        code,body=self.call("/design-studio")
+        self.assertEqual(code,200)
+        self.assertIn(b"KRISHNA DESIGN STUDIO",body)
 
     def test_ui_guardian_registry_lifecycle(self):
         code,item=self.call("/api/ui-guardian/register",{"name":"HTTP UI","project":"KRISHNA","url":"http://127.0.0.1:8766","state":"candidate"})

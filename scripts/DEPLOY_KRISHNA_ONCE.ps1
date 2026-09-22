@@ -55,6 +55,25 @@ Get-ChildItem (Join-Path $Source "scripts") -Filter "*.ps1" -File -Recurse | For
 }
 if($parseFailures.Count){throw ("POWERSHELL PARSE FAILED: " + ($parseFailures -join " || "))}
 
+# Project Perfection is part of the verified runtime. Provision its local-only
+# dependencies before deployment when any required component is unavailable.
+$perfectionSetup=Join-Path $Source "scripts\SETUP_PROJECT_PERFECTION.ps1"
+if(!(Test-Path $perfectionSetup)){throw "PROJECT PERFECTION SETUP MISSING: $perfectionSetup"}
+$perfectionReady=$false
+try{
+  & $Py -c "import PIL,playwright,schemathesis; print('PROJECT_PERFECTION_PY_OK')" | Out-Null
+  $perfectionReady=($LASTEXITCODE -eq 0)
+}catch{$perfectionReady=$false}
+$axeUser=[Environment]::GetEnvironmentVariable("KRISHNA_AXE_CORE_JS","User")
+if(!$axeUser -or !(Test-Path -LiteralPath $axeUser)){$perfectionReady=$false}
+if(!$perfectionReady){
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $perfectionSetup -KrishnaRoot $Runtime -InstallChromium
+  if($LASTEXITCODE -ne 0){throw "PROJECT PERFECTION DEPENDENCY SETUP FAILED"}
+}
+$axeUser=[Environment]::GetEnvironmentVariable("KRISHNA_AXE_CORE_JS","User")
+if($axeUser){$env:KRISHNA_AXE_CORE_JS=$axeUser}
+Write-Host "PROJECT PERFECTION DEPENDENCIES VERIFIED" -ForegroundColor Green
+
 # Runtime state/assets are owned by the runtime and never mirrored/deleted by deploy.
 $excludeDirs=@("__pycache__",".krishna_state","state","logs","backups",".venv","ollama-models","dashboard\assets\avatar")
 $xd=@();foreach($d in $excludeDirs){$xd+=@("/XD",(Join-Path $Runtime $d))}
@@ -137,6 +156,7 @@ $tracked=@()
 $tracked+=Get-ChildItem "$Runtime\core\krishna_core" -File -Recurse -Filter "*.py" -ErrorAction SilentlyContinue
 foreach($p in @(
   "$Runtime\core\web_validation.html",
+  "$Runtime\core\design_studio.html",
   "$Runtime\avatar\krishna_child_360.webp.b64"
 )){
   if(Test-Path $p){$tracked+=Get-Item $p}
