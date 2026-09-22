@@ -156,7 +156,8 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(self.call("/api/remote/status")[1]["mode"],"private-network-only")
         voice=self.call("/api/voice/status")[1]
         self.assertEqual(voice["language"],"or-IN");self.assertEqual(voice["wake"]["wake_word"],"Krishna")
-        self.assertEqual(set(voice["tts"]["languages"]),{"en","hi","or"})
+        self.assertEqual(set(voice["tts"]["languages"]),{"hi","or"})
+        self.assertIn("en",voice["tts"]["known_languages"])
         vision=self.call("/api/vision/status")[1];self.assertTrue(vision["local"])
         resilience=self.call("/api/resilience/status")[1]
         self.assertIn("worker_supervisor",resilience);self.assertIn("model_memory",resilience)
@@ -383,9 +384,11 @@ class HTTPRuntimeTests(unittest.TestCase):
     def test_plugin_lifecycle(self):
         code, plugin=self.call("/api/plugins/add", {"name":"Isolated test plugin","kind":"custom","enabled":False})
         self.assertEqual(code,200)
-        self.assertEqual(self.call("/api/plugins/enable", {"id":plugin["id"],"enabled":True})[0],200)
+        self.assertEqual(self.call("/api/plugins/enable", {"id":plugin["id"],"enabled":True})[0],403)
+        self.assertEqual(self.call("/api/plugins/enable", {"id":plugin["id"],"enabled":True,"approved":True})[0],200)
         self.assertEqual(self.call("/api/plugins/enable", {"id":plugin["id"],"enabled":False})[0],200)
-        self.assertEqual(self.call("/api/plugins/remove", {"id":plugin["id"]})[0],200)
+        self.assertEqual(self.call("/api/plugins/remove", {"id":plugin["id"]})[0],403)
+        self.assertEqual(self.call("/api/plugins/remove", {"id":plugin["id"],"approved":True})[0],200)
 
 
 if __name__ == "__main__": unittest.main()
