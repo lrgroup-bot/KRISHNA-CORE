@@ -2,6 +2,7 @@ import json
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from krishna_core.development_operator import DevelopmentOperator
@@ -13,6 +14,7 @@ from krishna_core.plugin_runtime import PluginRegistry
 from krishna_core.realtime_session import RealtimeSessionStore
 from krishna_core.model_gateway import ModelGatewayRegistry
 from krishna_core.remote_access import PrivateRemotePolicy
+from krishna_core.kabach import KabachAgent
 
 
 class _Browser:
@@ -93,6 +95,22 @@ class HardeningRegressionTests(unittest.TestCase):
             backup=Path(out["backup"]).resolve()
             backup.relative_to(backups.resolve())
             self.assertEqual((live/"a.txt").read_text(encoding="utf-8"),"new")
+
+    def test_kabach_egress_resolves_dns_before_allowing(self):
+        class Memory:
+            def audit(self,*_args):pass
+        k=KabachAgent(Memory())
+        fake=[(2,1,6,"",("169.254.169.254",443))]
+        with patch("krishna_core.kabach.socket.getaddrinfo",return_value=fake):
+            out=k.inspect_egress("https://metadata-alias.example/x",allowed_domains=["metadata-alias.example"])
+        self.assertFalse(out["allowed"])
+        self.assertIn("private_or_reserved_ip",out["evidence"])
+
+    def test_testing_lead_traversal_is_non_destructive_by_default(self):
+        source=(Path(__file__).resolve().parents[1]/"krishna_core"/"browser_operator.py").read_text(encoding="utf-8")
+        self.assertIn('"consequential_control"',source)
+        self.assertIn('wait_until="domcontentloaded"',source)
+        self.assertNotIn('page.goto(url,wait_until="networkidle")',source)
 
     def test_corrupt_model_gateway_registry_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
