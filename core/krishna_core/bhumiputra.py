@@ -7,6 +7,8 @@ import math
 import time
 import uuid
 
+from .field_perception import FieldPerceptionPolicy
+
 
 EARTH_RADIUS_M = 6_371_008.8
 
@@ -31,7 +33,7 @@ class BhumiputraAgent:
     """
 
     AGENT_ID = "bhumiputra"
-    VERSION = "0.1.0"
+    VERSION = "0.2.0"
 
     HEAVY_PIPELINE = (
         "mobile-camera-ingest",
@@ -63,6 +65,11 @@ class BhumiputraAgent:
         "road": ("road", "track", "haul road", "culvert", "turning radius", "clearance"),
         "machinery": ("excavator", "loader", "truck", "crane", "drill", "crusher"),
         "utility": ("transmission tower", "telecom tower", "pole", "substation", "pipeline"),
+        "people": ("person", "people", "face", "ppe", "worker", "crowd"),
+        "vehicle": ("car", "bike", "motorcycle", "bus", "truck", "dashboard", "number plate", "license plate"),
+        "electronics": ("pcb", "motherboard", "circuit", "connector", "wire", "device", "electronics"),
+        "document": ("document", "label", "sign", "screen", "ocr", "serial number", "asset tag"),
+        "hazard": ("fire", "smoke", "leak", "exposed wire", "obstacle", "open edge"),
         "general": (),
     }
 
@@ -191,6 +198,7 @@ class BhumiputraAgent:
             "frame_count": 0,
             "latest_analysis": None,
             "truth_policy": dict(self.STRUCTURAL_TRUTH_POLICY),
+            "perception_policy": FieldPerceptionPolicy.status(),
             "privacy": {
                 "camera_transport": "paired KRISHNA private-network endpoint",
                 "vision_provider": "local-only",
@@ -210,18 +218,27 @@ class BhumiputraAgent:
         hint = str(scene_hint or "auto").strip().lower()
         sensors = dict(sensor_context or {})
         return (
-            "You are Bhumiputra, KRISHNA's field geo-engineering and visible-structure inspection specialist. "
+            "You are Bhumiputra, KRISHNA's live field perception, geo-engineering and inspection specialist. "
             "Analyze ONLY what can be supported by this camera frame and supplied sensor context. "
             "Automatically identify whether the scene is terrain/quarry, building/tower/bridge, road, machinery, "
-            "utility infrastructure, or general. For structures, identify visible structural system/components "
-            "(columns, beams, bracing, slabs, walls, roof, tower members, joints), apparent materials, geometry, "
-            "access/clearance, visible deterioration or damage indicators, and measurements only when scale/depth "
-            "evidence is supplied. For terrain, identify slopes, exposed rock/soil, access routes, drainage and "
-            "survey gaps. Never claim hidden reinforcement, foundation condition, certified load capacity, exact "
-            "material grade, subsurface reserves, or original design intent from imagery alone. Mark each important "
-            "finding as observed, estimated, inferred, or unknown. Return a concise field result with: scene_type, "
-            "visible_components, measurements_or_estimates, visible_condition, hazards_or_access_constraints, "
-            "recommended_next_scan, unknowns, and confidence. "
+            "utility infrastructure, people, vehicle, electronics/device, document/screen, hazard, or general. "
+            "For structures/buildings, identify visible structural system/components (columns, beams, bracing, slabs, "
+            "walls, openings, facade, stairs, roof, tower members, joints), apparent materials, access/clearance, "
+            "visible cracks/spalling/corrosion/deformation/dampness and measurements only when scale/depth evidence exists. "
+            "For terrain/quarry, identify slopes, exposed rock/soil, access routes, drainage, excavation activity and survey gaps. "
+            "For vehicles, report category, visible make/model cues, registration/asset markings when requested, body/tyre/light/glass "
+            "condition, dashboard indicators and visible leaks/smoke/damaged parts; hidden mechanical diagnosis requires OBD/CAN or measurements. "
+            "For electronics, identify visible PCB/components/connectors/cables, labels, damaged/burnt/corroded areas and explain likely functional "
+            "blocks or signal/power flow without inventing electrical measurements. For people, report count, visible PPE/activity and face presence; "
+            "identify a person only if an explicitly enrolled, consented local face profile is supplied, otherwise identity is UNKNOWN. "
+            "Read ordinary signs, serial/model numbers, asset tags and requested plate text. Detect hazards such as fire/smoke, exposed wiring, leaks, "
+            "obstacles/open edges and missing visible PPE. Compare with prior observations when temporal context is supplied and state what changed. "
+            "Never claim hidden reinforcement, foundation condition, certified load capacity, exact material grade, subsurface reserves or original "
+            "design intent from imagery alone. Mark important findings as observed, measured, estimated, inferred or unknown. "
+            + FieldPerceptionPolicy.prompt_rules() + " "
+            "Return a concise field result with: scene_type, visible_components, text_or_asset_markings, people_and_ppe, "
+            "vehicle_or_equipment_details, measurements_or_estimates, visible_condition, hazards_or_access_constraints, "
+            "temporal_changes, recommended_next_scan, unknowns, evidence_state and confidence. "
             f"Scene hint: {hint}. User goal: {str(user_goal or 'automatic field scan')}. "
             f"Sensor context: {json.dumps(sensors, ensure_ascii=False)[:4000]}."
         )
@@ -353,6 +370,7 @@ class BhumiputraAgent:
             "live_sessions": len(list(self.state_dir.glob("live-*.json"))),
             "scene_modes": sorted(self.SCENE_MODES),
             "structural_truth_policy": dict(self.STRUCTURAL_TRUTH_POLICY),
+            "perception": FieldPerceptionPolicy.status(),
             "heavy_pipeline": list(self.HEAVY_PIPELINE),
             "main_loop_blocking": False,
             "menu_visible": False,
