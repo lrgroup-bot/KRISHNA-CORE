@@ -57,6 +57,25 @@ class BhumiputraAgent:
         "survey-report.pdf",
     )
 
+    SCENE_MODES = {
+        "terrain": ("hill", "quarry", "rock face", "land", "slope", "cutting"),
+        "structure": ("building", "tower", "bridge", "wall", "column", "beam", "roof", "foundation"),
+        "road": ("road", "track", "haul road", "culvert", "turning radius", "clearance"),
+        "machinery": ("excavator", "loader", "truck", "crane", "drill", "crusher"),
+        "utility": ("transmission tower", "telecom tower", "pole", "substation", "pipeline"),
+        "general": (),
+    }
+
+    STRUCTURAL_TRUTH_POLICY = {
+        "visible_geometry": "may be described/measured when scale or depth is available",
+        "visible_condition": "report only observable surface evidence and confidence",
+        "hidden_reinforcement": "unknown without drawings, scanning/NDT or destructive verification",
+        "foundation": "unknown unless exposed or supported by drawings/geotechnical evidence",
+        "load_capacity": "never infer a certified safe load from camera imagery alone",
+        "material_grade": "visual classification is preliminary; grade requires records/testing",
+        "as_built_design": "infer visible arrangement only; do not claim original design intent without drawings",
+    }
+
     def __init__(self, state_dir: str | Path):
         self.state_dir = Path(state_dir)
         self.state_dir.mkdir(parents=True, exist_ok=True)
@@ -149,6 +168,98 @@ class BhumiputraAgent:
             ),
         }
 
+    def _live_path(self, session_id: str) -> Path:
+        safe = "".join(ch for ch in str(session_id) if ch.isalnum() or ch in "-_")
+        if not safe:
+            raise ValueError("invalid session_id")
+        return self.state_dir / f"live-{safe}.json"
+
+    def start_live_session(self, *, project="KRISHNA", purpose="live field scan",
+                           coordinates=None, scene_hint="auto"):
+        session_id = str(uuid.uuid4())
+        row = {
+            "session_id": session_id,
+            "agent": self.AGENT_ID,
+            "version": self.VERSION,
+            "project": str(project or "KRISHNA"),
+            "purpose": str(purpose or "live field scan"),
+            "scene_hint": str(scene_hint or "auto").lower(),
+            "coordinates": dict(coordinates or {}),
+            "started_at": time.time(),
+            "updated_at": time.time(),
+            "status": "live",
+            "frame_count": 0,
+            "latest_analysis": None,
+            "truth_policy": dict(self.STRUCTURAL_TRUTH_POLICY),
+            "privacy": {
+                "camera_transport": "paired KRISHNA private-network endpoint",
+                "vision_provider": "local-only",
+                "cloud_upload": False,
+            },
+            "execution": {
+                "main_loop_blocking": False,
+                "analysis_cadence": "sampled frames; heavy reconstruction is asynchronous/isolated",
+            },
+        }
+        self._live_path(session_id).write_text(
+            json.dumps(row, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        return row
+
+    def live_prompt(self, *, scene_hint="auto", user_goal="", sensor_context=None):
+        hint = str(scene_hint or "auto").strip().lower()
+        sensors = dict(sensor_context or {})
+        return (
+            "You are Bhumiputra, KRISHNA's field geo-engineering and visible-structure inspection specialist. "
+            "Analyze ONLY what can be supported by this camera frame and supplied sensor context. "
+            "Automatically identify whether the scene is terrain/quarry, building/tower/bridge, road, machinery, "
+            "utility infrastructure, or general. For structures, identify visible structural system/components "
+            "(columns, beams, bracing, slabs, walls, roof, tower members, joints), apparent materials, geometry, "
+            "access/clearance, visible deterioration or damage indicators, and measurements only when scale/depth "
+            "evidence is supplied. For terrain, identify slopes, exposed rock/soil, access routes, drainage and "
+            "survey gaps. Never claim hidden reinforcement, foundation condition, certified load capacity, exact "
+            "material grade, subsurface reserves, or original design intent from imagery alone. Mark each important "
+            "finding as observed, estimated, inferred, or unknown. Return a concise field result with: scene_type, "
+            "visible_components, measurements_or_estimates, visible_condition, hazards_or_access_constraints, "
+            "recommended_next_scan, unknowns, and confidence. "
+            f"Scene hint: {hint}. User goal: {str(user_goal or 'automatic field scan')}. "
+            f"Sensor context: {json.dumps(sensors, ensure_ascii=False)[:4000]}."
+        )
+
+    def record_live_analysis(self, session_id: str, analysis: str, *,
+                             model=None, sensor_context=None, frame_meta=None):
+        path = self._live_path(session_id)
+        if not path.exists():
+            raise KeyError(f"live session not found: {session_id}")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        now = time.time()
+        item = {
+            "at": now,
+            "analysis": str(analysis or "").strip(),
+            "model": str(model or ""),
+            "sensor_context": dict(sensor_context or {}),
+            "frame_meta": dict(frame_meta or {}),
+        }
+        if not item["analysis"]:
+            raise ValueError("live analysis is empty")
+        data["frame_count"] = int(data.get("frame_count") or 0) + 1
+        data["latest_analysis"] = item
+        data["updated_at"] = now
+        data["status"] = "live"
+        path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+        return {
+            "session_id": session_id,
+            "frame_count": data["frame_count"],
+            "latest_analysis": item,
+            "truth_policy": data["truth_policy"],
+        }
+
+    def get_live_session(self, session_id: str):
+        path = self._live_path(session_id)
+        if not path.exists():
+            raise KeyError(f"live session not found: {session_id}")
+        return json.loads(path.read_text(encoding="utf-8"))
+
     def _survey_path(self, survey_id: str) -> Path:
         safe = "".join(ch for ch in str(survey_id) if ch.isalnum() or ch in "-_")
         if not safe:
@@ -239,6 +350,9 @@ class BhumiputraAgent:
             "role": "isolated field geospatial/geological engineering specialist",
             "state_dir": str(self.state_dir),
             "survey_count": len(surveys),
+            "live_sessions": len(list(self.state_dir.glob("live-*.json"))),
+            "scene_modes": sorted(self.SCENE_MODES),
+            "structural_truth_policy": dict(self.STRUCTURAL_TRUTH_POLICY),
             "heavy_pipeline": list(self.HEAVY_PIPELINE),
             "main_loop_blocking": False,
             "menu_visible": False,
