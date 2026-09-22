@@ -66,6 +66,8 @@ $components=[ordered]@{
   canonical_avatar=Get-FileProbe (Join-Path $RuntimeRoot "dashboard\assets\avatar\krishna.glb")
   mobile_companion_server=Get-FileProbe (Join-Path $RuntimeRoot "mobile\companion\server.py")
   source_mobile_v3=Get-FileProbe (Join-Path $SourceRoot "mobile_v3\index.html")
+  canonical_mobile_main=Get-FileProbe (Join-Path $RuntimeRoot "mobile\app-source\MainActivity.java")
+  mobile_runtime_manifest=Get-FileProbe (Join-Path $RuntimeRoot "state\deployment\MOBILE_RUNTIME.json")
   playwright_python=Get-FileProbe (Join-Path $RuntimeRoot ".venv\Lib\site-packages\playwright\__init__.py")
   browser_fabric_source=Get-FileProbe (Join-Path $SourceRoot "core\krishna_core\browser_fabric.py")
   garudanetra_session_source=Get-FileProbe (Join-Path $SourceRoot "core\krishna_core\garudanetra_session.py")
@@ -185,8 +187,14 @@ foreach($p in $proc){
    [void]$findings.Add([ordered]@{severity="notice";code="LEGACY_PARALLEL_PROCESS";detail=$p.CommandLine;pid=$p.ProcessId})
  }
 }
-if($components.mobile_companion_server.exists -and $components.source_mobile_v3.exists){
-  [void]$findings.Add([ordered]@{severity="notice";code="MOBILE_RUNTIME_DUALITY";detail="Legacy runtime mobile companion and repository mobile_v3 both exist; keep one canonical product path after comparison."})
+if($components.source_mobile_v3.exists -and !$components.canonical_mobile_main.exists){
+  [void]$findings.Add([ordered]@{severity="critical";code="CANONICAL_MOBILE_RUNTIME_MISSING";detail="Repository mobile_v3 exists but deployed mobile\app-source is missing."})
+}
+if($components.canonical_mobile_main.exists -and $components.mobile_runtime_manifest.exists){
+  [void]$findings.Add([ordered]@{severity="info";code="MOBILE_V3_CANONICAL";detail="mobile_v3 is deployed under mobile\app-source with a deployment manifest."})
+}
+if($components.mobile_companion_server.exists){
+  [void]$findings.Add([ordered]@{severity="notice";code="LEGACY_MOBILE_COMPANION_PRESENT";detail="mobile\companion is preserved for compatibility only; mobile_v3/mobile\app-source is the product authority after deployment."})
 }
 foreach($x in $leftovers){
   if($x.exists){[void]$findings.Add([ordered]@{severity="notice";code="UNRESOLVED_LEFTOVER";detail=$x.path})}
