@@ -204,10 +204,14 @@ public class MainActivity extends Activity {
       try{
         byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);JSONObject sensors=new JSONObject(sensorJson==null||sensorJson.trim().isEmpty()?"{}":sensorJson);
         sensors.put("curator_selected",true);sensors.put("curator_goal",goal==null?"":goal);sensors.put("offline_capture",true);
-        JSONObject meta=HawkeyeEdgeMemory.rememberMedia(MainActivity.this,sessionId,"offline-frame",bytes,contentType,"image",sensors,0.5,"OBSERVED","encrypted offline fallback");
+        JSONObject offline=HawkeyeOfflinePerception.analyze(MainActivity.this,sessionId,bytes);
+        sensors.put("offline_perception",offline);
+        double q="LOW".equals(offline.optString("capture_quality"))?0.25:0.65;
+        JSONObject meta=HawkeyeEdgeMemory.rememberMedia(MainActivity.this,sessionId,"offline-frame",bytes,contentType,"image",sensors,q,"OBSERVED",offline.optString("analysis","encrypted offline capture"));
         HawkeyeEdgeMemory.enforceBudget(MainActivity.this,128L*1024L*1024L,48,24L*60L*60L*1000L);
         JSONObject d=new JSONObject();d.put("ok",true);d.put("mode","HAWKEYE_FIELD");d.put("stored_local",true);d.put("encrypted_at_rest",true);
-        d.put("observation_id",meta.optString("observation_id"));d.put("analysis","Encrypted offline evidence saved; bounded background sync will retry when KRISHNA is reachable.");return d.toString();
+        d.put("observation_id",meta.optString("observation_id"));d.put("offline_perception",offline);
+        d.put("analysis",offline.optString("analysis")+" Encrypted evidence is retained for bounded later sync when KRISHNA PC is reachable.");return d.toString();
       }catch(Exception e){return error(e);}
     }
 
