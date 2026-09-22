@@ -28,6 +28,7 @@ from .autonomy_supervisor import AutonomySupervisor
 from .specialist_team import SpecialistTeamPlanner
 from .lan_discovery import LanDiscoveryService
 from .avatar_asset_pipeline import AvatarAssetInspector
+from .video_avatar import VideoAvatarFabric
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -269,6 +270,7 @@ def avatar_360_bytes():
 
 
 _avatar_inspector = AvatarAssetInspector(RUNTIME_ROOT / "state" / "avatar" / "asset-audit.json")
+_video_avatar = VideoAvatarFabric(RUNTIME_ROOT)
 
 def avatar_asset_status():
     source=_avatar_inspector.inspect(AVATAR_GLB)
@@ -538,12 +540,25 @@ class Handler(BaseHTTPRequestHandler):
                 "lipsync_quality":{"engine":"HeadAudio","bundled_model_training":"English mixed voices",
                                    "english":"trained-model","hindi":"audio-driven approximation","odia":"audio-driven approximation"},
                 "asset_pipeline":asset,
+                "video_avatar":_video_avatar.status(),
                 **orch.agi.avatar.status(),
             })
         if path == "/api/avatar/asset-audit":
             return self._json(200,avatar_asset_status())
         if path == "/api/avatar/performance":
             return self._json(200,orch.agi.avatar.performance_bible())
+        if path == "/api/avatar/video/status":
+            return self._json(200,_video_avatar.status())
+        if path == "/api/avatar/video/recommend":
+            goal=(query.get("goal") or [""])[0]
+            vram_raw=(query.get("vram_gb") or [""])[0]
+            try:vram=float(vram_raw) if str(vram_raw).strip() else None
+            except (TypeError,ValueError):return self._json(400,{"error":"vram_gb must be numeric"})
+            return self._json(200,_video_avatar.recommend(goal,vram))
+        if path == "/api/avatar/video/contract":
+            provider=(query.get("provider") or ["musetalk"])[0].strip().lower() or "musetalk"
+            try:return self._json(200,_video_avatar.generation_contract(provider))
+            except KeyError:return self._json(404,{"error":"unknown video avatar provider"})
         if path == "/api/avatar.glb":
             asset=active_avatar_glb()
             if not asset.is_file():return self._json(404,{"error":"private krishna.glb unavailable"})
