@@ -100,6 +100,34 @@ New-Item -ItemType Directory -Force $avatarPreviewDir|Out-Null
 Copy-Item -Force $avatarPreviewSource $avatarPreviewRuntime
 if(!(Test-Path $avatarPreviewRuntime)){throw "AVATAR PREVIEW COPY FAILED: $avatarPreviewRuntime"}
 
+# KRISHNA Mobile has one source authority: repository mobile_v3.
+# The old runtime mobile\companion is preserved as legacy compatibility only until
+# a real-device acceptance run proves it can be retired. It is never mirrored back
+# into source and is not allowed to become the canonical APK/UI implementation.
+$mobileSource=Join-Path $Source "mobile_v3"
+$mobileRuntime=Join-Path $Runtime "mobile\app-source"
+if(!(Test-Path (Join-Path $mobileSource "MainActivity.java"))){throw "CANONICAL MOBILE SOURCE MISSING: $mobileSource"}
+New-Item -ItemType Directory -Force $mobileRuntime|Out-Null
+& robocopy $mobileSource $mobileRuntime /MIR /R:1 /W:1 /XF "*.class"
+if($LASTEXITCODE -ge 8){throw "CANONICAL MOBILE DEPLOY FAILED ($LASTEXITCODE)"}
+$mobileManifestDir=Join-Path $Runtime "state\deployment"
+New-Item -ItemType Directory -Force $mobileManifestDir|Out-Null
+$mobileFiles=@(Get-ChildItem $mobileRuntime -File -Recurse | Sort-Object FullName | ForEach-Object {
+  [ordered]@{path=$_.FullName.Substring($mobileRuntime.Length+1).Replace("\","/");sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
+})
+$mobileManifest=[ordered]@{
+  schema="krishna.mobile-deployment.v1"
+  product="mobile_v3"
+  authority="E:\KRISHNA-SOURCE\mobile_v3"
+  source_commit=$Head
+  deployed_root=$mobileRuntime
+  legacy_companion_present=(Test-Path (Join-Path $Runtime "mobile\companion\server.py"))
+  legacy_companion_authority=$false
+  files=$mobileFiles
+  deployed_at=(Get-Date).ToString("o")
+}
+$mobileManifest|ConvertTo-Json -Depth 8|Set-Content -Encoding UTF8 (Join-Path $mobileManifestDir "MOBILE_RUNTIME.json")
+
 # Install the browser-side 3D avatar engines locally on E: when missing.
 # TalkingHead is cloned from GitHub at a pinned commit; model-viewer is pinned from npm.
 $avatarEngineInstaller=Join-Path $Runtime "scripts\INSTALL_AVATAR_ENGINE.ps1"
