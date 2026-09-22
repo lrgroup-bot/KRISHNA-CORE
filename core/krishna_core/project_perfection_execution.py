@@ -59,7 +59,8 @@ class RegressionManifest:
             edges.append({
                 "source":self._path(edge.get("source")),"target":self._path(edge.get("target")),
                 "action":str(edge.get("action") or ""),"label":str(edge.get("label") or "")[:200],
-                "state_id":edge.get("state_id"),
+                "role":str(edge.get("role") or "")[:80],"name":str(edge.get("name") or edge.get("label") or "")[:200],
+                "selector":str(edge.get("selector") or "")[:500],"state_id":edge.get("state_id"),
             })
         payload={"version":1,"project":project,"routes":routes,"edges":edges}
         target.write_text(json.dumps(payload,indent=2),encoding="utf-8")
@@ -80,23 +81,48 @@ class RegressionManifest:
 
 
 class BrowserRegressionRunner:
-    """Execute persisted routes with the canonical KRISHNA browser inspector."""
+    """Execute persisted routes and safe discovered state transitions."""
 
     def run(self, browser, base_url: str, manifest: dict[str,Any] | None) -> dict[str,Any]:
         if not manifest:
-            return {"available":False,"passed":True,"reason":"no_previous_manifest","routes":[]}
-        rows=[]
+            return {"available":False,"passed":True,"reason":"no_previous_manifest","routes":[],"edges":[]}
+        routes=[]
         for route in manifest.get("routes") or []:
             target=urljoin(base_url,str(route))
             try:
                 report=browser.inspect(target)
-                rows.append({"route":route,"url":target,"passed":bool(report.get("ok")),
-                             "findings":report.get("findings") or [],"layout":report.get("layout") or {}})
+                routes.append({"route":route,"url":target,"passed":bool(report.get("ok")),
+                               "findings":report.get("findings") or [],"layout":report.get("layout") or {}})
             except Exception as exc:
-                rows.append({"route":route,"url":target,"passed":False,
-                             "error":f"{type(exc).__name__}: {exc}"})
-        return {"available":True,"routes":rows,"route_count":len(rows),
-                "passed":bool(rows) and all(bool(x.get("passed")) for x in rows)}
+                routes.append({"route":route,"url":target,"passed":False,
+                               "error":f"{type(exc).__name__}: {exc}"})
+        edges=[]
+        for edge in manifest.get("edges") or []:
+            if str(edge.get("action") or "")!="click":continue
+            source=urljoin(base_url,str(edge.get("source") or "/"))
+            action={"type":"click"}
+            if edge.get("role"):
+                action.update({"role":edge.get("role"),"name":edge.get("name") or edge.get("label") or ""})
+            elif edge.get("selector"):
+                action["selector"]=edge.get("selector")
+            else:
+                edges.append({**edge,"passed":False,"reason":"locator_missing"});continue
+            try:
+                report=browser.inspect(source,actions=[action])
+                expected=str(edge.get("target") or "")
+                actual=urlparse(str(report.get("final_url") or "")).path or "/"
+                passed=bool(report.get("ok"))
+                if expected and expected!=(edge.get("source") or ""):
+                    passed=passed and actual==urlparse(expected).path
+                edges.append({**edge,"url":source,"passed":passed,"final_url":report.get("final_url"),
+                              "findings":report.get("findings") or []})
+            except Exception as exc:
+                edges.append({**edge,"url":source,"passed":False,"error":f"{type(exc).__name__}: {exc}"})
+        route_ok=bool(routes) and all(bool(x.get("passed")) for x in routes)
+        edge_ok=all(bool(x.get("passed")) for x in edges) if edges else True
+        return {"available":True,"routes":routes,"edges":edges,"route_count":len(routes),"edge_count":len(edges),
+                "passed":bool(route_ok and edge_ok)}
+
 
 
 class VisualBaselineStore:
