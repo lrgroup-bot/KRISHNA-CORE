@@ -210,6 +210,16 @@ jobs:
           print("KABACH_MOBILE_PRIVACY_GATE_OK")
           PY
 
+      - name: Enable KVM for Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -e /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
       - name: Clean APK emulator install-launch-restart retest
         uses: reactivecircus/android-emulator-runner@v2
         with:
