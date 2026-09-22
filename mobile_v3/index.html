@@ -61,7 +61,7 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
 <script>
 const labels=['FRONT','FRONT-RIGHT','RIGHT','BACK-RIGHT','BACK','BACK-LEFT','LEFT','FRONT-LEFT'];
 let view=0,drag=false,startX=0,startView=0,mode='FLUTE',lastManual=0,autoTimer=null,busy=false,pendingAttachmentIds=[],pairingRequestedAt=0;
-let fieldStream=null,fieldTimer=null,fieldSession='',fieldBusy=false,fieldFrames=0,fieldGoal='automatic live field scan',fieldAudio=false;
+let fieldStream=null,fieldTimer=null,fieldSession='',fieldBusy=false,fieldFrames=0,fieldGoal='automatic live field scan',fieldAudio=false,fieldProbe=null;
 const stage=document.getElementById('stage'),sprite=document.getElementById('avatarSprite'),label=document.getElementById('viewLabel'),vp=document.getElementById('avatarViewport');
 function showAvatarView(i,manual=false){view=(i%8+8)%8;sprite.style.transform='translateX('+(-view*12.5)+'%)';label.textContent=labels[view];if(manual)lastManual=Date.now()}
 function step(delta,manual=true){showAvatarView(view+delta,manual)}
@@ -103,6 +103,16 @@ function renderDiagnosticOverlay(result){
  for(const tp of overlay.test_points||[]){let p=null;if(Array.isArray(tp.bbox)&&tp.bbox.length===4){const r=rect(tp.bbox);p=center(r)}else{const r=components.get(String(tp.component_id||''));if(r)p=center(r)}if(!p)continue;ctx.strokeStyle='#50f0ac';ctx.fillStyle='#50f0ac';ctx.beginPath();ctx.arc(p.x,p.y,7,0,Math.PI*2);ctx.stroke();ctx.fillText(String(tp.label||'TEST').slice(0,16),p.x+9,p.y-2)}
 }
 
+function visualProbe(video){
+ const probe=document.createElement('canvas');probe.width=32;probe.height=24;const ctx=probe.getContext('2d',{alpha:false,willReadFrequently:true});ctx.drawImage(video,0,0,32,24);
+ const data=ctx.getImageData(0,0,32,24).data,lum=new Float32Array(32*24);let mean=0,edge=0,k=0;
+ for(let i=0;i<data.length;i+=4){const y=.2126*data[i]+.7152*data[i+1]+.0722*data[i+2];lum[k++]=y;mean+=y}mean/=lum.length;
+ for(let y=0;y<24;y++)for(let x=0;x<32;x++){const i=y*32+x;if(x)edge+=Math.abs(lum[i]-lum[i-1]);if(y)edge+=Math.abs(lum[i]-lum[i-32])}
+ edge/=((31*24)+(23*32));const exposure=Math.max(0,1-Math.abs(mean-128)/118),detail=Math.min(1,edge/24);
+ let novelty=1;if(fieldProbe&&fieldProbe.length===lum.length){let delta=0;for(let i=0;i<lum.length;i++)delta+=Math.abs(lum[i]-fieldProbe[i]);novelty=Math.min(1,(delta/lum.length)/70)}
+ fieldProbe=lum;return{quality:Math.max(0,Math.min(1,.45*exposure+.55*detail)),novelty};
+}
+
 async function startFieldScan(){
  if(fieldStream||fieldBusy)return;
  try{
@@ -120,8 +130,8 @@ async function startFieldScan(){
    document.getElementById('cameraAnalysis').textContent='Hawkeye live scan started. Hold the camera steady and move around the object for additional viewpoints.';
    document.getElementById('cameraMode').textContent='HAWKEYE · AUTO SCAN';
    clearDiagnosticOverlay();
-   fieldFrames=0;setMode('WORKING','HAWKEYE LIVE');
-   clearInterval(fieldTimer);fieldTimer=setInterval(sampleFieldFrame,3000);
+   fieldFrames=0;fieldProbe=null;setMode('WORKING','HAWKEYE LIVE');
+   clearInterval(fieldTimer);fieldTimer=setInterval(sampleFieldFrame,5000);
    setTimeout(sampleFieldFrame,700);
  }catch(e){
    reply('Hawkeye camera: '+e.message,'bad');
@@ -135,37 +145,33 @@ async function sampleFieldFrame(){
  fieldBusy=true;
  try{
    const canvas=document.getElementById('fieldCanvas');
-   const maxW=960,scale=Math.min(1,maxW/video.videoWidth);
+   const metrics=visualProbe(video);
+   const maxW=720,scale=Math.min(1,maxW/video.videoWidth);
    canvas.width=Math.max(1,Math.round(video.videoWidth*scale));
    canvas.height=Math.max(1,Math.round(video.videoHeight*scale));
    canvas.getContext('2d',{alpha:false}).drawImage(video,0,0,canvas.width,canvas.height);
-   const dataUrl=canvas.toDataURL('image/jpeg',0.72);
+   const dataUrl=canvas.toDataURL('image/jpeg',0.62);
    const b64=dataUrl.split(',')[1]||'';
-   const sensors={timestamp_ms:Date.now(),orientation:'mobile-camera',frame_width:canvas.width,frame_height:canvas.height};
-   let d;
-   if(window.hawkeyeOffline){
-     d=JSON.parse(Krishna.hawkeyeOfflineFrame(fieldSession,b64,'image/jpeg',JSON.stringify(sensors),fieldGoal));
-   }else{
-     d=JSON.parse(Krishna.bhumiputraFrame(fieldSession,b64,'image/jpeg',JSON.stringify(sensors),fieldGoal));
-     if(d.error){window.hawkeyeOffline=true;d=JSON.parse(Krishna.hawkeyeOfflineFrame(fieldSession,b64,'image/jpeg',JSON.stringify(sensors),fieldGoal));}
-   }
+   const sensors={timestamp_ms:Date.now(),orientation:'mobile-camera',frame_width:canvas.width,frame_height:canvas.height,mobile_local_first:true,quality:metrics.quality,novelty:metrics.novelty};
+   const d=JSON.parse(Krishna.hawkeyeCurateFrame(fieldSession,b64,'image/jpeg',JSON.stringify(sensors),fieldGoal,metrics.quality,metrics.novelty));
    if(d.error)throw new Error(d.error);
-   fieldFrames=d.frame_count||fieldFrames+1;
-   if(window.hawkeyeOffline)document.getElementById('cameraMode').textContent='HAWKEYE · FIELD OFFLINE';
+   fieldFrames+=1;
    document.getElementById('cameraCount').textContent='FRAME '+fieldFrames;
-   document.getElementById('cameraAnalysis').textContent=d.analysis||'Frame analyzed.';
-   renderDiagnosticOverlay(d);
+   document.getElementById('cameraAnalysis').textContent=d.analysis||'Mobile curator processed frame.';
+   if(d.pc_acknowledged)renderDiagnosticOverlay(d);
+   const curator=d.curator||{};
+   if(!d.pc_acknowledged){document.getElementById('cameraMode').textContent=d.stored_local?'HAWKEYE · MOBILE BUFFER':'HAWKEYE · EDGE FILTER';}
    if(d.diagnostic){
      document.getElementById('cameraMode').textContent='HAWKEYE · DIAGNOSTIC';
      const notes=[];if(d.accuracy_note)notes.push(d.accuracy_note);for(const w of d.warnings||[])notes.push('WARNING: '+w);
      if(notes.length)document.getElementById('cameraAnalysis').textContent+=(d.analysis?'\n\n':'')+notes.join('\n');
    }
-   try{
+   if(d.pc_acknowledged){try{
      const modalities=fieldAudio?['image','video','audio']:['image','video'];
-     const learned=JSON.parse(Krishna.hawkeyeLearnCapture(fieldGoal,'mobile_live_camera',fieldSession,JSON.stringify(modalities),'live scene',String(d.analysis||''),Number(d.confidence||0),String(d.evidence_state||'OBSERVED'),JSON.stringify({live_microphone:fieldAudio,timestamp_ms:Date.now()})));
+     const learned=JSON.parse(Krishna.hawkeyeLearnCapture(fieldGoal,'mobile_curated_evidence',fieldSession,JSON.stringify(modalities),'live scene',String(d.analysis||''),Number(d.confidence||0),String(d.evidence_state||'OBSERVED'),JSON.stringify({live_microphone:fieldAudio,timestamp_ms:Date.now()})));
      if(learned.unknown_resolution)document.getElementById('cameraAnalysis').textContent+=(d.analysis?'\n\n':'')+'Learning escalation: '+learned.unknown_resolution.rishi+' · '+learned.unknown_resolution.status;
-   }catch(_){}
-   if(d.diagnostic)return;
+   }catch(_){}}
+   if(!d.pc_acknowledged||d.diagnostic)return;
    const a=String(d.analysis||'').toLowerCase();
    let scene='AUTO';
    if(a.includes('tower')||a.includes('building')||a.includes('structure')||a.includes('bridge'))scene='STRUCTURE';
@@ -180,7 +186,7 @@ async function sampleFieldFrame(){
 function stopFieldScan(){
  clearInterval(fieldTimer);fieldTimer=null;
  if(fieldStream){for(const t of fieldStream.getTracks())try{t.stop()}catch(e){}}
- fieldStream=null;fieldBusy=false;fieldAudio=false;
+ fieldStream=null;fieldBusy=false;fieldAudio=false;fieldProbe=null;
  clearDiagnosticOverlay();
  document.getElementById('fieldVideo').srcObject=null;
  document.getElementById('cameraLayer').classList.remove('active');
