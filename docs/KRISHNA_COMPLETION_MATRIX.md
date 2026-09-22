@@ -92,7 +92,8 @@ Status meanings:
 | Required information comes from Rishi knowledge | IMPLEMENTED / RUNTIME VERIFY | `brahma.retrieve` selects the relevant Rishi team and returns scoped `knowledge_packet` findings/open questions before new research is requested. |
 | Mobile-first learning policy | IMPLEMENTED / DEVICE VERIFY | Mobile provides bounded high-value observation/evidence; deep research/cross-checking remains on the PC. Hawkeye learning capture and curated evidence ingest now call BRAHMA. |
 | PC learning policy | IMPLEMENTED / RUNTIME VERIFY | PC/document/code/research inputs can be routed to Rishi learning/research with provenance. |
-| Gyan-Bhandar QC head | IMPLEMENTED / RUNTIME VERIFY | All production BRAHMAGYAN trusted promotions bind through BRAHMA QC before the existing Gyan proposal/owner-approval path. |
+| Gyan-Bhandar QC head | IMPLEMENTED / RUNTIME VERIFY | Production knowledge proposals route through Rishi intake + BRAHMA QC before the existing Gyan proposal/owner-approval path; low-maturity knowledge remains with the Rishis. |
+| Evidence vs knowledge boundary | IMPLEMENTED / RUNTIME VERIFY | Raw/operational evidence may be stored as evidence/episodic memory; direct semantic/skill/graph stores are blocked so they cannot bypass Rishi/BRAHMA learning QC. |
 | QC provenance / evidence / maturity / contradiction gates | VERIFIED BY UNIT CONTRACTS / CI PENDING | Candidate promotion requires traceable provenance, evidence, confidence, maturity and no unresolved contradiction; only strong L4+ evidence may be marked verified. |
 | Gautama and Veda Vyasa remain evidence reviewer/compiler | VERIFIED boundary | BRAHMA governs routing/QC and does not replace Gautama epistemic review or Veda Vyasa compilation. |
 | No silent direct truth write | VERIFIED boundary | BRAHMA creates a Gyan proposal only after QC; Gyan-Bhandar keeps durable memory authority and its normal approval path. |
