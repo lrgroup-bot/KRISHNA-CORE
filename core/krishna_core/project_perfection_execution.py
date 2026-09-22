@@ -256,3 +256,119 @@ class DesignStudio:
         state["requires_implementation"]=True;state["requires_full_regression"]=True
         path.write_text(json.dumps(state,indent=2),encoding="utf-8")
         return state
+
+
+class SourceMapper:
+    """Map a live DOM element to likely source locations using stable visible evidence."""
+
+    EXTENSIONS={".html",".htm",".css",".scss",".sass",".less",".js",".jsx",".ts",".tsx",".vue",".svelte",".py",".java"}
+    EXCLUDES={".git",".venv","node_modules","dist","build",".krishna_state"}
+
+    def find(self, project_root: str | Path, element: dict[str, Any], limit: int=20) -> dict[str, Any]:
+        root=Path(project_root).resolve()
+        if not root.is_dir(): raise ValueError("project root does not exist")
+        eid=str(element.get("id") or "").strip()
+        classes=[str(x).strip() for x in element.get("classes") or [] if str(x).strip()]
+        name=str(element.get("name") or "").strip()
+        tag=str(element.get("tag") or "").strip()
+        rows=[]
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix.lower() not in self.EXTENSIONS: continue
+            if any(part in self.EXCLUDES for part in path.parts): continue
+            try: lines=path.read_text(encoding="utf-8").splitlines()
+            except Exception: continue
+            for no,line in enumerate(lines,1):
+                score=0; reasons=[]
+                if eid and (f'id="{eid}"' in line or f"id='{eid}'" in line or f"#{eid}" in line):
+                    score+=8;reasons.append("id")
+                for cls in classes[:6]:
+                    if cls and cls in line:
+                        score+=2;reasons.append("class:"+cls)
+                if name and len(name)>=3 and name[:80] in line:
+                    score+=5;reasons.append("visible_name")
+                if tag and f"<{tag}" in line.lower():
+                    score+=1;reasons.append("tag")
+                if score:
+                    rows.append({"path":str(path.relative_to(root)).replace("\\","/"),"line":no,
+                                 "score":score,"reasons":reasons,"snippet":line.strip()[:500]})
+        rows.sort(key=lambda x:(-x["score"],x["path"],x["line"]))
+        return {"element":element,"candidates":rows[:max(1,min(int(limit),100))],
+                "mapped":bool(rows),"root":str(root)}
+
+
+class VisualCandidateEditor:
+    """Apply only structured, auditable visual edits to an isolated candidate tree."""
+
+    SAFE_CSS={
+        "display","position","width","height","min-width","min-height","max-width","max-height",
+        "margin","margin-top","margin-right","margin-bottom","margin-left",
+        "padding","padding-top","padding-right","padding-bottom","padding-left",
+        "gap","row-gap","column-gap","align-items","align-self","justify-content","justify-self",
+        "grid-template-columns","grid-template-rows","grid-column","grid-row","flex","flex-direction",
+        "flex-wrap","order","font-size","font-weight","line-height","text-align","border-radius",
+        "box-shadow","background","background-color","color","opacity","transform","z-index",
+    }
+
+    @staticmethod
+    def _stable_selector(element: dict[str, Any]) -> str:
+        eid=str(element.get("id") or "").strip()
+        if eid:return "#"+eid
+        classes=[str(x).strip() for x in element.get("classes") or [] if str(x).strip()]
+        tag=str(element.get("tag") or "").strip().lower()
+        if classes:return (tag if tag else "")+"."+".".join(classes[:3])
+        raise ValueError("selected element has no stable id/class selector; source-level agent patch required")
+
+    def apply(self, candidate_root: str | Path, element: dict[str, Any], intent: dict[str, Any],
+              source_map: dict[str, Any] | None=None) -> dict[str, Any]:
+        root=Path(candidate_root).resolve()
+        if not root.is_dir():raise ValueError("candidate root does not exist")
+        action=str(intent.get("action") or "").strip().lower()
+        changed=[]
+        if action=="replace_text":
+            old=str(element.get("name") or "").strip()
+            new=str(intent.get("replacement_text") or intent.get("text") or "").strip()
+            if not old or not new:raise ValueError("replace_text requires selected visible text and replacement_text")
+            candidates=list((source_map or {}).get("candidates") or [])
+            for row in candidates:
+                path=(root/row["path"]).resolve();path.relative_to(root)
+                try:text=path.read_text(encoding="utf-8")
+                except Exception:continue
+                if old in text:
+                    path.write_text(text.replace(old,new,1),encoding="utf-8")
+                    changed.append(str(path.relative_to(root)).replace("\\","/"));break
+            if not changed:raise RuntimeError("could not locate selected text in candidate source")
+            return {"applied":True,"action":action,"files":changed,"requires_regression":True}
+
+        styles=dict(intent.get("style_patch") or {})
+        if action in {"move","resize","restyle"}:
+            if not styles:raise ValueError("structured style_patch is required for move/resize/restyle")
+            safe={}
+            for key,value in styles.items():
+                k=str(key).strip().lower()
+                if k not in self.SAFE_CSS:raise ValueError(f"unsafe or unsupported CSS property: {k}")
+                v=str(value).strip()
+                if not v or any(x in v.lower() for x in ("javascript:","expression(","url(data:")):
+                    raise ValueError("unsafe CSS value")
+                safe[k]=v
+            selector=self._stable_selector(element)
+            rule=selector+"{"+ ";".join(f"{k}:{v}" for k,v in safe.items())+";}\n"
+            css=(root/"krishna-visual-overrides.css").resolve();css.write_text((css.read_text(encoding="utf-8") if css.exists() else "")+rule,encoding="utf-8")
+            changed.append(str(css.relative_to(root)).replace("\\","/"))
+            htmls=[p for p in root.rglob("index.html") if not any(part in self.EXCLUDES for part in p.parts)]
+            if not htmls:
+                return {"applied":False,"action":action,"files":changed,"selector":selector,
+                        "reason":"override_created_but_no_index_html_to_link","requires_source_agent":True}
+            html=htmls[0];text=html.read_text(encoding="utf-8")
+            href=str(css.relative_to(html.parent)).replace("\\","/")
+            marker='data-krishna-visual-overrides="1"'
+            if marker not in text:
+                link=f'<link {marker} rel="stylesheet" href="{href}">'
+                text=text.replace("</head>",link+"\n</head>") if "</head>" in text else link+"\n"+text
+                html.write_text(text,encoding="utf-8");changed.append(str(html.relative_to(root)).replace("\\","/"))
+            return {"applied":True,"action":action,"files":changed,"selector":selector,
+                    "style_patch":safe,"requires_regression":True}
+
+        if action in {"remove","add_component"}:
+            return {"applied":False,"action":action,"reason":"semantic source patch required",
+                    "requires_source_agent":True,"requires_regression":True}
+        raise ValueError("unsupported visual candidate edit")
