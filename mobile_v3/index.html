@@ -183,7 +183,7 @@ async function startFieldScan(){
    document.getElementById('cameraMode').textContent='HAWKEYE · AUTO SCAN';
    clearDiagnosticOverlay();
    fieldFrames=0;fieldProbe=null;setMode('WORKING','HAWKEYE LIVE');
-   clearInterval(fieldTimer);fieldTimer=setInterval(sampleFieldFrame,5000);
+   clearInterval(fieldTimer);const edgeMs=Math.max(5000,Number(Krishna.edgeSamplingMs?Krishna.edgeSamplingMs():6000)||6000);fieldTimer=setInterval(sampleFieldFrame,edgeMs);
    startBoundedMediaCapture();setTimeout(sampleFieldFrame,700);
  }catch(e){
    reply('Hawkeye camera: '+e.message,'bad');

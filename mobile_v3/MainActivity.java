@@ -163,6 +163,14 @@ public class MainActivity extends Activity {
     }
     @JavascriptInterface public String state(){return call("/api/core/state",null);}
 
+    @JavascriptInterface public String edgeBotStatus(){
+      try{return MobileEdgeBot.status(MainActivity.this).toString();}
+      catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public int edgeSamplingMs(){
+      return MobileEdgeBot.recommendedSamplingMs(MainActivity.this);
+    }
+
     @JavascriptInterface public String hawkeyeLearnCapture(String utterance,String sourceType,String sourceRef,String modalitiesJson,String subject,String analysis,double confidence,String evidenceState,String audioObservationsJson){
       try{
         JSONObject body=new JSONObject();
@@ -181,13 +189,14 @@ public class MainActivity extends Activity {
 
     @JavascriptInterface public String hawkeyeMode(){
       try{
-        JSONObject d=new JSONObject();
+        JSONObject d=MobileEdgeBot.status(MainActivity.this);
         boolean pc=false;
         try{JSONObject x=new JSONObject(connection());pc=!x.has("error")&&x.optBoolean("connected",false);}catch(Exception ignored){}
-        d.put("mode",pc?"HAWKEYE_LOCAL":"HAWKEYE_FIELD");
+        d.put("mode",pc?"HAWKEYE_EDGE_PC":"HAWKEYE_FIELD");
         d.put("pc_connected",pc);
         d.put("internet_required",false);
         d.put("field_capture_local",true);
+        d.put("selective_pc_offload",true);
         return d.toString();
       }catch(Exception e){return error(e);}
     }
@@ -289,14 +298,37 @@ public class MainActivity extends Activity {
 
     @JavascriptInterface public String bhumiputraFrame(String sessionId,String dataB64,String contentType,String sensorJson,String goal){
       try{
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
+        JSONObject sensors=new JSONObject(sensorJson==null||sensorJson.trim().isEmpty()?"{}":sensorJson);
+        MobileEdgeBot.PreparedFrame prepared=MobileEdgeBot.prepareFrame(MainActivity.this,sessionId,bytes,sensors,goal);
+        JSONObject edge=prepared.result;
+        if(prepared.uploadBytes==null)return edge.toString();
+
         JSONObject body=new JSONObject();
         body.put("session_id",sessionId);
-        body.put("data_b64",dataB64);
-        body.put("content_type",contentType==null||contentType.isEmpty()?"image/jpeg":contentType);
+        body.put("data_b64",MobileEdgeBot.encode(prepared.uploadBytes));
+        body.put("content_type","image/jpeg");
         body.put("goal",goal==null?"":goal);
-        JSONObject sensors=new JSONObject(sensorJson==null||sensorJson.trim().isEmpty()?"{}":sensorJson);
         body.put("sensor_context",sensors);
-        return call("/api/bhumiputra/live/frame",body.toString());
+        body.put("edge_bot",MobileEdgeBot.BOT_ID);
+        body.put("edge_policy",edge.optJSONObject("policy"));
+        body.put("original_bytes",edge.optInt("original_bytes"));
+        body.put("optimized_bytes",edge.optInt("optimized_bytes"));
+
+        JSONObject pc=new JSONObject(call("/api/bhumiputra/live/frame",body.toString()));
+        if(pc.has("error")){
+          edge.put("route","LOCAL_PC_UNREACHABLE");
+          edge.put("pc_error",pc.optString("error"));
+          edge.put("analysis","PC analysis was unavailable; compact evidence remains stored on the mobile device.");
+          return edge.toString();
+        }
+        pc.put("edge_bot",MobileEdgeBot.BOT_ID);
+        pc.put("edge_route","PC_COMPACT");
+        pc.put("original_bytes",edge.optInt("original_bytes"));
+        pc.put("optimized_bytes",edge.optInt("optimized_bytes"));
+        pc.put("traffic_reduction_percent",edge.optDouble("traffic_reduction_percent"));
+        pc.put("stored_local",true);
+        return pc.toString();
       }catch(Exception e){return error(e);}
     }
     @JavascriptInterface public String bhumiputraState(String sessionId){

@@ -103,6 +103,7 @@ jobs:
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET"/>
+            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
             <uses-permission android:name="android.permission.RECORD_AUDIO"/>
             <uses-permission android:name="android.permission.CAMERA"/>
             <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -124,12 +125,7 @@ jobs:
           </manifest>
           EOF
 
-          cp mobile_v3/MainActivity.java app/src/main/java/com/krishna/mobile/MainActivity.java
-          cp mobile_v3/HawkeyeEdgeMemory.java app/src/main/java/com/krishna/mobile/HawkeyeEdgeMemory.java
-          cp mobile_v3/HawkeyeEvidenceCuratorBot.java app/src/main/java/com/krishna/mobile/HawkeyeEvidenceCuratorBot.java
-          cp mobile_v3/HawkeyeCrypto.java app/src/main/java/com/krishna/mobile/HawkeyeCrypto.java
-          cp mobile_v3/HawkeyeBackgroundSync.java app/src/main/java/com/krishna/mobile/HawkeyeBackgroundSync.java
-          cp mobile_v3/HawkeyeSyncJobService.java app/src/main/java/com/krishna/mobile/HawkeyeSyncJobService.java
+          cp mobile_v3/*.java app/src/main/java/com/krishna/mobile/
           cp mobile_v3/index.html app/src/main/assets/index.html
           cp mobile_v3/realtime-client.js app/src/main/assets/realtime-client.js
           base64 -d avatar/krishna_child_360.webp.b64 > app/src/main/assets/krishna_child_360.webp
@@ -179,6 +175,12 @@ jobs:
           grep -q "migrateLegacyPlaintext" app/src/main/java/com/krishna/mobile/HawkeyeEdgeMemory.java
           grep -q "/api/hawkeye/evidence/ingest" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "bhumiputraFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "MobileEdgeBot.prepareFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "KRISHNA_EDGE_BOT_V1" app/src/main/java/com/krishna/mobile/MobileEdgeBot.java
+          grep -q "HawkeyeDeviceProfiler.profile" app/src/main/java/com/krishna/mobile/MobileEdgeBot.java
+          grep -q "HawkeyeEdgeMemory.remember" app/src/main/java/com/krishna/mobile/MobileEdgeBot.java
+          grep -q "edgeSamplingMs" app/src/main/assets/index.html
+          grep -q 'android.permission.ACCESS_NETWORK_STATE' app/src/main/AndroidManifest.xml
           grep -q "hawkeyeOfflineFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "configureCloudUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "secureCloudUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
@@ -239,6 +241,19 @@ jobs:
           print("KABACH_MOBILE_PRIVACY_GATE_OK")
           PY
 
+      - name: Enable KVM for Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -e /dev/kvm ]]; then
+            echo "/dev/kvm is unavailable on this runner" >&2
+            exit 1
+          fi
+          ls -l /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          ls -l /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
       - name: Clean APK emulator install-launch-restart retest
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -246,11 +261,11 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: PYTHONPATH=core python -c 'import json,sys; from pathlib import Path; from krishna_core.project_perfection_execution import ArtifactExecutor; result=ArtifactExecutor().apk("app/build/outputs/apk/debug/app-debug.apk","com.krishna.mobile"); Path("project-perfection-apk-retest.json").write_text(json.dumps(result,indent=2),encoding="utf-8"); print(json.dumps(result,indent=2)); sys.exit(0 if result.get("passed") else "KRISHNA APK emulator retest failed")'
+          script: PYTHONPATH=core python scripts/VERIFY_KRISHNA_APK.py app/build/outputs/apk/debug/app-debug.apk com.krishna.mobile
 
       - uses: actions/upload-artifact@v4
         with:
-          name: KRISHNA-v3.6-Hawkeye-Mobile-APK
+          name: KRISHNA-v3.7-Mobile-Edge-APK
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             privacy-apk-report.json

@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import re
 import shutil
+import sqlite3
 import subprocess
 import tempfile
 import time
@@ -58,7 +59,8 @@ class RegressionManifest:
             edges.append({
                 "source":self._path(edge.get("source")),"target":self._path(edge.get("target")),
                 "action":str(edge.get("action") or ""),"label":str(edge.get("label") or "")[:200],
-                "state_id":edge.get("state_id"),
+                "role":str(edge.get("role") or "")[:80],"name":str(edge.get("name") or edge.get("label") or "")[:200],
+                "selector":str(edge.get("selector") or "")[:500],"state_id":edge.get("state_id"),
             })
         payload={"version":1,"project":project,"routes":routes,"edges":edges}
         target.write_text(json.dumps(payload,indent=2),encoding="utf-8")
@@ -79,24 +81,52 @@ class RegressionManifest:
 
 
 class BrowserRegressionRunner:
-    """Execute persisted routes with the canonical KRISHNA browser inspector."""
+    """Execute persisted routes and safe discovered state transitions."""
 
     def run(self, browser, base_url: str, manifest: dict[str,Any] | None) -> dict[str,Any]:
         if not manifest:
-            return {"available":False,"passed":True,"reason":"no_previous_manifest","routes":[]}
-        rows=[]
+            return {"available":False,"passed":True,"reason":"no_previous_manifest","routes":[],"edges":[]}
+        routes=[]
         for route in manifest.get("routes") or []:
             target=urljoin(base_url,str(route))
             try:
                 report=browser.inspect(target)
-                rows.append({"route":route,"url":target,"passed":bool(report.get("ok")),
-                             "findings":report.get("findings") or [],"layout":report.get("layout") or {}})
+                routes.append({"route":route,"url":target,"passed":bool(report.get("ok")),
+                               "findings":report.get("findings") or [],"layout":report.get("layout") or {}})
             except Exception as exc:
-                rows.append({"route":route,"url":target,"passed":False,
-                             "error":f"{type(exc).__name__}: {exc}"})
-        return {"available":True,"routes":rows,"route_count":len(rows),
-                "passed":bool(rows) and all(bool(x.get("passed")) for x in rows)}
-
+                routes.append({"route":route,"url":target,"passed":False,
+                               "error":f"{type(exc).__name__}: {exc}"})
+        edges=[]
+        for edge in manifest.get("edges") or []:
+            if str(edge.get("action") or "")!="click":continue
+            source=urljoin(base_url,str(edge.get("source") or "/"))
+            action={"type":"click"}
+            if edge.get("role"):
+                action.update({"role":edge.get("role"),"name":edge.get("name") or edge.get("label") or ""})
+            elif edge.get("selector"):
+                action["selector"]=edge.get("selector")
+            else:
+                edges.append({**edge,"passed":False,"reason":"locator_missing"});continue
+            try:
+                report=browser.inspect(source,actions=[action])
+                expected=str(edge.get("target") or "")
+                actual=urlparse(str(report.get("final_url") or "")).path or "/"
+                passed=bool(report.get("ok"))
+                if expected and expected!=(edge.get("source") or ""):
+                    passed=passed and actual==urlparse(expected).path
+                expected_state=str(edge.get("state_id") or "")
+                actual_state=str(report.get("state_id") or "")
+                state_match=(not expected_state) or (actual_state==expected_state)
+                passed=bool(passed and state_match)
+                edges.append({**edge,"url":source,"passed":passed,"final_url":report.get("final_url"),
+                              "expected_state_id":expected_state or None,"actual_state_id":actual_state or None,
+                              "state_match":state_match,"findings":report.get("findings") or []})
+            except Exception as exc:
+                edges.append({**edge,"url":source,"passed":False,"error":f"{type(exc).__name__}: {exc}"})
+        route_ok=bool(routes) and all(bool(x.get("passed")) for x in routes)
+        edge_ok=all(bool(x.get("passed")) for x in edges) if edges else True
+        return {"available":True,"routes":routes,"edges":edges,"route_count":len(routes),"edge_count":len(edges),
+                "passed":bool(route_ok and edge_ok)}
 
 class VisualBaselineStore:
     """Golden screenshot memory with optional pixel-level Pillow comparison."""
@@ -205,6 +235,56 @@ class MutationRunner:
                 "rule":"mutation is performed only in candidate workspace and always restored"}
 
 
+class DatabaseChaosRunner:
+    """Inject a real SQLite exclusive-lock fault into a temporary database copy."""
+
+    def run(self, database: str | Path, lock_timeout: float=0.15) -> dict[str, Any]:
+        source=Path(database).resolve()
+        if not source.is_file():
+            return {"applicable":True,"executed":False,"passed":False,"reason":"database_missing","database":str(source)}
+        started=time.perf_counter()
+        with tempfile.TemporaryDirectory(prefix="krishna-db-chaos-") as td:
+            target=Path(td)/source.name
+            shutil.copy2(source,target)
+            primary=sqlite3.connect(str(target),timeout=lock_timeout)
+            secondary=None
+            injection_observed=False
+            recovery_observed=False
+            injection_error=None
+            try:
+                primary.execute("BEGIN EXCLUSIVE")
+                secondary=sqlite3.connect(str(target),timeout=lock_timeout)
+                try:
+                    secondary.execute("CREATE TABLE krishna_chaos_probe(id INTEGER)")
+                    secondary.commit()
+                except sqlite3.OperationalError as exc:
+                    injection_error=str(exc)
+                    injection_observed="locked" in injection_error.lower()
+                primary.rollback()
+                if secondary:
+                    try:secondary.close()
+                    except Exception:pass
+                secondary=sqlite3.connect(str(target),timeout=1.0)
+                secondary.execute("CREATE TABLE IF NOT EXISTS krishna_chaos_probe(id INTEGER)")
+                secondary.commit()
+                recovery_observed=True
+            finally:
+                try:primary.close()
+                except Exception:pass
+                if secondary:
+                    try:secondary.close()
+                    except Exception:pass
+            return {
+                "applicable":True,"executed":True,"source_database":str(source),
+                "temporary_database":str(target),"fault":"sqlite_exclusive_lock",
+                "injection_observed":injection_observed,"injection_error":injection_error,
+                "recovery_observed":recovery_observed,
+                "passed":bool(injection_observed and recovery_observed),
+                "elapsed_ms":int((time.perf_counter()-started)*1000),
+                "safety":"fault injected only into an isolated temporary database copy",
+            }
+
+
 class ArtifactExecutor:
     """Clean-ish runtime retests using tools already present on the host."""
 
@@ -220,6 +300,62 @@ class ArtifactExecutor:
             return {"executed":False,"passed":False,"reason":"tool_unavailable","detail":str(exc)}
         except subprocess.TimeoutExpired as exc:
             return {"executed":True,"passed":False,"reason":"timeout","detail":str(exc)}
+
+    @staticmethod
+    def _terminate_process_tree(proc) -> dict[str, Any]:
+        if proc is None:
+            return {"passed":True,"reason":"no_process"}
+        pid=getattr(proc,"pid",None)
+        if platform.system().lower()=="windows" and pid:
+            try:
+                p=subprocess.run(["taskkill","/PID",str(pid),"/T","/F"],capture_output=True,text=True,timeout=15,shell=False)
+                try:proc.wait(timeout=5)
+                except Exception:pass
+                time.sleep(0.25)
+                return {"passed":p.returncode==0 or proc.poll() is not None,"pid":pid,
+                        "output":((p.stdout or "")+"\n"+(p.stderr or ""))[-4000:]}
+            except Exception as exc:
+                return {"passed":False,"pid":pid,"error":f"{type(exc).__name__}: {exc}"}
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+                try:proc.wait(timeout=5)
+                except Exception:
+                    proc.kill();proc.wait(timeout=5)
+            return {"passed":True,"pid":pid}
+        except Exception as exc:
+            return {"passed":False,"pid":pid,"error":f"{type(exc).__name__}: {exc}"}
+
+    def _wait_android_ready(self, adb: str, attempts: int=60,
+                            delay_seconds: float=1.0) -> dict[str, Any]:
+        """Wait for ADB transport and core Android framework services before app operations."""
+        last={"executed":True,"passed":False,"state":"","boot":"","package_service":"","activity_service":""}
+        for attempt in range(1,max(1,int(attempts))+1):
+            state=self._cmd([adb,"get-state"],30)
+            state_text=state.get("output","").strip()
+            boot={"passed":False,"output":""}
+            package_service={"passed":False,"output":""}
+            activity_service={"passed":False,"output":""}
+            if state.get("passed") and state_text=="device":
+                boot=self._cmd([adb,"shell","getprop","sys.boot_completed"],30)
+                package_service=self._cmd([adb,"shell","service","check","package"],30)
+                activity_service=self._cmd([adb,"shell","service","check","activity"],30)
+                boot_text=boot.get("output","").strip()
+                package_text=package_service.get("output","").lower()
+                activity_text=activity_service.get("output","").lower()
+                if (boot.get("passed") and boot_text=="1" and
+                        package_service.get("passed") and "found" in package_text and "not found" not in package_text and
+                        activity_service.get("passed") and "found" in activity_text and "not found" not in activity_text):
+                    return {"executed":True,"passed":True,"attempts":attempt,"state":state_text,
+                            "boot":boot_text,"package_service":package_service.get("output","")[-1000:],
+                            "activity_service":activity_service.get("output","")[-1000:]}
+            last={"executed":True,"passed":False,"attempts":attempt,"state":state_text,
+                  "boot":boot.get("output","").strip(),
+                  "package_service":package_service.get("output","")[-1000:],
+                  "activity_service":activity_service.get("output","")[-1000:]}
+            if attempt<max(1,int(attempts)) and delay_seconds>0:
+                time.sleep(float(delay_seconds))
+        return last
 
     def _wait_android_process(self, adb: str, package_id: str, attempts: int=15,
                               delay_seconds: float=1.0) -> dict[str, Any]:
@@ -281,24 +417,30 @@ class ArtifactExecutor:
             return {"kind":"exe","executed":False,"passed":False,"reason":"windows_required"}
         if not path.is_file():
             return {"kind":"exe","executed":False,"passed":False,"reason":"artifact_missing","artifact":str(path)}
+        artifact_hash=sha256(path.read_bytes()).hexdigest()
         runs=[]
-        for cycle in ("launch","restart"):
-            proc=None
-            try:
-                proc=subprocess.Popen([str(path),*(args or [])],cwd=str(path.parent),
-                                      stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-                time.sleep(max(0.2,float(startup_seconds)))
-                alive=proc.poll() is None
-                health=self._health(health_url) if health_url else {"passed":alive,"reachable":alive}
-                runs.append({"cycle":cycle,"alive":alive,"health":health,"passed":alive and health["passed"]})
-            except Exception as exc:
-                runs.append({"cycle":cycle,"passed":False,"error":f"{type(exc).__name__}: {exc}"})
-            finally:
-                if proc and proc.poll() is None:
-                    proc.terminate()
-                    try: proc.wait(timeout=5)
-                    except Exception: proc.kill()
-        return {"kind":"exe","executed":True,"artifact":str(path),"runs":runs,"passed":all(x["passed"] for x in runs)}
+        with tempfile.TemporaryDirectory(prefix="krishna-exe-clean-install-") as td:
+            sandbox=Path(td).resolve();staged=sandbox/path.name;shutil.copy2(path,staged)
+            for cycle in ("launch","restart"):
+                proc=None
+                try:
+                    proc=subprocess.Popen([str(staged),*(args or [])],cwd=str(sandbox),
+                                          stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                    time.sleep(max(0.2,float(startup_seconds)))
+                    alive=proc.poll() is None
+                    health=self._health(health_url) if health_url else {"passed":alive,"reachable":alive}
+                    runs.append({"cycle":cycle,"alive":alive,"health":health,"passed":alive and health["passed"]})
+                except Exception as exc:
+                    runs.append({"cycle":cycle,"passed":False,"error":f"{type(exc).__name__}: {exc}"})
+                finally:
+                    termination=self._terminate_process_tree(proc)
+                    if runs:
+                        runs[-1]["termination"]=termination
+                        runs[-1]["passed"]=bool(runs[-1].get("passed") and termination.get("passed"))
+            staged_hash=sha256(staged.read_bytes()).hexdigest() if staged.is_file() else None
+        return {"kind":"exe","executed":True,"artifact":str(path),"artifact_sha256":artifact_hash,
+                "clean_install":True,"sandbox_copy_verified":staged_hash==artifact_hash,
+                "runs":runs,"passed":bool(staged_hash==artifact_hash and all(x["passed"] for x in runs))}
 
     def apk(self, artifact: str | Path, package_id: str="com.krishna.mobile") -> dict[str, Any]:
         path=Path(artifact).resolve()
@@ -310,8 +452,23 @@ class ArtifactExecutor:
         devices=self._cmd([adb,"devices"],30)
         if not devices["passed"] or "\tdevice" not in devices.get("output",""):
             return {"kind":"apk","executed":False,"passed":False,"reason":"no_android_device","devices":devices}
-        steps=[]
-        steps.append({"name":"install",**self._cmd([adb,"install","-r",str(path)],180)})
+        readiness=self._wait_android_ready(adb)
+        if not readiness.get("passed"):
+            return {"kind":"apk","executed":False,"passed":False,"reason":"android_not_ready",
+                    "devices":devices,"readiness":readiness}
+        steps=[{"name":"android_ready",**readiness}]
+        installed_probe=self._cmd([adb,"shell","pm","path",package_id],30)
+        was_installed=bool(installed_probe.get("passed") and "package:" in installed_probe.get("output",""))
+        if was_installed:
+            uninstall=self._cmd([adb,"uninstall",package_id],60)
+            uninstall_ok=bool(uninstall.get("passed"))
+        else:
+            uninstall={"executed":True,"passed":True,"reason":"package_not_installed","output":installed_probe.get("output","")}
+            uninstall_ok=True
+        steps.append({"name":"clean_uninstall","was_installed":was_installed,
+                      "executed":uninstall.get("executed",False),"passed":uninstall_ok,
+                      "output":uninstall.get("output",""),"reason":uninstall.get("reason")})
+        steps.append({"name":"install",**self._cmd([adb,"install",str(path)],180)})
         for permission in ("android.permission.CAMERA","android.permission.RECORD_AUDIO","android.permission.POST_NOTIFICATIONS"):
             grant=self._cmd([adb,"shell","pm","grant",package_id,permission],30)
             steps.append({"name":"grant_"+permission.rsplit(".",1)[-1].lower(),"permission":permission,**grant})
@@ -337,7 +494,7 @@ class ArtifactExecutor:
         return {"kind":"apk","executed":True,"artifact":str(path),"steps":steps,
                 "permissions":permission_verified,"permissions_passed":permissions_ok,
                 "fatal_in_logs":fatal,"log_tail":logs.get("output","")[-8000:],
-                "passed":all(x["passed"] for x in steps) and permissions_ok and not fatal}
+                "clean_install":True,"passed":all(x["passed"] for x in steps) and permissions_ok and not fatal}
 
     def ios(self, artifact: str | Path, bundle_id: str) -> dict[str, Any]:
         path=Path(artifact).resolve()
@@ -346,15 +503,27 @@ class ArtifactExecutor:
             return {"kind":"ios","executed":False,"passed":False,"reason":"macos_simulator_required"}
         if not path.exists():
             return {"kind":"ios","executed":False,"passed":False,"reason":"artifact_missing","artifact":str(path)}
+        if not str(bundle_id or "").strip():
+            return {"kind":"ios","executed":False,"passed":False,"reason":"bundle_id_required"}
+        installed_probe=self._cmd([xcrun,"simctl","get_app_container","booted",bundle_id],30)
+        was_installed=bool(installed_probe.get("passed") and installed_probe.get("output","").strip())
+        if was_installed:
+            clean=self._cmd([xcrun,"simctl","uninstall","booted",bundle_id],60)
+            clean_ok=bool(clean.get("passed"))
+        else:
+            clean={"executed":True,"passed":True,"reason":"bundle_not_installed","output":installed_probe.get("output","")}
+            clean_ok=True
         steps=[
+            {"name":"clean_uninstall","was_installed":was_installed,
+             "executed":clean.get("executed",False),"passed":clean_ok,
+             "output":clean.get("output",""),"reason":clean.get("reason")},
             {"name":"install",**self._cmd([xcrun,"simctl","install","booted",str(path)],120)},
             {"name":"launch",**self._cmd([xcrun,"simctl","launch","booted",bundle_id],60)},
             {"name":"terminate",**self._cmd([xcrun,"simctl","terminate","booted",bundle_id],30)},
             {"name":"restart",**self._cmd([xcrun,"simctl","launch","booted",bundle_id],60)},
         ]
         return {"kind":"ios","executed":True,"artifact":str(path),"steps":steps,
-                "passed":all(x["passed"] for x in steps)}
-
+                "clean_install":True,"passed":all(x["passed"] for x in steps)}
 
 @dataclass
 class DesignCandidate:
