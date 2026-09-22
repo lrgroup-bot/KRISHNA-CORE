@@ -12,7 +12,7 @@ from .project_perfection_adapters import (
     RegressionGenerator, RouteStateGraph, VisualEditIntent,
 )
 from .project_perfection_execution import (
-    ArtifactExecutor, BrowserRegressionRunner, CandidateStaticServer, DesignStudio, MutationRunner,
+    ArtifactExecutor, BrowserRegressionRunner, CandidateStaticServer, DatabaseChaosRunner, DesignStudio, MutationRunner,
     RegressionManifest, RegressionPersister, SourceMapper, VisualBaselineStore, VisualCandidateEditor,
 )
 
@@ -40,6 +40,7 @@ class ProjectPerfectionRuntime:
         self.visual_baselines=VisualBaselineStore(root/"visual-baselines")
         self.mutation_runner=MutationRunner()
         self.artifact_executor=ArtifactExecutor()
+        self.db_chaos=DatabaseChaosRunner()
         self.design_studio=DesignStudio(root/"design-studio")
         self.source_mapper=SourceMapper()
         self.visual_candidate_editor=VisualCandidateEditor()
@@ -240,7 +241,7 @@ class ProjectPerfectionRuntime:
                                 frontend_url: str | None=None, approve_selected_baseline: bool=True,
                                 axe_required: bool=False, performance_required: bool=False,
                                 performance_limits: dict[str,float] | None=None,
-                                hawkeye_required: bool=False) -> dict[str, Any]:
+                                hawkeye_required: bool=False, database_path: str | None=None) -> dict[str, Any]:
         """Verify the selected design against the candidate itself when a static preview is possible."""
         def run(target_url: str | None, preview: dict[str,Any]):
             dev=self.development.verify(candidate_root,checks,frontend_url=target_url)
@@ -433,6 +434,18 @@ class ProjectPerfectionRuntime:
         regression={"source":regression_source,"manifest":regression_manifest,
                     "prior":prior_regression,"current":current_regression}
         mutation=self.run_mutation_testing(candidate_root,checks,max_mutants=max_mutants)
+        db_target=None
+        if database_path:
+            raw=Path(database_path)
+            db_target=(candidate_root/raw).resolve() if not raw.is_absolute() else raw.resolve()
+        else:
+            for pattern in ("*.db","*.sqlite","*.sqlite3"):
+                db_target=next((p for p in candidate_root.rglob(pattern)
+                                if not any(part in {".git",".venv","node_modules","dist","build",".krishna_state"} for part in p.parts)),None)
+                if db_target:break
+        db_chaos=self.db_chaos.run(db_target) if db_target else {
+            "applicable":False,"executed":False,"passed":True,"reason":"no_sqlite_database_detected",
+        }
         api=self.api_fuzz_verify(schema_url,api_base_url) if schema_url else {
             "available":False,"passed":not backend_required,
             "reason":"not_applicable" if not backend_required else "api_schema_or_backend_verification_required",
@@ -486,8 +499,9 @@ class ProjectPerfectionRuntime:
                               "axe_violations":(accessibility.get("axe") or {}).get("violations") or [],
                               "axe_required":bool(axe_required)})]},
             {"gate":"security","passed":bool(security_ok),"evidence":["KABACH/independent security gate supplied"] if security_ok else []},
-            {"gate":"adversarial","passed":bool(chaos.get("passed")) and bool(mutation.get("passed")),
-             "evidence":[str(chaos.get("scenarios") or []),str({"mutation_score":mutation.get("score")})]},
+            {"gate":"adversarial","passed":bool(chaos.get("passed")) and bool(mutation.get("passed")) and bool(db_chaos.get("passed")),
+             "evidence":[str(chaos.get("scenarios") or []),str({"mutation_score":mutation.get("score")}),
+                         str({"database_chaos":db_chaos})]},
             {"gate":"restart_recovery","passed":bool(effective_restart_ok),
              "evidence":[str({"required":bool(restart_recovery_required),"artifact_restart":artifact_restart_ok,
                               "external_restart_evidence":bool(restart_recovery_ok)})]},
@@ -503,7 +517,7 @@ class ProjectPerfectionRuntime:
             "certificate":cert,"requirements_ok":requirements_ok,
             "exploration":exploration,"regression":regression,"browser":browser,
             "accessibility":accessibility,"performance":performance,"chaos":chaos,"hawkeye":hawkeye,"development":dev,
-            "mutation":mutation,"visual":visual,"api_fuzz":api,
+            "mutation":mutation,"database_chaos":db_chaos,"visual":visual,"api_fuzz":api,
             "artifacts":installed,"gates":gates,
             "verdict":cert["verdict"],"passed":cert["passed"],
         }
@@ -519,6 +533,6 @@ class ProjectPerfectionRuntime:
             "regression_persistence":True,"mutation_runner":True,"visual_baselines":True,
             "artifact_executors":["exe","apk","ios","web"],"design_studio":True,
             "point_to_source_mapping":True,"candidate_visual_edit":True,"hawkeye_ui_review":True,
-            "finish_project_pipeline":True,
+            "database_chaos":True,"finish_project_pipeline":True,
         }
         return out
