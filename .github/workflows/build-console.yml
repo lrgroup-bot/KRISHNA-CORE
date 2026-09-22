@@ -61,6 +61,7 @@ jobs:
             --add-data "core/dashboard.html;." `
             --add-data "core/web_validation.html;." `
             --add-data "core/design_studio.html;." `
+            --add-data "core/visual_editor.html;." `
             --add-data "core/requirements;requirements" `
             --add-data "avatar/krishna_child_360.webp.b64;avatar" `
             core/krishna_desktop.py
@@ -76,6 +77,7 @@ jobs:
             --add-data "core/dashboard.html;." `
             --add-data "core/web_validation.html;." `
             --add-data "core/design_studio.html;." `
+            --add-data "core/visual_editor.html;." `
             --add-data "core/requirements;requirements" `
             --add-data "avatar/krishna_child_360.webp.b64;avatar" `
             core/krishna_console.py
