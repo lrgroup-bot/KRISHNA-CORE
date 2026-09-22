@@ -742,7 +742,8 @@ class BrahmagyanRuntime:
         specs=[str(x).strip() for x in (specialties or []) if str(x).strip()]
         requested=max(1,int(count or len(specs) or len(assignments or []) or 4))
         max_total=max(1,int(os.getenv("KRISHNA_SHISHYA_MAX_PER_REQUEST","32")))
-        requested=min(requested,max_total)
+        tree_nodes=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_TREE_NODES","64")),256))
+        requested=min(requested,max_total,tree_nodes)
         concurrency=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_CONCURRENT","8")),8))
         if not specs:
             specs=[
@@ -769,7 +770,6 @@ class BrahmagyanRuntime:
             })
         waves=[rows[i:i+concurrency] for i in range(0,len(rows),concurrency)]
         tree_depth=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_DEPTH","3")),5))
-        tree_nodes=max(requested,min(int(os.getenv("KRISHNA_SHISHYA_MAX_TREE_NODES","64")),256))
         tree_children=max(0,min(int(os.getenv("KRISHNA_SHISHYA_MAX_CHILDREN","4")),8))
         return {
             "mission_id":mission_id,"parent_rishi":parent,"project":m["project"],
