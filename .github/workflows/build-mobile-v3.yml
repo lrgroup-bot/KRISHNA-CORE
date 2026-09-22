@@ -182,6 +182,9 @@ jobs:
           grep -q "edgeSamplingMs" app/src/main/assets/index.html
           grep -q 'android.permission.ACCESS_NETWORK_STATE' app/src/main/AndroidManifest.xml
           grep -q "hawkeyeOfflineFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "HawkeyeOfflinePerception.analyze" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "semantic_model_configured" app/src/main/java/com/krishna/mobile/HawkeyeOfflinePerception.java
+          grep -q "internet_required" app/src/main/java/com/krishna/mobile/HawkeyeOfflinePerception.java
           grep -q "configureCloudUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "secureCloudUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "mobile_local_first:true" app/src/main/assets/index.html
