@@ -1,7 +1,8 @@
 import unittest
+from unittest.mock import patch
 
 from krishna_core.project_perfection_adapters import (
-    ArtifactRetest, MutationVerifier, RegressionGenerator, RouteStateGraph, VisualEditIntent,
+    ApiFuzzAdapter, ArtifactRetest, MutationVerifier, RegressionGenerator, RouteStateGraph, VisualEditIntent,
 )
 
 
@@ -15,6 +16,21 @@ class AdapterTests(unittest.TestCase):
         self.assertIn("/settings",src)
         self.assertIn("KRISHNA_BASE_URL",src)
         self.assertIn("console",src)
+
+    def test_api_fuzz_prefers_current_st_cli_and_url_flag(self):
+        with patch("krishna_core.project_perfection_adapters.shutil.which") as which:
+            which.side_effect=lambda name: "/tools/st" if name=="st" else None
+            cmd=ApiFuzzAdapter.command("http://localhost/openapi.json","http://localhost:9000")
+        self.assertEqual(cmd[:3],["/tools/st","run","http://localhost/openapi.json"])
+        self.assertIn("--url",cmd)
+        self.assertNotIn("--base-url",cmd)
+
+    def test_api_fuzz_can_use_uvx_provisioning(self):
+        with patch("krishna_core.project_perfection_adapters.shutil.which") as which, \
+             patch("krishna_core.project_perfection_adapters.importlib.util.find_spec",return_value=None):
+            which.side_effect=lambda name: "/tools/uvx" if name=="uvx" else None
+            cmd=ApiFuzzAdapter.command("schema.yaml")
+        self.assertEqual(cmd[:3],["/tools/uvx","schemathesis","run"])
 
     def test_mutation_requires_all_detected(self):
         self.assertFalse(MutationVerifier().score([{"detected":True},{"detected":False}])["passed"])
