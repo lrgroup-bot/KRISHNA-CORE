@@ -6,6 +6,10 @@ from pathlib import Path
 
 from krishna_core.development_operator import DevelopmentOperator
 from krishna_core.promotion_runtime import PromotionRuntime
+from krishna_core.promotion_manager import PromotionManager
+from krishna_core.attachments import AttachmentStore
+from krishna_core.plugin_executor import PluginExecutor
+from krishna_core.plugin_runtime import PluginRegistry
 from krishna_core.realtime_session import RealtimeSessionStore
 
 
@@ -50,6 +54,43 @@ class HardeningRegressionTests(unittest.TestCase):
             path.write_text("{bad-json",encoding="utf-8")
             with self.assertRaises(RuntimeError):
                 store.after(device,0)
+
+    def test_attachment_payload_integrity_is_verified(self):
+        import base64
+        with tempfile.TemporaryDirectory() as td:
+            store=AttachmentStore(td)
+            chat="11111111-1111-4111-8111-111111111111"
+            item=store.save(chat,"evidence.txt",base64.b64encode(b"trusted").decode(),"text/plain")
+            row,path=store.resolve(chat,item["attachment_id"])
+            path.write_bytes(b"tampered")
+            with self.assertRaises(ValueError):
+                store.read(chat,item["attachment_id"])
+
+    def test_plugin_endpoint_blocks_metadata_and_public_cleartext(self):
+        for url in ("http://169.254.169.254/latest/meta-data/","http://metadata.google.internal/"):
+            with self.assertRaises(PermissionError):
+                PluginExecutor._endpoint(url)
+        with self.assertRaises(PermissionError):
+            PluginExecutor._endpoint("http://8.8.8.8/")
+        self.assertEqual(PluginExecutor._endpoint("http://127.0.0.1:8766/").hostname,"127.0.0.1")
+
+    def test_corrupt_plugin_registry_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            state=Path(td)
+            (state/"plugins.json").write_text("{broken",encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                PluginRegistry(state)
+
+    def test_promotion_manager_project_name_cannot_escape_backup_root(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);live=root/"live";candidate=root/"candidate";backups=root/"backups"
+            live.mkdir();candidate.mkdir()
+            (live/"a.txt").write_text("old",encoding="utf-8")
+            (candidate/"a.txt").write_text("new",encoding="utf-8")
+            out=PromotionManager(backups).promote("../../escape",live,candidate,lambda _:{"verified":True})
+            backup=Path(out["backup"]).resolve()
+            backup.relative_to(backups.resolve())
+            self.assertEqual((live/"a.txt").read_text(encoding="utf-8"),"new")
 
     def test_realtime_store_migrates_legacy_session_without_deleting_it(self):
         with tempfile.TemporaryDirectory() as td:
