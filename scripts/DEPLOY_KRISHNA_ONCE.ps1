@@ -106,6 +106,13 @@ if(Test-Path $avatarPrepare){
   }
 }
 
+# Ensure Gyan-Bhandar AES-GCM envelope encryption dependency is installed only
+# inside KRISHNA's E: virtual environment/cache. DPAPI remains the Windows key wrapper.
+$gyanSecuritySetup=Join-Path $Runtime "scripts\SETUP_GYAN_SECURITY.ps1"
+if(!(Test-Path $gyanSecuritySetup)){throw "GYAN SECURITY SETUP MISSING: $gyanSecuritySetup"}
+& powershell -NoProfile -ExecutionPolicy Bypass -File $gyanSecuritySetup -RuntimeRoot $Runtime
+if($LASTEXITCODE -ne 0){throw "GYAN SECURITY SETUP FAILED"}
+
 # Test the deployed runtime code, then repository-level contracts against runtime PYTHONPATH.
 $env:PYTHONPATH="$Runtime\core"
 & $Py -m compileall -q "$Runtime\core\krishna_core"
