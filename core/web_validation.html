@@ -979,6 +979,45 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 @media(max-width:1100px){.liveWork{width:calc(100vw - var(--rail) - 24px)!important;right:12px!important;min-width:0!important}.krishnaAvatar{width:min(55vw,420px)!important}}
 @media(max-width:820px){.liveWork{top:64px!important;left:8px!important;right:8px!important;width:auto!important;bottom:8px!important}.composerWrap{left:0!important;padding:18px 10px!important}.composer{width:100%!important}.krishnaAvatar{width:min(82vw,390px)!important}}
 </style>
+<style id="krishna-ui-v6">
+/* KRISHNA UI v6 — quiet main stage, internal-agent status rail, popup conversation. */
+.top{display:none!important}
+.main>.view{padding-top:76px!important}
+.view{height:100vh!important}
+.opsInformer{top:12px!important;left:18px!important;right:18px!important;min-height:58px!important;padding:7px 9px!important;gap:10px!important;border-color:rgba(98,217,239,.22)!important;background:linear-gradient(180deg,rgba(6,17,25,.93),rgba(4,11,17,.88))!important}
+.opsVitals{display:flex;align-items:center;gap:14px;flex:0 0 auto}.opsVitals span{white-space:nowrap}.opsVitals em{max-width:150px!important}
+.agentRail{min-width:0;display:flex;align-items:stretch;gap:6px;flex:1;justify-content:flex-end;overflow-x:auto;scrollbar-width:none}.agentRail::-webkit-scrollbar{display:none}
+.agentChip{height:42px;min-width:104px;display:grid;grid-template-columns:30px minmax(0,1fr) 7px;align-items:center;gap:5px;padding:5px 8px;border-radius:11px;border:1px solid rgba(231,189,103,.32);background:linear-gradient(155deg,rgba(17,29,39,.92),rgba(8,14,21,.88));color:#d9e5eb;cursor:pointer;box-shadow:inset 0 1px rgba(255,255,255,.04);transition:.18s ease}
+.agentChip:hover{transform:translateY(-1px);border-color:rgba(87,216,239,.48);background:linear-gradient(155deg,rgba(20,38,50,.96),rgba(8,17,25,.94))}
+.agentLogo{font-size:20px;filter:grayscale(.2);text-shadow:0 0 14px currentColor}.agentName{font-size:8px;letter-spacing:.65px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.agentChip i{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 11px currentColor}
+.agentChip.running{color:#58dfa2;border-color:rgba(88,223,162,.34)}.agentChip.idle{color:#e5bd67;border-color:rgba(229,189,103,.34)}.agentChip.attention{color:#ff7186;border-color:rgba(255,113,134,.38)}
+#opsEye{flex:0 0 auto!important;margin-left:0!important;height:42px!important}
+.homeLegacyDetails{display:none!important}
+#home .panelInner{width:100%!important;max-width:none!important;height:100%!important;padding:0!important}
+#home .holoStage{width:100%!important;height:calc(100vh - 76px)!important;min-height:620px!important;overflow:hidden!important;background:radial-gradient(circle at 50% 47%,rgba(229,189,103,.10),transparent 23%),radial-gradient(circle at 50% 50%,rgba(87,216,239,.07),transparent 37%)}
+#home .holoStage:before{content:"";position:absolute;left:50%;top:49%;width:min(58vh,610px);height:min(58vh,610px);transform:translate(-50%,-50%);border:1px solid rgba(229,189,103,.33);border-radius:50%;box-shadow:0 0 90px rgba(229,189,103,.08),inset 0 0 65px rgba(87,216,239,.05);pointer-events:none}
+#home .holoStage:after{content:"";position:absolute;left:50%;top:76%;width:min(66vw,820px);height:130px;transform:translate(-50%,-50%);border:1px solid rgba(229,189,103,.30);border-radius:50%;box-shadow:0 0 40px rgba(87,216,239,.10),inset 0 0 35px rgba(229,189,103,.05);pointer-events:none}
+#home .holoCore{width:min(62vw,760px)!important;height:min(70vh,670px)!important;transform:none!important;animation:none!important;filter:none!important}
+#home .holoRing{opacity:.46}
+#home .krishnaAvatar{width:min(44vw,560px)!important;height:min(64vh,620px)!important;z-index:8!important}
+#home .avatarFallback small{background:rgba(5,14,22,.86);border:1px solid rgba(87,216,239,.16);border-radius:9px;padding:6px 9px}
+.krishnaPopupLauncher{position:fixed;z-index:84;right:26px;bottom:24px;height:48px;display:flex;align-items:center;gap:9px;padding:0 15px 0 8px;border-radius:24px;border:1px solid rgba(229,189,103,.56);background:linear-gradient(145deg,rgba(14,30,39,.96),rgba(6,15,23,.96));color:#f1d589;box-shadow:0 13px 38px rgba(0,0,0,.48),0 0 25px rgba(229,189,103,.09);cursor:pointer}
+.launcherGlyph{width:32px;height:32px;display:grid;place-items:center;border:1px solid rgba(87,216,239,.38);border-radius:50%;color:#6ce2f3;box-shadow:0 0 14px rgba(87,216,239,.16)}.launcherText{font-size:10px;letter-spacing:1.5px;font-weight:800}.launcherPulse{position:absolute;left:22px;top:24px;width:8px;height:8px;border-radius:50%;background:#58dfa2;box-shadow:0 0 15px #58dfa2;animation:pulse 2.1s ease-in-out infinite}
+.krishnaPopup[hidden]{display:none!important}.krishnaPopup{position:fixed;z-index:86;right:24px;top:86px;bottom:24px;width:min(390px,calc(100vw - var(--rail) - 48px));display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;border:1px solid rgba(87,216,239,.40);border-radius:20px;overflow:hidden;background:linear-gradient(180deg,rgba(5,18,28,.985),rgba(3,10,16,.985));box-shadow:0 28px 90px rgba(0,0,0,.64),0 0 35px rgba(87,216,239,.09);backdrop-filter:blur(28px)}
+.krishnaPopup.minimized{bottom:auto;height:64px}.krishnaPopup.minimized .krishnaPopupBody,.krishnaPopup.minimized .krishnaVoiceDeck,.krishnaPopup.minimized .krishnaPopupComposer{display:none}
+.krishnaPopupHead{height:64px;display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(87,216,239,.18);background:rgba(7,24,35,.72)}.popupIdentity{display:flex;align-items:center;gap:10px}.popupIdentity strong{display:block;color:#e8c879;letter-spacing:3px}.popupIdentity small{display:block;margin-top:3px;color:#718697;font-size:8px;letter-spacing:1.2px}.popupMark{width:38px;height:38px;display:grid;place-items:center;border:1px solid rgba(229,189,103,.44);border-radius:50%;color:#e8c879;font-size:20px;box-shadow:0 0 16px rgba(229,189,103,.11)}.popupHeadActions{display:flex;gap:4px}.popupHeadActions button{width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:#9eb1bf;cursor:pointer}.popupHeadActions button:hover{background:#10232e;color:#fff}
+.krishnaPopupBody{min-height:0;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px}.popupMsg{max-width:88%;display:flex;flex-direction:column;gap:5px;padding:10px 11px;border:1px solid rgba(87,216,239,.17);border-radius:12px;background:rgba(15,34,46,.74);color:#dce8ef;font-size:12px;line-height:1.45}.popupMsg b{font-size:9px;letter-spacing:1px;color:#6cdff1}.popupMsg.user{align-self:flex-end;background:rgba(39,54,62,.76);border-color:rgba(229,189,103,.20)}.popupMsg.user b{color:#e8c879}.popupQuick{display:grid;gap:7px;margin-top:4px}.popupQuick button{border:1px solid rgba(87,216,239,.18);border-radius:9px;background:rgba(8,24,34,.76);color:#cbd9e1;padding:9px 10px;text-align:left;font-size:11px;cursor:pointer}.popupQuick button:hover{border-color:rgba(229,189,103,.38);color:#fff}
+.krishnaVoiceDeck{padding:12px 14px 9px;border-top:1px solid rgba(87,216,239,.12);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}.voiceWave{height:34px;display:flex;align-items:center;justify-content:flex-end;gap:3px}.voiceWave i{display:block;width:2px;height:9px;background:#57d8ef;box-shadow:0 0 8px rgba(87,216,239,.55);animation:voicebar 1.2s ease-in-out infinite}.voiceWave i:nth-child(2n){animation-delay:.12s}.voiceWave i:nth-child(3n){animation-delay:.27s}.voiceWave i:nth-child(5n){animation-delay:.42s}@keyframes voicebar{50%{height:29px;background:#e5bd67}}
+.krishnaMic{width:64px;height:64px;border-radius:50%;border:1px solid rgba(229,189,103,.72);background:radial-gradient(circle,#18384a 0%,#0a1e2b 62%,#06111a 100%);color:#f0cc74;font-size:27px;cursor:pointer;box-shadow:0 0 0 6px rgba(229,189,103,.05),0 0 34px rgba(87,216,239,.13)}.krishnaMic.listening{color:#58dfa2;border-color:#58dfa2;box-shadow:0 0 0 7px rgba(88,223,162,.07),0 0 35px rgba(88,223,162,.23)}
+.voiceLanguage{display:flex;flex-direction:column;gap:5px;align-items:flex-start}.voiceLanguage select{max-width:105px;border:0;background:#0a1b25;color:#cddce4;border-radius:7px;padding:5px 6px;font-size:9px}.voiceLanguage small{max-width:110px;color:#6d8190;font-size:8px;line-height:1.3}
+.krishnaPopupComposer{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px;padding:10px 12px 12px;border-top:1px solid rgba(87,216,239,.14)}.krishnaPopupComposer textarea{resize:none;border:1px solid rgba(87,216,239,.18);outline:0;border-radius:10px;background:#07141d;color:#eaf2f5;padding:9px 10px;min-height:44px;font:12px inherit}.krishnaPopupComposer textarea:focus{border-color:rgba(87,216,239,.48)}.krishnaPopupComposer button{border:1px solid rgba(87,216,239,.32);border-radius:10px;background:#0d2b38;color:#8ee8f6;cursor:pointer;font-size:17px}
+.chatSearchWrap{display:grid;grid-template-columns:22px minmax(0,1fr);align-items:center;margin:1px 4px 5px;padding:2px 7px;border:1px solid rgba(87,216,239,.12);border-radius:9px;background:rgba(9,20,29,.58);color:#718694}.chatSearchWrap input{min-width:0;border:0;outline:0;background:transparent;color:#d9e5eb;font-size:10px;padding:6px 2px}
+.side{background:linear-gradient(180deg,rgba(4,14,22,.97),rgba(3,9,14,.94))!important;box-shadow:24px 0 75px rgba(0,0,0,.30)!important}.brand{position:relative;color:#e8c879!important;text-shadow:0 0 20px rgba(229,189,103,.12)}.brand:after{content:"";position:absolute;right:2px;top:6px;bottom:14px;width:2px;background:linear-gradient(transparent,#e5bd67,transparent);box-shadow:0 0 14px rgba(229,189,103,.35)}
+.nav button{position:relative;border:1px solid transparent!important;transition:.16s ease}.nav button:hover{border-color:rgba(87,216,239,.13)!important;background:linear-gradient(90deg,rgba(14,45,58,.74),rgba(8,23,32,.35))!important}.nav button.active{border-color:rgba(87,216,239,.28)!important;background:linear-gradient(90deg,rgba(18,59,72,.88),rgba(9,29,39,.56))!important;box-shadow:inset 3px 0 #e5bd67,0 8px 24px rgba(0,0,0,.15)}
+.projectsHead .miniAdd{width:auto!important;padding:0 9px!important;border:1px solid rgba(87,216,239,.25)!important;background:rgba(7,27,37,.66)!important}.sideSectionHead{color:#8196a5!important}.sideSectionHead:before{content:"◇";font-size:8px;color:#e5bd67;margin-right:5px}.sideSectionHead span{margin-right:auto}
+@media(max-width:1250px){.agentName{display:none}.agentChip{min-width:44px;grid-template-columns:24px 7px;padding:5px 6px}.opsVitals em{display:none!important}.krishnaPopup{width:min(380px,calc(100vw - var(--rail) - 30px));right:15px}}
+@media(max-width:900px){.opsVitals{display:none}.agentRail{justify-content:flex-start}.krishnaPopup{left:84px;right:10px;width:auto;top:80px;bottom:10px}.krishnaPopupLauncher{right:14px;bottom:14px}}
+</style>
 <script type="importmap">
 {"imports":{"three":"/assets/avatar-engine/three/build/three.module.js","three/addons/":"/assets/avatar-engine/three/examples/jsm/","talkinghead":"/assets/avatar-engine/talkinghead/talkinghead.mjs"}}
 </script>
@@ -996,15 +1035,26 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
  <div class="sideSectionHead projectsHead"><span>PROJECTS</span><button class="miniAdd" title="Create project" aria-label="Create project" onclick="openNewProjectWizard()">＋</button></div>
  <div id="projectMenuTree" class="projectMenuTree" aria-label="Projects"></div>
  <div class="sideSectionHead chatsHead"><span>CHATS</span><button class="miniAdd" title="Add new chat" aria-label="Add new chat" onclick="newGeneralChat()">＋</button></div>
+ <div class="chatSearchWrap"><span>⌕</span><input id="chatSearch" type="search" placeholder="Search chats…" aria-label="Search chats" oninput="filterSidebarChats()"></div>
  <div id="recentChats" class="chatMenuList" aria-label="Chats"></div>
 </div>
 <div id="chatProjectLabel" hidden>KRISHNA</div>
 <div class="sideFoot"><div><span id="dot" class="statusDot"></span><span id="sideStatus" class="txt">Checking Core</span></div></div></aside>
 <main class="main">
 <div id="opsInformer" class="opsInformer">
-  <span><b>ACTIVE WORK</b> <i id="opsWorkDot" class="opsDot idle"></i><em id="opsWorkText">Idle</em></span>
-  <span><b>VERIFICATION</b> <i id="opsVerifyDot" class="opsDot idle"></i><em id="opsVerifyText">Ready</em></span>
-  <span><b>SYSTEM LOAD</b> <i id="opsLoadDot" class="opsDot idle"></i><em id="opsLoadText">—</em></span>
+  <div class="opsVitals">
+    <span><b>ACTIVE WORK</b> <i id="opsWorkDot" class="opsDot idle"></i><em id="opsWorkText">Idle</em></span>
+    <span><b>VERIFICATION</b> <i id="opsVerifyDot" class="opsDot idle"></i><em id="opsVerifyText">Ready</em></span>
+    <span><b>SYSTEM LOAD</b> <i id="opsLoadDot" class="opsDot idle"></i><em id="opsLoadText">—</em></span>
+  </div>
+  <div id="agentRail" class="agentRail" aria-label="KRISHNA internal agents">
+    <button id="agentGaruda" class="agentChip idle" type="button" onclick="showView('garuda')" title="Garuda · Idle"><span class="agentLogo">🦅</span><span class="agentName">GARUDA</span><i></i></button>
+    <button id="agentKabach" class="agentChip idle" type="button" onclick="showView('kabach')" title="KABACH · Idle"><span class="agentLogo">🛡</span><span class="agentName">KABACH</span><i></i></button>
+    <button id="agentGarudanetra" class="agentChip idle" type="button" onclick="toggleLiveWork(true)" title="Garudanetra · Idle"><span class="agentLogo">👁</span><span class="agentName">GARUDANETRA</span><i></i></button>
+    <button id="agentNarad" class="agentChip idle" type="button" onclick="showView('narad')" title="NARAD · Idle"><span class="agentLogo">🪕</span><span class="agentName">NARAD</span><i></i></button>
+    <button id="agentBrahmagyan" class="agentChip idle" type="button" onclick="showView('brahmagyan')" title="BRAHMAGYAN · Idle"><span class="agentLogo">ॐ</span><span class="agentName">BRAHMAGYAN</span><i></i></button>
+    <button id="agentGyan" class="agentChip idle" type="button" onclick="showView('gyan')" title="Gyan-Bhandar · Idle"><span class="agentLogo">🧠</span><span class="agentName">GYAN-BHANDAR</span><i></i></button>
+  </div>
   <button id="opsEye" type="button" onclick="toggleLiveWork()">👁 GARUDANETRA</button>
 </div>
 <div id="liveWork" class="liveWork" hidden>
@@ -1014,8 +1064,35 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
  <div class="garudaTakeover"><input id="garudaTypeText" class="input" placeholder="Owner typing — active only after TAKE CONTROL"><button onclick="garudaTypeText()">TYPE</button><input id="garudaUploadSelector" class="input" placeholder="file input selector, e.g. input[type=file]"><button onclick="garudaUploadPending()">UPLOAD ATTACHMENT</button></div>
  <div class="liveMeta"><span>Current operation: <b id="liveOperation">Waiting</b></span><span>Verification: <b id="liveVerification">Ready</b></span><span>Tabs: <b id="liveTabs">0</b></span></div>
  <div class="liveViewport"><div class="garudaFrameWrap"><img id="garudaFrame" class="garudaFrame" alt="Garudanetra live browser stream"><div id="garudaFrameEmpty" class="garudaFrameEmpty">Waiting for Chromium frame…</div></div><div id="garudaEvidence" class="garudaEvidence">No browser evidence yet.</div></div>
-</div><div class="sceneGrid"></div><header class="top"><div class="crumb"><span id="modeBadge" style="color:var(--gold);margin-right:8px">KRISHNA</span><span id="pageTitle">Almighty Core</span> <span style="color:#596474">/</span> <span id="projectName">general</span></div><div class="topActions"><span id="contextBadge" class="pill">KRISHNA</span><button class="ghost chatScopedTop legacyChatAction" onclick="moveCurrentChat()" style="display:none">Move chat</button><button class="ghost danger chatScopedTop legacyChatAction" onclick="deleteCurrentChat()" style="display:none">Delete chat</button><span id="online" class="pill">CHECKING</span></div></header>
-<select id="project" style="display:none"></select><section id="home" class="view active panelView"><div class="panelInner"><div class="holoStage"><div class="holoCore"><div class="holoRing r1"></div><div class="holoRing r2"></div><div class="holoRing r3"></div><div class="holoOrb"></div><div id="krishnaAvatar" class="krishnaAvatar"><div id="krishnaLiveAvatar" class="krishnaLiveAvatar" aria-label="KRISHNA live 3D avatar" hidden></div><model-viewer id="krishnaModel" alt="KRISHNA avatar" camera-controls disable-zoom autoplay shadow-intensity="1" interaction-prompt="none" hidden></model-viewer><div id="avatarFallback" class="avatarFallback"><img src="/api/avatar360" alt="KRISHNA avatar preview"><small id="avatarStatus">KRISHNA preview · local mode</small></div><div class="k" style="margin-top:6px">CHARACTER STATE · <span id="avatarPerformanceState">FLUTE</span></div></div><div class="holoNode n1">NEURAL ACTION GRAPH</div><div class="holoNode n2">SYSTEM OBSERVER</div><div class="holoNode n3">VERIFICATION GATE</div><div class="holoNode n4">SUDARSHAN ONLINE</div><div class="holoLabel"><strong>KRISHNA</strong><span>ALMIGHTY CORE</span></div></div></div><div style="text-align:center;margin:-20px 0 28px"><button class="primary" style="padding:12px 22px" onclick="showView('sudarshan');newChat()">ENTER SUDARSHAN ☸</button></div><div class="grid"><div class="card"><div class="k">ROLE</div><div class="v">Almighty Core</div></div><div class="card"><div class="k">WORKSPACE</div><div class="v">Sudarshan</div></div><div class="card"><div class="k">AUTHORITY</div><div class="v">Policy + Verification</div></div></div></div></section>
+</div>
+<button id="krishnaPopupLauncher" class="krishnaPopupLauncher" type="button" onclick="toggleKrishnaPopup()" aria-label="Open KRISHNA chat and voice">
+  <span class="launcherPulse"></span><span class="launcherGlyph">ॐ</span><span class="launcherText">KRISHNA</span>
+</button>
+<section id="krishnaPopup" class="krishnaPopup" hidden aria-label="KRISHNA quick chat">
+  <div class="krishnaPopupHead">
+    <div class="popupIdentity"><span class="popupMark">ॐ</span><span><strong>KRISHNA</strong><small>AI ASSISTANT · LOCAL CORE</small></span></div>
+    <div class="popupHeadActions"><button type="button" onclick="minimizeKrishnaPopup()" aria-label="Minimize">—</button><button type="button" onclick="toggleKrishnaPopup(false)" aria-label="Close">×</button></div>
+  </div>
+  <div id="krishnaPopupBody" class="krishnaPopupBody">
+    <div class="popupMsg assistant"><b>KRISHNA</b><span>Namaste. Ask, explore, analyze, create, or give me a task.</span></div>
+    <div class="popupQuick">
+      <button type="button" onclick="fillKrishnaPopup('What can you do?')">✦ What can you do?</button>
+      <button type="button" onclick="fillKrishnaPopup('Help me with my current project')">◇ Help with my project</button>
+      <button type="button" onclick="fillKrishnaPopup('Explain this topic clearly')">◎ Explain a complex topic</button>
+    </div>
+  </div>
+  <div class="krishnaVoiceDeck">
+    <div class="voiceWave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <button id="krishnaMic" class="krishnaMic" type="button" onclick="toggleKrishnaVoice()" aria-label="Talk to KRISHNA">🎙</button>
+    <div class="voiceLanguage"><select id="krishnaVoiceLang" aria-label="Voice language"><option value="">AUTO</option><option value="en-IN">ENGLISH</option><option value="hi-IN">हिन्दी</option><option value="or-IN">ଓଡ଼ିଆ</option></select><small id="krishnaVoiceState">Tap the microphone to speak</small></div>
+  </div>
+  <div class="krishnaPopupComposer">
+    <textarea id="krishnaPopupInput" rows="2" placeholder="Message KRISHNA…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendKrishnaPopup()}"></textarea>
+    <button id="krishnaPopupSend" type="button" onclick="sendKrishnaPopup()" aria-label="Send">➤</button>
+  </div>
+</section>
+<div class="sceneGrid"></div><header class="top"><div class="crumb"><span id="modeBadge" style="color:var(--gold);margin-right:8px">KRISHNA</span><span id="pageTitle">Almighty Core</span> <span style="color:#596474">/</span> <span id="projectName">general</span></div><div class="topActions"><span id="contextBadge" class="pill">KRISHNA</span><button class="ghost chatScopedTop legacyChatAction" onclick="moveCurrentChat()" style="display:none">Move chat</button><button class="ghost danger chatScopedTop legacyChatAction" onclick="deleteCurrentChat()" style="display:none">Delete chat</button><span id="online" class="pill">CHECKING</span></div></header>
+<select id="project" style="display:none"></select><section id="home" class="view active panelView"><div class="panelInner"><div class="holoStage"><div class="holoCore"><div class="holoRing r1"></div><div class="holoRing r2"></div><div class="holoRing r3"></div><div class="holoOrb"></div><div id="krishnaAvatar" class="krishnaAvatar"><div id="krishnaLiveAvatar" class="krishnaLiveAvatar" aria-label="KRISHNA live 3D avatar" hidden></div><model-viewer id="krishnaModel" alt="KRISHNA avatar" camera-controls disable-zoom autoplay shadow-intensity="1" interaction-prompt="none" hidden></model-viewer><div id="avatarFallback" class="avatarFallback"><img src="/api/avatar360" alt="KRISHNA avatar preview"><small id="avatarStatus">KRISHNA preview · local mode</small></div><div class="k" style="margin-top:6px">CHARACTER STATE · <span id="avatarPerformanceState">FLUTE</span></div></div><div class="homeLegacyDetails" aria-hidden="true"><div class="holoNode n1">NEURAL ACTION GRAPH</div><div class="holoNode n2">SYSTEM OBSERVER</div><div class="holoNode n3">VERIFICATION GATE</div><div class="holoNode n4">SUDARSHAN ONLINE</div><div class="holoLabel"><strong>KRISHNA</strong><span>ALMIGHTY CORE</span></div></div></div></div><div class="homeLegacyDetails" aria-hidden="true"><button class="primary" onclick="showView('sudarshan');newChat()">ENTER SUDARSHAN ☸</button><div class="grid"><div class="card"><div class="k">ROLE</div><div class="v">Almighty Core</div></div><div class="card"><div class="k">WORKSPACE</div><div class="v">Sudarshan</div></div><div class="card"><div class="k">AUTHORITY</div><div class="v">Policy + Verification</div></div></div></div></div></section>
 <section id="sudarshan" class="view chatView">
 <div class="sudarshanBar"><span class="miniCore">☸</span><button class="ghost" onclick="newChat()">＋ New</button><button class="ghost" onclick="loadChats()">↻ Chats</button><button class="ghost legacyChatAction" onclick="renameCurrentChat()">✎ Rename</button><button class="ghost legacyChatAction" onclick="moveCurrentChat()">◇ Move</button><button class="ghost danger legacyChatAction" onclick="deleteCurrentChat()">× Delete</button><button class="ghost" onclick="loadTasks()">▷ Work</button><span class="spacer"></span><span id="sudarshanState" class="workChip">READY</span></div>
 <div class="sudarshanDeck">
@@ -1171,6 +1248,83 @@ function toggleLiveWork(force){
 function setOps(kind,text,state){
  const map={work:['opsWorkText','opsWorkDot'],verify:['opsVerifyText','opsVerifyDot'],load:['opsLoadText','opsLoadDot']};
  const m=map[kind]; if(!m)return; const t=$(m[0]),d=$(m[1]); if(t)t.textContent=text||'—'; if(d)d.className='opsDot '+(state||'idle');
+}
+function setAgentChip(id,state,detail){
+ const el=$(id);if(!el)return;const next=['running','idle','attention'].includes(state)?state:'idle';
+ el.classList.remove('running','idle','attention');el.classList.add(next);
+ const name=el.querySelector('.agentName')?.textContent||id;el.title=name+' · '+(detail||next.toUpperCase());
+ el.dataset.state=next;
+}
+function countRows(value){
+ if(Array.isArray(value))return value.length;
+ if(value&&typeof value==='object'){
+  for(const key of ['sessions','projects','items','pending','rows','learnings','workflows'])if(Array.isArray(value[key]))return value[key].length;
+  for(const key of ['count','pending_count','active','total'])if(Number.isFinite(Number(value[key])))return Number(value[key]);
+ }
+ return 0;
+}
+async function refreshAgentRail(){
+ const checks=[
+  ['agentGaruda','/api/garuda/status',d=>d?.last_error||d?.error?['attention','Attention']:d?.working?['running',d.phase||'Running']:['idle',d?.phase||'Idle']],
+  ['agentKabach','/api/kabach/projects',d=>countRows(d)>0?['running','Protection active']:['idle','Ready']],
+  ['agentGarudanetra','/api/garudanetra/sessions',d=>{const rows=d?.sessions||[];if(rows.some(x=>x?.last_error))return ['attention','Session attention'];return rows.some(x=>!x?.stopped&&String(x?.state||'').toLowerCase()!=='stopped')?['running','Browser active']:['idle','Idle']}],
+  ['agentNarad','/api/narad/status',d=>d?.load_error||Number(d?.dead_letters||0)>0?['attention','Workflow attention']:(d?.scheduler?.running||d?.scheduler?.active)?['running','Scheduler running']:['idle','Ready']],
+  ['agentBrahmagyan','/api/brahmagyan/status',d=>Number(d?.curiosity_queued||0)>0?['running','Learning queued']:['idle','Ready']],
+  ['agentGyan','/api/gyan-bhandar/pending?project=KRISHNA',d=>countRows(d)>0?['attention','Pending verification']:['idle','Ready']]
+ ];
+ await Promise.all(checks.map(async([id,url,judge])=>{try{const d=await req(url);const [state,detail]=judge(d);setAgentChip(id,state,detail)}catch(e){setAgentChip(id,'attention','Unavailable')}}));
+}
+setInterval(refreshAgentRail,4000);setTimeout(refreshAgentRail,650);
+
+function filterSidebarChats(){
+ const q=String($('chatSearch')?.value||'').trim().toLowerCase();
+ document.querySelectorAll('#recentChats .chatRow').forEach(row=>{const text=(row.querySelector('.chatOpen .txt')?.textContent||'').toLowerCase();row.hidden=!!q&&!text.includes(q)});
+}
+function toggleKrishnaPopup(force){
+ const p=$('krishnaPopup');if(!p)return;const open=typeof force==='boolean'?force:p.hidden;
+ p.hidden=!open;p.classList.remove('minimized');
+ if(open)setTimeout(()=>$('krishnaPopupInput')?.focus(),80);
+}
+function minimizeKrishnaPopup(){const p=$('krishnaPopup');if(!p)return;p.classList.toggle('minimized')}
+function fillKrishnaPopup(text){toggleKrishnaPopup(true);const i=$('krishnaPopupInput');if(i){i.value=text;i.focus()}}
+function popupMessage(role,text){
+ const box=$('krishnaPopupBody');if(!box)return;
+ const quick=box.querySelector('.popupQuick');if(quick)quick.remove();
+ const d=document.createElement('div');d.className='popupMsg '+(role==='user'?'user':'assistant');
+ const who=document.createElement('b');who.textContent=role==='user'?'YOU':'KRISHNA';
+ const body=document.createElement('span');body.textContent=String(text||'');
+ d.append(who,body);box.appendChild(d);box.scrollTop=box.scrollHeight;
+}
+let krishnaPopupSending=false,krishnaRecognition=null;
+async function ensureKrishnaPopupChat(){
+ if(chatId)return chatId;
+ const p=$('project')?.value||'KRISHNA';
+ const created=await actionReq('chat.create',{project:p,title:'KRISHNA Quick Chat'},{project:p});
+ chatId=created.chat_id;await loadGeneralChats();await renderSidebarProjectTree();return chatId;
+}
+async function sendKrishnaPopup(){
+ const input=$('krishnaPopupInput'),sendBtn=$('krishnaPopupSend');const text=String(input?.value||'').trim();
+ if(!text||krishnaPopupSending)return;
+ krishnaPopupSending=true;if(sendBtn)sendBtn.disabled=true;if(input)input.value='';popupMessage('user',text);
+ try{
+  const id=await ensureKrishnaPopupChat(),project=$('project')?.value||'KRISHNA';
+  const d=await req('/api/core/chat',{message:text,project,chat_id:id,source:'web-popup',mode:'chat',attachment_ids:[]});
+  popupMessage('assistant',d.reply||d.text||JSON.stringify(d));await loadGeneralChats();
+ }catch(e){popupMessage('assistant','ERROR: '+e.message)}
+ finally{krishnaPopupSending=false;if(sendBtn)sendBtn.disabled=false}
+}
+function toggleKrishnaVoice(){
+ const mic=$('krishnaMic'),state=$('krishnaVoiceState');const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!Recognition){if(state)state.textContent='Speech recognition is unavailable in this browser';return}
+ if(krishnaRecognition){try{krishnaRecognition.stop()}catch(e){};return}
+ const rec=new Recognition();krishnaRecognition=rec;const lang=$('krishnaVoiceLang')?.value||'';
+ if(lang)rec.lang=lang;rec.interimResults=true;rec.continuous=false;
+ let finalText='';
+ rec.onstart=()=>{mic?.classList.add('listening');if(state)state.textContent='Listening… English · हिन्दी · ଓଡ଼ିଆ'};
+ rec.onresult=e=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0]?.transcript||'';if(e.results[i].isFinal)finalText+=t;else interim+=t}const input=$('krishnaPopupInput');if(input)input.value=(finalText||interim).trim()};
+ rec.onerror=e=>{if(state)state.textContent='Voice error: '+(e.error||'recognition failed')};
+ rec.onend=()=>{mic?.classList.remove('listening');krishnaRecognition=null;if(state)state.textContent=finalText?'Voice captured — edit or send':'Tap the microphone to speak';const input=$('krishnaPopupInput');if(finalText&&input){input.value=finalText.trim();input.focus()}};
+ try{rec.start()}catch(e){krishnaRecognition=null;mic?.classList.remove('listening');if(state)state.textContent=e.message}
 }
 let garudaSessionId=null,garudaPollTimer=null,garudaOwnerControl=false;
 async function garudaControl(action){
