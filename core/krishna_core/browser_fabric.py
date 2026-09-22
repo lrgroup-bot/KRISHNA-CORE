@@ -158,6 +158,7 @@ class GarudanetraBrowserFabric:
     def frame(self,*args,**kwargs):return self.sessions.frame(*args,**kwargs)
     def frame_info(self,*args,**kwargs):return self.sessions.frame_info(*args,**kwargs)
     def semantic_snapshot(self,*args,**kwargs):return self.sessions.semantic_snapshot(*args,**kwargs)
+    def element_at(self,*args,**kwargs):return self.sessions.element_at(*args,**kwargs)
     def recording(self,*args,**kwargs):return self.sessions.recording(*args,**kwargs)
     def replay(self,*args,**kwargs):return self.sessions.replay(*args,**kwargs)
     def close_all(self,*args,**kwargs):return self.sessions.close_all(*args,**kwargs)
