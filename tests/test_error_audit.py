@@ -231,7 +231,9 @@ class RepositoryErrorAudit(unittest.TestCase):
         web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
         bg=(ROOT/"core"/"krishna_core"/"brahmagyan.py").read_text(encoding="utf-8-sig")
         council=(ROOT/"core"/"krishna_core"/"rishi_council.py").read_text(encoding="utf-8-sig")
-        self.assertIn("showView('brahmagyan')",web)
+        aside=web.split('<aside class="side">',1)[1].split('</aside>',1)[0]
+        self.assertNotIn("<span class=\"txt\">BRAHMAGYAN</span>",aside)
+        self.assertIn('<section id="brahmagyan" class="view panelView">',web)
         self.assertIn('id="brahmaCouncil"',web)
         self.assertIn('id="brahmaMissions"',web)
         self.assertIn('id="brahmaCuriosity"',web)
