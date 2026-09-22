@@ -719,6 +719,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,status)
         if path == "/api/hawkeye/learning/missions":
             return self._json(200,{"agent":"hawkeye","missions":orch.hawkeye_learning.daily_missions()})
+        if path == "/api/hawkeye/diagnostic/status":
+            return self._json(200,orch.hawkeye_diagnostic.status())
+        if path == "/api/hawkeye/diagnostic/session":
+            session_id=str((query.get("session_id") or [""])[0]).strip()
+            if not session_id:return self._json(400,{"error":"session_id is required"})
+            try:return self._json(200,orch.hawkeye_diagnostic.get_session(session_id))
+            except KeyError:return self._json(404,{"error":"diagnostic session not found"})
         if path == "/api/hawkeye/field/maps":
             return self._json(200,{"agent":"hawkeye","providers":orch.hawkeye_field.map_stack(),
                                    "geo_catalog":orch.hawkeye_geo.catalog()})
@@ -2267,7 +2274,11 @@ class Handler(BaseHTTPRequestHandler):
             payload={"project":project,"purpose":str(data.get("purpose") or "live field scan"),
                      "coordinates":data.get("coordinates") or {},
                      "scene_hint":str(data.get("scene_hint") or "auto")}
-            session=orch.hawkeye.start_live_session(project,payload["purpose"],payload["coordinates"],payload["scene_hint"])
+            session=orch.hawkeye.start_live_session(
+                project=project,purpose=payload["purpose"],coordinates=payload["coordinates"],scene_hint=payload["scene_hint"]
+            )
+            session["diagnostic"]=orch.hawkeye_diagnostic.should_activate(payload["purpose"])
+            if session["diagnostic"]:session["diagnostic_specialist"]="HAWKEYE DIAGNOSTIC"
             return self._json(201,session)
 
         if post_path == "/api/hawkeye/learn/capture":
@@ -2300,7 +2311,38 @@ class Handler(BaseHTTPRequestHandler):
             content_type=str(data.get("content_type") or "image/jpeg").split(";",1)[0].strip().lower()
             sensor_context=data.get("sensor_context") or {}
             if not isinstance(sensor_context,dict):return self._json(400,{"error":"sensor_context must be an object"})
-            return self._json(200,orch.hawkeye.ingest_live_frame(session_id,raw,content_type,sensor_context))
+            try:session=orch.hawkeye.get_live_session(session_id)
+            except KeyError:return self._json(404,{"error":"live session not found"})
+            goal=str(data.get("goal") or session.get("purpose") or "live field scan").strip()
+            try:
+                if orch.hawkeye_diagnostic.should_activate(goal):
+                    prompt=orch.hawkeye_diagnostic.vision_prompt(goal=goal,sensor_context=sensor_context)
+                    vision=_vision.analyze_bytes(raw,content_type,prompt)
+                    result=orch.hawkeye_diagnostic.record_model_result(
+                        session_id,vision.get("analysis") or "",goal=goal,sensor_context=sensor_context,model=vision.get("model") or ""
+                    )
+                    field=orch.hawkeye.record_live_analysis(
+                        session_id,result["analysis"],model=vision.get("model"),sensor_context=sensor_context,
+                        frame_meta={"content_type":content_type,"diagnostic":True,"diagram_mode":result.get("diagram_mode")},
+                    )
+                    result["session_id"]=session_id
+                    result["frame_count"]=field["frame_count"]
+                    return self._json(200,result)
+                prompt=orch.hawkeye.live_prompt(
+                    scene_hint=session.get("scene_hint") or "auto",user_goal=goal,sensor_context=sensor_context
+                )
+                vision=_vision.analyze_bytes(raw,content_type,prompt)
+                field=orch.hawkeye.record_live_analysis(
+                    session_id,vision.get("analysis") or "",model=vision.get("model"),sensor_context=sensor_context,
+                    frame_meta={"content_type":content_type,"diagnostic":False},
+                )
+                return self._json(200,{
+                    "session_id":session_id,"frame_count":field["frame_count"],"diagnostic":False,
+                    "analysis":vision.get("analysis") or "","confidence":0.0,"evidence_state":"OBSERVED",
+                    "model":vision.get("model"),"local":bool(vision.get("local",True)),
+                })
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/investigate":
             symptom = str(data.get("symptom", "")).strip()
