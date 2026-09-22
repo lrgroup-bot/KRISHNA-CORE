@@ -48,6 +48,7 @@ from .software_factory import SoftwareFactory
 from .ephemeral_workers import EphemeralWorkerRuntime
 from .agi_kernel import AGIKernel
 from .requirements_ledger import RequirementsLedger
+from .rishi_live_research import RishiLiveResearchExecutor
 
 
 class Orchestrator:
@@ -120,6 +121,13 @@ class Orchestrator:
         self.agi.narad.bind_sudarshan(self.sudarshan)
         if hasattr(self.ephemeral_workers,"bind_sudarshan"):
             self.ephemeral_workers.bind_sudarshan(self.sudarshan)
+        self.rishi_live = RishiLiveResearchExecutor(
+            runtime_state / "rishi-live",
+            self.agi.brahmagyan,
+            self.garuda,
+            self._route_model,
+            self.memory,
+        )
         self._verification_checks = {}
         self.repair_agent = RepairAgent(
             self.investigate,
@@ -430,6 +438,39 @@ class Orchestrator:
 
         def brahmagyan_dossier(payload,context):
             return self.agi.brahmagyan.dossier(str(payload.get("mission_id") or ""))
+
+        def brahmagyan_live_run(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            if project!="KRISHNA":
+                policy=self.projects.get(project)
+                if not policy:raise KeyError(project)
+                default_privacy=policy.privacy
+            else:
+                default_privacy="approved_cloud"
+            return self.rishi_live.run(
+                project,
+                str(payload.get("topic") or ""),
+                str(payload.get("question") or ""),
+                rishi_id=payload.get("rishi_id"),
+                knowledge_track=str(payload.get("knowledge_track") or "general"),
+                stakes=str(payload.get("stakes") or "normal"),
+                privacy=str(payload.get("privacy") or default_privacy),
+                source_limit=int(payload.get("source_limit") or 6),
+                max_perspectives=int(payload.get("max_perspectives") or 4),
+                max_claims=int(payload.get("max_claims") or 5),
+                auto_propose=bool(payload.get("auto_propose",True)),
+            )
+
+        def brahmagyan_live_status(payload,context):
+            run_id=str(payload.get("run_id") or "").strip()
+            if run_id:return self.rishi_live.get(run_id)
+            return {
+                "status":self.rishi_live.status(),
+                "runs":self.rishi_live.list(
+                    str(payload.get("project") or context.get("project") or "") or None,
+                    int(payload.get("limit") or 50),
+                ),
+            }
 
         def brahmagyan_deep_discover(payload,context):
             mission_id=str(payload.get("mission_id") or "").strip()
@@ -768,6 +809,20 @@ class Orchestrator:
             "brahmagyan.dossier",brahmagyan_dossier,
             description="Build a provenance-preserving BRAHMAGYAN research dossier and diagnostic scorecard",
             permissions=("runtime.read","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "brahmagyan.live.run",brahmagyan_live_run,
+            description="Run an end-to-end BRAHMAGYAN Rishi research mission with evidence gates and final dossier",
+            mutating=True,
+            permissions=("web.read","model.use","evidence.write","memory.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.live.status",brahmagyan_live_status,
+            description="Read Rishi live research run checkpoints and status",
+            permissions=("runtime.read",),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
 
@@ -1259,6 +1314,18 @@ class Orchestrator:
 
     def brahmagyan_curiosity(self,project=None,limit=50):
         return self.agi.brahmagyan.curiosity_queue(project,limit)
+
+    def brahmagyan_live_run(self,project,topic,question="",**kwargs):
+        payload={"project":project,"topic":topic,"question":question,**kwargs}
+        receipt=self.dispatch_action(
+            "brahmagyan.live.run",payload,project=project,source="pc",actor="brahmagyan-live",
+            permissions=("web.read","model.use","evidence.write","memory.write"),
+        )
+        return receipt.get("result") or {}
+
+    def brahmagyan_live_status(self,run_id=None,project=None,limit=50):
+        if run_id:return self.rishi_live.get(run_id)
+        return {"status":self.rishi_live.status(),"runs":self.rishi_live.list(project,limit)}
 
     def create_software_project_team(self,project,goal,deadline_hours=None,start_at=None,end_at=None):
         if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)

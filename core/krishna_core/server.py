@@ -606,6 +606,14 @@ class Handler(BaseHTTPRequestHandler):
             try:limit=max(1,min(int(limit_raw),200))
             except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
             return self._json(200,{"questions":orch.brahmagyan_curiosity(project,limit)})
+        if path == "/api/brahmagyan/live/status":
+            run_id=str((query.get("run_id") or [""])[0]).strip() or None
+            project=(query.get("project") or [None])[0]
+            limit_raw=(query.get("limit") or ["50"])[0]
+            try:limit=max(1,min(int(limit_raw),200))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            try:return self._json(200,orch.brahmagyan_live_status(run_id,project,limit))
+            except KeyError:return self._json(404,{"error":"live research run not found"})
         if path == "/api/garudanetra/fabric":
             return self._json(200, _browser_fabric.status())
         if path == "/api/garudanetra/sessions":
@@ -1690,6 +1698,27 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"plugin not found"})
             except (ValueError,PermissionError) as exc:return self._json(403 if isinstance(exc,PermissionError) else 400,{"error":str(exc)})
             except Exception as exc:return self._json(502,{"error":f"plugin request failed: {type(exc).__name__}: {exc}"})
+
+        if post_path == "/api/brahmagyan/live/run":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            topic=str(data.get("topic") or "").strip()
+            if not topic:return self._json(400,{"error":"topic is required"})
+            try:
+                return self._json(200,orch.brahmagyan_live_run(
+                    project,topic,str(data.get("question") or ""),
+                    rishi_id=data.get("rishi_id"),
+                    knowledge_track=str(data.get("knowledge_track") or "general"),
+                    stakes=str(data.get("stakes") or "normal"),
+                    privacy=data.get("privacy"),
+                    source_limit=int(data.get("source_limit") or 6),
+                    max_perspectives=int(data.get("max_perspectives") or 4),
+                    max_claims=int(data.get("max_claims") or 5),
+                    auto_propose=bool(data.get("auto_propose",True)),
+                ))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/software-factory/create":
             project=str(data.get("project") or "").strip(); goal=str(data.get("goal") or "").strip()
