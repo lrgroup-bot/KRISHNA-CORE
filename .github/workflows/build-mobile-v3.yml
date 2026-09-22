@@ -172,6 +172,10 @@ jobs:
           grep -q "videoBitsPerSecond:320000" app/src/main/assets/index.html
           grep -q "audioBitsPerSecond:48000" app/src/main/assets/index.html
           grep -q "hawkeyeCurateMedia" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "hawkeyeReference" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "configureReferenceAlignment" app/src/main/assets/index.html
+          grep -q "REFERENCE LOCKED" app/src/main/assets/index.html
+          grep -q "migrateLegacyPlaintext" app/src/main/java/com/krishna/mobile/HawkeyeEdgeMemory.java
           grep -q "/api/hawkeye/evidence/ingest" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "bhumiputraFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "hawkeyeOfflineFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
