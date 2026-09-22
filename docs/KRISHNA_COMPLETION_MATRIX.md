@@ -30,7 +30,7 @@ Status meanings:
 | Shared Action Bus | IMPLEMENTED / RUNTIME VERIFY | Named actions carry action ID, project, source, actor, permissions, approval, idempotency, sanitized payload/result, events and audit receipt. Raw shell is not an action primitive. |
 | Projects / Chats on Shared Action Bus | IMPLEMENTED / RUNTIME VERIFY | Project registration and chat create/move/rename/delete priority UI paths use `actionReq`; compatibility routes delegate to the same actions. |
 | Agent Runtime | IMPLEMENTED / RUNTIME VERIFY | Garuda, Garudanetra, UI Guardian, Developer and NARAD manifests have explicit action patterns and capabilities; agents dispatch through the Shared Action Bus. |
-| Jobs | IMPLEMENTED / RUNTIME VERIFY | JobRuntime reuses TaskLedger and links durable job/task IDs to Shared Action IDs. Current scheduling mode is durable-inline. |
+| Jobs | IMPLEMENTED / RUNTIME VERIFY | JobRuntime creates authoritative durable Missions, executes through the backend-owned durable queue, links compatibility TaskLedger IDs, and finalizes completion only after Sudarshan verification. Current worker mode is durable-queue-inline-worker. |
 | Permissions | IMPLEMENTED / RUNTIME VERIFY | PermissionRuntime distinguishes local owner/system authority from capability-bounded agent/job/MCP/A2A/mobile callers. |
 | Audit / rollback | IMPLEMENTED BOUNDARY / RUNTIME VERIFY | Shared Actions publish requested/completed/failed/blocked receipts and write sanitized durable MemoryStore audit metadata. Project file promotion/rollback remains under PromotionManager transactional backups. |
 | MCP / A2A | INTERNAL ADAPTER BOUNDARY / RUNTIME VERIFY | MCP tool catalog/call and A2A dispatch adapters map to the same Shared Actions. No unauthenticated public protocol server is claimed. |
