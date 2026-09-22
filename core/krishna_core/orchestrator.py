@@ -827,17 +827,17 @@ class Orchestrator:
         self.action_bus.register(
             "mission.create",mission_create,description="Create a durable KRISHNA Mission",
             mutating=True,permissions=("mission.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "mission.transition",mission_transition,description="Advance a durable KRISHNA Mission state",
             mutating=True,permissions=("mission.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "mission.checkpoint",mission_checkpoint,description="Create a durable mission recovery checkpoint",
             mutating=True,permissions=("mission.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "resource.lock.acquire",resource_lock_acquire,description="Acquire a durable scoped KRISHNA resource lock",
@@ -909,184 +909,184 @@ class Orchestrator:
             "development.git.status",development_git_status,
             description="Read bounded Git status for a registered project",
             permissions=("code.read",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "development.git.commit",development_git_commit,
             description="Commit verified project changes locally",
             mutating=True,requires_approval=True,
             permissions=("candidate.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "development.git.push",development_git_push,
             description="Push verified project commit to its configured remote",
             mutating=True,requires_approval=True,
             permissions=("git.push",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "development.sync",development_sync_action,
             description="Synchronize a registered development project",
             mutating=True,requires_approval=True,
             permissions=("candidate.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "development.stage",development_stage_action,
             description="Stage bounded files in a registered development project",
             mutating=True,permissions=("candidate.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "development.verify",development_verify_action,
             description="Run independent tests/browser/API verification on a candidate workspace",
             permissions=("candidate.write","tests.run","browser.test"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
             "worker.ephemeral.execute",worker_ephemeral_execute,
             description="Run approved temporary software/research workers",
             permissions=("worker.execute","model.use"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "browser.inspect",browser_inspect,
             description="Run bounded read-only browser inspection",
             permissions=("browser.read","browser.test"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "browser.testing_lead",browser_testing_lead,
             description="Run exhaustive browser verification for the testing lead",
             permissions=("browser.read","browser.test"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
             "model.complete",model_complete,
             description="Run an approved model provider under KRISHNA privacy and free-only policy",
             permissions=("model.use",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
             "narad.publish_event",narad_publish_event,
             description="Publish a NARAD event through the canonical automation bus",
             permissions=("narad.execute",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "narad.adapter_webhook",narad_adapter_webhook,
             description="Execute a bounded NARAD webhook adapter call",
             mutating=True,requires_approval=True,
             permissions=("narad.execute","send_external"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "narad.provider_send",narad_provider_send,
             description="Execute a bounded NARAD provider operation",
             mutating=True,requires_approval=True,
             permissions=("narad.execute","send_external"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
             "narad.workflow.create",narad_workflow_create,
             description="Create a typed NARAD workflow graph",
             mutating=True,permissions=("narad.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "narad.workflow.promote",narad_workflow_promote,
             description="Promote a NARAD workflow lifecycle state",
             mutating=True,permissions=("narad.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "narad.workflow.execute",narad_workflow_execute,
             description="Execute a NARAD workflow through Sudarshan",
             permissions=("narad.execute",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "narad.checkpoint.resume",narad_checkpoint_resume,
             description="Resume a durable NARAD workflow checkpoint",
             permissions=("narad.execute",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "narad.dead_letter.retry",narad_dead_letter_retry,
             description="Retry a NARAD dead-letter workflow",
             permissions=("narad.execute",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.mission.create",brahmagyan_mission_create,
             description="Create an L0-L8 deep knowledge mission",
             mutating=True,permissions=("memory.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.questions.add",brahmagyan_questions_add,
             description="Add explicit research questions to a BRAHMAGYAN mission",
             mutating=True,permissions=("memory.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.phase.advance",brahmagyan_phase_advance,
             description="Advance a BRAHMAGYAN mission through its research protocol one phase at a time",
             mutating=True,permissions=("memory.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.perspectives.plan",brahmagyan_perspectives_plan,
             description="Generate Rishi-specific research lenses and questions before deep retrieval",
             mutating=True,permissions=("memory.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.evidence.audit",brahmagyan_evidence_audit,
             description="Audit source independence, contradiction coverage, retractions and citation review state",
             permissions=("evidence.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.citation.review",brahmagyan_citation_review,
             description="Record a named citation-entailment review without treating the verifier as infallible",
             mutating=True,permissions=("memory.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.debate.policy",brahmagyan_debate_policy,
             description="Decide whether evidence-linked Rishi debate is useful for a mission",
             permissions=("evidence.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.debate.open",brahmagyan_debate_open,
             description="Open a bounded Rishi cross-examination for a contested or high-stakes mission",
             mutating=True,permissions=("memory.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.debate.turn",brahmagyan_debate_turn,
             description="Record an evidence-linked Rishi position or objection",
             mutating=True,permissions=("memory.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.debate.close",brahmagyan_debate_close,
             description="Close debate with Gautama evidence review and Veda Vyasa synthesis while preserving dissent",
             mutating=True,permissions=("memory.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.dossier",brahmagyan_dossier,
             description="Build a provenance-preserving BRAHMAGYAN research dossier and diagnostic scorecard",
             permissions=("runtime.read","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
@@ -1094,68 +1094,68 @@ class Orchestrator:
             description="Run an end-to-end BRAHMAGYAN Rishi research mission with evidence gates and final dossier",
             mutating=True,
             permissions=("web.read","model.use","evidence.write","memory.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.live.status",brahmagyan_live_status,
             description="Read Rishi live research run checkpoints and status",
             permissions=("runtime.read",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
             "brahmagyan.deep.discover",brahmagyan_deep_discover,
             description="Run deep source discovery without pretending discovery is learned knowledge",
             permissions=("web.read","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.claim.record",brahmagyan_claim_record,
             description="Record an atomic BRAHMAGYAN claim with provenance",
             mutating=True,permissions=("memory.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.evidence.add",brahmagyan_evidence_add,
             description="Attach supporting contradicting or qualifying evidence to a claim",
             mutating=True,permissions=("memory.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.contradiction.resolve",brahmagyan_contradiction_resolve,
             description="Resolve a recorded contradiction without deleting its evidence history",
             mutating=True,permissions=("memory.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.claim.advance",brahmagyan_claim_advance,
             description="Advance exactly one L0-L8 maturity gate after evidence requirements pass",
             mutating=True,permissions=("memory.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.claim.compile",brahmagyan_claim_compile,
             description="Compile a cross-checked claim under Veda Vyasa knowledge architecture",
             mutating=True,permissions=("memory.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.claim.promote",brahmagyan_claim_promote,
             description="Propose a sufficiently verified BRAHMAGYAN claim to trusted Gyan-Bhandar",
             mutating=True,permissions=("memory.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.curiosity.add",brahmagyan_curiosity_add,
             description="Queue a prioritized knowledge-gap question",
             mutating=True,permissions=("memory.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.gaps.generate",brahmagyan_gaps_generate,
             description="Generate explicit missing-knowledge questions from an incomplete claim",
             mutating=True,permissions=("memory.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.council.propose",brahmagyan_council_propose,
@@ -1167,7 +1167,7 @@ class Orchestrator:
             "brahmagyan.science.status",brahmagyan_science_status,
             description="Inspect BRAHMAGYAN Science Atlas coverage and taxonomy",
             permissions=("runtime.read",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.science.sync",brahmagyan_science_sync,
@@ -1179,19 +1179,19 @@ class Orchestrator:
             "brahmagyan.science.route",brahmagyan_science_route,
             description="Route a science subject to the most relevant Rishi research team",
             permissions=("runtime.read",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.science.frontier.seed",brahmagyan_science_frontier_seed,
             description="Generate mechanism/counterfactual science questions and queue them as Rishi curiosity missions",
             mutating=True,permissions=("memory.write",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.science.frontier.run",brahmagyan_science_frontier_run,
             description="Run one evidence-gated frontier science research mission through Rishi Live",
             mutating=True,permissions=("web.read","model.use","evidence.write","memory.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "brahmagyan.science.background.tick",brahmagyan_science_background_tick,
@@ -1224,63 +1224,63 @@ class Orchestrator:
             "bhumiputra.status",bhumiputra_status,
             description="Inspect the isolated Bhumiputra field geo-engineering agent",
             permissions=("runtime.read",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "bhumiputra.boundary.validate",bhumiputra_boundary_validate,
             description="Validate a coordinate polygon and compute preliminary boundary metrics",
             permissions=("geo.read",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "bhumiputra.survey.plan",bhumiputra_survey_plan,
             description="Create an isolated field GeoVision survey plan and state package",
             mutating=True,permissions=("geo.read","survey.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "bhumiputra.observation.record",bhumiputra_observation_record,
             description="Persist mobile/GNSS/camera field evidence for a Bhumiputra survey",
             mutating=True,permissions=("survey.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "bhumiputra.survey.get",bhumiputra_survey_get,
             description="Read a Bhumiputra survey package",
             permissions=("geo.read","evidence.read"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
             "bhumiputra.live.start",bhumiputra_live_start,
             description="Start an isolated Bhumiputra live camera/field session",
             mutating=True,permissions=("geo.read","survey.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "bhumiputra.live.record",bhumiputra_live_record,
             description="Persist a local-AI analysis result from a sampled live camera frame",
             mutating=True,permissions=("survey.write","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "bhumiputra.live.get",bhumiputra_live_get,
             description="Read Bhumiputra live camera session state",
             permissions=("geo.read","evidence.read"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
             "kabach.privacy.audit",kabach_privacy_audit,
             description="Run an internal defensive KABACH privacy audit",
             permissions=("privacy.read",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "kabach.privacy.clean_url",kabach_privacy_clean_url,
             description="Preview removal of known tracking parameters while preserving unknown/functional parameters",
             permissions=("privacy.read",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "kabach.privacy.baseline.save",kabach_privacy_baseline_save,
@@ -1292,7 +1292,7 @@ class Orchestrator:
             "kabach.privacy.baseline.compare",kabach_privacy_baseline_compare,
             description="Compare a privacy audit with a versioned local baseline",
             permissions=("privacy.read",),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "kabach.privacy.release_gate",kabach_privacy_release_gate,
@@ -1309,7 +1309,7 @@ class Orchestrator:
             ),
             description="Run Garuda research/evidence scout",
             permissions=("web.read","evidence.write"),
-            sources=("pc","system","agent","job","mcp","a2a"),
+            sources=("pc","system","mobile","agent","job","mcp","a2a"),
         )
 
     def _register_agent_runtime(self):
