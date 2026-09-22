@@ -63,6 +63,7 @@ from .requirements_ledger import RequirementsLedger
 from .rishi_live_research import RishiLiveResearchExecutor
 from .science_atlas import ScienceAtlas
 from .rishi_learning import RishiLearningLedger, CouncilCollaborationEngine
+from .brahma_bot import BrahmaBot
 from .grand_challenges import GrandChallengeRegistry
 from .durable_event_bus import DurableEventBus
 from .mission_engine import MissionEngine
@@ -179,6 +180,14 @@ class Orchestrator:
             self.agi.brahmagyan.council,
             self.memory,
         )
+        self.brahma = BrahmaBot(
+            runtime_state / "brahma",
+            self.agi.brahmagyan.council,
+            self.rishi_learning,
+            self.gyan_bhandar,
+            self.memory,
+        )
+        self.agi.brahmagyan.bind_gyan_qc(self.brahma.qc_for_gyan)
         self.rishi_collaboration = CouncilCollaborationEngine(
             self.rishi_learning,
             self.agi.brahmagyan.council,
@@ -830,6 +839,54 @@ class Orchestrator:
             assert_narad_workflow_capabilities(letter.get("workflow_id"),context)
             return self.agi.narad.retry_dead_letter(
                 letter_id,approved=bool(context.get("approved",False)),
+            )
+
+        def brahma_status(payload,context):
+            return self.brahma.status()
+
+        def brahma_retrieve(payload,context):
+            return self.brahma.retrieve(
+                str(payload.get("topic") or ""),
+                limit_per_rishi=int(payload.get("limit_per_rishi") or 8),
+                team_limit=int(payload.get("team_limit") or 6),
+            )
+
+        def brahma_intake(payload,context):
+            provenance=dict(payload.get("provenance") or {})
+            provenance.setdefault("source",str(context.get("source") or "system"))
+            provenance.setdefault("actor",str(context.get("actor") or "brahma"))
+            return self.brahma.intake(
+                source=str(context.get("source") or payload.get("source") or "system"),
+                topic=str(payload.get("topic") or ""),
+                content=str(payload.get("content") or ""),
+                modality=str(payload.get("modality") or "text"),
+                evidence=payload.get("evidence") or [],
+                provenance=provenance,
+                confidence=float(payload.get("confidence") or 0.0),
+                novelty=float(payload.get("novelty") or 0.0),
+                quality=float(payload.get("quality") or 0.0),
+                importance=float(payload.get("importance") if payload.get("importance") is not None else 0.5),
+                evidence_status=str(payload.get("evidence_status") or "candidate"),
+                force=bool(payload.get("force",False)),
+            )
+
+        def brahma_gyan_qc(payload,context):
+            provenance=dict(payload.get("provenance") or {})
+            provenance.setdefault("qc_source",str(context.get("source") or "system"))
+            provenance.setdefault("qc_actor",str(context.get("actor") or "brahma"))
+            return self.brahma.qc_for_gyan(
+                project=str(payload.get("project") or context.get("project") or "KRISHNA"),
+                topic=str(payload.get("topic") or ""),
+                lesson=str(payload.get("lesson") or ""),
+                evidence=payload.get("evidence") or [],
+                provenance=provenance,
+                confidence=float(payload.get("confidence") or 0.0),
+                maturity=str(payload.get("maturity") or "L0"),
+                evidence_status=str(payload.get("evidence_status") or "candidate"),
+                unresolved_contradictions=int(payload.get("unresolved_contradictions") or 0),
+                memory_kind=str(payload.get("memory_kind") or "semantic"),
+                source="brahma:"+str(context.get("source") or "system"),
+                supersedes=payload.get("supersedes"),
             )
 
         def brahmagyan_mission_create(payload,context):
@@ -1587,6 +1644,31 @@ class Orchestrator:
             sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
+            "brahma.status",brahma_status,
+            description="Read BRAHMA learning-governor and Gyan-QC status",
+            permissions=("runtime.read",),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.retrieve",brahma_retrieve,
+            description="Retrieve required information from the most relevant Rishi learning ledgers",
+            permissions=("runtime.read",),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.intake",brahma_intake,
+            description="Route mobile/PC/system learning through BRAHMA into the appropriate Rishi ledger",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.gyan.qc",brahma_gyan_qc,
+            description="Quality-gate Rishi/evidence-backed knowledge before Gyan-Bhandar proposal",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
             "brahmagyan.mission.create",brahmagyan_mission_create,
             description="Create an L0-L8 deep knowledge mission",
             mutating=True,permissions=("memory.write",),
@@ -1888,6 +1970,12 @@ class Orchestrator:
             "narad","durable automation and provider workflow runtime",
             permissions=("narad.write","narad.test","narad.execute","send_external"),
             actions=("narad.*",),
+        )
+
+        self.agent_runtime.register(
+            "brahma","learning governor and Gyan-Bhandar QC head",
+            permissions=("runtime.read","memory.write","evidence.write"),
+            actions=("brahma.*",),
         )
 
         for profile in self.agi.brahmagyan.council.list():
