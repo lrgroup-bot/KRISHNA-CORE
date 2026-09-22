@@ -57,6 +57,141 @@ class GarudaAgent:
             guard=assess_untrusted_content(title,link).as_dict(); out.append(WebCandidate(title[:240],link[:1500],summary[:1000],"hackernews",len(wanted & self._terms(title)),bool(guard["suspicious"])))
         return out
 
+    def _openalex(self, query, limit=10):
+        params=urllib.parse.urlencode({
+            "search":str(query),
+            "per_page":str(max(1,min(int(limit),20))),
+            "sort":"publication_date:desc",
+            "select":"id,display_name,doi,publication_year,type,primary_topic,cited_by_count",
+        })
+        data=self._json_get("https://api.openalex.org/works?"+params)
+        wanted=self._terms(query);out=[]
+        for row in data.get("results",[]):
+            title=str(row.get("display_name") or "")
+            topic=((row.get("primary_topic") or {}).get("display_name") or "")
+            summary=f"{row.get('type') or 'work'}; year={row.get('publication_year')}; primary_topic={topic}; citations={row.get('cited_by_count') or 0}"
+            link=str(row.get("doi") or row.get("id") or "")
+            guard=assess_untrusted_content(title+"\n"+summary,link).as_dict()
+            out.append(WebCandidate(title[:240],link[:1500],summary[:1000],"openalex",
+                                    len(wanted & self._terms(title+" "+topic)),bool(guard["suspicious"])))
+        return out
+
+    def _crossref(self, query, limit=10):
+        params=urllib.parse.urlencode({
+            "query.bibliographic":str(query),
+            "rows":str(max(1,min(int(limit),20))),
+            "sort":"published",
+            "order":"desc",
+            "select":"DOI,title,abstract,publisher,type,URL,published-print,published-online",
+        })
+        data=self._json_get("https://api.crossref.org/works?"+params)
+        wanted=self._terms(query);out=[]
+        for row in ((data.get("message") or {}).get("items") or []):
+            titles=row.get("title") or [];title=str(titles[0] if titles else "")
+            abstract=re.sub(r"<[^>]+>"," ",str(row.get("abstract") or ""))
+            abstract=" ".join(abstract.split())
+            summary=(abstract or f"{row.get('type') or 'work'}; publisher={row.get('publisher') or ''}")[:1000]
+            doi=str(row.get("DOI") or "")
+            link=str(row.get("URL") or ("https://doi.org/"+doi if doi else ""))
+            guard=assess_untrusted_content(title+"\n"+summary,link).as_dict()
+            out.append(WebCandidate(title[:240],link[:1500],summary,"crossref",
+                                    len(wanted & self._terms(title+" "+summary)),bool(guard["suspicious"])))
+        return out
+
+    def _europe_pmc(self, query, limit=10):
+        params=urllib.parse.urlencode({
+            "query":str(query)+" sort_date:y",
+            "format":"json",
+            "pageSize":str(max(1,min(int(limit),20))),
+            "resultType":"core",
+        })
+        data=self._json_get("https://www.ebi.ac.uk/europepmc/webservices/rest/search?"+params)
+        wanted=self._terms(query);out=[]
+        for row in ((data.get("resultList") or {}).get("result") or []):
+            title=str(row.get("title") or "")
+            abstract=" ".join(str(row.get("abstractText") or "").split())
+            meta=f"{row.get('journalTitle') or ''}; year={row.get('pubYear') or ''}; authors={row.get('authorString') or ''}"
+            summary=(abstract or meta)[:1000]
+            pmid=str(row.get("pmid") or "");pmcid=str(row.get("pmcid") or "")
+            doi=str(row.get("doi") or "")
+            if pmid:link="https://europepmc.org/article/MED/"+pmid
+            elif pmcid:link="https://europepmc.org/article/PMC/"+pmcid
+            elif doi:link="https://doi.org/"+doi
+            else:link=""
+            guard=assess_untrusted_content(title+"\n"+summary,link).as_dict()
+            out.append(WebCandidate(title[:240],link[:1500],summary,"europepmc",
+                                    len(wanted & self._terms(title+" "+summary)),bool(guard["suspicious"])))
+        return out
+
+    def _clinical_trials(self, query, limit=10):
+        params=urllib.parse.urlencode({
+            "query.term":str(query),
+            "pageSize":str(max(1,min(int(limit),20))),
+            "format":"json",
+        })
+        data=self._json_get("https://clinicaltrials.gov/api/v2/studies?"+params)
+        wanted=self._terms(query);out=[]
+        for study in data.get("studies",[]):
+            protocol=study.get("protocolSection") or {}
+            ident=protocol.get("identificationModule") or {}
+            desc=protocol.get("descriptionModule") or {}
+            status=protocol.get("statusModule") or {}
+            design=protocol.get("designModule") or {}
+            nct=str(ident.get("nctId") or "")
+            title=str(ident.get("briefTitle") or ident.get("officialTitle") or "")
+            phases=design.get("phases") or []
+            summary=" ".join(str(desc.get("briefSummary") or "").split())
+            meta=f"status={status.get('overallStatus') or ''}; phases={','.join(str(x) for x in phases)}"
+            evidence=(summary+" "+meta).strip()[:1000]
+            link=("https://clinicaltrials.gov/study/"+nct) if nct else ""
+            guard=assess_untrusted_content(title+"\n"+evidence,link).as_dict()
+            out.append(WebCandidate(title[:240],link[:1500],evidence,"clinicaltrials",
+                                    len(wanted & self._terms(title+" "+evidence)),bool(guard["suspicious"])))
+        return out
+
+    @staticmethod
+    def _looks_biomedical(text):
+        terms={
+            "medicine","medical","clinical","health","disease","cancer","oncology","dna","genetic","genome",
+            "aging","ageing","drug","therapy","treatment","patient","neural","brain","immunology","microbiology",
+            "surgery","diagnostic","biomedical","pharmacology","cell","protein","rna",
+        }
+        return bool(GarudaAgent._terms(text) & terms)
+
+    def science_scout(self, project, goal, limit=10):
+        report=self.scout(project,goal,limit)
+        candidates=[]
+        for row in report.get("web") or []:
+            candidates.append(WebCandidate(
+                str(row.get("title") or ""),str(row.get("url") or ""),str(row.get("summary") or ""),
+                str(row.get("source") or "web"),int(row.get("relevance") or 0),
+                bool(row.get("suspicious",False)),str(row.get("fingerprint") or ""),
+            ))
+        errors=dict(report.get("errors") or {})
+        sources=[("openalex",self._openalex),("crossref",self._crossref)]
+        if self._looks_biomedical(goal):
+            sources.extend([("europepmc",self._europe_pmc),("clinicaltrials",self._clinical_trials)])
+        for name,fn in sources:
+            self._set(working=True,phase="SCIENCE_SCOUTING",source=name)
+            try:candidates.extend(fn(goal,limit))
+            except Exception as exc:errors[name]=f"{type(exc).__name__}: {exc}"
+        ranked=self._dedupe_and_rank(candidates)
+        report["web"]=[asdict(x) for x in ranked]
+        report["errors"]=errors
+        report["coverage"]=list(dict.fromkeys(list(report.get("coverage") or [])+[name for name,_ in sources]))
+        report["science_protocol"]={
+            "scholarly_indexes":["OpenAlex","Crossref"]+
+                (["Europe PMC","ClinicalTrials.gov"] if self._looks_biomedical(goal) else []),
+            "source_independence_required":True,
+            "negative_and_counter_evidence_required":True,
+            "preprint_not_equivalent_to_peer_review":True,
+            "clinical_trial_registration_not_equivalent_to_positive_result":True,
+        }
+        self.memory.remember(project,"garuda_science_research",goal,{"report":report})
+        self.memory.audit("garuda_science_scout","completed",f"{project}:{len(report['web'])} scholarly candidates")
+        self._set(working=False,phase="HANDED_TO_KRISHNA",source=None,found=len(report["web"])+len(report.get("github") or []))
+        return report
+
     @staticmethod
     def _terms(text):
         return {x for x in re.findall(r"[a-z0-9][a-z0-9_+.-]{2,}",str(text).lower()) if len(x)>2}
@@ -83,7 +218,10 @@ class GarudaAgent:
 
     @staticmethod
     def _source_weight(source):
-        return {"arxiv":5,"github":4,"npm":3,"web":2,"hackernews":1}.get(source,1)
+        return {
+            "clinicaltrials":7,"europepmc":7,"openalex":6,"crossref":6,
+            "arxiv":5,"github":4,"npm":3,"web":2,"hackernews":1,
+        }.get(source,1)
 
     def _dedupe_and_rank(self, rows):
         seen={}; ranked=[]
