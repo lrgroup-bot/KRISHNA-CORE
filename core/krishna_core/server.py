@@ -2315,6 +2315,9 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"live session not found"})
             goal=str(data.get("goal") or session.get("purpose") or "live field scan").strip()
             try:
+                pc_evidence=None
+                if bool(sensor_context.get("curator_selected",False)):
+                    pc_evidence=orch.hawkeye.store_mobile_evidence(session_id,raw,content_type,sensor_context)
                 if orch.hawkeye_diagnostic.should_activate(goal):
                     prompt=orch.hawkeye_diagnostic.vision_prompt(goal=goal,sensor_context=sensor_context)
                     vision=_vision.analyze_bytes(raw,content_type,prompt)
@@ -2327,6 +2330,7 @@ class Handler(BaseHTTPRequestHandler):
                     )
                     result["session_id"]=session_id
                     result["frame_count"]=field["frame_count"]
+                    if pc_evidence is not None:result["pc_evidence"]=pc_evidence
                     return self._json(200,result)
                 prompt=orch.hawkeye.live_prompt(
                     scene_hint=session.get("scene_hint") or "auto",user_goal=goal,sensor_context=sensor_context
@@ -2336,11 +2340,13 @@ class Handler(BaseHTTPRequestHandler):
                     session_id,vision.get("analysis") or "",model=vision.get("model"),sensor_context=sensor_context,
                     frame_meta={"content_type":content_type,"diagnostic":False},
                 )
-                return self._json(200,{
+                out={
                     "session_id":session_id,"frame_count":field["frame_count"],"diagnostic":False,
                     "analysis":vision.get("analysis") or "","confidence":0.0,"evidence_state":"OBSERVED",
                     "model":vision.get("model"),"local":bool(vision.get("local",True)),
-                })
+                }
+                if pc_evidence is not None:out["pc_evidence"]=pc_evidence
+                return self._json(200,out)
             except ValueError as exc:return self._json(400,{"error":str(exc)})
             except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
