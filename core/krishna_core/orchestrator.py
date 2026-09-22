@@ -51,6 +51,7 @@ from .requirements_ledger import RequirementsLedger
 from .rishi_live_research import RishiLiveResearchExecutor
 from .science_atlas import ScienceAtlas
 from .rishi_learning import RishiLearningLedger, CouncilCollaborationEngine
+from .grand_challenges import GrandChallengeRegistry
 from .durable_event_bus import DurableEventBus
 from .mission_engine import MissionEngine
 from .durable_queue import DurableQueue
@@ -165,6 +166,10 @@ class Orchestrator:
             runtime_state / "science-atlas",
             self.agi.brahmagyan.council,
             self.memory,
+        )
+        self.grand_challenges = GrandChallengeRegistry(
+            runtime_state / "grand-challenges",
+            self.agi.brahmagyan.council,
         )
         self._verification_checks = {}
         self.repair_agent = RepairAgent(
@@ -596,6 +601,23 @@ class Orchestrator:
                 "status":self.rishi_collaboration.status(),
                 "bootstrap":self.rishi_learning.bootstrap_status(),
             }
+
+        def brahmagyan_projects_status(payload,context):
+            query=str(payload.get("query") or "").strip()
+            if query:
+                return {"projects":self.grand_challenges.route(query,int(payload.get("limit") or 10))}
+            return self.grand_challenges.status()
+
+        def brahmagyan_projects_add(payload,context):
+            return self.grand_challenges.create_custom(
+                str(payload.get("project_id") or ""),
+                str(payload.get("name") or ""),
+                str(payload.get("mission") or ""),
+                payload.get("subjects") or [],
+                payload.get("leads") or [],
+                payload.get("support") or [],
+                str(payload.get("safety") or "standard_frontier_research"),
+            )
 
         def brahmagyan_science_status(payload,context):
             query=str(payload.get("query") or "").strip()
@@ -1189,6 +1211,19 @@ class Orchestrator:
         )
 
         self.action_bus.register(
+            "brahmagyan.projects.status",brahmagyan_projects_status,
+            description="List or route BRAHMAGYAN Grand Challenge research programs",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.projects.add",brahmagyan_projects_add,
+            description="Create a custom long-running BRAHMAGYAN research program",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
             "brahmagyan.science.status",brahmagyan_science_status,
             description="Inspect BRAHMAGYAN Science Atlas coverage and taxonomy",
             permissions=("runtime.read",),
@@ -1733,6 +1768,20 @@ class Orchestrator:
     def brahmagyan_rishi_collaboration(self,collaboration_id=None):
         if collaboration_id:return self.rishi_learning.collaboration(collaboration_id)
         return {"status":self.rishi_collaboration.status(),"bootstrap":self.rishi_learning.bootstrap_status()}
+
+    def brahmagyan_projects(self,query="",limit=10):
+        if query:return {"projects":self.grand_challenges.route(query,limit)}
+        return self.grand_challenges.status()
+
+    def brahmagyan_project_add(self,project_id,name,mission,subjects,leads,support=None,safety="standard_frontier_research"):
+        receipt=self.dispatch_action(
+            "brahmagyan.projects.add",
+            {"project_id":project_id,"name":name,"mission":mission,"subjects":subjects,
+             "leads":leads,"support":support or [],"safety":safety},
+            project="KRISHNA",source="pc",actor="brahmagyan-projects",
+            permissions=("memory.write",),
+        )
+        return receipt.get("result") or {}
 
     def brahmagyan_science_status(self,query="",kind=None,limit=50):
         return {

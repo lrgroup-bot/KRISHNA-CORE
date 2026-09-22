@@ -622,6 +622,12 @@ class Handler(BaseHTTPRequestHandler):
             try:limit=max(1,min(int(limit_raw),200))
             except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
             return self._json(200,{"questions":orch.brahmagyan_curiosity(project,limit)})
+        if path == "/api/brahmagyan/projects":
+            query_text=str((query.get("query") or [""])[0]).strip()
+            limit_raw=(query.get("limit") or ["10"])[0]
+            try:limit=max(1,min(int(limit_raw),50))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,orch.brahmagyan_projects(query_text,limit))
         if path == "/api/brahmagyan/rishis/topics":
             return self._json(200,orch.brahmagyan_rishi_topics())
         if path == "/api/brahmagyan/rishis/learning":
@@ -1845,6 +1851,23 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"plugin not found"})
             except (ValueError,PermissionError) as exc:return self._json(403 if isinstance(exc,PermissionError) else 400,{"error":str(exc)})
             except Exception as exc:return self._json(502,{"error":f"plugin request failed: {type(exc).__name__}: {exc}"})
+
+        if post_path == "/api/brahmagyan/projects/add":
+            project_id=str(data.get("project_id") or "").strip()
+            name=str(data.get("name") or "").strip()
+            mission=str(data.get("mission") or "").strip()
+            if not project_id or not name or not mission:
+                return self._json(400,{"error":"project_id, name and mission are required"})
+            try:
+                return self._json(200,orch.brahmagyan_project_add(
+                    project_id,name,mission,
+                    data.get("subjects") or [],
+                    data.get("leads") or [],
+                    data.get("support") or [],
+                    str(data.get("safety") or "standard_frontier_research"),
+                ))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/brahmagyan/science/sync":
             try:
