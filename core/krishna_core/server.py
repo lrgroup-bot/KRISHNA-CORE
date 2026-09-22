@@ -723,6 +723,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,orch.hawkeye_diagnostic.status())
         if path == "/api/hawkeye/reference/status":
             return self._json(200,orch.hawkeye_reference.status())
+        if path == "/api/hawkeye/reference/item":
+            reference_id=str((query.get("reference_id") or [""])[0]).strip()
+            if not reference_id:return self._json(400,{"error":"reference_id is required"})
+            try:return self._json(200,orch.hawkeye_reference.get(reference_id))
+            except KeyError:return self._json(404,{"error":"reference not found"})
         if path == "/api/hawkeye/diagnostic/session":
             session_id=str((query.get("session_id") or [""])[0]).strip()
             if not session_id:return self._json(400,{"error":"session_id is required"})
