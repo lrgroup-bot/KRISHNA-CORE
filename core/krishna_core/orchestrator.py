@@ -49,6 +49,13 @@ from .ephemeral_workers import EphemeralWorkerRuntime
 from .agi_kernel import AGIKernel
 from .requirements_ledger import RequirementsLedger
 from .rishi_live_research import RishiLiveResearchExecutor
+from .durable_event_bus import DurableEventBus
+from .mission_engine import MissionEngine
+from .durable_queue import DurableQueue
+from .resource_locks import ResourceLockManager
+from .mission_budget import MissionBudgetManager
+from .provider_contract import UnifiedProviderRegistry
+from .krishna_protocol import KrishnaProtocol
 
 
 class Orchestrator:
@@ -103,12 +110,22 @@ class Orchestrator:
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
         self.permissions = PermissionRuntime()
+        self.lifecycle_bus = DurableEventBus(self.db_path,compatibility_bus=self.agi.bus)
+        self.missions = MissionEngine(self.db_path,event_bus=self.lifecycle_bus)
+        self.queue = DurableQueue(self.db_path,event_bus=self.lifecycle_bus)
+        self.resource_locks = ResourceLockManager(self.db_path,event_bus=self.lifecycle_bus)
+        self.mission_budgets = MissionBudgetManager(self.db_path)
+        self.model_providers = UnifiedProviderRegistry(self.router)
+        self.protocol = KrishnaProtocol
         self.action_bus = SharedActionBus(
-            self.agi.bus,self.agi.policy,audit=self.memory.audit,
+            self.lifecycle_bus,self.agi.policy,audit=self.memory.audit,
             permission_resolver=self.permissions.authorize,
         )
         self.agent_runtime = AgentRuntime(self.action_bus)
-        self.jobs = JobRuntime(self.task_ledger,self.action_bus)
+        self.jobs = JobRuntime(
+            self.task_ledger,self.action_bus,self.missions,self.queue,
+            self.mission_budgets,self.lifecycle_bus,
+        )
         self.protocols = AgentProtocolGateway(self.action_bus,self.agent_runtime)
         self.dispatcher = DispatchRuntime(self.action_bus,self.agent_runtime,self.jobs)
         self.sudarshan = SudarshanControlPlane(
@@ -119,7 +136,7 @@ class Orchestrator:
         self.protocols.bind_sudarshan(self.sudarshan)
         self.dispatcher.bind_sudarshan(self.sudarshan)
         self.agi.narad.bind_sudarshan(self.sudarshan)
-        self.kabach.bind_privacy_runtime(browser=self.browser,event_bus=self.agi.bus,gyan_bhandar=self.gyan_bhandar)
+        self.kabach.bind_privacy_runtime(browser=self.browser,event_bus=self.lifecycle_bus,gyan_bhandar=self.gyan_bhandar)
         if hasattr(self.ephemeral_workers,"bind_sudarshan"):
             self.ephemeral_workers.bind_sudarshan(self.sudarshan)
         self.rishi_live = RishiLiveResearchExecutor(
@@ -142,6 +159,7 @@ class Orchestrator:
         self._register_shared_actions()
         self._register_agent_runtime()
         self._register_builtin_probes()
+        self.startup_recovery = self.jobs.recover_startup()
 
     def _shared_action_permission(self,spec,context):
         return self.permissions.authorize(spec,context)
