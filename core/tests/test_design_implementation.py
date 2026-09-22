@@ -28,6 +28,17 @@ class DesignImplementationGuardTests(unittest.TestCase):
             with self.assertRaises(PermissionError):
                 DesignImplementationGuard.validate_patch(root,[{"path":".env","content":"SECRET=y"}])
 
+    def test_submit_endpoint_keeps_transactional_apply_and_post_verify_rollback(self):
+        server=(Path(__file__).resolve().parents[1]/"krishna_core"/"server.py").read_text(encoding="utf-8")
+        start=server.index('if post_path == "/api/design-studio/submit":')
+        end=server.index('if post_path == "/api/project-perfection/visual-intent":',start)
+        block=server[start:end]
+        self.assertIn('project.design.implement',block)
+        self.assertIn('promote_candidate(token,approved=True)',block)
+        self.assertIn('verify_design_candidate(',block)
+        self.assertIn('orch.promotions.rollback(',block)
+        self.assertIn('rolled_back_post_verify',block)
+
     def test_arbitrary_new_source_file_is_blocked(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td)
