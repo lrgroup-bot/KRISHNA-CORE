@@ -337,9 +337,11 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     _BUNDLE_ROOT = Path(sys._MEIPASS)
     WEB_VALIDATION = _BUNDLE_ROOT / "web_validation.html"
     AVATAR_B64 = _BUNDLE_ROOT / "avatar" / "krishna_child_360.webp.b64"
-    AVATAR_GLB = _BUNDLE_ROOT / "avatar" / "krishna.glb"
-    AVATAR_PRODUCTION_GLB = _BUNDLE_ROOT / "avatar" / "krishna.production.glb"
-    AVATAR_ENGINE_ROOT = _BUNDLE_ROOT / "avatar-engine"
+    # The private child avatar is owner/runtime data and is deliberately never
+    # bundled into KRISHNA.exe. Frozen and source runtimes use the same E: asset.
+    AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
+    AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"
+    AVATAR_ENGINE_ROOT = RUNTIME_ROOT / "dashboard" / "assets" / "avatar-engine"
 else:
     _CORE_ROOT = Path(__file__).resolve().parents[1]
     _REPO_ROOT = Path(__file__).resolve().parents[2]
