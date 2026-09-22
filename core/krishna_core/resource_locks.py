@@ -98,7 +98,7 @@ class ResourceLockManager:
                 raise RuntimeError("resource lock conflict: "+",".join(x["lock_id"] for x in conflicts))
             lock_id=str(uuid.uuid4())
             import json
-            self.db.execute("INSERT INTO resource_locks VALUES(?,?,?,?,?,?,?,?,?,?)",(
+            self.db.execute("INSERT INTO resource_locks VALUES(?,?,?,?,?,?,?,?,?,?,?)",(
                 lock_id,lt,normalized,mode,owner,mission_id,agent_id,now,now,expires,json.dumps(dict(metadata or {}))
             ))
             self.db.commit()
