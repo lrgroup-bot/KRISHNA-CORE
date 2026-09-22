@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from krishna_core.project_perfection_execution import (
-    ArtifactExecutor, BrowserRegressionRunner, DesignStudio, MutationRunner, RegressionManifest,
+    ArtifactExecutor, BrowserRegressionRunner, DatabaseChaosRunner, DesignStudio, MutationRunner, RegressionManifest,
     RegressionPersister, VisualBaselineStore,
 )
 
