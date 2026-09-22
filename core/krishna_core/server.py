@@ -527,14 +527,27 @@ class Handler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query)
 
         if path in ("/", "/dashboard"):
-            ui = WEB_VALIDATION if WEB_VALIDATION.exists() else DASHBOARD
-            return self._html(200, ui.read_text(encoding="utf-8"))
+            if not WEB_VALIDATION.exists():
+                return self._json(503, {
+                    "error": "current KRISHNA desktop UI is unavailable",
+                    "required_ui_version": "2026.09-current",
+                })
+            ui_text=WEB_VALIDATION.read_text(encoding="utf-8")
+            if 'data-krishna-ui="2026.09-current"' not in ui_text:
+                return self._json(503, {
+                    "error": "stale KRISHNA desktop UI refused",
+                    "required_ui_version": "2026.09-current",
+                })
+            return self._html(200, ui_text)
         if path == "/favicon.ico":
             return self._binary(204, b"", "image/x-icon")
         if path in ("/web", "/web-test", "/validation"):
             if not WEB_VALIDATION.exists():
-                return self._json(404, {"error": "web validation UI unavailable"})
-            return self._html(200, WEB_VALIDATION.read_text(encoding="utf-8"))
+                return self._json(503, {"error": "current KRISHNA desktop UI unavailable"})
+            ui_text=WEB_VALIDATION.read_text(encoding="utf-8")
+            if 'data-krishna-ui="2026.09-current"' not in ui_text:
+                return self._json(503, {"error": "stale KRISHNA desktop UI refused"})
+            return self._html(200, ui_text)
         if path.startswith("/assets/avatar-engine/"):
             rel=path[len("/assets/avatar-engine/"):]
             asset=avatar_engine_file(rel)
