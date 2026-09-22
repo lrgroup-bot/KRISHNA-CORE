@@ -226,9 +226,12 @@ class KrishnaProjectAudit:
         status=KrishnaVoiceStack().status()
         stt=status["stt"];tts=status["tts"];wake=status["wake"]
         truthful=("hi" in stt.get("languages",[]) and "or" in stt.get("languages",[]) and "en" not in stt.get("languages",[])
-                  and "hi" in tts.get("languages",[]) and "or" in tts.get("languages",[]) and "en" not in tts.get("languages",[]))
+                  and "hi" in tts.get("languages",[]) and "or" in tts.get("languages",[])
+                  and "en" in tts.get("known_languages",[]))
+        detail=("IndicConformer advertises Hindi/Odia; Indic-TTS advertises only installed/configured checkpoints, "
+                "with English supported only when explicitly configured")
         self.add("voice","language contract","PASS" if truthful else "FAIL",
-                 "IndicConformer/Indic-TTS advertise Hindi + Odia only; English uses browser/OS fallback" if truthful else "voice language reporting is inaccurate",
+                 detail if truthful else "voice language reporting is inaccurate",
                  stt=stt,tts=tts)
         ready=bool(stt.get("available") and tts.get("available") and wake.get("available"))
         self.add("voice","runtime voice assets","PASS" if ready else "WARN",
