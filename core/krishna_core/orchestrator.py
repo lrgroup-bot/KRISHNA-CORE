@@ -522,6 +522,46 @@ class Orchestrator:
             result["qa_worker_review"]=qa_review
 
             result["promotion"]=self._prepare_promotion_impl(project,result["candidate_root"]) if result.get("passed") else None
+            result["live_apply"]=None
+            result["post_apply_verification"]=None
+            if result.get("passed") and bool(payload.get("apply_verified",False)):
+                promotion=result.get("promotion") or {}
+                token=str(promotion.get("promotion_token") or "")
+                if not token:
+                    result["passed"]=False
+                    result["verdict"]="NOT_COMPLETE_PROMOTION_TOKEN_MISSING"
+                else:
+                    try:
+                        live=self.promote_candidate(token,approved=True)
+                        result["live_apply"]=live
+                        if live.get("promoted"):
+                            post=self.project_perfection.post_apply_verify(
+                                project,policy.root,url,
+                                list(payload.get("checks") or policy.verification_checks or []),
+                                axe_required=bool(payload.get("axe_required",True)),
+                                performance_required=bool(payload.get("performance_required",True)),
+                                performance_limits=dict(payload.get("performance_limits") or {}),
+                            )
+                            result["post_apply_verification"]=post
+                            if not post.get("passed"):
+                                self.promotions.rollback(policy.root,live["backup"],live["diff"])
+                                live.update({
+                                    "status":"rolled_back_post_apply","promoted":False,
+                                    "rolled_back":True,"reason":"live post-apply verification failed",
+                                })
+                                result["passed"]=False
+                                result["verdict"]="ROLLED_BACK_POST_APPLY"
+                                self.memory.audit("project_perfection_post_apply","rolled_back",project)
+                            else:
+                                result["verdict"]="VERIFIED_AND_APPLIED"
+                                self.memory.audit("project_perfection_post_apply","verified",project)
+                        elif live.get("rolled_back"):
+                            result["passed"]=False
+                            result["verdict"]="ROLLED_BACK_DURING_PROMOTION"
+                    except PermissionError as exc:
+                        result["live_apply"]={"status":"approval_blocked","promoted":False,"rolled_back":False,"reason":str(exc)}
+                        result["passed"]=False
+                        result["verdict"]="VERIFIED_NOT_APPLIED"
             self.memory.audit("project_perfection","verified" if result.get("passed") else "not_complete",project)
             return result
 
