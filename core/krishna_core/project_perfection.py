@@ -75,6 +75,16 @@ class ElementGeometry:
     visible: bool = True
     text: str = ""
     z_index: int = 0
+    ancestors: list[str] = field(default_factory=list)
+    scroll_width: float = 0
+    scroll_height: float = 0
+    client_width: float = 0
+    client_height: float = 0
+    overflow_x: str = "visible"
+    overflow_y: str = "visible"
+    interactive: bool = False
+    pointer_events: str = "auto"
+    opacity: float = 1.0
 
     @property
     def right(self) -> float:
@@ -96,17 +106,28 @@ class UIGeometryVerifier:
                 continue
             if el.width <= 0 or el.height <= 0:
                 findings.append({"type": "zero_area", "selector": el.selector})
-            if el.x < 0 or el.y < 0 or el.right > viewport_width:
+            if el.x < -2 or el.right > viewport_width + 2:
                 findings.append({
                     "type": "viewport_overflow", "selector": el.selector,
                     "box": [el.x, el.y, el.right, el.bottom],
                     "viewport": [viewport_width, viewport_height],
                 })
+            if el.text.strip():
+                clipped_x=el.scroll_width > el.client_width + 2 and el.overflow_x in {"hidden","clip"}
+                clipped_y=el.scroll_height > el.client_height + 2 and el.overflow_y in {"hidden","clip"}
+                if clipped_x or clipped_y:
+                    findings.append({"type":"clipped_content","selector":el.selector,
+                                     "horizontal":clipped_x,"vertical":clipped_y})
+            if el.interactive and (el.pointer_events=="none" or el.opacity <= 0.01):
+                findings.append({"type":"non_interactable_visible_control","selector":el.selector,
+                                 "pointer_events":el.pointer_events,"opacity":el.opacity})
         for i, left in enumerate(rows):
             if not left.visible:
                 continue
             for right in rows[i + 1:]:
                 if not right.visible or left.z_index != right.z_index:
+                    continue
+                if left.selector in (right.ancestors or []) or right.selector in (left.ancestors or []):
                     continue
                 ox = min(left.right, right.right) - max(left.x, right.x)
                 oy = min(left.bottom, right.bottom) - max(left.y, right.y)
