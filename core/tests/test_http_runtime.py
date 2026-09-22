@@ -69,8 +69,52 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry",
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
-                     "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
+                     "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending", "/api/kabach/privacy/status", "/api/kabach/privacy/history", "/api/kabach/privacy/metrics"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
+
+    def test_kabach_privacy_guardian_http_contract(self):
+        code,status=self.call("/api/kabach/privacy/status")
+        self.assertEqual(code,200)
+        self.assertEqual(status["owner"],"KABACH Privacy Guardian")
+        self.assertTrue(status["internal_only"])
+        self.assertFalse(status["main_menu"])
+        self.assertFalse(status["anti_detection"])
+
+        code,clean=self.call("/api/kabach/privacy/clean-url",{
+            "url":"https://example.com/a?id=7&utm_source=test&fbclid=abc&custom=keep"
+        })
+        self.assertEqual(code,200)
+        self.assertNotIn("utm_source",clean["after"])
+        self.assertNotIn("fbclid",clean["after"])
+        self.assertIn("id=7",clean["after"])
+        self.assertIn("custom=keep",clean["after"])
+
+        code,web=self.call("/api/kabach/privacy/audit",{
+            "target_type":"web",
+            "url":f"http://127.0.0.1:{self.port}/dashboard",
+            "owned":True,
+            "profile":"WEB_ENDPOINT",
+            "policy":"WEB_RELEASE",
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(web["target_type"],"web")
+        self.assertTrue(any(x["test"]=="web.csp" for x in web["findings"]))
+        self.assertNotIn("Set-Cookie",json.dumps(web.get("metadata") or {}))
+
+        code,saved=self.call("/api/kabach/privacy/baseline",{"name":"http-web-baseline","report":web})
+        self.assertEqual(code,200);self.assertTrue(saved["stored"])
+        code,comparison=self.call("/api/kabach/privacy/compare",{
+            "name":"http-web-baseline","report":web,"configuration_change":"none"
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(comparison["regression_count"],0)
+
+        code,gate=self.call("/api/kabach/privacy/release-gate",{
+            "report":web,"policy":"WEB_RELEASE"
+        })
+        self.assertEqual(code,200)
+        self.assertIn("passed",gate)
+        self.assertTrue(gate["sudarshan_required"])
 
     def test_requirements_search_contract(self):
         code,d=self.call("/api/requirements?q=mobile")
