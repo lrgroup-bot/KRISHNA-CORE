@@ -63,8 +63,10 @@ class PluginRegistry:
             return
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return
+        except (OSError, ValueError) as exc:
+            raise RuntimeError(f"plugin registry unreadable: {self.path.name}: {type(exc).__name__}") from exc
+        if not isinstance(raw,list):
+            raise RuntimeError("plugin registry unreadable: expected JSON array")
         for row in raw if isinstance(raw, list) else []:
             try:
                 item = self._coerce(row, preserve_times=True)
