@@ -11,8 +11,8 @@ from .project_perfection_adapters import (
     RegressionGenerator, RouteStateGraph, VisualEditIntent,
 )
 from .project_perfection_execution import (
-    ArtifactExecutor, CandidateStaticServer, DesignStudio, MutationRunner, RegressionPersister, SourceMapper,
-    VisualBaselineStore, VisualCandidateEditor,
+    ArtifactExecutor, BrowserRegressionRunner, CandidateStaticServer, DesignStudio, MutationRunner,
+    RegressionManifest, RegressionPersister, SourceMapper, VisualBaselineStore, VisualCandidateEditor,
 )
 
 
@@ -34,6 +34,8 @@ class ProjectPerfectionRuntime:
         self.artifacts = ArtifactRetest()
         self.visual_edit = VisualEditIntent()
         self.regression_store=RegressionPersister()
+        self.regression_manifest=RegressionManifest()
+        self.regression_runner=BrowserRegressionRunner()
         self.visual_baselines=VisualBaselineStore(root/"visual-baselines")
         self.mutation_runner=MutationRunner()
         self.artifact_executor=ArtifactExecutor()
@@ -273,23 +275,38 @@ class ProjectPerfectionRuntime:
         })
         with preview_context as candidate_preview:
             effective_url=candidate_preview.get("url")
+            previous_manifest=self.regression_manifest.load(candidate_root,project)
             if effective_url:
+                prior_regression=self.regression_runner.run(self.browser,effective_url,previous_manifest)
                 exploration=self.explore_and_generate(project,effective_url,screenshot_dir=shots)
+                regression_source=self.persist_generated_regressions(
+                    candidate_root,project,exploration.get("regression_source") or ""
+                )
+                regression_manifest=self.regression_manifest.persist(
+                    candidate_root,project,exploration.get("graph") or {}
+                )
+                current_manifest=self.regression_manifest.load(candidate_root,project)
+                current_regression=self.regression_runner.run(self.browser,effective_url,current_manifest)
                 browser=self.browser_audit(effective_url,screenshot_dir=shots)
                 accessibility=self.accessibility_verify(effective_url)
                 chaos=self.browser_chaos_verify(effective_url)
                 dev=self.development.verify(candidate_root,checks,frontend_url=effective_url)
                 visual=self.compare_visual_baselines(project,browser,approve_missing=approve_visual_baselines)
             else:
+                prior_regression={"available":bool(previous_manifest),"passed":False,"reason":"candidate_preview_unavailable","routes":[]}
+                current_regression={"available":False,"passed":False,"reason":"candidate_preview_unavailable","routes":[]}
                 exploration={"ok":False,"graph":{"node_count":0,"edge_count":0},"regression_source":"",
                              "reason":"candidate_preview_unavailable","exploration":{"findings":[]}}
+                regression_source={"persisted":False,"reason":"candidate_preview_unavailable"}
+                regression_manifest={"persisted":False,"reason":"candidate_preview_unavailable"}
                 browser={"ok":False,"geometry_ok":False,"viewports":[],"geometry_findings":[],
                          "reason":"candidate_preview_unavailable"}
                 accessibility={"passed":False,"issues":[{"kind":"candidate_preview_unavailable"}]}
                 chaos={"passed":False,"scenarios":[],"reason":"candidate_preview_unavailable"}
                 dev=self.development.verify(candidate_root,checks)
                 visual={"passed":False,"results":[],"reason":"candidate_preview_unavailable"}
-        regression=self.persist_generated_regressions(candidate_root,project,exploration.get("regression_source") or "")
+        regression={"source":regression_source,"manifest":regression_manifest,
+                    "prior":prior_regression,"current":current_regression}
         mutation=self.run_mutation_testing(candidate_root,checks,max_mutants=max_mutants) if checks else {"executed":0,"passed":False,"score":None}
         api=self.api_fuzz_verify(schema_url,api_base_url) if schema_url else {
             "available":False,"passed":not backend_required,
@@ -325,7 +342,10 @@ class ProjectPerfectionRuntime:
             {"gate":"unit","passed":bool(dev.get("verified")) and bool(checks),"evidence":[str(dev.get("steps") or [])]},
             {"gate":"integration","passed":bool(dev.get("verified")),"evidence":[str(dev.get("frontend_backend_connected"))]},
             {"gate":"backend_api","passed":bool(api.get("passed")),"evidence":[str(api.get("reason") or api.get("exit_code") or "")]},
-            {"gate":"browser_e2e","passed":bool(exploration.get("ok")),"evidence":[f"nodes={exploration['graph']['node_count']} edges={exploration['graph']['edge_count']}"]},
+            {"gate":"browser_e2e","passed":bool(exploration.get("ok")) and bool(prior_regression.get("passed")) and bool(current_regression.get("passed")),
+             "evidence":[f"nodes={exploration['graph']['node_count']} edges={exploration['graph']['edge_count']}",
+                         str({"prior_regression":prior_regression.get("passed"),"prior_routes":prior_regression.get("route_count",0),
+                              "current_regression":current_regression.get("passed"),"current_routes":current_regression.get("route_count",0)})]},
             {"gate":"ui_geometry","passed":bool(browser.get("geometry_ok")),"evidence":[str(browser.get("geometry_findings") or [])]},
             {"gate":"visual_regression","passed":bool(visual.get("passed")),"evidence":[str(visual.get("results") or [])]},
             {"gate":"responsive","passed":bool(browser.get("ok")),"evidence":[str([x.get("width") for x in browser.get("viewports") or []])]},
