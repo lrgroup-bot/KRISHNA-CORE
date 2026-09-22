@@ -21,7 +21,7 @@ class ProjectPerfectionBrowserE2E(unittest.TestCase):
 <body><main><h1>QA Home</h1><a href="/second.html">Second</a>
 <label>Name <input id="name" name="name"></label>
 <label>Choice <select id="choice"><option value="a">A</option><option value="b">B</option></select></label>
-<div class="row"><button id="ping" onclick="document.getElementById('out').textContent='pong'">Ping</button></div>
+<div class="row"><button id="ping" onclick="document.getElementById('out').textContent='pong'">Ping</button><button id="save" onclick="document.body.dataset.saved='1'">Save Settings</button></div>
 <p id="out">ready</p></main></body></html>""",encoding="utf-8")
         (root/"second.html").write_text("""<!doctype html><html lang="en"><head><title>Second</title></head>
 <body><main><h1>Second</h1><a href="/index.html">Home</a><button>Okay</button></main></body></html>""",encoding="utf-8")
@@ -42,6 +42,9 @@ class ProjectPerfectionBrowserE2E(unittest.TestCase):
         self.assertTrue(crawl["ok"],crawl)
         self.assertGreaterEqual(crawl["visited_pages"],2)
         self.assertGreaterEqual(sum(x.get("field_count",0) for x in crawl["nodes"]),2)
+        skipped=[x for x in crawl.get("skipped",[]) if x.get("label")=="Save Settings"]
+        self.assertTrue(skipped,crawl)
+        self.assertEqual(skipped[0].get("reason"),"potentially_mutating_control")
 
         scan=browser.perfection_scan(self.url,viewports=[390,1440])
         self.assertTrue(scan["ok"],scan)
