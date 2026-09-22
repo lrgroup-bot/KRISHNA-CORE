@@ -22,7 +22,10 @@ class ProjectPerfectionRuntime:
     def __init__(self, browser, development, max_workers: int = 8, state_root: str | Path | None = None):
         self.browser = browser
         self.development = development
-        self.loop = ProjectPerfectionLoop(max_workers=max_workers)
+        root=Path(state_root or (Path.cwd()/".krishna_state"/"project-perfection")).resolve()
+        root.mkdir(parents=True,exist_ok=True)
+        self.state_root=root
+        self.loop = ProjectPerfectionLoop(max_workers=max_workers,immune_path=root/"immune-memory.json")
         self.state_graph = RouteStateGraph()
         self.regressions = RegressionGenerator()
         self.api_fuzz = ApiFuzzAdapter()
@@ -30,9 +33,6 @@ class ProjectPerfectionRuntime:
         self.mutation = MutationVerifier()
         self.artifacts = ArtifactRetest()
         self.visual_edit = VisualEditIntent()
-        root=Path(state_root or (Path.cwd()/".krishna_state"/"project-perfection")).resolve()
-        root.mkdir(parents=True,exist_ok=True)
-        self.state_root=root
         self.regression_store=RegressionPersister()
         self.visual_baselines=VisualBaselineStore(root/"visual-baselines")
         self.mutation_runner=MutationRunner()
