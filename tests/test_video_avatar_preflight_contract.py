@@ -15,6 +15,10 @@ class VideoAvatarPreflightContractTests(unittest.TestCase):
         ):
             self.assertIn(token,text)
         self.assertIn('E:\\Krishna-The GOD',text)
+        self.assertIn('storage="E-only"',text)
+        self.assertIn('python-managed',text)
+        self.assertIn('tools\\avatar-video\\envs\\musetalk\\Scripts\\python.exe',text)
+        self.assertNotIn('C:\\Python310\\python.exe',text)
         self.assertNotIn("Invoke-WebRequest",text)
         self.assertNotIn("huggingface-cli download",text)
 
