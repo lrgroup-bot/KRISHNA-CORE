@@ -191,6 +191,22 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertNotIn('ThreadPoolExecutor',gate)
         self.assertNotIn('ProcessPoolExecutor',gate)
 
+    def test_human_sidebar_exposes_only_krishna_sudarshan_plugins_projects_and_chats(self):
+        web=self.text("core/web_validation.html")
+        orch=self.text("core/krishna_core/orchestrator.py")
+        aside=web.split('<aside class="side">',1)[1].split('</aside>',1)[0]
+        for visible in ("KRISHNA","Sudarshan","Plugins","PROJECTS","CHATS"):
+            self.assertIn(visible,aside)
+        for internal in ("KABACH","Garuda","Garudanetra","BRAHMAGYAN","Gyan-Bhandar","NARAD","Specialists","Developer","UI Guardian","Work progress","Activity","System"):
+            self.assertNotIn("<span class=\"txt\">"+internal+"</span>",aside)
+        self.assertIn('"project.rename"',orch)
+        self.assertIn("rename_project_display",orch)
+        self.assertIn("moved_chats_to_global",orch)
+        for action in ("data-project-action=\"rename\"","data-project-action=\"share\"","data-project-action=\"delete\""):
+            self.assertIn(action,web)
+        self.assertIn("expandedProjects",web)
+        self.assertIn("projectNestedChats",web)
+
     def test_brahmagyan_is_deep_knowledge_layer_not_second_control_plane(self):
         root=Path(__file__).resolve().parents[1]
         bg=self.text("core/krishna_core/brahmagyan.py")
