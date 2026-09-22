@@ -85,8 +85,7 @@ class ExecutionTests(unittest.TestCase):
                     self.round+=1
                     return {"executed":True,"passed":True,"exit_code":0,"output":"device\n"}
                 if "getprop sys.boot_completed" in cmd:
-                    return {"executed":True,"passed":True,"exit_code":0,
-                            "output":"1\n" if self.round>=2 else "\n"}
+                    return {"executed":True,"passed":True,"exit_code":0,"output":"1\n"}
                 if "service check package" in cmd:
                     return {"executed":True,"passed":True,"exit_code":0,
                             "output":"Service package: found\n" if self.round>=2 else "Service package: not found\n"}
