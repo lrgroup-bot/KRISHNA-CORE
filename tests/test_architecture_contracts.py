@@ -262,7 +262,9 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertIn("E:/AI-Tools/codebase-memory-mcp/codebase-memory-mcp.exe",integrations)
         self.assertIn("E:/AI-Tools/OpenMontage",media)
         self.assertIn("OPENMONTAGE_CMD",media)
-        self.assertIn("MOBILE_RUNTIME_DUALITY",audit)
+        self.assertIn("MOBILE_V3_CANONICAL",audit)
+        self.assertIn("CANONICAL_MOBILE_RUNTIME_MISSING",audit)
+        self.assertIn("LEGACY_MOBILE_COMPANION_PRESENT",audit)
 
     def test_mobile_security_and_private_remote_invariants(self):
         server=self.text("core/krishna_core/server.py")
@@ -283,6 +285,33 @@ class ArchitectureContracts(unittest.TestCase):
         self.assertIn("public Internet",requirements)
         self.assertIn("raw shell",requirements)
         self.assertIn("/api/mobile/pair/pending",server)
+
+    def test_master_consolidation_runtime_contracts(self):
+        root=Path(__file__).resolve().parents[1]
+        orch=self.text("core/krishna_core/orchestrator.py")
+        server=self.text("core/krishna_core/server.py")
+        diagnostic=self.text("core/krishna_core/diagnostic_engines.py")
+        wake=self.text("mobile_v3/KrishnaWakeService.java")
+        deploy=self.text("scripts/DEPLOY_KRISHNA_ONCE.ps1")
+        accept=self.text("scripts/ACCEPT_KRISHNA_RUNTIME.ps1")
+        requirements=self.text("core/requirements/krishna_chat_requirements.json")
+        for module in ("hawkeye_coordinator.py","field_perception.py","diagnostic_engines.py","field_survey.py"):
+            self.assertTrue((root/"core"/"krishna_core"/module).is_file(),module)
+        self.assertIn("HawkeyeCoordinator",orch)
+        for specialist in ("PERCEPTION","PHYSIO","BEHAVIOR","TEMPORAL","DIAGNOSTIC","REASONER"):
+            self.assertIn(specialist,self.text("core/krishna_core/hawkeye_coordinator.py"))
+        for engine in ("ElectronicsDiagnosticEngine","VehicleDiagnosticEngine","AcousticDiagnosticEngine"):
+            self.assertIn(engine,diagnostic)
+        for endpoint in ("/api/hawkeye/geo/survey","/api/hawkeye/geo/geofence","/api/hawkeye/geo/volume","/api/hawkeye/geo/route","/api/hawkeye/geo/export"):
+            self.assertIn(endpoint,server)
+        self.assertIn("createOnDeviceSpeechRecognizer",wake)
+        self.assertIn("wake_is_authentication",wake)
+        self.assertIn('product="mobile_v3"',deploy)
+        self.assertIn('legacy_companion_authority=$false',deploy)
+        self.assertIn('Add-Check "Canonical mobile runtime"',accept)
+        self.assertIn('"2026-09-23-master-ledger-v1"',requirements)
+        self.assertIn('"hawkeye_live_intelligence"',requirements)
+        self.assertIn('"diagnostics"',requirements)
 
     def test_runtime_acceptance_is_a_deploy_gate(self):
         root=Path(__file__).resolve().parents[1]
