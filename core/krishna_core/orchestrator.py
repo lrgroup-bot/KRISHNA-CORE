@@ -484,7 +484,7 @@ class Orchestrator:
             return {"plan":plan,"batch":batch,"handover":handover}
 
         def kabach_privacy_audit(payload,context):
-            target=str(payload.get("target_type") or payload.get("target") or "").strip().lower()
+            target=self.kabach.privacy.classify_target(payload)
             profile=str(payload.get("profile") or "BASELINE")
             policy=str(payload.get("policy") or "STANDARD")
             mission_id=payload.get("mission_id")
@@ -510,7 +510,14 @@ class Orchestrator:
                 return self.kabach.privacy_audit(
                     "mobile",apk_path=apk,profile=profile,policy=policy,mission_id=mission_id,
                 )
-            raise ValueError("target_type must be browser, network, web or mobile")
+            if target=="full":
+                return self.kabach.privacy_audit(
+                    "full",url=str(payload.get("url") or "about:blank"),
+                    web_url=str(payload.get("web_url") or "").strip() or None,
+                    apk_path=str(payload.get("apk_path") or "").strip() or None,
+                    profile=profile,policy=policy,mission_id=mission_id,
+                )
+            raise ValueError("target_type must be browser, network, web, mobile or full")
 
         def kabach_privacy_clean_url(payload,context):
             return self.kabach.privacy_clean_url(str(payload.get("url") or ""))
