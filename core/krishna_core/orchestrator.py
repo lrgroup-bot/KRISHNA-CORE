@@ -466,6 +466,7 @@ class Orchestrator:
                 max_perspectives=int(payload.get("max_perspectives") or 4),
                 max_claims=int(payload.get("max_claims") or 5),
                 auto_propose=bool(payload.get("auto_propose",True)),
+                preferred_rishis=payload.get("preferred_rishis") or [],
             )
 
         def brahmagyan_live_status(payload,context):
@@ -603,6 +604,7 @@ class Orchestrator:
                 max_perspectives=int(payload.get("max_perspectives") or 5),
                 max_claims=int(payload.get("max_claims") or 5),
                 auto_propose=bool(payload.get("auto_propose",True)),
+                preferred_rishis=[x["id"] for x in rishis],
             )
             run=result.get("run") or {};mission=result.get("mission") or {}
             dossier=result.get("dossier") or {};score=dossier.get("scorecard") or {}
