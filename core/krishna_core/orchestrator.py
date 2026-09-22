@@ -435,11 +435,11 @@ class Orchestrator:
             staged=self.development.stage(policy.root,files)
             frontend_url=str(payload.get("frontend_url") or metadata.get("frontend_url") or "").strip() or None
             checks=list(payload.get("checks") or policy.verification_checks or [])
-            verification=self.development.verify(
-                staged["candidate_root"],checks,frontend_url=frontend_url,
-                screenshot_path=payload.get("screenshot_path") or None,
+            verification=self.project_perfection.verify_design_candidate(
+                project,staged["candidate_root"],checks,
+                frontend_url=frontend_url,approve_selected_baseline=True,
             )
-            promotion=self._prepare_promotion_impl(project,staged["candidate_root"]) if verification.get("verified") else None
+            promotion=self._prepare_promotion_impl(project,staged["candidate_root"]) if verification.get("passed") else None
             implementation={
                 "project":project,"session_id":sid,"provider":provider,
                 "summary":str(obj.get("summary") or "")[:3000],
@@ -447,7 +447,7 @@ class Orchestrator:
                 "candidate_root":staged["candidate_root"],
                 "verification":verification,
                 "promotion":promotion,
-                "promotable":bool(verification.get("verified") and promotion),
+                "promotable":bool(verification.get("passed") and promotion),
                 "selected_label":selected.get("label"),
                 "selected_candidate_id":selected.get("id"),
             }
@@ -455,11 +455,11 @@ class Orchestrator:
                 "implementation":{
                     "provider":provider,"summary":implementation["summary"],"files":implementation["files"],
                     "candidate_root":implementation["candidate_root"],
-                    "verified":bool(verification.get("verified")),
+                    "verified":bool(verification.get("passed")),
                     "promotable":implementation["promotable"],
                 }
             })
-            self.memory.audit("project_design_implement","verified" if verification.get("verified") else "failed",f"{project}:{sid}")
+            self.memory.audit("project_design_implement","verified" if verification.get("passed") else "failed",f"{project}:{sid}")
             return implementation
 
         def model_complete(payload,context):
