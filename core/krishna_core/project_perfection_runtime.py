@@ -10,7 +10,7 @@ from .project_perfection_adapters import (
     RegressionGenerator, RouteStateGraph, VisualEditIntent,
 )
 from .project_perfection_execution import (
-    ArtifactExecutor, DesignStudio, MutationRunner, RegressionPersister, SourceMapper,
+    ArtifactExecutor, CandidateStaticServer, DesignStudio, MutationRunner, RegressionPersister, SourceMapper,
     VisualBaselineStore, VisualCandidateEditor,
 )
 
@@ -39,6 +39,7 @@ class ProjectPerfectionRuntime:
         self.design_studio=DesignStudio(root/"design-studio")
         self.source_mapper=SourceMapper()
         self.visual_candidate_editor=VisualCandidateEditor()
+        self.candidate_static=CandidateStaticServer()
 
     def plan_team(self, work: list[dict[str, Any]], deadline_minutes: float) -> dict[str, Any]:
         items = [WorkItem(
@@ -161,6 +162,34 @@ class ProjectPerfectionRuntime:
 
     def design_submit(self, session_id: str, candidate_id: str) -> dict[str, Any]:
         return self.design_studio.submit(session_id,candidate_id)
+
+    def verify_design_candidate(self, project: str, candidate_root: str, checks: list[str],
+                                frontend_url: str | None=None, approve_selected_baseline: bool=True) -> dict[str, Any]:
+        """Verify the selected design against the candidate itself when a static preview is possible."""
+        def run(target_url: str | None, preview: dict[str,Any]):
+            dev=self.development.verify(candidate_root,checks,frontend_url=target_url)
+            if not target_url:
+                return {"passed":False,"development":dev,"preview":preview,
+                        "reason":"candidate_browser_preview_unavailable"}
+            shots=str(self.state_root/"design-verification"/project)
+            exploration=self.explore_and_generate(project,target_url,screenshot_dir=shots,max_pages=25,max_depth=3)
+            browser=self.browser_audit(target_url,screenshot_dir=shots)
+            accessibility=self.accessibility_verify(target_url)
+            chaos=self.browser_chaos_verify(target_url)
+            visual=self.compare_visual_baselines(
+                project,browser,approve_missing=approve_selected_baseline,threshold=0.001,
+            )
+            passed=all((
+                bool(dev.get("verified")),bool(exploration.get("ok")),bool(browser.get("ok")),
+                bool(accessibility.get("passed")),bool(chaos.get("passed")),bool(visual.get("passed")),
+            ))
+            return {"passed":passed,"development":dev,"preview":preview,
+                    "exploration":exploration,"browser":browser,"accessibility":accessibility,
+                    "chaos":chaos,"visual":visual}
+        if frontend_url:
+            return run(frontend_url,{"available":True,"url":frontend_url,"source":"registered_candidate_url"})
+        with self.candidate_static.serve(candidate_root) as preview:
+            return run(preview.get("url"),preview)
 
     def visual_edit_intent(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self.visual_edit.normalize(payload)
