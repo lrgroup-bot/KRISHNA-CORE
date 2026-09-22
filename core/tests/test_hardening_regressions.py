@@ -15,6 +15,11 @@ from krishna_core.realtime_session import RealtimeSessionStore
 from krishna_core.model_gateway import ModelGatewayRegistry
 from krishna_core.remote_access import PrivateRemotePolicy
 from krishna_core.kabach import KabachAgent
+from krishna_core.brahmagyan import BrahmagyanRuntime
+from krishna_core.rishi_learning import RishiLearningLedger
+from krishna_core.rishi_council import RishiCouncil
+from krishna_core.science_atlas import ScienceAtlas
+from krishna_core.grand_challenges import GrandChallengeRegistry
 
 
 class _Browser:
@@ -95,6 +100,42 @@ class HardeningRegressionTests(unittest.TestCase):
             backup=Path(out["backup"]).resolve()
             backup.relative_to(backups.resolve())
             self.assertEqual((live/"a.txt").read_text(encoding="utf-8"),"new")
+
+    def test_research_state_corruption_never_gets_silently_overwritten(self):
+        class Memory:
+            def audit(self,*_args):pass
+            def remember(self,*_args):pass
+        class Gyan:
+            def propose(self,*_args,**_kwargs):return {"approval_id":"x"}
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            bgroot=root/"bg";bgroot.mkdir()
+            (bgroot/"state.json").write_text("{broken",encoding="utf-8")
+            bg=BrahmagyanRuntime(bgroot,Gyan(),Memory())
+            self.assertTrue(bg.load_error)
+            with self.assertRaises(RuntimeError):bg._save()
+            self.assertEqual((bgroot/"state.json").read_text(encoding="utf-8"),"{broken")
+
+            rroot=root/"rishi";rroot.mkdir()
+            (rroot/"rishi-learning.json").write_text("{broken",encoding="utf-8")
+            r=RishiLearningLedger(rroot,RishiCouncil(),Memory())
+            self.assertTrue(r.load_error)
+            with self.assertRaises(RuntimeError):r._save()
+            self.assertEqual((rroot/"rishi-learning.json").read_text(encoding="utf-8"),"{broken")
+
+            sroot=root/"science";sroot.mkdir()
+            (sroot/"science-atlas.json").write_text("{broken",encoding="utf-8")
+            s=ScienceAtlas(sroot,RishiCouncil(),Memory())
+            self.assertTrue(s.load_error)
+            with self.assertRaises(RuntimeError):s._save()
+            self.assertEqual((sroot/"science-atlas.json").read_text(encoding="utf-8"),"{broken")
+
+            groot=root/"grand";groot.mkdir()
+            (groot/"grand-challenges.json").write_text("{broken",encoding="utf-8")
+            g=GrandChallengeRegistry(groot,RishiCouncil())
+            self.assertTrue(g.load_error)
+            with self.assertRaises(RuntimeError):g._save()
+            self.assertEqual((groot/"grand-challenges.json").read_text(encoding="utf-8"),"{broken")
 
     def test_kabach_egress_resolves_dns_before_allowing(self):
         class Memory:
