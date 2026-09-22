@@ -55,7 +55,7 @@ class RouteStateGraph:
 
 
 class RegressionGenerator:
-    """Generate portable Playwright regression source from discovered route nodes."""
+    """Generate portable Playwright regressions for discovered routes and safe states."""
 
     @staticmethod
     def _route(url: str) -> str:
@@ -72,12 +72,30 @@ class RegressionGenerator:
                f"test.describe({json.dumps('KRISHNA generated regression: '+project)}, () => {{"]
         for i,route in enumerate(routes):
             lines += [f"  test('route {i+1}', async ({{ page }}) => {{",
-                      f"    const errors: string[] = [];",
+                      "    const errors: string[] = [];",
                       "    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });",
                       f"    await page.goto(new URL({json.dumps(route)}, baseURL).toString(), {{ waitUntil: 'domcontentloaded' }});",
                       "    await expect(page.locator('body')).toBeVisible();",
                       "    expect(errors).toEqual([]);",
                       "  });"]
+        safe_edges=[x for x in graph.get("edges") or [] if str(x.get("action") or "")=="click"]
+        for i,edge in enumerate(safe_edges):
+            source=self._route(edge.get("source"))
+            role=str(edge.get("role") or "")
+            name=str(edge.get("name") or edge.get("label") or "")
+            selector=str(edge.get("selector") or "")
+            if not role and not selector:continue
+            lines += [f"  test('state {i+1}', async ({{ page }}) => {{",
+                      "    const errors: string[] = [];",
+                      "    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });",
+                      f"    await page.goto(new URL({json.dumps(source)}, baseURL).toString(), {{ waitUntil: 'domcontentloaded' }});"]
+            if role and name:
+                lines.append(f"    await page.getByRole({json.dumps(role)}, {{ name: {json.dumps(name)}, exact: true }}).click();")
+            elif role:
+                lines.append(f"    await page.getByRole({json.dumps(role)}).click();")
+            else:
+                lines.append(f"    await page.locator({json.dumps(selector)}).click();")
+            lines += ["    await expect(page.locator('body')).toBeVisible();","    expect(errors).toEqual([]);","  });"]
         lines += ["});",""]
         return "\n".join(lines)
 
