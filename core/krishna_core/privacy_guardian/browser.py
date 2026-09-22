@@ -11,6 +11,14 @@ BROWSER_EXPOSURE_JS=r"""async () => {
   const safe = async (fn, fallback=null) => {
     try { return await fn(); } catch (_) { return fallback; }
   };
+  const bounded = async (fn, ms, fallback=null) => {
+    try {
+      return await Promise.race([
+        Promise.resolve().then(fn),
+        new Promise(resolve=>setTimeout(()=>resolve(fallback),ms))
+      ]);
+    } catch (_) { return fallback; }
+  };
   const canvas = await safe(() => {
     const c=document.createElement('canvas'); c.width=320; c.height=80;
     const x=c.getContext('2d'); x.textBaseline='top'; x.font='18px Arial';
@@ -33,7 +41,7 @@ BROWSER_EXPOSURE_JS=r"""async () => {
       maxRenderbufferSize: gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)
     };
   });
-  const audio = await safe(async () => {
+  const audio = await bounded(async () => {
     const C=window.OfflineAudioContext||window.webkitOfflineAudioContext;
     if (!C) return {available:false};
     const ctx=new C(1,44100,44100);
@@ -44,7 +52,7 @@ BROWSER_EXPOSURE_JS=r"""async () => {
     const data=rendered.getChannelData(0);
     let sum=0; for(let i=0;i<data.length;i+=64) sum+=Math.abs(data[i]);
     return {available:true,sample:sum.toFixed(8)};
-  });
+  },1800,{available:false,timedOut:true});
   const rect = await safe(() => {
     const d=document.createElement('div');
     d.style.cssText='position:absolute;left:-9999px;width:123.45px;height:67.89px;font:17px Arial';
@@ -59,7 +67,7 @@ BROWSER_EXPOSURE_JS=r"""async () => {
   });
   const permissions={};
   for (const name of ['camera','microphone','geolocation','notifications','clipboard-read','clipboard-write','midi','persistent-storage']) {
-    permissions[name]=await safe(async()=>navigator.permissions ? (await navigator.permissions.query({name})).state : 'unsupported','unsupported');
+    permissions[name]=await bounded(async()=>navigator.permissions ? (await navigator.permissions.query({name})).state : 'unsupported',700,'timeout');
   }
   const voices=await safe(()=>speechSynthesis.getVoices().map(v=>({lang:v.lang,local:v.localService,name:v.name})).slice(0,100),[]);
   const storage={
