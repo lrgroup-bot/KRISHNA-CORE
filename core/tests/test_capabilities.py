@@ -316,6 +316,31 @@ class KrishnaCapabilityTests(unittest.TestCase):
         self.assertIn("data only", assessment.instruction_policy)
 
 
+    def test_project_sidebar_rename_preserves_identity_and_delete_returns_chats_to_global(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)/"kuber";root.mkdir()
+            orch=Orchestrator(db_path=str(Path(td)/"sidebar.db"))
+            try:
+                orch.register_project("KUBER",str(root),privacy="local_only")
+                chat=orch.create_chat("KUBER","Market Research")
+                renamed=orch.dispatch_action(
+                    "project.rename",{"name":"KUBER","display_name":"KUBER AI"},
+                    project="KUBER",source="pc",actor="test",
+                )["result"]
+                self.assertEqual("KUBER",renamed["name"])
+                self.assertEqual("KUBER AI",renamed["metadata"]["display_name"])
+                self.assertEqual(str(root.resolve()),orch.projects.get("KUBER").root)
+                removed=orch.dispatch_action(
+                    "project.unregister",{"name":"KUBER"},
+                    project="KUBER",source="pc",actor="test",
+                )["result"]
+                self.assertTrue(removed["removed"])
+                self.assertEqual(1,removed["moved_chats_to_global"])
+                self.assertEqual("KRISHNA",orch.memory.chat(chat["chat_id"])["project"])
+                self.assertIsNone(orch.projects.get("KUBER"))
+            finally:
+                orch.close()
+
     def test_managed_read_only_investigation_completes_without_approval(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / "project"
