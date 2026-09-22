@@ -32,6 +32,32 @@ class VideoAvatarFabricTests(unittest.TestCase):
             entry.write_text("# test",encoding="utf-8")
             self.assertTrue(fabric.installed("musetalk"))
 
+    def test_runtime_status_requires_source_environment_and_weights(self):
+        with tempfile.TemporaryDirectory() as td:
+            fabric=VideoAvatarFabric(Path(td))
+            source=fabric.provider_root("musetalk")
+            entry=source/"scripts"/"realtime_inference.py"
+            entry.parent.mkdir(parents=True)
+            entry.write_text("# test",encoding="utf-8")
+            env_python=fabric.environment_root("musetalk")/"Scripts"/"python.exe"
+            env_python.parent.mkdir(parents=True)
+            env_python.write_bytes(b"")
+            for rel in (
+                "models/musetalkV15/unet.pth",
+                "models/musetalkV15/musetalk.json",
+                "models/sd-vae/diffusion_pytorch_model.bin",
+                "models/whisper/pytorch_model.bin",
+                "models/dwpose/dw-ll_ucoco_384.pth",
+            ):
+                p=source/rel
+                p.parent.mkdir(parents=True,exist_ok=True)
+                p.write_bytes(b"x")
+            runtime=fabric.runtime_status("musetalk")
+            self.assertTrue(runtime["source_installed"])
+            self.assertTrue(runtime["environment_ready"])
+            self.assertTrue(runtime["weights_ready"])
+            self.assertTrue(runtime["runtime_ready"])
+
     def test_higgsfield_style_goal_never_routes_to_higgsfield_by_default(self):
         with tempfile.TemporaryDirectory() as td:
             fabric=VideoAvatarFabric(Path(td))

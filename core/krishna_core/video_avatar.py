@@ -119,6 +119,38 @@ class VideoAvatarFabric:
     def provider_root(self, provider_id: str) -> Path:
         return self.root/provider_id
 
+    def environment_root(self, provider_id: str) -> Path:
+        return self.root/"envs"/provider_id
+
+    def runtime_status(self, provider_id: str) -> dict:
+        key=str(provider_id or "").strip().lower()
+        row=self.provider(key)
+        source=self.installed(key) if row.free_local else False
+        if not row.free_local:
+            return {"source_installed":False,"environment_ready":False,"weights_ready":False,"runtime_ready":False}
+        env_python=self.environment_root(key)/"Scripts"/"python.exe"
+        if key=="musetalk":
+            required=(
+                self.provider_root(key)/"models"/"musetalkV15"/"unet.pth",
+                self.provider_root(key)/"models"/"musetalkV15"/"musetalk.json",
+                self.provider_root(key)/"models"/"sd-vae"/"diffusion_pytorch_model.bin",
+                self.provider_root(key)/"models"/"whisper"/"pytorch_model.bin",
+                self.provider_root(key)/"models"/"dwpose"/"dw-ll_ucoco_384.pth",
+            )
+        elif key=="liveportrait":
+            required=(self.provider_root(key)/"pretrained_weights",)
+        else:
+            required=()
+        weights=bool(required) and all(x.exists() for x in required)
+        env_ready=env_python.is_file()
+        return {
+            "source_installed":source,
+            "environment_ready":env_ready,
+            "environment_python":str(env_python),
+            "weights_ready":weights,
+            "runtime_ready":bool(source and env_ready and weights),
+        }
+
     def installed(self, provider_id: str) -> bool:
         row=self.provider(provider_id)
         if not row.free_local:
@@ -132,6 +164,7 @@ class VideoAvatarFabric:
             row=provider.public()
             row["installed"]=self.installed(provider.provider_id) if provider.free_local else False
             row["install_root"]=str(self.provider_root(provider.provider_id)) if provider.free_local else None
+            row["runtime"]=self.runtime_status(provider.provider_id)
             rows.append(row)
         return {
             "version":self.VERSION,
