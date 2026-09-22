@@ -293,7 +293,20 @@ class BrowserOperator:
                         control=controls.nth(i)
                         try:
                             label=(control.inner_text() or control.get_attribute("aria-label") or control.get_attribute("value") or "").strip()[:160]
-                            row={"index":i,"label":label,"disabled":control.is_disabled(),"visible":control.is_visible()}
+                            explicit_role=(control.get_attribute("role") or "").strip().lower()
+                            role=explicit_role or "button"
+                            selector=control.evaluate("""(el)=>{
+                              if(el.id)return '#'+CSS.escape(el.id);
+                              const testid=el.getAttribute('data-testid');
+                              if(testid)return '[data-testid="'+CSS.escape(testid)+'"]';
+                              const aria=el.getAttribute('aria-label');
+                              if(aria)return '[aria-label="'+CSS.escape(aria)+'"]';
+                              const name=el.getAttribute('name');
+                              if(name)return el.tagName.toLowerCase()+'[name="'+CSS.escape(name)+'"]';
+                              return '';
+                            }""")
+                            row={"index":i,"label":label,"role":role,"selector":selector,
+                                 "disabled":control.is_disabled(),"visible":control.is_visible()}
                             state_rows.append(row)
                             if not row["visible"] or row["disabled"]: continue
                             low=label.lower()
@@ -320,7 +333,8 @@ class BrowserOperator:
                                   return t+'::'+c;
                                 }""")
                                 state_id=sha256((after+"|"+sig).encode()).hexdigest()[:20]
-                                edges.append({"source":current,"target":after,"action":"click","label":label,"state_id":state_id})
+                                edges.append({"source":current,"target":after,"action":"click","label":label,
+                                              "role":role,"name":label,"selector":selector,"state_id":state_id})
                                 if after!=current and self._same_origin(url,after) and after not in visited and depth<max_depth:
                                     queue.append((after,depth+1))
                                 if page.url!=before:
@@ -541,13 +555,20 @@ class BrowserOperator:
 
             for action in actions:
                 kind = str(action.get("type", "")).lower()
-                selector = str(action.get("selector", ""))
+                selector = str(action.get("selector", "") or "")
+                role = str(action.get("role", "") or "").strip()
+                name = str(action.get("name", "") or "").strip()
+                locator = (
+                    page.get_by_role(role, name=name, exact=True) if role and name
+                    else page.get_by_role(role) if role
+                    else page.locator(selector)
+                )
                 if kind == "click":
-                    page.locator(selector).click()
+                    locator.click()
                 elif kind == "fill":
-                    page.locator(selector).fill(str(action.get("value", "")))
+                    locator.fill(str(action.get("value", "")))
                 elif kind == "press":
-                    page.locator(selector).press(str(action.get("key", "Enter")))
+                    locator.press(str(action.get("key", "Enter")))
                 elif kind == "wait":
                     page.wait_for_timeout(int(action.get("ms", 500)))
                 elif kind:
