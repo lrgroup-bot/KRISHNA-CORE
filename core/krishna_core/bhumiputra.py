@@ -271,12 +271,20 @@ class BhumiputraAgent:
         """
         if not raw:
             raise ValueError("mobile evidence is empty")
-        if len(raw) > 2 * 1024 * 1024:
-            raise ValueError("curated mobile evidence exceeds 2 MB")
-        kind = str(content_type or "image/jpeg").split(";", 1)[0].strip().lower()
-        suffix = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}.get(kind)
-        if not suffix:
+        kind = str(content_type or "application/octet-stream").split(";", 1)[0].strip().lower()
+        limits = {"image": 2 * 1024 * 1024, "audio": 1024 * 1024, "video": 4 * 1024 * 1024}
+        modality = kind.split("/", 1)[0] if "/" in kind else "unknown"
+        if modality not in limits:
             raise ValueError("unsupported mobile evidence content type")
+        if len(raw) > limits[modality]:
+            raise ValueError(f"curated {modality} evidence exceeds bounded size")
+        suffix = {
+            "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
+            "audio/webm": ".audio.webm", "audio/mp4": ".audio.mp4", "audio/ogg": ".audio.ogg",
+            "video/webm": ".video.webm", "video/mp4": ".video.mp4",
+        }.get(kind)
+        if not suffix:
+            raise ValueError("unsupported mobile evidence media type")
         safe_session = "".join(ch for ch in str(session_id or "") if ch.isalnum() or ch in "-_")
         if not safe_session:
             raise ValueError("invalid session_id")
@@ -293,6 +301,7 @@ class BhumiputraAgent:
             "sha256": digest,
             "bytes": len(raw),
             "content_type": kind,
+            "modality": modality,
             "source": "hawkeye-mobile-curator",
             "sensor_context": dict(sensor_context or {}),
             "received_at": time.time(),
@@ -306,6 +315,7 @@ class BhumiputraAgent:
             "sha256": digest,
             "bytes": len(raw),
             "content_type": kind,
+            "modality": modality,
             "retained_pc": True,
             "deduplicated": deduplicated,
             "storage_policy": {"max_items": 64, "max_bytes": 192 * 1024 * 1024},
@@ -317,7 +327,7 @@ class BhumiputraAgent:
         def pair_bytes(meta_path):
             total = meta_path.stat().st_size if meta_path.exists() else 0
             stem = meta_path.stem
-            for ext in (".jpg", ".png", ".webp"):
+            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4"):
                 image = self.evidence_dir / f"{stem}{ext}"
                 if image.exists():
                     total += image.stat().st_size
@@ -328,7 +338,7 @@ class BhumiputraAgent:
             old = rows.pop(0)
             removed = pair_bytes(old)
             stem = old.stem
-            for ext in (".jpg", ".png", ".webp"):
+            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4"):
                 image = self.evidence_dir / f"{stem}{ext}"
                 if image.exists():
                     image.unlink()
@@ -343,7 +353,7 @@ class BhumiputraAgent:
         total = 0
         for meta in rows:
             total += meta.stat().st_size
-            for ext in (".jpg", ".png", ".webp"):
+            for ext in (".jpg", ".png", ".webp", ".audio.webm", ".audio.mp4", ".audio.ogg", ".video.webm", ".video.mp4"):
                 image = self.evidence_dir / f"{meta.stem}{ext}"
                 if image.exists():
                     total += image.stat().st_size
