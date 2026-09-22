@@ -30,6 +30,7 @@ from .lan_discovery import LanDiscoveryService
 from .avatar_asset_pipeline import AvatarAssetInspector
 from .video_avatar import VideoAvatarFabric
 from .science_atlas import ScienceFrontierScheduler
+from .windows_desktop_fabric import WindowsDesktopFabric
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -80,6 +81,29 @@ orch.action_bus.register(
     "plugin.execute",_plugin_execute_action,description="Execute a bounded HTTP plugin request",
     mutating=True,permissions=("plugin.execute","network.external"),
     sources=("pc","system","agent","job","mcp","a2a"),
+)
+
+def _desktop_validate_action(payload,context):
+    return _desktop_fabric.validate(
+        str(payload.get("workflow") or ""),payload.get("variables"),payload.get("task"),
+    )
+
+def _desktop_run_action(payload,context):
+    return _desktop_fabric.run(
+        str(payload.get("workflow") or ""),payload.get("variables"),payload.get("task"),
+        approved=bool(context.get("approved",False)),
+    )
+
+orch.action_bus.register(
+    "desktop.rpa.validate",_desktop_validate_action,
+    description="Validate a bounded Windows desktop RPA workflow",
+    permissions=("desktop.read","tests.run"),sources=("pc","system","agent","job"),
+)
+orch.action_bus.register(
+    "desktop.rpa.run",_desktop_run_action,
+    description="Run an approved validated Windows desktop RPA workflow",
+    mutating=True,requires_approval=True,permissions=("desktop.control",),
+    sources=("pc","system","agent","job"),
 )
 
 _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -332,6 +356,7 @@ def avatar_360_bytes():
 
 _avatar_inspector = AvatarAssetInspector(RUNTIME_ROOT / "state" / "avatar" / "asset-audit.json")
 _video_avatar = VideoAvatarFabric(RUNTIME_ROOT)
+_desktop_fabric = WindowsDesktopFabric(RUNTIME_ROOT)
 
 def avatar_asset_status():
     source=_avatar_inspector.inspect(AVATAR_GLB)
@@ -928,6 +953,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,remote)
         if path == "/api/resilience/status":
             return self._json(200,{"worker_supervisor":_worker_resilience.status(),"model_memory":_model_memory.status()})
+        if path == "/api/desktop/status":
+            probe=str((query.get("probe") or ["0"])[0]).lower() in {"1","true","yes"}
+            if probe and self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"desktop provider probing is local-PC only"})
+            return self._json(200,_desktop_fabric.status(probe=probe))
         if path in ("/api/wearables","/api/wearables/status"):
             return self._json(200,_wearables.status())
         if path == "/api/mobile/resume":
@@ -986,6 +1016,7 @@ class Handler(BaseHTTPRequestHandler):
                     "watcher_transitions",
                     "neural_action_graph",
                     "pc_resource_observer",
+                    "windows_desktop_fabric_capability_gated",
                     "registered_project_change_observer",
                     "mobile_event_bridge",
                     "mobile_zero_code_client_hash_pairing",
@@ -1164,6 +1195,32 @@ class Handler(BaseHTTPRequestHandler):
             data = self._body()
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
+
+        if post_path == "/api/desktop/rpa/validate":
+            try:
+                receipt=orch.dispatch_action(
+                    "desktop.rpa.validate",
+                    {"workflow":data.get("workflow"),"variables":data.get("variables"),"task":data.get("task")},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="desktop-fabric",
+                    permissions=("desktop.read","tests.run"),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,FileNotFoundError,PermissionError) as exc:
+                return self._json(403 if isinstance(exc,PermissionError) else 400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/desktop/rpa/run":
+            try:
+                receipt=orch.dispatch_action(
+                    "desktop.rpa.run",
+                    {"workflow":data.get("workflow"),"variables":data.get("variables"),"task":data.get("task")},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="desktop-fabric",
+                    approved=bool(data.get("approved",False)),permissions=("desktop.control",),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/ui-guardian/register":
             item=_ui_registry.register(
