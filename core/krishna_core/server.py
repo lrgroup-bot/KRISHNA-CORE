@@ -2536,6 +2536,9 @@ class Handler(BaseHTTPRequestHandler):
                     importance=0.9 if diagnostic else 0.6,
                     evidence_status=str(result.get("evidence_state") or "candidate").lower(),
                 )
+                result=orch.hawkeye.enrich_result(
+                    session_id,result,sensor_context=sensor_context,goal=goal,modality=modality
+                )
                 return self._json(200,result)
             except ValueError as exc:return self._json(400,{"error":str(exc)})
             except RuntimeError as exc:return self._json(503,{"error":str(exc)})
@@ -2572,6 +2575,9 @@ class Handler(BaseHTTPRequestHandler):
                     result["session_id"]=session_id
                     result["frame_count"]=field["frame_count"]
                     if pc_evidence is not None:result["pc_evidence"]=pc_evidence
+                    result=orch.hawkeye.enrich_result(
+                        session_id,result,sensor_context=sensor_context,goal=goal,modality="image"
+                    )
                     return self._json(200,result)
                 prompt=orch.hawkeye.live_prompt(
                     scene_hint=session.get("scene_hint") or "auto",user_goal=goal,sensor_context=sensor_context
@@ -2588,6 +2594,9 @@ class Handler(BaseHTTPRequestHandler):
                     "model":vision.get("model"),"local":bool(vision.get("local",True)),
                 }
                 if pc_evidence is not None:out["pc_evidence"]=pc_evidence
+                out=orch.hawkeye.enrich_result(
+                    session_id,out,sensor_context=sensor_context,goal=goal,modality="image"
+                )
                 return self._json(200,out)
             except ValueError as exc:return self._json(400,{"error":str(exc)})
             except RuntimeError as exc:return self._json(503,{"error":str(exc)})
