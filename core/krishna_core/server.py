@@ -37,6 +37,22 @@ _sessions = RealtimeSessionStore(Path(settings.db_path).resolve().parent / ".kri
 _plugins = PluginRegistry(Path(settings.db_path).resolve().parent / ".krishna_state")
 _plugin_executor = PluginExecutor(_plugins, orch.secure_vault)
 _attachments = AttachmentStore(Path(settings.db_path).resolve().parent / ".krishna_state")
+
+def _cleanup_deleted_chat_attachments(event):
+    payload=dict(event.get("payload") or {})
+    if str(payload.get("action") or "")!="chat.delete" or str(payload.get("status") or "")!="completed":
+        return None
+    chat_id=str((payload.get("payload") or {}).get("chat_id") or "").strip()
+    if not chat_id:return None
+    try:
+        result=_attachments.delete_chat(chat_id)
+        orch.memory.audit("attachment_cleanup","completed",f"{chat_id}:{result.get('files',0)} files")
+        return result
+    except Exception as exc:
+        orch.memory.audit("attachment_cleanup","failed",f"{chat_id}:{type(exc).__name__}: {exc}")
+        return {"error":f"{type(exc).__name__}: {exc}"}
+
+orch.lifecycle_bus.subscribe("action.completed",_cleanup_deleted_chat_attachments)
 _vision = VisionAdapter()
 _voice = KrishnaVoiceStack(lambda event: orch.handle_event("wakeword","krishna_detected","Local wake word Krishna detected",severity="notice",project="system",payload=event))
 _remote_policy = PrivateRemotePolicy()
