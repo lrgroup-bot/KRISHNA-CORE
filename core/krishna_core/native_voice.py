@@ -55,16 +55,26 @@ class IndicTTS:
     """
     def __init__(self,command=None):
         self.command=CommandTemplate(command or os.getenv("KRISHNA_INDIC_TTS_CMD"))
-    LANGUAGES={"or":"odia","hi":"hindi"}
+    KNOWN_LANGUAGES={"or":"odia","hi":"hindi","en":"english"}
+    def configured_languages(self):
+        raw=os.getenv("KRISHNA_INDIC_TTS_LANGUAGES","hi,or")
+        langs=[]
+        for value in raw.split(","):
+            lang=value.strip().lower()
+            if lang in self.KNOWN_LANGUAGES and lang not in langs:langs.append(lang)
+        return langs or ["hi","or"]
     def status(self):
-        return {"provider":"ai4bharat-indic-tts","language":"odia","languages":list(self.LANGUAGES),
-                "local":True,"available":self.command.available(),"config":"KRISHNA_INDIC_TTS_CMD",
-                "note":"AI4Bharat Indic-TTS is used for Hindi/Odia. English output falls back to the browser/OS voice unless another local provider is configured."}
+        languages=self.configured_languages()
+        return {"provider":"ai4bharat-indic-tts","language":"odia","languages":languages,
+                "known_languages":list(self.KNOWN_LANGUAGES),"local":True,"available":self.command.available(),
+                "config":"KRISHNA_INDIC_TTS_CMD","language_config":"KRISHNA_INDIC_TTS_LANGUAGES",
+                "note":"Hindi/Odia are the KRISHNA defaults. The official Indic-TTS release also publishes English checkpoints; KRISHNA advertises English only when the configured local worker declares en."}
     def speak(self,text,output_path=None,language="or"):
         text=str(text or "").strip()
         if not text:raise ValueError("text is required")
         lang=str(language or "or").strip().lower()
-        if lang not in self.LANGUAGES:raise ValueError("AI4Bharat Indic-TTS language must be one of: hi, or")
+        configured=self.configured_languages()
+        if lang not in configured:raise ValueError("local Indic-TTS language is not configured: "+lang)
         output=Path(output_path or ("krishna-"+lang+".wav")).resolve()
         self.command.run({"text":text,"output":str(output),"language":lang})
         if not output.is_file():raise RuntimeError("local TTS command did not create output audio")
