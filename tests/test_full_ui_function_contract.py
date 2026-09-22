@@ -77,6 +77,28 @@ class FullUIFunctionContractTests(unittest.TestCase):
                  if f'"{action}"' not in registration_surface and f"'{action}'" not in registration_surface]
         self.assertEqual(missing,[],missing)
 
+    def test_owner_mutations_use_shared_action_receipts(self):
+        required=(
+            "plugin.add","plugin.enable","plugin.credential.set","project.index",
+            "ui.guardian.register","ui.guardian.evaluate","ui.guardian.transition",
+            "commitment.update","autonomy.tick","mobile.pair.approve",
+            "model.gateway.register","model.gateway.delete",
+            "narad.connection.register","narad.connection.secret","narad.connection.delete",
+            "narad.webhook.provision","gyan.strengthen","gyan.propose","gyan.supersede",
+            "gyan.decide","attachment.add","development.sync","promotion.apply",
+        )
+        for action in required:
+            self.assertIn("actionReq('"+action+"'",self.html,action)
+            self.assertIn('"'+action+'"',self.server+"\n"+self.orchestrator,action)
+        for legacy_direct in (
+            "req('/api/plugins/credential'","req('/api/projects/index'",
+            "req('/api/ui-guardian/register'","req('/api/commitments/update'",
+            "req('/api/mobile/pair/approve'","req('/api/models/gateways/register'",
+            "req('/api/narad/connections/register'","req('/api/gyan-bhandar/propose'",
+            "req('/api/work/promotion/apply'",
+        ):
+            self.assertNotIn(legacy_direct,self.html,legacy_direct)
+
     def test_current_owner_surface_and_language_controls(self):
         for token in (
             'data-krishna-ui="2026.09-current"',
