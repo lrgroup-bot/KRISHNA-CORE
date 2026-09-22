@@ -81,6 +81,44 @@ class BrowserOperator:
         failed=[x for x in evidence if not x.get("ok") and not x.get("skipped")]
         return {"url":url,"controls_checked":len(evidence),"evidence":evidence,"findings":findings,"screenshot":str(shot) if shot else None,"ok":not failed and not findings,"elapsed_ms":int((time.perf_counter()-started)*1000)}
 
+    def privacy_probe(self, url: str="about:blank", profile: str="BASELINE") -> dict:
+        """Run a local, ephemeral browser privacy probe without activating sensors.
+
+        The browser context is always temporary; no persistent profile is used by
+        this method. Raw WebRTC candidate strings and cookie values are not retained.
+        """
+        from .privacy_guardian.browser import BROWSER_EXPOSURE_JS, WEBRTC_JS, summarize_browser_observation
+        target=str(url or "about:blank").strip() or "about:blank"
+        if target!="about:blank" and not target.startswith(("http://","https://")):
+            raise ValueError("privacy probe URL must be about:blank, http:// or https://")
+        try:
+            from playwright.sync_api import sync_playwright
+        except Exception as exc:
+            raise RuntimeError("Chromium operator unavailable for privacy probe") from exc
+
+        started=time.perf_counter(); request_urls=[]
+        with sync_playwright() as p:
+            try: browser=p.chromium.launch(channel="chrome",headless=self.headless)
+            except Exception: browser=p.chromium.launch(headless=self.headless)
+            context=browser.new_context()
+            page=context.new_page();page.set_default_timeout(self.timeout_ms)
+            page.on("request",lambda req: request_urls.append(req.url) if len(request_urls)<500 else None)
+            if target!="about:blank":
+                page.goto(target,wait_until="domcontentloaded")
+                page.wait_for_timeout(250)
+            observation=page.evaluate(BROWSER_EXPOSURE_JS)
+            webrtc=page.evaluate(WEBRTC_JS)
+            result=summarize_browser_observation(
+                observation,profile=str(profile or "BASELINE"),url=target,
+                webrtc=webrtc,request_urls=request_urls,
+            )
+            result["elapsed_ms"]=int((time.perf_counter()-started)*1000)
+            result["temporary_profile"]=True
+            result["request_count"]=len(request_urls)
+            result["context_cookie_count"]=len(context.cookies())
+            context.close();browser.close()
+            return result
+
     def inspect(self, url: str, actions: list[dict] | None = None,
                 screenshot_path: str | None = None, viewport: dict | None = None) -> dict:
         if not url.startswith(("http://", "https://")):
