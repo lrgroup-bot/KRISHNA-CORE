@@ -88,6 +88,18 @@ class BhumiputraAgentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.agent.store_mobile_evidence(session["session_id"],b"x"*(1024*1024+1),"audio/webm",{})
 
+    def test_pc_evidence_can_be_encrypted_fail_closed(self):
+        class FakeCipher:
+            available=True
+            def encrypt(self,data,aad=b""):
+                return {"schema":1,"alg":"AES-256-GCM","ciphertext_b64":"TEST","aad":aad.decode("utf-8")}
+        self.agent.bind_evidence_cipher(FakeCipher(),require_encryption=True)
+        session=self.agent.start_live_session(project="KRISHNA",purpose="diagnose PCB")
+        out=self.agent.store_mobile_evidence(session["session_id"],b"secret-image","image/jpeg",{"curator_selected":True})
+        self.assertTrue(out["encrypted_at_rest"])
+        self.assertTrue(any(self.agent.evidence_dir.glob("*.payload.enc")))
+        self.assertFalse(any(self.agent.evidence_dir.glob("*.jpg")))
+
     def test_degenerate_boundary_rejected(self):
         with self.assertRaises(ValueError):
             self.agent.boundary_metrics([
