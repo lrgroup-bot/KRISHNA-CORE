@@ -210,6 +210,19 @@ jobs:
           print("KABACH_MOBILE_PRIVACY_GATE_OK")
           PY
 
+      - name: Enable KVM for Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -e /dev/kvm ]]; then
+            echo "/dev/kvm is unavailable on this runner" >&2
+            exit 1
+          fi
+          ls -l /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          ls -l /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
       - name: Clean APK emulator install-launch-restart retest
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -217,7 +230,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: PYTHONPATH=core python -c 'import json,sys; from pathlib import Path; from krishna_core.project_perfection_execution import ArtifactExecutor; result=ArtifactExecutor().apk("app/build/outputs/apk/debug/app-debug.apk","com.krishna.mobile"); Path("project-perfection-apk-retest.json").write_text(json.dumps(result,indent=2),encoding="utf-8"); print(json.dumps(result,indent=2)); sys.exit(0 if result.get("passed") else "KRISHNA APK emulator retest failed")'
+          script: PYTHONPATH=core python scripts/VERIFY_KRISHNA_APK.py app/build/outputs/apk/debug/app-debug.apk com.krishna.mobile
 
       - uses: actions/upload-artifact@v4
         with:

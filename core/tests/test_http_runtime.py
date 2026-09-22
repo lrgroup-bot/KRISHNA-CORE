@@ -139,11 +139,16 @@ class HTTPRuntimeTests(unittest.TestCase):
         execution=status["execution"]
         for key in ("recursive_crawl","accessibility_scan","browser_chaos","regression_persistence",
                     "mutation_runner","visual_baselines","design_studio","point_to_source_mapping",
-                    "candidate_visual_edit","hawkeye_ui_review","finish_project_pipeline"):
+                    "candidate_visual_edit","hawkeye_ui_review","database_chaos","finish_project_pipeline"):
             self.assertTrue(execution[key],key)
         code,body=self.call("/design-studio")
         self.assertEqual(code,200)
         self.assertIn(b"KRISHNA DESIGN STUDIO",body)
+        code,editor=self.call("/visual-editor?project=KRISHNA&session=test")
+        self.assertEqual(code,200)
+        self.assertIn(b"KRISHNA VISUAL EDITOR",editor)
+        self.assertIn(b"/api/project-perfection/visual-edit/stage",editor)
+        self.assertIn(b"/api/project-perfection/visual-edit/apply",editor)
 
     def test_ui_guardian_registry_lifecycle(self):
         code,item=self.call("/api/ui-guardian/register",{"name":"HTTP UI","project":"KRISHNA","url":"http://127.0.0.1:8766","state":"candidate"})

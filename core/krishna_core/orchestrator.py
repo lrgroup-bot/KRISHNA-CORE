@@ -383,6 +383,7 @@ class Orchestrator:
                     performance_required=bool(payload.get("performance_required",True)),
                     performance_limits=dict(payload.get("performance_limits") or {}),
                     hawkeye_required=bool(payload.get("hawkeye_ui_required",True)),
+                    database_path=payload.get("database_path"),
                 )
                 result["security_report"]=security
                 return result
