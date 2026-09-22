@@ -170,3 +170,15 @@ class GarudanetraBrowserFabric:
 
     def exhaustive_clickthrough(self,*args,**kwargs):
         return self.inspector.exhaustive_clickthrough(*args,**kwargs)
+
+    def perfection_scan(self,*args,**kwargs):
+        return self.inspector.perfection_scan(*args,**kwargs)
+
+    def crawl_application(self,*args,**kwargs):
+        return self.inspector.crawl_application(*args,**kwargs)
+
+    def accessibility_scan(self,*args,**kwargs):
+        return self.inspector.accessibility_scan(*args,**kwargs)
+
+    def chaos_scan(self,*args,**kwargs):
+        return self.inspector.chaos_scan(*args,**kwargs)
