@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from krishna_core.project_perfection_execution import (
-    BrowserRegressionRunner, DesignStudio, MutationRunner, RegressionManifest,
+    BrowserRegressionRunner, DatabaseChaosRunner, DesignStudio, MutationRunner, RegressionManifest,
     RegressionPersister, VisualBaselineStore,
 )
 
@@ -67,6 +67,21 @@ class ExecutionTests(unittest.TestCase):
             self.assertTrue(first["passed"])
             self.assertTrue(second["passed"])
             self.assertEqual(second["mode"],"byte_identical")
+
+    def test_database_chaos_uses_isolated_copy_and_recovers(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as td:
+            db=Path(td)/"demo.db"
+            conn=sqlite3.connect(db);conn.execute("CREATE TABLE demo(id INTEGER)");conn.commit();conn.close()
+            out=DatabaseChaosRunner().run(db)
+            self.assertTrue(out["executed"])
+            self.assertTrue(out["injection_observed"])
+            self.assertTrue(out["recovery_observed"])
+            self.assertTrue(out["passed"])
+            conn=sqlite3.connect(db)
+            tables={x[0] for x in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            conn.close()
+            self.assertNotIn("krishna_chaos_probe",tables)
 
     def test_design_studio_requires_rendered_preview_and_submit(self):
         with tempfile.TemporaryDirectory() as td:
