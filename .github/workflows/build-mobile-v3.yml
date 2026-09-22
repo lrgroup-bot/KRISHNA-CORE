@@ -9,6 +9,7 @@ on:
       - main
       - fix/krishna-ui-runtime-verification
       - fix/krishna-full-error-audit-v1
+      - feature/bhumiputra-geovision-agent
   pull_request:
     paths:
       - 'mobile_v3/**'
@@ -64,8 +65,8 @@ jobs:
               applicationId 'com.krishna.mobile'
               minSdk 26
               targetSdk 35
-              versionCode 35
-              versionName '3.5.0'
+              versionCode 36
+              versionName '3.6.0'
             }
           }
           EOF
@@ -97,6 +98,7 @@ jobs:
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET"/>
             <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+            <uses-permission android:name="android.permission.CAMERA"/>
             <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
             <application
               android:theme="@style/AppTheme"
@@ -140,6 +142,13 @@ jobs:
           grep -q "showAvatarView" app/src/main/assets/index.html
           grep -q "Conversation only" app/src/main/assets/index.html
           grep -q "verifyVoice" app/src/main/assets/index.html
+          grep -q "startFieldScan" app/src/main/assets/index.html
+          grep -q "bhumiputraFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "hawkeyeOfflineFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "configureCloudUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "secureCloudUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "HAWKEYE · FIELD OFFLINE" app/src/main/assets/index.html
+          grep -q 'android.permission.CAMERA' app/src/main/AndroidManifest.xml
           grep -q "ensureChat" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "task.completed" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "device_credential" app/src/main/java/com/krishna/mobile/MainActivity.java
@@ -184,7 +193,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: KRISHNA-v3.5-Conversation-Mobile-APK
+          name: KRISHNA-v3.6-Hawkeye-Mobile-APK
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             privacy-apk-report.json

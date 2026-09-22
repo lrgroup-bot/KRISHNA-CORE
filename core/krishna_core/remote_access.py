@@ -16,6 +16,9 @@ class PrivateRemotePolicy:
         "/api/chats/create",
         "/api/chat/history",
         "/api/attachments",
+        "/api/bhumiputra/live/start",
+        "/api/bhumiputra/live/frame",
+        "/api/bhumiputra/live/state",
         "/api/mobile-log",
     })
     """Network boundary for KRISHNA Mobile/remote clients.

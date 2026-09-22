@@ -14,6 +14,7 @@ DEFAULT_SPECIALISTS=(
     Specialist("ui-guardian","objective UI/runtime defect detection",("browser.read","browser.test","evidence.write")),
     Specialist("automation-engineer","Narad workflow construction and sandbox validation",("narad.write","narad.test")),
     Specialist("media-worker","delegates media jobs to approved provider adapters",("media.create","files.write")),
+    Specialist("bhumiputra","isolated field geospatial/geological engineering",("geo.read","survey.write","evidence.write","worker.execute")),
 )
 class SpecialistRegistry:
     def __init__(self,specialists=DEFAULT_SPECIALISTS): self._items={s.name:s for s in specialists}
