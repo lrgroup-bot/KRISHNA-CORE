@@ -50,6 +50,13 @@ from .agi_kernel import AGIKernel
 from .requirements_ledger import RequirementsLedger
 from .rishi_live_research import RishiLiveResearchExecutor
 from .science_atlas import ScienceAtlas
+from .durable_event_bus import DurableEventBus
+from .mission_engine import MissionEngine
+from .durable_queue import DurableQueue
+from .resource_locks import ResourceLockManager
+from .mission_budget import MissionBudgetManager
+from .provider_contract import UnifiedProviderRegistry
+from .krishna_protocol import KrishnaProtocol
 
 
 class Orchestrator:
@@ -104,12 +111,22 @@ class Orchestrator:
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
         self.permissions = PermissionRuntime()
+        self.lifecycle_bus = DurableEventBus(self.db_path,compatibility_bus=self.agi.bus)
+        self.missions = MissionEngine(self.db_path,event_bus=self.lifecycle_bus)
+        self.queue = DurableQueue(self.db_path,event_bus=self.lifecycle_bus)
+        self.resource_locks = ResourceLockManager(self.db_path,event_bus=self.lifecycle_bus)
+        self.mission_budgets = MissionBudgetManager(self.db_path)
+        self.model_providers = UnifiedProviderRegistry(self.router)
+        self.protocol = KrishnaProtocol
         self.action_bus = SharedActionBus(
-            self.agi.bus,self.agi.policy,audit=self.memory.audit,
+            self.lifecycle_bus,self.agi.policy,audit=self.memory.audit,
             permission_resolver=self.permissions.authorize,
         )
         self.agent_runtime = AgentRuntime(self.action_bus)
-        self.jobs = JobRuntime(self.task_ledger,self.action_bus)
+        self.jobs = JobRuntime(
+            self.task_ledger,self.action_bus,self.missions,self.queue,
+            self.mission_budgets,self.lifecycle_bus,
+        )
         self.protocols = AgentProtocolGateway(self.action_bus,self.agent_runtime)
         self.dispatcher = DispatchRuntime(self.action_bus,self.agent_runtime,self.jobs)
         self.sudarshan = SudarshanControlPlane(
@@ -120,7 +137,7 @@ class Orchestrator:
         self.protocols.bind_sudarshan(self.sudarshan)
         self.dispatcher.bind_sudarshan(self.sudarshan)
         self.agi.narad.bind_sudarshan(self.sudarshan)
-        self.kabach.bind_privacy_runtime(browser=self.browser,event_bus=self.agi.bus,gyan_bhandar=self.gyan_bhandar)
+        self.kabach.bind_privacy_runtime(browser=self.browser,event_bus=self.lifecycle_bus,gyan_bhandar=self.gyan_bhandar)
         if hasattr(self.ephemeral_workers,"bind_sudarshan"):
             self.ephemeral_workers.bind_sudarshan(self.sudarshan)
         self.rishi_live = RishiLiveResearchExecutor(
@@ -148,6 +165,7 @@ class Orchestrator:
         self._register_shared_actions()
         self._register_agent_runtime()
         self._register_builtin_probes()
+        self.startup_recovery = self.jobs.recover_startup()
 
     def _shared_action_permission(self,spec,context):
         return self.permissions.authorize(spec,context)
@@ -678,6 +696,47 @@ class Orchestrator:
             handover=self.agi.brahmagyan.absorb_shishya(mission_id,batch)
             return {"plan":plan,"batch":batch,"handover":handover}
 
+        def mission_create(payload,context):
+            project=str(payload.get("project_id") or payload.get("project") or context.get("project") or "KRISHNA")
+            mission=self.missions.create(
+                str(payload.get("goal") or ""),project_id=project,
+                parent_mission_id=payload.get("parent_mission_id"),session_id=payload.get("session_id"),
+                priority=int(payload.get("priority") or 50),assigned_agents=payload.get("assigned_agents") or [],
+                required_tools=payload.get("required_tools") or [],
+                permission_profile=str(payload.get("permission_profile") or "default"),
+                resource_budget=payload.get("resource_budget") or {},metadata=payload.get("metadata") or {},
+            )
+            self.mission_budgets.configure(mission["mission_id"],mission.get("resource_budget") or {})
+            return mission
+
+        def mission_transition(payload,context):
+            return self.missions.transition(
+                str(payload.get("mission_id") or ""),str(payload.get("status") or ""),
+                current_step=payload.get("current_step"),progress=payload.get("progress"),
+                error=payload.get("error"),verification_status=payload.get("verification_status"),
+                rollback_point=payload.get("rollback_point"),metadata_patch=payload.get("metadata_patch") or {},
+            )
+
+        def mission_checkpoint(payload,context):
+            return self.missions.checkpoint(
+                str(payload.get("mission_id") or ""),str(payload.get("label") or "checkpoint"),
+                payload.get("state") or {},bool(payload.get("trusted",True)),
+            )
+
+        def resource_lock_acquire(payload,context):
+            return self.resource_locks.acquire(
+                str(payload.get("lock_type") or ""),str(payload.get("target") or ""),
+                mode=str(payload.get("mode") or "write"),owner_token=payload.get("owner_token"),
+                mission_id=payload.get("mission_id"),agent_id=str(context.get("actor") or ""),
+                ttl=payload.get("ttl"),metadata=payload.get("metadata") or {},
+            )
+
+        def resource_lock_release(payload,context):
+            ok=self.resource_locks.release(
+                str(payload.get("lock_id") or ""),str(payload.get("owner_token") or "")
+            )
+            return {"released":bool(ok),"lock_id":str(payload.get("lock_id") or "")}
+
         def kabach_privacy_audit(payload,context):
             target=self.kabach.privacy.classify_target(payload)
             profile=str(payload.get("profile") or "BASELINE")
@@ -718,6 +777,32 @@ class Orchestrator:
 
         def kabach_privacy_release_gate(payload,context):
             return self.kabach.privacy_release_gate(payload.get("report") or {},str(payload.get("policy") or "STANDARD"))
+
+        self.action_bus.register(
+            "mission.create",mission_create,description="Create a durable KRISHNA Mission",
+            mutating=True,permissions=("mission.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "mission.transition",mission_transition,description="Advance a durable KRISHNA Mission state",
+            mutating=True,permissions=("mission.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "mission.checkpoint",mission_checkpoint,description="Create a durable mission recovery checkpoint",
+            mutating=True,permissions=("mission.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "resource.lock.acquire",resource_lock_acquire,description="Acquire a durable scoped KRISHNA resource lock",
+            mutating=True,permissions=("resource.lock",),
+            sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "resource.lock.release",resource_lock_release,description="Release an owned KRISHNA resource lock",
+            mutating=True,permissions=("resource.lock",),
+            sources=("pc","system","agent","job"),
+        )
 
         self.action_bus.register(
             "chat.create",chat_create,description="Create a persistent KRISHNA chat",
@@ -1189,6 +1274,24 @@ class Orchestrator:
     def job_runtime_status(self):
         return self.jobs.status()
 
+    def mission_status(self):
+        return self.missions.status()
+
+    def queue_status(self):
+        return self.queue.status()
+
+    def resource_lock_status(self):
+        return self.resource_locks.status()
+
+    def lifecycle_event_status(self):
+        return self.lifecycle_bus.status()
+
+    def model_provider_status(self):
+        return self.model_providers.status()
+
+    def krishna_protocol_status(self):
+        return self.protocol.status()
+
     def permission_runtime_status(self):
         return self.permissions.status()
 
@@ -1205,10 +1308,13 @@ class Orchestrator:
         return self.action_bus.rollback(action_id,source=source,actor=actor,approved=approved)
 
     def close(self):
-        """Release every database owned by this runtime, including commitments."""
-        self.commitments.close()
-        self.task_ledger.close()
-        self.memory.close()
+        """Release every database owned by this runtime, including durable mission state."""
+        for obj in (
+            self.resource_locks,self.queue,self.mission_budgets,self.missions,self.lifecycle_bus,
+            self.commitments,self.task_ledger,self.memory,
+        ):
+            try:obj.close()
+            except Exception:pass
 
     def _restore_projects(self):
         for item in self.memory.projects():
