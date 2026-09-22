@@ -50,6 +50,15 @@ Status: IN PROGRESS
 5. Phase 1 audit memory became stale after the hardening/reconciliation merge-order change.
    - Corrected the source-of-truth ledger: #47 is merged, #48 is closed unmerged, and #49 is the active reconciliation PR.
 
+6. Android emulator retest command was not actually executed as one shell program.
+   - The emulator action dispatched multiline `script:` lines separately, so the Python heredoc body was interpreted by `/bin/sh`.
+   - Replaced the fragile heredoc with one explicit Python command so the real APK retest executes inside the booted emulator job.
+
+7. The real APK retest then exposed a launcher/process timing race after force-stop/restart.
+   - Install, permissions, first launch, process check, background/foreground and restart launcher command all passed with no fatal exception.
+   - The immediate post-restart `pidof` check could run before Android published the restarted PID.
+   - Added bounded PID polling for both initial launch and restart, plus a regression test covering delayed PID publication.
+
 ### Merge-order rule
 
 The safe order is now fixed:
