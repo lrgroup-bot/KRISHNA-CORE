@@ -101,7 +101,9 @@ if(!(Test-Path $motionEngineAsset)){throw "MOTION ENGINE ASSET MISSING AFTER INS
 $avatarPrepare=Join-Path $Runtime "scripts\PREPARE_KRISHNA_AVATAR.ps1"
 if(Test-Path $avatarPrepare){
   & powershell -NoProfile -ExecutionPolicy Bypass -File $avatarPrepare -RuntimeRoot $Runtime -SourceRoot $Source -TryBodyRig $true -InstallRigTools $true
-  if($LASTEXITCODE -ne 0){throw "KRISHNA AVATAR PREPARATION FAILED"}
+  if($LASTEXITCODE -ne 0){
+    Write-Warning "KRISHNA avatar candidate preparation reported a tooling failure. Core deployment will continue; the private source GLB remains untouched."
+  }
 }
 
 # Test the deployed runtime code, then repository-level contracts against runtime PYTHONPATH.
