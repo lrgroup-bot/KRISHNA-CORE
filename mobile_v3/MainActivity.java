@@ -267,7 +267,11 @@ public class MainActivity extends Activity {
         getSharedPreferences("hawkeye_sync",0).edit().remove("pc_"+localSession).apply();pcSession=createPcHawkeyeSession(localSession,goal);body.put("session_id",pcSession);
         result=new JSONObject(call("/api/hawkeye/evidence/ingest",body.toString()));
       }
-      if(!result.has("error")){result.put("mobile_session_id",localSession);result.put("pc_session_id",pcSession);}return result;
+      if(!result.has("error")){
+        String returned=result.optString("pc_session_id",pcSession);
+        if(!returned.isEmpty())getSharedPreferences("hawkeye_sync",0).edit().putString("pc_"+localSession,returned).apply();
+        result.put("mobile_session_id",localSession);result.put("pc_session_id",returned);
+      }return result;
     }
     String resolvePcHawkeyeSession(String localSession,String goal)throws Exception{
       android.content.SharedPreferences p=getSharedPreferences("hawkeye_sync",0);
