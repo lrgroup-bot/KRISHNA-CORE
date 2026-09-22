@@ -1,6 +1,7 @@
 import uuid
 from pathlib import Path
 
+from .project_perfection_runtime import ProjectPerfectionRuntime
 from .memory import MemoryStore
 from .router import ModelRouter
 from .model_gateway import ModelGatewayRegistry
@@ -111,6 +112,7 @@ class Orchestrator:
         self.neural = NeuralActionGraph()
         self.browser = BrowserOperator()
         self.development = DevelopmentOperator(self.browser)
+        self.project_perfection = ProjectPerfectionRuntime(self.browser, self.development)
         self.research = GitHubResearchAgent()
         self.garuda = GarudaAgent(self.research, self.memory)
         self.gyan_bhandar = GyanBhandarAgent(self.memory, self.garuda)
