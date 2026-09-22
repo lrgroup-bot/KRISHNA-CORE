@@ -155,7 +155,7 @@ def basic_apk_privacy_audit(apk_path: str|Path) -> dict:
         "apk_sha256":sha,
         "entries":len(entries),
         "findings":[x.as_dict() for x in findings],
-        "mobfs_required_for_full_gate":True,
+        "mobsf_required_for_full_gate":True,
         "dynamic_test_required_for_full_gate":True,
         "policy":"Static findings are release evidence, not proof of malicious behavior.",
     }
