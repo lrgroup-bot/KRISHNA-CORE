@@ -77,6 +77,17 @@ class BhumiputraAgentTests(unittest.TestCase):
         self.assertLessEqual(status["max_items"], 64)
         self.assertLessEqual(status["max_bytes"], 192 * 1024 * 1024)
 
+    def test_curated_audio_and_video_are_bounded(self):
+        session=self.agent.start_live_session(project="KRISHNA",purpose="diagnose bearing noise")
+        audio=self.agent.store_mobile_evidence(session["session_id"],b"a"*1024,"audio/webm",{"curator_selected":True})
+        video=self.agent.store_mobile_evidence(session["session_id"],b"v"*2048,"video/webm",{"curator_selected":True})
+        self.assertEqual(audio["modality"],"audio")
+        self.assertEqual(video["modality"],"video")
+        self.assertTrue(audio["retained_pc"])
+        self.assertTrue(video["retained_pc"])
+        with self.assertRaises(ValueError):
+            self.agent.store_mobile_evidence(session["session_id"],b"x"*(1024*1024+1),"audio/webm",{})
+
     def test_degenerate_boundary_rejected(self):
         with self.assertRaises(ValueError):
             self.agent.boundary_metrics([
