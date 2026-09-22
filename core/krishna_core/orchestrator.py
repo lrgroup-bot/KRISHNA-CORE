@@ -372,6 +372,8 @@ class Orchestrator:
                     use_candidate_static_preview=bool(use_static),
                     restart_recovery_required=bool(payload.get("restart_recovery_required",True)),
                     axe_required=bool(payload.get("axe_required",True)),
+                    performance_required=bool(payload.get("performance_required",True)),
+                    performance_limits=dict(payload.get("performance_limits") or {}),
                 )
                 result["security_report"]=security
                 return result
@@ -381,7 +383,7 @@ class Orchestrator:
             auto_repair=bool(payload.get("auto_repair",True))
             max_rounds=max(0,min(int(payload.get("max_repair_rounds") or 3),3))
             repairable={"unit","integration","browser_e2e","ui_geometry","visual_regression",
-                        "responsive","accessibility","adversarial"}
+                        "responsive","performance","accessibility","adversarial"}
             for round_no in range(1,max_rounds+1):
                 if result.get("passed") or not auto_repair:break
                 failed=[g for g in result.get("gates") or [] if not g.get("passed")]
@@ -582,6 +584,8 @@ class Orchestrator:
                 project,staged["candidate_root"],checks,
                 frontend_url=frontend_url,approve_selected_baseline=True,
                 axe_required=bool(payload.get("axe_required",True)),
+                performance_required=bool(payload.get("performance_required",True)),
+                performance_limits=dict(payload.get("performance_limits") or {}),
             )
             promotion=self._prepare_promotion_impl(project,staged["candidate_root"]) if verification.get("passed") else None
             implementation={
@@ -631,6 +635,8 @@ class Orchestrator:
             verification=self.project_perfection.verify_design_candidate(
                 project,staged["candidate_root"],checks,frontend_url=frontend_url,
                 approve_selected_baseline=False,axe_required=bool(payload.get("axe_required",True)),
+                performance_required=bool(payload.get("performance_required",True)),
+                performance_limits=dict(payload.get("performance_limits") or {}),
             )
             promotion=self._prepare_promotion_impl(project,staged["candidate_root"]) if verification.get("passed") else None
             result={
