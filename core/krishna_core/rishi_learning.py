@@ -425,6 +425,8 @@ RISHI_RESEARCH_CHARTERS = {
     },
 }
 
+DIRECT_LEARNING_ROLES={"lead","active_collaborator","researcher","shishya_handover"}
+
 CLASSICAL_SOURCE_REGISTRY = {
     "source_authority": "Vedic Heritage Portal, IGNCA / Ministry of Culture, Government of India",
     "base_url": "https://vedicheritage.gov.in/",
@@ -640,6 +642,52 @@ class RishiLearningLedger:
                 ))
         return {"mission_id":mission_id,"participants":sorted(participants),"findings_recorded":len(learned)}
 
+    def ingest_shishya_handover(self,mission,handover):
+        parent=str(handover.get("parent_rishi") or mission.get("lead_rishi") or "").strip().lower()
+        self.council.get(parent)
+        topic=str(mission.get("topic") or "").strip()
+        mission_id=str(mission.get("mission_id") or "").strip()
+        findings=[]
+        for item in handover.get("findings") or []:
+            claim=str(item.get("finding") or "").strip()
+            if not claim:continue
+            status=str(item.get("status") or "candidate").strip().lower()
+            evidence_status={
+                "supported":"provisional_supported",
+                "contested":"contested",
+                "candidate":"candidate",
+                "provisional_unstructured":"unknown",
+            }.get(status,status or "candidate")
+            finding=self.record_finding(
+                parent,topic,claim,mission_id=mission_id,
+                track=str(item.get("knowledge_track") or "general"),
+                maturity="L1",
+                evidence_status=evidence_status,
+                confidence=float(item.get("confidence") or 0.0),
+                source_count=len(item.get("sources") or []),
+                unresolved=(status=="contested"),
+                role="shishya_handover",
+            )
+            findings.append(finding)
+        questions=[]
+        for q in handover.get("unresolved_questions") or []:
+            try:questions.append(self.add_open_question(parent,topic,q,mission_id))
+            except Exception:pass
+        lesson={
+            "batch_id":handover.get("batch_id"),
+            "parent_rishi":parent,
+            "mission_id":mission_id,
+            "topic":topic,
+            "finding_count":len(findings),
+            "failed_approaches":[str(x)[:2000] for x in (handover.get("failed_approaches") or [])],
+            "unresolved_questions":[str(x)[:2000] for x in (handover.get("unresolved_questions") or [])],
+            "destroyed":bool(handover.get("destroyed")),
+            "retention_policy":handover.get("retention_policy"),
+            "absorbed_at":time.time(),
+        }
+        if self.memory:self.memory.remember(mission.get("project") or "KRISHNA","rishi_shishya_learning",topic,lesson)
+        return {"parent_rishi":parent,"findings":findings,"questions":questions,"lesson":lesson}
+
     def profile(self,rishi_id,topic=None,limit=50):
         rid=str(rishi_id or "").strip().lower();self.council.get(rid)
         with self.lock:row=json.loads(json.dumps(self.state["rishis"][rid]))
@@ -662,7 +710,7 @@ class RishiLearningLedger:
             rid=profile["id"];row=snapshot[rid]
             subjects=list((row.get("charter") or {}).get("primary_subjects") or profile.get("domains") or [])
             if not subjects:continue
-            direct=[x for x in (row.get("findings") or []) if x.get("role") in {"lead","active_collaborator","researcher"}]
+            direct=[x for x in (row.get("findings") or []) if x.get("role") in DIRECT_LEARNING_ROLES]
             direct_topics={}
             for finding in direct:
                 key=str(finding.get("topic") or "").lower()
