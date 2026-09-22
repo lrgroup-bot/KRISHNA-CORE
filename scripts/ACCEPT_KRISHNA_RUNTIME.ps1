@@ -89,9 +89,17 @@ try{
     if($agents.owner -eq "KRISHNA Agent Runtime" -and @($agents.agents).Count -ge 5 -and $agents.authority -eq "Sudarshan Control Plane"){
       Add-Check "Agent Runtime" "PASS" ("agents="+$agents.count+"; Sudarshan authority") $agents
     }else{Add-Check "Agent Runtime" "FAIL" "Agent Runtime manifest registry is incomplete" $agents}
-    if($jobs.owner -eq "KRISHNA Job Runtime" -and $jobs.authority -eq "Shared Action Bus"){
-      Add-Check "Job Runtime" "PASS" "Durable TaskLedger-backed jobs use Shared Action Bus" $jobs
-    }else{Add-Check "Job Runtime" "FAIL" "Job Runtime authority mismatch" $jobs}
+    $jobRuntimeReady=(
+      $jobs.owner -eq "KRISHNA Job Runtime" -and
+      $jobs.mode -eq "durable-queue-inline-worker" -and
+      $jobs.authority -eq "Shared Action Bus + durable backend queue" -and
+      $jobs.queue.owner -eq "KRISHNA Durable Queue" -and
+      $jobs.queue.completion_rule -eq "pending == 0 AND processing == 0" -and
+      $jobs.missions.owner -eq "KRISHNA Mission Engine"
+    )
+    if($jobRuntimeReady){
+      Add-Check "Job Runtime" "PASS" ("Mission Engine + durable queue; pending="+$jobs.queue.pending+" processing="+$jobs.queue.processing+"; Shared Action Bus authority") $jobs
+    }else{Add-Check "Job Runtime" "FAIL" "Job Runtime durable mission/queue authority mismatch" $jobs}
     if($permissions.owner -eq "KRISHNA Permission Runtime"){
       Add-Check "Permission Runtime" "PASS" "Delegated capabilities are explicit" $permissions
     }else{Add-Check "Permission Runtime" "FAIL" "Permission Runtime unavailable" $permissions}
