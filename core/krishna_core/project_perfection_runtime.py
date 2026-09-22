@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .project_perfection import ElementGeometry, GateEvidence, ProjectPerfectionLoop, WorkItem
+from .hawkeye_ui_reviewer import HawkeyeUIReviewer
 from .project_perfection_adapters import (
     ApiFuzzAdapter, ArtifactRetest, ChaosVerifier, MutationVerifier,
     RegressionGenerator, RouteStateGraph, VisualEditIntent,
@@ -43,6 +44,7 @@ class ProjectPerfectionRuntime:
         self.source_mapper=SourceMapper()
         self.visual_candidate_editor=VisualCandidateEditor()
         self.candidate_static=CandidateStaticServer()
+        self.hawkeye_ui=HawkeyeUIReviewer()
 
     def plan_team(self, work: list[dict[str, Any]], deadline_minutes: float) -> dict[str, Any]:
         items = [WorkItem(
@@ -185,10 +187,34 @@ class ProjectPerfectionRuntime:
         return {"required":bool(required),"thresholds":thresholds,"views":rows,
                 "violations":violations,"passed":not required or not violations}
 
+    def hawkeye_ui_verify(self, exploration: dict[str,Any], browser: dict[str,Any],
+                           accessibility: dict[str,Any] | None=None, required: bool=False) -> dict[str,Any]:
+        images=[]
+        crawl=(exploration.get("exploration") or exploration or {})
+        for node in crawl.get("nodes") or []:
+            if node.get("screenshot"):
+                images.append({"path":node["screenshot"],"label":node.get("url") or node.get("title") or "page"})
+        preferred=(390,1440,1920)
+        views=list(browser.get("viewports") or [])
+        views.sort(key=lambda x:(0 if x.get("width") in preferred else 1, abs(int(x.get("width") or 0)-1440)))
+        for view in views:
+            if view.get("screenshot"):
+                images.append({"path":view["screenshot"],"label":f"viewport-{view.get('width')}"})
+        context={
+            "geometry_findings":browser.get("geometry_findings") or [],
+            "browser_findings":[
+                {"width":v.get("width"),"findings":v.get("findings") or [],"layout":v.get("layout") or {}}
+                for v in views
+            ],
+            "accessibility_issues":(accessibility or {}).get("issues") or [],
+        }
+        return self.hawkeye_ui.review(images,context,required=required)
+
     def verify_design_candidate(self, project: str, candidate_root: str, checks: list[str],
                                 frontend_url: str | None=None, approve_selected_baseline: bool=True,
                                 axe_required: bool=False, performance_required: bool=False,
-                                performance_limits: dict[str,float] | None=None) -> dict[str, Any]:
+                                performance_limits: dict[str,float] | None=None,
+                                hawkeye_required: bool=False) -> dict[str, Any]:
         """Verify the selected design against the candidate itself when a static preview is possible."""
         def run(target_url: str | None, preview: dict[str,Any]):
             dev=self.development.verify(candidate_root,checks,frontend_url=target_url)
@@ -201,6 +227,7 @@ class ProjectPerfectionRuntime:
             accessibility=self.accessibility_verify(target_url)
             performance=self.performance_verify(browser,performance_limits,performance_required)
             chaos=self.browser_chaos_verify(target_url)
+            hawkeye=self.hawkeye_ui_verify(exploration,browser,accessibility,required=hawkeye_required)
             # User selection explicitly approves a *new* visual direction, so the old
             # project golden baseline is not used to reject the intentional redesign.
             visual_candidate={"results":[],"passed":True}
@@ -219,7 +246,8 @@ class ProjectPerfectionRuntime:
             )
             passed=all((
                 bool(dev.get("verified")),bool(exploration.get("ok")),bool(browser.get("ok")),
-                accessibility_ok,bool(performance.get("passed")),bool(chaos.get("passed")),bool(visual_candidate.get("passed")),
+                accessibility_ok,bool(performance.get("passed")),bool(chaos.get("passed")),
+                bool(hawkeye.get("passed")),bool(visual_candidate.get("passed")),
             ))
             baseline_approval=[]
             if passed and approve_selected_baseline:
@@ -230,8 +258,9 @@ class ProjectPerfectionRuntime:
                         ))
             return {"passed":passed,"development":dev,"preview":preview,
                     "exploration":exploration,"browser":browser,"accessibility":accessibility,
-                    "performance":performance,"chaos":chaos,"visual":visual_candidate,
+                    "performance":performance,"chaos":chaos,"hawkeye":hawkeye,"visual":visual_candidate,
                     "accessibility_strict_required":bool(axe_required),
+                    "hawkeye_required":bool(hawkeye_required),
                     "baseline_approval":baseline_approval}
         if frontend_url:
             return run(frontend_url,{"available":True,"url":frontend_url,"source":"registered_candidate_url"})
@@ -262,7 +291,8 @@ class ProjectPerfectionRuntime:
 
     def post_apply_verify(self, project: str, project_root: str, url: str, checks: list[str],
                           axe_required: bool=True, performance_required: bool=True,
-                          performance_limits: dict[str,float] | None=None) -> dict[str, Any]:
+                          performance_limits: dict[str,float] | None=None,
+                          hawkeye_required: bool=False) -> dict[str, Any]:
         """Read-only verification of the live tree after transactional promotion."""
         root=Path(project_root).resolve()
         dev=self.development.verify(root,list(checks or []),frontend_url=url)
@@ -273,6 +303,7 @@ class ProjectPerfectionRuntime:
         accessibility=self.accessibility_verify(url)
         performance=self.performance_verify(browser,performance_limits,performance_required)
         chaos=self.browser_chaos_verify(url)
+        hawkeye=self.hawkeye_ui_verify({"exploration":{"nodes":[]}},browser,accessibility,required=hawkeye_required)
         accessibility_ok=bool(accessibility.get("passed")) and (
             not axe_required or bool((accessibility.get("axe") or {}).get("available"))
         )
@@ -283,11 +314,13 @@ class ProjectPerfectionRuntime:
             accessibility_ok,
             bool(performance.get("passed")),
             bool(chaos.get("passed")),
+            bool(hawkeye.get("passed")),
         ))
         return {
             "passed":passed,"development":dev,"regression":regression,"browser":browser,
-            "accessibility":accessibility,"performance":performance,"chaos":chaos,
-            "axe_required":bool(axe_required),"live_root":str(root),"url":url,
+            "accessibility":accessibility,"performance":performance,"chaos":chaos,"hawkeye":hawkeye,
+            "axe_required":bool(axe_required),"hawkeye_required":bool(hawkeye_required),
+            "live_root":str(root),"url":url,
         }
 
     def completion_certificate(self, project: str, build_hash: str, gates: list[dict[str, Any]],
@@ -313,7 +346,8 @@ class ProjectPerfectionRuntime:
                        restart_recovery_required: bool=True,
                        axe_required: bool=False,
                        performance_required: bool=False,
-                       performance_limits: dict[str,float] | None=None) -> dict[str, Any]:
+                       performance_limits: dict[str,float] | None=None,
+                       hawkeye_required: bool=False) -> dict[str, Any]:
         """Run the full evidence pipeline once. Failed/missing evidence never becomes COMPLETE."""
         root=Path(project_root).resolve()
         default_work=[
@@ -350,6 +384,7 @@ class ProjectPerfectionRuntime:
                 accessibility=self.accessibility_verify(effective_url)
                 performance=self.performance_verify(browser,performance_limits,performance_required)
                 chaos=self.browser_chaos_verify(effective_url)
+                hawkeye=self.hawkeye_ui_verify(exploration,browser,accessibility,required=hawkeye_required)
                 dev=self.development.verify(candidate_root,checks,frontend_url=effective_url)
                 visual=self.compare_visual_baselines(project,browser,approve_missing=approve_visual_baselines)
             else:
@@ -365,6 +400,8 @@ class ProjectPerfectionRuntime:
                 performance={"required":bool(performance_required),"passed":not performance_required,
                              "violations":[{"reason":"candidate_preview_unavailable"}] if performance_required else []}
                 chaos={"passed":False,"scenarios":[],"reason":"candidate_preview_unavailable"}
+                hawkeye={"available":False,"required":bool(hawkeye_required),"passed":not hawkeye_required,
+                         "reason":"candidate_preview_unavailable","reviews":[],"issues":[]}
                 dev=self.development.verify(candidate_root,checks)
                 visual={"passed":False,"results":[],"reason":"candidate_preview_unavailable"}
         regression={"source":regression_source,"manifest":regression_manifest,
@@ -409,7 +446,10 @@ class ProjectPerfectionRuntime:
                          str({"prior_regression":prior_regression.get("passed"),"prior_routes":prior_regression.get("route_count",0),
                               "current_regression":current_regression.get("passed"),"current_routes":current_regression.get("route_count",0)})]},
             {"gate":"ui_geometry","passed":bool(browser.get("geometry_ok")),"evidence":[str(browser.get("geometry_findings") or [])]},
-            {"gate":"visual_regression","passed":bool(visual.get("passed")),"evidence":[str(visual.get("results") or [])]},
+            {"gate":"visual_regression","passed":bool(visual.get("passed")) and bool(hawkeye.get("passed")),
+             "evidence":[str(visual.get("results") or []),
+                         str({"hawkeye_available":hawkeye.get("available"),"hawkeye_required":bool(hawkeye_required),
+                              "hawkeye_passed":hawkeye.get("passed"),"material_issues":hawkeye.get("material_issues") or []})]},
             {"gate":"responsive","passed":bool(browser.get("ok")),"evidence":[str([x.get("width") for x in browser.get("viewports") or []])]},
             {"gate":"performance","passed":bool(performance.get("passed")),
              "evidence":[str({"required":performance.get("required"),"thresholds":performance.get("thresholds"),
@@ -436,7 +476,7 @@ class ProjectPerfectionRuntime:
             "candidate_root":str(candidate_root),"staged":staged,
             "certificate":cert,"requirements_ok":requirements_ok,
             "exploration":exploration,"regression":regression,"browser":browser,
-            "accessibility":accessibility,"performance":performance,"chaos":chaos,"development":dev,
+            "accessibility":accessibility,"performance":performance,"chaos":chaos,"hawkeye":hawkeye,"development":dev,
             "mutation":mutation,"visual":visual,"api_fuzz":api,
             "artifacts":installed,"gates":gates,
             "verdict":cert["verdict"],"passed":cert["passed"],
@@ -452,7 +492,7 @@ class ProjectPerfectionRuntime:
             "recursive_crawl":True,"accessibility_scan":True,"browser_chaos":True,
             "regression_persistence":True,"mutation_runner":True,"visual_baselines":True,
             "artifact_executors":["exe","apk","ios","web"],"design_studio":True,
-            "point_to_source_mapping":True,"candidate_visual_edit":True,
+            "point_to_source_mapping":True,"candidate_visual_edit":True,"hawkeye_ui_review":True,
             "finish_project_pipeline":True,
         }
         return out
