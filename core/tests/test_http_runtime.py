@@ -61,7 +61,9 @@ class HTTPRuntimeTests(unittest.TestCase):
     def test_read_endpoints(self):
         for path in ("/health", "/api/status", "/api/dashboard", "/api/capabilities",
                      "/api/projects", "/api/plugins", "/api/specialists", "/api/specialist-teams", "/api/resources",
-                     "/api/tasks", "/api/core/state", "/api/core/neural-state",
+                     "/api/tasks", "/api/missions", "/api/missions/status", "/api/queue", "/api/queue/status",
+                     "/api/resource-locks", "/api/events", "/api/protocol", "/api/models/providers",
+                     "/api/core/state", "/api/core/neural-state",
                      "/api/project-graph", "/api/recovery/ladder", "/api/incidents",
                      "/api/garuda/status", "/api/commitments", "/api/autonomy/status", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/gyan-bhandar/inventory?project=KRISHNA", "/api/software-factory/workers/status",
@@ -71,6 +73,59 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
+
+    def test_phase1_mission_checkpoint_lock_and_durable_job_http(self):
+        code,mission=self.call("/api/missions/create",{
+            "goal":"HTTP durable mission","project":"KRISHNA","priority":70,
+            "assigned_agents":["developer"],"required_tools":["mission.checkpoint"],
+            "resource_budget":{"max_tool_calls":10},
+        })
+        self.assertEqual(code,201)
+        self.assertEqual(mission["status"],"QUEUED")
+        mid=mission["mission_id"]
+
+        code,cp=self.call("/api/missions/checkpoint",{
+            "mission_id":mid,"label":"planning_finished","state":{"plan":"verified"}
+        })
+        self.assertEqual(code,201)
+        self.assertEqual(cp["mission_id"],mid)
+        self.assertTrue(cp["trusted"])
+        self.assertEqual(self.call("/api/checkpoints?mission_id="+mid)[0],200)
+
+        code,running=self.call("/api/missions/transition",{
+            "mission_id":mid,"status":"RUNNING","current_step":"implementation","progress":0.25
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(running["status"],"RUNNING")
+
+        target=str(self.root/"lock-target")
+        code,lock=self.call("/api/resource-locks/acquire",{
+            "lock_type":"TREE_LOCK","target":target,"mode":"write","owner_token":"http-owner","mission_id":mid
+        })
+        self.assertEqual(code,201)
+        self.assertEqual(self.call("/api/resource-locks/acquire",{
+            "lock_type":"EXACT_LOCK","target":target+"/x.txt","mode":"write","owner_token":"other"
+        })[0],409)
+        self.assertEqual(self.call("/api/resource-locks/release",{
+            "lock_id":lock["lock_id"],"owner_token":"http-owner"
+        })[0],200)
+
+        code,job=self.call("/api/jobs/submit",{
+            "action":"mission.create","project":"KRISHNA","permissions":["mission.write"],
+            "payload":{"goal":"Nested durable job mission","project_id":"KRISHNA"}
+        })
+        self.assertEqual(code,202)
+        self.assertTrue(job["mission_id"])
+        self.assertTrue(job["verified"])
+        queue=self.call("/api/queue/status")[1]
+        self.assertEqual(queue["pending"],0)
+        self.assertEqual(queue["processing"],0)
+        self.assertTrue(queue["drained"])
+        outer=[x for x in self.call("/api/missions")[1]["missions"] if x["mission_id"]==job["mission_id"]][0]
+        self.assertEqual(outer["status"],"COMPLETED")
+        events=self.call("/api/events?topic=MISSION_COMPLETED")[1]["events"]
+        self.assertTrue(any((x.get("payload") or {}).get("mission_id")==job["mission_id"] for x in events))
+        self.assertEqual(self.call("/api/protocol")[1]["version"],"1.0")
 
     def test_requirements_search_contract(self):
         code,d=self.call("/api/requirements?q=mobile")
