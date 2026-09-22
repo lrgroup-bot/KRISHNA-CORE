@@ -184,6 +184,7 @@ class GrandChallengeRegistry:
         self.council=council
         self.lock=RLock()
         self.custom={}
+        self.load_error=None
         self._load()
         self._validate_builtin()
 
@@ -193,10 +194,16 @@ class GrandChallengeRegistry:
             raw=json.loads(self.path.read_text(encoding="utf-8"))
             if isinstance(raw,dict) and isinstance(raw.get("custom"),dict):
                 self.custom=raw["custom"]
-        except Exception:
+        except Exception as exc:
             self.custom={}
+            self.load_error=f"{type(exc).__name__}: {exc}"
+
+    def _healthy(self):
+        if self.load_error:
+            raise RuntimeError("Grand Challenge state is unreadable; refusing to overwrite it: "+self.load_error)
 
     def _save(self):
+        self._healthy()
         tmp=self.path.with_suffix(".tmp")
         tmp.write_text(json.dumps({"version":self.VERSION,"custom":self.custom},ensure_ascii=False,indent=2),encoding="utf-8")
         os.replace(tmp,self.path)
