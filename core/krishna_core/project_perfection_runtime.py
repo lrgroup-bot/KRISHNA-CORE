@@ -173,14 +173,16 @@ class ProjectPerfectionRuntime:
                        max_mutants: int=8) -> dict[str, Any]:
         """Run the full evidence pipeline once. Failed/missing evidence never becomes COMPLETE."""
         root=Path(project_root).resolve()
+        staged=self.development.stage(root,[])
+        candidate_root=Path(staged["candidate_root"]).resolve()
         shots=screenshot_dir or str(self.state_root/"runs"/project)
         exploration=self.explore_and_generate(project,url,screenshot_dir=shots)
-        regression=self.persist_generated_regressions(root,project,exploration["regression_source"])
+        regression=self.persist_generated_regressions(candidate_root,project,exploration["regression_source"])
         browser=self.browser_audit(url,screenshot_dir=shots)
         accessibility=self.accessibility_verify(url)
         chaos=self.browser_chaos_verify(url)
-        dev=self.development.verify(root,checks,frontend_url=url)
-        mutation=self.run_mutation_testing(root,checks,max_mutants=max_mutants) if checks else {"executed":0,"passed":False,"score":None}
+        dev=self.development.verify(candidate_root,checks,frontend_url=url)
+        mutation=self.run_mutation_testing(candidate_root,checks,max_mutants=max_mutants) if checks else {"executed":0,"passed":False,"score":None}
         visual=self.compare_visual_baselines(project,browser,approve_missing=approve_visual_baselines)
         api=self.api_fuzz_verify(schema_url,api_base_url) if schema_url else {
             "available":False,"passed":not backend_required,
@@ -213,7 +215,8 @@ class ProjectPerfectionRuntime:
         ]
         cert=self.completion_certificate(project,build_hash,gates,mutation.get("score"))
         return {
-            "project":project,"certificate":cert,"requirements_ok":requirements_ok,
+            "project":project,"candidate_root":str(candidate_root),"staged":staged,
+            "certificate":cert,"requirements_ok":requirements_ok,
             "exploration":exploration,"regression":regression,"browser":browser,
             "accessibility":accessibility,"chaos":chaos,"development":dev,
             "mutation":mutation,"visual":visual,"api_fuzz":api,
