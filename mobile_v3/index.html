@@ -35,16 +35,16 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
     <video id="fieldVideo" autoplay playsinline muted></video>
     <canvas id="fieldCanvas" hidden></canvas>
     <div class="cameraHud">
-      <div class="cameraTop"><span id="cameraMode" class="cameraBadge">BHUMIPUTRA · AUTO SCAN</span><span id="cameraCount" class="cameraBadge">FRAME 0</span></div>
+      <div class="cameraTop"><span id="cameraMode" class="cameraBadge">HAWKEYE · AUTO SCAN</span><span id="cameraCount" class="cameraBadge">FRAME 0</span></div>
       <div id="cameraAnalysis" class="cameraAnalysis">Point the camera at a hill, road, tower, building, bridge, or machinery.</div>
     </div>
-    <button id="cameraClose" class="cameraClose" onclick="stopFieldScan()" aria-label="Stop Bhumiputra scan">×</button>
+    <button id="cameraClose" class="cameraClose" onclick="stopFieldScan()" aria-label="Stop Hawkeye scan">×</button>
   </div>
 </section>
 <footer class="bottom">
  <div id="reply" class="reply">Talk to KRISHNA.</div>
  <div class="composer">
-   <button onclick="startFieldScan()" aria-label="Bhumiputra live camera scan">◉</button>
+   <button onclick="startFieldScan()" aria-label="Hawkeye live camera scan">◉</button>
    <button onclick="document.getElementById('attach').click()" aria-label="Attach photo or file">＋</button>
    <input id="attach" type="file" accept="image/*,.pdf,.txt,.md,.json" capture="environment" hidden onchange="attachFile(this)">
    <button onclick="listen()" aria-label="Talk to KRISHNA">🎙</button>
@@ -84,21 +84,22 @@ async function startFieldScan(){
  if(fieldStream||fieldBusy)return;
  try{
    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Live camera is unavailable on this device.');
-   fieldGoal=(prompt('What should Bhumiputra inspect?','automatic live field scan')||'automatic live field scan').trim();
-   const start=JSON.parse(Krishna.bhumiputraStart(fieldGoal,'auto'));
-   if(start.error)throw new Error(start.error);
-   fieldSession=start.session_id||'';
-   if(!fieldSession)throw new Error('Bhumiputra did not return a live session id.');
+   fieldGoal=(prompt('What should Hawkeye inspect?','automatic live field scan')||'automatic live field scan').trim();
+   let start={}; let offline=false;
+   try{start=JSON.parse(Krishna.bhumiputraStart(fieldGoal,'auto'));if(start.error)throw new Error(start.error)}
+   catch(_){offline=true;start={session_id:'offline-'+Date.now()}}
+   fieldSession=start.session_id||('offline-'+Date.now());
+   window.hawkeyeOffline=offline;
    fieldStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
    const video=document.getElementById('fieldVideo');video.srcObject=fieldStream;
    document.getElementById('cameraLayer').classList.add('active');
-   document.getElementById('cameraAnalysis').textContent='Bhumiputra live scan started. Hold the camera steady and move around the object for additional viewpoints.';
-   document.getElementById('cameraMode').textContent='BHUMIPUTRA · AUTO SCAN';
-   fieldFrames=0;setMode('WORKING','BHUMIPUTRA LIVE');
+   document.getElementById('cameraAnalysis').textContent='Hawkeye live scan started. Hold the camera steady and move around the object for additional viewpoints.';
+   document.getElementById('cameraMode').textContent='HAWKEYE · AUTO SCAN';
+   fieldFrames=0;setMode('WORKING','HAWKEYE LIVE');
    clearInterval(fieldTimer);fieldTimer=setInterval(sampleFieldFrame,3000);
    setTimeout(sampleFieldFrame,700);
  }catch(e){
-   reply('Bhumiputra camera: '+e.message,'bad');
+   reply('Hawkeye camera: '+e.message,'bad');
    stopFieldScan();
  }
 }
@@ -116,9 +117,16 @@ async function sampleFieldFrame(){
    const dataUrl=canvas.toDataURL('image/jpeg',0.72);
    const b64=dataUrl.split(',')[1]||'';
    const sensors={timestamp_ms:Date.now(),orientation:'mobile-camera',frame_width:canvas.width,frame_height:canvas.height};
-   const d=JSON.parse(Krishna.bhumiputraFrame(fieldSession,b64,'image/jpeg',JSON.stringify(sensors),fieldGoal));
+   let d;
+   if(window.hawkeyeOffline){
+     d=JSON.parse(Krishna.hawkeyeOfflineFrame(fieldSession,b64,'image/jpeg',JSON.stringify(sensors),fieldGoal));
+   }else{
+     d=JSON.parse(Krishna.bhumiputraFrame(fieldSession,b64,'image/jpeg',JSON.stringify(sensors),fieldGoal));
+     if(d.error){window.hawkeyeOffline=true;d=JSON.parse(Krishna.hawkeyeOfflineFrame(fieldSession,b64,'image/jpeg',JSON.stringify(sensors),fieldGoal));}
+   }
    if(d.error)throw new Error(d.error);
    fieldFrames=d.frame_count||fieldFrames+1;
+   if(window.hawkeyeOffline)document.getElementById('cameraMode').textContent='HAWKEYE · FIELD OFFLINE';
    document.getElementById('cameraCount').textContent='FRAME '+fieldFrames;
    document.getElementById('cameraAnalysis').textContent=d.analysis||'Frame analyzed.';
    const a=String(d.analysis||'').toLowerCase();
@@ -127,7 +135,7 @@ async function sampleFieldFrame(){
    else if(a.includes('road')||a.includes('track'))scene='ROAD';
    else if(a.includes('hill')||a.includes('rock')||a.includes('terrain')||a.includes('quarry'))scene='TERRAIN';
    else if(a.includes('machinery')||a.includes('truck')||a.includes('excavator'))scene='MACHINERY';
-   document.getElementById('cameraMode').textContent='BHUMIPUTRA · '+scene;
+   document.getElementById('cameraMode').textContent='HAWKEYE · '+scene;
  }catch(e){
    document.getElementById('cameraAnalysis').textContent='Scan warning: '+e.message;
  }finally{fieldBusy=false}
@@ -138,7 +146,7 @@ function stopFieldScan(){
  fieldStream=null;fieldBusy=false;
  document.getElementById('fieldVideo').srcObject=null;
  document.getElementById('cameraLayer').classList.remove('active');
- if(fieldSession){reply('Bhumiputra live scan stopped. Session '+fieldSession.slice(0,8)+' preserved locally.','good')}
+ if(fieldSession){reply('Hawkeye live scan stopped. Session '+fieldSession.slice(0,8)+' preserved locally.','good')}
  fieldSession='';setMode('CHAT','FIELD SCAN SAVED');
 }
 window.startFieldScan=startFieldScan;window.stopFieldScan=stopFieldScan;
