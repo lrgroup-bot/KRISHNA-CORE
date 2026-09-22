@@ -384,11 +384,13 @@ def _gyan_strengthen_action(payload,context):
 
 def _attachment_add_action(payload,context):
     chat_id=str(payload.get("chat_id") or "").strip()
-    if not chat_id:raise ValueError("chat_id is required")
-    return _attachments.save(
+    if not chat_id or not orch.memory.chat(chat_id):raise KeyError("chat not found")
+    item=_attachments.save(
         chat_id,str(payload.get("name") or "attachment"),
         str(payload.get("data_b64") or ""),str(payload.get("content_type") or "application/octet-stream"),
     )
+    orch.memory.add_chat_message(chat_id,"tool","Attachment added",{"attachment":item})
+    return item
 
 def _autonomy_tick_action(payload,context):
     return _autonomy.run_once()
@@ -2365,19 +2367,17 @@ class Handler(BaseHTTPRequestHandler):
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"model gateway secrets must be configured on KRISHNA PC"})
             try:
-                return self._json(201,orch.model_gateway.register(
-                    str(data.get("name") or ""),str(data.get("base_url") or ""),
-                    str(data.get("model") or ""),str(data.get("api_key") or ""),
-                    bool(data.get("free_only",True)),bool(data.get("enabled",True)),
-                ))
-            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+                receipt=orch.dispatch_action("model.gateway.register",data,source="pc",actor="legacy-http",approved=True)
+                return self._json(201,receipt["result"])
+            except (ValueError,RuntimeError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/models/gateways/delete":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"model gateway deletion must run on KRISHNA PC"})
-            pid=str(data.get("profile_id") or "").strip()
-            if not pid:return self._json(400,{"error":"profile_id is required"})
-            return self._json(200,{"deleted":orch.model_gateway.delete(pid)})
+            try:
+                receipt=orch.dispatch_action("model.gateway.delete",data,source="pc",actor="legacy-http",approved=True)
+                return self._json(200,receipt["result"])
+            except (ValueError,RuntimeError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/action-bus/dispatch":
             if self.client_address[0] not in ("127.0.0.1","::1"):
@@ -2553,13 +2553,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"error": str(exc)})
 
         if post_path == "/api/projects/index":
-            project = str(data.get("project", "")).strip()
-            if not project:
-                return self._json(400, {"error": "project is required"})
             try:
-                return self._json(200, orch.index_project(project))
-            except KeyError:
-                return self._json(404, {"error": "project not registered"})
+                receipt=orch.dispatch_action("project.index",data,project=str(data.get("project") or "KRISHNA"),source="pc",actor="legacy-http")
+                return self._json(200,receipt["result"])
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except (ValueError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path in ("/api/hawkeye/live/start", "/api/bhumiputra/live/start"):
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
@@ -2800,13 +2798,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(500, {"error": str(exc)})
 
         if post_path == "/api/attachments":
-            chat_id=str(data.get("chat_id") or "").strip()
-            if not chat_id or not orch.memory.chat(chat_id):return self._json(404,{"error":"chat not found"})
             try:
-                item=_attachments.save(chat_id,data.get("name"),data.get("data_b64"),data.get("content_type"))
-                orch.memory.add_chat_message(chat_id,"tool","Attachment added",{"attachment":item})
-                return self._json(201,item)
-            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+                receipt=orch.dispatch_action("attachment.add",data,source="pc",actor="legacy-http")
+                return self._json(201,receipt["result"])
+            except KeyError:return self._json(404,{"error":"chat not found"})
+            except (ValueError,TypeError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/attachments/analyze":
             chat_id=str(data.get("chat_id") or "").strip();aid=str(data.get("attachment_id") or "").strip()
