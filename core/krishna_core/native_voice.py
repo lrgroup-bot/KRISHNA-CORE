@@ -51,15 +51,19 @@ class IndicTTS:
     """
     def __init__(self,command=None):
         self.command=CommandTemplate(command or os.getenv("KRISHNA_INDIC_TTS_CMD"))
+    LANGUAGES={"or":"odia","hi":"hindi","en":"english"}
     def status(self):
-        return {"provider":"ai4bharat-indic-tts","language":"odia","local":True,
-                "available":self.command.available(),"config":"KRISHNA_INDIC_TTS_CMD"}
-    def speak(self,text,output_path=None):
+        return {"provider":"ai4bharat-indic-tts","language":"odia","languages":list(self.LANGUAGES),
+                "local":True,"available":self.command.available(),"config":"KRISHNA_INDIC_TTS_CMD",
+                "note":"the configured local command decides which requested languages are actually installed"}
+    def speak(self,text,output_path=None,language="or"):
         text=str(text or "").strip()
         if not text:raise ValueError("text is required")
-        output=Path(output_path or "krishna-odia.wav").resolve()
-        self.command.run({"text":text,"output":str(output),"language":"or"})
-        if not output.is_file():raise RuntimeError("Odia TTS command did not create output audio")
+        lang=str(language or "or").strip().lower()
+        if lang not in self.LANGUAGES:raise ValueError("language must be one of: en, hi, or")
+        output=Path(output_path or ("krishna-"+lang+".wav")).resolve()
+        self.command.run({"text":text,"output":str(output),"language":lang})
+        if not output.is_file():raise RuntimeError("local TTS command did not create output audio")
         return str(output)
 
 

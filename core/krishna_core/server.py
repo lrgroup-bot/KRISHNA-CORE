@@ -27,6 +27,7 @@ from .narad.scheduler import NaradScheduler
 from .autonomy_supervisor import AutonomySupervisor
 from .specialist_team import SpecialistTeamPlanner
 from .lan_discovery import LanDiscoveryService
+from .avatar_asset_pipeline import AvatarAssetInspector
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -236,6 +237,7 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     WEB_VALIDATION = _BUNDLE_ROOT / "web_validation.html"
     AVATAR_B64 = _BUNDLE_ROOT / "avatar" / "krishna_child_360.webp.b64"
     AVATAR_GLB = _BUNDLE_ROOT / "avatar" / "krishna.glb"
+    AVATAR_PRODUCTION_GLB = _BUNDLE_ROOT / "avatar" / "krishna.production.glb"
     AVATAR_ENGINE_ROOT = _BUNDLE_ROOT / "avatar-engine"
 else:
     _CORE_ROOT = Path(__file__).resolve().parents[1]
@@ -244,6 +246,7 @@ else:
     WEB_VALIDATION = _CORE_ROOT / "web_validation.html"
     AVATAR_B64 = _REPO_ROOT / "avatar" / "krishna_child_360.webp.b64"
     AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
+    AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"
     AVATAR_ENGINE_ROOT = RUNTIME_ROOT / "dashboard" / "assets" / "avatar-engine"
 
 
@@ -263,6 +266,26 @@ def avatar_360_bytes():
         return base64.b64decode(AVATAR_B64.read_text(encoding="utf-8").strip(), validate=True)
     except Exception:
         return b""
+
+
+_avatar_inspector = AvatarAssetInspector(RUNTIME_ROOT / "state" / "avatar" / "asset-audit.json")
+
+def avatar_asset_status():
+    source=_avatar_inspector.inspect(AVATAR_GLB)
+    production=_avatar_inspector.inspect(AVATAR_PRODUCTION_GLB) if AVATAR_PRODUCTION_GLB.is_file() else {"available":False,"ready":False,"stage":"missing"}
+    active=AVATAR_PRODUCTION_GLB if production.get("ready") else AVATAR_GLB
+    return {
+        "source":source,
+        "production":production,
+        "active":"production" if active==AVATAR_PRODUCTION_GLB else "source",
+        "active_path":str(active),
+        "active_ready":bool((production if active==AVATAR_PRODUCTION_GLB else source).get("ready")),
+        "promotion_policy":"krishna.production.glb is served only after local compatibility inspection reports production-ready",
+    }
+
+def active_avatar_glb():
+    status=avatar_asset_status()
+    return AVATAR_PRODUCTION_GLB if status.get("active")=="production" else AVATAR_GLB
 
 
 def latest_e_drive_audit():
@@ -503,19 +526,28 @@ class Handler(BaseHTTPRequestHandler):
             elif asset.suffix==".wasm":content_type="application/wasm"
             return self._binary(200,asset.read_bytes(),content_type)
         if path == "/api/avatar/status":
+            asset=avatar_asset_status()
             return self._json(200,{
                 "preview_available": bool(avatar_360_bytes()),
-                "glb_available": AVATAR_GLB.is_file(),
+                "glb_available": active_avatar_glb().is_file(),
                 "viewer_policy": "local-only",
                 "talkinghead_installed": (AVATAR_ENGINE_ROOT/"talkinghead"/"talkinghead.mjs").is_file(),
                 "model_viewer_installed": (AVATAR_ENGINE_ROOT/"model-viewer"/"model-viewer.min.js").is_file(),
+                "headaudio_installed": (AVATAR_ENGINE_ROOT/"headaudio"/"dist"/"headaudio.min.mjs").is_file(),
+                "motion_engine_installed": (AVATAR_ENGINE_ROOT/"motion-engine"/"src"/"MotionEngine.js").is_file(),
+                "lipsync_quality":{"engine":"HeadAudio","bundled_model_training":"English mixed voices",
+                                   "english":"trained-model","hindi":"audio-driven approximation","odia":"audio-driven approximation"},
+                "asset_pipeline":asset,
                 **orch.agi.avatar.status(),
             })
+        if path == "/api/avatar/asset-audit":
+            return self._json(200,avatar_asset_status())
         if path == "/api/avatar/performance":
             return self._json(200,orch.agi.avatar.performance_bible())
         if path == "/api/avatar.glb":
-            if not AVATAR_GLB.is_file():return self._json(404,{"error":"private krishna.glb unavailable"})
-            return self._binary(200,AVATAR_GLB.read_bytes(),"model/gltf-binary")
+            asset=active_avatar_glb()
+            if not asset.is_file():return self._json(404,{"error":"private krishna.glb unavailable"})
+            return self._binary(200,asset.read_bytes(),"model/gltf-binary")
         if path == "/api/avatar360":
             body = avatar_360_bytes()
             if not body:
@@ -527,6 +559,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"attachments":_attachments.list(chat_id)})
         if path == "/api/vision/status":
             return self._json(200,_vision.status())
+        if path == "/api/voice/audio":
+            audio_id=str((query.get("id") or [""])[0]).strip()
+            try:audio_id=str(uuid.UUID(audio_id))
+            except (ValueError,AttributeError):return self._json(400,{"error":"valid audio id is required"})
+            audio_path=RUNTIME_ROOT/"state"/"voice"/(audio_id+".wav")
+            if not audio_path.is_file():return self._json(404,{"error":"voice audio not found"})
+            return self._binary_nostore(200,audio_path.read_bytes(),"audio/wav")
         if path == "/api/voice/status":
             return self._json(200,_voice.status())
         if path == "/api/garuda/status":
@@ -1416,10 +1455,15 @@ class Handler(BaseHTTPRequestHandler):
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"local TTS must be requested on KRISHNA PC"})
             text_value=str(data.get("text") or "").strip()
+            language=str(data.get("language") or "or").strip().lower()
             if not text_value:return self._json(400,{"error":"text is required"})
+            if language not in {"en","hi","or"}:return self._json(400,{"error":"language must be one of: en, hi, or"})
             out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
-            out_path=out_dir/(str(uuid.uuid4())+".wav")
-            try:return self._json(200,{"output_path":_voice.tts.speak(text_value,out_path),"provider":"ai4bharat-indic-tts"})
+            audio_id=str(uuid.uuid4());out_path=out_dir/(audio_id+".wav")
+            try:
+                resolved=_voice.tts.speak(text_value,out_path,language=language)
+                return self._json(200,{"output_path":resolved,"audio_id":audio_id,"audio_url":"/api/voice/audio?id="+audio_id,
+                                       "language":language,"provider":"ai4bharat-indic-tts"})
             except (RuntimeError,ValueError) as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/voice/stt":

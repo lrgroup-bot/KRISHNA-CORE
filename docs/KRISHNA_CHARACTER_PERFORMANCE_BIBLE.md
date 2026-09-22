@@ -152,3 +152,43 @@ A new PC/Mobile/Glass avatar implementation is accepted only when:
 - protection is visibly different from anger;
 - flute is visibly different from generic idle;
 - no surface invents a conflicting KRISHNA personality.
+
+
+## Production asset pipeline
+
+The private runtime source is:
+
+`E:\Krishna-The GOD\dashboard\assets\avatar\krishna.glb`
+
+It is owner data and is **never overwritten by deployment, auto-rigging, optimization or animation tooling**. Candidate processing happens under `dashboard\assets\avatar\candidates\`. A candidate may become `krishna.production.glb` only after the local compatibility audit passes.
+
+The production gate is deliberately strict:
+
+1. valid GLB 2.0 container;
+2. skinned humanoid armature;
+3. TalkingHead/Mixamo-compatible body, hand and finger pose bones;
+4. all 52 ARKit facial blend shapes;
+5. all 15 Oculus viseme blend shapes;
+6. local re-audit after promotion.
+
+A body-only auto-rig is never presented as a finished avatar. If the facial channels are missing, the candidate remains isolated and the UI may use the original GLB through the compatibility viewer while reporting the missing production requirements.
+
+The local browser animation stack is:
+
+**TalkingHead → MotionEngine → HeadAudio → KRISHNA Character Performance Bible**
+
+TalkingHead renders the character. MotionEngine maps KRISHNA state vocabulary to restrained moods and gestures. HeadAudio provides audio-driven Oculus-viseme estimates so the same output path can react to English, Hindi and Odia speech audio. HeadAudio's bundled classifier was trained on English material, so Hindi/Odia lip timing is an approximation until KRISHNA has locally trained Indic viseme models; this limitation must remain visible in technical status rather than being described as perfect lip-sync.
+
+The fallback order is:
+
+**validated production GLB → private source GLB → local model-viewer compatibility renderer → 360 preview**
+
+No cloud avatar/rigging service may receive the private child avatar by default. In particular, the public Make-It-Animatable/Gradio path is not part of the production pipeline. Motius may be used only with its deterministic local template path and local Blender to create an isolated body-rig candidate; that candidate still must pass the full TalkingHead face/body gate before promotion.
+
+The deployment-time audit is implemented by:
+
+- `core/krishna_core/avatar_asset_pipeline.py`
+- `scripts/avatar_asset_audit.py`
+- `scripts/PREPARE_KRISHNA_AVATAR.ps1`
+
+Audit evidence is stored under `E:\Krishna-The GOD\state\avatar\`.

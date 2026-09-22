@@ -81,13 +81,30 @@ if(!(Test-Path $avatarPreviewRuntime)){throw "AVATAR PREVIEW COPY FAILED: $avata
 $avatarEngineInstaller=Join-Path $Runtime "scripts\INSTALL_AVATAR_ENGINE.ps1"
 $talkingHeadAsset=Join-Path $Runtime "dashboard\assets\avatar-engine\talkinghead\talkinghead.mjs"
 $modelViewerAsset=Join-Path $Runtime "dashboard\assets\avatar-engine\model-viewer\model-viewer.min.js"
-if(!(Test-Path $talkingHeadAsset) -or !(Test-Path $modelViewerAsset)){
+$headAudioAsset=Join-Path $Runtime "dashboard\assets\avatar-engine\headaudio\dist\headaudio.min.mjs"
+$headAudioModel=Join-Path $Runtime "dashboard\assets\avatar-engine\headaudio\dist\model-en-mixed.bin"
+$motionEngineAsset=Join-Path $Runtime "dashboard\assets\avatar-engine\motion-engine\src\MotionEngine.js"
+if(!(Test-Path $talkingHeadAsset) -or !(Test-Path $modelViewerAsset) -or !(Test-Path $headAudioAsset) -or !(Test-Path $headAudioModel) -or !(Test-Path $motionEngineAsset)){
   if(!(Test-Path $avatarEngineInstaller)){throw "AVATAR ENGINE INSTALLER MISSING: $avatarEngineInstaller"}
   & powershell -NoProfile -ExecutionPolicy Bypass -File $avatarEngineInstaller -RuntimeRoot $Runtime
   if($LASTEXITCODE -ne 0){throw "AVATAR ENGINE INSTALL FAILED"}
 }
 if(!(Test-Path $talkingHeadAsset)){throw "TALKINGHEAD ASSET MISSING AFTER INSTALL: $talkingHeadAsset"}
 if(!(Test-Path $modelViewerAsset)){throw "MODEL-VIEWER ASSET MISSING AFTER INSTALL: $modelViewerAsset"}
+if(!(Test-Path $headAudioAsset)){throw "HEADAUDIO ASSET MISSING AFTER INSTALL: $headAudioAsset"}
+if(!(Test-Path $headAudioModel)){throw "HEADAUDIO VISEME MODEL MISSING AFTER INSTALL: $headAudioModel"}
+if(!(Test-Path $motionEngineAsset)){throw "MOTION ENGINE ASSET MISSING AFTER INSTALL: $motionEngineAsset"}
+
+# Inspect the private runtime avatar and prepare an isolated local candidate when
+# body rigging is required. This never overwrites dashboard\assets\avatar\krishna.glb.
+# Missing Blender/face-rig capability is reported, not disguised as a successful avatar.
+$avatarPrepare=Join-Path $Runtime "scripts\PREPARE_KRISHNA_AVATAR.ps1"
+if(Test-Path $avatarPrepare){
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $avatarPrepare -RuntimeRoot $Runtime -SourceRoot $Source -TryBodyRig $true -InstallRigTools $true
+  if($LASTEXITCODE -ne 0){
+    Write-Warning "KRISHNA avatar candidate preparation reported a tooling failure. Core deployment will continue; the private source GLB remains untouched."
+  }
+}
 
 # Test the deployed runtime code, then repository-level contracts against runtime PYTHONPATH.
 $env:PYTHONPATH="$Runtime\core"
