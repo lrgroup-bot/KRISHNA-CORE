@@ -97,6 +97,7 @@ jobs:
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET"/>
             <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+            <uses-permission android:name="android.permission.CAMERA"/>
             <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
             <application
               android:theme="@style/AppTheme"
@@ -140,6 +141,9 @@ jobs:
           grep -q "showAvatarView" app/src/main/assets/index.html
           grep -q "Conversation only" app/src/main/assets/index.html
           grep -q "verifyVoice" app/src/main/assets/index.html
+          grep -q "startFieldScan" app/src/main/assets/index.html
+          grep -q "bhumiputraFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q 'android.permission.CAMERA' app/src/main/AndroidManifest.xml
           grep -q "ensureChat" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "task.completed" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "device_credential" app/src/main/java/com/krishna/mobile/MainActivity.java
