@@ -79,6 +79,11 @@ class SudarshanControlPlane:
         receipt["verified"]=bool(verdict.get("passed"))
         row["verification"]=verdict
         row["verified"]=bool(verdict.get("passed"))
+        try:
+            self.jobs.mark_verified(row.get("mission_id"),row["verified"],str(verdict.get("reason") or ""))
+        except Exception as exc:
+            if row["verified"]:
+                raise RuntimeError("mission verification finalization failed: "+str(exc))
         if not row["verified"]:
             raise RuntimeError("independent verifier rejected job result: "+str(verdict.get("reason")))
         return row

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .krishna_protocol import KrishnaProtocol
+
 
 class AgentProtocolGateway:
     """MCP/A2A adapter boundary over KRISHNA's Shared Action Bus.
@@ -16,16 +18,26 @@ class AgentProtocolGateway:
         self.control_plane=control_plane
         return self.status()
 
-    def mcp_catalog(self):
-        return {
-            "tools":[{
-                "name":x["name"],
-                "description":x.get("description") or x["name"],
-                "permissions":x.get("permissions") or [],
-                "mutating":bool(x.get("mutating")),
+    def mcp_catalog(self,permissions=(),relevant_actions=None):
+        granted=set(str(x) for x in (permissions or []))
+        relevant=set(str(x) for x in (relevant_actions or []))
+        tools=[]
+        for x in self.action_bus.list():
+            required=set(x.get("permissions") or [])
+            if granted and not required.issubset(granted):continue
+            if relevant and x["name"] not in relevant and not any(
+                r.endswith(".*") and x["name"].startswith(r[:-1]) for r in relevant
+            ):continue
+            tools.append({
+                "name":x["name"],"description":x.get("description") or x["name"],
+                "permissions":x.get("permissions") or [],"mutating":bool(x.get("mutating")),
                 "requires_approval":bool(x.get("requires_approval")),
-            } for x in self.action_bus.list()],
+            })
+        return {
+            "protocol_version":KrishnaProtocol.VERSION,
+            "tools":tools,
             "authority":"KRISHNA Shared Action Bus",
+            "activation_policy":"tool schemas enter delegated context only when capability-scoped and/or mission-relevant",
         }
 
     def mcp_call(self,tool_name,args=None,*,principal="mcp-client",project="KRISHNA",
@@ -69,6 +81,7 @@ class AgentProtocolGateway:
     def status(self):
         return {
             "owner":"KRISHNA Agent Protocol Gateway",
+            "protocol":KrishnaProtocol.status(),
             "mcp":"Sudarshan-gated action-tool adapter boundary",
             "a2a":"agent/action envelope adapter boundary",
             "network_exposure":"none by default",
