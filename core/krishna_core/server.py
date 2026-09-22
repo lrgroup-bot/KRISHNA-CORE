@@ -1970,6 +1970,7 @@ class Handler(BaseHTTPRequestHandler):
             payload={
                 "target_type":str(data.get("target_type") or data.get("target") or "").strip().lower(),
                 "url":data.get("url"),
+                "web_url":data.get("web_url"),
                 "apk_path":data.get("apk_path"),
                 "owned":bool(data.get("owned",True)),
                 "profile":str(data.get("profile") or "BASELINE"),
