@@ -33,7 +33,7 @@ class ProjectPerfectionOrchestratorContract(unittest.TestCase):
         workflow=(root/".github"/"workflows"/"build-mobile-v3.yml").read_text(encoding="utf-8")
         verifier=(root/"scripts"/"VERIFY_KRISHNA_APK.py").read_text(encoding="utf-8")
         self.assertIn("scripts/VERIFY_KRISHNA_APK.py",workflow)
-        self.assertNotIn("PYTHONPATH=core python - <<'PY'",workflow)
+        self.assertNotIn("script: PYTHONPATH=core python -c 'import json,sys;",workflow)
         self.assertIn("ArtifactExecutor().apk",verifier)
 
     def test_operator_finish_script_requests_apply(self):
