@@ -256,16 +256,33 @@ class ArtifactExecutor:
             return {"kind":"apk","executed":False,"passed":False,"reason":"no_android_device","devices":devices}
         steps=[]
         steps.append({"name":"install",**self._cmd([adb,"install","-r",str(path)],180)})
+        for permission in ("android.permission.CAMERA","android.permission.RECORD_AUDIO","android.permission.POST_NOTIFICATIONS"):
+            grant=self._cmd([adb,"shell","pm","grant",package_id,permission],30)
+            steps.append({"name":"grant_"+permission.rsplit(".",1)[-1].lower(),"permission":permission,**grant})
+        permission_dump=self._cmd([adb,"shell","dumpsys","package",package_id],45)
+        permission_text=permission_dump.get("output","")
+        permission_verified={
+            permission: (permission in permission_text and "granted=true" in permission_text[permission_text.find(permission):permission_text.find(permission)+500])
+            for permission in ("android.permission.CAMERA","android.permission.RECORD_AUDIO","android.permission.POST_NOTIFICATIONS")
+        }
         steps.append({"name":"launch",**self._cmd([adb,"shell","monkey","-p",package_id,"-c","android.intent.category.LAUNCHER","1"],30)})
+        process=self._cmd([adb,"shell","pidof",package_id],30)
+        process_ok=bool(process.get("passed") and process.get("output","").strip())
+        steps.append({"name":"process_alive","executed":True,"passed":process_ok,"output":process.get("output","")})
         steps.append({"name":"background",**self._cmd([adb,"shell","input","keyevent","3"],15)})
         steps.append({"name":"foreground",**self._cmd([adb,"shell","monkey","-p",package_id,"-c","android.intent.category.LAUNCHER","1"],30)})
         steps.append({"name":"force_stop",**self._cmd([adb,"shell","am","force-stop",package_id],15)})
         steps.append({"name":"restart",**self._cmd([adb,"shell","monkey","-p",package_id,"-c","android.intent.category.LAUNCHER","1"],30)})
-        logs=self._cmd([adb,"logcat","-d","-t","300"],45)
+        restarted=self._cmd([adb,"shell","pidof",package_id],30)
+        restart_process_ok=bool(restarted.get("passed") and restarted.get("output","").strip())
+        steps.append({"name":"restart_process_alive","executed":True,"passed":restart_process_ok,"output":restarted.get("output","")})
+        logs=self._cmd([adb,"logcat","-d","-t","500"],45)
         fatal="FATAL EXCEPTION" in logs.get("output","") and package_id in logs.get("output","")
+        permissions_ok=all(permission_verified.values())
         return {"kind":"apk","executed":True,"artifact":str(path),"steps":steps,
-                "fatal_in_logs":fatal,"log_tail":logs.get("output","")[-6000:],
-                "passed":all(x["passed"] for x in steps) and not fatal}
+                "permissions":permission_verified,"permissions_passed":permissions_ok,
+                "fatal_in_logs":fatal,"log_tail":logs.get("output","")[-8000:],
+                "passed":all(x["passed"] for x in steps) and permissions_ok and not fatal}
 
     def ios(self, artifact: str | Path, bundle_id: str) -> dict[str, Any]:
         path=Path(artifact).resolve()
