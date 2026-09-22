@@ -26,6 +26,12 @@ class GyanAvatarContractTests(unittest.TestCase):
         self.assertIn("avatar.setAttribute('src','/api/avatar.glb')",WEB)
         self.assertNotIn('src="/api/avatar.glb"',WEB)
         self.assertNotIn('ajax.googleapis.com/ajax/libs/model-viewer',WEB)
+    def test_frozen_exe_uses_private_e_drive_avatar_not_bundle(self):
+        self.assertIn('AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"',SERVER)
+        self.assertIn('AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"',SERVER)
+        self.assertNotIn('_BUNDLE_ROOT / "avatar" / "krishna.glb"',SERVER)
+        self.assertNotIn('_BUNDLE_ROOT / "avatar" / "krishna.production.glb"',SERVER)
+
     def test_gyan_ui_contract(self):
         self.assertIn('id="gyan"',WEB)
         self.assertIn('Gyan-Bhandar',WEB)
