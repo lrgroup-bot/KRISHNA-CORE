@@ -5,7 +5,10 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 import json
+import importlib.util
+import shutil
 import subprocess
+import sys
 import time
 import urllib.request
 
@@ -73,13 +76,19 @@ class ApiFuzzAdapter:
     """Optional Schemathesis adapter; absent dependency is explicit, never silently passed."""
 
     def run(self, schema_url: str, base_url: str | None = None, timeout: int = 300) -> dict[str, Any]:
-        args=["python","-m","schemathesis","run",schema_url]
+        cli=shutil.which("schemathesis")
+        if cli:
+            args=[cli,"run",schema_url]
+        elif not getattr(sys,"frozen",False) and importlib.util.find_spec("schemathesis") is not None:
+            args=[sys.executable,"-m","schemathesis","run",schema_url]
+        else:
+            return {"available":False,"passed":False,"reason":"schemathesis_unavailable"}
         if base_url: args += ["--base-url",base_url]
         started=time.perf_counter()
         try:
             p=subprocess.run(args,capture_output=True,text=True,timeout=timeout,shell=False)
             return {"available":True,"passed":p.returncode==0,"exit_code":p.returncode,
-                    "output":((p.stdout or "")+"\n"+(p.stderr or ""))[-20000:],
+                    "command":args[:2],"output":((p.stdout or "")+"\n"+(p.stderr or ""))[-20000:],
                     "elapsed_ms":int((time.perf_counter()-started)*1000)}
         except FileNotFoundError as exc:
             return {"available":False,"passed":False,"error":str(exc)}
