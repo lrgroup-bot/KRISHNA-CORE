@@ -119,7 +119,7 @@ class ApiFuzzAdapter:
             return None
         if base_url:
             args += ["--url",base_url]
-        args += ["--no-color","--output-sanitize=true"]
+        args += ["--no-color","--output-sanitize","true"]
         return args
 
     def run(self, schema_url: str, base_url: str | None = None, timeout: int = 300) -> dict[str, Any]:
