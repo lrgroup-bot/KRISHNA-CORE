@@ -197,12 +197,46 @@ Invoke-Checked $envPip @(
   "install","mmcv==2.0.1",
   "-f","https://download.openmmlab.com/mmcv/dist/cu118/torch2.0/index.html"
 ) "Install prebuilt MMCV 2.0.1 CUDA 11.8 wheel"
-Invoke-Checked $envPip @("install","mmengine","mmdet==3.1.0","mmpose==1.1.0") "Install OpenMMLab MuseTalk dependencies"
 
-$importProbe=& $envPython -c "import torch,cv2,diffusers,transformers,mmcv,mmengine,mmdet,mmpose; print('IMPORT_OK'); print(torch.cuda.get_device_name(0))"
-if($LASTEXITCODE -ne 0 -or ($importProbe -notcontains "IMPORT_OK")){
-  throw "MuseTalk dependency import verification failed"
+# MMPose 1.1.0 depends on chumpy 0.70. Chumpy's legacy setup.py imports pip,
+# which fails inside pip's PEP 517 isolated build environment. Install it
+# explicitly with build isolation disabled, then install the remaining
+# OpenMMLab packages.
+Invoke-Checked $envPip @("install","setuptools<82","wheel") "Prepare legacy chumpy build tooling"
+Invoke-Checked $envPip @("install","--no-build-isolation","chumpy==0.70") "Install chumpy without isolated build"
+Invoke-Checked $envPip @("install","mmengine","mmdet==3.1.0") "Install MMEngine and MMDetection"
+Invoke-Checked $envPip @("install","mmpose==1.1.0") "Install MMPose 1.1.0"
+
+$openmmlabProbe=Assert-EPath (Join-Path $tempRoot "musetalk_openmmlab_probe.py") "OpenMMLab probe"
+$openmmlabSource=@'
+import json
+import torch
+import cv2
+import diffusers
+import transformers
+import mmcv
+import mmengine
+import mmdet
+import mmpose
+import chumpy
+
+print(json.dumps({
+    "torch": torch.__version__,
+    "cuda": torch.version.cuda,
+    "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+    "mmcv": mmcv.__version__,
+    "mmengine": mmengine.__version__,
+    "mmdet": mmdet.__version__,
+    "mmpose": mmpose.__version__,
+    "chumpy": getattr(chumpy, "__version__", "0.70"),
+}))
+'@
+[System.IO.File]::WriteAllText($openmmlabProbe,$openmmlabSource,(New-Object System.Text.UTF8Encoding($false)))
+$importProbe=& $envPython $openmmlabProbe
+if($LASTEXITCODE -ne 0){
+  throw "MuseTalk OpenMMLab/chumpy import verification failed"
 }
+Write-Host ("OpenMMLab READY: "+($importProbe | Select-Object -Last 1)) -ForegroundColor Green
 
 $models=Assert-EPath (Join-Path $toolRoot "models") "MuseTalk models"
 $weightsInstalled=$false
