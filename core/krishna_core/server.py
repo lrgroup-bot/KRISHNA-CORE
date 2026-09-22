@@ -1622,6 +1622,8 @@ class Handler(BaseHTTPRequestHandler):
             language=str(data.get("language") or "or").strip().lower()
             if not text_value:return self._json(400,{"error":"text is required"})
             if language not in {"en","hi","or"}:return self._json(400,{"error":"language must be one of: en, hi, or"})
+            if language=="en":
+                return self._json(503,{"error":"AI4Bharat Indic-TTS is configured for Hindi/Odia; English uses the browser/OS local speech fallback"})
             out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
             audio_id=str(uuid.uuid4());out_path=out_dir/(audio_id+".wav")
             try:
@@ -1634,8 +1636,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"local STT must be requested on KRISHNA PC"})
             audio_path=str(data.get("audio_path") or "").strip()
+            language=str(data.get("language") or "or").strip().lower()
             if not audio_path:return self._json(400,{"error":"audio_path is required"})
-            try:return self._json(200,{"text":_voice.stt.transcribe(audio_path),"provider":"ai4bharat-indicconformer"})
+            if language not in {"hi","or"}:return self._json(400,{"error":"local IndicConformer STT language must be one of: hi, or"})
+            try:return self._json(200,{"text":_voice.stt.transcribe(audio_path,language=language),"provider":"ai4bharat-indicconformer","language":language})
             except (RuntimeError,ValueError,FileNotFoundError) as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/models/gateways/register":
