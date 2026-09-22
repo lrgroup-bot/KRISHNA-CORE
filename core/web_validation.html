@@ -1312,7 +1312,7 @@ let krishnaPopupSending=false,krishnaRecognition=null;
 async function ensureKrishnaPopupChat(){
  if(chatId)return chatId;
  const p=$('project')?.value||'KRISHNA';
- const created=await actionReq('chat.create',{project:p,title:'KRISHNA Quick Chat'},{project:p});
+ const created=await createChatForProject(p,'KRISHNA Quick Chat');
  chatId=created.chat_id;await loadGeneralChats();await renderSidebarProjectTree();return chatId;
 }
 async function sendKrishnaPopup(){
@@ -1481,7 +1481,8 @@ async function loadTasks(){try{const d=await req('/api/tasks'),box=$('taskCards'
 async function applyPromotion(token){if(!await confirmAction('Apply this verified candidate to the live project? KRISHNA will use its promotion and rollback gate.'))return;try{const d=await req('/api/work/promotion/apply',{promotion_token:token,approved:true});log(d);$('sudarshanState').textContent=d.rolled_back?'ROLLED BACK':'PROMOTED';await loadTasks()}catch(e){log(e.message);$('sudarshanState').textContent='PROMOTION BLOCKED'}}
 function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function addMsg(role,text){const w=$('welcome');if(w)w.remove();const d=document.createElement('div');d.className='msg '+(role==='user'?'you':'');const a=document.createElement('div');a.className='avatar';a.textContent=role==='user'?'Y':'K';const b=document.createElement('div');const who=document.createElement('div');who.className='who';who.textContent=role==='user'?'YOU':'KRISHNA';const body=document.createElement('div');body.className='bubble';body.textContent=text;b.append(who,body);d.append(a,b);$('messages').appendChild(d);$('messages').scrollTop=$('messages').scrollHeight}
-async function newChat(){try{showView('sudarshan');const p=$('project').value||'KRISHNA',c=await actionReq('chat.create',{project:p,title:'New Sudarshan chat'},{project:p});chatId=c.chat_id;$('messages').innerHTML='<div id="welcome" class="welcome"><div class="orb">☸</div><h1>New conversation</h1><p>Start a task, ask a question, or work on '+escapeHtml(p)+'.</p></div>';await loadChats();await loadGeneralChats();await openChat(chatId)}catch(e){log(e.message)}}
+async function createChatForProject(project,title){const p=project||'KRISHNA';return actionReq('chat.create',{project:p,title:title||'New Sudarshan chat'},{project:p})}
+async function newChat(){try{showView('sudarshan');const p=$('project').value||'KRISHNA',c=await createChatForProject(p,'New Sudarshan chat');chatId=c.chat_id;$('messages').innerHTML='<div id="welcome" class="welcome"><div class="orb">☸</div><h1>New conversation</h1><p>Start a task, ask a question, or work on '+escapeHtml(p)+'.</p></div>';await loadChats();await loadGeneralChats();await openChat(chatId)}catch(e){log(e.message)}}
 async function send(){const t=$('input').value.trim();if(!t)return;if(sending)return;if(!chatId)await newChat();if(!chatId)return;sending=true;document.querySelector('.send').disabled=true;$('input').value='';showView('sudarshan');addMsg('user',t);$('sudarshanState').textContent='KRISHNA WORKING';try{const d=await req('/api/core/chat',{message:t,project:$('project').value||'general',chat_id:chatId,source:'web',mode:'chat',attachment_ids:pendingAttachmentIds.slice(0,3)});pendingAttachmentIds=[];addMsg('assistant',d.reply||d.text||JSON.stringify(d));$('sudarshanState').textContent=d.task_id?'TASK '+String(d.task_id).slice(0,8):'RESPONSE RECEIVED';log(d);await loadChats()}catch(e){$('sudarshanState').textContent='ERROR';addMsg('assistant','ERROR: '+e.message);log(e.message)}finally{sending=false;document.querySelector('.send').disabled=false}}
 async function loadPlugins(){
  try{
