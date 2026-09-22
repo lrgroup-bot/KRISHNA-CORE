@@ -156,6 +156,9 @@ class ProjectPerfectionRuntime:
     def design_get(self, session_id: str) -> dict[str, Any]:
         return self.design_studio.get(session_id)
 
+    def design_annotate(self, session_id: str, metadata: dict[str, Any]) -> dict[str, Any]:
+        return self.design_studio.annotate(session_id,metadata)
+
     def design_submit(self, session_id: str, candidate_id: str) -> dict[str, Any]:
         return self.design_studio.submit(session_id,candidate_id)
 
