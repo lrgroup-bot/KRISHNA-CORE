@@ -801,6 +801,11 @@ class Handler(BaseHTTPRequestHandler):
                 lat=float((query.get("lat") or [""])[0]);lon=float((query.get("lon") or [""])[0])
             except (TypeError,ValueError):return self._json(400,{"error":"lat and lon are required numeric values"})
             return self._json(200,orch.hawkeye_geo.unified_view(lat,lon))
+        if path == "/api/hawkeye/geo/history":
+            site_id=(query.get("site_id") or [None])[0]
+            try:limit=max(1,min(int((query.get("limit") or ["100"])[0]),1000))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,{"items":orch.hawkeye_geo.history(site_id,limit)})
         if path in ("/api/hawkeye/live/state", "/api/bhumiputra/live/state"):
             session_id=str((query.get("session_id") or [""])[0]).strip()
             if not session_id:return self._json(400,{"error":"session_id is required"})
@@ -2600,6 +2605,31 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200,out)
             except ValueError as exc:return self._json(400,{"error":str(exc)})
             except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/geo/survey":
+            site_id=str(data.get("site_id") or "field-site").strip() or "field-site"
+            boundary=data.get("boundary") or []
+            try:return self._json(200,orch.hawkeye_geo.survey_metrics(site_id,boundary))
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/geo/geofence":
+            try:return self._json(200,orch.hawkeye_geo.geofence(data.get("boundary") or [],data.get("point")))
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/geo/volume":
+            site_id=str(data.get("site_id") or "field-site").strip() or "field-site"
+            try:return self._json(200,orch.hawkeye_geo.volume_estimate(site_id,data.get("boundary") or [],data.get("depth_samples") or []))
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/geo/route":
+            site_id=str(data.get("site_id") or "field-site").strip() or "field-site"
+            try:return self._json(200,orch.hawkeye_geo.route_assessment(site_id,data.get("segments") or [],data.get("vehicle") or {}))
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/geo/export":
+            site_id=str(data.get("site_id") or "field-site").strip() or "field-site"
+            try:return self._json(200,orch.hawkeye_geo.export_boundary(site_id,data.get("boundary") or [],str(data.get("format") or "geojson")))
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/investigate":
             symptom = str(data.get("symptom", "")).strip()
