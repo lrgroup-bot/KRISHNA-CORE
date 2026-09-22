@@ -191,7 +191,11 @@ class BrowserOperator:
             raise RuntimeError("Chromium operator unavailable") from exc
         max_pages=max(1,min(int(max_pages),250)); max_depth=max(0,min(int(max_depth),8))
         max_controls_per_page=max(1,min(int(max_controls_per_page),300))
-        destructive=("delete","remove","logout","sign out","purchase","pay","send","submit order","destroy","drop","terminate")
+        mutating_labels=(
+            "delete","remove","logout","sign out","purchase","pay","send","submit","save","create","add ",
+            "update","confirm","approve","reject","publish","deploy","restart","stop ","start ","run ","execute",
+            "upload","import","reset","clear all","terminate","destroy","drop","pair","connect","disconnect",
+        )
         queue=[(url,0)]; visited=set(); nodes=[]; edges=[]; findings=[]; skipped=[]; started=time.perf_counter()
         shot_root=Path(screenshot_dir).resolve() if screenshot_dir else None
         if shot_root: shot_root.mkdir(parents=True,exist_ok=True)
@@ -233,24 +237,45 @@ class BrowserOperator:
                             if row["visible"] and not row["disabled"]:
                                 before_valid=field.evaluate("(el)=>typeof el.checkValidity==='function'?el.checkValidity():true")
                                 field.focus(timeout=min(self.timeout_ms,2000))
-                                if tag=="select":
-                                    options=field.locator("option:not([disabled])")
-                                    if options.count():
-                                        value=options.first.get_attribute("value")
-                                        if value is not None:field.select_option(value=value)
-                                elif ftype in {"checkbox","radio"}:
-                                    field.check(timeout=min(self.timeout_ms,2000))
-                                elif ftype not in {"color","range","image"}:
-                                    values={
-                                        "email":"krishna.qa@example.invalid","url":"https://example.invalid/test",
-                                        "number":"1","date":"2026-01-15","datetime-local":"2026-01-15T12:00",
-                                        "time":"12:00","month":"2026-01","week":"2026-W03",
-                                        "password":"Krishna-QA-123!","tel":"+910000000000",
-                                    }
-                                    field.fill(values.get(ftype,"KRISHNA_QA_TEST"))
-                                after_valid=field.evaluate("(el)=>typeof el.checkValidity==='function'?el.checkValidity():true")
-                                row.update({"focus_tested":True,"input_tested":True,
-                                            "valid_before":bool(before_valid),"valid_after":bool(after_valid)})
+                                values={
+                                    "email":"krishna.qa@example.invalid","url":"https://example.invalid/test",
+                                    "number":"1","date":"2026-01-15","datetime-local":"2026-01-15T12:00",
+                                    "time":"12:00","month":"2026-01","week":"2026-W03",
+                                    "password":"Krishna-QA-123!","tel":"+910000000000",
+                                }
+                                if allow_mutating:
+                                    if tag=="select":
+                                        options=field.locator("option:not([disabled])")
+                                        if options.count():
+                                            value=options.first.get_attribute("value")
+                                            if value is not None:field.select_option(value=value)
+                                    elif ftype in {"checkbox","radio"}:
+                                        field.check(timeout=min(self.timeout_ms,2000))
+                                    elif ftype not in {"color","range","image"}:
+                                        field.fill(values.get(ftype,"KRISHNA_QA_TEST"))
+                                    after_valid=field.evaluate("(el)=>typeof el.checkValidity==='function'?el.checkValidity():true")
+                                    row.update({"focus_tested":True,"input_tested":True,"interaction_mode":"events",
+                                                "valid_before":bool(before_valid),"valid_after":bool(after_valid)})
+                                else:
+                                    probe=field.evaluate("""(el, args)=>{
+                                      const old={value:el.value,checked:el.checked,selectedIndex:el.selectedIndex};
+                                      try{
+                                        if(el.tagName.toLowerCase()==='select'){
+                                          if(el.options.length)el.selectedIndex=0;
+                                        }else if(['checkbox','radio'].includes((el.type||'').toLowerCase())){
+                                          el.checked=!el.checked;
+                                        }else if(!['color','range','image'].includes((el.type||'').toLowerCase())){
+                                          el.value=args.value;
+                                        }
+                                        return {valid:typeof el.checkValidity==='function'?el.checkValidity():true};
+                                      } finally {
+                                        try{el.value=old.value;}catch(e){}
+                                        try{el.checked=old.checked;}catch(e){}
+                                        try{if(old.selectedIndex!==undefined)el.selectedIndex=old.selectedIndex;}catch(e){}
+                                      }
+                                    }""",{"value":values.get(ftype,"KRISHNA_QA_TEST")})
+                                    row.update({"focus_tested":True,"input_tested":True,"interaction_mode":"property_probe_no_events",
+                                                "valid_before":bool(before_valid),"valid_after":bool(probe.get("valid",True))})
                             field_rows.append(row)
                         except Exception as exc:
                             field_rows.append({"index":fi,"ok":False,"error":str(exc)[:500]})
@@ -269,8 +294,17 @@ class BrowserOperator:
                             state_rows.append(row)
                             if not row["visible"] or row["disabled"]: continue
                             low=label.lower()
-                            if not allow_mutating and any(x in low for x in destructive):
-                                skipped.append({"url":current,"label":label,"reason":"destructive_control"});continue
+                            tag=(control.evaluate("(el)=>el.tagName.toLowerCase()") or "").lower()
+                            ctype=(control.get_attribute("type") or "").lower()
+                            in_form=bool(control.evaluate("(el)=>!!el.closest('form')"))
+                            default_submit=(tag=="button" and in_form and ctype in {"","submit"}) or (tag=="input" and ctype=="submit")
+                            risky_label=any(x in low for x in mutating_labels)
+                            if not allow_mutating and (default_submit or risky_label):
+                                skipped.append({
+                                    "url":current,"label":label,
+                                    "reason":"potentially_mutating_control",
+                                    "type":ctype or ("submit-default" if default_submit else tag),
+                                });continue
                             before=page.url
                             try:
                                 control.click(timeout=min(self.timeout_ms,2500))
