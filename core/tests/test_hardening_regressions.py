@@ -11,6 +11,8 @@ from krishna_core.attachments import AttachmentStore
 from krishna_core.plugin_executor import PluginExecutor
 from krishna_core.plugin_runtime import PluginRegistry
 from krishna_core.realtime_session import RealtimeSessionStore
+from krishna_core.model_gateway import ModelGatewayRegistry
+from krishna_core.remote_access import PrivateRemotePolicy
 
 
 class _Browser:
@@ -91,6 +93,29 @@ class HardeningRegressionTests(unittest.TestCase):
             backup=Path(out["backup"]).resolve()
             backup.relative_to(backups.resolve())
             self.assertEqual((live/"a.txt").read_text(encoding="utf-8"),"new")
+
+    def test_corrupt_model_gateway_registry_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/"gateways.json"
+            path.write_text("{broken",encoding="utf-8")
+            reg=ModelGatewayRegistry(path)
+            with self.assertRaises(RuntimeError):
+                reg.register("x","https://127.0.0.1","m","secret")
+
+    def test_model_gateway_blocks_link_local_metadata_targets(self):
+        with self.assertRaises(PermissionError):
+            ModelGatewayRegistry._validate_url("https://169.254.169.254")
+        with self.assertRaises(PermissionError):
+            ModelGatewayRegistry._validate_url("https://[fe80::1]")
+
+    def test_remote_policy_matches_documented_lan_ranges(self):
+        p=PrivateRemotePolicy()
+        self.assertTrue(p.allowed("192.168.1.20"))
+        self.assertTrue(p.allowed("10.1.2.3"))
+        self.assertTrue(p.allowed("172.16.1.2"))
+        self.assertTrue(p.allowed("fd00::20"))
+        self.assertFalse(p.allowed("192.0.2.10"))
+        self.assertFalse(p.allowed("8.8.8.8"))
 
     def test_realtime_store_migrates_legacy_session_without_deleting_it(self):
         with tempfile.TemporaryDirectory() as td:
