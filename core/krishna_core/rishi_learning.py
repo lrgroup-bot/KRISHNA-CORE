@@ -254,6 +254,175 @@ RISHI_RESEARCH_CHARTERS = {
             "philology and translation quality for Vedic/Upanishadic source work",
         ),
     },
+    "aryabhata": {
+        "primary_subjects": (
+            "mathematics","scientific computing","numerical methods","computational astronomy",
+            "orbital mechanics","trigonometry","algorithms","simulation","scientific software",
+        ),
+        "frontier_focus": (
+            "mathematical prediction","high-precision computation","orbital and dynamical models",
+            "scientific code verification",
+        ),
+        "classical_lens": (
+            "Indian mathematical-astronomical texts as historical sources",
+            "modern numerical computation remains a separate evidence track",
+        ),
+    },
+    "brahmagupta": {
+        "primary_subjects": (
+            "algebra","number theory","discrete mathematics","equations","formal calculation",
+            "mathematical structures","cryptographic mathematics","computational foundations",
+        ),
+        "frontier_focus": (
+            "proof structure","mathematical invariants","exact symbolic reasoning",
+            "foundations of secure computation",
+        ),
+        "classical_lens": (
+            "historical Indian mathematical sources with provenance",
+            "modern cryptography and computation remain modern disciplines",
+        ),
+    },
+    "bhaskaracharya": {
+        "primary_subjects": (
+            "mathematical modeling","dynamical systems","optimization","differential equations",
+            "mechanics","control mathematics","scientific simulation","operations models",
+        ),
+        "frontier_focus": (
+            "system evolution","optimal control","nonlinear behavior","model sensitivity",
+        ),
+        "classical_lens": (
+            "historical mathematical astronomy and computation as context",
+            "modern calculus/control claims require modern mathematics",
+        ),
+    },
+    "madhava": {
+        "primary_subjects": (
+            "mathematical analysis","numerical analysis","series","approximation","signal processing",
+            "time series","scientific computation","uncertainty propagation","spectral methods",
+        ),
+        "frontier_focus": (
+            "convergence","approximation quality","signal extraction","numerical stability",
+        ),
+        "classical_lens": (
+            "Kerala-school mathematical history as historical context",
+            "modern signal and numerical science remain distinct",
+        ),
+    },
+    "varahamihira": {
+        "primary_subjects": (
+            "meteorology","atmospheric science","hydrology","geology","geophysics","natural hazards",
+            "earth systems","weather","climate observation","environmental measurement",
+        ),
+        "frontier_focus": (
+            "hazard prediction","earth-system coupling","observation-model disagreement",
+            "water and atmosphere dynamics",
+        ),
+        "classical_lens": (
+            "historical observational and calendrical traditions with chronology preserved",
+            "modern geoscience evidence remains separate",
+        ),
+    },
+    "dhanvantari": {
+        "primary_subjects": (
+            "drug discovery","therapeutics","precision medicine","clinical pharmacology",
+            "translational medicine","drug delivery","toxicology","pharmacokinetics",
+            "pharmacodynamics","critical care","treatment optimization",
+        ),
+        "frontier_focus": (
+            "translation from mechanism to treatment","safety-efficacy tradeoffs",
+            "target validation","drug repurposing","precision therapeutics",
+        ),
+        "classical_lens": (
+            "historical medical traditions as textual history",
+            "modern efficacy and safety require modern pharmacological and clinical evidence",
+        ),
+    },
+    "nagarjuna": {
+        "primary_subjects": (
+            "chemistry","chemical engineering","process engineering","metallurgy","electrochemistry",
+            "catalysis","separations","corrosion","industrial chemistry","materials processing",
+        ),
+        "frontier_focus": (
+            "reaction pathways","process intensification","catalysis","materials transformation",
+            "industrial-scale chemical efficiency",
+        ),
+        "classical_lens": (
+            "historical chemical/metallurgical traditions only where attribution is well sourced",
+            "contested historical attributions remain labeled as contested",
+        ),
+    },
+    "chanakya": {
+        "primary_subjects": (
+            "economics","operations research","supply chains","logistics","resource allocation",
+            "game theory","strategy","public systems","risk economics","industrial organization",
+        ),
+        "frontier_focus": (
+            "robust resource allocation","system incentives","supply-chain resilience",
+            "decision-making under uncertainty",
+        ),
+        "classical_lens": (
+            "Arthashastra and historical statecraft as comparative context",
+            "modern economics and operations research require modern evidence",
+        ),
+    },
+    "baudhayana": {
+        "primary_subjects": (
+            "geometry","civil engineering","structural engineering","geodesy",
+            "construction mathematics","spatial modeling","surveying","infrastructure",
+            "structural mechanics","transport geometry",
+        ),
+        "frontier_focus": (
+            "safe structures","geometric optimization","infrastructure resilience",
+            "measurement and spatial uncertainty",
+        ),
+        "classical_lens": (
+            "Sulba textual geometry as history of mathematics",
+            "modern structural safety uses modern engineering evidence",
+        ),
+    },
+    "pingala": {
+        "primary_subjects": (
+            "combinatorics","discrete mathematics","coding theory","information structures",
+            "sequence analysis","compression","formal patterns","algorithmic representation",
+        ),
+        "frontier_focus": (
+            "efficient representation","error-correcting structures","sequence algorithms",
+            "discrete pattern discovery",
+        ),
+        "classical_lens": (
+            "prosody and combinatorial history as historical context",
+            "do not claim ancient authorship of modern binary or information theory",
+        ),
+    },
+    "shalihotra": {
+        "primary_subjects": (
+            "veterinary science","animal health","comparative physiology","comparative medicine",
+            "animal nutrition","animal disease","livestock health","zoonoses","animal welfare",
+        ),
+        "frontier_focus": (
+            "comparative disease mechanisms","animal welfare","zoonotic risk",
+            "livestock and companion-animal health",
+        ),
+        "classical_lens": (
+            "historical veterinary traditions as source history",
+            "modern veterinary care requires modern evidence",
+        ),
+    },
+    "parashara": {
+        "primary_subjects": (
+            "agriculture","agronomy","soil science","crop science","plant pathology","food systems",
+            "agricultural biotechnology","irrigation","crop resilience","agroecology",
+            "precision agriculture","food security",
+        ),
+        "frontier_focus": (
+            "climate-resilient crops","soil restoration","water-efficient farming",
+            "food-system resilience","plant disease control",
+        ),
+        "classical_lens": (
+            "traditional agricultural texts and practices as historical/agronomic context",
+            "modern crop claims require modern field evidence",
+        ),
+    },
 }
 
 CLASSICAL_SOURCE_REGISTRY = {
