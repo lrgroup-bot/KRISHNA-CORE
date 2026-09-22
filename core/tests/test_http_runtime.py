@@ -139,7 +139,7 @@ class HTTPRuntimeTests(unittest.TestCase):
         execution=status["execution"]
         for key in ("recursive_crawl","accessibility_scan","browser_chaos","regression_persistence",
                     "mutation_runner","visual_baselines","design_studio","point_to_source_mapping",
-                    "candidate_visual_edit","finish_project_pipeline"):
+                    "candidate_visual_edit","hawkeye_ui_review","finish_project_pipeline"):
             self.assertTrue(execution[key],key)
         code,body=self.call("/design-studio")
         self.assertEqual(code,200)
