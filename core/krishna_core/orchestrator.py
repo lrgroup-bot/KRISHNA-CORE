@@ -351,6 +351,8 @@ class Orchestrator:
                 security_ok=security_ok,
                 restart_recovery_ok=bool(payload.get("restart_recovery_ok",False)),
                 max_mutants=int(payload.get("max_mutants") or 8),
+                deadline_minutes=float(payload.get("deadline_minutes") or 60),
+                work_items=list(payload.get("work_items") or []),
             )
             result["security_report"]=security
             result["promotion"]=self._prepare_promotion_impl(project,result["candidate_root"]) if result.get("passed") else None
