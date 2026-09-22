@@ -279,6 +279,22 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    boolean secureCloudUrl(String value){
+      try{
+        URI u=new URI(value);
+        return "https".equalsIgnoreCase(u.getScheme()) && u.getHost()!=null && u.getUserInfo()==null;
+      }catch(Exception ignored){return false;}
+    }
+    @JavascriptInterface public String configureCloudUrl(String value){
+      try{
+        value=value==null?"":value.trim().replaceAll("/+$","");
+        if(!value.isEmpty()&&!secureCloudUrl(value))throw new SecurityException("Cloud gateway must use HTTPS");
+        getSharedPreferences("k",0).edit().putString("cloud_url",value).apply();
+        JSONObject d=new JSONObject();d.put("ok",true);d.put("cloud_url",value);d.put("authority","KRISHNA Core");return d.toString();
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String cloudUrl(){return getSharedPreferences("k",0).getString("cloud_url","");}
+
     boolean privateCoreUrl(String value){
       try{
         URI u=new URI(value);String scheme=u.getScheme(),host=u.getHost();
@@ -319,8 +335,16 @@ public class MainActivity extends Activity {
     String coreBase()throws Exception{
       String base=getSharedPreferences("k",0).getString("core_url","").trim();
       if(base.isEmpty())base=discoverLanCore();
-      if(base.isEmpty())throw new IllegalStateException("KRISHNA Core address is not configured. Enable Mobile LAN on the PC or enter a LAN/Tailscale Core address.");
-      if(!privateCoreUrl(base))throw new SecurityException("Core URL is outside KRISHNA private-network policy");
+      if(base.isEmpty()){
+        String cloud=getSharedPreferences("k",0).getString("cloud_url","").trim();
+        if(secureCloudUrl(cloud))return cloud.replaceAll("/+$","");
+        throw new IllegalStateException("KRISHNA Core is unreachable and no HTTPS cloud gateway is configured.");
+      }
+      if(!privateCoreUrl(base)){
+        String cloud=getSharedPreferences("k",0).getString("cloud_url","").trim();
+        if(secureCloudUrl(cloud))return cloud.replaceAll("/+$","");
+        throw new SecurityException("Core URL is outside KRISHNA private-network policy");
+      }
       return base.replaceAll("/+$","");
     }
     @JavascriptInterface public String configureCoreUrl(String value){
