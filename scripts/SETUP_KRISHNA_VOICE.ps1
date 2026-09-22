@@ -2,7 +2,8 @@ param(
   [string]$RuntimeRoot="E:\Krishna-The GOD",
   [string]$WakeModel="",
   [string]$IndicSttCommand="",
-  [string]$IndicTtsCommand=""
+  [string]$IndicTtsCommand="",
+  [ValidateSet("hi,or","en,hi,or")][string]$IndicTtsLanguages="hi,or"
 )
 $ErrorActionPreference="Stop"
 $py=Join-Path $RuntimeRoot ".venv\Scripts\python.exe"
@@ -22,7 +23,10 @@ if($WakeModel){
   $lines += '$env:KRISHNA_WAKEWORD_MODEL='+("'" + $resolved.Replace("'","''") + "'")
 }
 if($IndicSttCommand){$lines += '$env:KRISHNA_INDIC_STT_CMD='+("'" + $IndicSttCommand.Replace("'","''") + "'")}
-if($IndicTtsCommand){$lines += '$env:KRISHNA_INDIC_TTS_CMD='+("'" + $IndicTtsCommand.Replace("'","''") + "'")}
+if($IndicTtsCommand){
+  $lines += '$env:KRISHNA_INDIC_TTS_CMD='+("'" + $IndicTtsCommand.Replace("'","''") + "'")
+  $lines += '$env:KRISHNA_INDIC_TTS_LANGUAGES='+("'" + $IndicTtsLanguages + "'")
+}
 $lines|Set-Content -Encoding UTF8 $envFile
 Write-Host "Voice config: $envFile" -ForegroundColor Green
-Write-Host "AI4Bharat STT/TTS workers are never downloaded or claimed active unless you configure local worker commands." -ForegroundColor Yellow
+Write-Host "AI4Bharat workers are never claimed active unless local commands are configured. Default TTS languages are Hindi/Odia; use -IndicTtsLanguages 'en,hi,or' only when an English checkpoint is installed." -ForegroundColor Yellow
