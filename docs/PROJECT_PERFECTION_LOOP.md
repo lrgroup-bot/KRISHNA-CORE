@@ -44,3 +44,34 @@ Keep optional external tools behind adapters rather than making KRISHNA depend o
 requirements, unit, integration, backend_api, browser_e2e, ui_geometry, visual_regression, responsive, accessibility, security, adversarial, restart_recovery, package_build, installed_artifact.
 
 A missing gate means NOT_COMPLETE.
+
+
+## One-command finish
+
+On the KRISHNA PC, the operator entrypoint is:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "E:\Krishna-The GOD\scripts\FINISH_KRISHNA_PROJECT.ps1" -Project "<registered-project>" -Url "<project-url>"
+```
+
+This sends one governed `project.perfection.finish` action with auto-repair, bounded QA workers, mutation testing, strict accessibility/performance gates and `apply_verified=true`.
+
+The command can apply a release only after the completion certificate and independent review pass. Promotion is transactional. After promotion KRISHNA re-runs deterministic checks, route regressions, multi-viewport browser inspection, accessibility, performance and browser-chaos checks against the live project. A failed post-apply verification restores the promotion backup and reports `ROLLED_BACK_POST_APPLY`.
+
+## Design Studio Submit
+
+The normal Submit button is the owner's explicit design-selection instruction:
+
+```text
+Web/GitHub design research
+→ original rendered A/B/C/D candidates
+→ owner selects one
+→ Submit
+→ bounded source implementation in isolated candidate
+→ browser/geometry/accessibility/performance/chaos verification
+→ transactional live promotion
+→ live post-apply verification
+→ VERIFIED, or automatic rollback
+```
+
+The preview itself is never executable authority. Generated preview HTML is stripped of scripts/event handlers and receives an offline CSP.
