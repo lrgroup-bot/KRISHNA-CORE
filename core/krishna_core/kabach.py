@@ -8,6 +8,11 @@ from .privacy_guardian import PrivacyGuardian
 from .security_soc import DefensiveSOC
 from .threat_intel import ThreatIntel
 from .dependency_audit import DependencyAuditor
+from .windows_remote_manager import WindowsRemoteManager
+from .business_research import BusinessResearch
+from .domain_ops import DomainOps
+from .autonomy_harness import AutonomyHarness, HarnessState
+from .ops_monitor import OpsMonitor
 
 _SECRET_PATTERNS=(
  r"(?i)(api[_-]?key|secret|token|password|passwd|private[_-]?key)\s*[:=]\s*[^\s,;]{6,}",
@@ -28,6 +33,12 @@ class KabachAgent:
         self.soc=DefensiveSOC()
         self.threat_intel=ThreatIntel()
         self.dependencies=DependencyAuditor()
+        self.ops=OpsMonitor()
+        self.domains=DomainOps()
+        self.business=BusinessResearch()
+        self.windows_remote=WindowsRemoteManager()
+        self.autonomy_harness=AutonomyHarness(store=self._store_harness_checkpoint,max_attempts=5)
+        self._harness_states={}
         self.event_bus=event_bus
         if state_root is None:
             try:
@@ -38,6 +49,54 @@ class KabachAgent:
         self.privacy=PrivacyGuardian(
             state_root,memory=memory,browser=browser,event_bus=event_bus,gyan_bhandar=gyan_bhandar,
         )
+
+    def _store_harness_checkpoint(self,payload):
+        try:self.memory.audit("kabach_autonomy_harness",str(payload.get("phase") or "checkpoint"),json.dumps(payload,sort_keys=True)[:12000])
+        except Exception:pass
+
+    def harness_begin(self,goal):
+        state=HarnessState(str(goal or "").strip())
+        checkpoint=self.autonomy_harness.checkpoint(state)
+        hid=checkpoint["receipt"]
+        self._harness_states[hid]=state
+        return {"harness_id":hid,**checkpoint,"authority":"KRISHNA Mission/Shared Action runtime","role":"supplementary maker-checker evidence gate"}
+
+    def harness_evaluate(self,harness_id,checks):
+        state=self._harness_states.get(str(harness_id))
+        if state is None:raise KeyError("active maker/checker harness not found")
+        checkpoint=self.autonomy_harness.evaluate(state,list(checks or []))
+        if checkpoint.get("phase") in {"verified","blocked"}:self._harness_states.pop(str(harness_id),None)
+        return {"harness_id":str(harness_id),**checkpoint,"completion_requires_checks":True}
+
+    def ops_status(self):
+        return {
+            "http":"bounded explicit target","tcp":"bounded explicit target","dns":"read_only","tls":"read_only",
+            "active_scanning":False,"bulk_scanning":False,
+        }
+
+    def monitor_http(self,url,approved_private=False):
+        target=str(url or "").strip()
+        parsed=urlparse(target)
+        if parsed.scheme not in {"http","https"} or not parsed.hostname:raise ValueError("http/https URL required")
+        host=parsed.hostname.strip().lower()
+        try:addresses=[ipaddress.ip_address(host.strip("[]"))]
+        except ValueError:
+            try:addresses=list({ipaddress.ip_address(x[4][0].split("%",1)[0]) for x in socket.getaddrinfo(host,parsed.port or (443 if parsed.scheme=="https" else 80),type=socket.SOCK_STREAM)})
+            except OSError as exc:raise ValueError("monitor target could not be resolved") from exc
+        private=any(x.is_private or x.is_loopback or x.is_link_local for x in addresses)
+        if private and not approved_private:raise PermissionError("private/loopback monitoring requires explicit owner approval")
+        if parsed.scheme!="https" and not all(x.is_loopback for x in addresses):
+            raise ValueError("non-loopback monitoring requires HTTPS")
+        return {"target":target,"result":self.ops.http(target),"authorized_private":bool(approved_private),"active_scanning":False}
+
+    def inspect_domain(self,domain):
+        return self.domains.inspect(domain)
+
+    def normalize_public_businesses(self,rows):
+        return self.business.batch(rows or [])
+
+    def windows_remote_plan(self,host,operation,owned_or_authorized=False,approved=False):
+        return self.windows_remote.plan(host,operation,owned_or_authorized=owned_or_authorized,approved=approved)
 
     def bind_privacy_runtime(self,**kwargs):
         if kwargs.get("event_bus") is not None:
@@ -61,8 +120,15 @@ class KabachAgent:
         return result
 
     def security_status(self):
-        return {"soc":self.soc.status(),"event_bus_bound":self.event_bus is not None,
-                "threat_intel":"advisory_only","dependency_audit":"inventory_only"}
+        return {
+            "soc":self.soc.status(),"event_bus_bound":self.event_bus is not None,
+            "threat_intel":"advisory_only","dependency_audit":"inventory_only",
+            "ops_monitor":self.ops_status(),
+            "domain_ops":{"mode":"read_only","dns_mutation":False},
+            "business_research":{"public_facts_only":True,"credential_collection":False},
+            "windows_remote":{"execution":"transport_adapter_required","supported_read_only":sorted(self.windows_remote.READ_ONLY),"supported_mutating":sorted(self.windows_remote.MUTATING)},
+            "maker_checker":{"active":len(self._harness_states),"max_attempts":self.autonomy_harness.max_attempts,"authority":"supplementary; Mission Engine + Sudarshan remain canonical"},
+        }
 
     def audit_dependencies(self,root):
         return {"inventory":self.dependencies.inventory(root),"sbom":self.dependencies.sbom(root)}
