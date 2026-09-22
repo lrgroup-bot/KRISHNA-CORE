@@ -28,6 +28,19 @@ class ExecutionTests(unittest.TestCase):
             self.assertTrue(out["passed"])
             self.assertEqual(path.read_text(encoding="utf-8"),original)
 
+    def test_frontend_mutation_is_generated_and_restored(self):
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/"index.html"
+            original="<!doctype html><html><head></head><body><main>Hello</main></body></html>"
+            path.write_text(original,encoding="utf-8")
+            def verify():
+                text=path.read_text(encoding="utf-8")
+                return {"verified":"data-krishna-mutant" not in text}
+            out=MutationRunner().run(td,verify,max_mutants=1)
+            self.assertEqual(out["executed"],1)
+            self.assertTrue(out["passed"])
+            self.assertEqual(path.read_text(encoding="utf-8"),original)
+
     def test_regression_manifest_persists_portable_routes_and_replays(self):
         with tempfile.TemporaryDirectory() as td:
             store=RegressionManifest()
