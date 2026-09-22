@@ -44,10 +44,20 @@ submit.onclick=async()=>{if(!selected)return;submit.disabled=true;statusEl.textC
  const r=await fetch('/api/design-studio/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,candidate_id:selected.id})});
  const out=await r.json();
  if(r.ok){
-   const impl=out.implementation||{}, verified=!!(impl.verification&&impl.verification.passed), promotable=!!impl.promotable;
-   statusEl.textContent=verified
-     ? ('Design '+selected.label+' implemented and verified'+(promotable?' · promotion candidate ready.':'.'))
-     : ('Design '+selected.label+' was staged, but verification did not pass. KRISHNA will not promote it.');
+   const impl=out.implementation||{}, apply=out.apply||{}, post=out.post_verification||{};
+   const verified=!!(impl.verification&&impl.verification.passed), applied=!!apply.applied, rolled=!!apply.rolled_back;
+   if(applied && post.passed){
+     statusEl.textContent='Design '+selected.label+' applied and verified on the live project.';
+   }else if(rolled){
+     statusEl.textContent='Design '+selected.label+' failed post-apply verification and was automatically rolled back.';
+     submit.disabled=false;
+   }else if(verified){
+     statusEl.textContent='Design '+selected.label+' implemented and verified, but live apply is blocked: '+(apply.reason||'promotion unavailable');
+     submit.disabled=false;
+   }else{
+     statusEl.textContent='Design '+selected.label+' was staged, but verification did not pass. Live project was not changed.';
+     submit.disabled=false;
+   }
  }else{statusEl.textContent=out.error||'Submit failed';submit.disabled=false}
 };
 load();
