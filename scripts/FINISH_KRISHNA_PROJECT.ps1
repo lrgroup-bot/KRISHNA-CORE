@@ -34,6 +34,7 @@ $body=[ordered]@{
   max_repair_rounds=3
   run_qa_workers=$true
   max_mutants=8
+  apply_verified=$true
 }
 if($SchemaUrl){$body.schema_url=$SchemaUrl}
 if($ApiBaseUrl){$body.api_base_url=$ApiBaseUrl}
@@ -73,7 +74,9 @@ if($result.repair_history){
   Write-Host ""
   Write-Host ("Auto-repair rounds: "+@($result.repair_history).Count) -ForegroundColor Yellow
 }
-if($result.promotion -and $result.promotion.promotion_token){
+if($result.live_apply){
+  Write-Host ("LIVE APPLY: "+$result.live_apply.status) -ForegroundColor $(if($result.live_apply.promoted){"Green"}elseif($result.live_apply.rolled_back){"Red"}else{"Yellow"})
+}elseif($result.promotion -and $result.promotion.promotion_token){
   Write-Host ("Verified promotion candidate: "+$result.promotion.promotion_token) -ForegroundColor Cyan
 }
 if(-not $result.passed){ exit 2 }
