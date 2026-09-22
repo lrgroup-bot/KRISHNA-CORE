@@ -1814,30 +1814,25 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/ui-guardian/register":
-            item=_ui_registry.register(
-                str(data.get("name") or "").strip(),
-                str(data.get("project") or "KRISHNA").strip() or "KRISHNA",
-                str(data.get("url") or "").strip(),
-                str(data.get("state") or "candidate"),
-                str(data.get("notes") or ""),
-            )
-            return self._json(201,item)
+            try:
+                receipt=orch.dispatch_action("ui.guardian.register",data,project=str(data.get("project") or "KRISHNA"),source="pc",actor="legacy-http")
+                return self._json(201,receipt["result"])
+            except (ValueError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/ui-guardian/evaluate":
-            entry_id=str(data.get("entry_id") or "").strip()
-            if not entry_id:return self._json(400,{"error":"entry_id is required"})
-            mark("UI GUARDIAN",f"Evaluating {entry_id[:8]}")
-            with orch.governor.job(timeout=0):
-                result=_ui_guardian.evaluate_entry(entry_id)
-            mark("UI GUARDIAN COMPLETE","PASS" if result.get("passed") else "DEFECTS FOUND")
-            return self._json(200,result)
+            try:
+                receipt=orch.dispatch_action("ui.guardian.evaluate",data,source="pc",actor="legacy-http")
+                return self._json(200,receipt["result"])
+            except KeyError:return self._json(404,{"error":"GUI registry entry not found"})
+            except (ValueError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/ui-guardian/transition":
-            entry_id=str(data.get("entry_id") or "").strip()
-            target=str(data.get("target") or "").strip()
-            if not entry_id or not target:return self._json(400,{"error":"entry_id and target are required"})
-            result=_ui_registry.transition(entry_id,target,verified=bool(data.get("verified",False)),notes=str(data.get("notes") or ""))
-            return self._json(200,result)
+            try:
+                receipt=orch.dispatch_action("ui.guardian.transition",data,source="pc",actor="legacy-http")
+                return self._json(200,receipt["result"])
+            except KeyError:return self._json(404,{"error":"GUI registry entry not found"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/garudanetra/session/start":
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
@@ -1904,46 +1899,48 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(201,orch.remember_commitment(project,title,detail,str(data.get("source") or "KRISHNA")))
 
         if post_path == "/api/commitments/update":
-            cid=str(data.get("commitment_id") or "").strip();status=str(data.get("status") or "").strip()
-            if not cid or not status:return self._json(400,{"error":"commitment_id and status are required"})
-            return self._json(200,orch.complete_commitment(cid,status,data.get("detail")))
+            try:
+                receipt=orch.dispatch_action("commitment.update",data,source="pc",actor="legacy-http")
+                return self._json(200,receipt["result"])
+            except (ValueError,KeyError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/autonomy/tick":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"manual autonomy tick must run on KRISHNA PC"})
-            return self._json(200,_autonomy.run_once())
+            try:
+                receipt=orch.dispatch_action("autonomy.tick",data,source="pc",actor="legacy-http")
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/narad/connections/register":
             try:
-                return self._json(201,orch.agi.narad_credentials.register(
-                    str(data.get("name") or ""),str(data.get("provider") or ""),str(data.get("env_var") or ""),
-                    str(data.get("header") or "Authorization"),str(data.get("scheme") if data.get("scheme") is not None else "Bearer"),
-                ))
-            except ValueError as exc:return self._json(400,{"error":str(exc)})
+                receipt=orch.dispatch_action("narad.connection.register",data,source="pc",actor="legacy-http")
+                return self._json(201,receipt["result"])
+            except (ValueError,RuntimeError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/narad/connections/register-secret":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"encrypted secret registration must run on KRISHNA PC"})
             try:
-                return self._json(201,orch.agi.narad_credentials.register_secret(
-                    str(data.get("name") or ""),str(data.get("provider") or ""),str(data.get("secret") or ""),
-                    str(data.get("header") or "Authorization"),str(data.get("scheme") if data.get("scheme") is not None else "Bearer"),
-                ))
-            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+                receipt=orch.dispatch_action("narad.connection.secret",data,source="pc",actor="legacy-http",approved=True)
+                return self._json(201,receipt["result"])
+            except (ValueError,RuntimeError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/narad/connections/delete":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"credential deletion must run on KRISHNA PC"})
-            cid=str(data.get("credential_id") or "").strip()
-            if not cid:return self._json(400,{"error":"credential_id is required"})
-            return self._json(200,{"deleted":orch.agi.narad_credentials.delete(cid)})
+            try:
+                receipt=orch.dispatch_action("narad.connection.delete",data,source="pc",actor="legacy-http",approved=True)
+                return self._json(200,receipt["result"])
+            except (ValueError,RuntimeError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/narad/webhooks/provision":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"webhook provisioning must run on KRISHNA PC"})
-            wid=str(data.get("workflow_id") or "").strip()
-            if not wid:return self._json(400,{"error":"workflow_id is required"})
-            return self._json(201,orch.agi.narad.provision_webhook(wid))
+            try:
+                receipt=orch.dispatch_action("narad.webhook.provision",data,source="pc",actor="legacy-http")
+                return self._json(201,receipt["result"])
+            except (ValueError,RuntimeError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/narad/dead-letters/retry":
             letter_id=str(data.get("letter_id") or "").strip()
@@ -1995,11 +1992,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.client_address[0] not in ("127.0.0.1", "::1"):
                 return self._json(403, {"error": "approval must be performed on KRISHNA PC"})
             try:
-                result=_pairing.approve(str(data.get("request_id", "")))
-                orch.handle_event("device_pairing","device_approved",result.get("device_id",""),severity="notice",project="system",payload={"mode":result.get("mode")})
-                return self._json(200,result)
-            except PermissionError as exc:
-                return self._json(400, {"error": str(exc)})
+                receipt=orch.dispatch_action("mobile.pair.approve",data,source="pc",actor="legacy-http",approved=True)
+                return self._json(200,receipt["result"])
+            except (PermissionError,ValueError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path in ("/api/core/event", "/api/neural/event"):
             source = str(data.get("source", "unknown")).strip() or "unknown"
@@ -2213,33 +2208,20 @@ class Handler(BaseHTTPRequestHandler):
         if post_path == "/api/plugins/credential":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"plugin credential registration must run on KRISHNA PC"})
-            plugin_id=str(data.get("plugin_id") or "").strip()
-            secret=str(data.get("secret") or "")
-            if not plugin_id or not secret:
-                return self._json(400,{"error":"plugin_id and secret are required"})
-            item=next((x for x in _plugins.list() if x.get("id")==plugin_id),None)
-            if not item:return self._json(404,{"error":"plugin not found"})
-            auth=str(item.get("auth_type") or "none")
-            if auth not in {"token","api_key"}:
-                return self._json(400,{"error":"this plugin requires local or provider-specific OAuth; raw account passwords are not accepted"})
             try:
-                ref=orch.secure_vault.put("Plugin "+item.get("name",plugin_id),"plugin:"+plugin_id,secret)
-                updated=_plugins.set_credential(plugin_id,ref["id"])
-                return self._json(201,{"plugin":updated,"credential":{"id":ref["id"],"backend":ref["backend"],"available":ref["available"]}})
-            except (ValueError,RuntimeError) as exc:
-                return self._json(400,{"error":str(exc)})
+                receipt=orch.dispatch_action("plugin.credential.set",data,source="pc",actor="legacy-http",approved=True)
+                return self._json(201,receipt["result"])
+            except KeyError:return self._json(404,{"error":"plugin not found"})
+            except (ValueError,RuntimeError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/plugins/credential/delete":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"plugin credential deletion must run on KRISHNA PC"})
-            plugin_id=str(data.get("plugin_id") or "").strip()
-            item=next((x for x in _plugins.list() if x.get("id")==plugin_id),None)
-            if not item:return self._json(404,{"error":"plugin not found"})
-            ref=str(item.get("credential_ref") or "").strip()
-            if ref:
-                try:orch.secure_vault.delete(ref)
-                except RuntimeError as exc:return self._json(400,{"error":str(exc)})
-            return self._json(200,{"plugin":_plugins.clear_credential(plugin_id)})
+            try:
+                receipt=orch.dispatch_action("plugin.credential.delete",data,source="pc",actor="legacy-http",approved=True)
+                return self._json(200,receipt["result"])
+            except KeyError:return self._json(404,{"error":"plugin not found"})
+            except (ValueError,RuntimeError,PermissionError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/plugins/remove":
             try:
