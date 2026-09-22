@@ -10,7 +10,8 @@ from .project_perfection_adapters import (
     RegressionGenerator, RouteStateGraph, VisualEditIntent,
 )
 from .project_perfection_execution import (
-    ArtifactExecutor, DesignStudio, MutationRunner, RegressionPersister, VisualBaselineStore,
+    ArtifactExecutor, DesignStudio, MutationRunner, RegressionPersister, SourceMapper,
+    VisualBaselineStore, VisualCandidateEditor,
 )
 
 
@@ -36,6 +37,8 @@ class ProjectPerfectionRuntime:
         self.mutation_runner=MutationRunner()
         self.artifact_executor=ArtifactExecutor()
         self.design_studio=DesignStudio(root/"design-studio")
+        self.source_mapper=SourceMapper()
+        self.visual_candidate_editor=VisualCandidateEditor()
 
     def plan_team(self, work: list[dict[str, Any]], deadline_minutes: float) -> dict[str, Any]:
         items = [WorkItem(
@@ -153,6 +156,25 @@ class ProjectPerfectionRuntime:
     def visual_edit_intent(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self.visual_edit.normalize(payload)
 
+    def visual_source_map(self, project_root: str, element: dict[str, Any], limit: int=20) -> dict[str, Any]:
+        return self.source_mapper.find(project_root,element,limit)
+
+    def stage_visual_edit(self, project_root: str, element: dict[str, Any], payload: dict[str, Any],
+                          checks: list[str] | None=None) -> dict[str, Any]:
+        intent=self.visual_edit.normalize(payload)
+        if payload.get("replacement_text") is not None:intent["replacement_text"]=str(payload.get("replacement_text"))
+        if payload.get("style_patch") is not None:intent["style_patch"]=dict(payload.get("style_patch") or {})
+        mapping=self.source_mapper.find(project_root,element)
+        staged=self.development.stage(project_root,[])
+        candidate=staged["candidate_root"]
+        applied=self.visual_candidate_editor.apply(candidate,element,intent,mapping)
+        verification=None
+        if applied.get("applied") and checks:
+            verification=self.development.verify(candidate,list(checks))
+        return {"intent":intent,"source_map":mapping,"staged":staged,"candidate_root":candidate,
+                "edit":applied,"verification":verification,
+                "promotable":bool(applied.get("applied") and verification and verification.get("verified"))}
+
     def completion_certificate(self, project: str, build_hash: str, gates: list[dict[str, Any]],
                                mutation_detection: float | None = None) -> dict[str, Any]:
         evidence=[GateEvidence(
@@ -234,6 +256,7 @@ class ProjectPerfectionRuntime:
             "recursive_crawl":True,"accessibility_scan":True,"browser_chaos":True,
             "regression_persistence":True,"mutation_runner":True,"visual_baselines":True,
             "artifact_executors":["exe","apk","ios","web"],"design_studio":True,
+            "point_to_source_mapping":True,"candidate_visual_edit":True,
             "finish_project_pipeline":True,
         }
         return out
