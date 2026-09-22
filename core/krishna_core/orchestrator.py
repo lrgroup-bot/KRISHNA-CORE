@@ -471,6 +471,44 @@ class Orchestrator:
             self.memory.audit("project_design_implement","verified" if verification.get("passed") else "failed",f"{project}:{sid}")
             return implementation
 
+        def project_visual_edit_agent_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            element=dict(payload.get("element") or {})
+            instruction=str(payload.get("instruction") or "").strip()
+            if not project or not element or not instruction:
+                raise ValueError("project, element and instruction are required")
+            policy=self.projects.get(project)
+            if not policy:raise KeyError(project)
+            source_context=DesignImplementationGuard.collect_context(policy.root)
+            if not source_context.get("files"):raise RuntimeError("no eligible frontend source files found")
+            plan=self.router.coding_plan(policy.privacy)
+            if not plan:raise RuntimeError("no model available for visual editing")
+            provider=plan[0]["provider"]
+            prompt=DesignImplementationGuard.visual_edit_prompt(
+                instruction,element,source_context,payload.get("from_box"),payload.get("to_box"),
+            )
+            raw=self.router.ask(provider,prompt)
+            obj=self.ephemeral_workers._json_object(raw)
+            files=DesignImplementationGuard.validate_patch(policy.root,obj.get("files") or [])
+            staged=self.development.stage(policy.root,files)
+            checks=list(payload.get("checks") or policy.verification_checks or [])
+            frontend_url=str(payload.get("frontend_url") or "").strip() or None
+            verification=self.project_perfection.verify_design_candidate(
+                project,staged["candidate_root"],checks,frontend_url=frontend_url,
+                approve_selected_baseline=False,
+            )
+            promotion=self._prepare_promotion_impl(project,staged["candidate_root"]) if verification.get("passed") else None
+            result={
+                "project":project,"provider":provider,"instruction":instruction[:2000],
+                "summary":str(obj.get("summary") or "")[:3000],
+                "files":[x["path"] for x in files],"candidate_root":staged["candidate_root"],
+                "verification":verification,"promotion":promotion,
+                "promotable":bool(verification.get("passed") and promotion),
+                "element":element,
+            }
+            self.memory.audit("project_visual_edit","verified" if verification.get("passed") else "failed",project)
+            return result
+
         def model_complete(payload,context):
             provider=str(payload.get("provider") or "").strip()
             prompt=str(payload.get("prompt") or "")
@@ -1210,6 +1248,13 @@ class Orchestrator:
             "project.design.implement",project_design_implement_action,
             description="Implement the submitted Design Studio selection in an isolated verified candidate",
             mutating=True,permissions=("candidate.write","tests.run","model.use"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "project.visual_edit.implement",project_visual_edit_agent_action,
+            description="Implement a point/drag/speak visual edit in an isolated verified frontend candidate",
+            mutating=True,permissions=("candidate.write","tests.run","model.use","browser.read"),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
 
