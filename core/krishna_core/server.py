@@ -535,6 +535,8 @@ class Handler(BaseHTTPRequestHandler):
                 "model_viewer_installed": (AVATAR_ENGINE_ROOT/"model-viewer"/"model-viewer.min.js").is_file(),
                 "headaudio_installed": (AVATAR_ENGINE_ROOT/"headaudio"/"dist"/"headaudio.min.mjs").is_file(),
                 "motion_engine_installed": (AVATAR_ENGINE_ROOT/"motion-engine"/"src"/"MotionEngine.js").is_file(),
+                "lipsync_quality":{"engine":"HeadAudio","bundled_model_training":"English mixed voices",
+                                   "english":"trained-model","hindi":"audio-driven approximation","odia":"audio-driven approximation"},
                 "asset_pipeline":asset,
                 **orch.agi.avatar.status(),
             })
