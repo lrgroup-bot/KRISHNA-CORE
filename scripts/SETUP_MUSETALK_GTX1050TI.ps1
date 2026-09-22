@@ -90,13 +90,19 @@ if(!$ffmpeg){$ffmpeg=(Get-Command ffmpeg -ErrorAction SilentlyContinue)}
 if(!$ffmpeg){throw "FFmpeg is required and was not found."}
 $ffmpegBin=Split-Path $ffmpeg.Source -Parent
 
+$uvVersion="0.12.17"
+$uvSha256="a252121d5b59398fcb137c6ea448176459a44010f33f67e0072305a637119ca7"
 $uvExe=Join-Path $uvBinRoot "uv.exe"
 if(!(Test-Path $uvExe)){
-  $uvZip=Join-Path $downloadRoot "uv-x86_64-pc-windows-msvc.zip"
-  $uvUrl="https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip"
+  $uvZip=Join-Path $downloadRoot ("uv-"+$uvVersion+"-x86_64-pc-windows-msvc.zip")
+  $uvUrl="https://github.com/astral-sh/uv/releases/download/$uvVersion/uv-x86_64-pc-windows-msvc.zip"
   if(!(Test-Path $uvZip)){
-    Write-Host "Downloading portable uv to E: ..." -ForegroundColor Cyan
+    Write-Host "Downloading pinned portable uv $uvVersion to E: ..." -ForegroundColor Cyan
     Invoke-WebRequest -Uri $uvUrl -OutFile $uvZip -UseBasicParsing
+  }
+  $actualUvHash=(Get-FileHash -Algorithm SHA256 $uvZip).Hash.ToLowerInvariant()
+  if($actualUvHash -ne $uvSha256){
+    throw "uv archive checksum mismatch. Expected $uvSha256, got $actualUvHash"
   }
   $extract=Join-Path $tempRoot "uv-extract"
   if(Test-Path $extract){Remove-Item -Recurse -Force $extract}
