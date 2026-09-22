@@ -3,7 +3,7 @@ import time
 import unittest
 from pathlib import Path
 
-from krishna_core.brahma_memory_intelligence import BrahmaMemoryIntelligence
+from krishna_core.brahma_memory_intelligence import BrahmaMemoryIntelligence, BrahmaConsolidationScheduler
 
 
 class FakeCouncil:
@@ -193,6 +193,16 @@ class BrahmaMemoryIntelligenceTests(unittest.TestCase):
             evidence_refs=["measurement-1"],
         )
         self.assertTrue(result["passed"])
+
+    def test_scheduler_run_once_records_completed_and_skipped_ticks(self):
+        calls=[]
+        scheduler=BrahmaConsolidationScheduler(lambda: calls.append("x") or {"status":"completed"}, interval_seconds=300)
+        result=scheduler.run_once()
+        self.assertEqual(result["status"],"completed")
+        self.assertEqual(scheduler.status()["run_count"],1)
+        skipped=BrahmaConsolidationScheduler(lambda: {"status":"skipped_resource_pressure"}, interval_seconds=300)
+        self.assertEqual(skipped.run_once()["status"],"skipped_resource_pressure")
+        self.assertEqual(skipped.status()["skip_count"],1)
 
     def test_decay_marks_stale_without_deleting_claim(self):
         old = time.time() - 40 * 86400
