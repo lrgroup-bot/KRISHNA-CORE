@@ -45,6 +45,8 @@ from .gyan_bhandar import GyanBhandarAgent
 from .kabach import KabachAgent
 from .bhumiputra import BhumiputraAgent
 from .hawkeye_learning import HawkeyeLearningRuntime
+from .hawkeye_field_platform import HawkeyeFieldPlatform
+from .krishna_observability import KrishnaObservability
 from .commitment_ledger import CommitmentLedger
 from .software_factory import SoftwareFactory
 from .ephemeral_workers import EphemeralWorkerRuntime
@@ -112,6 +114,8 @@ class Orchestrator:
         self.bhumiputra = BhumiputraAgent(runtime_state / "bhumiputra")
         self.hawkeye = self.bhumiputra  # canonical product name; legacy alias retained for API compatibility
         self.hawkeye_learning = HawkeyeLearningRuntime(runtime_state / "hawkeye" / "learning")
+        self.hawkeye_field = HawkeyeFieldPlatform(runtime_state / "hawkeye" / "field")
+        self.observability = KrishnaObservability(runtime_state / "observability")
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
