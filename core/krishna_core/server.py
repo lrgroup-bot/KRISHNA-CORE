@@ -1809,7 +1809,7 @@ class Handler(BaseHTTPRequestHandler):
                 mark("INVESTIGATION ERROR", str(exc)[:160])
                 return self._json(500, {"error": str(exc)})
 
-        if post_path == "/api/bhumiputra/live/start":
+        if post_path in ("/api/hawkeye/live/start", "/api/bhumiputra/live/start"):
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
             payload={
                 "project":project,
@@ -1823,7 +1823,7 @@ class Handler(BaseHTTPRequestHandler):
             )
             return self._json(201,receipt["result"])
 
-        if post_path == "/api/bhumiputra/live/frame":
+        if post_path in ("/api/hawkeye/live/frame", "/api/bhumiputra/live/frame"):
             session_id=str(data.get("session_id") or "").strip()
             if not session_id:return self._json(400,{"error":"session_id is required"})
             raw_b64=str(data.get("data_b64") or "").strip()
