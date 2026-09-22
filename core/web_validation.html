@@ -1585,7 +1585,17 @@ async function loadPlugins(){
    const source=row.querySelector('.pluginSource');
    source.textContent=p.source_url?('Source: '+p.source_url.replace(/^https?:\/\//,'')):'Source not verified';
    const toggle=row.querySelector('.toggle');toggle.textContent=p.enabled?'Disable':'Enable';
-   toggle.onclick=async()=>{try{await req('/api/plugins/enable',{id:p.id,enabled:!p.enabled});await loadPlugins()}catch(e){log(e.message)}};
+   toggle.onclick=async()=>{
+     try{
+       const enabling=!p.enabled;
+       if(enabling){
+         const ok=await confirmAction('Enable plugin "'+p.name+'"? Its declared permissions and network access become available only through KRISHNA/Sudarshan policy.');
+         if(!ok)return;
+       }
+       await req('/api/plugins/enable',{id:p.id,enabled:enabling,approved:enabling,project:$('project')?.value||'KRISHNA'});
+       await loadPlugins()
+     }catch(e){log(e.message)}
+   };
    const credential=row.querySelector('.credentialBtn');
    if(p.auth_type==='token'||p.auth_type==='api_key'){
      credential.textContent=p.credential_ref?'Replace credential':'Connect credential';
