@@ -15,6 +15,21 @@ import java.util.Comparator;
 public final class HawkeyeEdgeMemory {
   private HawkeyeEdgeMemory(){}
 
+  public static synchronized void migrateLegacyPlaintext(Context c){
+    android.content.SharedPreferences p=c.getSharedPreferences("hawkeye_evidence_migration",0);
+    if(p.getBoolean("encrypted_v1",false))return;
+    deleteRecursive(new File(c.getFilesDir(),"hawkeye-field"));
+    File root=new File(c.getFilesDir(),"hawkeye-memory");purgeLegacyFiles(root);
+    p.edit().putBoolean("encrypted_v1",true).apply();
+  }
+
+  private static void purgeLegacyFiles(File f){
+    if(f==null||!f.exists())return;File[] fs=f.listFiles();if(fs==null)return;
+    for(File x:fs){if(x.isDirectory()){purgeLegacyFiles(x);File[] left=x.listFiles();if(left!=null&&left.length==0)x.delete();}
+      else if(!(x.getName().endsWith(".meta.enc")||x.getName().endsWith(".payload.enc")))x.delete();}
+  }
+  private static void deleteRecursive(File f){if(f==null||!f.exists())return;if(f.isDirectory()){File[] fs=f.listFiles();if(fs!=null)for(File x:fs)deleteRecursive(x);}f.delete();}
+
   public static JSONObject remember(Context c,String session,String objectId,byte[] jpeg,JSONObject sensors,
                                     double quality,String evidenceState,String note)throws Exception{
     return rememberMedia(c,session,objectId,jpeg,"image/jpeg","image",sensors,quality,evidenceState,note);
@@ -22,6 +37,7 @@ public final class HawkeyeEdgeMemory {
 
   public static JSONObject rememberMedia(Context c,String session,String objectId,byte[] payload,String contentType,String modality,
                                          JSONObject sensors,double quality,String evidenceState,String note)throws Exception{
+    migrateLegacyPlaintext(c);
     if(payload==null||payload.length==0)throw new IllegalArgumentException("empty Hawkeye evidence");
     String safe=safe(session);long now=System.currentTimeMillis();
     File dir=new File(c.getFilesDir(),"hawkeye-memory/"+safe);
