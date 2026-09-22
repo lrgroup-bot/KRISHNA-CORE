@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
 import uuid
 from pathlib import Path
 from threading import RLock
+from urllib.parse import urlparse
 
 from .rishi_council import RishiCouncil
 
@@ -27,6 +29,16 @@ EVIDENCE_STATUS={
     "contested","contradicted","unknown","historical_traditional_only",
 }
 TRACKS={"modern_science","vedic_classical","historical","philosophical","engineering","general"}
+RESEARCH_PHASES=(
+    ("scope","Scope and question framing"),
+    ("literature","Literature and source discovery"),
+    ("claims","Atomic claim extraction"),
+    ("challenge","Contradiction and adversarial challenge"),
+    ("test","Application, experiment and falsification planning"),
+    ("synthesis","Verified synthesis"),
+    ("report","Research dossier and Gyan handoff"),
+)
+RESEARCH_PHASE_INDEX={code:i for i,(code,_) in enumerate(RESEARCH_PHASES)}
 
 
 class BrahmagyanRuntime:
@@ -38,7 +50,7 @@ class BrahmagyanRuntime:
     model calls and temporary workers remain outside this class behind Sudarshan.
     """
 
-    VERSION="brahmagyan-v1"
+    VERSION="brahmagyan-v2"
 
     def __init__(self,state_root,gyan,memory):
         self.root=Path(state_root)
@@ -49,7 +61,7 @@ class BrahmagyanRuntime:
         self.council=RishiCouncil()
         self.lock=RLock()
         self.state={
-            "missions":{},"claims":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
+            "missions":{},"claims":{},"debates":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
             "created_at":time.time(),"version":self.VERSION,
         }
         self._load()
@@ -59,7 +71,7 @@ class BrahmagyanRuntime:
         try:
             raw=json.loads(self.path.read_text(encoding="utf-8"))
             if isinstance(raw,dict):
-                for key in ("missions","claims","curiosity","shishya_archive","council_proposals"):
+                for key in ("missions","claims","debates","curiosity","shishya_archive","council_proposals"):
                     if key in raw:self.state[key]=raw[key]
         except Exception as exc:
             self.memory.audit("brahmagyan_state","load_failed",f"{type(exc).__name__}: {exc}")
@@ -89,15 +101,32 @@ class BrahmagyanRuntime:
             "identifier":str(source.get("identifier") or source.get("doi") or "").strip()[:500],
             "author":str(source.get("author") or "").strip()[:500],
             "publication":str(source.get("publication") or "").strip()[:500],
+            "publisher":str(source.get("publisher") or "").strip()[:500],
             "publication_date":source.get("publication_date"),
             "retrieved_date":source.get("retrieved_date") or time.strftime("%Y-%m-%d"),
             "source_type":str(source.get("source_type") or "unknown").strip().lower()[:80],
             "primary":bool(source.get("primary",False)),
+            "peer_reviewed":source.get("peer_reviewed"),
+            "retracted":bool(source.get("retracted",False)),
+            "parent_source":str(source.get("parent_source") or "").strip()[:500],
             "evidence":source.get("evidence"),
             "content_hash":source.get("content_hash"),
+            "citation_verified":source.get("citation_verified"),
+            "citation_relation":source.get("citation_relation"),
+            "citation_notes":source.get("citation_notes"),
+            "citation_verifier":source.get("citation_verifier"),
+            "citation_reviewed_at":source.get("citation_reviewed_at"),
         }
         if not row["url"] and not row["identifier"] and not row["title"]:
             raise ValueError("source requires title, url or identifier")
+        identity=(row["identifier"] or row["url"] or f"{row['publication']}|{row['author']}|{row['title']}").strip().lower()
+        row["source_id"]=str(source.get("source_id") or hashlib.sha256(identity.encode("utf-8")).hexdigest()[:20])
+        host=""
+        if row["url"]:
+            try:host=(urlparse(row["url"]).hostname or "").lower()
+            except Exception:host=""
+        family=str(source.get("source_family") or row["parent_source"] or row["publisher"] or host or row["publication"] or row["author"] or row["source_id"]).strip().lower()
+        row["source_family"]=family[:500]
         return row
 
     @staticmethod
@@ -127,12 +156,255 @@ class BrahmagyanRuntime:
             "source_policy":"prefer primary sources; secondary summaries cannot inherit primary-source weight",
             "dual_track_rule":"modern scientific evidence and Vedic/classical material stay separately labeled; similarities never imply scientific identity",
             "priority":priority or {},
+            "phase":"scope","phase_history":[{"phase":"scope","at":self._now(),"evidence":[]}],
+            "perspectives":[],"debate_ids":[],
             "claim_ids":[],"research_questions":[],"shishya_batches":[],
         }
         with self.lock:
             self.state["missions"][mid]=mission;self._save()
         self.memory.audit("brahmagyan_mission","planned",f"{mid}:{selected['id']}:{topic}")
         return dict(mission)
+
+    def advance_phase(self,mission_id,target_phase,evidence=None):
+        target=str(target_phase or "").strip().lower()
+        if target not in RESEARCH_PHASE_INDEX:raise ValueError("invalid research phase")
+        with self.lock:
+            m=self.state["missions"].get(str(mission_id))
+            if not m:raise KeyError(mission_id)
+            current=str(m.get("phase") or "scope")
+            if RESEARCH_PHASE_INDEX[target]!=RESEARCH_PHASE_INDEX[current]+1:
+                raise ValueError("research phase must advance exactly one stage at a time")
+            m["phase"]=target
+            m.setdefault("phase_history",[]).append({
+                "phase":target,"at":self._now(),"evidence":list(evidence or []),
+            })
+            m["updated_at"]=self._now();self._save()
+            return json.loads(json.dumps(m))
+
+    def perspective_plan(self,mission_id,limit=5):
+        m=self.mission(mission_id)
+        selected=self.council.select(f"{m['topic']} {m['question']}",max(1,min(int(limit),6)))
+        rows=[]
+        seen=set()
+        for r in selected:
+            if r["id"] in seen:continue
+            seen.add(r["id"])
+            q=(f"{r['display_name']} lens — {r['question']} "
+               f"Apply this lens to the mission question: {m['question']}")
+            rows.append({
+                "rishi_id":r["id"],"display_name":r["display_name"],"role":r["role"],
+                "lens":r["question"],"research_question":q,
+            })
+        with self.lock:
+            live=self.state["missions"].get(str(mission_id))
+            if not live:raise KeyError(mission_id)
+            live["perspectives"]=rows
+            existing=list(live.get("research_questions") or [])
+            for row in rows:
+                if row["research_question"] not in existing:existing.append(row["research_question"])
+            live["research_questions"]=existing[:300]
+            live["updated_at"]=self._now();self._save()
+        return {"mission_id":mission_id,"perspectives":rows,
+                "policy":"multi-perspective questions broaden retrieval; they are not independent evidence by themselves"}
+
+    @staticmethod
+    def _all_evidence_rows(c):
+        return (
+            list(c.get("sources") or [])+
+            list(c.get("supporting_evidence") or [])+
+            list(c.get("qualifying_evidence") or [])+
+            list(c.get("contradicting_evidence") or [])
+        )
+
+    def evidence_audit(self,claim_id):
+        c=self.claim(claim_id)
+        supporting=list(c.get("sources") or [])+list(c.get("supporting_evidence") or [])
+        all_rows=self._all_evidence_rows(c)
+        support_families={str(x.get("source_family") or x.get("source_id") or "").strip().lower() for x in supporting}
+        support_families.discard("")
+        all_families={str(x.get("source_family") or x.get("source_id") or "").strip().lower() for x in all_rows}
+        all_families.discard("")
+        hashes=[str(x.get("content_hash") or "").strip().lower() for x in all_rows if x.get("content_hash")]
+        duplicate_hashes=sorted({h for h in hashes if hashes.count(h)>1})
+        audited=[x for x in all_rows if x.get("citation_verified") is not None]
+        citation_verified=[x for x in audited if x.get("citation_verified") is True]
+        retracted_support=[x for x in supporting if x.get("retracted")]
+        contradictions=list(c.get("contradicting_evidence") or [])
+        unresolved=[x for x in contradictions if not x.get("resolved_at")]
+        issues=[]
+        if len(support_families)<2:issues.append("fewer than two independent supporting source families")
+        if not contradictions:issues.append("no contradicting evidence has been recorded")
+        if retracted_support:issues.append("supporting evidence includes a source marked retracted")
+        if duplicate_hashes:issues.append("duplicate source content detected")
+        if not audited:issues.append("citation entailment has not yet been explicitly audited")
+        return {
+            "claim_id":claim_id,
+            "source_count":len(all_rows),
+            "supporting_source_count":len(supporting),
+            "primary_source_count":len([x for x in supporting if x.get("primary")]),
+            "independent_support_families":len(support_families),
+            "independent_all_families":len(all_families),
+            "contradicting_source_count":len(contradictions),
+            "unresolved_contradictions":len(unresolved),
+            "retracted_support_count":len(retracted_support),
+            "duplicate_content_hashes":duplicate_hashes,
+            "citation_audited_count":len(audited),
+            "citation_verified_count":len(citation_verified),
+            "issues":issues,
+            "verifier_policy":"citation verification is a named, versioned instrument; its verdict is evidence about attribution, not infallible truth",
+        }
+
+    def citation_review(self,claim_id,source_id,supported,relation="supports",verifier="gautama",notes="",protocol="manual-v1"):
+        sid=str(source_id or "").strip()
+        if not sid:raise ValueError("source_id is required")
+        relation=str(relation or "supports").strip().lower()
+        if relation not in {"supports","contradicts","qualifies","unrelated"}:raise ValueError("invalid citation relation")
+        verifier=str(verifier or "").strip().lower()
+        if not verifier:raise ValueError("verifier is required")
+        found=False
+        with self.lock:
+            c=self.state["claims"].get(str(claim_id))
+            if not c:raise KeyError(claim_id)
+            for field in ("sources","supporting_evidence","qualifying_evidence","contradicting_evidence"):
+                for row in c.get(field) or []:
+                    if str(row.get("source_id") or "")==sid:
+                        row["citation_verified"]=bool(supported)
+                        row["citation_relation"]=relation
+                        row["citation_notes"]=str(notes or "")[:2000]
+                        row["citation_verifier"]=verifier
+                        row["citation_protocol"]=str(protocol or "manual-v1")[:200]
+                        row["citation_reviewed_at"]=self._now()
+                        found=True
+            if not found:raise KeyError("source_id not found on claim")
+            c["updated_at"]=self._now();c["knowledge_version"]=int(c.get("knowledge_version") or 1)+1
+            self._save()
+            return self.evidence_audit(claim_id)
+
+    def debate_policy(self,mission_id,stakes="normal"):
+        m=self.mission(mission_id)
+        claims=[self.claim(x) for x in m.get("claim_ids") or []]
+        unresolved=sum(len([e for e in c.get("contradicting_evidence") or [] if not e.get("resolved_at")]) for c in claims)
+        contested=len([c for c in claims if c.get("evidence_status") in {"contested","contradicted"}])
+        stakes=str(stakes or "normal").strip().lower()
+        high_stakes=stakes in {"high","critical"}
+        reasons=[]
+        if unresolved:reasons.append("unresolved contradictory evidence")
+        if contested:reasons.append("contested or contradicted claims")
+        if m.get("dual_track_required"):reasons.append("dual evidence tracks require careful comparison")
+        if high_stakes:reasons.append("high-stakes decision")
+        recommended=bool(reasons)
+        return {
+            "mission_id":mission_id,"recommended":recommended,"stakes":stakes,
+            "unresolved_contradictions":unresolved,"contested_claims":contested,"reasons":reasons,
+            "policy":"debate is selective, not the default; use it where disagreement can reveal hidden assumptions or evidence conflicts",
+        }
+
+    def open_debate(self,mission_id,proposition="",participants=None,stakes="normal"):
+        m=self.mission(mission_id)
+        chosen=[str(x).strip().lower() for x in (participants or []) if str(x).strip()]
+        if not chosen:
+            chosen=[x["id"] for x in self.council.select(f"{m['topic']} {m['question']}",4)]
+        dedup=[]
+        for rid in chosen:
+            self.council.get(rid)
+            if rid not in dedup:dedup.append(rid)
+        if len(dedup)<2:raise ValueError("debate requires at least two Rishi participants")
+        did=str(uuid.uuid4())
+        row={
+            "debate_id":did,"mission_id":mission_id,
+            "proposition":str(proposition or m["question"]).strip(),
+            "participants":dedup[:6],"stakes":str(stakes or "normal").strip().lower(),
+            "policy":self.debate_policy(mission_id,stakes),"turns":[],
+            "status":"open","opened_at":self._now(),"closed_at":None,
+            "synthesis":"","gautama_review":None,"unresolved":[],
+        }
+        with self.lock:
+            self.state["debates"][did]=row
+            live=self.state["missions"][mission_id]
+            live.setdefault("debate_ids",[]).append(did);live["updated_at"]=self._now();self._save()
+        return json.loads(json.dumps(row))
+
+    def record_debate_turn(self,debate_id,rishi_id,position,claim_ids=None,objections=None,response_to=None):
+        rid=str(rishi_id or "").strip().lower()
+        position=str(position or "").strip()
+        if not position:raise ValueError("position is required")
+        with self.lock:
+            d=self.state["debates"].get(str(debate_id))
+            if not d:raise KeyError(debate_id)
+            if d.get("status")!="open":raise ValueError("debate is closed")
+            if rid not in d.get("participants",[]):raise PermissionError("Rishi is not a participant in this debate")
+            self.council.get(rid)
+            valid_claims=[]
+            for cid in claim_ids or []:
+                c=self.state["claims"].get(str(cid))
+                if not c or c.get("mission_id")!=d["mission_id"]:raise ValueError("debate claim must belong to the same mission")
+                valid_claims.append(str(cid))
+            turn={
+                "turn_id":str(uuid.uuid4()),"rishi_id":rid,"position":position,
+                "claim_ids":valid_claims,
+                "objections":[str(x).strip()[:1500] for x in (objections or []) if str(x).strip()],
+                "response_to":response_to,"grounding":"claim_linked" if valid_claims else "argument_only",
+                "created_at":self._now(),
+            }
+            d["turns"].append(turn);self._save()
+            return json.loads(json.dumps(turn))
+
+    def close_debate(self,debate_id,synthesis,gautama_review,unresolved=None,closed_by="veda-vyasa"):
+        if str(closed_by or "").strip().lower()!="veda-vyasa":
+            raise PermissionError("Veda Vyasa is the canonical debate synthesizer")
+        synthesis=str(synthesis or "").strip()
+        if not synthesis:raise ValueError("synthesis is required")
+        review=dict(gautama_review or {})
+        if "evidence_sufficient" not in review:raise ValueError("Gautama review must state evidence_sufficient")
+        review["reviewer"]="gautama"
+        with self.lock:
+            d=self.state["debates"].get(str(debate_id))
+            if not d:raise KeyError(debate_id)
+            if d.get("status")!="open":raise ValueError("debate is already closed")
+            contributors={x.get("rishi_id") for x in d.get("turns") or [] if x.get("rishi_id")}
+            if len(contributors)<2:raise ValueError("debate requires contributions from at least two Rishis before synthesis")
+            d["status"]="closed";d["synthesis"]=synthesis;d["gautama_review"]=review
+            d["unresolved"]=[str(x).strip()[:1500] for x in (unresolved or []) if str(x).strip()]
+            d["closed_at"]=self._now();self._save()
+            return json.loads(json.dumps(d))
+
+    def research_scorecard(self,mission_id):
+        m=self.mission(mission_id)
+        claims=[self.claim(x) for x in m.get("claim_ids") or []]
+        audits=[self.evidence_audit(c["claim_id"]) for c in claims]
+        return {
+            "mission_id":mission_id,"phase":m.get("phase","scope"),"claim_count":len(claims),
+            "cross_checked_claims":len([c for c in claims if LEVEL_INDEX.get(c.get("maturity","L0"),0)>=LEVEL_INDEX["L4"]]),
+            "trusted_ready_claims":len([c for c in claims if self.promotion_readiness(c["claim_id"])["trusted_ready"]]),
+            "contested_claims":len([c for c in claims if c.get("evidence_status") in {"contested","contradicted"}]),
+            "source_count":sum(a["source_count"] for a in audits),
+            "citation_audited_count":sum(a["citation_audited_count"] for a in audits),
+            "citation_verified_count":sum(a["citation_verified_count"] for a in audits),
+            "unresolved_contradictions":sum(a["unresolved_contradictions"] for a in audits),
+            "research_questions":len(m.get("research_questions") or []),
+            "perspectives":len(m.get("perspectives") or []),
+            "debates":len(m.get("debate_ids") or []),
+            "policy":"diagnostic scorecard only; it does not collapse research quality into a single truth score",
+        }
+
+    def dossier(self,mission_id):
+        m=self.mission(mission_id)
+        claims=[self.claim(x) for x in m.get("claim_ids") or []]
+        debates=[]
+        with self.lock:
+            for did in m.get("debate_ids") or []:
+                if did in self.state["debates"]:debates.append(json.loads(json.dumps(self.state["debates"][did])))
+        return {
+            "mission":m,"scorecard":self.research_scorecard(mission_id),
+            "claims":[{
+                "claim_id":c["claim_id"],"claim":c["claim"],"knowledge_track":c["knowledge_track"],
+                "maturity":c["maturity"],"evidence_status":c["evidence_status"],"confidence":c["confidence"],
+                "audit":self.evidence_audit(c["claim_id"]),
+            } for c in claims],
+            "debates":debates,
+            "open_questions":list(m.get("research_questions") or []),
+            "policy":"preserve disagreements, provenance and unknowns; synthesis must not erase unresolved evidence conflicts",
+        }
 
     def review_flow(self,topic,rishi_id=None):
         text=str(topic or "").lower()
@@ -232,7 +504,7 @@ class BrahmagyanRuntime:
     def _independent_source_count(c):
         keys=set()
         for src in list(c.get("sources") or [])+list(c.get("supporting_evidence") or [])+list(c.get("qualifying_evidence") or []):
-            key=(src.get("identifier") or src.get("url") or src.get("publication") or src.get("title") or "").strip().lower()
+            key=(src.get("source_family") or src.get("identifier") or src.get("url") or src.get("publication") or src.get("title") or "").strip().lower()
             if key:keys.add(key)
         return len(keys)
 
@@ -328,19 +600,22 @@ class BrahmagyanRuntime:
     def promotion_readiness(self,claim_id):
         c=self.claim(claim_id)
         unresolved=len([x for x in (c.get("contradicting_evidence") or []) if not x.get("resolved_at")])
+        audit=self.evidence_audit(claim_id)
         trusted=(
             LEVEL_INDEX[c["maturity"]]>=LEVEL_INDEX["L4"]
             and c.get("verified_by")=="gautama"
             and c.get("compiled_by")=="veda-vyasa"
             and c.get("evidence_status") in {"verified","strongly_supported"}
             and unresolved==0
+            and audit["retracted_support_count"]==0
             and bool(c.get("sources") or c.get("supporting_evidence"))
         )
         return {
             "claim_id":claim_id,"trusted_ready":trusted,"maturity":c["maturity"],
             "evidence_status":c["evidence_status"],"verified_by":c.get("verified_by"),
             "compiled_by":c.get("compiled_by"),"unresolved_contradictions":unresolved,
-            "rule":"trusted Gyan requires L4+, Gautama review, Vyasa compilation, strong evidence and no unresolved contradiction",
+            "evidence_audit":audit,
+            "rule":"trusted Gyan requires L4+, Gautama review, Vyasa compilation, strong evidence, no unresolved contradiction and no retracted supporting source",
         }
 
     def propose_to_gyan(self,claim_id):
@@ -485,14 +760,21 @@ class BrahmagyanRuntime:
 
     def status(self):
         with self.lock:
-            missions=len(self.state["missions"]);claims=len(self.state["claims"]);curiosity=len([x for x in self.state["curiosity"] if x.get("status")=="queued"])
+            missions=len(self.state["missions"]);claims=len(self.state["claims"]);debates=len(self.state.get("debates") or {});curiosity=len([x for x in self.state["curiosity"] if x.get("status")=="queued"])
         return {
             "name":"BRAHMAGYAN","version":self.VERSION,"purpose":"autonomous universal-learning and research intelligence",
             "maturity_levels":[{"code":c,"name":n} for c,n in MATURITY],
+            "research_phases":[{"code":c,"name":n} for c,n in RESEARCH_PHASES],
             "deep_learning_loop":["discover","read","understand_context","extract_claims","verify_sources","cross_check","find_contradictions","apply","test","evaluate","connect","store"],
-            "missions":missions,"claims":claims,"curiosity_queued":curiosity,
+            "missions":missions,"claims":claims,"debates":debates,"curiosity_queued":curiosity,
             "council_proposals":len(self.state.get("council_proposals") or []),
             "council":self.council.status(),
             "trusted_store":"Gyan-Bhandar","authority":"Sudarshan permissioned Action/Job architecture",
+            "research_guardrails":[
+                "multi-perspective retrieval is not independent evidence",
+                "debate is selective and evidence-linked, not mandatory",
+                "citation verification is named and auditable, not treated as infallible truth",
+                "modern and Vedic/classical evidence tracks remain separately labeled",
+            ],
             "resource_policy":"council profiles are inert; workers are mission-scoped and temporary; no background daemon",
         }

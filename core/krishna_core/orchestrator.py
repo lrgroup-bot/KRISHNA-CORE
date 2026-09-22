@@ -381,6 +381,56 @@ class Orchestrator:
                 str(payload.get("mission_id") or ""),payload.get("questions") or [],
             )
 
+        def brahmagyan_phase_advance(payload,context):
+            return self.agi.brahmagyan.advance_phase(
+                str(payload.get("mission_id") or ""),str(payload.get("target_phase") or ""),
+                payload.get("evidence") or [],
+            )
+
+        def brahmagyan_perspectives_plan(payload,context):
+            return self.agi.brahmagyan.perspective_plan(
+                str(payload.get("mission_id") or ""),int(payload.get("limit") or 5),
+            )
+
+        def brahmagyan_evidence_audit(payload,context):
+            return self.agi.brahmagyan.evidence_audit(str(payload.get("claim_id") or ""))
+
+        def brahmagyan_citation_review(payload,context):
+            return self.agi.brahmagyan.citation_review(
+                str(payload.get("claim_id") or ""),str(payload.get("source_id") or ""),
+                bool(payload.get("supported",False)),str(payload.get("relation") or "supports"),
+                str(payload.get("verifier") or "gautama"),str(payload.get("notes") or ""),
+                str(payload.get("protocol") or "manual-v1"),
+            )
+
+        def brahmagyan_debate_policy(payload,context):
+            return self.agi.brahmagyan.debate_policy(
+                str(payload.get("mission_id") or ""),str(payload.get("stakes") or "normal"),
+            )
+
+        def brahmagyan_debate_open(payload,context):
+            return self.agi.brahmagyan.open_debate(
+                str(payload.get("mission_id") or ""),str(payload.get("proposition") or ""),
+                payload.get("participants") or [],str(payload.get("stakes") or "normal"),
+            )
+
+        def brahmagyan_debate_turn(payload,context):
+            return self.agi.brahmagyan.record_debate_turn(
+                str(payload.get("debate_id") or ""),str(payload.get("rishi_id") or ""),
+                str(payload.get("position") or ""),payload.get("claim_ids") or [],
+                payload.get("objections") or [],payload.get("response_to"),
+            )
+
+        def brahmagyan_debate_close(payload,context):
+            return self.agi.brahmagyan.close_debate(
+                str(payload.get("debate_id") or ""),str(payload.get("synthesis") or ""),
+                payload.get("gautama_review") or {},payload.get("unresolved") or [],
+                str(payload.get("closed_by") or "veda-vyasa"),
+            )
+
+        def brahmagyan_dossier(payload,context):
+            return self.agi.brahmagyan.dossier(str(payload.get("mission_id") or ""))
+
         def brahmagyan_deep_discover(payload,context):
             mission_id=str(payload.get("mission_id") or "").strip()
             mission=self.agi.brahmagyan.mission(mission_id)
@@ -666,6 +716,61 @@ class Orchestrator:
             mutating=True,permissions=("memory.write",),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
+        self.action_bus.register(
+            "brahmagyan.phase.advance",brahmagyan_phase_advance,
+            description="Advance a BRAHMAGYAN mission through its research protocol one phase at a time",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.perspectives.plan",brahmagyan_perspectives_plan,
+            description="Generate Rishi-specific research lenses and questions before deep retrieval",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.evidence.audit",brahmagyan_evidence_audit,
+            description="Audit source independence, contradiction coverage, retractions and citation review state",
+            permissions=("evidence.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.citation.review",brahmagyan_citation_review,
+            description="Record a named citation-entailment review without treating the verifier as infallible",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.debate.policy",brahmagyan_debate_policy,
+            description="Decide whether evidence-linked Rishi debate is useful for a mission",
+            permissions=("evidence.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.debate.open",brahmagyan_debate_open,
+            description="Open a bounded Rishi cross-examination for a contested or high-stakes mission",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.debate.turn",brahmagyan_debate_turn,
+            description="Record an evidence-linked Rishi position or objection",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.debate.close",brahmagyan_debate_close,
+            description="Close debate with Gautama evidence review and Veda Vyasa synthesis while preserving dissent",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.dossier",brahmagyan_dossier,
+            description="Build a provenance-preserving BRAHMAGYAN research dossier and diagnostic scorecard",
+            permissions=("runtime.read","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
         self.action_bus.register(
             "brahmagyan.deep.discover",brahmagyan_deep_discover,
             description="Run deep source discovery without pretending discovery is learned knowledge",
