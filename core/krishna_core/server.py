@@ -1133,6 +1133,33 @@ class Handler(BaseHTTPRequestHandler):
             try:return self._json(200,orch.project_perfection.visual_edit_intent(payload))
             except ValueError as exc:return self._json(400,{"error":str(exc)})
 
+        if post_path == "/api/project-perfection/visual-edit/stage":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"visual source editing must run on KRISHNA PC"})
+            project=str(data.get("project") or "").strip();sid=str(data.get("session_id") or "").strip()
+            if not project or not sid:return self._json(400,{"error":"project and session_id are required"})
+            policy=orch.projects.get(project)
+            if not policy:return self._json(404,{"error":"project not registered"})
+            try:
+                x=float(data.get("x"));y=float(data.get("y"))
+            except (TypeError,ValueError):return self._json(400,{"error":"x and y are required normalized coordinates"})
+            picked=_browser_fabric.element_at(sid,x,y,normalized=True)
+            element=picked.get("element")
+            if not element:return self._json(404,{"error":"no interactive element found at point","selection":picked})
+            payload={
+                "action":data.get("action"),"selector":element.get("selector_hint") or element.get("selector"),
+                "instruction":data.get("instruction"),"from_box":data.get("from_box"),"to_box":data.get("to_box"),
+                "replacement_text":data.get("replacement_text"),"style_patch":data.get("style_patch"),
+                "source_hint":element.get("selector_hint"),
+            }
+            try:
+                result=orch.project_perfection.stage_visual_edit(
+                    policy.root,element,payload,list(data.get("checks") or policy.verification_checks or []),
+                )
+                result["selection"]=picked
+                return self._json(200,result)
+            except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc),"selection":picked})
+
         if post_path == "/api/project-perfection/finish":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"project finishing must run on KRISHNA PC"})
