@@ -31,6 +31,7 @@ from .avatar_asset_pipeline import AvatarAssetInspector
 from .video_avatar import VideoAvatarFabric
 from .science_atlas import ScienceFrontierScheduler
 from .windows_desktop_fabric import WindowsDesktopFabric
+from .android_test_fabric import AndroidTestFabric
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -103,6 +104,19 @@ orch.action_bus.register(
     "desktop.rpa.run",_desktop_run_action,
     description="Run an approved validated Windows desktop RPA workflow",
     mutating=True,requires_approval=True,permissions=("desktop.control",),
+    sources=("pc","system","agent","job"),
+)
+
+def _android_test_run_action(payload,context):
+    return _android_test_fabric.run_task(
+        str(payload.get("instruction") or ""),str(payload.get("profile") or "flash"),
+        approved=bool(context.get("approved",False)),
+    )
+
+orch.action_bus.register(
+    "mobile.test.run",_android_test_run_action,
+    description="Run an owner-approved KRISHNA Android QA task through ARTEMIS",
+    mutating=True,requires_approval=True,permissions=("mobile.test","device.control"),
     sources=("pc","system","agent","job"),
 )
 
@@ -357,6 +371,7 @@ def avatar_360_bytes():
 _avatar_inspector = AvatarAssetInspector(RUNTIME_ROOT / "state" / "avatar" / "asset-audit.json")
 _video_avatar = VideoAvatarFabric(RUNTIME_ROOT)
 _desktop_fabric = WindowsDesktopFabric(RUNTIME_ROOT)
+_android_test_fabric = AndroidTestFabric(RUNTIME_ROOT)
 
 def avatar_asset_status():
     source=_avatar_inspector.inspect(AVATAR_GLB)
@@ -958,6 +973,11 @@ class Handler(BaseHTTPRequestHandler):
             if probe and self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"desktop provider probing is local-PC only"})
             return self._json(200,_desktop_fabric.status(probe=probe))
+        if path == "/api/mobile/testing/status":
+            probe=str((query.get("probe") or ["0"])[0]).lower() in {"1","true","yes"}
+            if probe and self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"Android test provider probing is local-PC only"})
+            return self._json(200,_android_test_fabric.status(probe=probe))
         if path in ("/api/wearables","/api/wearables/status"):
             return self._json(200,_wearables.status())
         if path == "/api/mobile/resume":
@@ -1017,6 +1037,7 @@ class Handler(BaseHTTPRequestHandler):
                     "neural_action_graph",
                     "pc_resource_observer",
                     "windows_desktop_fabric_capability_gated",
+                    "android_artemis_test_fabric_capability_gated",
                     "registered_project_change_observer",
                     "mobile_event_bridge",
                     "mobile_zero_code_client_hash_pairing",
@@ -1195,6 +1216,19 @@ class Handler(BaseHTTPRequestHandler):
             data = self._body()
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
+
+        if post_path == "/api/mobile/testing/run":
+            try:
+                receipt=orch.dispatch_action(
+                    "mobile.test.run",
+                    {"instruction":data.get("instruction"),"profile":data.get("profile") or "flash"},
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="mobile-test-fabric",
+                    approved=bool(data.get("approved",False)),permissions=("mobile.test","device.control"),
+                )
+                return self._json(200,receipt["result"])
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/desktop/rpa/validate":
             try:
