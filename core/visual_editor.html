@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRISHNA Visual Editor</title>
+<style>
+:root{font-family:Inter,Segoe UI,sans-serif;color-scheme:dark;background:#080a0e;color:#f5f7fb}
+*{box-sizing:border-box}body{margin:0;background:#080a0e}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border-bottom:1px solid #ffffff18;background:#0b0e14f2;position:sticky;top:0;z-index:8}
+h1{font-size:16px;letter-spacing:.08em;margin:0}.sub{font-size:12px;color:#9da7b7}
+main{display:grid;grid-template-columns:minmax(0,1fr) 360px;min-height:calc(100vh - 66px)}
+.stage{padding:16px;min-width:0}.frame-wrap{position:relative;display:inline-block;max-width:100%;border:1px solid #ffffff20;border-radius:16px;overflow:hidden;background:#111722;box-shadow:0 24px 80px #0008;touch-action:none;user-select:none}
+#frame{display:block;max-width:100%;height:auto;min-width:320px;min-height:240px;background:#111722}
+#overlay{position:absolute;inset:0;cursor:crosshair;touch-action:none}
+.box{position:absolute;border:2px solid #f7f8fb;background:#ffffff18;pointer-events:none;border-radius:5px}
+.drag{position:absolute;border:1px dashed #e9edf6;background:#ffffff0d;pointer-events:none}
+aside{border-left:1px solid #ffffff18;background:#0c1017;padding:18px;overflow:auto}
+.card{padding:14px;border:1px solid #ffffff18;border-radius:14px;background:#111620;margin-bottom:12px}
+label{display:block;font-size:11px;color:#a7b0c0;margin:0 0 7px;text-transform:uppercase;letter-spacing:.08em}
+textarea,input,select{width:100%;border:1px solid #ffffff20;border-radius:11px;background:#080b11;color:#fff;padding:11px;font:inherit}
+textarea{min-height:108px;resize:vertical}button{border:0;border-radius:11px;padding:11px 14px;font-weight:800;cursor:pointer}
+.primary{background:#f5f7fb;color:#080a0e}.secondary{background:#1a2130;color:#e8edf7;border:1px solid #ffffff16}.danger{background:#32171b;color:#ffd9dc}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}.status{white-space:pre-wrap;font-size:12px;line-height:1.45;color:#b8c1d0;max-height:240px;overflow:auto}
+.kv{font-size:12px;line-height:1.55;word-break:break-word}.ok{color:#a9f0bc}.bad{color:#ffb3ba}
+@media(max-width:900px){main{grid-template-columns:1fr}aside{border-left:0;border-top:1px solid #ffffff18}}
+</style>
+</head>
+<body>
+<header><div><h1>KRISHNA VISUAL EDITOR</h1><div class="sub">Point, drag or speak. Changes are staged in an isolated candidate and must pass verification before live apply.</div></div><div id="headline" class="sub"></div></header>
+<main>
+<section class="stage">
+  <div class="frame-wrap" id="wrap"><img id="frame" alt="Live Garudanetra browser frame"><div id="overlay"></div></div>
+</section>
+<aside>
+  <div class="card"><label>Selected element</label><div id="selected" class="kv">Click an element in the live frame.</div></div>
+  <div class="card">
+    <label>Instruction</label>
+    <textarea id="instruction" placeholder="Example: Move this card below the chart and keep it responsive."></textarea>
+    <div class="row" style="margin-top:9px">
+      <select id="voiceLang"><option value="en-IN">English (India)</option><option value="hi-IN">Hindi</option><option value="or-IN">Odia</option></select>
+      <button class="secondary" id="voice">🎙 Speak</button>
+    </div>
+    <div id="voiceNote" class="sub" style="margin-top:8px">Voice is optional. Browser speech recognition can be unavailable or cloud-backed; typed instructions remain available.</div>
+  </div>
+  <div class="card">
+    <label>Edit action</label>
+    <select id="action"><option value="">Infer from instruction</option><option value="move">Move / drag</option><option value="resize">Resize</option><option value="restyle">Restyle</option><option value="replace_text">Replace text</option><option value="remove">Remove</option><option value="add_component">Add component</option></select>
+    <input id="replacement" placeholder="Replacement text (optional)" style="margin-top:9px">
+    <button id="stage" class="primary" style="width:100%;margin-top:10px">STAGE + VERIFY EDIT</button>
+  </div>
+  <div class="card">
+    <label>Verified candidate</label>
+    <div id="candidate" class="status">No candidate yet.</div>
+    <button id="apply" class="primary" style="width:100%;margin-top:10px" disabled>APPLY VERIFIED EDIT</button>
+  </div>
+  <div class="card"><label>Runtime status</label><div id="status" class="status">Connecting to Garudanetra…</div></div>
+</aside>
+<script>
+const q=new URLSearchParams(location.search);
+const session=q.get('session')||'', project=q.get('project')||'', frontend=q.get('frontend_url')||'';
+const frame=document.getElementById('frame'), overlay=document.getElementById('overlay'), wrap=document.getElementById('wrap');
+const selectedEl=document.getElementById('selected'), statusEl=document.getElementById('status'), candidateEl=document.getElementById('candidate');
+const instruction=document.getElementById('instruction'), action=document.getElementById('action'), applyBtn=document.getElementById('apply');
+document.getElementById('headline').textContent=project+(session?' · '+session.slice(0,8):'');
+let picked=null,start=null,current=null,lastDrag=null,selectedPoint=null,sessionViewport={width:1,height:1},promotionToken='',refreshTimer=null,frameVersion=0;
+
+function norm(ev){
+ const r=overlay.getBoundingClientRect();
+ return {x:Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width)),y:Math.max(0,Math.min(1,(ev.clientY-r.top)/r.height))};
+}
+function boxFrom(a,b){return [Math.min(a.x,b.x),Math.min(a.y,b.y),Math.abs(a.x-b.x),Math.abs(a.y-b.y)]}
+function drawRect(cls,b){
+ overlay.querySelectorAll('.'+cls).forEach(x=>x.remove());
+ if(!b)return;
+ const d=document.createElement('div');d.className=cls;
+ d.style.left=(b[0]*100)+'%';d.style.top=(b[1]*100)+'%';d.style.width=(b[2]*100)+'%';d.style.height=(b[3]*100)+'%';overlay.appendChild(d);
+}
+async function refreshFrame(){
+ if(!session)return;
+ const img='/api/garudanetra/frame?id='+encodeURIComponent(session)+'&v='+(++frameVersion);
+ const test=new Image();test.onload=()=>{frame.src=img;statusEl.textContent='Live frame connected.'};test.onerror=()=>{statusEl.textContent='Waiting for live Garudanetra frame…'};test.src=img;
+}
+async function pickAt(p){
+ const r=await fetch('/api/garudanetra/element-at?id='+encodeURIComponent(session)+'&x='+p.x+'&y='+p.y);
+ const out=await r.json(); if(!r.ok||!out.element){picked=null;selectedEl.textContent=out.error||'No selectable element at this point.';drawRect('box',null);return}
+ picked=out.element;
+ const vp=await fetch('/api/garudanetra/session?id='+encodeURIComponent(session)).then(x=>x.json()).catch(()=>({}));
+ const vw=Number((vp.viewport||{}).width||1),vh=Number((vp.viewport||{}).height||1);sessionViewport={width:vw,height:vh};
+ drawRect('box',[Number(picked.x||0)/vw,Number(picked.y||0)/vh,Number(picked.width||0)/vw,Number(picked.height||0)/vh]);
+ selectedEl.textContent=(picked.role||picked.tag||'element')+' · '+(picked.name||picked.text||picked.selector_hint||'unnamed')+'\n'+(picked.selector_hint||'');
+}
+overlay.addEventListener('pointerdown',ev=>{start=norm(ev);current=start;overlay.setPointerCapture(ev.pointerId);drawRect('drag',[start.x,start.y,0,0])});
+overlay.addEventListener('pointermove',ev=>{if(!start)return;current=norm(ev);drawRect('drag',boxFrom(start,current))});
+overlay.addEventListener('pointerup',async ev=>{
+ current=norm(ev);try{overlay.releasePointerCapture(ev.pointerId)}catch(e){}
+ const distance=Math.hypot(current.x-start.x,current.y-start.y),origin=start,destination=current;start=null;
+ selectedPoint=origin;lastDrag=distance>.025?{from:origin,to:destination}:null;
+ await pickAt(origin);
+ if(lastDrag){action.value='move'; if(!instruction.value.trim())instruction.value='Move the selected element to the dragged position while preserving responsive layout, accessibility, and existing functionality.'}
+});
+overlay.addEventListener('pointercancel',()=>{start=null;drawRect('drag',null)});
+
+document.getElementById('stage').onclick=async()=>{
+ if(!picked){statusEl.textContent='Select an element first.';return}
+ const p=selectedPoint||current||{x:.5,y:.5};
+ const from=picked?[
+   Number(picked.x||0)/Math.max(sessionViewport.width,1),Number(picked.y||0)/Math.max(sessionViewport.height,1),
+   Number(picked.width||0)/Math.max(sessionViewport.width,1),Number(picked.height||0)/Math.max(sessionViewport.height,1)
+ ]:null;
+ const to=lastDrag&&from?[from[0]+(lastDrag.to.x-lastDrag.from.x),from[1]+(lastDrag.to.y-lastDrag.from.y),from[2],from[3]]:null;
+ statusEl.textContent='Staging source patch and running verification…';applyBtn.disabled=true;promotionToken='';
+ const body={project,session_id:session,x:(p.x||0),y:(p.y||0),action:action.value,instruction:instruction.value.trim(),
+             replacement_text:document.getElementById('replacement').value||null,from_box:from,to_box:to,
+             frontend_url:frontend||null,hawkeye_ui_required:true};
+ const r=await fetch('/api/project-perfection/visual-edit/stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ const out=await r.json();
+ if(!r.ok){statusEl.textContent=out.error||'Edit failed';candidateEl.textContent=JSON.stringify(out,null,2);return}
+ const promo=out.promotion||{};
+ promotionToken=promo.promotion_token||'';
+ const verification=out.verification||{};
+ const passed=!!(out.promotable||verification.passed||(out.verification&&out.verification.verified));
+ candidateEl.textContent=JSON.stringify({mode:out.mode,files:out.files||(out.edit||{}).files,candidate_root:out.candidate_root,promotable:!!out.promotable,verification_passed:passed},null,2);
+ applyBtn.disabled=!promotionToken||!passed;
+ statusEl.textContent=passed?(promotionToken?'Candidate verified. Apply is unlocked.':'Candidate verified but promotion token is unavailable.'):'Candidate did not pass verification. Live project is unchanged.';
+};
+
+applyBtn.onclick=async()=>{
+ if(!promotionToken)return;
+ applyBtn.disabled=true;statusEl.textContent='Applying verified candidate, then re-running live verification…';
+ const body={project,promotion_token:promotionToken,session_id:session,frontend_url:frontend||null,hawkeye_ui_required:true};
+ const r=await fetch('/api/project-perfection/visual-edit/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ const out=await r.json();candidateEl.textContent=JSON.stringify(out,null,2);
+ if(r.ok&&out.applied&&out.post_verification&&out.post_verification.passed){
+   statusEl.textContent='Edit applied and live project re-verified. Refreshing frame…';promotionToken='';setTimeout(refreshFrame,500);
+ }else{
+   statusEl.textContent=out.rolled_back?'Post-apply verification failed; KRISHNA rolled the edit back.':(out.error||out.reason||'Apply did not complete.');
+   applyBtn.disabled=false;
+ }
+};
+
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const voice=document.getElementById('voice');
+if(!SR){voice.disabled=true;voice.textContent='Voice unavailable'}else{
+ voice.onclick=()=>{
+   const rec=new SR();rec.lang=document.getElementById('voiceLang').value;rec.interimResults=false;rec.maxAlternatives=1;
+   voice.disabled=true;voice.textContent='Listening…';
+   rec.onresult=e=>{const text=e.results?.[0]?.[0]?.transcript||'';if(text)instruction.value=(instruction.value?instruction.value+' ':'')+text};
+   rec.onerror=e=>{statusEl.textContent='Voice recognition error: '+e.error};
+   rec.onend=()=>{voice.disabled=false;voice.textContent='🎙 Speak'};
+   rec.start();
+ };
+}
+if(!session||!project){statusEl.textContent='Open with ?project=PROJECT&session=GARUDANETRA_SESSION';document.getElementById('stage').disabled=true}
+else{refreshFrame();refreshTimer=setInterval(refreshFrame,1400)}
+</script>
+</body></html>
