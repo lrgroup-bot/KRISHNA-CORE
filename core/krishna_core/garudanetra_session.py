@@ -189,6 +189,21 @@ class GarudanetraSessionManager:
                 "items":[dict(x) for x in session.semantic_items],
             }
 
+    def element_at(self,session_id,x,y,normalized=True):
+        session=self._get(session_id)
+        px=float(x);py=float(y)
+        if normalized:
+            px=min(1.0,max(0.0,px))*float(session.viewport.get("width") or 1)
+            py=min(1.0,max(0.0,py))*float(session.viewport.get("height") or 1)
+        with self._lock:
+            rows=[dict(item) for item in session.semantic_items
+                  if float(item.get("x",0))<=px<=float(item.get("x",0))+float(item.get("width",0))
+                  and float(item.get("y",0))<=py<=float(item.get("y",0))+float(item.get("height",0))]
+        rows.sort(key=lambda item:max(1.0,float(item.get("width",0))*float(item.get("height",0))))
+        if not rows:
+            return {"session_id":session.session_id,"x":px,"y":py,"element":None}
+        return {"session_id":session.session_id,"x":px,"y":py,"element":rows[0]}
+
     def recording(self,session_id):
         session=self._get(session_id)
         with self._lock:
@@ -340,8 +355,10 @@ class GarudanetraSessionManager:
           return nodes.map((el,i)=>{
             const r=el.getBoundingClientRect(),ref='e'+(i+1),marker=prefix+ref;
             el.setAttribute('data-krishna-ref',marker);
-            return {ref,selector:'[data-krishna-ref="'+marker+'"]',role:roleOf(el),name:nameOf(el),
-              tag:el.tagName.toLowerCase(),visible:!!(r.width&&r.height),x:Math.round(r.x),y:Math.round(r.y),
+            const tag=el.tagName.toLowerCase(),id=el.id||'',classes=Array.from(el.classList||[]).slice(0,6);
+            const selectorHint=id?('#'+id):(classes.length?(tag+'.'+classes.join('.')):tag);
+            return {ref,selector:'[data-krishna-ref="'+marker+'"]',selector_hint:selectorHint,id,classes,
+              role:roleOf(el),name:nameOf(el),tag,visible:!!(r.width&&r.height),x:Math.round(r.x),y:Math.round(r.y),
               width:Math.round(r.width),height:Math.round(r.height),disabled:!!el.disabled};
           }).filter(x=>x.visible);
         }"""
