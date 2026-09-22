@@ -57,7 +57,16 @@ class CandidateRepairGuard:
             target=(root/rel).resolve()
             try:target.relative_to(root)
             except ValueError as exc:raise ValueError("repair escapes candidate") from exc
-            if not target.is_file():raise PermissionError("auto-repair may modify existing candidate files only")
+            if not target.is_file():
+                rel_low=rel.lower()
+                test_name=target.name.lower()
+                allowed_new_test=(
+                    (rel_low.startswith("tests/") or "/tests/" in ("/"+rel_low))
+                    and (test_name.startswith("test_") or ".spec." in test_name or ".test." in test_name)
+                    and target.suffix.lower() in cls.EXTENSIONS
+                )
+                if not allowed_new_test:
+                    raise PermissionError("auto-repair may create only bounded regression tests")
             if target.suffix.lower() not in cls.EXTENSIONS:raise PermissionError("auto-repair file type is not allowed")
             if target.name.lower() in cls.SENSITIVE or any(part in cls.EXCLUDES for part in target.parts):
                 raise PermissionError("auto-repair cannot modify dependency, secret, workflow or build state")
@@ -74,6 +83,7 @@ class CandidateRepairGuard:
         root=Path(candidate_root).resolve();changed=[]
         for row in files:
             target=(root/row["path"]).resolve();target.relative_to(root)
+            target.parent.mkdir(parents=True,exist_ok=True)
             target.write_text(row["content"],encoding="utf-8");changed.append(row["path"])
         return changed
 
