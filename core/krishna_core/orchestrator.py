@@ -889,6 +889,66 @@ class Orchestrator:
                 supersedes=payload.get("supersedes"),
             )
 
+        def brahma_temporal_query(payload,context):
+            return self.brahma.temporal_query(
+                str(payload.get("topic") or ""),
+                as_of=payload.get("as_of"),
+                include_superseded=bool(payload.get("include_superseded",False)),
+                limit=int(payload.get("limit") or 100),
+            )
+
+        def brahma_contradiction_record(payload,context):
+            return self.brahma.record_contradiction(
+                str(payload.get("claim_a") or ""),
+                str(payload.get("claim_b") or ""),
+                str(payload.get("reason") or ""),
+                payload.get("evidence") or [],
+            )
+
+        def brahma_contradiction_resolve(payload,context):
+            return self.brahma.resolve_contradiction(
+                str(payload.get("contradiction_id") or ""),
+                str(payload.get("resolution") or ""),
+            )
+
+        def brahma_consolidate(payload,context):
+            return self.brahma.consolidate(int(payload.get("max_items") or 250))
+
+        def brahma_memory_evaluate(payload,context):
+            return self.brahma.memory_evaluate(
+                payload.get("expected_ids") or [],
+                payload.get("retrieved_ids") or [],
+            )
+
+        def brahma_rishi_graph(payload,context):
+            return self.brahma.rishi_graph(
+                str(payload.get("topic") or ""),
+                int(payload.get("limit") or 8),
+            )
+
+        def brahma_teachback_create(payload,context):
+            return self.brahma.teach_back_create(
+                topic=str(payload.get("topic") or ""),
+                claim=str(payload.get("claim") or ""),
+                evidence=payload.get("evidence") or [],
+                lead_rishi=payload.get("lead_rishi"),
+                reviewer_rishi=payload.get("reviewer_rishi"),
+            )
+
+        def brahma_teachback_submit(payload,context):
+            return self.brahma.teach_back_submit(
+                str(payload.get("challenge_id") or ""),
+                reviewer_rishi=str(payload.get("reviewer_rishi") or ""),
+                answer=str(payload.get("answer") or ""),
+                evidence_refs=payload.get("evidence_refs") or [],
+            )
+
+        def brahma_decay_scan(payload,context):
+            return self.brahma.decay_scan(
+                now=payload.get("now"),
+                ttl_days=payload.get("ttl_days") or {},
+            )
+
         def brahmagyan_mission_create(payload,context):
             project=str(payload.get("project") or context.get("project") or "KRISHNA")
             return self.agi.brahmagyan.create_mission(
@@ -1666,6 +1726,61 @@ class Orchestrator:
             description="Quality-gate Rishi/evidence-backed knowledge before Gyan-Bhandar proposal",
             mutating=True,permissions=("memory.write","evidence.write"),
             sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "brahma.temporal.query",brahma_temporal_query,
+            description="Query BRAHMA bi-temporal knowledge as-of a point in time",
+            permissions=("runtime.read",),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.contradiction.record",brahma_contradiction_record,
+            description="Record a contradiction between two temporal claims without deleting history",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.contradiction.resolve",brahma_contradiction_resolve,
+            description="Resolve a BRAHMA contradiction while preserving provenance",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.consolidate",brahma_consolidate,
+            description="Run deterministic idle-time BRAHMA memory consolidation",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.memory.evaluate",brahma_memory_evaluate,
+            description="Evaluate BRAHMA memory retrieval, freshness, duplication and provenance",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.rishi.graph",brahma_rishi_graph,
+            description="Build the Rishi collaboration graph for a learning topic",
+            permissions=("runtime.read",),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.teachback.create",brahma_teachback_create,
+            description="Create a blinded independent Rishi teach-back verification challenge",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.teachback.submit",brahma_teachback_submit,
+            description="Submit an independent Rishi teach-back result",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.decay.scan",brahma_decay_scan,
+            description="Mark time-sensitive knowledge for re-verification without deleting history",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
