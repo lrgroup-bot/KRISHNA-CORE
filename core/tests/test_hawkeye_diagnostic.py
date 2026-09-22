@@ -18,6 +18,7 @@ class HawkeyeDiagnosticRuntimeTests(unittest.TestCase):
         self.assertTrue(self.runtime.should_activate("diagnose this truck CAN fault"))
         self.assertTrue(self.runtime.should_activate("check this bearing sound fault"))
         self.assertFalse(self.runtime.should_activate("inspect quarry road geometry"))
+        self.assertFalse(self.runtime.should_activate("can you inspect the dashboard layout"))
 
     def test_camera_only_flow_stays_inferred(self):
         raw = '{"device_type":"PCB","analysis":"Visible power section","confidence":0.82,"evidence_state":"OBSERVED","components":[{"id":"j1","label":"DC input","kind":"connector","bbox":[0.1,0.2,0.2,0.2],"confidence":0.9},{"id":"u1","label":"Regulator","kind":"IC","bbox":[0.5,0.4,0.2,0.2],"confidence":0.8}],"flows":[{"from":"j1","to":"u1","label":"power","evidence_state":"MEASURED","confidence":0.7}],"test_points":[],"warnings":[],"needs_reference":false,"reference_type":"none"}'
