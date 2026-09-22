@@ -493,19 +493,25 @@ class RishiLearningLedger:
             rid=profile["id"];row=snapshot[rid]
             subjects=list((row.get("charter") or {}).get("primary_subjects") or profile.get("domains") or [])
             if not subjects:continue
-            topic_rows=row.get("topics") or {}
+            direct=[x for x in (row.get("findings") or []) if x.get("role") in {"lead","active_collaborator","researcher"}]
+            direct_topics={}
+            for finding in direct:
+                key=str(finding.get("topic") or "").lower()
+                meta=direct_topics.setdefault(key,{"research_count":0,"last_researched_at":0.0})
+                meta["research_count"]+=1
+                meta["last_researched_at"]=max(meta["last_researched_at"],float(finding.get("learned_at") or 0))
             best_subject=min(
                 subjects,
                 key=lambda s:(
-                    int((topic_rows.get(str(s).lower()) or {}).get("research_count") or 0),
-                    float((topic_rows.get(str(s).lower()) or {}).get("last_researched_at") or 0),
+                    int((direct_topics.get(str(s).lower()) or {}).get("research_count") or 0),
+                    float((direct_topics.get(str(s).lower()) or {}).get("last_researched_at") or 0),
                     str(s),
                 ),
             )
             candidates.append((
-                len(row.get("findings") or []),
-                len(topic_rows),
-                float(row.get("last_learned_at") or 0),
+                len(direct),
+                len(direct_topics),
+                max([float(x.get("learned_at") or 0) for x in direct] or [0.0]),
                 rid,
                 best_subject,
             ))
@@ -519,8 +525,12 @@ class RishiLearningLedger:
             "role":row["role"],
             "subject":subject,
             "finding_count":len(row.get("findings") or []),
+            "direct_finding_count":len([x for x in row.get("findings") or [] if x.get("role") in {"lead","active_collaborator","researcher"}]),
             "topic_count":len(row.get("topics") or {}),
-            "bootstrap_complete":all(len(x.get("findings") or [])>0 for x in snapshot.values()),
+            "bootstrap_complete":all(
+                any(f.get("role") in {"lead","active_collaborator","researcher"} for f in x.get("findings") or [])
+                for x in snapshot.values()
+            ),
             "policy":"least-trained Rishi and least-researched charter subject are prioritized before repeating well-covered subjects",
         }
 
@@ -529,12 +539,14 @@ class RishiLearningLedger:
         rows=[]
         for profile in self.council.list():
             row=snapshot[profile["id"]]
+            direct=[x for x in row.get("findings") or [] if x.get("role") in {"lead","active_collaborator","researcher"}]
             rows.append({
                 "rishi_id":profile["id"],"display_name":profile["display_name"],
                 "finding_count":len(row.get("findings") or []),
+                "direct_finding_count":len(direct),
                 "topic_count":len(row.get("topics") or {}),
                 "last_learned_at":row.get("last_learned_at"),
-                "ready":len(row.get("findings") or [])>0,
+                "ready":len(direct)>0,
             })
         return {
             "complete":all(x["ready"] for x in rows),
@@ -555,6 +567,10 @@ class RishiLearningLedger:
                 "primary_subjects":row["charter"].get("primary_subjects") or [],
                 "topic_count":len(row.get("topics") or {}),
                 "finding_count":len(row.get("findings") or []),
+                "direct_finding_count":len([
+                    x for x in row.get("findings") or []
+                    if x.get("role") in {"lead","active_collaborator","researcher"}
+                ]),
                 "open_question_count":len([x for x in row.get("open_questions") or [] if x.get("status")=="open"]),
                 "mission_count":len(row.get("missions") or []),
                 "last_learned_at":row.get("last_learned_at"),
