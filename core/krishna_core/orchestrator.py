@@ -840,6 +840,11 @@ class Orchestrator:
 
     def _register_agent_runtime(self):
         self.agent_runtime.register(
+            "kabach","defensive security and privacy guardian",
+            permissions=("privacy.read","privacy.write","release.verify","web.read","browser.read","mobile.read","network.read","evidence.write"),
+            actions=("kabach.privacy.*",),
+        )
+        self.agent_runtime.register(
             "garuda","research and evidence scout",
             permissions=("web.read","evidence.write","memory.write"),
             actions=("garuda.scout",),
