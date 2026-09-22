@@ -12,7 +12,8 @@ class AdapterTests(unittest.TestCase):
         ]})
         self.assertEqual(graph["node_count"],2)
         src=RegressionGenerator().generate("demo",graph)
-        self.assertIn("localhost/settings",src)
+        self.assertIn("/settings",src)
+        self.assertIn("KRISHNA_BASE_URL",src)
         self.assertIn("console",src)
 
     def test_mutation_requires_all_detected(self):
