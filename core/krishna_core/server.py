@@ -598,7 +598,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/hawkeye/learning/missions":
             return self._json(200,{"agent":"hawkeye","missions":orch.hawkeye_learning.daily_missions()})
         if path == "/api/hawkeye/field/maps":
-            return self._json(200,{"agent":"hawkeye","providers":orch.hawkeye_field.map_stack()})
+            return self._json(200,{"agent":"hawkeye","providers":orch.hawkeye_field.map_stack(),
+                                   "geo_catalog":orch.hawkeye_geo.catalog()})
+        if path == "/api/hawkeye/geo/view":
+            try:
+                lat=float((query.get("lat") or [""])[0]);lon=float((query.get("lon") or [""])[0])
+            except (TypeError,ValueError):return self._json(400,{"error":"lat and lon are required numeric values"})
+            return self._json(200,orch.hawkeye_geo.unified_view(lat,lon))
         if path == "/api/hawkeye/field/devices":
             return self._json(200,{"agent":"hawkeye","devices":orch.hawkeye_field.devices()})
         if path == "/api/hawkeye/field/sync/pending":
