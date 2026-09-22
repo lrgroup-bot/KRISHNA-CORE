@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from urllib.parse import urljoin, urlparse, urldefrag
 from hashlib import sha256
+import os
 import time
 
 
@@ -334,9 +335,31 @@ class BrowserOperator:
               if (!html.getAttribute('lang')) issues.push({kind:'html_missing_lang'});
               return {elements:rows,issues};
             }""")
+            axe={"available":False,"violations":[]}
+            candidates=[
+                os.getenv("KRISHNA_AXE_CORE_JS",""),
+                str(Path.cwd()/"node_modules"/"axe-core"/"axe.min.js"),
+                str(Path(__file__).resolve().parents[2]/"node_modules"/"axe-core"/"axe.min.js"),
+            ]
+            axe_path=next((Path(x).resolve() for x in candidates if x and Path(x).is_file()),None)
+            if axe_path:
+                try:
+                    page.add_script_tag(path=str(axe_path))
+                    raw=page.evaluate("""async () => {
+                      const out=await axe.run(document,{resultTypes:['violations']});
+                      return out.violations.map(v=>({id:v.id,impact:v.impact,description:v.description,
+                        help:v.help,helpUrl:v.helpUrl,nodes:v.nodes.slice(0,20).map(n=>({
+                          target:n.target,failureSummary:n.failureSummary,html:(n.html||'').slice(0,500)
+                        }))}));
+                    }""")
+                    axe={"available":True,"path":str(axe_path),"violations":raw}
+                except Exception as exc:
+                    axe={"available":False,"path":str(axe_path),"violations":[],
+                         "error":f"{type(exc).__name__}: {exc}"}
             page.close();browser.close()
-        return {"url":url,"issues":result["issues"],"elements":result["elements"],
-                "passed":not result["issues"],"scope":"automated_semantic_sanity_not_full_wcag"}
+        passed=not result["issues"] and not axe.get("violations")
+        return {"url":url,"issues":result["issues"],"elements":result["elements"],"axe":axe,
+                "passed":passed,"scope":"automated_semantic_plus_axe" if axe.get("available") else "automated_semantic_sanity"}
 
     def chaos_scan(self, url: str) -> dict:
         """Execute safe browser-level failure injection in ephemeral contexts."""
