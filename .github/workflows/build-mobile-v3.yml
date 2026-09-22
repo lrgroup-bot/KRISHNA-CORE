@@ -205,7 +205,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             PYTHONPATH=core python - <<'PY'
             import json
             from pathlib import Path
