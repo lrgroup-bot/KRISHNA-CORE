@@ -326,6 +326,37 @@ class ArtifactExecutor:
         except Exception as exc:
             return {"passed":False,"pid":pid,"error":f"{type(exc).__name__}: {exc}"}
 
+    def _wait_android_ready(self, adb: str, attempts: int=60,
+                            delay_seconds: float=1.0) -> dict[str, Any]:
+        """Wait for ADB transport and core Android framework services before app operations."""
+        last={"executed":True,"passed":False,"state":"","boot":"","package_service":"","activity_service":""}
+        for attempt in range(1,max(1,int(attempts))+1):
+            state=self._cmd([adb,"get-state"],30)
+            state_text=state.get("output","").strip()
+            boot={"passed":False,"output":""}
+            package_service={"passed":False,"output":""}
+            activity_service={"passed":False,"output":""}
+            if state.get("passed") and state_text=="device":
+                boot=self._cmd([adb,"shell","getprop","sys.boot_completed"],30)
+                package_service=self._cmd([adb,"shell","service","check","package"],30)
+                activity_service=self._cmd([adb,"shell","service","check","activity"],30)
+                boot_text=boot.get("output","").strip()
+                package_text=package_service.get("output","").lower()
+                activity_text=activity_service.get("output","").lower()
+                if (boot.get("passed") and boot_text=="1" and
+                        package_service.get("passed") and "found" in package_text and
+                        activity_service.get("passed") and "found" in activity_text):
+                    return {"executed":True,"passed":True,"attempts":attempt,"state":state_text,
+                            "boot":boot_text,"package_service":package_service.get("output","")[-1000:],
+                            "activity_service":activity_service.get("output","")[-1000:]}
+            last={"executed":True,"passed":False,"attempts":attempt,"state":state_text,
+                  "boot":boot.get("output","").strip(),
+                  "package_service":package_service.get("output","")[-1000:],
+                  "activity_service":activity_service.get("output","")[-1000:]}
+            if attempt<max(1,int(attempts)) and delay_seconds>0:
+                time.sleep(float(delay_seconds))
+        return last
+
     def _wait_android_process(self, adb: str, package_id: str, attempts: int=15,
                               delay_seconds: float=1.0) -> dict[str, Any]:
         """Wait for Android to publish the app PID after an asynchronous launcher event."""
@@ -421,7 +452,11 @@ class ArtifactExecutor:
         devices=self._cmd([adb,"devices"],30)
         if not devices["passed"] or "\tdevice" not in devices.get("output",""):
             return {"kind":"apk","executed":False,"passed":False,"reason":"no_android_device","devices":devices}
-        steps=[]
+        readiness=self._wait_android_ready(adb)
+        if not readiness.get("passed"):
+            return {"kind":"apk","executed":False,"passed":False,"reason":"android_not_ready",
+                    "devices":devices,"readiness":readiness}
+        steps=[{"name":"android_ready",**readiness}]
         installed_probe=self._cmd([adb,"shell","pm","path",package_id],30)
         was_installed=bool(installed_probe.get("passed") and "package:" in installed_probe.get("output",""))
         if was_installed:
