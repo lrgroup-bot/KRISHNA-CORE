@@ -167,6 +167,31 @@ $axeUser=[Environment]::GetEnvironmentVariable("KRISHNA_AXE_CORE_JS","User")
 if($axeUser){$env:KRISHNA_AXE_CORE_JS=$axeUser}
 Write-Host "PROJECT PERFECTION DEPENDENCIES VERIFIED" -ForegroundColor Green
 
+# Build and deploy the verified React spatial shell. The runtime keeps the legacy
+# validation HTML only as a fail-closed fallback when this bundle is unavailable.
+$spatialRoot=Join-Path $Source "app\spatial-ui"
+$spatialIndex=Join-Path $spatialRoot "dist\index.html"
+if(!(Test-Path (Join-Path $spatialRoot "package.json"))){throw "SPATIAL UI PACKAGE MISSING: $spatialRoot"}
+$npmCmd=(Get-Command npm.cmd -ErrorAction SilentlyContinue)
+if(!$npmCmd){$npmCmd=(Get-Command npm -ErrorAction SilentlyContinue)}
+if(!$npmCmd){throw "SPATIAL UI BUILD REQUIRES NODE/NPM"}
+Push-Location $spatialRoot
+try{
+  & $npmCmd.Source install --no-audit --no-fund
+  if($LASTEXITCODE -ne 0){throw "SPATIAL UI NPM INSTALL FAILED"}
+  & $npmCmd.Source run build
+  if($LASTEXITCODE -ne 0){throw "SPATIAL UI BUILD FAILED"}
+}finally{Pop-Location}
+if(!(Test-Path $spatialIndex)){throw "SPATIAL UI INDEX MISSING AFTER BUILD: $spatialIndex"}
+$spatialText=Get-Content -LiteralPath $spatialIndex -Raw
+if($spatialText -notmatch 'data-krishna-spatial-ui="2026\.09"'){throw "SPATIAL UI VERSION MARKER MISSING"}
+$spatialRuntime=Join-Path $Runtime "dashboard\spatial-ui"
+New-Item -ItemType Directory -Force $spatialRuntime|Out-Null
+& robocopy (Join-Path $spatialRoot "dist") $spatialRuntime /MIR /R:1 /W:1
+if($LASTEXITCODE -ge 8){throw "SPATIAL UI COPY FAILED: robocopy=$LASTEXITCODE"}
+if(!(Test-Path (Join-Path $spatialRuntime "index.html"))){throw "SPATIAL UI RUNTIME INDEX MISSING"}
+Write-Host "SPATIAL UI BUILT AND DEPLOYED" -ForegroundColor Green
+
 # Runtime state/assets are owned by the runtime and never mirrored/deleted by deploy.
 $excludeDirs=@("__pycache__",".krishna_state","state","logs","backups",".venv","ollama-models","dashboard\assets\avatar")
 $xd=@();foreach($d in $excludeDirs){$xd+=@("/XD",(Join-Path $Runtime $d))}
