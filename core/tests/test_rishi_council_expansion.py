@@ -17,13 +17,13 @@ class ExpandedRishiCouncilTests(unittest.TestCase):
     def setUp(self):
         self.council=RishiCouncil()
 
-    def test_council_expands_to_twenty_eight_permanent_profiles(self):
+    def test_council_expands_to_twenty_nine_permanent_profiles(self):
         ids={x["id"] for x in self.council.list()}
-        self.assertEqual(len(ids),28)
+        self.assertEqual(len(ids),29)
         for rid in (
             "aryabhata","brahmagupta","bhaskaracharya","madhava","varahamihira",
             "dhanvantari","nagarjuna","chanakya","baudhayana","pingala",
-            "shalihotra","parashara",
+            "shalihotra","parashara","vishvakarma",
         ):
             self.assertIn(rid,ids)
 
