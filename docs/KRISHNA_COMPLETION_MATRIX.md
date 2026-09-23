@@ -113,6 +113,19 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | Independent Rishi teach-back | IMPLEMENTED FOUNDATION / RUNTIME VERIFY | BRAHMA creates blinded challenges for a different Rishi and scores conclusion/evidence reconstruction before a result can be treated as additional verification evidence. |
 | Freshness / forgetting / decay | IMPLEMENTED / RUNTIME VERIFY | Time-sensitive claims receive volatility-aware TTL review; stale knowledge is marked for re-verification and never silently deleted. |
 
+## 4B. KRISHNA Cognitive Brain C0-C7
+
+| Requirement | Status | Evidence / remaining work |
+| --- | --- | --- |
+| C0-C5 associative cognition | IMPLEMENTED / RUNTIME VERIFY | Persistent concept/alias graph, spreading activation, gap detection, cross-track comparison boundaries and provenance-aware metacognition are implemented under BRAHMA. |
+| C6 structural analogy | IMPLEMENTED / RUNTIME VERIFY | Graph-neighborhood relation signatures produce `candidate_analogy` records only; similarity is explicitly not treated as proof or equivalence. |
+| C6 contradiction-driven curiosity | IMPLEMENTED / RUNTIME VERIFY | Open BRAHMA contradiction records are converted into evidence-seeking research questions and may be queued to an appropriate Rishi. |
+| C6 episodic → semantic consolidation | IMPLEMENTED CANDIDATE PIPELINE / RUNTIME VERIFY | Repeated episodic Gyan records produce semantic candidates only; Rishi verification, BRAHMA QC and normal Gyan approval remain required before trusted memory. |
+| C6 controlled forgetting | IMPLEMENTED SAFE BOUNDARY / RUNTIME VERIFY | Old activation telemetry can be pruned and weak orphan candidates can be reversibly marked dormant. Verified, provenanced, Rishi-owned or graph-connected concepts are never silently deleted. |
+| C7 cross-domain hypothesis generation | IMPLEMENTED CANDIDATE PIPELINE / RUNTIME VERIFY | Strongly co-activated concepts from distinct tracks generate falsifiable `unverified_hypothesis` questions for Rishi/LAB BOT review; no automatic truth promotion or prediction authority is granted. |
+| Classical ↔ modern boundary at C6/C7 | VERIFIED BY UNIT CONTRACTS / CI PENDING | Cross-track hypotheses become source-faithful comparison questions; unsupported scientific equivalence/causal transfer remains blocked. |
+| Shared Action Bus integration | IMPLEMENTED / RUNTIME VERIFY | C6/C7 analogy, curiosity, consolidation, controlled-forget and hypothesis operations are named mutating actions with memory/evidence permissions. |
+
 ## 5. NARAD
 
 | Requirement | Status | Evidence / remaining work |

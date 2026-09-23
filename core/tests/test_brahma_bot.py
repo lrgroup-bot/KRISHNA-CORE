@@ -50,6 +50,7 @@ class FakeLearning:
 class FakeGyan:
     def __init__(self):
         self.proposals = []
+        self.rows = []
 
     def propose(self, project, topic, lesson, evidence=None, confidence=0.0, source="research",
                 verified=False, memory_kind="semantic", provenance=None, supersedes=None):
@@ -70,6 +71,12 @@ class FakeGyan:
         }
         self.proposals.append(row)
         return row
+
+    def recall(self, project, topic=None, limit=50, verified_only=False, memory_kind=None, include_superseded=False):
+        rows = [x for x in self.rows if not memory_kind or x.get("memory_kind") == memory_kind]
+        if verified_only:
+            rows = [x for x in rows if x.get("status") == "verified"]
+        return rows[:limit]
 
 
 class FakeMemory:
@@ -172,6 +179,39 @@ class BrahmaBotTests(unittest.TestCase):
         self.assertIsNone(out["proposal"])
         self.assertEqual(len(self.learning.findings), 1)
         self.assertEqual(len(self.gyan.proposals), 0)
+
+
+    def test_cognitive_contradiction_curiosity_queues_rishi_question(self):
+        a = self.bot.memory_intelligence.temporal_record(
+            topic="bearing fault", claim="outer race damage causes vibration",
+            provenance={"source_ref":"a"}, evidence=[{"source_ref":"a"}],
+        )
+        b = self.bot.memory_intelligence.temporal_record(
+            topic="bearing fault", claim="loose mounting causes vibration",
+            provenance={"source_ref":"b"}, evidence=[{"source_ref":"b"}],
+        )
+        self.bot.record_contradiction(a["claim_id"],b["claim_id"],"competing explanations")
+        out = self.bot.cognitive_curiosity(queue_questions=True)
+        self.assertEqual(out["count"],1)
+        self.assertEqual(len(out["queued_rishi_questions"]),1)
+        self.assertIn("independent evidence",out["questions"][0]["question"])
+
+    def test_cognitive_episode_consolidation_does_not_bypass_gyan_qc(self):
+        base = {
+            "project":"KRISHNA","topic":"pump observation",
+            "lesson":"vibration rises after warm-up","confidence":.75,
+            "status":"candidate","memory_kind":"episodic",
+            "evidence":[{"source_ref":"sensor"}],"provenance":{"observation_id":"x"},
+        }
+        self.gyan.rows = [
+            {**base,"fingerprint":"e1"},
+            {**base,"fingerprint":"e2","provenance":{"observation_id":"y"}},
+        ]
+        out = self.bot.cognitive_consolidate("KRISHNA",min_occurrences=2,queue_questions=True)
+        self.assertEqual(len(out["semantic_candidates"]),1)
+        self.assertEqual(len(self.gyan.proposals),0)
+        self.assertEqual(len(out["queued_rishi_questions"]),1)
+        self.assertIn("BRAHMA QC",out["promotion_policy"])
 
     def test_status_exposes_memory_intelligence_v2(self):
         self.bot.intake(

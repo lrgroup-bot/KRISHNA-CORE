@@ -40,8 +40,10 @@ Association strength is a retrieval priority signal, **not proof**.
 - **C3 Gap-aware** — identifies concepts that are connected but weakly supported.
 - **C4 Cross-domain** — connects independently sourced domains and evidence tracks.
 - **C5 Metacognitive** — keeps provenance, maturity, uncertainty and contradiction boundaries visible.
+- **C6 Synthesis** — forms structural analogies, turns contradictions into curiosity questions, consolidates repeated episodic observations into semantic candidates, and performs controlled memory dormancy/telemetry pruning.
+- **C7 Hypothesis** — creates cross-domain falsifiable hypothesis questions for Rishi/LAB BOT testing while explicitly keeping them unverified.
 
-These are KRISHNA software-capability stages, not percentages of human brain usage.
+These are KRISHNA software-capability stages, not percentages of human brain usage. C6/C7 outputs are candidate reasoning artifacts, not trusted facts.
 
 ## Research-first retrieval
 
@@ -83,8 +85,13 @@ Rishi or agent code can also submit structured concept neighborhoods through the
 - `brahma.cognitive.query`
 - `brahma.cognitive.ingest`
 - `brahma.cognitive.study`
+- `brahma.cognitive.analogies`
+- `brahma.cognitive.curiosity`
+- `brahma.cognitive.consolidate`
+- `brahma.cognitive.forget`
+- `brahma.cognitive.hypotheses`
 
-`brahma.cognitive.study` creates bounded, deduplicated BRAHMAGYAN missions for actual knowledge gaps. Network/model execution still remains behind Sudarshan permissions and the existing research runtime.
+`brahma.cognitive.study` creates bounded, deduplicated BRAHMAGYAN missions for actual knowledge gaps. C6/C7 actions can queue Rishi questions, but they do not promote their own output into trusted Gyan. Network/model execution still remains behind Sudarshan permissions and the existing research runtime.
 
 ## Evidence-track rule
 
@@ -123,3 +130,17 @@ Cognitive Brain does not replace:
 - **Garudanetra/Garuda** — external research and browser/evidence infrastructure.
 
 The Cognitive Brain decides what existing knowledge should become active together and where the knowledge graph has holes. It does not declare unverified associations true.
+
+
+## C6 synthesis safeguards
+
+- Structural analogy compares graph patterns and relationship structure. It is stored as `candidate_analogy`, never as equivalence.
+- Open contradiction records are converted into evidence-seeking questions rather than silently choosing one claim.
+- Repeated episodic records can create `semantic_candidate` patterns, but normal Rishi verification, BRAHMA QC and Gyan approval remain mandatory.
+- Controlled forgetting never silently deletes verified, provenanced or connected knowledge. It prunes old activation telemetry and may mark weak orphan candidates dormant; new evidence can reactivate them.
+
+## C7 cross-domain hypothesis safeguards
+
+C7 pairs strongly activated concepts from distinct evidence/domain tracks and creates a falsifiable question. A generated hypothesis has `unverified_hypothesis` status and must go through Rishi research and, when appropriate, LAB BOT experiment design before it can mature.
+
+For Vedic/classical versus modern-science concepts, C7 only asks source-faithful comparison questions. It never transfers a modern causal claim into a classical source or declares the two scientifically identical.

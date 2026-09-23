@@ -89,6 +89,107 @@ class CognitiveBrainTests(unittest.TestCase):
         self.assertNotIn("supersecret",raw)
         self.assertIn("[REDACTED]",raw)
 
+
+    def test_c6_structural_analogy_is_candidate_not_equivalence(self):
+        self.brain.ingest_research(
+            "Atomic system",
+            track="modern_science",
+            related_concepts=[
+                {"name":"Nucleus","track":"modern_science","relation":"contains","weight":.9},
+                {"name":"Electron cloud","track":"modern_science","relation":"contains","weight":.9},
+            ],
+        )
+        self.brain.ingest_research(
+            "Organization",
+            track="operational",
+            related_concepts=[
+                {"name":"Core team","track":"operational","relation":"contains","weight":.9},
+                {"name":"Support team","track":"operational","relation":"contains","weight":.9},
+            ],
+        )
+        out=self.brain.form_analogies("Atomic system",min_score=.2)
+        match=next(x for x in out["analogies"] if x["target"]=="Organization")
+        self.assertEqual(match["status"],"candidate_analogy")
+        self.assertIn("contains",match["shared_relations"])
+        self.assertTrue(match["cross_domain"])
+        self.assertIn("not evidence",out["policy"])
+
+    def test_contradictions_drive_curiosity_questions_not_answers(self):
+        out=self.brain.curiosity_from_contradictions([{
+            "contradiction_id":"cx1","status":"open","topic":"bearing fault",
+            "claim_a_text":"outer-race damage causes the vibration",
+            "claim_b_text":"loose mounting causes the vibration",
+        }])
+        self.assertEqual(out["count"],1)
+        q=out["questions"][0]
+        self.assertEqual(q["status"],"open_research_question")
+        self.assertIn("independent evidence",q["question"])
+        self.assertIn("does not choose a winner",out["policy"])
+
+    def test_episodic_repetition_creates_semantic_candidate_only(self):
+        episodes=[
+            {
+                "topic":"bearing observation","lesson":"periodic vibration after warm-up",
+                "confidence":.7,"fingerprint":"e1","evidence":[{"source_ref":"m1"}],
+                "provenance":{"observation_id":"o1"},
+            },
+            {
+                "topic":"bearing observation","lesson":"periodic vibration after warm-up",
+                "confidence":.8,"fingerprint":"e2","evidence":[{"source_ref":"m2"}],
+                "provenance":{"observation_id":"o2"},
+            },
+        ]
+        out=self.brain.consolidate_episodes(episodes,min_occurrences=2)
+        self.assertEqual(len(out["semantic_candidates"]),1)
+        item=out["semantic_candidates"][0]
+        self.assertEqual(item["memory_kind"],"semantic")
+        self.assertEqual(item["source_memory_kind"],"episodic")
+        self.assertTrue(item["requires_brahma_qc"])
+        self.assertTrue(item["requires_gyan_approval"])
+
+    def test_controlled_forgetting_is_reversible_and_protects_evidence(self):
+        orphan=self.brain.learn_concept("Temporary orphan",confidence=.05)
+        protected=self.brain.learn_concept(
+            "Verified knowledge",confidence=.95,evidence_status="verified",
+            provenance={"source_ref":"paper-1"},
+        )
+        old=1.0
+        with self.brain.lock:
+            self.brain.state["concepts"][orphan["concept_id"]]["updated_at"]=old
+            self.brain.state["concepts"][protected["concept_id"]]["updated_at"]=old
+            self.brain._save()
+        out=self.brain.controlled_forget(
+            now=200*86400.0,candidate_ttl_days=30,apply=True
+        )
+        dormant={x["name"] for x in out["concepts_dormant_candidate"]}
+        self.assertIn("Temporary orphan",dormant)
+        self.assertNotIn("Verified knowledge",dormant)
+        self.assertTrue(self.brain.state["concepts"][orphan["concept_id"]]["dormant"])
+        self.assertFalse(self.brain.state["concepts"][protected["concept_id"]].get("dormant",False))
+        self.assertIsNone(self.brain.resolve("Temporary orphan")["concept_id"])
+        revived=self.brain.learn_concept("Temporary orphan",confidence=.4)
+        self.assertFalse(revived["dormant"])
+
+    def test_c7_cross_domain_hypothesis_is_unverified_and_falsifiable(self):
+        self.brain.ingest_research(
+            "System behavior",
+            track="general",
+            related_concepts=[
+                {"name":"Atom","track":"modern_science","relation":"exhibits_pattern","weight":.9},
+                {"name":"Gearbox","track":"engineering","relation":"exhibits_pattern","weight":.9},
+            ],
+        )
+        out=self.brain.generate_hypotheses("System behavior",depth=2,limit=10)
+        self.assertGreaterEqual(out["count"],1)
+        cross=next(
+            x for x in out["hypotheses"]
+            if {x["left"],x["right"]}=={"Atom","Gearbox"}
+        )
+        self.assertEqual(cross["status"],"unverified_hypothesis")
+        self.assertIn("falsify",cross["question"])
+        self.assertIn("not learned facts",out["policy"])
+        self.assertEqual(self.brain.status()["progressive_cognition_level"],"C7")
+
     def test_graph_survives_restart(self):
         self.brain.ingest_research("Atom",related_concepts=["Molecule"],track="modern_science")
         reloaded=KrishnaCognitiveBrain(Path(self.tmp.name)/"brain",memory=self.memory)

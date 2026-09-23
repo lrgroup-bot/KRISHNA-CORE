@@ -26,7 +26,7 @@ from .privacy_guardian.store import PrivacyEvidenceStore
 
 
 class KrishnaCognitiveBrain:
-    VERSION = "krishna-cognitive-brain-v1"
+    VERSION = "krishna-cognitive-brain-v2"
     TRACKS = {
         "general", "modern_science", "vedic_classical", "historical",
         "philosophical", "engineering", "operational",
@@ -41,6 +41,8 @@ class KrishnaCognitiveBrain:
         ("C3", "Gap-aware", "identifies missing or weak knowledge"),
         ("C4", "Cross-domain", "connects separately sourced domains and tracks"),
         ("C5", "Metacognitive", "preserves provenance, uncertainty and contradictions"),
+        ("C6", "Synthesis", "forms bounded analogies, curiosity questions and semantic consolidation candidates"),
+        ("C7", "Hypothesis", "generates cross-domain testable hypotheses without treating them as facts"),
     )
 
     def __init__(self, state_root, council=None, rishi_learning=None, memory=None):
@@ -57,6 +59,11 @@ class KrishnaCognitiveBrain:
             "alias_index": {},
             "edges": {},
             "activations": [],
+            "analogies": [],
+            "curiosity": [],
+            "hypotheses": [],
+            "consolidation_runs": [],
+            "forgetting_runs": [],
             "created_at": time.time(),
         }
         self.load_error = None
@@ -73,6 +80,11 @@ class KrishnaCognitiveBrain:
                 self.state.setdefault("alias_index", {})
                 self.state.setdefault("edges", {})
                 self.state.setdefault("activations", [])
+                self.state.setdefault("analogies", [])
+                self.state.setdefault("curiosity", [])
+                self.state.setdefault("hypotheses", [])
+                self.state.setdefault("consolidation_runs", [])
+                self.state.setdefault("forgetting_runs", [])
         except Exception as exc:
             self.load_error = f"{type(exc).__name__}: {exc}"
             if self.memory:
@@ -165,6 +177,9 @@ class KrishnaCognitiveBrain:
                     "provenance": [],
                     "created_at": now,
                     "updated_at": now,
+                    "last_activated_at": None,
+                    "activation_count": 0,
+                    "dormant": False,
                 }
                 self.state["concepts"][cid] = row
             for alias in aliases:
@@ -188,6 +203,7 @@ class KrishnaCognitiveBrain:
                     row["provenance"].append({"fingerprint": fp, "detail": provenance, "recorded_at": now})
                     row["provenance"] = row["provenance"][-100:]
             row["updated_at"] = now
+            row["dormant"] = False
             self._index_alias(row["name"], cid)
             for alias in row["aliases"]:
                 self._index_alias(alias, cid)
@@ -360,10 +376,14 @@ class KrishnaCognitiveBrain:
             exact = list(self.state["alias_index"].get(wanted) or [])
             concepts = json.loads(json.dumps(self.state["concepts"]))
         if exact:
-            return {"query": str(query), "concept_id": exact[0], "score": 1.0, "match": "exact"}
+            active_exact = [cid for cid in exact if not (concepts.get(cid) or {}).get("dormant")]
+            if active_exact:
+                return {"query": str(query), "concept_id": active_exact[0], "score": 1.0, "match": "exact"}
         wanted_terms = set(wanted.split())
         ranked = []
         for cid, row in concepts.items():
+            if row.get("dormant"):
+                continue
             labels = [row.get("name") or ""] + list(row.get("aliases") or [])
             best = 0.0
             for label in labels:
@@ -447,6 +467,14 @@ class KrishnaCognitiveBrain:
             "created_at": time.time(),
         }
         with self.lock:
+            now = time.time()
+            for cid in scores:
+                row = self.state["concepts"].get(cid)
+                if not row:
+                    continue
+                row["last_activated_at"] = now
+                row["activation_count"] = int(row.get("activation_count") or 0) + 1
+                row["dormant"] = False
             self.state["activations"].append(activation)
             self.state["activations"] = self.state["activations"][-1000:]
             self._save()
@@ -458,11 +486,331 @@ class KrishnaCognitiveBrain:
             "policy": "association strength prioritizes retrieval; it is not evidence of truth",
         }
 
+
+    @staticmethod
+    def _jaccard(left, right):
+        a, b = set(left or []), set(right or [])
+        if not a and not b:
+            return 0.0
+        return len(a & b) / max(1, len(a | b))
+
+    def _structural_signature(self, concept_id, edges, concepts):
+        relations = []
+        neighbor_tracks = []
+        neighbors = set()
+        for edge in edges:
+            other = None
+            if edge.get("source") == concept_id:
+                other = edge.get("target")
+            elif edge.get("target") == concept_id:
+                other = edge.get("source")
+            if not other:
+                continue
+            neighbors.add(other)
+            relations.append(str(edge.get("relation") or "related_to"))
+            neighbor_tracks.extend((concepts.get(other) or {}).get("tracks") or [])
+        return {
+            "relations": relations,
+            "neighbor_tracks": neighbor_tracks,
+            "degree": len(neighbors),
+        }
+
+    def form_analogies(self, concept, *, limit=12, min_score=0.30):
+        """Find structural analogy candidates; similarity is never promoted as truth."""
+        resolved = self.resolve(concept)
+        seed = resolved.get("concept_id")
+        if not seed:
+            return {
+                "brain": self.VERSION,
+                "query": str(concept or ""),
+                "analogies": [],
+                "knowledge_gap": True,
+                "policy": "no analogy is asserted when the source concept is unknown",
+            }
+        with self.lock:
+            concepts = json.loads(json.dumps(self.state["concepts"]))
+            edges = list(json.loads(json.dumps(self.state["edges"])).values())
+        source = concepts[seed]
+        source_sig = self._structural_signature(seed, edges, concepts)
+        ranked = []
+        for cid, row in concepts.items():
+            if cid == seed or row.get("dormant"):
+                continue
+            sig = self._structural_signature(cid, edges, concepts)
+            relation_overlap = self._jaccard(source_sig["relations"], sig["relations"])
+            track_overlap = self._jaccard(source_sig["neighbor_tracks"], sig["neighbor_tracks"])
+            max_degree = max(1, source_sig["degree"], sig["degree"])
+            degree_similarity = 1.0 - (abs(source_sig["degree"] - sig["degree"]) / max_degree)
+            score = 0.65 * relation_overlap + 0.20 * track_overlap + 0.15 * degree_similarity
+            if relation_overlap <= 0 or score < float(min_score):
+                continue
+            cross_domain = not bool(set(source.get("tracks") or []) & set(row.get("tracks") or []))
+            ranked.append({
+                "analogy_id": "AN-" + uuid.uuid4().hex[:20],
+                "source_concept_id": seed,
+                "source": source.get("name"),
+                "target_concept_id": cid,
+                "target": row.get("name"),
+                "score": round(score, 4),
+                "shared_relations": sorted(set(source_sig["relations"]) & set(sig["relations"])),
+                "shared_neighbor_tracks": sorted(set(source_sig["neighbor_tracks"]) & set(sig["neighbor_tracks"])),
+                "cross_domain": cross_domain,
+                "status": "candidate_analogy",
+                "created_at": time.time(),
+            })
+        ranked.sort(key=lambda x: (-x["score"], x["target"].lower()))
+        selected = ranked[: max(1, min(int(limit), 50))]
+        with self.lock:
+            self.state["analogies"].extend(selected)
+            self.state["analogies"] = self.state["analogies"][-1000:]
+            self._save()
+        return {
+            "brain": self.VERSION,
+            "query": str(concept or ""),
+            "source": source.get("name"),
+            "analogies": selected,
+            "knowledge_gap": False,
+            "policy": "structural analogy suggests where to investigate; it is not evidence that two concepts are equivalent",
+        }
+
+    def curiosity_from_contradictions(self, contradictions, *, limit=20):
+        """Turn unresolved contradictions into bounded research questions."""
+        out = []
+        for item in list(contradictions or [])[: max(1, min(int(limit), 100))]:
+            if not isinstance(item, dict) or str(item.get("status") or "open") != "open":
+                continue
+            left = self._clean(item.get("claim_a_text") or item.get("claim_a") or "", 1200)
+            right = self._clean(item.get("claim_b_text") or item.get("claim_b") or "", 1200)
+            topic = self._clean(item.get("topic") or "contradictory evidence", 500)
+            if not left or not right:
+                continue
+            question = self._clean(
+                f"What independent evidence, boundary conditions or measurements distinguish '{left}' from '{right}' for {topic}?",
+                2500,
+            )
+            out.append({
+                "curiosity_id": "CQ-" + uuid.uuid4().hex[:20],
+                "contradiction_id": str(item.get("contradiction_id") or "") or None,
+                "topic": topic,
+                "question": question,
+                "priority": "high",
+                "status": "open_research_question",
+                "created_at": time.time(),
+            })
+        with self.lock:
+            existing = {x.get("contradiction_id") for x in self.state["curiosity"] if x.get("contradiction_id")}
+            fresh = [x for x in out if not x.get("contradiction_id") or x.get("contradiction_id") not in existing]
+            self.state["curiosity"].extend(fresh)
+            self.state["curiosity"] = self.state["curiosity"][-2000:]
+            self._save()
+        return {
+            "brain": self.VERSION,
+            "questions": out,
+            "count": len(out),
+            "policy": "contradictions create questions and tests; KRISHNA does not choose a winner without evidence",
+        }
+
+    def consolidate_episodes(self, episodes, *, min_occurrences=2, limit=50):
+        """Convert repeated episodic observations into semantic *candidates* only."""
+        threshold = max(2, min(int(min_occurrences), 20))
+        groups = {}
+        for item in list(episodes or [])[:2000]:
+            if not isinstance(item, dict):
+                continue
+            topic = self._clean(item.get("topic") or "", 500)
+            lesson = self._clean(item.get("lesson") or item.get("content") or "", 4000)
+            if not topic or not lesson:
+                continue
+            key = hashlib.sha256((self._norm(topic) + "|" + self._norm(lesson)).encode("utf-8")).hexdigest()
+            row = groups.setdefault(key, {
+                "topic": topic,
+                "lesson": lesson,
+                "count": 0,
+                "confidences": [],
+                "evidence": [],
+                "provenance": [],
+                "fingerprints": [],
+            })
+            row["count"] += 1
+            row["confidences"].append(self._clamp(item.get("confidence"), 0.0))
+            row["evidence"].extend(list(item.get("evidence") or [])[:20])
+            row["provenance"].append(PrivacyEvidenceStore.sanitize(dict(item.get("provenance") or {})))
+            if item.get("fingerprint"):
+                row["fingerprints"].append(str(item["fingerprint"]))
+        candidates = []
+        for key, row in groups.items():
+            if row["count"] < threshold:
+                continue
+            avg = sum(row["confidences"]) / max(1, len(row["confidences"]))
+            candidates.append({
+                "candidate_id": "SC-" + key[:20],
+                "topic": row["topic"],
+                "lesson": row["lesson"],
+                "occurrences": row["count"],
+                "confidence": round(avg, 4),
+                "memory_kind": "semantic",
+                "source_memory_kind": "episodic",
+                "evidence": row["evidence"][:50],
+                "provenance": {
+                    "consolidated_from": row["fingerprints"][-50:],
+                    "episode_provenance": row["provenance"][-20:],
+                },
+                "status": "semantic_candidate",
+                "requires_brahma_qc": True,
+                "requires_gyan_approval": True,
+            })
+        candidates.sort(key=lambda x: (-x["occurrences"], -x["confidence"], x["topic"].lower()))
+        run = {
+            "consolidation_id": "CC-" + uuid.uuid4().hex[:20],
+            "created_at": time.time(),
+            "episodes_considered": sum(x["count"] for x in groups.values()),
+            "semantic_candidates": candidates[: max(1, min(int(limit), 200))],
+            "policy": "repetition creates a semantic candidate, never automatic trusted knowledge",
+        }
+        with self.lock:
+            self.state["consolidation_runs"].append(run)
+            self.state["consolidation_runs"] = self.state["consolidation_runs"][-500:]
+            self._save()
+        return run
+
+    def controlled_forget(
+        self,
+        *,
+        now=None,
+        activation_ttl_days=30,
+        candidate_ttl_days=180,
+        confidence_floor=0.20,
+        apply=False,
+    ):
+        """Bound memory growth without deleting evidence-backed knowledge.
+
+        Old activation telemetry may be pruned. Low-value orphan candidates can be
+        marked dormant, but verified/provenanced/connected concepts are retained.
+        """
+        now = float(now or time.time())
+        activation_cutoff = now - max(1, int(activation_ttl_days)) * 86400.0
+        concept_cutoff = now - max(1, int(candidate_ttl_days)) * 86400.0
+        floor = self._clamp(confidence_floor, 0.20)
+        with self.lock:
+            edges = list(self.state["edges"].values())
+            degree = {}
+            for edge in edges:
+                degree[edge.get("source")] = degree.get(edge.get("source"), 0) + 1
+                degree[edge.get("target")] = degree.get(edge.get("target"), 0) + 1
+            dormant = []
+            for cid, row in self.state["concepts"].items():
+                if row.get("dormant"):
+                    continue
+                eligible = (
+                    float(row.get("updated_at") or row.get("created_at") or now) < concept_cutoff
+                    and float(row.get("confidence") or 0.0) < floor
+                    and str(row.get("evidence_status") or "candidate") not in {"verified", "supported", "provisional_supported"}
+                    and not (row.get("provenance") or [])
+                    and not (row.get("rishis") or [])
+                    and int(degree.get(cid, 0)) == 0
+                )
+                if eligible:
+                    dormant.append({
+                        "concept_id": cid,
+                        "name": row.get("name"),
+                        "reason": "old low-confidence orphan candidate with no provenance or graph links",
+                    })
+            old_activations = [
+                x for x in self.state["activations"]
+                if float(x.get("created_at") or now) < activation_cutoff
+            ]
+            if apply:
+                for item in dormant:
+                    row = self.state["concepts"].get(item["concept_id"])
+                    if row:
+                        row["dormant"] = True
+                        row["dormant_at"] = now
+                self.state["activations"] = [
+                    x for x in self.state["activations"]
+                    if float(x.get("created_at") or now) >= activation_cutoff
+                ]
+            run = {
+                "forgetting_id": "CF-" + uuid.uuid4().hex[:20],
+                "created_at": now,
+                "applied": bool(apply),
+                "activation_traces_prunable": len(old_activations),
+                "concepts_dormant_candidate": dormant[:500],
+                "concepts_dormant_count": len(dormant),
+                "policy": "never delete verified, provenanced or connected knowledge; forgetting means telemetry pruning and reversible dormancy",
+            }
+            self.state["forgetting_runs"].append(run)
+            self.state["forgetting_runs"] = self.state["forgetting_runs"][-500:]
+            self._save()
+        return run
+
+    def generate_hypotheses(self, query, *, depth=3, limit=8):
+        """Generate cross-domain questions that must be tested before belief."""
+        activation = self.activate(query, depth=depth, limit=40)
+        nodes = list(activation.get("activated") or [])
+        hypotheses = []
+        for i, left in enumerate(nodes):
+            lt = set(left.get("tracks") or [])
+            for right in nodes[i + 1:]:
+                rt = set(right.get("tracks") or [])
+                if not lt or not rt or lt & rt:
+                    continue
+                classical_modern = (
+                    ("vedic_classical" in lt and "modern_science" in rt)
+                    or ("modern_science" in lt and "vedic_classical" in rt)
+                )
+                score = self._clamp(float(left.get("activation") or 0.0) * float(right.get("activation") or 0.0))
+                if score < 0.08:
+                    continue
+                if classical_modern:
+                    question = (
+                        f"What similarities and differences between {left.get('name')} and {right.get('name')} "
+                        "are supported by their independent source traditions, without assuming scientific equivalence?"
+                    )
+                    hypothesis_type = "cross_track_comparison"
+                else:
+                    question = (
+                        f"Could a mechanism or structural pattern associated with {left.get('name')} provide a "
+                        f"testable analogy for {right.get('name')}? What observation would falsify that idea?"
+                    )
+                    hypothesis_type = "cross_domain_transfer"
+                hypotheses.append({
+                    "hypothesis_id": "HY-" + uuid.uuid4().hex[:20],
+                    "query": self._clean(query, 1000),
+                    "left_concept_id": left.get("concept_id"),
+                    "left": left.get("name"),
+                    "right_concept_id": right.get("concept_id"),
+                    "right": right.get("name"),
+                    "score": round(score, 4),
+                    "type": hypothesis_type,
+                    "question": self._clean(question, 2500),
+                    "status": "unverified_hypothesis",
+                    "required_next_step": "independent evidence or experiment through Rishi/LAB BOT before promotion",
+                    "created_at": time.time(),
+                })
+        hypotheses.sort(key=lambda x: (-x["score"], x["left"], x["right"]))
+        selected = hypotheses[: max(1, min(int(limit), 30))]
+        with self.lock:
+            self.state["hypotheses"].extend(selected)
+            self.state["hypotheses"] = self.state["hypotheses"][-2000:]
+            self._save()
+        return {
+            "brain": self.VERSION,
+            "query": str(query or ""),
+            "hypotheses": selected,
+            "count": len(selected),
+            "policy": "hypotheses are questions for falsification, not learned facts or predictions",
+        }
+
     def status(self):
         with self.lock:
             concepts = list(self.state["concepts"].values())
             edges = list(self.state["edges"].values())
             activations = list(self.state["activations"])
+            analogies = list(self.state.get("analogies") or [])
+            curiosity = list(self.state.get("curiosity") or [])
+            hypotheses = list(self.state.get("hypotheses") or [])
+            consolidations = list(self.state.get("consolidation_runs") or [])
+            forgetting = list(self.state.get("forgetting_runs") or [])
         tracks = {}
         for row in concepts:
             for track in row.get("tracks") or []:
@@ -479,6 +827,10 @@ class KrishnaCognitiveBrain:
             reached = "C4"
         if any((x.get("provenance") or []) for x in concepts):
             reached = "C5"
+        if analogies or curiosity or consolidations or forgetting:
+            reached = "C6"
+        if hypotheses:
+            reached = "C7"
         return {
             "name": "KRISHNA Cognitive Brain",
             "version": self.VERSION,
@@ -489,6 +841,12 @@ class KrishnaCognitiveBrain:
             "activations": len(activations),
             "tracks": tracks,
             "cross_track_comparisons": cross,
+            "analogies": len(analogies),
+            "curiosity_questions": len(curiosity),
+            "hypotheses": len(hypotheses),
+            "consolidation_runs": len(consolidations),
+            "forgetting_runs": len(forgetting),
+            "dormant_concepts": len([x for x in concepts if x.get("dormant")]),
             "progressive_cognition_level": reached,
             "levels": [
                 {"code": code, "name": name, "meaning": meaning}

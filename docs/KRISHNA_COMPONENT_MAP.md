@@ -144,7 +144,7 @@ BRAHMA:
 - gates promotion into Gyan-Bhandar;
 - owns KRISHNA Cognitive Brain, an associative concept graph that activates related knowledge, reuses Rishi findings first, and turns weak branches into bounded BRAHMAGYAN study missions.
 
-The Cognitive Brain uses software capability stages C0-C5 (capture, recall, association, gap-aware, cross-domain, metacognitive). These are not human-brain percentages. Modern-science and Vedic/classical tracks remain separately sourced and cannot be silently collapsed into scientific equivalence.
+The Cognitive Brain uses software capability stages C0-C7: capture, recall, association, gap-aware, cross-domain, metacognitive, synthesis and hypothesis. C6 adds candidate analogies, contradiction-driven curiosity, episodic-to-semantic candidate consolidation and controlled dormancy/activation cleanup. C7 generates falsifiable cross-domain hypothesis questions for Rishi/LAB BOT review. These are not human-brain percentages, and generated analogies/hypotheses are never trusted facts. Modern-science and Vedic/classical tracks remain separately sourced and cannot be silently collapsed into scientific equivalence.
 
 ## 7. Gyan-Bhandar — trusted knowledge store
 

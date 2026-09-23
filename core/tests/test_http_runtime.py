@@ -132,7 +132,7 @@ class HTTPRuntimeTests(unittest.TestCase):
         code,truth=self.call("/api/architecture/truth")
         self.assertEqual(code,200)
         self.assertEqual(truth["component"],"KRISHNA Architecture Truth Audit")
-        self.assertEqual(truth["requirements"]["version"],"2026-09-23-master-product-truth-v3")
+        self.assertEqual(truth["requirements"]["version"],"2026-09-23-master-product-truth-v4")
         self.assertIn("legacy_roots",truth)
         self.assertIn("orphan_candidates",truth)
         self.assertIn("source_tree_drift",truth)
@@ -710,6 +710,41 @@ class HTTPRuntimeTests(unittest.TestCase):
         })
         self.assertEqual(code,200)
         self.assertEqual(eval_receipt["result"]["precision"],1.0)
+
+
+    def test_cognitive_c6_c7_actions_run_through_shared_action_bus(self):
+        code,ingested=self.call("/api/action-bus/dispatch",{
+            "action":"brahma.cognitive.ingest","project":"KRISHNA",
+            "permissions":["memory.write","evidence.write"],
+            "payload":{
+                "topic":"C6 C7 integration root","track":"general","confidence":0.7,
+                "related_concepts":[
+                    {"name":"C6C7 Atom","track":"modern_science","relation":"exhibits_pattern","weight":0.9},
+                    {"name":"C6C7 Gearbox","track":"engineering","relation":"exhibits_pattern","weight":0.9}
+                ],
+                "provenance":{"source_ref":"http-cognitive-test"}
+            }
+        })
+        self.assertEqual(code,200)
+        self.assertGreaterEqual(ingested["result"]["concept_count"],3)
+
+        code,hyp=self.call("/api/action-bus/dispatch",{
+            "action":"brahma.cognitive.hypotheses","project":"KRISHNA",
+            "permissions":["memory.write","evidence.write"],
+            "payload":{"query":"C6 C7 integration root","depth":2,"limit":10}
+        })
+        self.assertEqual(code,200)
+        self.assertGreaterEqual(hyp["result"]["count"],1)
+        self.assertTrue(all(x["status"]=="unverified_hypothesis" for x in hyp["result"]["hypotheses"]))
+
+        code,forget=self.call("/api/action-bus/dispatch",{
+            "action":"brahma.cognitive.forget","project":"KRISHNA",
+            "permissions":["memory.write"],
+            "payload":{"apply":False,"candidate_ttl_days":180}
+        })
+        self.assertEqual(code,200)
+        self.assertFalse(forget["result"]["applied"])
+        self.assertIn("never delete verified",forget["result"]["policy"])
 
     def test_brahmagyan_deep_mission_is_action_native_and_not_instant_truth(self):
         code,status=self.call("/api/brahmagyan/status")
