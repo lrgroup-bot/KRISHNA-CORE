@@ -39,11 +39,11 @@ class VerifiedDirectFreeFabric:
     }
 
     SECRET_PATTERNS = (
-        re.compile(r"(?i)\\b(password|passwd|pwd|api[_ -]?key|secret|token|authorization)\\s*[:=]\\s*\\S+"),
-        re.compile(r"(?i)\\bbearer\\s+[a-z0-9._~+\\-/]+=*"),
-        re.compile(r"\\bsk-[A-Za-z0-9_-]{16,}\\b"),
-        re.compile(r"\\bAIza[0-9A-Za-z_-]{20,}\\b"),
-        re.compile(r"\\bgh[pousr]_[A-Za-z0-9]{20,}\\b"),
+        re.compile(r"(?i)\b(password|passwd|pwd|api[_ -]?key|secret|token|authorization)\s*[:=]\s*\S+"),
+        re.compile(r"(?i)\bbearer\s+[a-z0-9._~+\-/]+=*"),
+        re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
+        re.compile(r"\bAIza[0-9A-Za-z_-]{20,}\b"),
+        re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
         re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
     )
 
