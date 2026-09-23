@@ -53,10 +53,17 @@ class HybridRAG:
     Gyan-Bhandar remains the canonical memory authority.
     """
 
-    def __init__(self, gyan, context_governor, embedder: Callable[[str], list[float]] | None = None):
+    def __init__(
+        self,
+        gyan,
+        context_governor,
+        embedder: Callable[[str], list[float]] | None = None,
+        query_expander: Callable[[str], str] | None = None,
+    ):
         self.gyan = gyan
         self.context = context_governor
         self.embedder = embedder
+        self.query_expander = query_expander
 
     @staticmethod
     def _lexical_score(query: str, text: str) -> float:
@@ -89,18 +96,24 @@ class HybridRAG:
         rows = self.gyan.recall(
             project, None, max(limit, candidate_limit), verified_only, memory_kind, False
         )
+        retrieval_query = str(query or "")
+        if self.query_expander:
+            try:
+                retrieval_query = str(self.query_expander(retrieval_query) or retrieval_query)
+            except Exception:
+                retrieval_query = str(query or "")
         query_vec = None
         if self.embedder:
             try:
-                query_vec = self.embedder(query)
+                query_vec = self.embedder(retrieval_query)
             except Exception:
                 query_vec = None
 
         scored = []
         for row in rows:
             text = f"{row.get('topic', '')}\n{row.get('lesson', '')}"
-            lexical = self._lexical_score(query, text)
-            fuzzy = self._fuzzy_score(query, text)
+            lexical = self._lexical_score(retrieval_query, text)
+            fuzzy = self._fuzzy_score(retrieval_query, text)
             dense = 0.0
             dense_ok = False
             if query_vec is not None:
@@ -158,6 +171,8 @@ class HybridRAG:
         return {
             "project": project,
             "query": query,
+            "retrieval_query": retrieval_query,
+            "query_expanded": retrieval_query != str(query or ""),
             "mode": "hybrid_dense" if query_vec is not None else "hybrid_lexical_fuzzy",
             "candidate_count": len(rows),
             "count": len(governed),
