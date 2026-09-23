@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "version": "2026-09-23-master-product-truth-v5",
+  "version": "2026-09-23-master-product-truth-v6",
   "source": "Canonical KRISHNA product requirements consolidated from project conversations, merged repository decisions, runtime acceptance and current architecture",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -365,7 +365,12 @@
     "No full n8n runtime process/dependency is required for KRISHNA Core.",
     "BRAHMAGYAN L0-L8 maturity gates, Rishi council manifests, dual-track knowledge discipline and provenance contracts pass.",
     "BRAHMAGYAN Shishya execution remains approval-gated, capped and temporary; no permanent research worker fleet is introduced.",
-    "Minimal sidebar contract passes: no internal runtime modules are exposed as Main Menu items; project delete preserves chats by moving them to global Chats."
+    "Minimal sidebar contract passes: no internal runtime modules are exposed as Main Menu items; project delete preserves chats by moving them to global Chats.",
+    "KRISHNA Spatial UI Node build passes and runtime shell preserves the minimal KRISHNA/Sudarshan/Plugins sidebar contract.",
+    "NARAD inbox/outbox state redacts likely secrets and outbound delivery remains a separate approval-gated provider action.",
+    "MCP JSON-RPC transport requires an authenticated principal and cannot expose an unauthenticated public control plane.",
+    "Avatar production output passes full body, facial-viseme and required-animation inspection before being reported production-ready.",
+    "Field 3D/AR scene generation requires measured GNSS and never upgrades missing depth/photogrammetry/device tracking into verified measurements."
   ],
   "status_definitions": {
     "VERIFIED": "Implemented and proven by the required current runtime/device/integration evidence.",
@@ -443,14 +448,16 @@
     },
     {
       "id": "deep_hardware_diagnostics",
-      "status": "PARTIAL",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
       "owner": "HAWKEYE DIAGNOSTIC",
       "evidence": [
         "core/krishna_core/hawkeye_diagnostic.py",
         "core/krishna_core/diagnostic_adapters.py",
-        "core/tests/test_diagnostic_adapters.py"
+        "core/krishna_core/diagnostic_transport.py",
+        "core/tests/test_diagnostic_adapters.py",
+        "core/tests/test_diagnostic_transport.py"
       ],
-      "next": "connect and physically verify approved read-only OBD/CAN/J1939 interfaces, electrical instruments and acoustic/vibration capture hardware"
+      "next": "connect approved real read-only multimeter/oscilloscope, OBD/CAN/J1939 and microphone/vibration collectors to the local diagnostic inbox and complete physical fault/retest acceptance"
     },
     {
       "id": "mobile_edge_pipeline",
@@ -500,14 +507,17 @@
     },
     {
       "id": "production_child_avatar",
-      "status": "PARTIAL",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
       "owner": "KRISHNA Avatar",
       "evidence": [
         "core/krishna_core/avatar_runtime.py",
         "core/krishna_core/avatar_asset_pipeline.py",
-        "core/krishna_core/video_avatar.py"
+        "core/krishna_core/avatar_production.py",
+        "core/krishna_core/video_avatar.py",
+        "core/tests/test_avatar_asset_pipeline.py",
+        "core/tests/test_avatar_production.py"
       ],
-      "next": "runtime state machine is implemented; production rigged GLB with required body/facial/viseme animation assets remains"
+      "next": "run the private child source asset through the configured local rig worker; generated GLB must pass body, ARKit, Oculus-viseme and required-animation inspection before production verification"
     },
     {
       "id": "always_listening_mobile_voice",
@@ -523,36 +533,41 @@
     },
     {
       "id": "field_geo_3d_ar",
-      "status": "PARTIAL",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
       "owner": "BHOOMIPUTRA/HAWKEYE GEO",
       "evidence": [
         "core/krishna_core/hawkeye_field_platform.py",
         "core/krishna_core/hawkeye_geo_engine.py",
         "core/krishna_core/field_survey.py",
-        "core/krishna_core/bhumiputra.py",
-        "core/tests/test_field_survey.py",
         "core/krishna_core/field_measurement_adapters.py",
-        "core/tests/test_field_measurement_adapters.py"
+        "core/krishna_core/field_scene.py",
+        "core/tests/test_field_survey.py",
+        "core/tests/test_field_measurement_adapters.py",
+        "core/tests/test_field_scene.py"
       ],
-      "next": "GNSS/RTK/depth normalization and optional local photogrammetry worker boundary are implemented; physical RTK/depth devices, actual photogrammetry provider execution, AR-depth and field acceptance remain HARDWARE/ENVIRONMENT_UNVERIFIED"
+      "next": "execute the scene/AR pipeline with physical RTK/depth and optional photogrammetry hardware/provider evidence; AR tracking remains hardware-unverified until real-device acceptance"
     },
     {
       "id": "final_react_spatial_ui",
-      "status": "ROADMAP",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
       "owner": "KRISHNA UI",
       "evidence": [
-        "docs/KRISHNA_COMPLETION_MATRIX.md"
+        "app/spatial-ui/package.json",
+        "app/spatial-ui/src/App.tsx",
+        "app/spatial-ui/src/styles.css",
+        ".github/workflows/spatial-ui.yml"
       ],
-      "next": "after canonical PC/mobile runtime stabilization"
+      "next": "pass independent Node build CI, bind production runtime data/actions into the shell, then complete rendered Windows interaction/latency acceptance"
     },
     {
       "id": "krishna_glass",
-      "status": "ROADMAP",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
       "owner": "WearableBridge",
       "evidence": [
-        "core/krishna_core/wearable_bridge.py"
+        "core/krishna_core/wearable_bridge.py",
+        "core/tests/test_wearable_bridge.py"
       ],
-      "next": "after PC/mobile stable and physical hardware selected"
+      "next": "select physical glasses/wrist hardware and verify each declared camera/display/AR/IMU/head-tracking/gesture capability individually; unverified capabilities remain disabled"
     },
     {
       "id": "lab_bot",
@@ -620,6 +635,51 @@
         "docs/FREE_AI_PROVIDER_RESEARCH_2026-09-23.md"
       ],
       "next": "CI acceptance plus a live owner-configured Cloudflare Workers Free profile using a token with Workers AI access and Billing Read; paid or ambiguous account state must fail closed"
+    },
+    {
+      "id": "optional_memory_bridges",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "Gyan-Bhandar / MemoryFabric",
+      "evidence": [
+        "core/krishna_core/integrations.py",
+        "core/krishna_core/memory_fabric.py",
+        "core/tests/test_optional_memory_adapters.py"
+      ],
+      "next": "runtime-discover the owner's E-drive Codebase-Memory and Graft binaries where installed; both remain optional read/query context and cannot bypass Gyan-Bhandar trust gates"
+    },
+    {
+      "id": "mcp_jsonrpc_adapter",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "KRISHNA Protocol Gateway / Sudarshan",
+      "evidence": [
+        "core/krishna_core/protocol_gateway.py",
+        "core/krishna_core/mcp_transport.py",
+        "core/tests/test_mcp_transport.py"
+      ],
+      "next": "bind an authenticated local/private transport to the JSON-RPC adapter and run live tools/list + approval-gated tools/call acceptance; no unauthenticated public listener is permitted"
+    },
+    {
+      "id": "narad_message_center",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "NARAD / Sudarshan",
+      "evidence": [
+        "core/krishna_core/narad/messages.py",
+        "core/krishna_core/agi_kernel.py",
+        "core/krishna_core/server.py",
+        "core/tests/test_narad_messages.py"
+      ],
+      "next": "bind provider-specific inbound/outbound receipts through approved NARAD provider actions and verify inbox/outbox UI against real connected providers"
+    },
+    {
+      "id": "mobile_real_device_acceptance",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "KRISHNA Mobile",
+      "evidence": [
+        "core/krishna_core/mobile_acceptance.py",
+        "core/krishna_core/mobile_runtime_manifest.py",
+        "core/tests/test_mobile_acceptance.py"
+      ],
+      "next": "record each required real-device gate; old PC companion becomes retirement-eligible only after every gate passes and is never auto-deleted"
     }
   ]
 }
