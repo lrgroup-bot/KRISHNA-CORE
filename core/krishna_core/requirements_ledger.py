@@ -8,7 +8,7 @@ class RequirementsLedger:
         self.path=Path(path or Path(__file__).resolve().parents[1]/"requirements"/"krishna_chat_requirements.json")
     def load(self):
         raw=json.loads(self.path.read_text(encoding="utf-8"))
-        if not isinstance(raw,dict) or raw.get("schema")!=1:
+        if not isinstance(raw,dict) or raw.get("schema") not in {1,2}:
             raise ValueError("unsupported KRISHNA requirements ledger schema")
         return raw
     def snapshot(self):
@@ -22,6 +22,10 @@ class RequirementsLedger:
             "non_negotiables":list(raw.get("non_negotiables") or []),
             "groups":groups,
             "release_gates":list(raw.get("release_gates") or []),
+            "status_definitions":dict(raw.get("status_definitions") or {}),
+            "definition_of_done":list(raw.get("definition_of_done") or []),
+            "delivery_pipeline":list(raw.get("delivery_pipeline") or []),
+            "implementation_index":list(raw.get("implementation_index") or []),
             "requirement_count":count,
             "group_count":len(groups),
         }
