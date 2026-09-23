@@ -2864,6 +2864,18 @@ class Orchestrator:
             sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
+            "lab.hypothesis.assist",lab_hypothesis_assist,
+            description="Generate an explicitly unverified falsifiable LAB hypothesis candidate through role-aware AI routing",
+            permissions=("lab.plan","model.use","evidence.read"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "lab.result.analyze",lab_result_analyze,
+            description="Review LAB evidence with local and verified-free-cloud models where privacy permits",
+            mutating=True,permissions=("lab.review","model.use","evidence.read","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
             "lab.experiment.protocol",lab_experiment_protocol,
             description="Inspect the machine-checkable LAB BOT protocol and design gaps",
             permissions=("lab.plan",),
@@ -2977,7 +2989,7 @@ class Orchestrator:
 
         self.agent_runtime.register(
             "lab-bot","Rishi experiment planner, simulator and approved laboratory adapter coordinator",
-            permissions=("lab.plan","lab.simulate","lab.record","lab.quantum","lab.nano","evidence.write","runtime.read"),
+            permissions=("lab.plan","lab.simulate","lab.record","lab.review","lab.quantum","lab.nano","evidence.read","evidence.write","model.use","runtime.read"),
             actions=("lab.*",),
         )
 
@@ -2990,8 +3002,8 @@ class Orchestrator:
         for profile in self.agi.brahmagyan.council.list():
             self.agent_runtime.register(
                 "rishi:"+profile["id"],profile["role"],
-                permissions=("web.read","browser.research","evidence.read","evidence.write","memory.write","worker.execute","lab.plan","lab.simulate","lab.quantum","lab.nano","model.use"),
-                actions=("brahmagyan.*","garuda.scout","garudanetra.research.*","lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate","lab.quantum.*","lab.nano.*","lab.quantum-nano.bridge","openrouter.free.complete","direct.free.complete"),
+                permissions=("web.read","browser.research","evidence.read","evidence.write","memory.write","worker.execute","lab.plan","lab.simulate","lab.review","lab.quantum","lab.nano","model.use"),
+                actions=("brahmagyan.*","garuda.scout","garudanetra.research.*","lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate","lab.hypothesis.assist","lab.result.analyze","lab.quantum.*","lab.nano.*","lab.quantum-nano.bridge","openrouter.free.complete","direct.free.complete"),
             )
 
     def dispatch_action(self,action,payload=None,project="KRISHNA",source="pc",actor="owner",
