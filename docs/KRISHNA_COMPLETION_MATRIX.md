@@ -253,7 +253,8 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | React Flow / xyflow Neural Action Graph | IMPLEMENTED / CI + RUNTIME VERIFY | `@xyflow/react` renders the Owner -> KRISHNA -> Sudarshan/Agents -> Independent Verifier execution graph. |
 | React Three Fiber avatar/spatial | IMPLEMENTED / CI + PRIVATE-ASSET VERIFY | `@react-three/fiber` renders the spatial/avatar stage and local Vrindavan-inspired environment; the private child avatar is loaded only after production asset verification. |
 | GUI Registry Stable / Candidate / Experimental / Rejected | IMPLEMENTED / RUNTIME VERIFY | Persistent registry and Developer UI are implemented with verified Stable promotion gate. |
-| Sudarshan Design Engine + Vishvakarma design knowledge | IMPLEMENTED / RUNTIME VERIFY | Structured Design Genome, nested drift detection, bounded repair/retest, hard acceptance gates, provenance-preserving Vishvakarma learning/curation, and optional non-authoritative Stagehand/Storybook adapters are wired into the AGI kernel and Sudarshan project lifecycle. |
+| Sudarshan Design Engine + Vishvakarma design knowledge | IMPLEMENTED / RUNTIME VERIFY | Structured Design Genome, nested drift detection, bounded repair/retest, hard acceptance gates, provenance-preserving Vishvakarma learning/curation, permanent Rishi Council registration, Shared Action controls, read-only status APIs and the internal Spatial UI Design Intelligence panel are wired without adding sidebar clutter. |
+| Structured Sudarshan Project Brain | IMPLEMENTED / RUNTIME VERIFY | Runtime-owned PROJECT/ARCHITECTURE/RULES/PHASES/DESIGN/AGENTS/MEMORY governance layers coexist with DB-backed verified learning; Shared Action provision/status/record and /api/project-brain are wired, and source-tree mutation is explicitly false. |
 
 ## 13. Glass / XR
 
