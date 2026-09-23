@@ -152,7 +152,10 @@ class ModelRouter:
             available=[x for x in available if x["local"]]
         else:
             if free_only or not self.paid_cloud_enabled():
-                available=[x for x in available if x["local"] or x.get("free_only")]
+                # Automatic zero-cost planning trusts only local inference plus the
+                # live-catalog verified OpenRouter zero-cost fabric. A profile merely
+                # labelled free_only (Gemini/Groq/etc.) is not a billing guarantee.
+                available=[x for x in available if x["local"] or x["provider"]=="openrouter-free"]
         # Local models remain first. Free cloud can provide an independent reviewer
         # when available, while paid providers are opt-in only.
         def rank(row):
@@ -188,21 +191,11 @@ class ModelRouter:
             except Exception:
                 pass
 
-        # Other encrypted free_only profiles (for example direct Gemini/Groq free
-        # tiers) remain allowed, but are declarations rather than catalog-verified
-        # billing guarantees.
-        if self.gateway:
-            profiles=self.gateway.eligible(privacy,free_only=True)
-            for row in profiles:
-                if str(row.base_url).rstrip("/").lower()=="https://openrouter.ai/api/v1":
-                    continue
-                try:return {"provider":"gateway:"+row.id,"text":self._governed_ask("gateway:"+row.id,prompt,privacy,True,project,actor),
-                            "free_only":True,"zero_cost_verified":False}
-                except Exception:
-                    continue
-
+        # Direct gateway profiles labelled free_only may still be invoked explicitly
+        # by the owner, but they are not automatic fallbacks because KRISHNA cannot
+        # independently prove their account billing state from a profile label.
         if free_only or not self.paid_cloud_enabled():
-            raise RuntimeError("no approved zero/free-cost provider succeeded; paid cloud fallback is disabled")
+            raise RuntimeError("no live-verified zero-cost provider succeeded; declared-free/paid cloud auto-fallback is disabled")
 
         # Paid cloud is never a silent fallback. It must be explicitly enabled by
         # KRISHNA_ALLOW_PAID_CLOUD=1.
