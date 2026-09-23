@@ -39,12 +39,15 @@ if(Test-Path $pidPath){
   $existingPid=0
   try{$existingPid=[int](Get-Content -Raw $pidPath).Trim()}catch{$existingPid=0}
   if($existingPid -gt 0 -and $existingPid -ne $PID){
-    $existing=Get-Process -Id $existingPid -ErrorAction SilentlyContinue
-    if($existing){
+    $existing=$null
+    try{$existing=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$existingPid) -ErrorAction Stop}catch{}
+    $existingCmd=if($existing){[string]$existing.CommandLine}else{""}
+    if($existing -and $existingCmd -like "*KRISHNA_GUARDIAN.ps1*"){
       Write-GuardianEvent "ALREADY_RUNNING" @{guardian_pid=$existingPid}
       Write-Host "KRISHNA Guardian is already running (PID $existingPid)." -ForegroundColor Yellow
       exit 0
     }
+    Write-GuardianEvent "STALE_GUARDIAN_PID" @{recorded_pid=$existingPid}
   }
   Remove-Item -Force $pidPath -ErrorAction SilentlyContinue
 }
