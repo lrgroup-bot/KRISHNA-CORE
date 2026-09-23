@@ -36,6 +36,7 @@ from .sudarshan_design_engine import DesignJob
 from .sudarshan_ui_pipeline import UIEvidence
 from .vishvakarma_learning import ResearchLesson
 from .model_scout import ModelCandidate
+from .spark_x25 import SparkX25Manager
 from .repository_index import RepositoryIndexer
 from .evidence_collectors import LocalEvidenceCollectors
 from .shadow_workspace import ShadowWorkspaceManager
@@ -174,6 +175,13 @@ class Orchestrator:
         self.hawkeye_diagnostic.bind_worker_runtime(self.ephemeral_workers,self.governor)
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
+        self.spark_x25 = SparkX25Manager(
+            runtime_state / "spark-x25",
+            self.agi.model_scout,
+            resource_governor=self.governor,
+            router=self.router,
+        )
+        self.router.bind_model_scout(self.agi.model_scout)
         self.sudarshan_projects = SudarshanProjectOrchestrator(self.agi.design)
         self.gyan_acl = GyanACL(runtime_state / "gyan-acl.json")
         self.gyan_cipher = GyanEnvelopeCipher()
@@ -1978,6 +1986,53 @@ class Orchestrator:
                 "status":self.agi.model_scout.status(),
             }
 
+        def model_spark_status_action(payload,context):
+            return self.spark_x25.status()
+
+        def model_spark_discover_action(payload,context):
+            return self.spark_x25.discover()
+
+        def model_spark_install_plan_action(payload,context):
+            return self.spark_x25.install_plan(str(payload.get("model") or "spark-x2.5-4b"))
+
+        def model_spark_benchmark_action(payload,context):
+            return self.spark_x25.benchmark(
+                str(payload.get("model") or "spark-x2.5-4b"),
+                device=str(payload.get("device") or "").strip() or None,
+                quantization=str(payload.get("quantization") or "unknown"),
+                full=bool(payload.get("full",False)),
+            )
+
+        def model_spark_review_action(payload,context):
+            return self.spark_x25.review(
+                str(payload.get("model") or "spark-x2.5-4b"),
+                coding_score=float(payload.get("coding_score") or 0.0),
+                agent_score=float(payload.get("agent_score") or 0.0),
+                multilingual_score=float(payload.get("multilingual_score") or 0.0),
+                review_ref=str(payload.get("review_ref") or ""),
+                ram_bytes=int(payload.get("ram_bytes") or 0),
+                vram_bytes=int(payload.get("vram_bytes") or 0),
+                latency_ms=float(payload.get("latency_ms") or 0.0),
+                minimum_score=float(payload.get("minimum_score") or 0.55),
+            )
+
+        def model_spark_verify_action(payload,context):
+            return self.spark_x25.verify(
+                str(payload.get("model") or "spark-x2.5-4b"),
+                review_ref=str(payload.get("review_ref") or ""),
+                verification_ref=str(payload.get("verification_ref") or ""),
+            )
+
+        def model_spark_enable_routing_action(payload,context):
+            return self.spark_x25.enable_routing(
+                str(payload.get("model") or "spark-x2.5-4b"),
+                review_ref=str(payload.get("review_ref") or ""),
+                verification_ref=str(payload.get("verification_ref") or ""),
+            )
+
+        def model_spark_mobile_plan_action(payload,context):
+            return self.spark_x25.mobile_plan()
+
         self.action_bus.register(
             "design.plan",design_plan_action,description="Build a Sudarshan design plan using verified Vishvakarma context",
             permissions=("design.read",),sources=("pc","system","agent","job","mcp","a2a"),
@@ -2012,6 +2067,46 @@ class Orchestrator:
         )
         self.action_bus.register(
             "model.scout.recommend",model_scout_recommend_action,description="Recommend accepted local model candidates within resource limits",
+            permissions=("model.use",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "model.spark.status",model_spark_status_action,
+            description="Read Spark-X2.5 candidate lifecycle and local Ollama preflight status",
+            permissions=("model.use",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "model.spark.discover",model_spark_discover_action,
+            description="Discover Spark-X2.5 candidates without downloading or routing them",
+            mutating=True,permissions=("model.use",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "model.spark.install_plan",model_spark_install_plan_action,
+            description="Build a no-download Spark-X2.5 installation plan after local preflight",
+            permissions=("model.use",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "model.spark.benchmark",model_spark_benchmark_action,
+            description="Run a ResourceGovernor-bounded Spark-X2.5 benchmark against an already installed model",
+            mutating=True,permissions=("model.use",),sources=("pc","system","job"),
+        )
+        self.action_bus.register(
+            "model.spark.review",model_spark_review_action,
+            description="Record explicit reviewer scores and evidence for a benchmarked Spark-X2.5 candidate",
+            mutating=True,requires_approval=True,permissions=("model.use",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "model.spark.verify",model_spark_verify_action,
+            description="Verify reviewed Spark-X2.5 evidence before routing promotion",
+            mutating=True,requires_approval=True,permissions=("model.use",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "model.spark.enable_routing",model_spark_enable_routing_action,
+            description="Explicitly promote a reviewed and verified Spark-X2.5 candidate into local routing",
+            mutating=True,requires_approval=True,permissions=("model.use",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "model.spark.mobile_plan",model_spark_mobile_plan_action,
+            description="Read the unverified mobile Spark-X2.5 runtime/model-manager plan",
             permissions=("model.use",),sources=("pc","system","agent","job","mcp","a2a"),
         )
 
