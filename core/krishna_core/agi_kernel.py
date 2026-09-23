@@ -20,6 +20,7 @@ from .narad.n8n_bridge import N8nBridge
 from .specialist_registry import SpecialistRegistry
 from .context_governor import ContextGovernor
 from .media_adapter import OpenMontageAdapter
+from .model_scout import ModelScout
 
 class AGIKernel:
     VERSION="1.2.0-alpha"
@@ -33,6 +34,7 @@ class AGIKernel:
         self.critic=IndependentCriticVerifier(verification_engine,reviewer)
         self.skills=SkillCompiler(self.root/"skills"/"compiled")
         self.benchmarks=BenchmarkLab()
+        self.model_scout=ModelScout(self.root/"model-scout"/"models.json")
         self.bus=AutomationBus()
         self.workers=WorkerFabric(self.root)
         self.creator=CreatorRuntime(self.workers)
@@ -56,7 +58,7 @@ class AGIKernel:
         return {"name":"KRISHNA AGI CORE","version":self.VERSION,"architecture":"single-control-plane/modular-workers",
         "orchestrator":"KRISHNA Neural Action Graph + durable adapter boundary","executors":self.executors.capabilities(),
         "memory":self.memory.adapters(),"code_intelligence":self.code_intelligence.status(),
-        "critic":"independent","skill_compiler":"ready","benchmark_lab":"ready",
+        "critic":"independent","skill_compiler":"ready","benchmark_lab":"ready","model_scout":self.model_scout.status(),
         "narad":{**self.narad.status(),
             "credential_vault":{"connections":self.narad_credentials.list()["count"],"policy":"environment refs or Windows DPAPI encrypted secrets"},
             "providers":self.narad_providers.providers(),
