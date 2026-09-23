@@ -329,7 +329,8 @@ public class MainActivity extends Activity {
       String s=String.valueOf(value==null?"":value);
       s=s.replaceAll("(?i)(password|passwd|pwd|pin|otp|api[_ -]?key|access[_ -]?token|session[_ -]?token|authorization|credential|secret)\\s*[:=]\\s*[^\\s,;]+","$1: [SECRET REDACTED]");
       s=s.replaceAll("(?i)bearer\\s+[A-Za-z0-9._~+\\-/=]{4,}","Bearer [SECRET REDACTED]");
-      String googleKeyPrefix="AI"+"za";\n      s=s.replaceAll("\\b"+googleKeyPrefix+"[0-9A-Za-z_-]{20,}\\b","[SECRET REDACTED]");
+      String googleKeyPrefix="AI"+"za";
+      s=s.replaceAll("\\b"+googleKeyPrefix+"[0-9A-Za-z_-]{20,}\\b","[SECRET REDACTED]");
       return s;
     }
 
