@@ -16,6 +16,8 @@ does not create a competing browser agent and never bypasses Sudarshan.
 
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
+
+from .privacy_guardian.store import PrivacyEvidenceStore
 import json
 import math
 import re
@@ -306,14 +308,19 @@ class GarudanetraResearchFabric:
         stance=_clean(payload.get("stance") or "neutral",32).lower()
         if stance not in {"support","contradict","neutral","mixed"}:
             raise ValueError("stance must be support, contradict, neutral or mixed")
-        claim=_clean(payload.get("claim"),4000)
+        # Research evidence is persistent state. Reuse KABACH's canonical text
+        # sanitizer so credentials/tokens copied from pages are never written into
+        # mission JSON, even when they appear inside otherwise ordinary fields.
+        claim=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("claim") or "")),4000)
         if not claim:raise ValueError("claim is required")
+        title=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("title") or "")),1000)
+        excerpt=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("excerpt") or "")),3000)
         item={
             "evidence_id":str(uuid.uuid4()),"source_kind":_clean(payload.get("source_kind") or "web",64),
-            "url":_redact_url(payload.get("url")),"title":_clean(payload.get("title"),1000),
+            "url":_redact_url(payload.get("url")),"title":title,
             "claim":claim,"claim_key":_clean(payload.get("claim_key") or claim,500).lower(),
             "stance":stance,"quality":max(0.0,min(1.0,float(payload.get("quality") or 0.5))),
-            "excerpt":_clean(payload.get("excerpt"),3000),
+            "excerpt":excerpt,
             "source_date":_clean(payload.get("source_date"),80),
             "added_at":_now(),
         }
