@@ -49,6 +49,7 @@ from .gyan_bhandar import GyanBhandarAgent
 from .kabach import KabachAgent
 from .bhumiputra import BhumiputraAgent
 from .hawkeye_learning import HawkeyeLearningRuntime
+from .hawkeye_coordinator import HawkeyeCoordinator
 from .hawkeye_diagnostic import HawkeyeDiagnosticRuntime
 from .hawkeye_reference import HawkeyeReferenceRegistry
 from .universal_learning import UniversalLearningRuntime
@@ -125,7 +126,6 @@ class Orchestrator:
         self.gyan_bhandar = GyanBhandarAgent(self.memory, self.garuda)
         self.kabach = KabachAgent(self.memory,runtime_state / "privacy",browser=self.browser,gyan_bhandar=self.gyan_bhandar)
         self.bhumiputra = BhumiputraAgent(runtime_state / "bhumiputra")
-        self.hawkeye = self.bhumiputra
         self.hawkeye_learning = HawkeyeLearningRuntime(runtime_state / "hawkeye" / "learning")
         self.hawkeye_reference = HawkeyeReferenceRegistry(runtime_state / "hawkeye" / "references")
         self.hawkeye_diagnostic = HawkeyeDiagnosticRuntime(runtime_state / "hawkeye" / "diagnostic")
@@ -133,6 +133,15 @@ class Orchestrator:
         self.universal_learning = UniversalLearningRuntime(runtime_state / "hawkeye" / "universal-learning")
         self.hawkeye_field = HawkeyeFieldPlatform(runtime_state / "hawkeye" / "field")
         self.hawkeye_geo = HawkeyeGeoEngine(runtime_state / "hawkeye" / "geo")
+        self.hawkeye = HawkeyeCoordinator(
+            runtime_state / "hawkeye" / "coordinator",
+            bhumiputra=self.bhumiputra,
+            diagnostic=self.hawkeye_diagnostic,
+            learning=self.hawkeye_learning,
+            field=self.hawkeye_field,
+            geo=self.hawkeye_geo,
+            memory=self.memory,
+        )
         self.observability = KrishnaObservability(runtime_state / "observability")
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
         self.hawkeye_diagnostic.bind_worker_runtime(self.ephemeral_workers,self.governor)
