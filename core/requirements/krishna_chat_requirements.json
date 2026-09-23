@@ -269,11 +269,11 @@
       "id": "diagnostics",
       "title": "Deep electronics, vehicle and acoustic diagnostics",
       "requirements": [
-        "ElectronicsDiagnosticWorker must evolve behind a stable adapter contract for schematic/boardview/netlist/reference alignment, multimeter/oscilloscope/test-point evidence and safe fault-tree reasoning.",
-        "VehicleDiagnosticWorker must evolve behind read-first OBD-II/CAN/CAN-FD/J1939/service-data adapters; transmission/programming/control is separately permissioned and never implied by diagnosis.",
-        "AcousticDiagnosticWorker must evolve behind timestamped audio/vibration capture, baseline/spectral/temporal features and evidence-backed fault hypotheses.",
-        "The diagnostic coordinator uses test -> measurement -> hypothesis -> next test -> repair -> retest; model output alone cannot mark a hardware fault verified.",
-        "Mains/high-voltage/traction-battery work requires explicit hazard warnings and safe isolation/measurement procedures."
+        "ElectronicsDiagnosticWorker uses a stable read-only evidence adapter for supplied multimeter/oscilloscope/test-point measurements plus schematic/boardview/netlist/reference alignment. Hardware transport/control remains separate and cannot be implied by diagnosis.",
+        "VehicleDiagnosticWorker uses a receive/read-only OBD-II/CAN/CAN-FD/J1939 evidence adapter. Common OBD values and J1939 frame metadata may be decoded; bus transmission, ECU programming, actuation and automatic DTC clearing are prohibited.",
+        "AcousticDiagnosticWorker uses bounded audio/vibration measurement features (RMS, peak, crest factor, zero-crossing rate and dominant frequencies) without retaining raw samples by default; fault labels still require baseline/reference evidence.",
+        "The diagnostic coordinator uses test -> measurement -> hypothesis -> next test -> repair -> retest; model output or a single measurement alone cannot mark a hardware fault verified.",
+        "Mains/high-voltage/traction-battery evidence triggers explicit hazard handling; the software adapter never authorizes energized probing."
       ]
     },
     {
@@ -407,9 +407,11 @@
       "status": "PARTIAL",
       "owner": "HAWKEYE DIAGNOSTIC",
       "evidence": [
-        "core/krishna_core/hawkeye_diagnostic.py"
+        "core/krishna_core/hawkeye_diagnostic.py",
+        "core/krishna_core/diagnostic_adapters.py",
+        "core/tests/test_diagnostic_adapters.py"
       ],
-      "next": "OBD/CAN/J1939 + electrical instrument + acoustic adapters"
+      "next": "connect and physically verify approved read-only OBD/CAN/J1939 interfaces, electrical instruments and acoustic/vibration capture hardware"
     },
     {
       "id": "mobile_edge_pipeline",
@@ -424,12 +426,14 @@
     },
     {
       "id": "canonical_mobile_runtime",
-      "status": "PARTIAL",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
       "owner": "KRISHNA Mobile",
       "evidence": [
-        "mobile_v3/"
+        "mobile_v3/CANONICAL_RUNTIME.json",
+        "core/krishna_core/mobile_runtime_manifest.py",
+        ".github/workflows/build-mobile-v3.yml"
       ],
-      "next": "retire/reconcile competing deployed companion history"
+      "next": "real-device canonical APK acceptance, then review/retire obsolete PC companion UI/data only if no longer required"
     },
     {
       "id": "brahma_rishi_gyan",
