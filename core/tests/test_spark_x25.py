@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from krishna_core.model_scout import ModelCandidate, ModelScout
+from krishna_core.router import ModelRouter
 from krishna_core.spark_x25 import SparkX25Manager
 
 
@@ -221,6 +222,47 @@ class SparkX25Tests(unittest.TestCase):
             self.assertTrue(plan["approval_required"])
             self.assertTrue(plan["storage_policy"]["do_not_use_c_drive"])
             self.assertEqual(plan["preconditions"]["ollama_minimum"], "0.34.1")
+
+    def test_corrupt_lifecycle_fails_closed_without_overwrite(self):
+        with tempfile.TemporaryDirectory() as td:
+            manager, _ = self.make_manager(td)
+            damaged = "{not-valid-json"
+            manager.lifecycle_path.write_text(damaged, encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                manager.discover()
+            self.assertEqual(manager.lifecycle_path.read_text(encoding="utf-8"), damaged)
+
+
+class FakeRoutingScout:
+    def routing_candidates(self, task="general", limit=10):
+        return [{
+            "model_id": "SparkLLM/Spark-X2.5-4B",
+            "task": "local_general_agent",
+            "benchmark_ref": "bench-001",
+            "routing_enabled": True,
+        }]
+
+
+class SparkRouterTests(unittest.TestCase):
+    def test_latest_tag_is_recognized_and_output_remains_untrusted(self):
+        router = ModelRouter()
+        router.bind_model_scout(FakeRoutingScout())
+
+        def probe(url, timeout=2):
+            if url.endswith("/api/tags"):
+                return True, {"models": [{"name": "sparkllm/spark-x2.5-4b:latest"}]}
+            return False, {"error": "offline"}
+
+        router._probe_json = probe
+        rows = router.available()
+        spark = next(x for x in rows if x["provider"].startswith("ollama-model:"))
+        self.assertTrue(spark["available"])
+
+        router._governed_ask = lambda provider, prompt, privacy, free_only, project, actor: "safe proposal"
+        routed = router.route("inspect only", privacy="local_only")
+        self.assertTrue(routed["model_scout"])
+        self.assertTrue(routed["untrusted_output"])
+        self.assertEqual(routed["authority"], "worker-model-only")
 
 
 class SparkIntegrationContractTests(unittest.TestCase):
