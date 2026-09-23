@@ -101,3 +101,33 @@ Adapters that are not installed must report unavailable rather than being simula
 - truck/haul-road cost-routing worker
 - KML/KMZ/GeoJSON and 3D export
 - survey recording and final engineering evidence package
+
+
+## Expanded live perception (v0.2)
+
+The canonical BHOOMIPUTRA live-camera contract now covers terrain/quarry, structures, roads,
+machinery and utilities plus people/PPE, vehicles, electronics/devices, ordinary OCR/assets,
+hazards and temporal change.
+
+`BhumiputraAgent.ingest_live_frame` uses the local VisionAdapter, applies the field-perception
+truth/privacy prompt, redacts authentication secrets before persistence and records the
+observation into the live session. The existing bounded encrypted mobile-evidence store is
+retained.
+
+### Identity and sensitive-input boundaries
+
+Face presence, person count and visible PPE/activity may be described. Identity matching is
+limited to explicitly enrolled and consented local profiles; unknown people remain `UNKNOWN`
+and no cloud biometric provider is claimed.
+
+Ordinary text such as signs, labels, serial/model numbers, asset tags and requested registration
+plates may be read. Passwords, PINs, OTPs, API keys, bearer/session tokens and equivalent
+authentication secrets are never returned, reconstructed, stored, synchronized or learned.
+They are replaced with `[SECRET REDACTED]` before live-analysis persistence.
+
+### Diagnostic truth boundary
+
+Vehicle/electronics visual inspection may identify visible condition and candidate functional
+blocks. Hidden vehicle faults require OBD/CAN/J1939 or other measurements; hidden electrical
+faults require trusted references and instrument/device telemetry. Camera-only observations
+must not be reported as verified hidden faults.
