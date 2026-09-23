@@ -9,11 +9,18 @@ class MemoryEnvelope:
     def as_dict(self): return asdict(self)
 
 class MemoryFabric:
-    """Gyan-Bhandar is the canonical API; all optional memory engines stay behind this facade."""
+    """Gyan-Bhandar is canonical; optional memory/code engines stay behind this facade."""
     KINDS=("working","episodic","semantic","graph","skill","evidence")
-    def __init__(self, memory, gyan): self.memory=memory; self.gyan=gyan
+    def __init__(self, memory, gyan, *, graft=None, codebase_memory=None):
+        self.memory=memory
+        self.gyan=gyan
+        self.graft=graft
+        self.codebase_memory=codebase_memory
     def adapters(self):
-        return {"gyan_bhandar":True,"graphiti":self._has('graphiti_core') or self._has('graphiti'),"letta":self._has('letta'),"mem0":self._has('mem0')}
+        out={"gyan_bhandar":True,"graphiti":self._has('graphiti_core') or self._has('graphiti'),"letta":self._has('letta'),"mem0":self._has('mem0')}
+        out["graft"]=bool(self.graft and self.graft.status().get("available"))
+        out["codebase_memory"]=bool(self.codebase_memory and self.codebase_memory.status().get("available"))
+        return out
     @staticmethod
     def _has(name):
         try: __import__(name); return True
@@ -32,3 +39,26 @@ class MemoryFabric:
 
     def semantic_store(self,project,topic,text,evidence=None,source="krishna",verified=False,confidence=.5,provenance=None,supersedes=None):
         return self.gyan.store(project,topic,text,evidence or [],confidence,source,verified,"semantic",provenance or {},supersedes)
+
+    def structural_context(self,project_root,query,limit=20):
+        """Read-only structural code context from configured Codebase-Memory."""
+        if not self.codebase_memory:
+            return {"available":False,"reason":"codebase-memory adapter not configured","results":[]}
+        status=self.codebase_memory.status()
+        if not status.get("available"):
+            return {"available":False,"reason":"codebase-memory executable not available","results":[],"status":status}
+        result=self.codebase_memory.query(query,project_root=project_root,limit=limit)
+        return {"available":True,"authority":"read-only structural context","results":result}
+
+    def optional_memory_query(self,text):
+        """Query Graft as optional backing context without bypassing Gyan-Bhandar."""
+        if not self.graft:
+            return {"available":False,"reason":"graft adapter not configured"}
+        status=self.graft.status()
+        if not status.get("available"):
+            return {"available":False,"reason":"graft executable not available","status":status}
+        return {
+            "available":True,
+            "result":self.graft.query(text),
+            "authority":"optional context only; trusted memory remains Gyan-Bhandar",
+        }
