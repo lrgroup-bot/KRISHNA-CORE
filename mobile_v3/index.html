@@ -23,6 +23,7 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
 .cameraBadge{background:#041623dd;border:1px solid #45d4e8;border-radius:14px;padding:7px 10px}
 .cameraAnalysis{position:absolute;left:12px;right:12px;bottom:18px;max-height:34%;overflow:auto;background:#03131ddd;border:1px solid #45d4e899;border-radius:12px;padding:10px;font-size:12px;line-height:1.35;white-space:pre-wrap}
 .cameraClose{position:absolute;right:12px;top:48px;z-index:10;pointer-events:auto;width:42px;height:42px;border-radius:50%;border:1px solid #ff7189;background:#270812dd;color:#fff;font-size:18px}.cameraRef{position:absolute;right:12px;top:98px;z-index:10;pointer-events:auto;height:34px;min-width:42px;border-radius:12px;border:1px solid #f2c96f;background:#221b08dd;color:#f2c96f;font-size:10px;font-weight:800}
+.cameraActions{position:absolute;left:12px;right:62px;top:50px;z-index:10;pointer-events:auto;display:flex;gap:6px;flex-wrap:wrap}.cameraAction{height:34px;border-radius:12px;border:1px solid #45d4e8;background:#041623dd;color:#bdf9ff;padding:0 10px;font-size:9px;font-weight:800;letter-spacing:.4px}.cameraAction.active{border-color:#50f0ac;color:#50f0ac}.cameraAction.recording{border-color:#ff7189;color:#ff7189}
 .composer input[type=text]{min-width:0;background:transparent;color:#fff;border:0;outline:0;padding:10px}.composer select{max-width:74px;background:#061c29;color:#bdf9ff;border:1px solid #246173;border-radius:12px;padding:7px 4px;font-size:10px}.composer button{height:42px;border-radius:50%;border:1px solid #40dff4;background:#073148;color:#bdf9ff;font-size:17px}.composer .send{background:#116f87;color:#fff}.good{color:#50f0ac}.bad{color:#ff7189}.warn{color:#f2c96f}
 .security{font-size:9px;text-align:center;color:#6f91a0;margin-top:7px;letter-spacing:.25px}
 </style></head>
@@ -42,6 +43,12 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
     </div>
     <button id="cameraClose" class="cameraClose" onclick="stopFieldScan()" aria-label="Stop Hawkeye scan">×</button>
     <button id="cameraRef" class="cameraRef" onclick="configureReferenceAlignment()" aria-label="Align verified circuit reference">REF</button>
+    <div class="cameraActions">
+      <button id="cameraLearn" class="cameraAction" onclick="HawkeyeObserverUI.toggleLearn()" aria-label="Toggle Hawkeye learning observer">LEARN</button>
+      <button class="cameraAction" onclick="HawkeyeObserverUI.research()" aria-label="Research observed object">SEARCH</button>
+      <button class="cameraAction" onclick="HawkeyeObserverUI.photo()" aria-label="Save Hawkeye photo with data">PHOTO+DATA</button>
+      <button id="cameraRecord" class="cameraAction" onclick="HawkeyeObserverUI.record()" aria-label="Record Hawkeye object with data">REC+DATA</button>
+    </div>
   </div>
 </section>
 <footer class="bottom">
@@ -277,4 +284,4 @@ const realtime=new KrishnaRealtime(Krishna);
 realtime.onEvent=e=>{const p=e.payload||{};if(e.type==='task.completed'){reply(p.summary||'KRISHNA completed the task','good');setMode('CHAT','WORK COMPLETED');return}if(e.type==='action.sync'){const status=String(p.status||'').toUpperCase(),action=String(p.action||'KRISHNA action');if(status==='COMPLETED')setMode('CHAT',action+' · SYNCED');else if(status==='FAILED'||status==='BLOCKED')setMode('CHAT',action+' · '+status);else setMode('WORKING',action)}};
 realtime.onState=s=>{if(s==='reconnecting')document.getElementById('state').textContent='RECONNECTING'};
 realtime.start();window.onerror=(m,s,l)=>{try{Krishna.log('JS '+m+' '+s+':'+l)}catch(e){}};
-</script></body></html>
+</script><script src="hawkeye-observer-ui.js"></script></body></html>

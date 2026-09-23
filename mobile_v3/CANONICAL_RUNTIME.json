@@ -15,10 +15,12 @@
     "HawkeyeSyncJobService.java",
     "HawkeyeDeviceProfiler.java",
     "index.html",
-    "realtime-client.js"
+    "realtime-client.js",
+    "HawkeyeMobileVision.java",
+    "hawkeye-observer-ui.js"
   ],
   "build_workflow": ".github/workflows/build-mobile-v3.yml",
-  "artifact_name": "KRISHNA-v3.7-Mobile-Edge-APK",
+  "artifact_name": "KRISHNA-v3.8-HAWKEYE-Observer-APK",
   "pc_runtime_companion": {
     "path": "mobile/companion",
     "role": "pc-side compatibility/pairing support only",
@@ -33,6 +35,12 @@
     "encrypted_hawkeye_evidence": true,
     "evidence_curator": true,
     "pc_ack_before_mobile_delete": true,
-    "private_transport_only": true
+    "private_transport_only": true,
+    "hawkeye_learning_observer": true,
+    "local_object_tracking": true,
+    "auto_zoom_when_supported": true,
+    "user_browser_custom_tab": true,
+    "local_photo_video_with_sidecar_data": true,
+    "unknown_face_social_identity_search": false
   }
 }

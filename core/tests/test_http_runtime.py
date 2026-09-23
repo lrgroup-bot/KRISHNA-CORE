@@ -71,7 +71,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/brahma/status", "/api/brahma/intelligence/status",
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/lab/status", "/api/lab/quantum-nano", "/api/lab/experiments", "/api/mobile/runtime", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
-                     "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
+                     "/api/vision/status", "/api/hawkeye/observer/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/openrouter/free/status", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
 
@@ -150,7 +150,7 @@ class HTTPRuntimeTests(unittest.TestCase):
         code,truth=self.call("/api/architecture/truth")
         self.assertEqual(code,200)
         self.assertEqual(truth["component"],"KRISHNA Architecture Truth Audit")
-        self.assertEqual(truth["requirements"]["version"],"2026-09-23-master-product-truth-v8")
+        self.assertEqual(truth["requirements"]["version"],"2026-09-23-master-product-truth-v9")
         self.assertIn("legacy_roots",truth)
         self.assertIn("orphan_candidates",truth)
         self.assertIn("source_tree_drift",truth)
@@ -163,6 +163,28 @@ class HTTPRuntimeTests(unittest.TestCase):
         })
         self.assertEqual(hawkeye["authority"],"KRISHNA")
         self.assertEqual(hawkeye["verification"],"SUDARSHAN")
+
+        code,observer=self.call("/api/hawkeye/observer/status")
+        self.assertEqual(code,200)
+        self.assertEqual(observer["agent"],"HAWKEYE LEARNING OBSERVER")
+        self.assertTrue(observer["routes_to_rishis"])
+        self.assertFalse(observer["face_to_social_search"])
+
+        code,learned=self.call("/api/hawkeye/learn/capture",{
+            "utterance":"learn this book page",
+            "source_type":"book",
+            "source_ref":"page-test-1",
+            "modalities":["image","text"],
+            "subject":"materials science",
+            "analysis":"The page describes a material property and its measurement.",
+            "confidence":0.8,
+            "evidence_state":"OBSERVED",
+        })
+        self.assertEqual(code,201)
+        self.assertTrue(learned["lead_rishi"])
+        self.assertIn("rishi_team",learned)
+        self.assertFalse(learned["storage_policy"]["raw_media_stored_here"])
+        self.assertFalse(learned["research_plan"]["face_to_social_search"])
 
         code,receipt=self.call("/api/action-bus/dispatch",{
             "action":"architecture.truth.scan","project":"KRISHNA",

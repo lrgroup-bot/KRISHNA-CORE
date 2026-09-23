@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "version": "2026-09-23-master-product-truth-v8",
+  "version": "2026-09-23-master-product-truth-v9",
   "source": "Canonical KRISHNA product requirements consolidated from project conversations, merged repository decisions, runtime acceptance and current architecture",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -189,7 +189,9 @@
         "Remote-away usage requires secure transport and must not expose raw host shell/filesystem APIs.",
         "Phone image/file attachments can be passed into the same KRISHNA conversation; supported images use local multimodal reasoning and evidence linkage.",
         "KRISHNA Mobile accepts only LAN/private-overlay Core targets and refuses public Internet control targets.",
-        "Mobile must never expose raw shell, arbitrary host filesystem, plaintext credential, or trading execution APIs."
+        "Mobile must never expose raw shell, arbitrary host filesystem, plaintext credential, or trading execution APIs.",
+        "HAWKEYE mobile camera mode exposes explicit LEARN, SEARCH, PHOTO+DATA and REC+DATA controls without adding a dashboard.",
+        "Public research opens in a user-browser Custom Tab with no KRISHNA JavaScript bridge injected into third-party pages."
       ]
     },
     {
@@ -275,7 +277,10 @@
         "REASONER fuses the specialist lanes, source independence, contradictions and uncertainty; conclusions require supporting evidence and unresolved conflicts remain visible.",
         "HAWKEYE coordinates BHOOMIPUTRA field perception, diagnostic/reference systems, geo/field platforms, learning and mobile evidence without creating a second authority.",
         "MobileEdgeBot decides what the phone should process/send; EvidenceCuratorBot decides what evidence is worth retaining; neither can promote observations directly to Gyan truth.",
-        "HAWKEYE raw camera/audio evidence remains local/private by default and authentication secrets are never learned or synchronized."
+        "HAWKEYE raw camera/audio evidence remains local/private by default and authentication secrets are never learned or synchronized.",
+        "HAWKEYE Learning Observer may learn from user-selected camera/video/book/page/object/audio observations by storing distilled findings plus provenance, then routing candidates through Universal Learning -> BRAHMA -> the appropriate Rishi team.",
+        "Unknown faces/face embeddings must not be used to discover a person's web or social-media identity; public identity research requires a user-supplied identity, an enrolled+consented local match, or ordinary public clues.",
+        "Mobile HAWKEYE may use local object tracking for overlay geometry and device-supported camera zoom; coarse detector labels remain OBSERVED hints rather than exact semantic identity."
       ]
     },
     {
@@ -311,7 +316,9 @@
         "EvidenceCuratorBot retains only useful bounded evidence, encrypts it locally, synchronizes on approved private transport, and deletes phone copies only after retained-PC acknowledgement.",
         "Offline mode continues conversation/evidence capture and lightweight inference where supported; unsupported heavy reasoning is queued for later PC processing rather than falsely reported complete.",
         "Camera/audio sampling is bounded by cadence, TTL, item count and byte budgets so Hawkeye does not overload phone or PC.",
-        "Mobile and PC share one KRISHNA conversation/action state while the phone remains a conversation-first interface rather than a raw system dashboard."
+        "Mobile and PC share one KRISHNA conversation/action state while the phone remains a conversation-first interface rather than a raw system dashboard.",
+        "User-requested HAWKEYE photos/videos may be saved locally with a bounded metadata sidecar; saving does not imply cloud upload and secrets are excluded from capture metadata.",
+        "On-device object tracking and auto-zoom must remain bounded and must not block or overload the primary KRISHNA conversation loop."
       ]
     },
     {
@@ -381,7 +388,12 @@
     "Rishi Vishvakarma is present in the permanent council and design learning map, and Design Intelligence runtime/UI status is reachable without adding sidebar clutter.",
     "Model Scout evaluate/recommend actions remain advisory and have neither cloud billing authority nor routing authority.",
     "Spatial UI may become the default desktop shell only after project/chat/NARAD operational parity and rendered Windows acceptance; before that it remains an opt-in preview and the verified operational UI stays default.",
-    "Knowledge-bound Sudarshan UI work must block when no task-relevant verified Vishvakarma finding is available; candidate lessons cannot satisfy the gate."
+    "Knowledge-bound Sudarshan UI work must block when no task-relevant verified Vishvakarma finding is available; candidate lessons cannot satisfy the gate.",
+    "HAWKEYE Learning Observer may promote only distilled, provenance-linked candidate findings through BRAHMA/Rishi review; raw media is never knowledge by itself.",
+    "Unknown-face biometric data cannot be used as a public/social identity-search key.",
+    "HAWKEYE mobile research pages run in the user's browser Custom Tab without KRISHNA JavaScript bridge access to third-party content.",
+    "Auto-zoom is used only when the camera track exposes a supported zoom capability; unsupported devices continue without claiming zoom control.",
+    "User-requested HAWKEYE media capture is bounded, local, and carries a separate metadata record with no automatic raw cloud upload."
   ],
   "status_definitions": {
     "VERIFIED": "Implemented and proven by the required current runtime/device/integration evidence.",
@@ -749,6 +761,33 @@
         "core/tests/test_prepull_final_reconciliation.py"
       ],
       "next": "post-deploy provision a registered project brain, record verified work, restart KRISHNA and confirm governance layers plus DB-backed context persist without source-tree mutation"
+    },
+    {
+      "id": "hawkeye_learning_observer",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "HAWKEYE / BRAHMA / Rishi Council",
+      "evidence": [
+        "core/krishna_core/hawkeye_learning_observer.py",
+        "core/krishna_core/orchestrator.py",
+        "core/krishna_core/server.py",
+        "core/tests/test_hawkeye_learning_observer.py"
+      ],
+      "next": "real mobile/PC acceptance: show book/page/video/object -> distilled observation -> Rishi/BRAHMA routing -> cross-check; verify no raw-media truth promotion and no unknown-face identity search"
+    },
+    {
+      "id": "hawkeye_mobile_object_overlay_capture",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "HAWKEYE Mobile",
+      "evidence": [
+        "mobile_v3/HawkeyeMobileVision.java",
+        "mobile_v3/hawkeye-observer-ui.js",
+        "mobile_v3/MainActivity.java",
+        "mobile_v3/index.html",
+        "mobile_v3/CANONICAL_RUNTIME.json",
+        ".github/workflows/build-mobile-v3.yml",
+        "core/tests/test_hawkeye_mobile_observer_contract.py"
+      ],
+      "next": "real Android acceptance: object tracking IDs/boxes -> supported-camera auto-zoom -> Custom Tab research -> PHOTO+DATA -> REC+DATA -> gallery/sidecar verification"
     }
   ]
 }

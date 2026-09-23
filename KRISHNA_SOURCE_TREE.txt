@@ -94,6 +94,7 @@ core\krishna_core\hawkeye_diagnostic.py
 core\krishna_core\hawkeye_endpoint.py
 core\krishna_core\hawkeye_field_platform.py
 core\krishna_core\hawkeye_geo_engine.py
+core\krishna_core\hawkeye_learning_observer.py
 core\krishna_core\hawkeye_learning.py
 core\krishna_core\hawkeye_reference.py
 core\krishna_core\hawkeye_ui_reviewer.py
@@ -294,7 +295,9 @@ core\tests\test_hawkeye_diagnostic.py
 core\tests\test_hawkeye_endpoint.py
 core\tests\test_hawkeye_field_platform.py
 core\tests\test_hawkeye_geo_engine.py
+core\tests\test_hawkeye_learning_observer.py
 core\tests\test_hawkeye_learning.py
+core\tests\test_hawkeye_mobile_observer_contract.py
 core\tests\test_hawkeye_reference.py
 core\tests\test_hawkeye_ui_reviewer.py
 core\tests\test_http_runtime.py
@@ -377,6 +380,7 @@ docs\FREE_AI_PROVIDER_RESEARCH_2026-09-23.md
 docs\GARUDANETRA_BROWSER_FABRIC.md
 docs\HAWKEYE_DEVICE_MESH.md
 docs\HAWKEYE_GEO_STACK.md
+docs\HAWKEYE_LEARNING_OBSERVER.md
 docs\HISTORICAL_BRANCH_RECONCILIATION_2026-09-23.md
 docs\KABACH_PRIVACY_GUARDIAN.md
 docs\KRISHNA_CHARACTER_PERFORMANCE_BIBLE.md
@@ -402,11 +406,13 @@ KRISHNA_AGI_TEST_REPORT.md
 KRISHNA_AGI_V1_ARCHITECTURE.md
 KRISHNA_SOURCE_TREE.txt
 mobile_v3\CANONICAL_RUNTIME.json
+mobile_v3\hawkeye-observer-ui.js
 mobile_v3\HawkeyeBackgroundSync.java
 mobile_v3\HawkeyeCrypto.java
 mobile_v3\HawkeyeDeviceProfiler.java
 mobile_v3\HawkeyeEdgeMemory.java
 mobile_v3\HawkeyeEvidenceCuratorBot.java
+mobile_v3\HawkeyeMobileVision.java
 mobile_v3\HawkeyeOfflinePerception.java
 mobile_v3\HawkeyeSyncJobService.java
 mobile_v3\index.html

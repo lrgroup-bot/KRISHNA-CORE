@@ -60,7 +60,10 @@ jobs:
           plugins { id 'com.android.application' version '8.7.3' apply false }
           EOF
 
-          echo 'org.gradle.jvmargs=-Xmx2048m' > gradle.properties
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m
+          android.useAndroidX=true
+          EOF
 
           cat > app/build.gradle <<'EOF'
           plugins { id 'com.android.application' }
@@ -71,9 +74,13 @@ jobs:
               applicationId 'com.krishna.mobile'
               minSdk 26
               targetSdk 35
-              versionCode 37
-              versionName '3.7.0'
+              versionCode 38
+              versionName '3.8.0'
             }
+          }
+          dependencies {
+            implementation 'androidx.browser:browser:1.8.0'
+            implementation 'com.google.mlkit:object-detection:17.0.2'
           }
           EOF
 
@@ -131,6 +138,7 @@ jobs:
           cp mobile_v3/*.java app/src/main/java/com/krishna/mobile/
           cp mobile_v3/index.html app/src/main/assets/index.html
           cp mobile_v3/realtime-client.js app/src/main/assets/realtime-client.js
+          cp mobile_v3/hawkeye-observer-ui.js app/src/main/assets/hawkeye-observer-ui.js
           cp mobile_v3/CANONICAL_RUNTIME.json app/src/main/assets/canonical-runtime.json
           base64 -d avatar/krishna_child_360.webp.b64 > app/src/main/assets/krishna_child_360.webp
 
@@ -156,6 +164,11 @@ jobs:
           grep -q "krishna_child_360.webp" app/src/main/assets/index.html
           grep -q "SWIPE TO ROTATE" app/src/main/assets/index.html
           grep -q "showAvatarView" app/src/main/assets/index.html
+          grep -q "hawkeye-observer-ui.js" app/src/main/assets/index.html
+          grep -q "PHOTO+DATA" app/src/main/assets/index.html
+          grep -q "REC+DATA" app/src/main/assets/index.html
+          grep -q "autoZoom" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q "hawkeyeObserveLearning" app/src/main/assets/hawkeye-observer-ui.js
           grep -q "Conversation only" app/src/main/assets/index.html
           grep -q "verifyVoice" app/src/main/assets/index.html
           grep -q "startFieldScan" app/src/main/assets/index.html
@@ -190,6 +203,11 @@ jobs:
           grep -q "edgeSamplingMs" app/src/main/assets/index.html
           grep -q 'android.permission.ACCESS_NETWORK_STATE' app/src/main/AndroidManifest.xml
           grep -q "hawkeyeOfflineFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "hawkeyeDetectObjects" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "openResearchBrowser" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "saveHawkeyeCapture" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "ML_KIT_OBJECT_TRACKER" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
+          grep -q "user-default-custom-tab" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "HawkeyeOfflinePerception.analyze" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "ANDROID_LOCAL_LIGHTWEIGHT_PROBE" app/src/main/java/com/krishna/mobile/HawkeyeOfflinePerception.java
           grep -q "semantic_model_configured" app/src/main/java/com/krishna/mobile/HawkeyeOfflinePerception.java
@@ -282,7 +300,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: KRISHNA-v3.7-Mobile-Edge-APK
+          name: KRISHNA-v3.8-HAWKEYE-Observer-APK
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             privacy-apk-report.json
