@@ -46,6 +46,7 @@ class FreeCloudDefaultTests(unittest.TestCase):
         router.available=lambda:[
             {"provider":"ollama","available":True,"local":True,"model":"local","free_only":True},
             {"provider":"openrouter-free","available":True,"local":False,"model":"dynamic","free_only":True},
+            {"provider":"direct-free:cloudflare-workers-ai","available":True,"local":False,"model":"verified","free_only":True},
             {"provider":"gateway:declared-free","available":True,"local":False,"model":"declared","free_only":True},
             {"provider":"openai","available":True,"local":False,"model":"paid","free_only":False},
         ]
@@ -54,6 +55,7 @@ class FreeCloudDefaultTests(unittest.TestCase):
         providers={x["provider"] for x in plan}
         self.assertIn("ollama",providers)
         self.assertIn("openrouter-free",providers)
+        self.assertIn("direct-free:cloudflare-workers-ai",providers)
         self.assertNotIn("gateway:declared-free",providers)
         self.assertNotIn("openai",providers)
 
@@ -72,6 +74,44 @@ class FreeCloudDefaultTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,"auto-fallback is disabled"):
                 router.route("hello",privacy="approved_cloud")
         self.assertEqual(called,["ollama","gpt4all"])
+
+
+
+    def test_route_uses_verified_direct_free_after_openrouter_failure(self):
+        class OpenRouter:
+            def configured(self):return True
+            def status(self,refresh=False):return {"configured":True}
+
+        class DirectFree:
+            def __init__(self):self.calls=[]
+            def configured(self):return True
+            def status(self,refresh=False):
+                return {"configured":True,"provider_id":"direct-free:cloudflare-workers-ai"}
+            def complete(self,prompt,privacy="approved_cloud"):
+                self.calls.append((prompt,privacy))
+                return {
+                    "provider_id":"direct-free:cloudflare-workers-ai",
+                    "text":"verified-direct",
+                    "zero_cost_proof":{"billing_guard":"live"},
+                }
+
+        router=ModelRouter()
+        router.bind_openrouter_free(OpenRouter())
+        direct=DirectFree()
+        router.bind_direct_free(direct)
+
+        def governed(provider,*args,**kwargs):
+            if provider in {"ollama","gpt4all"}:raise RuntimeError("local unavailable")
+            if provider.startswith("openrouter-free"):raise RuntimeError("free catalog unavailable")
+            raise AssertionError(provider)
+
+        router._governed_ask=governed
+        with patch.dict(os.environ,{"KRISHNA_ALLOW_PAID_CLOUD":"0"},clear=False):
+            out=router.route("public task",privacy="approved_cloud")
+        self.assertEqual(out["provider"],"direct-free:cloudflare-workers-ai")
+        self.assertEqual(out["text"],"verified-direct")
+        self.assertTrue(out["zero_cost_verified"])
+        self.assertEqual(direct.calls,[("public task","approved_cloud")])
 
     def test_paid_cloud_requires_explicit_environment_opt_in(self):
         router=ModelRouter()
