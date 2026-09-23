@@ -3059,6 +3059,7 @@ class Orchestrator:
         if project!="KRISHNA" and not policy:raise KeyError(project)
         privacy=policy.privacy if policy else "approved_cloud"
         status=self.ai_roles.status()
+        snapshot=self.router.available()
         roles=[]
         for row in status["roles"]:
             item=dict(row)
@@ -3066,6 +3067,7 @@ class Orchestrator:
                 plan=self.router.role_plan(
                     item["role"],privacy,
                     free_only=not self.router.paid_cloud_enabled(),
+                    available_rows=snapshot,
                 )
                 item["effective_plan"]=[
                     {
@@ -3089,6 +3091,7 @@ class Orchestrator:
             "paid_cloud_enabled":self.router.paid_cloud_enabled(),
             "research_plan":self.router.research_plan(
                 privacy,free_only=not self.router.paid_cloud_enabled(),
+                available_rows=snapshot,
             ),
             "routing_order":"role policy -> privacy gate -> local/verified-zero cloud strategy -> STOP unless paid cloud explicitly enabled",
         }
@@ -3764,9 +3767,10 @@ class Orchestrator:
     def model_pool(self, project="KRISHNA"):
         policy=self.projects.get(project) if project!="KRISHNA" else None
         privacy=policy.privacy if policy else "approved_cloud"
-        return {"providers":self.router.available(),"coding_plan":self.router.coding_plan(privacy),
-                "free_only_plan":self.router.coding_plan(privacy,free_only=True),
-                "research_plan":self.router.research_plan(privacy,free_only=True),
+        snapshot=self.router.available()
+        return {"providers":snapshot,"coding_plan":self.router.coding_plan(privacy,available_rows=snapshot),
+                "free_only_plan":self.router.coding_plan(privacy,free_only=True,available_rows=snapshot),
+                "research_plan":self.router.research_plan(privacy,free_only=True,available_rows=snapshot),
                 "privacy":privacy,
                 "paid_cloud_enabled":self.router.paid_cloud_enabled(),
                 "ai_roles":self.model_role_status(project),
