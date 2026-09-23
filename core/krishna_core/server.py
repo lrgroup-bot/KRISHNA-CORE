@@ -308,13 +308,13 @@ orch.action_bus.register(
 orch.action_bus.register(
     "garudanetra.research.analyze",_shared_garudanetra_research_analyze,
     description="Analyze mission evidence while preserving unresolved contradictions",
-    permissions=("browser.research","evidence.read"),
+    mutating=True,permissions=("browser.research","evidence.read"),
     sources=("pc","system","agent","job","mcp","a2a"),
 )
 orch.action_bus.register(
     "garudanetra.research.handoff",_shared_garudanetra_research_handoff,
     description="Package Garudanetra evidence for Rishi, Shishya, LAB BOT or Gyan candidate review",
-    permissions=("browser.research","evidence.read"),
+    mutating=True,permissions=("browser.research","evidence.read"),
     sources=("pc","system","agent","job","mcp","a2a"),
 )
 orch.action_bus.register(
