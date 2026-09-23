@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "version": "2026-09-23-master-product-truth-v2",
+  "version": "2026-09-23-master-product-truth-v3",
   "source": "Canonical KRISHNA product requirements consolidated from project conversations, merged repository decisions, runtime acceptance and current architecture",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -420,9 +420,10 @@
       "evidence": [
         "mobile_v3/MobileEdgeBot.java",
         "mobile_v3/HawkeyeEvidenceCuratorBot.java",
-        "mobile_v3/HawkeyeBackgroundSync.java"
+        "mobile_v3/HawkeyeBackgroundSync.java",
+        "mobile_v3/HawkeyeOfflinePerception.java"
       ],
-      "next": "canonical APK reconciliation + real-device acceptance"
+      "next": "real-device offline capture/change-probe/encrypted-sync acceptance"
     },
     {
       "id": "canonical_mobile_runtime",
@@ -463,19 +464,23 @@
       "status": "PARTIAL",
       "owner": "KRISHNA Avatar",
       "evidence": [
+        "core/krishna_core/avatar_runtime.py",
         "core/krishna_core/avatar_asset_pipeline.py",
         "core/krishna_core/video_avatar.py"
       ],
-      "next": "production rigged GLB with required body/facial/viseme/state animation assets"
+      "next": "runtime state machine is implemented; production rigged GLB with required body/facial/viseme animation assets remains"
     },
     {
       "id": "always_listening_mobile_voice",
-      "status": "PARTIAL",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
       "owner": "KRISHNA Voice",
       "evidence": [
-        "core/krishna_core/native_voice.py"
+        "core/krishna_core/native_voice.py",
+        "mobile_v3/KrishnaWakeService.java",
+        "mobile_v3/MainActivity.java",
+        ".github/workflows/build-mobile-v3.yml"
       ],
-      "next": "mobile always-listening wake + owner-filter lifecycle and real mic/model acceptance"
+      "next": "real Android on-device recognition + microphone/voiceprint lifecycle acceptance; wake remains activation, not authentication"
     },
     {
       "id": "field_geo_3d_ar",
@@ -484,9 +489,11 @@
       "evidence": [
         "core/krishna_core/hawkeye_field_platform.py",
         "core/krishna_core/hawkeye_geo_engine.py",
-        "core/krishna_core/bhumiputra.py"
+        "core/krishna_core/field_survey.py",
+        "core/krishna_core/bhumiputra.py",
+        "core/tests/test_field_survey.py"
       ],
-      "next": "real photogrammetry/DEM/offline-map/AR-depth/RTK adapters and field acceptance"
+      "next": "deterministic boundary/geofence/volume/route/export foundation implemented; real photogrammetry/DEM/offline-map/AR-depth/RTK adapters and field acceptance remain"
     },
     {
       "id": "final_react_spatial_ui",
