@@ -100,6 +100,20 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn('$p.WaitForExit()',guardian)
         self.assertIn('ALREADY_RUNNING',guardian)
 
+    def test_deploy_health_is_bound_to_new_guardian_generation(self):
+        root=repository_root()
+        deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
+        guardian=(root/"scripts"/"KRISHNA_GUARDIAN.ps1").read_text(encoding="utf-8")
+        server=(root/"core"/"krishna_core"/"server.py").read_text(encoding="utf-8")
+        self.assertIn('$runtimeGeneration=[guid]::NewGuid().ToString("N")',deploy)
+        self.assertIn('"-RuntimeGeneration",$runtimeGeneration',deploy)
+        self.assertIn('$guardianProc.HasExited',deploy)
+        self.assertIn('$health.runtime_generation -eq $runtimeGeneration',deploy)
+        self.assertIn('[string]$RuntimeGeneration=""',guardian)
+        self.assertIn('$env:KRISHNA_RUNTIME_GENERATION=$RuntimeGeneration',guardian)
+        self.assertIn('runtime_generation=$RuntimeGeneration',guardian)
+        self.assertIn('"runtime_generation": os.environ.get("KRISHNA_RUNTIME_GENERATION", "")',server)
+
     def test_repo_contract_tests_honor_authoritative_source_root(self):
         root=repository_root()
         audit=(root/"core"/"tests"/"test_project_audit.py").read_text(encoding="utf-8")
