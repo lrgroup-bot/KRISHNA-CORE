@@ -92,13 +92,18 @@ class ModelRouter:
           {"provider":"gpt4all","available":gpt_ok,"local":True,"model":os.getenv("KRISHNA_GPT4ALL_MODEL","auto"),"credential_source":"none","error":None if gpt_ok else gpt_data.get("error")},
         ]
         if self.model_scout and ollama_ok:
-            installed={str(x.get("name") or x.get("model") or "") for x in (ollama_data.get("models") or [])}
+            installed={
+                str(x.get("name") or x.get("model") or "").strip().lower()
+                for x in (ollama_data.get("models") or [])
+            }
             for row in self.model_scout.routing_candidates("general",limit=20):
                 model=str(row.get("model_id") or "").strip()
                 if not model:continue
+                model_key=model.lower()
+                installed_now=model_key in installed or (model_key+":latest") in installed
                 out.append({
                     "provider":"ollama-model:"+model,
-                    "available":model in installed,
+                    "available":installed_now,
                     "local":True,
                     "model":model,
                     "credential_source":"none",
@@ -106,7 +111,7 @@ class ModelRouter:
                     "scout_routing_enabled":True,
                     "task":row.get("task"),
                     "benchmark_ref":row.get("benchmark_ref"),
-                    "error":None if model in installed else "routing-enabled candidate is not installed in Ollama",
+                    "error":None if installed_now else "routing-enabled candidate is not installed in Ollama",
                 })
         for name,p in self.PROVIDERS.items():
             out.append({"provider":name,"available":bool(os.getenv(p["key"])),"local":False,
@@ -233,7 +238,11 @@ class ModelRouter:
                 provider="ollama-model:"+model
                 try:
                     out=self._governed_ask(provider,prompt,privacy,free_only,project,actor)
-                    if str(out).strip():return {"provider":provider,"model":model,"text":out,"model_scout":True}
+                    if str(out).strip():
+                        return {
+                            "provider":provider,"model":model,"text":out,"model_scout":True,
+                            "authority":"worker-model-only","untrusted_output":True,
+                        }
                 except Exception as exc:
                     local_errors[provider]=f"{type(exc).__name__}: {exc}"
         for name in ("ollama","gpt4all"):
