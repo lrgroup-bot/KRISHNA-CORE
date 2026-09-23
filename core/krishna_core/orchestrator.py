@@ -3054,12 +3054,12 @@ class Orchestrator:
     def model_provider_status(self):
         return self.model_providers.status()
 
-    def model_role_status(self,project="KRISHNA"):
+    def model_role_status(self,project="KRISHNA",available_rows=None):
         policy=self.projects.get(project) if project!="KRISHNA" else None
         if project!="KRISHNA" and not policy:raise KeyError(project)
         privacy=policy.privacy if policy else "approved_cloud"
         status=self.ai_roles.status()
-        snapshot=self.router.available()
+        snapshot=self.router.available() if available_rows is None else available_rows
         roles=[]
         for row in status["roles"]:
             item=dict(row)
@@ -3773,7 +3773,7 @@ class Orchestrator:
                 "research_plan":self.router.research_plan(privacy,free_only=True,available_rows=snapshot),
                 "privacy":privacy,
                 "paid_cloud_enabled":self.router.paid_cloud_enabled(),
-                "ai_roles":self.model_role_status(project),
+                "ai_roles":self.model_role_status(project,available_rows=snapshot),
                 "openrouter_free":self.openrouter_free.status(refresh=False),
                 "direct_free":self.direct_free.status(refresh=False),
                 "gateway":self.model_gateway.list(),"secure_vault":self.secure_vault.list()}
