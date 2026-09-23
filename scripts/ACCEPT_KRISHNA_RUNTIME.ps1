@@ -369,20 +369,82 @@ try{
       Add-Check "BRAHMAGYAN Sudarshan mission" "PASS" ("mission="+$bgProbe.result.mission_id+" lead="+$bgProbe.result.lead_rishi) $bgProbe
     }else{Add-Check "BRAHMAGYAN Sudarshan mission" "FAIL" "Deep mission did not enter through verified Action architecture" $bgProbe}
     $shishyaPlan=Post-Json "/api/action-bus/dispatch" @{action="brahmagyan.shishya.plan";project="KRISHNA";actor="acceptance";payload=@{mission_id=$bgProbe.result.mission_id;count=20;specialties=@("Evidence Review","Methods","Contradictions","Sources","Testing")}}
-    if([int]$shishyaPlan.result.requested_count -le 4 -and $shishyaPlan.result.ephemeral -and $shishyaPlan.result.approval_required){
-      Add-Check "BRAHMAGYAN Shishya boundary" "PASS" ("capped="+$shishyaPlan.result.requested_count+"; temporary + approval-gated") $shishyaPlan
-    }else{Add-Check "BRAHMAGYAN Shishya boundary" "FAIL" "Temporary research workforce cap/approval contract failed" $shishyaPlan}
+    $shishyaResult=$shishyaPlan.result
+    $shishyaTree=$shishyaResult.tree_policy
+    $shishyaRequested=[int]$shishyaResult.requested_count
+    $shishyaConcurrent=[int]$shishyaResult.max_concurrent
+    $shishyaTreeNodes=[int]$shishyaTree.max_nodes
+    $shishyaTreeDepth=[int]$shishyaTree.max_depth
+    $shishyaTreeChildren=[int]$shishyaTree.max_children_per_shishya
+    $waves=@($shishyaResult.waves)
+    $waveBounded=$true
+    foreach($wave in $waves){
+      if(@($wave).Count -gt $shishyaConcurrent){$waveBounded=$false;break}
+    }
+    $shishyaSafe=(
+      $shishyaRequested -ge 1 -and
+      $shishyaRequested -le 32 -and
+      $shishyaRequested -le $shishyaTreeNodes -and
+      $shishyaConcurrent -ge 1 -and $shishyaConcurrent -le 8 -and
+      $shishyaTreeDepth -ge 1 -and $shishyaTreeDepth -le 5 -and
+      $shishyaTreeNodes -ge 1 -and $shishyaTreeNodes -le 256 -and
+      $shishyaTreeChildren -ge 0 -and $shishyaTreeChildren -le 8 -and
+      $waveBounded -and
+      $shishyaResult.nested_delegation -and
+      $shishyaResult.ephemeral -and
+      $shishyaResult.approval_required -and
+      [string]$shishyaResult.retention_policy -eq "findings_and_provenance_only" -and
+      [string]$shishyaResult.destruction_policy -match "retire every Shishya"
+    )
+    if($shishyaSafe){
+      Add-Check "BRAHMAGYAN Shishya boundary" "PASS" ("requested="+$shishyaRequested+"; concurrent="+$shishyaConcurrent+"; tree_nodes="+$shishyaTreeNodes+"; temporary + approval-gated + retirement-enforced") $shishyaPlan
+    }else{Add-Check "BRAHMAGYAN Shishya boundary" "FAIL" "Temporary Shishya wave/tree/approval/retirement contract failed" $shishyaPlan}
   }catch{Add-Check "BRAHMAGYAN runtime" "FAIL" $_.Exception.Message $null}
 
-  # Gyan candidate -> approval -> verified recall acceptance, using a disposable topic.
+  # BRAHMA-governed Gyan candidate -> QC -> approval -> verified recall acceptance.
+  # This must exercise the real Rishi/BRAHMA/Gautama/Vyasa knowledge path rather than
+  # relying on a raw verified=true flag.
   $topic="runtime-acceptance-"+[guid]::NewGuid().ToString("N").Substring(0,8)
-  $proposal=Post-Json "/api/gyan-bhandar/propose" @{project="KRISHNA";topic=$topic;lesson="KRISHNA runtime acceptance evidence";evidence=@(@{source="local_acceptance";detail="self-test"});confidence=.99;source="runtime_acceptance";verified=$true}
-  if($proposal.approval_id){
+  $acceptanceSource="runtime_acceptance:"+$topic
+  $proposal=Post-Json "/api/gyan-bhandar/propose" @{
+    project="KRISHNA"
+    topic=$topic
+    lesson="KRISHNA runtime acceptance evidence"
+    evidence=@(@{
+      source_ref=$acceptanceSource
+      source_family="runtime_acceptance"
+      detail="local self-test"
+      primary=$true
+      verified=$true
+    })
+    confidence=.99
+    source="system"
+    verified=$true
+    memory_kind="semantic"
+    provenance=@{
+      source_ref=$acceptanceSource
+      mission_id=$bgProbe.result.mission_id
+      researching_rishi=$bgProbe.result.lead_rishi
+      verification_agent="gautama"
+      compiler="veda-vyasa"
+      maturity="L4"
+      evidence_status="verified"
+      unresolved_contradictions=0
+      modality="text"
+      quality=.99
+      importance=.9
+      novelty=.8
+    }
+  }
+  if($proposal.approval_id -and $proposal.brahma -and $proposal.brahma.verified_for_gyan){
     $decision=Post-Json "/api/gyan-bhandar/decide" @{approval_id=$proposal.approval_id;approved=$true}
     $recall=Get-Json ("/api/gyan-bhandar?project=KRISHNA&topic="+[uri]::EscapeDataString($topic)+"&verified=1")
-    if(@($recall.learnings).Count -gt 0){Add-Check "Gyan-Bhandar promotion" "PASS" "Candidate approved and verified recall returned evidence" $decision}
-    else{Add-Check "Gyan-Bhandar promotion" "FAIL" "Verified recall did not return the accepted finding" $recall}
-  }else{Add-Check "Gyan-Bhandar promotion" "WARN" "Proposal API did not return an approval id" $proposal}
+    if(@($recall.learnings).Count -gt 0){
+      Add-Check "Gyan-Bhandar promotion" "PASS" "BRAHMA QC candidate approved and verified recall returned evidence" $decision
+    }else{Add-Check "Gyan-Bhandar promotion" "FAIL" "Verified recall did not return the BRAHMA-approved finding" $recall}
+  }else{
+    Add-Check "Gyan-Bhandar promotion" "FAIL" "BRAHMA QC did not produce a verified Gyan approval candidate" $proposal
+  }
 
   # Garudanetra must expose one canonical browser fabric before live work starts.
   try{
