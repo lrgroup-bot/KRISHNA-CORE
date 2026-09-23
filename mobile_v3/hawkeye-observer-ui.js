@@ -4,18 +4,33 @@
     learn: false,
     detectBusy: false,
     richBusy: false,
+    handBusy: false,
     geminiBusy: false,
     rich: null,
+    handResult: null,
     localSummary: "",
     geminiAnalysis: "",
     aiMode: "LOCAL",
     cloudApproved: false,
     lockedTrackingId: null,
+    translationEnabled: false,
+    translationTarget: "en",
+    translationText: "",
+    translationSource: "",
+    translationBusy: false,
+    translationModelReady: false,
+    gesturesEnabled: false,
+    gestureCandidate: "NONE",
+    gestureCandidateCount: 0,
+    lastGesture: "NONE",
+    lastGestureAt: 0,
+    torchOn: false,
     objects: [],
     researchQueries: [],
     objectTimer: null,
     learnTimer: null,
     richTimer: null,
+    handTimer: null,
     geminiTimer: null,
     liveSocket: null,
     liveVideoTimer: null,
@@ -46,6 +61,28 @@
     c.height=Math.max(1,Math.round(v.videoHeight*scale));
     c.getContext("2d",{alpha:false}).drawImage(v,0,0,c.width,c.height);
     return {canvas:c,b64:(c.toDataURL("image/jpeg",quality).split(",")[1]||"")};
+  }
+
+  function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+
+  function frameQuality(canvas){
+    if(!canvas||!canvas.width||!canvas.height)return {score:0,brightness:0,detail:0,lowLight:true};
+    const probe=document.createElement("canvas");probe.width=32;probe.height=24;
+    const ctx=probe.getContext("2d",{alpha:false,willReadFrequently:true});ctx.drawImage(canvas,0,0,32,24);
+    const data=ctx.getImageData(0,0,32,24).data,lum=new Float32Array(32*24);let mean=0,edge=0,k=0;
+    for(let i=0;i<data.length;i+=4){const y=.2126*data[i]+.7152*data[i+1]+.0722*data[i+2];lum[k++]=y;mean+=y;}mean/=lum.length;
+    for(let y=0;y<24;y++)for(let x=0;x<32;x++){const i=y*32+x;if(x)edge+=Math.abs(lum[i]-lum[i-1]);if(y)edge+=Math.abs(lum[i]-lum[i-32]);}
+    edge/=((31*24)+(23*32));const exposure=Math.max(0,1-Math.abs(mean-128)/118),detail=Math.min(1,edge/24);
+    return {score:Math.max(0,Math.min(1,.45*exposure+.55*detail)),brightness:mean,detail,lowLight:mean<45};
+  }
+
+  async function captureBestFrame(maxW=720,quality=0.62,samples=4){
+    let best=null;
+    for(let i=0;i<Math.max(1,samples);i++){
+      const frame=captureFrame(maxW,quality);if(frame){const q=frameQuality(frame.canvas);if(!best||q.score>best.quality.score)best={...frame,quality:q};}
+      if(i+1<samples)await sleep(90);
+    }
+    return best;
   }
 
   function ensureObjectCanvas(){
@@ -87,6 +124,19 @@
     for(const item of (result&&Array.isArray(result.faces)?result.faces:[])){if(!Array.isArray(item.bbox))continue;const r=rect(item.bbox);ctx.strokeStyle="#ff9bd7";ctx.fillStyle="#ff9bd7";ctx.strokeRect(r.x,r.y,r.w,r.h);ctx.fillText("FACE · UNKNOWN",r.x+2,Math.max(12,r.y-1));}
     for(const item of (result&&Array.isArray(result.subjects)?result.subjects:[])){if(!Array.isArray(item.bbox))continue;const r=rect(item.bbox);ctx.setLineDash([5,4]);ctx.strokeStyle="#f2c96f";ctx.strokeRect(r.x,r.y,r.w,r.h);ctx.setLineDash([]);}
     for(const p of (result&&Array.isArray(result.pose_landmarks)?result.pose_landmarks:[])){const x=m.ox+(Number(p.x)||0)*m.dw,y=m.oy+(Number(p.y)||0)*m.dh;ctx.fillStyle="#b9ff9c";ctx.beginPath();ctx.arc(x,y,2.3,0,Math.PI*2);ctx.fill();}
+    if(state.handResult&&Array.isArray(state.handResult.hands)){
+      for(const hand of state.handResult.hands){
+        const pts=Array.isArray(hand.landmarks)?hand.landmarks:[];
+        for(const p of pts){const x=m.ox+(Number(p.x)||0)*m.dw,y=m.oy+(Number(p.y)||0)*m.dh;ctx.fillStyle="#ffd36b";ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fill();}
+        if(pts.length){const p=pts[0],x=m.ox+(Number(p.x)||0)*m.dw,y=m.oy+(Number(p.y)||0)*m.dh;ctx.fillStyle="#ffd36b";ctx.fillText(String(hand.handedness||"HAND")+" · "+String(hand.gesture||"None"),x+5,y-5);}
+      }
+    }
+    if(state.translationEnabled&&state.translationText){
+      const label=("TRANSLATED "+state.translationTarget.toUpperCase()+" · "+state.translationText).slice(0,150);
+      ctx.font="12px sans-serif";const width=Math.min(m.cw-16,Math.max(180,ctx.measureText(label).width+16));
+      ctx.fillStyle="rgba(3,19,29,.88)";ctx.fillRect(8,m.ch-38,width,28);
+      ctx.fillStyle="#ffffff";ctx.fillText(label,14,m.ch-18);
+    }
   }
 
   function drawObjects(objects){
@@ -162,9 +212,112 @@
       face_count:Array.isArray(r.faces)?r.faces.length:0,
       pose_landmark_count:Array.isArray(r.pose_landmarks)?r.pose_landmarks.length:0,
       subject_count:Array.isArray(r.subjects)?r.subjects.length:0,
+      gesture:r.gesture||{name:"NONE",scope:"upper-body-pose-only"},
+      hand_gesture:state.handResult?{
+        engine:String(state.handResult.engine||""),
+        hand_count:Number(state.handResult.hand_count||0),
+        primary:String(state.handResult.primary_gesture||"None"),
+        confidence:Number(state.handResult.primary_confidence||0),
+        finger_landmarks:!!state.handResult.finger_landmarks
+      }:null,
+      translation_enabled:state.translationEnabled,
+      translation_target:state.translationTarget,
+      translated_text:String(state.translationText||"").slice(0,1500),
+      privacy_unknown_faces_local_only:true,
       recommended_next_scan:String(r.recommended_next_scan||""),
       evidence_state:"OBSERVED"
     };
+  }
+
+  async function translateCurrentOcr(force=false){
+    if(!state.translationEnabled||state.translationBusy||!window.Krishna||!Krishna.hawkeyeTranslateText)return;
+    const text=String(state.rich&&state.rich.ocr&&state.rich.ocr.text||"").trim();
+    if(!text||(!force&&text===state.translationSource))return;
+    state.translationBusy=true;
+    try{
+      const out=JSON.parse(Krishna.hawkeyeTranslateText(text,state.translationTarget,!state.translationModelReady));
+      if(out.error)throw new Error(out.error);
+      state.translationText=String(out.translated_text||"").trim();
+      state.translationSource=text;
+      state.translationModelReady=!!out.model_downloaded_or_available;
+      drawRich(state.rich);
+    }catch(e){
+      if(force&&typeof reply==="function")reply("Translation: "+e.message,"warn");
+    }finally{state.translationBusy=false;}
+  }
+
+  async function toggleTranslation(){
+    const btn=byId("cameraTranslate");
+    if(state.translationEnabled){
+      state.translationEnabled=false;state.translationText="";state.translationSource="";
+      if(btn){btn.classList.remove("active");btn.textContent="TRANS";}
+      if(state.rich)drawRich(state.rich);
+      return;
+    }
+    const target=(prompt("Translate HAWKEYE OCR to language code:","en")||"").trim().toLowerCase();if(!target)return;
+    state.translationTarget=target;state.translationEnabled=true;
+    if(btn){btn.classList.add("active");btn.textContent="TRANS:"+target.toUpperCase();}
+    await translateCurrentOcr(true);
+  }
+
+  function handleFingerGesture(result){
+    if(!state.gesturesEnabled)return;
+    const name=String(result&&result.primary_gesture||"None"),confidence=Number(result&&result.primary_confidence||0);
+    if(!name||name==="None"||confidence<0.65){state.gestureCandidate="NONE";state.gestureCandidateCount=0;return;}
+    const key="HAND:"+name;
+    if(key===state.gestureCandidate)state.gestureCandidateCount++;else{state.gestureCandidate=key;state.gestureCandidateCount=1;}
+    if(state.gestureCandidateCount<2||Date.now()-state.lastGestureAt<3500)return;
+    state.lastGestureAt=Date.now();state.lastGesture=name;state.gestureCandidateCount=0;
+    if(name==="Pointing_Up")toggleTargetLock();
+    else if(name==="Thumb_Up")photo();
+    else if(name==="Victory")research();
+    else if(name==="Closed_Fist")toggleTorch();
+    else if(name==="Thumb_Down"&&state.lockedTrackingId!==null)toggleTargetLock();
+  }
+
+  async function handPerception(){
+    if(!cameraActive()||!state.gesturesEnabled||state.handBusy||!window.Krishna||!Krishna.hawkeyeHandGesture)return;
+    const frame=captureFrame(480,0.58);if(!frame||!frame.b64)return;
+    state.handBusy=true;
+    try{
+      const result=JSON.parse(Krishna.hawkeyeHandGesture(frame.b64));
+      if(result.error){state.handResult=null;return;}
+      state.handResult=result;handleFingerGesture(result);if(state.rich)drawRich(state.rich);
+    }catch(_){state.handResult=null;}
+    finally{state.handBusy=false;}
+  }
+
+  function handleGesture(result){
+    if(!state.gesturesEnabled)return;
+    const g=result&&result.gesture||{},name=String(g.name||"NONE"),confidence=Number(g.confidence||0);
+    if(name==="NONE"||confidence<0.65){state.gestureCandidate="NONE";state.gestureCandidateCount=0;return;}
+    if(name===state.gestureCandidate)state.gestureCandidateCount++;else{state.gestureCandidate=name;state.gestureCandidateCount=1;}
+    if(state.gestureCandidateCount<2||Date.now()-state.lastGestureAt<3500)return;
+    state.lastGestureAt=Date.now();state.lastGesture=name;state.gestureCandidateCount=0;
+    if(name==="LEFT_HAND_RAISED")toggleTargetLock();
+    else if(name==="RIGHT_HAND_RAISED")photo();
+    else if(name==="BOTH_HANDS_RAISED")research();
+  }
+
+  function toggleGestures(){
+    state.gesturesEnabled=!state.gesturesEnabled;state.gestureCandidate="NONE";state.gestureCandidateCount=0;
+    const btn=byId("cameraGesture");if(btn){btn.classList.toggle("active",state.gesturesEnabled);btn.textContent=state.gesturesEnabled?"GEST ON":"GEST";}
+    if(typeof reply==="function")reply(state.gesturesEnabled
+      ?"HAWKEYE hand gestures enabled. MediaPipe: Pointing Up=LOCK, Thumb Up=PHOTO+DATA, Victory=SEARCH, Closed Fist=LIGHT, Thumb Down=release LOCK. Pose hand-raise remains fallback."
+      :"HAWKEYE gesture mode disabled.","good");
+    if(state.gesturesEnabled)setTimeout(handPerception,80);else state.handResult=null;
+  }
+
+  async function toggleTorch(){
+    if(!cameraActive())return;
+    const track=fieldStream&&fieldStream.getVideoTracks()[0],btn=byId("cameraTorch");
+    if(!track||!track.getCapabilities||!track.applyConstraints){if(typeof reply==="function")reply("Camera torch control is unavailable on this device.","warn");return;}
+    const caps=track.getCapabilities();if(!caps||caps.torch!==true){if(typeof reply==="function")reply("This camera does not expose hardware torch control.","warn");return;}
+    const wanted=!state.torchOn;
+    try{
+      await track.applyConstraints({advanced:[{torch:wanted}]});state.torchOn=wanted;
+      if(btn){btn.classList.toggle("active",wanted);btn.textContent=wanted?"LIGHT ON":"LIGHT";}
+    }catch(e){if(typeof reply==="function")reply("Torch: "+e.message,"warn");}
   }
 
   async function richPerception(){
@@ -174,10 +327,13 @@
     try{
       const result=JSON.parse(Krishna.hawkeyeRichPerception(frame.b64));if(result.error)return;
       state.rich=result;drawRich(result);
+      if(!state.handResult||!Number(state.handResult.hand_count||0))handleGesture(result);
+      if(state.translationEnabled)await translateCurrentOcr(false);
       const parts=[];
       const text=String(result.ocr&&result.ocr.text||"").trim();if(text)parts.push("OCR: "+text.slice(0,180));
       if(Array.isArray(result.barcodes)&&result.barcodes.length)parts.push("Codes: "+result.barcodes.map(x=>String(x.value||"").slice(0,50)).filter(Boolean).join(" · "));
       if(result.recommended_next_scan)parts.push("Next view: "+result.recommended_next_scan);
+      const probe=frameQuality(frame.canvas);if(probe.lowLight)parts.push("LOW LIGHT · use LIGHT if this phone exposes torch control");
       state.localSummary=parts.join("\n");
       if(Array.isArray(result.faces)&&result.faces.length&&state.liveSocket)stopGeminiLive("Gemini Live stopped because a face entered the frame; HAWKEYE stays local.");
     }catch(_){}
@@ -223,7 +379,7 @@
     const sig=sceneSignature();if(state.aiMode==="AUTO"&&!force&&sig&&sig===state.lastGeminiSignature)return;
     const meta=geminiMetadata();
     if(meta.contains_biometrics||meta.contains_credentials||meta.private_document)return;
-    const frame=captureFrame(720,0.60);if(!frame||!frame.b64)return;
+    const frame=await captureBestFrame(720,0.60,3);if(!frame||!frame.b64)return;
     state.geminiBusy=true;state.lastGeminiSignature=sig;
     try{
       const out=JSON.parse(Krishna.hawkeyeGeminiAnalyze(frame.b64,"image/jpeg",geminiPrompt(),JSON.stringify(meta)));
@@ -388,21 +544,42 @@
       raw_cloud_upload:false,
       ai_mode:state.aiMode,
       rich_perception:richMetadata(),
-      gemini_analysis:String(state.geminiAnalysis||"").slice(0,2000)
+      gemini_analysis:String(state.geminiAnalysis||"").slice(0,2000),
+      translation:{enabled:state.translationEnabled,target:state.translationTarget,text:String(state.translationText||"").slice(0,1500)},
+      gestures:{enabled:state.gesturesEnabled,scope:state.handResult?"mediapipe-hand-finger":"upper-body-pose-fallback",last:state.lastGesture},
+      torch_on:state.torchOn,
+      privacy:{unknown_face_capture_masking:true,raw_cloud_upload:false}
     };
+  }
+
+  function maskUnknownFaces(ctx,sourceCanvas){
+    const faces=state.rich&&Array.isArray(state.rich.faces)?state.rich.faces:[];
+    if(!faces.length)return 0;
+    let count=0;
+    for(const face of faces){
+      const b=face&&face.bbox;if(!Array.isArray(b)||b.length!==4)continue;
+      const pad=.025,x=Math.max(0,(Number(b[0])||0)-pad),y=Math.max(0,(Number(b[1])||0)-pad);
+      const w=Math.min(1-x,(Number(b[2])||0)+pad*2),h=Math.min(1-y,(Number(b[3])||0)+pad*2);
+      const sx=Math.round(x*sourceCanvas.width),sy=Math.round(y*sourceCanvas.height),sw=Math.max(1,Math.round(w*sourceCanvas.width)),sh=Math.max(1,Math.round(h*sourceCanvas.height));
+      ctx.save();ctx.filter="blur(18px)";ctx.drawImage(sourceCanvas,sx,sy,sw,sh,sx,sy,sw,sh);ctx.restore();count++;
+    }
+    return count;
   }
 
   async function photo(){
     if(!cameraActive()||!Krishna.saveHawkeyeCapture)return;
     const v=video();if(!v||!v.videoWidth||!v.videoHeight)return;
     try{
-      const maxW=1280,scale=Math.min(1,maxW/v.videoWidth),c=document.createElement("canvas");
-      c.width=Math.max(1,Math.round(v.videoWidth*scale));c.height=Math.max(1,Math.round(v.videoHeight*scale));
-      const ctx=c.getContext("2d",{alpha:false});ctx.drawImage(v,0,0,c.width,c.height);
-      for(const id of ["diagnosticOverlay","objectOverlay"]){
+      const best=await captureBestFrame(1280,0.90,4);if(!best)throw new Error("camera frame unavailable");
+      const c=document.createElement("canvas");c.width=best.canvas.width;c.height=best.canvas.height;
+      const ctx=c.getContext("2d",{alpha:false});ctx.drawImage(best.canvas,0,0,c.width,c.height);
+      const source=document.createElement("canvas");source.width=c.width;source.height=c.height;source.getContext("2d",{alpha:false}).drawImage(c,0,0);
+      const masked=maskUnknownFaces(ctx,source);
+      for(const id of ["diagnosticOverlay","objectOverlay","richOverlay"]){
         const overlay=byId(id);if(overlay&&overlay.width&&overlay.height)ctx.drawImage(overlay,0,0,c.width,c.height);
       }
-      const meta=metadata(),caption=String(meta.analysis||"").replace(/\s+/g," ").slice(0,180);
+      const meta=metadata();meta.capture_quality=best.quality;meta.privacy_faces_masked=masked>0;meta.privacy_face_count=masked;
+      const caption=String(meta.analysis||"").replace(/\s+/g," ").slice(0,180);
       ctx.fillStyle="rgba(0,0,0,.68)";ctx.fillRect(0,c.height-68,c.width,68);ctx.fillStyle="#fff";
       ctx.font=Math.max(14,Math.round(c.width/60))+"px sans-serif";
       ctx.fillText("KRISHNA HAWKEYE · "+new Date(meta.timestamp_ms).toLocaleString(),14,c.height-40);
@@ -507,25 +684,32 @@
     if(state.active)return;state.active=true;
     state.objectTimer=setInterval(detect,1200);
     state.richTimer=setInterval(richPerception,2600);
+    state.handTimer=setInterval(handPerception,900);
     state.learnTimer=setInterval(()=>learningTick(false),6000);
     state.geminiTimer=setInterval(()=>geminiTick(false),8000);
     setTimeout(detect,300);setTimeout(richPerception,650);
   }
   function deactivate(){
     if(!state.active)return;state.active=false;
-    clearInterval(state.objectTimer);clearInterval(state.learnTimer);clearInterval(state.richTimer);clearInterval(state.geminiTimer);
-    state.objectTimer=state.learnTimer=state.richTimer=state.geminiTimer=null;
+    clearInterval(state.objectTimer);clearInterval(state.learnTimer);clearInterval(state.richTimer);clearInterval(state.handTimer);clearInterval(state.geminiTimer);
+    state.objectTimer=state.learnTimer=state.richTimer=state.handTimer=state.geminiTimer=null;
     stopGeminiLive();
-    state.objects=[];state.researchQueries=[];state.lastLearnText="";state.rich=null;state.localSummary="";state.geminiAnalysis="";
+    if(state.torchOn&&fieldStream){try{const t=fieldStream.getVideoTracks()[0];if(t&&t.applyConstraints)t.applyConstraints({advanced:[{torch:false}]});}catch(_){}}
+    state.objects=[];state.researchQueries=[];state.lastLearnText="";state.rich=null;state.handResult=null;state.localSummary="";state.geminiAnalysis="";
     state.aiMode="LOCAL";state.cloudApproved=false;state.lockedTrackingId=null;
+    state.translationEnabled=false;state.translationText="";state.translationSource="";state.translationBusy=false;
+    state.gesturesEnabled=false;state.gestureCandidate="NONE";state.gestureCandidateCount=0;state.lastGesture="NONE";state.torchOn=false;
     for(const id of ["objectOverlay","richOverlay"]){const c=byId(id);if(c){const ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);}}
     if(state.recorder)stopRecording();
     state.learn=false;const btn=byId("cameraLearn");if(btn){btn.classList.remove("active");btn.textContent="LEARN";}
     const ai=byId("cameraAI");if(ai){ai.classList.remove("active");ai.textContent="AI:LOCAL";}
     const lock=byId("cameraLock");if(lock){lock.classList.remove("active");lock.textContent="LOCK";}
+    const trans=byId("cameraTranslate");if(trans){trans.classList.remove("active");trans.textContent="TRANS";}
+    const gest=byId("cameraGesture");if(gest){gest.classList.remove("active");gest.textContent="GEST";}
+    const torch=byId("cameraTorch");if(torch){torch.classList.remove("active");torch.textContent="LIGHT";}
   }
 
   setInterval(()=>{if(cameraActive())activate();else deactivate();},500);
 
-  window.HawkeyeObserverUI={toggleLearn,research,photo,record,detect,richPerception,learningTick,toggleAI,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock};
+  window.HawkeyeObserverUI={toggleLearn,research,photo,record,detect,richPerception,learningTick,toggleAI,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
 })();

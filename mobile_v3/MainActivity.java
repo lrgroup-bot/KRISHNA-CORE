@@ -239,6 +239,19 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    @JavascriptInterface public String hawkeyeHandGesture(String dataB64){
+      try{
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
+        if(bytes.length==0||bytes.length>3*1024*1024)throw new IllegalArgumentException("hand gesture frame exceeds bounded size");
+        return HawkeyeHandGesture.analyze(MainActivity.this,bytes).toString();
+      }catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String hawkeyeTranslateText(String text,String targetTag,boolean allowModelDownload){
+      try{return HawkeyeLanguage.translate(text,targetTag,allowModelDownload).toString();}
+      catch(Exception e){return error(e);}
+    }
+
     @JavascriptInterface public String hawkeyeGeminiStatus(){
       try{return call("/api/hawkeye/gemini/status",null);}
       catch(Exception e){return error(e);}

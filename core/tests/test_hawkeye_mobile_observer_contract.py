@@ -74,6 +74,40 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("openResearchQuery",self.activity)
         self.assertIn("TextRecognition", (self.mobile/"HawkeyeMobileVision.java").read_text(encoding="utf-8"))
 
+    def test_phase_two_local_translation_gestures_and_privacy_capture(self):
+        language=(self.mobile/"HawkeyeLanguage.java").read_text(encoding="utf-8")
+        vision=(self.mobile/"HawkeyeMobileVision.java").read_text(encoding="utf-8")
+        self.assertIn("ML_KIT_ON_DEVICE_TRANSLATE",language)
+        self.assertIn("api_key_required",language)
+        self.assertIn("requireWifi",language)
+        self.assertIn("hawkeyeTranslateText",self.activity)
+        self.assertIn("upper-body-pose-only",vision)
+        self.assertIn("BOTH_HANDS_RAISED",vision)
+        hand=(self.mobile/"HawkeyeHandGesture.java").read_text(encoding="utf-8")
+        self.assertIn("MEDIAPIPE_GESTURE_RECOGNIZER",hand)
+        self.assertIn("GestureRecognizer",hand)
+        self.assertIn("finger_landmarks",hand)
+        self.assertIn("hawkeyeHandGesture",self.activity)
+        self.assertIn("handPerception",self.ui)
+        self.assertIn("toggleGestures",self.ui)
+        self.assertIn("toggleTranslation",self.ui)
+        self.assertIn("toggleTorch",self.ui)
+        self.assertIn("caps.torch",self.ui)
+        self.assertIn("captureBestFrame",self.ui)
+        self.assertIn("maskUnknownFaces",self.ui)
+        self.assertIn("privacy_faces_masked",self.ui)
+        for control in ('id="cameraTranslate"','id="cameraGesture"','id="cameraTorch"'):
+            self.assertIn(control,self.index)
+
+    def test_phase_two_stays_keyless_and_capability_gated(self):
+        language=(self.mobile/"HawkeyeLanguage.java").read_text(encoding="utf-8")
+        combined=language+"\n"+self.activity+"\n"+self.ui
+        self.assertNotIn("GEMINI_API_KEY",language)
+        self.assertNotIn("x-goog-api-key",language)
+        self.assertIn("getCapabilities",self.ui)
+        self.assertIn("torch!==true",self.ui)
+        self.assertIn("finger_tracking", (self.mobile/"HawkeyeMobileVision.java").read_text(encoding="utf-8"))
+
     def test_apk_build_includes_required_dependencies_and_assets(self):
         self.assertIn("androidx.browser:browser:1.8.0",self.workflow)
         self.assertIn("com.google.mlkit:object-detection:17.0.2",self.workflow)
@@ -82,6 +116,10 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("com.google.mlkit:barcode-scanning:17.3.0",self.workflow)
         self.assertIn("com.google.mlkit:pose-detection:18.0.0-beta5",self.workflow)
         self.assertIn("play-services-mlkit-subject-segmentation:16.0.0-beta1",self.workflow)
+        self.assertIn("com.google.mlkit:language-id:17.0.6",self.workflow)
+        self.assertIn("com.google.mlkit:translate:17.0.3",self.workflow)
+        self.assertIn("com.google.mediapipe:tasks-vision:1.0.0",self.workflow)
+        self.assertIn("gesture_recognizer.task",self.workflow)
         self.assertIn("hawkeye-observer-ui.js",self.workflow)
         self.assertIn("KRISHNA-v3.8-HAWKEYE-Observer-APK",self.workflow)
 
