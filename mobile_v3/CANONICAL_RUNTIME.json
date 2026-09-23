@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "version": "krishna-mobile-canonical-v1",
+  "product": "KRISHNA Mobile",
+  "canonical_android_source": "mobile_v3",
+  "package_id": "com.krishna.mobile",
+  "ui_role": "conversation-first mobile KRISHNA",
+  "canonical_files": [
+    "MainActivity.java",
+    "MobileEdgeBot.java",
+    "HawkeyeEvidenceCuratorBot.java",
+    "HawkeyeEdgeMemory.java",
+    "HawkeyeCrypto.java",
+    "HawkeyeBackgroundSync.java",
+    "HawkeyeSyncJobService.java",
+    "HawkeyeDeviceProfiler.java",
+    "index.html",
+    "realtime-client.js"
+  ],
+  "build_workflow": ".github/workflows/build-mobile-v3.yml",
+  "artifact_name": "KRISHNA-v3.7-Mobile-Edge-APK",
+  "pc_runtime_companion": {
+    "path": "mobile/companion",
+    "role": "pc-side compatibility/pairing support only",
+    "canonical_android_ui": false,
+    "may_delete_automatically": false,
+    "retirement_gate": "real-device canonical APK pairing/conversation/camera/audio/offline-sync acceptance"
+  },
+  "boundaries": {
+    "dashboard_ui": false,
+    "project_admin_ui": false,
+    "mobile_edge_preprocessing": true,
+    "encrypted_hawkeye_evidence": true,
+    "evidence_curator": true,
+    "pc_ack_before_mobile_delete": true,
+    "private_transport_only": true
+  }
+}
