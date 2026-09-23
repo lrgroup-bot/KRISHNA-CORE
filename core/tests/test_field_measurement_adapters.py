@@ -41,6 +41,14 @@ class FieldMeasurementAdapterTests(unittest.TestCase):
         self.assertEqual(out["evidence_state"],"UNKNOWN")
         self.assertIsNone(out["summary"])
 
+    def test_non_finite_metadata_is_rejected(self):
+        with self.assertRaises(ValueError):
+            GnssRtkAdapter().normalize({"lat":20.2961,"lon":85.8245,"captured_at":float("nan")})
+        with self.assertRaises(ValueError):
+            DepthMeasurementAdapter().normalize([{"depth_m":1.0,"confidence":float("inf")}])
+        with self.assertRaises(ValueError):
+            DepthMeasurementAdapter().normalize([{"depth_m":1.0}],captured_at=float("nan"))
+
     def test_photogrammetry_never_reports_configured_without_real_executable(self):
         with tempfile.TemporaryDirectory() as d:
             with patch.dict(os.environ,{"KRISHNA_PHOTOGRAMMETRY_CMD":str(Path(d)/"missing.exe")},clear=False):
