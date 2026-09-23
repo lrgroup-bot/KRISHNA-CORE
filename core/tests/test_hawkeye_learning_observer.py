@@ -134,6 +134,48 @@ class HawkeyeLearningObserverTests(unittest.TestCase):
             )
             self.assertTrue(row["sound"]["requested_classification"])
 
+    def test_human_readable_source_is_normalized_and_candidate_provenance_is_persisted(self):
+        with tempfile.TemporaryDirectory() as td:
+            observer=self.make(Path(td))
+            row=observer.capture(
+                utterance="learn this evidence",
+                source_type="mobile curated evidence",
+                source_ref="mobile-item-7",
+                modalities=["image","sensor"],
+                subject="machine inspection",
+                analysis="Visible belt wear requires verification.",
+                confidence=0.74,
+                evidence_state="OBSERVED",
+            )
+            self.assertEqual(row["source_type"],"mobile_curated_evidence")
+            self.assertEqual(row["knowledge_status"],"candidate")
+            self.assertTrue(row["verification_required"])
+            self.assertEqual(row["provenance"]["source_hash"],row["source_hash"])
+            self.assertEqual(row["brahma_reference"]["decision_id"],"brahma-1")
+
+    def test_failed_or_incorrect_learning_can_be_retained_without_becoming_verified(self):
+        with tempfile.TemporaryDirectory() as td:
+            observer=self.make(Path(td))
+            row=observer.capture(
+                utterance="remember what failed",
+                source_type="user note",
+                source_ref="repair-attempt-3",
+                modalities=["text"],
+                subject="machine repair",
+                analysis="Replacing the fuse did not resolve the fault.",
+                confidence=0.8,
+                evidence_state="OBSERVED",
+                outcome="incorrect_approach",
+                contradictions=["Meter reading contradicted the initial fuse hypothesis."],
+                lessons=["Do not replace parts before measuring the supply rail."],
+            )
+            self.assertEqual(row["source_type"],"user_note")
+            self.assertEqual(row["learning_outcome"],"incorrect_approach")
+            self.assertEqual(row["knowledge_status"],"candidate")
+            self.assertTrue(row["verification_required"])
+            self.assertEqual(len(row["contradictions"]),1)
+            self.assertEqual(len(row["lessons"]),1)
+
 
 if __name__=="__main__":
     unittest.main()
