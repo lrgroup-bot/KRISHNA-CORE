@@ -54,6 +54,25 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn("sensitive_input_guard.return_secret_value",accept)
         self.assertIn("face_recognition.unknown_person_identity",accept)
 
+    def test_runtime_acceptance_compares_live_truth_versions_instead_of_hardcoding_ledger_version(self):
+        root=repository_root()
+        accept=(root/"scripts"/"ACCEPT_KRISHNA_RUNTIME.ps1").read_text(encoding="utf-8")
+        self.assertIn('$truth.requirements.version -eq [string]$requirements.version',accept)
+        self.assertIn('$truth.requirements.schema -eq 2',accept)
+        self.assertIn('$truthEvidenceMissing.Count -eq 0',accept)
+        self.assertIn('$truthInvalidStatuses.Count -eq 0',accept)
+        self.assertNotIn('2026-09-23-master-product-truth-v2',accept)
+
+    def test_runtime_acceptance_surfaces_duplicate_orphan_and_source_tree_review_candidates(self):
+        root=repository_root()
+        accept=(root/"scripts"/"ACCEPT_KRISHNA_RUNTIME.ps1").read_text(encoding="utf-8")
+        self.assertIn('"Architecture duplicate/orphan review"',accept)
+        self.assertIn('$truth.summary.duplicate_basenames',accept)
+        self.assertIn('$truth.summary.identical_content_groups',accept)
+        self.assertIn('$truth.summary.orphan_candidates',accept)
+        self.assertIn('$truth.summary.source_tree_missing_current_modules',accept)
+        self.assertIn('no automatic deletion',accept)
+
     def test_one_command_architecture_audit_exists(self):
         root=repository_root()
         audit=(root/"scripts"/"AUDIT_KRISHNA_ARCHITECTURE.ps1").read_text(encoding="utf-8")
