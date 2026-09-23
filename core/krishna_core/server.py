@@ -546,6 +546,7 @@ def shutdown_runtime_services():
         ("narad_scheduler", _narad_scheduler.stop),
         ("science_frontier_scheduler", _science_frontier_scheduler.stop),
         ("brahma_consolidation_scheduler", _brahma_consolidation_scheduler.stop),
+        ("long_context_scheduler", orch.long_context_scheduler.stop),
         ("worker_resilience", _worker_resilience.stop),
         ("pc_observer", pc_observer.stop),
         ("watcher", watcher.stop),
@@ -976,6 +977,8 @@ class Handler(BaseHTTPRequestHandler):
             try:return self._json(200,orch.brahma.rishi_graph(topic))
             except (KeyError,ValueError) as exc:return self._json(400,{"error":str(exc)})
 
+        if path == "/api/long-context/status":
+            return self._json(200,orch.long_context_status())
         if path == "/api/gyan-bhandar/archive/status":
             return self._json(200,orch.gyan_archive_status())
         if path == "/api/gyan-bhandar/security":
@@ -2918,6 +2921,39 @@ class Handler(BaseHTTPRequestHandler):
             try:return self._json(200,orch.gyan_strengthen(project,topic,bool(data.get("use_garuda",True)),int(data.get("limit") or 10)))
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gyan-bhandar/hybrid-query":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            query=str(data.get("query") or "").strip()
+            if not query:return self._json(400,{"error":"query is required"})
+            try:return self._json(200,orch.hybrid_rag_query(
+                project,query,int(data.get("limit") or 12),
+                bool(data.get("verified_only",False)),data.get("memory_kind"),
+            ))
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/long-context/recursive":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            question=str(data.get("question") or "").strip()
+            context=str(data.get("context") or "")
+            if not question or not context:return self._json(400,{"error":"question and context are required"})
+            try:return self._json(200,orch.recursive_context_solve(
+                question,context,project,data.get("budget") or {},
+            ))
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/long-context/run":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"long-context benchmark must run on KRISHNA PC"})
+            try:
+                with orch.governor.job(timeout=0):
+                    result=orch.long_context_run(data.get("context_sizes"),data.get("positions"))
+                return self._json(200,result)
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/garuda/scout":
             project=str(data.get("project") or "KRISHNA").strip();goal=str(data.get("goal") or "").strip()
