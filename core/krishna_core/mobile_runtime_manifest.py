@@ -17,7 +17,7 @@ class MobileRuntimeManifest:
     VERSION="krishna-mobile-canonical-v1"
 
     def __init__(self, repo_root=None, runtime_root=None):
-        self.repo_root=Path(repo_root or Path(__file__).resolve().parents[2]).resolve()
+        self.repo_root=Path(repo_root or os.getenv("KRISHNA_SOURCE_ROOT") or Path(__file__).resolve().parents[2]).resolve()
         self.runtime_root=Path(runtime_root or os.getenv("KRISHNA_RUNTIME_ROOT") or r"E:\Krishna-The GOD")
 
     @property
