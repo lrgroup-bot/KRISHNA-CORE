@@ -61,7 +61,9 @@ jobs:
           EOF
 
           cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2048m
+          org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m
+          org.gradle.workers.max=2
+          org.gradle.daemon=false
           android.useAndroidX=true
           EOF
 
@@ -163,7 +165,7 @@ jobs:
           sed -i "s/from 'three'/from '.\/three.module.js'/" app/src/main/assets/three/GLTFLoader.js
 
       - name: Build APK
-        run: gradle :app:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
 
       - name: Verify conversation-only KRISHNA Mobile
         shell: bash
