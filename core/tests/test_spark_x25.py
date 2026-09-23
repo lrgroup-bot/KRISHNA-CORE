@@ -247,6 +247,24 @@ class FakeRoutingScout:
         }]
 
 
+class MixedRoutingScout:
+    def routing_candidates(self, task="general", limit=10):
+        return [
+            {
+                "model_id": "SparkLLM/Spark-X2.5-1.7B",
+                "task": "local_mobile_reasoner",
+                "benchmark_ref": "bench-mobile",
+                "routing_enabled": True,
+            },
+            {
+                "model_id": "SparkLLM/Spark-X2.5-4B",
+                "task": "local_general_agent",
+                "benchmark_ref": "bench-pc",
+                "routing_enabled": True,
+            },
+        ]
+
+
 class SparkRouterTests(unittest.TestCase):
     def test_latest_tag_is_recognized_and_output_remains_untrusted(self):
         router = ModelRouter()
@@ -267,6 +285,37 @@ class SparkRouterTests(unittest.TestCase):
         self.assertTrue(routed["model_scout"])
         self.assertTrue(routed["untrusted_output"])
         self.assertEqual(routed["authority"], "worker-model-only")
+
+    def test_default_pc_route_skips_mobile_reasoner(self):
+        router = ModelRouter()
+        router.bind_model_scout(MixedRoutingScout())
+        calls = []
+
+        def governed(provider, prompt, privacy, free_only, project, actor):
+            calls.append(provider)
+            return "pc response"
+
+        router._governed_ask = governed
+        routed = router.route("general PC task", privacy="local_only")
+        self.assertEqual(routed["model"], "SparkLLM/Spark-X2.5-4B")
+        self.assertEqual(calls, ["ollama-model:SparkLLM/Spark-X2.5-4B"])
+
+    def test_coding_plan_excludes_mobile_reasoner(self):
+        router = ModelRouter()
+        router.bind_model_scout(MixedRoutingScout())
+
+        def probe(url, timeout=2):
+            if url.endswith("/api/tags"):
+                return True, {"models": [
+                    {"name": "sparkllm/spark-x2.5-1.7b:latest"},
+                    {"name": "sparkllm/spark-x2.5-4b:latest"},
+                ]}
+            return False, {"error": "offline"}
+
+        router._probe_json = probe
+        plan = router.coding_plan(privacy="local_only")
+        providers = [x["provider"] for x in plan]
+        self.assertNotIn("ollama-model:SparkLLM/Spark-X2.5-1.7B", providers)
 
 
 class SparkIntegrationContractTests(unittest.TestCase):
