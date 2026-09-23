@@ -194,6 +194,7 @@ jobs:
           grep -q "ANDROID_LOCAL_LIGHTWEIGHT_PROBE" app/src/main/java/com/krishna/mobile/HawkeyeOfflinePerception.java
           grep -q "semantic_model_configured" app/src/main/java/com/krishna/mobile/HawkeyeOfflinePerception.java
           grep -q "KrishnaWakeService" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "window.onKrishnaWake" app/src/main/assets/index.html
           grep -q "createOnDeviceSpeechRecognizer" app/src/main/java/com/krishna/mobile/KrishnaWakeService.java
           grep -q "wake_is_authentication" app/src/main/java/com/krishna/mobile/KrishnaWakeService.java
           grep -q 'android.permission.FOREGROUND_SERVICE_MICROPHONE' app/src/main/AndroidManifest.xml
