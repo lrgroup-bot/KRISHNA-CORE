@@ -18,8 +18,24 @@ class HistoricalConsolidationContractTests(unittest.TestCase):
             '"vishvakarma.verify"',
             '"model.scout.evaluate"',
             '"model.scout.recommend"',
+            '"project.brain.provision"',
+            '"project.brain.status"',
+            '"project.brain.record"',
         ):
             self.assertIn(needle,orch)
+
+    def test_spatial_ui_exposes_internal_design_intelligence_without_sidebar_clutter(self):
+        app=(self.repo/"app"/"spatial-ui"/"src"/"App.tsx").read_text(encoding="utf-8")
+        self.assertIn("Design Intelligence",app)
+        self.assertIn("fetch('/api/design/status'",app)
+        self.assertIn("Rishi Vishvakarma",app)
+        self.assertNotIn("Vishvakarma</span></div>\n          <div className=\"nav-item\"",app)
+
+    def test_architecture_truth_cli_wraps_current_audit(self):
+        cli=(self.repo/"scripts"/"AUDIT_KRISHNA_ARCHITECTURE.py").read_text(encoding="utf-8")
+        self.assertIn("ArchitectureTruthAudit",cli)
+        self.assertIn("requirements_missing_evidence",cli)
+        self.assertIn("invalid implementation status",cli)
 
     def test_old_weaker_cloud_mesh_is_not_restored_as_authority(self):
         core=self.repo/"core"/"krishna_core"
