@@ -239,11 +239,9 @@ async function sampleFieldFrame(){
      const notes=[];if(d.accuracy_note)notes.push(d.accuracy_note);for(const w of d.warnings||[])notes.push('WARNING: '+w);
      if(notes.length)document.getElementById('cameraAnalysis').textContent+=(d.analysis?'\n\n':'')+notes.join('\n');
    }
-   if(d.pc_acknowledged){try{
-     const modalities=fieldAudio?['image','video','audio']:['image','video'];
-     const learned=JSON.parse(Krishna.hawkeyeLearnCapture(fieldGoal,'mobile_curated_evidence',fieldSession,JSON.stringify(modalities),'live scene',String(d.analysis||''),Number(d.confidence||0),String(d.evidence_state||'OBSERVED'),JSON.stringify({live_microphone:fieldAudio,timestamp_ms:Date.now()})));
-     if(learned.unknown_resolution)document.getElementById('cameraAnalysis').textContent+=(d.analysis?'\n\n':'')+'Learning escalation: '+learned.unknown_resolution.rishi+' · '+learned.unknown_resolution.status;
-   }catch(_){}}
+   if(d.pc_acknowledged&&window.HawkeyeObserverUI&&HawkeyeObserverUI.isLearning&&HawkeyeObserverUI.isLearning()){
+     try{HawkeyeObserverUI.learningTick(false);}catch(_){}
+   }
    if(!d.pc_acknowledged||d.diagnostic)return;
    const a=String(d.analysis||'').toLowerCase();
    let scene='AUTO';
