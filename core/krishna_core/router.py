@@ -217,10 +217,14 @@ class ModelRouter:
         result=receipt.get("result") or {}
         return str(result.get("text") or "")
 
-    def _automatic_candidates(self,privacy="approved_cloud",free_only=False,role="general",available_rows=None):
+    def _automatic_candidates(self,privacy="approved_cloud",free_only=False,role="general",
+                              available_rows=None,attempt_unavailable_local=False):
         source=self.available() if available_rows is None else available_rows
         rows=[x for x in source if x.get("available")]
-        locals_=[dict(x) for x in rows if x.get("local")]
+        locals_=[
+            dict(x) for x in source
+            if x.get("local") and (x.get("available") or attempt_unavailable_local)
+        ]
         if privacy in {"local_only","restricted"}:
             return locals_
         cloud=[]
@@ -355,7 +359,9 @@ class ModelRouter:
                         f"AI role {role} is pinned and the selected provider could not run: {errors['selected']}"
                     ) from exc
 
-        candidates=self._automatic_candidates(privacy,free_only,role)
+        candidates=self._automatic_candidates(
+            privacy,free_only,role,attempt_unavailable_local=True,
+        )
         for row in candidates:
             try:
                 result=self._run_candidate(row,prompt,privacy,free_only,project,actor)
@@ -402,7 +408,7 @@ class ModelRouter:
         local_result=None
         cloud_result=None
         snapshot=self.available()
-        local_rows=[x for x in snapshot if x.get("available") and x.get("local")]
+        local_rows=[x for x in snapshot if x.get("local")]
         for row in local_rows:
             try:
                 local_result=self._run_candidate(row,prompt,"local_only",True,project,actor+"-local")
