@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "version": "2026-09-23-master-product-truth-v6",
+  "version": "2026-09-23-master-product-truth-v7",
   "source": "Canonical KRISHNA product requirements consolidated from project conversations, merged repository decisions, runtime acceptance and current architecture",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -76,7 +76,8 @@
         "GPT-style persistent project chats with file attachments and real Rename, Pin, Share, Move and Delete actions.",
         "Active Work, Verification and System Load informer.",
         "When browser work starts, transform into a Sudarshan/Garudanetra split workspace rather than opening a dead status page.",
-        "Support project, research, investigate, plugin and developer workflows while KRISHNA selects internal engines automatically."
+        "Support project, research, investigate, plugin and developer workflows while KRISHNA selects internal engines automatically.",
+        "UI/frontend/mobile/dashboard design work uses the canonical Sudarshan Design Engine with a structured Design Genome, drift detection, bounded repair/retest loop and hard functional/visual/responsive/accessibility/security acceptance gates; Rishi Vishvakarma supplies provenance-preserving design knowledge and optional Stagehand/Storybook helpers remain non-authoritative adapters."
       ]
     },
     {
@@ -232,7 +233,8 @@
         "Paid OpenRouter speech, video, image or other media models remain disabled under free-only policy unless a future live catalog proves the requested operation is zero-cost or the owner explicitly enables paid cloud.",
         "Direct provider profiles merely labelled free_only remain explicit-use adapters, not automatic zero-cost fallbacks; a native direct adapter may enter automatic routing only when it independently proves the configured account is non-billable immediately before inference and still enforces KRISHNA privacy guards.",
         "Cloudflare Workers AI is the first verified native direct-free adapter: it requires an encrypted account-root profile, an @cf/* model, Billing Read subscription preflight, no active Workers-paid subscription, and a paid-only-model denylist; quota or paid-model errors stop rather than falling through to billing.",
-        "Automatic model hierarchy is Ollama/local -> live-zero OpenRouter -> live-zero-billing verified native direct APIs -> remaining local fallback/STOP; paid-cloud fallback is never silent."
+        "Automatic model hierarchy is Ollama/local -> live-zero OpenRouter -> live-zero-billing verified native direct APIs -> remaining local fallback/STOP; paid-cloud fallback is never silent.",
+        "KRISHNA Model Scout separates discovery from installation/activation: candidate models require benchmark evidence, duplicate/resource checks and local-capability admission before promotion; candidate metadata or a provider's free label never establishes zero-cost cloud eligibility."
       ]
     },
     {
@@ -370,7 +372,9 @@
     "NARAD inbox/outbox state redacts likely secrets and outbound delivery remains a separate approval-gated provider action.",
     "MCP JSON-RPC transport requires an authenticated principal and cannot expose an unauthenticated public control plane.",
     "Avatar production output passes full body, facial-viseme and required-animation inspection before being reported production-ready.",
-    "Field 3D/AR scene generation requires measured GNSS and never upgrades missing depth/photogrammetry/device tracking into verified measurements."
+    "Field 3D/AR scene generation requires measured GNSS and never upgrades missing depth/photogrammetry/device tracking into verified measurements.",
+    "Sudarshan design work is not accepted until Vishvakarma knowledge context, design specification, functional, visual, responsive, accessibility and security gates are satisfied.",
+    "Model Scout never promotes an unbenchmarked or duplicate candidate and never treats candidate/provider free labels as proof of non-billable cloud execution."
   ],
   "status_definitions": {
     "VERIFIED": "Implemented and proven by the required current runtime/device/integration evidence.",
@@ -680,6 +684,42 @@
         "core/tests/test_mobile_acceptance.py"
       ],
       "next": "record each required real-device gate; old PC companion becomes retirement-eligible only after every gate passes and is never auto-deleted"
+    },
+    {
+      "id": "sudarshan_design_vishvakarma",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "Sudarshan / Rishi Vishvakarma / Design Studio",
+      "evidence": [
+        "core/krishna_core/sudarshan_design_engine.py",
+        "core/krishna_core/sudarshan_ui_pipeline.py",
+        "core/krishna_core/design_adapters.py",
+        "core/krishna_core/vishvakarma_rishi.py",
+        "core/krishna_core/vishvakarma_learning.py",
+        "core/krishna_core/vishvakarma_curriculum.py",
+        "core/krishna_core/sudarshan_project_orchestrator.py",
+        "core/krishna_core/agi_kernel.py",
+        "core/krishna_core/orchestrator.py",
+        "core/tests/test_sudarshan_design_engine.py",
+        "core/tests/test_sudarshan_ui_pipeline.py",
+        "core/tests/test_vishvakarma_rishi.py",
+        "core/tests/test_vishvakarma_learning.py",
+        "core/tests/test_design_adapters.py",
+        "core/tests/test_design_runtime_wiring.py"
+      ],
+      "next": "post-deploy acceptance: retrieve task-relevant Vishvakarma findings -> produce/retain design genome -> render/browser verification -> drift/repair loop -> all acceptance gates pass"
+    },
+    {
+      "id": "model_scout_admission",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "KRISHNA Model Router / Benchmark Lab",
+      "evidence": [
+        "core/krishna_core/model_scout.py",
+        "core/krishna_core/agi_kernel.py",
+        "core/tests/test_model_scout.py",
+        "core/krishna_core/benchmark_lab.py",
+        "core/krishna_core/router.py"
+      ],
+      "next": "runtime acceptance with actual local candidate benchmark records; scout must not download/activate candidates automatically and cloud zero-cost remains governed by live OpenRouter/direct-free verification"
     }
   ]
 }
