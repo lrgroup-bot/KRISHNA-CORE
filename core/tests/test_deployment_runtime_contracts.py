@@ -16,6 +16,16 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn('finally{',deploy)
         self.assertIn('Remove-Item Env:KRISHNA_SOURCE_ROOT',deploy)
 
+    def test_source_tests_use_isolated_runtime_and_must_leave_git_clean(self):
+        root=repository_root()
+        deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
+        self.assertIn('workspace\\source-tests',deploy)
+        self.assertIn('$env:KRISHNA_RUNTIME_ROOT=$sourceTestRuntime',deploy)
+        self.assertIn('$env:KRISHNA_DB=Join-Path $sourceTestRuntime "krishna_core.db"',deploy)
+        self.assertIn('$env:KRISHNA_SOURCE_ROOT=$Source',deploy)
+        self.assertIn('SOURCE TESTS DIRTY THE REPOSITORY',deploy)
+        self.assertIn('Remove-Item -Recurse -Force $sourceTestRuntime',deploy)
+
     def test_avatar_prepare_does_not_pass_boolean_values_through_powershell_file(self):
         root=repository_root()
         deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
