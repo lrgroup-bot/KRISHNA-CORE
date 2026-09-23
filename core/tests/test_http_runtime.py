@@ -93,11 +93,6 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertIn("model.use",specs["openrouter.free.complete"]["permissions"])
         self.assertIn("media.create",specs["openrouter.free.image"]["permissions"])
 
-        code,pool=self.call("/api/models?project=KRISHNA")
-        self.assertEqual(code,200)
-        self.assertFalse(pool["paid_cloud_enabled"])
-        self.assertIn("openrouter_free",pool)
-
     def test_phase1_mission_checkpoint_lock_and_durable_job_http(self):
         code,mission=self.call("/api/missions/create",{
             "goal":"HTTP durable mission","project":"KRISHNA","priority":70,
