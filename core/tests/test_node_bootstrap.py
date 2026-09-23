@@ -23,3 +23,10 @@ class TestNodeBootstrap(unittest.TestCase):
    with self.assertRaises(ValueError):sync_files(a,b,["../escape.txt"])
    plan=TrustedNodeBootstrap().plan(NodeManifest("a","a","1",{"../escape.txt":"x"}),NodeManifest("b","b","1",{}),trusted=True)
    self.assertEqual(plan["status"],"BLOCKED_UNSAFE_MANIFEST")
+ def test_manifest_does_not_follow_file_symlink(self):
+  with tempfile.TemporaryDirectory() as root,tempfile.TemporaryDirectory() as outside:
+   secret=Path(outside,"secret.txt");secret.write_text("private",encoding="utf-8")
+   link=Path(root,"linked.txt")
+   try:link.symlink_to(secret)
+   except (OSError,NotImplementedError):self.skipTest("symlink unavailable")
+   self.assertNotIn("linked.txt",portable_manifest(root).files)
