@@ -101,6 +101,11 @@ class SparkX25Manager:
         })
 
     def _load_lifecycle(self):
+        if not self.lifecycle_path.exists():
+            return {
+                "schema":1,"version":self.VERSION,
+                "models":{k:self._default_state() for k in self.SPECS},
+            }
         try:
             data=json.loads(self.lifecycle_path.read_text(encoding="utf-8"))
             if not isinstance(data,dict):raise ValueError("lifecycle root must be an object")
@@ -109,11 +114,11 @@ class SparkX25Manager:
                 state=data["models"].setdefault(key,self._default_state())
                 for field,value in self._default_state().items():state.setdefault(field,value)
             return data
-        except Exception:
-            return {
-                "schema":1,"version":self.VERSION,
-                "models":{k:self._default_state() for k in self.SPECS},
-            }
+        except Exception as exc:
+            raise RuntimeError(
+                "Spark lifecycle state is unreadable; refusing overwrite: "
+                + f"{type(exc).__name__}: {exc}"
+            ) from exc
 
     def _save_lifecycle(self,data):
         self.lifecycle_path.parent.mkdir(parents=True,exist_ok=True)
@@ -150,8 +155,10 @@ class SparkX25Manager:
         e_drive_ok=True
         if os.name=="nt":
             e_drive_ok=bool(root and Path(root).drive.upper()=="E:")
+        version_error=version.get("error") if isinstance(version,dict) else "invalid Ollama version response"
+        tags_error=tags.get("error") if isinstance(tags,dict) else "invalid Ollama tags response"
         return {
-            "available":"error" not in version and "error" not in tags,
+            "available":not version_error and not tags_error,
             "version":raw_version,
             "minimum_version":".".join(map(str,self.MIN_OLLAMA)),
             "architecture_supported":parsed>=self.MIN_OLLAMA,
@@ -159,7 +166,7 @@ class SparkX25Manager:
             "model_root":root,
             "windows_e_drive_policy_ok":e_drive_ok,
             "default_windows_model_root":self.DEFAULT_WINDOWS_MODEL_ROOT,
-            "error":version.get("error") or tags.get("error"),
+            "error":version_error or tags_error,
         }
 
     def candidate_metadata(self,key):
@@ -178,7 +185,8 @@ class SparkX25Manager:
             "cloud":False,
             "privacy":"local",
             "runtime_support":{
-                "verified_upstream":list(self.VERIFIED_RUNTIMES),
+                "officially_documented":list(self.VERIFIED_RUNTIMES),
+                "verified_in_krishna":[],
                 "mobile_candidates":list(self.MOBILE_RUNTIME_CANDIDATES),
                 "not_verified_upstream":list(self.UNVERIFIED_RUNTIMES),
             },
