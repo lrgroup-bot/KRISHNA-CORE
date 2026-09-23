@@ -58,6 +58,7 @@ from .hawkeye_field_platform import HawkeyeFieldPlatform
 from .krishna_observability import KrishnaObservability
 from .hawkeye_geo_engine import HawkeyeGeoEngine
 from .field_survey import FieldSurveyEngine
+from .field_measurement_adapters import FieldMeasurementAdapters
 from .commitment_ledger import CommitmentLedger
 from .software_factory import SoftwareFactory
 from .ephemeral_workers import EphemeralWorkerRuntime
@@ -142,6 +143,7 @@ class Orchestrator:
         self.hawkeye_field = HawkeyeFieldPlatform(runtime_state / "hawkeye" / "field")
         self.hawkeye_geo = HawkeyeGeoEngine(runtime_state / "hawkeye" / "geo")
         self.field_survey = FieldSurveyEngine(runtime_state / "hawkeye" / "field-survey")
+        self.field_measurements = FieldMeasurementAdapters(runtime_state / "hawkeye" / "field-measurements")
         self.hawkeye = HawkeyeCoordinator(
             runtime_state / "hawkeye" / "coordinator",
             bhumiputra=self.bhumiputra,
@@ -1489,6 +1491,35 @@ class Orchestrator:
             )
             return evidence
 
+        def hawkeye_field_measurement_status(payload,context):
+            return self.field_measurements.status()
+
+        def hawkeye_field_gnss_ingest(payload,context):
+            row=self.field_measurements.gnss.normalize(payload.get("sample") or payload)
+            self.field_survey.record(str(payload.get("site_id") or "field-site"),"gnss",row)
+            return row
+
+        def hawkeye_field_depth_ingest(payload,context):
+            row=self.field_measurements.depth.normalize(
+                payload.get("samples") or [],
+                device_id=str(payload.get("device_id") or ""),
+                calibration_ref=str(payload.get("calibration_ref") or ""),
+                captured_at=payload.get("captured_at"),
+            )
+            self.field_survey.record(str(payload.get("site_id") or "field-site"),"depth",row)
+            return row
+
+        def hawkeye_field_photogrammetry_status(payload,context):
+            return self.field_measurements.photogrammetry.status()
+
+        def hawkeye_field_photogrammetry_run(payload,context):
+            return self.field_measurements.photogrammetry.run(
+                str(payload.get("input_dir") or ""),
+                str(payload.get("output_dir") or ""),
+                payload.get("options") or {},
+                timeout=int(payload.get("timeout") or 7200),
+            )
+
         def hawkeye_field_survey_metrics(payload,context):
             return self.field_survey.metrics(payload.get("boundary") or [])
 
@@ -2203,6 +2234,37 @@ class Orchestrator:
             description="Extract bounded acoustic/vibration measurement features without retaining raw samples",
             mutating=True,permissions=("evidence.write",),
             sources=("pc","mobile","system","agent","job"),
+        )
+
+        self.action_bus.register(
+            "hawkeye.field.measurements.status",hawkeye_field_measurement_status,
+            description="Inspect GNSS/RTK/depth/photogrammetry adapter readiness without claiming hardware verification",
+            permissions=("runtime.read",),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "hawkeye.field.gnss.ingest",hawkeye_field_gnss_ingest,
+            description="Normalize supplied GNSS/RTK device evidence and preserve its accuracy/provenance limits",
+            mutating=True,permissions=("evidence.write",),
+            sources=("pc","mobile","system","agent","job"),
+        )
+        self.action_bus.register(
+            "hawkeye.field.depth.ingest",hawkeye_field_depth_ingest,
+            description="Normalize supplied depth measurements without fabricating survey-grade calibration",
+            mutating=True,permissions=("evidence.write",),
+            sources=("pc","mobile","system","agent","job"),
+        )
+        self.action_bus.register(
+            "hawkeye.field.photogrammetry.status",hawkeye_field_photogrammetry_status,
+            description="Inspect optional local OpenDroneMap-compatible worker configuration",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "hawkeye.field.photogrammetry.run",hawkeye_field_photogrammetry_run,
+            description="Run an explicitly configured local photogrammetry worker on a generated bounded job manifest",
+            mutating=True,requires_approval=True,permissions=("worker.execute","evidence.write"),
+            sources=("pc","system"),
         )
 
         self.action_bus.register(
