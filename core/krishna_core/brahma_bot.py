@@ -17,6 +17,7 @@ import time
 import uuid
 
 from .brahma_memory_intelligence import BrahmaMemoryIntelligence
+from .cognitive_brain import KrishnaCognitiveBrain
 
 
 class BrahmaBot:
@@ -39,6 +40,9 @@ class BrahmaBot:
         self.lock = RLock()
         self.memory_intelligence = BrahmaMemoryIntelligence(
             self.root / "memory-intelligence", council, rishi_learning, memory
+        )
+        self.cognitive = KrishnaCognitiveBrain(
+            self.root / "cognitive-brain", council, rishi_learning, memory
         )
         self.state = {
             "version": self.VERSION,
@@ -302,6 +306,19 @@ class BrahmaBot:
                 role="brahma_intake",
             )
             decision["recorded_finding"] = finding
+            self.cognitive.learn_concept(
+                plan["topic"],
+                track=str(provenance.get("knowledge_track") or "general"),
+                confidence=self._clamp(confidence),
+                maturity="L0",
+                evidence_status=status,
+                provenance={
+                    **provenance,
+                    "rishi_finding_id": finding.get("finding_id"),
+                    "rishi_lead": lead,
+                },
+                rishi_id=lead,
+            )
             decision["temporal_claim"] = self.memory_intelligence.temporal_record(
                 topic=plan["topic"],
                 claim=claim,
@@ -533,6 +550,121 @@ class BrahmaBot:
             "requires_more_learning": not bool(qc.get("proposal")),
         }
 
+    def cognitive_ingest(self, topic, *, related_concepts=None, relationships=None, aliases=None,
+                         track="general", confidence=0.0, maturity="L0",
+                         evidence_status="candidate", provenance=None, rishi_id=None):
+        """Ingest a Rishi/BRAHMAGYAN concept neighborhood into associative memory."""
+        return self.cognitive.ingest_research(
+            topic,
+            related_concepts=related_concepts or [],
+            relationships=relationships or [],
+            aliases=aliases or [],
+            track=track,
+            confidence=confidence,
+            maturity=maturity,
+            evidence_status=evidence_status,
+            provenance=provenance or {},
+            rishi_id=rishi_id,
+        )
+
+    def cognitive_query(self, query, *, depth=2, limit=30, retrieve_limit=4):
+        """Activate associated concepts, reuse Rishi knowledge, and expose knowledge gaps."""
+        activation = self.cognitive.activate(query, depth=depth, limit=limit)
+        if activation.get("knowledge_gap"):
+            return {
+                **activation,
+                "findings": [],
+                "research_gaps": [{
+                    "topic": str(query or ""),
+                    "reason": activation.get("gap_reason"),
+                    "question": f"What reliable evidence and related concepts define {str(query or '').strip()}?",
+                }],
+                "needs_research": True,
+            }
+
+        findings = []
+        gaps = []
+        seen = set()
+        for node in (activation.get("activated") or [])[:12]:
+            label = str(node.get("name") or "").strip()
+            if not label:
+                continue
+            packet = self.retrieve(label, limit_per_rishi=retrieve_limit, team_limit=6)
+            node_findings = packet.get("findings") or []
+            useful = [
+                x for x in node_findings
+                if float(x.get("confidence") or 0.0) >= 0.55
+                and not bool(x.get("unresolved"))
+            ]
+            if not useful:
+                gaps.append({
+                    "topic": label,
+                    "concept_id": node.get("concept_id"),
+                    "activation": node.get("activation"),
+                    "reason": "concept is associated but lacks sufficiently supported Rishi findings",
+                    "question": f"What primary and independent evidence should KRISHNA learn about {label}?",
+                })
+            for item in node_findings:
+                key = str(item.get("finding_id") or item.get("claim_id") or (
+                    str(item.get("rishi_id")) + ":" + str(item.get("claim"))
+                ))
+                if key in seen:
+                    continue
+                seen.add(key)
+                findings.append({
+                    **item,
+                    "activated_concept": label,
+                    "concept_activation": node.get("activation"),
+                })
+
+        findings.sort(
+            key=lambda x: (
+                -float(x.get("concept_activation") or 0.0),
+                -float(x.get("confidence") or 0.0),
+                -float(x.get("learned_at") or 0.0),
+            )
+        )
+        return {
+            **activation,
+            "findings": findings[:100],
+            "research_gaps": gaps[:30],
+            "needs_research": bool(gaps),
+            "policy": (
+                "reuse connected Rishi knowledge first; research only missing or weak branches; "
+                "association is not treated as proof"
+            ),
+        }
+
+    def cognitive_study_plan(self, query, *, depth=2, limit=30, queue_gaps=True):
+        """Build a gap-directed study plan and optionally queue bounded Rishi questions."""
+        result = self.cognitive_query(query, depth=depth, limit=limit)
+        queued = []
+        if queue_gaps:
+            for gap in (result.get("research_gaps") or [])[:8]:
+                topic = str(gap.get("topic") or query)
+                team, lead, _reviewers = self._team(topic, limit=6)
+                rid = (lead or {}).get("id") or "bharadvaja"
+                try:
+                    queued.append(self.rishi_learning.add_open_question(
+                        rid,
+                        topic,
+                        str(gap.get("question") or f"What remains unknown about {topic}?"),
+                    ))
+                except Exception:
+                    continue
+        return {
+            "brain": self.cognitive.VERSION,
+            "query": str(query or ""),
+            "activation": result,
+            "queued_rishi_questions": queued,
+            "study_required": bool(result.get("needs_research")),
+            "next_action": (
+                "route queued gaps into BRAHMAGYAN/Rishi research missions"
+                if result.get("needs_research")
+                else "answer from connected existing knowledge"
+            ),
+        }
+
     def temporal_query(self, topic="", *, as_of=None, include_superseded=False, limit=100):
         return self.memory_intelligence.temporal_query(
             topic, as_of=as_of, include_superseded=include_superseded, limit=limit
@@ -602,6 +734,7 @@ class BrahmaBot:
             "recent_decisions": decisions[-10:],
             "recent_qc": qc[-10:],
             "memory_intelligence": self.memory_intelligence.status(),
+            "cognitive_brain": self.cognitive.status(),
             "load_error": self.load_error,
             "ready": self.load_error is None,
         }
