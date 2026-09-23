@@ -472,6 +472,36 @@ class HTTPRuntimeTests(unittest.TestCase):
             "SUPPORTED","PRELIMINARY","CONTESTED"
         })
 
+    def test_hawkeye_field_survey_actions_are_evidence_gated(self):
+        boundary=[
+            {"lat":20.3000,"lon":85.8000},
+            {"lat":20.3000,"lon":85.8010},
+            {"lat":20.3010,"lon":85.8010},
+            {"lat":20.3010,"lon":85.8000},
+        ]
+        code,metrics=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.field.survey.metrics","project":"KRISHNA",
+            "permissions":["runtime.read","evidence.read"],
+            "payload":{"boundary":boundary}
+        })
+        self.assertEqual(code,200)
+        self.assertGreater(metrics["result"]["area_m2"],1000)
+        code,volume=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.field.survey.volume","project":"KRISHNA",
+            "permissions":["runtime.read","evidence.read"],
+            "payload":{"boundary":boundary,"depth_samples":[]}
+        })
+        self.assertEqual(code,200)
+        self.assertIsNone(volume["result"]["volume_m3"])
+        self.assertEqual(volume["result"]["evidence_state"],"UNKNOWN")
+        code,exported=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.field.survey.export","project":"KRISHNA",
+            "permissions":["runtime.read","evidence.read"],
+            "payload":{"site_id":"acceptance-site","boundary":boundary,"kind":"kml"}
+        })
+        self.assertEqual(code,200)
+        self.assertIn("<kml",exported["result"]["data"])
+
     def test_brahma_memory_intelligence_http_and_action_contracts(self):
         code,receipt=self.call("/api/action-bus/dispatch",{
             "action":"brahma.intake","project":"KRISHNA",
