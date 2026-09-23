@@ -56,6 +56,22 @@ RISHI_RESEARCH_CHARTERS = {
             "classical innovation narratives with provenance review",
         ),
     },
+    "vishvakarma": {
+        "primary_subjects": (
+            "design systems","UI","UX","frontend architecture","typography","spacing",
+            "responsive design","accessibility","component architecture","visual regression",
+            "design drift","image-to-code","browser testing","UI repair","interaction design",
+        ),
+        "frontier_focus": (
+            "coherent design-system evolution","measurable visual and interaction quality",
+            "accessible responsive component systems","render-compare-repair workflows",
+            "human-AI interface design",
+        ),
+        "classical_lens": (
+            "traditional Vishvakarma associations are historical/cultural context only",
+            "modern UI and software-craft assignments are explicit KRISHNA design roles, not claims of historical practice",
+        ),
+    },
     "sushruta": {
         "primary_subjects": (
             "anatomy","physiology","surgery","pathology","diagnostics","medical devices",
