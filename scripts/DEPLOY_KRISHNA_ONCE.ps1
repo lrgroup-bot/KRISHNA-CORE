@@ -116,7 +116,28 @@ $Head=(git rev-parse HEAD).Trim()
 Write-Host "SOURCE $Branch @ $Head" -ForegroundColor Cyan
 
 # Test authoritative source before runtime mutation.
-Invoke-KrishnaTests $Source $Source
+# Source tests must never write runtime state into the Git checkout. Some modules
+# derive state roots from KRISHNA_RUNTIME_ROOT / KRISHNA_DB during import, so bind
+# both to an isolated disposable E:-drive workspace for the entire source test pass.
+$sourceTestRuntime=Join-Path $Runtime ("workspace\source-tests\"+[guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Force $sourceTestRuntime|Out-Null
+$previousRuntimeRoot=$env:KRISHNA_RUNTIME_ROOT
+$previousDb=$env:KRISHNA_DB
+$previousSourceRoot=$env:KRISHNA_SOURCE_ROOT
+try{
+  $env:KRISHNA_RUNTIME_ROOT=$sourceTestRuntime
+  $env:KRISHNA_DB=Join-Path $sourceTestRuntime "krishna_core.db"
+  $env:KRISHNA_SOURCE_ROOT=$Source
+  Invoke-KrishnaTests $Source $Source
+}finally{
+  if($null -eq $previousRuntimeRoot){Remove-Item Env:KRISHNA_RUNTIME_ROOT -ErrorAction SilentlyContinue}else{$env:KRISHNA_RUNTIME_ROOT=$previousRuntimeRoot}
+  if($null -eq $previousDb){Remove-Item Env:KRISHNA_DB -ErrorAction SilentlyContinue}else{$env:KRISHNA_DB=$previousDb}
+  if($null -eq $previousSourceRoot){Remove-Item Env:KRISHNA_SOURCE_ROOT -ErrorAction SilentlyContinue}else{$env:KRISHNA_SOURCE_ROOT=$previousSourceRoot}
+  Remove-Item -Recurse -Force $sourceTestRuntime -ErrorAction SilentlyContinue
+}
+if((git status --porcelain)){
+  throw "SOURCE TESTS DIRTY THE REPOSITORY. Tests/runtime imports must write only to the isolated source-test runtime."
+}
 
 # Parse every PowerShell entrypoint before touching runtime.
 $parseFailures=@()
