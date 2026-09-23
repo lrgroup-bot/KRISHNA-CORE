@@ -7,6 +7,9 @@ from pathlib import Path
 import json
 import time
 
+from .vishvakarma_curriculum import CURRICULUM
+from .design_adapters import PlaywrightCLI, StagehandAdapter, StorybookAdapter
+
 
 @dataclass(frozen=True)
 class DesignJob:
@@ -35,7 +38,7 @@ class SkillRouter:
 
 class DesignGenome:
     SCHEMA = "krishna.design-genome.v1"
-    SECTIONS = ("identity", "color", "typography", "geometry", "depth", "motion", "components")
+    SECTIONS = ("identity", "color", "typography", "geometry", "depth", "motion", "components", "accessibility")
 
     def __init__(self, **values):
         self.data = {"schema": self.SCHEMA}
@@ -104,6 +107,9 @@ class SudarshanDesignEngine:
         self.drift = DesignDrift()
         self.acceptance = AcceptanceGovernor()
         self.knowledge = knowledge
+        self.playwright_cli = PlaywrightCLI()
+        self.stagehand = StagehandAdapter(enabled=False)
+        self.storybook = StorybookAdapter()
 
     def plan(self, job: DesignJob):
         topic=str(job.topic or job.kind or "design").strip()
@@ -114,6 +120,12 @@ class SudarshanDesignEngine:
             "owner": "Sudarshan",
             "version": self.VERSION,
             "skills": self.router.select(job),
+            "curriculum_available": sorted(CURRICULUM),
+            "tooling": {
+                "playwright_cli_available": self.playwright_cli.available(),
+                "stagehand": self.stagehand.status(),
+                "storybook_required_states": list(self.storybook.required_states()),
+            },
             "krishna_context": "summary-only",
             "vishvakarma_required": True,
             "knowledge_bound": self.knowledge is not None,
@@ -127,9 +139,16 @@ class SudarshanDesignEngine:
             "component": "Sudarshan Design Engine",
             "version": self.VERSION,
             "skills": ["web-design", "taste-skill", "redesign-existing-projects", "image-to-code", "playwright-cli", "stagehand"],
+            "curriculum_available": sorted(CURRICULUM),
             "hard_acceptance_checks": list(self.acceptance.REQUIRED),
             "acceptance_gates": list(self.acceptance.REQUIRED),
             "design_genome_schema": DesignGenome.SCHEMA,
             "knowledge_bound": self.knowledge is not None,
+            "tooling": {
+                "playwright_cli_available": self.playwright_cli.available(),
+                "stagehand": self.stagehand.status(),
+                "storybook_required_states": list(self.storybook.required_states()),
+            },
+            "authority": "Sudarshan executes/verifies; Vishvakarma curates design knowledge",
             "ready": True,
         }
