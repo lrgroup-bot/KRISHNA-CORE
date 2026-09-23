@@ -17,7 +17,7 @@ class RequirementsLedgerTests(unittest.TestCase):
     def test_schema2_product_truth_fields_are_exposed(self):
         d=self.ledger.snapshot()
         self.assertEqual(d["schema"],2)
-        self.assertEqual(d["version"],"2026-09-23-master-product-truth-v5")
+        self.assertEqual(d["version"],"2026-09-23-master-product-truth-v6")
         self.assertIn("VERIFIED",d["status_definitions"])
         self.assertIn("IMPLEMENTED_NOT_VERIFIED",d["status_definitions"])
         self.assertIn("REAL_RUNTIME_OR_DEVICE_TEST",d["delivery_pipeline"])
