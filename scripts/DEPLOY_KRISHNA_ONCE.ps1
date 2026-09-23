@@ -177,11 +177,14 @@ if(!$npmCmd){$npmCmd=(Get-Command npm -ErrorAction SilentlyContinue)}
 if(!$npmCmd){throw "SPATIAL UI BUILD REQUIRES NODE/NPM"}
 Push-Location $spatialRoot
 try{
-  & $npmCmd.Source install --no-audit --no-fund
+  & $npmCmd.Source install --no-audit --no-fund --package-lock=false
   if($LASTEXITCODE -ne 0){throw "SPATIAL UI NPM INSTALL FAILED"}
   & $npmCmd.Source run build
   if($LASTEXITCODE -ne 0){throw "SPATIAL UI BUILD FAILED"}
 }finally{Pop-Location}
+if((git -C $Source status --porcelain)){
+  throw "SPATIAL UI BUILD DIRTY THE SOURCE REPOSITORY. Generated Node artifacts must remain ignored and package-lock creation is disabled."
+}
 if(!(Test-Path $spatialIndex)){throw "SPATIAL UI INDEX MISSING AFTER BUILD: $spatialIndex"}
 $spatialText=Get-Content -LiteralPath $spatialIndex -Raw
 if($spatialText -notmatch 'data-krishna-spatial-ui="2026\.09"'){throw "SPATIAL UI VERSION MARKER MISSING"}
