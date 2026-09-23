@@ -54,7 +54,8 @@ class GnssRtkAdapter:
         if fix not in self.FIXES:
             raise ValueError("unsupported GNSS fix_type")
         device_id=str(sample.get("device_id") or "").strip()
-        captured_at=float(sample.get("captured_at") or time.time())
+        captured_raw=sample.get("captured_at")
+        captured_at=_finite(time.time() if captured_raw in (None,"") else captured_raw,"captured_at")
         rtk=fix in {"rtk_float","rtk_fixed"}
         row={
             "measurement_id":"GNSS-"+uuid.uuid4().hex[:20],
@@ -102,7 +103,7 @@ class DepthMeasurementAdapter:
                 "y":item.get("y"),
                 "lat":item.get("lat"),
                 "lon":item.get("lon"),
-                "confidence":max(0.0,min(float(item.get("confidence",1.0)),1.0)),
+                "confidence":max(0.0,min(_finite(item.get("confidence",1.0),f"confidence[{idx}]"),1.0)),
             }
             rows.append(row)
         values=[float(x.get("depth_m",x.get("distance_m"))) for x in rows]
@@ -118,7 +119,7 @@ class DepthMeasurementAdapter:
             },
             "device_id":str(device_id or "").strip() or None,
             "calibration_ref":str(calibration_ref or "").strip() or None,
-            "captured_at":float(captured_at or time.time()),
+            "captured_at":_finite(time.time() if captured_at in (None,"") else captured_at,"captured_at"),
             "limitations":[],
         }
         if not result["device_id"]:
