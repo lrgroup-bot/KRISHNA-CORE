@@ -1,123 +1,144 @@
 from __future__ import annotations
 
-"""Sudarshan design planning, design-genome, drift and acceptance contracts."""
+"""Sudarshan design planning, design-genome drift and hard acceptance gates."""
 
 from dataclasses import dataclass
 from pathlib import Path
 import json
 import time
 
+from .vishvakarma_curriculum import CURRICULUM
+from .design_adapters import PlaywrightCLI, StagehandAdapter, StorybookAdapter
+
 
 @dataclass(frozen=True)
 class DesignJob:
-    kind: str
-    reference_image: bool = False
-    existing_ui: bool = False
-    agentic_browser: bool = False
+    kind:str
+    reference_image:bool=False
+    existing_ui:bool=False
+    agentic_browser:bool=False
+    topic:str=""
 
 
 class SkillRouter:
-    def select(self, job: DesignJob):
-        kind = str(job.kind or "").strip().lower()
-        skills = []
-        if kind in {"frontend", "ui", "ux", "mobile", "mobile-ui", "dashboard", "web-design", "component"}:
-            skills += ["web-design", "taste-skill"]
-        if job.existing_ui:
-            skills += ["redesign-existing-projects"]
-        if job.reference_image:
-            skills += ["image-to-code"]
-        skills += ["playwright-cli"]
-        if job.agentic_browser:
-            skills += ["stagehand"]
+    def select(self,j:DesignJob):
+        kind=str(j.kind or "").strip().lower()
+        skills=[]
+        if kind in {"frontend","mobile","dashboard","ui","ux","component"}:
+            skills+=["web-design","Taste Skill","design-systems"]
+        if j.existing_ui:
+            skills+=["redesign-existing-projects"]
+        if j.reference_image:
+            skills+=["image-to-code"]
+        skills+=["Playwright"]
+        if j.agentic_browser:
+            skills+=["Stagehand"]
         return list(dict.fromkeys(skills))
 
 
 class DesignGenome:
-    SCHEMA = "krishna.design-genome.v1"
-    SECTIONS = ("identity", "color", "typography", "geometry", "depth", "motion", "components")
+    SCHEMA="krishna.design-genome.v2"
+    SECTIONS=("identity","color","typography","geometry","depth","motion","components","accessibility")
 
-    def __init__(self, **values):
-        self.data = {"schema": self.SCHEMA}
-        for section in self.SECTIONS:
-            value = values.get(section) or {}
-            if not isinstance(value, dict):
-                raise ValueError(f"design genome section {section} must be an object")
-            self.data[section] = dict(value)
+    def __init__(self,**kw):
+        self.data={"schema":self.SCHEMA,**{name:{} for name in self.SECTIONS}}
+        for key,value in kw.items():
+            if key in self.SECTIONS:
+                self.data[key]=dict(value or {})
 
-    def save(self, path):
-        target = Path(path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(self.data, indent=2, ensure_ascii=False), encoding="utf-8")
-        return str(target)
+    def save(self,path):
+        p=Path(path)
+        p.parent.mkdir(parents=True,exist_ok=True)
+        p.write_text(json.dumps(self.data,indent=2,ensure_ascii=False),encoding="utf-8")
+        return str(p)
 
 
 class DesignDrift:
     @staticmethod
-    def _flatten(value, prefix=""):
-        if not isinstance(value, dict):
-            return {prefix or "$": value}
-        out = {}
-        for key, item in value.items():
-            name = f"{prefix}.{key}" if prefix else str(key)
-            if isinstance(item, dict):
-                out.update(DesignDrift._flatten(item, name))
-            else:
-                out[name] = item
+    def _flatten(value,prefix=""):
+        out={}
+        if isinstance(value,dict):
+            for key,item in value.items():
+                child=f"{prefix}.{key}" if prefix else str(key)
+                out.update(DesignDrift._flatten(item,child))
+        else:
+            out[prefix]=value
         return out
 
-    def compare(self, expected: dict, actual: dict):
-        left = self._flatten(dict(expected or {}))
-        right = self._flatten(dict(actual or {}))
-        keys = sorted(set(left) | set(right))
-        diff = {
-            key: {"expected": left.get(key), "actual": right.get(key)}
-            for key in keys if left.get(key) != right.get(key)
+    def compare(self,expected:dict,actual:dict):
+        a=self._flatten(expected or {})
+        b=self._flatten(actual or {})
+        keys=set(a)|set(b)
+        diff={
+            k:{"expected":a.get(k),"actual":b.get(k)}
+            for k in sorted(keys) if a.get(k)!=b.get(k)
         }
-        return {"pass": not diff, "differences": diff, "difference_count": len(diff)}
+        return {"pass":not diff,"differences":diff,"difference_count":len(diff)}
 
 
 class AcceptanceGovernor:
-    REQUIRED = (
-        "functional", "visual", "responsive", "accessibility", "keyboard",
-        "loading", "error", "empty", "console", "performance", "security",
+    REQUIRED=(
+        "functional","visual","responsive","accessibility","keyboard",
+        "loading","error","empty","console","performance","security",
     )
-
-    def evaluate(self, checks: dict):
-        checks = dict(checks or {})
-        failed = [name for name in self.REQUIRED if checks.get(name) is not True]
+    def evaluate(self,checks:dict):
+        checks=dict(checks or {})
+        failed=[x for x in self.REQUIRED if checks.get(x) is not True]
         return {
-            "verified": not failed,
-            "failed": failed,
-            "owner": "Sudarshan",
-            "required": list(self.REQUIRED),
+            "verified":not failed,
+            "failed":failed,
+            "required":list(self.REQUIRED),
+            "owner":"Sudarshan",
         }
 
 
 class SudarshanDesignEngine:
-    VERSION = "sudarshan-design-v2"
+    VERSION="sudarshan-design-v2"
 
-    def __init__(self, root):
-        self.root = Path(root)
-        self.router = SkillRouter()
-        self.drift = DesignDrift()
-        self.acceptance = AcceptanceGovernor()
+    def __init__(self,root,knowledge=None):
+        self.root=Path(root).resolve()
+        self.root.mkdir(parents=True,exist_ok=True)
+        self.router=SkillRouter()
+        self.acceptance=AcceptanceGovernor()
+        self.drift=DesignDrift()
+        self.knowledge=knowledge
+        self.playwright_cli=PlaywrightCLI()
+        self.stagehand=StagehandAdapter(enabled=False)
+        self.storybook=StorybookAdapter()
 
-    def plan(self, job: DesignJob):
+    def plan(self,job:DesignJob):
+        topic=str(job.topic or job.kind or "design").strip()
+        findings=[]
+        if self.knowledge is not None:
+            try:
+                findings=self.knowledge.retrieve(topic,limit=12,verified_only=True)
+            except Exception:
+                findings=[]
         return {
-            "owner": "Sudarshan",
-            "version": self.VERSION,
-            "skills": self.router.select(job),
-            "krishna_context": "summary-only",
-            "vishvakarma_required": True,
-            "created_at": time.time(),
+            "owner":"Sudarshan",
+            "knowledge_owner":"Rishi Vishvakarma",
+            "skills":self.router.select(job),
+            "curriculum_available":sorted(CURRICULUM),
+            "retrieved_verified_findings":findings,
+            "krishna_context":"summary-only",
+            "tooling":{
+                "playwright_cli_available":self.playwright_cli.available(),
+                "stagehand":self.stagehand.status(),
+                "storybook_required_states":list(self.storybook.required_states()),
+            },
+            "created_at":time.time(),
         }
 
     def status(self):
         return {
-            "component": "Sudarshan Design Engine",
-            "version": self.VERSION,
-            "skills": ["web-design", "taste-skill", "redesign-existing-projects", "image-to-code", "playwright-cli", "stagehand"],
-            "acceptance_gates": list(self.acceptance.REQUIRED),
-            "design_genome_schema": DesignGenome.SCHEMA,
-            "ready": True,
+            "version":self.VERSION,
+            "skills":sorted(CURRICULUM),
+            "hard_acceptance_checks":list(self.acceptance.REQUIRED),
+            "knowledge_bound":self.knowledge is not None,
+            "tooling":{
+                "playwright_cli_available":self.playwright_cli.available(),
+                "stagehand":self.stagehand.status(),
+                "storybook_required_states":list(self.storybook.required_states()),
+            },
+            "authority":"Sudarshan executes/verifies; Vishvakarma curates design knowledge",
         }
