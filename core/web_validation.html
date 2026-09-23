@@ -1202,6 +1202,36 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 <button class="ghost" onclick="showGarudanetraSemantic()">SHOW SEMANTIC MAP</button>
 <button class="ghost" onclick="showGarudanetraRecording()">SHOW RECORDING</button>
 </div>
+
+<div class="card" style="margin-top:14px">
+ <div class="k">RESEARCH FABRIC v2 · JETBOT-INSPIRED</div>
+ <p class="workspaceMeta">Playwright remains the browser authority. Research missions use specialist scouts, contradiction checks, reusable skills and a sanitized local IndexedDB scratch workspace.</p>
+ <textarea id="garudanetraResearchGoal" class="input" style="width:100%;min-height:86px;margin-top:8px" placeholder="Research question for papers, GitHub, patents, datasets, standards and contradiction scouts"></textarea>
+ <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+  <button class="primary" onclick="createGarudanetraResearchMission()">CREATE RESEARCH MISSION</button>
+  <button class="ghost" onclick="loadGarudanetraResearchFabric()">REFRESH MISSIONS</button>
+  <button class="ghost" onclick="showGarudanetraResearchSkills()">SHOW SKILLS</button>
+ </div>
+</div>
+
+<div class="grid" style="margin-top:12px">
+ <div class="card">
+  <div class="k">RESEARCH MISSIONS</div>
+  <div id="garudanetraResearchStatus" class="v" style="font-size:13px">LOADING</div>
+  <div id="garudanetraResearchMissions" style="margin-top:8px"></div>
+ </div>
+ <div class="card">
+  <div class="k">BROWSER-LOCAL SCRATCH WORKSPACE</div>
+  <div id="garudanetraWorkspaceStatus" class="v" style="font-size:13px">INDEXEDDB · LOCAL ONLY</div>
+  <textarea id="garudanetraScratch" class="input" style="width:100%;min-height:72px;margin-top:8px" placeholder="Temporary research note. Secrets are redacted before browser-local storage."></textarea>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+   <button class="ghost" onclick="saveGarudanetraScratch()">SAVE LOCAL NOTE</button>
+   <button class="ghost" onclick="renderGarudanetraWorkspace()">SHOW LOCAL CACHE</button>
+   <button class="ghost danger" onclick="clearGarudanetraWorkspace()">CLEAR LOCAL CACHE</button>
+  </div>
+  <div id="garudanetraWorkspaceItems" class="workspaceMeta" style="margin-top:8px">No browser-local scratch items loaded.</div>
+ </div>
+</div>
 </div></section>
 <section id="narad" class="view panelView"><div class="panelInner">
 <h1 class="panelTitle">NARAD 🪕</h1><p class="panelSub">KRISHNA's durable automation, trigger, connection and messenger control plane. External side effects remain behind Policy Kernel approval.</p>
@@ -2259,6 +2289,142 @@ async function garudaNextTab(){if(!garudaSessionId)return;try{const s=await req(
 async function garudaUploadPending(){if(!garudaOwnerControl){log('Use TAKE CONTROL before uploading.');return}const selector=$('garudaUploadSelector').value.trim();const aid=pendingAttachmentIds[pendingAttachmentIds.length-1];if(!selector||!aid){log('Attach a file in Sudarshan and enter the page file-input selector first.');return}try{const s=await actionReq('garudanetra.upload_attachment',{session_id:garudaSessionId,selector,chat_id:chatId,attachment_id:aid});renderGarudanetraSession(s)}catch(e){log(e.message)}}
 async function garudaControlPayload(action,payload){if(!garudaSessionId){log('No active Garudanetra live session.');return}try{const s=await actionReq('garudanetra.control',{session_id:garudaSessionId,action,payload:payload||{}});renderGarudanetraSession(s);return s}catch(e){log(e.message);setOps('verify','Garudanetra control failure','bad')}}
 function toggleGarudaExpand(){const p=$('liveWork');if(!p)return;p.classList.toggle('expanded')}
+
+const GARUDA_WORKSPACE_DB='krishna-garudanetra-workspace-v1';
+const GARUDA_WORKSPACE_STORE='scratch';
+const GARUDA_SENSITIVE_KEY=/(?:token|secret|pass(?:word)?|api[_-]?key|auth|credential|session|cookie|otp|pin)/i;
+
+function garudanetraSanitizeText(value){
+ let text=String(value??'');
+ text=text.replace(/\b(Bearer\s+)[A-Za-z0-9._~+\/-]{8,}/gi,'$1REDACTED');
+ text=text.replace(/\b(password|passwd|token|secret|api[_-]?key|otp|pin)\s*[:=]\s*[^\s,;]+/gi,'$1=REDACTED');
+ try{
+   if(/^https?:\/\//i.test(text)){
+     const u=new URL(text);
+     [...u.searchParams.keys()].forEach(k=>{if(GARUDA_SENSITIVE_KEY.test(k))u.searchParams.set(k,'REDACTED')});
+     u.hash='';
+     text=u.toString();
+   }
+ }catch(e){}
+ return text.slice(0,8000);
+}
+function garudanetraSanitizeObject(value,key=''){
+ if(GARUDA_SENSITIVE_KEY.test(String(key||'')))return '[REDACTED]';
+ if(value===null||value===undefined)return value;
+ if(typeof value==='string')return garudanetraSanitizeText(value);
+ if(Array.isArray(value))return value.slice(0,100).map(v=>garudanetraSanitizeObject(v,''));
+ if(typeof value==='object'){
+   const out={};
+   Object.entries(value).slice(0,100).forEach(([k,v])=>out[k]=garudanetraSanitizeObject(v,k));
+   return out;
+ }
+ return value;
+}
+function openGarudanetraWorkspace(){
+ return new Promise((resolve,reject)=>{
+   if(!('indexedDB' in window)){reject(new Error('IndexedDB unavailable'));return}
+   const req=indexedDB.open(GARUDA_WORKSPACE_DB,1);
+   req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(GARUDA_WORKSPACE_STORE)){const s=db.createObjectStore(GARUDA_WORKSPACE_STORE,{keyPath:'id'});s.createIndex('updated_at','updated_at')}}
+   req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('IndexedDB open failed'));
+ });
+}
+async function putGarudanetraWorkspace(item){
+ const db=await openGarudanetraWorkspace();
+ const safe=garudanetraSanitizeObject({...item,updated_at:Date.now()});
+ await new Promise((resolve,reject)=>{const tx=db.transaction(GARUDA_WORKSPACE_STORE,'readwrite');tx.objectStore(GARUDA_WORKSPACE_STORE).put(safe);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)});
+ db.close();return safe;
+}
+async function listGarudanetraWorkspace(){
+ const db=await openGarudanetraWorkspace();
+ const rows=await new Promise((resolve,reject)=>{const tx=db.transaction(GARUDA_WORKSPACE_STORE,'readonly');const r=tx.objectStore(GARUDA_WORKSPACE_STORE).getAll();r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error)});
+ db.close();return rows.sort((a,b)=>(b.updated_at||0)-(a.updated_at||0)).slice(0,50);
+}
+async function saveGarudanetraScratch(){
+ const note=($('garudanetraScratch')?.value||'').trim();if(!note)return;
+ try{
+   await putGarudanetraWorkspace({id:'note:'+crypto.randomUUID(),kind:'note',project:$('project').value||'KRISHNA',note});
+   $('garudanetraScratch').value='';await renderGarudanetraWorkspace();
+ }catch(e){$('garudanetraWorkspaceStatus').textContent='LOCAL CACHE ERROR';log(e.message)}
+}
+async function cacheGarudanetraMissionSummary(m){
+ if(!m?.mission_id)return;
+ return putGarudanetraWorkspace({
+   id:'mission:'+m.mission_id,kind:'mission_summary',mission_id:m.mission_id,
+   project:m.project||'KRISHNA',question:m.question||'',status:m.status||'',
+   evidence_count:(m.evidence||[]).length,contradiction_count:(m.contradictions||[]).length
+ });
+}
+async function renderGarudanetraWorkspace(){
+ const box=$('garudanetraWorkspaceItems'),status=$('garudanetraWorkspaceStatus');if(!box||!status)return;
+ try{
+   const rows=await listGarudanetraWorkspace();status.textContent='INDEXEDDB · '+rows.length+' LOCAL ITEMS';
+   box.textContent=rows.length?rows.map(x=>x.kind==='note'?('NOTE · '+String(x.note||'').slice(0,140)):('MISSION · '+String(x.question||'').slice(0,140)+' · '+(x.status||''))).join('\n'):'No browser-local scratch items.';
+ }catch(e){status.textContent='INDEXEDDB UNAVAILABLE';box.textContent=e.message}
+}
+async function clearGarudanetraWorkspace(){
+ const ok=await confirmAction('Clear Garudanetra browser-local scratch workspace? Authoritative KRISHNA evidence will not be deleted.');if(!ok)return;
+ try{
+   const db=await openGarudanetraWorkspace();
+   await new Promise((resolve,reject)=>{const tx=db.transaction(GARUDA_WORKSPACE_STORE,'readwrite');tx.objectStore(GARUDA_WORKSPACE_STORE).clear();tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)});
+   db.close();await renderGarudanetraWorkspace();
+ }catch(e){log(e.message)}
+}
+async function createGarudanetraResearchMission(){
+ const question=($('garudanetraResearchGoal')?.value||'').trim();if(!question){log('Research question is required.');return}
+ const project=$('project').value||'KRISHNA';
+ try{
+   const mission=await actionReq('garudanetra.research.create',{project,question,requested_by:'owner'},{project});
+   await cacheGarudanetraMissionSummary(mission);
+   $('garudanetraResearchGoal').value='';
+   await loadGarudanetraResearchFabric();
+ }catch(e){log(e.message);setOps('verify','Research mission creation failed','bad')}
+}
+async function launchGarudanetraResearchScout(mid,scout){
+ const project=$('project').value||'KRISHNA';
+ try{
+   const out=await actionReq('garudanetra.research.launch',{mission_id:mid,scout},{project});
+   if(out?.session?.session_id){garudaSessionId=out.session.session_id;toggleLiveWork(true);renderGarudanetraSession(out.session);startGarudanetraPolling()}
+   await loadGarudanetraResearchFabric();
+ }catch(e){log(e.message)}
+}
+async function analyzeGarudanetraResearch(mid){
+ const project=$('project').value||'KRISHNA';
+ try{const out=await actionReq('garudanetra.research.analyze',{mission_id:mid},{project});log(out);await loadGarudanetraResearchFabric()}catch(e){log(e.message)}
+}
+async function handoffGarudanetraResearch(mid,target){
+ const project=$('project').value||'KRISHNA';
+ try{const out=await actionReq('garudanetra.research.handoff',{mission_id:mid,target},{project});log(out);await loadGarudanetraResearchFabric()}catch(e){log(e.message)}
+}
+function renderGarudanetraResearchMission(m){
+ const wrap=document.createElement('div');wrap.className='card';wrap.style.margin='8px 0';
+ const title=document.createElement('div');title.className='v';title.style.fontSize='13px';title.textContent=m.question||m.mission_id;wrap.appendChild(title);
+ const meta=document.createElement('p');meta.textContent=(m.status||'PLANNED')+' · evidence '+((m.evidence||[]).length)+' · contradictions '+((m.contradictions||[]).length);wrap.appendChild(meta);
+ const actions=document.createElement('div');actions.className='taskActions';
+ (m.scouts||[]).forEach(s=>{const b=document.createElement('button');b.textContent=String(s).toUpperCase();b.onclick=()=>launchGarudanetraResearchScout(m.mission_id,s);actions.appendChild(b)});
+ const analyze=document.createElement('button');analyze.textContent='ANALYZE';analyze.onclick=()=>analyzeGarudanetraResearch(m.mission_id);actions.appendChild(analyze);
+ const rishi=document.createElement('button');rishi.textContent='→ RISHI';rishi.onclick=()=>handoffGarudanetraResearch(m.mission_id,'rishi');actions.appendChild(rishi);
+ const lab=document.createElement('button');lab.textContent='→ LAB BOT';lab.onclick=()=>handoffGarudanetraResearch(m.mission_id,'lab_bot');actions.appendChild(lab);
+ wrap.appendChild(actions);return wrap;
+}
+async function loadGarudanetraResearchFabric(){
+ const status=$('garudanetraResearchStatus'),box=$('garudanetraResearchMissions');if(!status||!box)return;
+ try{
+   const [s,m]=await Promise.all([req('/api/garudanetra/research/status'),req('/api/garudanetra/research/missions?limit=20')]);
+   const missions=m.missions||[];
+   status.textContent=(s.version||'RESEARCH v2')+' · '+missions.length+' missions · '+((s.skills||[]).length)+' skills';
+   box.innerHTML='';
+   missions.forEach(x=>{box.appendChild(renderGarudanetraResearchMission(x));cacheGarudanetraMissionSummary(x).catch(()=>{})});
+   if(!missions.length)box.textContent='No research missions yet.';
+   renderGarudanetraWorkspace();
+ }catch(e){status.textContent='RESEARCH FABRIC OFFLINE';box.textContent=e.message}
+}
+async function showGarudanetraResearchSkills(){
+ try{
+   const d=await req('/api/garudanetra/research/skills');
+   log((d.skills||[]).map(x=>({name:x.name,stage:x.stage,quality:x.quality_score,uses:x.use_count})));
+ }catch(e){log(e.message)}
+}
+
 async function startGarudanetraMission(){
  const goal=($('garudanetraGoal')?.value||'').trim(); if(!goal){log('Garudanetra mission is required.');return}
  toggleLiveWork(true);$('liveState').textContent='STARTING';$('liveOperation').textContent=goal;setOps('work','Garudanetra: '+goal,'good');
