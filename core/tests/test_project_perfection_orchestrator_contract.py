@@ -1,5 +1,11 @@
+import os
 import unittest
 from pathlib import Path
+
+
+def repository_root():
+    configured=str(os.environ.get("KRISHNA_SOURCE_ROOT") or "").strip()
+    return Path(configured).resolve() if configured else Path(__file__).resolve().parents[2]
 
 
 class ProjectPerfectionOrchestratorContract(unittest.TestCase):
@@ -29,7 +35,7 @@ class ProjectPerfectionOrchestratorContract(unittest.TestCase):
         self.assertIn("promotions.rollback(",server)
 
     def test_mobile_emulator_retest_uses_single_script_command(self):
-        root=Path(__file__).resolve().parents[2]
+        root=repository_root()
         workflow=(root/".github"/"workflows"/"build-mobile-v3.yml").read_text(encoding="utf-8")
         verifier=(root/"scripts"/"VERIFY_KRISHNA_APK.py").read_text(encoding="utf-8")
         self.assertIn("scripts/VERIFY_KRISHNA_APK.py",workflow)
@@ -37,7 +43,7 @@ class ProjectPerfectionOrchestratorContract(unittest.TestCase):
         self.assertIn("ArtifactExecutor().apk",verifier)
 
     def test_operator_finish_script_requests_apply(self):
-        script=(Path(__file__).resolve().parents[2]/"scripts"/"FINISH_KRISHNA_PROJECT.ps1").read_text(encoding="utf-8")
+        script=(repository_root()/"scripts"/"FINISH_KRISHNA_PROJECT.ps1").read_text(encoding="utf-8")
         self.assertIn("apply_verified=$true",script)
         self.assertIn("/api/project-perfection/finish",script)
 
