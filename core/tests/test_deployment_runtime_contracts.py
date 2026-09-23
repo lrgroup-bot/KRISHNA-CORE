@@ -114,6 +114,12 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn('runtime_generation=$RuntimeGeneration',guardian)
         self.assertIn('"runtime_generation": os.environ.get("KRISHNA_RUNTIME_GENERATION", "")',server)
 
+    def test_orchestrator_architecture_truth_honors_authoritative_source_root(self):
+        root=repository_root()
+        orchestrator=(root/"core"/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
+        self.assertIn('os.getenv("KRISHNA_SOURCE_ROOT")',orchestrator)
+        self.assertIn("ArchitectureTruthAudit(repo_root)",orchestrator)
+
     def test_repo_contract_tests_honor_authoritative_source_root(self):
         root=repository_root()
         audit=(root/"core"/"tests"/"test_project_audit.py").read_text(encoding="utf-8")
