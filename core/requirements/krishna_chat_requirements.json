@@ -98,7 +98,12 @@
         "Successful selector recoveries and recorded workflows compile into distinct Gyan-Bhandar skill candidates and require verification/benchmark before Stable promotion.",
         "Recorded workflows support bounded replay; consequential click/fill/type/upload style replay requires explicit approval.",
         "Optional browser-use, agent-browser, BrowserCode, OpenDevBrowser, Rustwright, Lucarne, Skyvern, rrweb, Promptwright and Cereon capabilities are adapters/providers only and never silently replace the canonical engine.",
-        "UI Guardian and Developer browser verification use the same Garudanetra fabric/inspector boundary rather than creating competing browser authorities."
+        "UI Guardian and Developer browser verification use the same Garudanetra fabric/inspector boundary rather than creating competing browser authorities.",
+        "Garudanetra Research Fabric v2 adapts useful JetBot browser-native patterns (durable workspace, skill lifecycle, cross-task recall pattern, circuit-breaker philosophy and explicit skill distillation) without making JetBot or any other project a competing browser authority.",
+        "Garudanetra research missions coordinate specialist scouts for scientific papers, GitHub implementations/failure cases, patents/prior art, datasets/benchmarks, standards/metrology and contradictory/failed-replication evidence.",
+        "Research evidence preserves provenance, stance and quality; supporting and contradicting evidence remain visible together and unresolved contradictions block automatic truth promotion.",
+        "Research scouts run through canonical Garudanetra task-memory Playwright sessions; repeated/duplicate scout launches are circuit-broken rather than allowed to loop indefinitely.",
+        "Garudanetra may package evidence for Rishi, Shishya, LAB BOT or Gyan-candidate review, but research output remains candidate evidence until independent verification/BRAHMA QC."
       ]
     },
     {
@@ -556,6 +561,20 @@
         "docs/KRISHNA_LAB_BOT.md"
       ],
       "next": "runtime acceptance of Rishi quantum/nano actions; optional Qiskit/PennyLane/pymatgen/ASE providers and real QPU/nanofabrication remain SOFTWARE_OR_HARDWARE_UNVERIFIED until installed/connected and benchmarked"
+    },
+    {
+      "id": "garudanetra_research_fabric_v2",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "Garudanetra / Garuda / Rishi Council / Sudarshan",
+      "evidence": [
+        "core/krishna_core/garudanetra_research.py",
+        "core/krishna_core/browser_fabric.py",
+        "core/krishna_core/server.py",
+        "core/tests/test_garudanetra_research.py",
+        "core/tests/test_http_runtime.py",
+        "docs/KRISHNA_COMPONENT_MAP.md"
+      ],
+      "next": "runtime acceptance of research mission -> live scout task-memory sessions -> sourced evidence -> contradiction analysis -> Rishi/LAB BOT handoff; external websites remain subject to their normal availability/authentication"
     }
   ]
 }

@@ -154,6 +154,80 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(receipt["result"]["version"],"architecture-truth-v1")
 
 
+    def test_garudanetra_research_fabric_v2(self):
+        code,status=self.call("/api/garudanetra/research/status")
+        self.assertEqual(code,200)
+        self.assertEqual(status["version"],"garudanetra-research-fabric-v2")
+        self.assertEqual(status["canonical_browser"],"playwright")
+        self.assertTrue(status["policy"]["jetbot_is_not_a_competing_authority"])
+
+        code,bus=self.call("/api/action-bus")
+        self.assertEqual(code,200)
+        specs={x["name"]:x for x in bus["actions"]}
+        self.assertTrue(specs["garudanetra.research.analyze"]["mutating"])
+        self.assertTrue(specs["garudanetra.research.handoff"]["mutating"])
+
+        code,created=self.call("/api/action-bus/dispatch",{
+            "action":"garudanetra.research.create","project":"KRISHNA",
+            "permissions":["browser.research","evidence.write"],
+            "payload":{
+                "question":"Does a bounded stimulus change a measurable response?",
+                "requested_by":"rishi:kanada",
+                "scouts":["papers","github","contradictions"],
+            },
+        })
+        self.assertEqual(code,200)
+        mission=created["result"]
+        mid=mission["mission_id"]
+        self.assertEqual(len(mission["targets"]),3)
+
+        for stance,url in (
+            ("support","https://example.org/support"),
+            ("contradict","https://example.org/replication"),
+        ):
+            code,receipt=self.call("/api/action-bus/dispatch",{
+                "action":"garudanetra.research.ingest","project":"KRISHNA",
+                "permissions":["browser.research","evidence.write"],
+                "payload":{
+                    "mission_id":mid,
+                    "evidence":{
+                        "source_kind":"paper",
+                        "url":url,
+                        "claim":"Stimulus changes response",
+                        "claim_key":"stimulus-response",
+                        "stance":stance,
+                        "quality":0.8,
+                    },
+                },
+            })
+            self.assertEqual(code,200)
+            self.assertEqual(receipt["result"]["stance"],stance)
+
+        code,analysis=self.call("/api/action-bus/dispatch",{
+            "action":"garudanetra.research.analyze","project":"KRISHNA",
+            "permissions":["browser.research","evidence.read"],
+            "payload":{"mission_id":mid},
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(analysis["result"]["unresolved_contradictions"],1)
+
+        code,handoff=self.call("/api/action-bus/dispatch",{
+            "action":"garudanetra.research.handoff","project":"KRISHNA",
+            "permissions":["browser.research","evidence.read"],
+            "payload":{"mission_id":mid,"target":"lab_bot"},
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(handoff["result"]["target"],"lab_bot")
+        self.assertTrue(handoff["result"]["requires_independent_verification"])
+
+        code,saved=self.call("/api/garudanetra/research/mission?id="+mid)
+        self.assertEqual(code,200)
+        self.assertEqual(saved["status"],"HANDED_OFF")
+        self.assertEqual(
+            self.call("/api/garudanetra/research/mission?id=../../outside")[0],
+            404,
+        )
+
     def test_lab_bot_rishi_experiment_runtime(self):
         code,status=self.call("/api/lab/status")
         self.assertEqual(code,200)

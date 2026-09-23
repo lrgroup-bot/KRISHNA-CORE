@@ -9,6 +9,7 @@ import shutil
 from .browser_operator import BrowserOperator
 from .garudanetra_recovery import BrowserRecoveryAdapter
 from .garudanetra_session import GarudanetraSessionManager
+from .garudanetra_research import GarudanetraResearchFabric
 
 
 @dataclass(frozen=True)
@@ -137,6 +138,12 @@ class GarudanetraBrowserFabric:
             self.runtime_root,headless=headless,timeout_ms=timeout_ms,
             on_closed=on_closed,recovery=recovery,
         )
+        self.research=GarudanetraResearchFabric(
+            self.runtime_root,
+            session_factory=lambda project,url,mode:self.sessions.create(
+                project,url,mode,persistent_approved=False
+            ),
+        )
 
     def status(self)->dict:
         sessions=self.sessions.status()
@@ -150,7 +157,10 @@ class GarudanetraBrowserFabric:
                 "semantic_snapshot_refs","self_healing_recovery","cdp_screencast",
                 "owner_takeover","recording","bounded_replay","console_network_evidence",
                 "ui_guardian","development_verification","candidate_skill_learning","privacy_probe",
+                "research_missions","research_skill_registry","research_scout_swarm",
+                "evidence_contradiction_analysis","rishi_lab_handoff",
             ],
+            "research":self.research.status(),
         }
 
     def create(self,*args,**kwargs):return self.sessions.create(*args,**kwargs)
