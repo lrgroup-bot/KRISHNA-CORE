@@ -135,6 +135,7 @@ jobs:
           cp mobile_v3/*.java app/src/main/java/com/krishna/mobile/
           cp mobile_v3/index.html app/src/main/assets/index.html
           cp mobile_v3/realtime-client.js app/src/main/assets/realtime-client.js
+          cp mobile_v3/hawkeye-observer-ui.js app/src/main/assets/hawkeye-observer-ui.js
           cp mobile_v3/CANONICAL_RUNTIME.json app/src/main/assets/canonical-runtime.json
           base64 -d avatar/krishna_child_360.webp.b64 > app/src/main/assets/krishna_child_360.webp
 
@@ -160,6 +161,11 @@ jobs:
           grep -q "krishna_child_360.webp" app/src/main/assets/index.html
           grep -q "SWIPE TO ROTATE" app/src/main/assets/index.html
           grep -q "showAvatarView" app/src/main/assets/index.html
+          grep -q "hawkeye-observer-ui.js" app/src/main/assets/index.html
+          grep -q "PHOTO+DATA" app/src/main/assets/index.html
+          grep -q "REC+DATA" app/src/main/assets/index.html
+          grep -q "autoZoom" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q "hawkeyeObserveLearning" app/src/main/assets/hawkeye-observer-ui.js
           grep -q "Conversation only" app/src/main/assets/index.html
           grep -q "verifyVoice" app/src/main/assets/index.html
           grep -q "startFieldScan" app/src/main/assets/index.html
@@ -291,7 +297,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: KRISHNA-v3.7-Mobile-Edge-APK
+          name: KRISHNA-v3.8-HAWKEYE-Observer-APK
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             privacy-apk-report.json
