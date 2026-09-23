@@ -62,7 +62,7 @@ class HTTPRuntimeTests(unittest.TestCase):
         for path in ("/health", "/api/status", "/api/dashboard", "/api/capabilities",
                      "/api/projects", "/api/plugins", "/api/specialists", "/api/specialist-teams", "/api/resources",
                      "/api/tasks", "/api/missions", "/api/missions/status", "/api/queue", "/api/queue/status",
-                     "/api/resource-locks", "/api/events", "/api/protocol", "/api/models/providers",
+                     "/api/resource-locks", "/api/events", "/api/protocol", "/api/models/providers", "/api/models/roles",
                      "/api/core/state", "/api/core/neural-state",
                      "/api/project-graph", "/api/recovery/ladder", "/api/incidents",
                      "/api/garuda/status", "/api/commitments", "/api/autonomy/status", "/api/gyan-bhandar",
@@ -92,6 +92,27 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertIn("openrouter.free.image",specs)
         self.assertIn("model.use",specs["openrouter.free.complete"]["permissions"])
         self.assertIn("media.create",specs["openrouter.free.image"]["permissions"])
+
+    def test_rishi_lab_ai_role_contracts_are_exposed(self):
+        code,roles=self.call("/api/models/roles?project=KRISHNA")
+        self.assertEqual(code,200)
+        role_ids={x["role"] for x in roles["roles"]}
+        for role in (
+            "rishi_research","rishi_counter_evidence","rishi_debate",
+            "gautama_review","bharadvaja_test_plan","lab_hypothesis",
+            "lab_result_analysis","vyasa_synthesis",
+        ):
+            self.assertIn(role,role_ids)
+        self.assertIn("research_plan",roles)
+        self.assertFalse(roles["safety"]["model_output_is_evidence"])
+
+        code,bus=self.call("/api/action-bus")
+        self.assertEqual(code,200)
+        specs={x["name"]:x for x in bus["actions"]}
+        self.assertIn("lab.hypothesis.assist",specs)
+        self.assertIn("lab.result.analyze",specs)
+        self.assertIn("model.use",specs["lab.hypothesis.assist"]["permissions"])
+        self.assertIn("model.use",specs["lab.result.analyze"]["permissions"])
 
     def test_phase1_mission_checkpoint_lock_and_durable_job_http(self):
         code,mission=self.call("/api/missions/create",{
