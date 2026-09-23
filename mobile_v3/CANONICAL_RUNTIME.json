@@ -18,6 +18,7 @@
     "realtime-client.js",
     "HawkeyeMobileVision.java",
     "HawkeyeLanguage.java",
+    "HawkeyeHandGesture.java",
     "hawkeye-observer-ui.js"
   ],
   "build_workflow": ".github/workflows/build-mobile-v3.yml",
@@ -63,18 +64,22 @@
     "keyless_on_device_translation": true,
     "translation_model_download_wifi_only": true,
     "pose_gesture_control_opt_in": true,
-    "gesture_scope": "upper-body-pose-only",
-    "finger_hand_tracking": false,
+    "gesture_scope": "mediapipe-hand-finger-with-pose-fallback",
+    "finger_hand_tracking": true,
     "real_torch_capability_gated": true,
     "smart_best_frame_selection": true,
     "saved_photo_unknown_face_blur": true,
-    "low_light_guidance": true
+    "low_light_guidance": true,
+    "mediapipe_hand_gesture_opt_in": true,
+    "hand_landmarks_per_hand": 21,
+    "gesture_model_cloud_required": false
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
     "gemini_standard": "PC-owned credential; selected non-sensitive keyframes only after owner enables cloud mode",
     "gemini_live": "direct device WebSocket using one-use short-lived token minted by KRISHNA PC",
     "local_first": "ML Kit object/OCR/barcode/pose/face-presence/subject segmentation/language ID/translation remain available without Gemini after required local model downloads",
-    "translation": "ML Kit on-device translation; dynamic language models download on Wi-Fi and no Gemini API key is required"
+    "translation": "ML Kit on-device translation; dynamic language models download on Wi-Fi and no Gemini API key is required",
+    "gestures": "MediaPipe Gesture Recognizer runs on-device with bundled hand/gesture model; pose-based hand raise remains a fallback"
   }
 }
