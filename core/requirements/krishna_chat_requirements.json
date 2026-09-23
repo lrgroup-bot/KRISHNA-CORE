@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "version": "2026-09-23-master-product-truth-v3",
+  "version": "2026-09-23-master-product-truth-v4",
   "source": "Canonical KRISHNA product requirements consolidated from project conversations, merged repository decisions, runtime acceptance and current architecture",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -62,7 +62,11 @@
         "Before Shishya retirement, verified findings, methods, failures, corrections, evaluation, sources, provenance and useful cross-domain learning are preserved.",
         "BRAHMAGYAN curiosity is priority/resource bounded and v1 starts no autonomous background-learning daemon.",
         "BRAHMA is the learning governor and Gyan-Bhandar QC head: phone/PC observations route to Rishis first, then provenance/evidence/maturity/contradiction checks, Gautama review and Veda Vyasa compilation before trusted Gyan promotion.",
-        "BRAHMA preserves bi-temporal claims, source-family independence, provenance fingerprints, contradiction history, teach-back verification, memory evaluation, low-load consolidation and freshness/decay without silently deleting history."
+        "BRAHMA preserves bi-temporal claims, source-family independence, provenance fingerprints, contradiction history, teach-back verification, memory evaluation, low-load consolidation and freshness/decay without silently deleting history.",
+        "KRISHNA Cognitive Brain provides associative concept activation above Rishi/BRAHMA/Gyan memory; related-topic retrieval can traverse typed concept links instead of relying only on exact keywords.",
+        "C6 synthesis forms structural analogy candidates, converts unresolved contradictions into research questions, derives semantic candidates from repeated episodic observations, and uses controlled forgetting only as reversible dormancy/activation-telemetry pruning; verified/provenanced/connected knowledge is never silently deleted.",
+        "C7 cross-domain hypothesis generation produces falsifiable unverified questions for Rishi or LAB BOT testing; generated hypotheses never become trusted Gyan without normal evidence maturation, BRAHMA QC and approval.",
+        "Cognitive Brain must keep Vedic/classical and modern-science tracks source-faithful: cross-track comparison is allowed, unsupported equivalence and causal transfer are rejected."
       ]
     },
     {
