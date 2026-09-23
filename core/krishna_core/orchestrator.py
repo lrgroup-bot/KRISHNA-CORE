@@ -81,6 +81,7 @@ from .provider_contract import UnifiedProviderRegistry
 from .krishna_protocol import KrishnaProtocol
 from .gyan_security import GyanACL,GyanEnvelopeCipher,GyanEncryptedStore,GyanContextCompiler,GyanSessionLearning,GyanReplicaManager
 from .long_context import HybridRAG,LongContextLab,RecursiveContextEngine,RecursiveBudget,WeeklyLongContextScheduler
+from .cognitive_brain import KrishnaCognitiveBrain
 from .lab_bot import LabBot
 
 
@@ -169,7 +170,12 @@ class Orchestrator:
         self.gyan_context = GyanContextCompiler(self.gyan_bhandar,self.agi.context)
         self.gyan_session = GyanSessionLearning(self.gyan_bhandar)
         self.gyan_replica = GyanReplicaManager(self.db_path,Path(self.db_path).resolve().parent / "backups" / "gyan")
-        self.hybrid_rag = HybridRAG(self.gyan_bhandar,self.agi.context)
+        self.cognitive_brain = KrishnaCognitiveBrain(runtime_state / "cognitive-brain", self.gyan_bhandar)
+        self.hybrid_rag = HybridRAG(
+            self.gyan_bhandar,
+            self.agi.context,
+            query_expander=self.cognitive_brain.expand_query,
+        )
         self.recursive_context = RecursiveContextEngine()
         self.long_context_lab = LongContextLab()
         self.long_context_scheduler = WeeklyLongContextScheduler(
