@@ -32,3 +32,12 @@ def test_sound_taxonomy_keeps_unknown_safe():
     x=r.classify_sound_request("what is this noise")
     assert x["candidate_classes"]==["unknown"]
     assert "UNKNOWN" in x["rule"]
+
+
+def test_hawkeye_domain_routing_prefers_relevant_specialists():
+    r=runtime()
+    assert r.route_rishi("flower and plant biology")=="kashyapa"
+    assert r.route_rishi("crop soil agriculture")=="parashara"
+    assert r.route_rishi("veterinary animal health")=="shalihotra"
+    assert r.route_rishi("frontend UI design system")=="vishvakarma"
+    assert r.route_rishi("mechanical vehicle electronics circuit")=="kanada"
