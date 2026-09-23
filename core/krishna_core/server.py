@@ -235,6 +235,39 @@ def _shared_garudanetra_replay(payload,context):
     if steps is not None and not isinstance(steps,list):raise ValueError("steps must be an array")
     return _browser_fabric.replay(sid,steps=steps,approved=bool(context.get("approved",False)))
 
+def _shared_garudanetra_research_create(payload,context):
+    row=dict(payload or {})
+    row["project"]=str(row.get("project") or context.get("project") or "KRISHNA")
+    row["requested_by"]=str(row.get("requested_by") or context.get("actor") or "KRISHNA")
+    return _browser_fabric.research.create_mission(row)
+
+def _shared_garudanetra_research_launch(payload,context):
+    mid=str(payload.get("mission_id") or "").strip()
+    scout=str(payload.get("scout") or "").strip()
+    if not mid or not scout:raise ValueError("mission_id and scout are required")
+    return _browser_fabric.research.launch_scout(mid,scout)
+
+def _shared_garudanetra_research_ingest(payload,context):
+    mid=str(payload.get("mission_id") or "").strip()
+    if not mid:raise ValueError("mission_id is required")
+    return _browser_fabric.research.ingest(mid,dict(payload.get("evidence") or {}))
+
+def _shared_garudanetra_research_analyze(payload,context):
+    mid=str(payload.get("mission_id") or "").strip()
+    if not mid:raise ValueError("mission_id is required")
+    return _browser_fabric.research.analyze(mid)
+
+def _shared_garudanetra_research_handoff(payload,context):
+    mid=str(payload.get("mission_id") or "").strip()
+    if not mid:raise ValueError("mission_id is required")
+    return _browser_fabric.research.handoff(mid,str(payload.get("target") or "rishi"))
+
+def _shared_garudanetra_skill_promote(payload,context):
+    return _browser_fabric.research.promote_skill(
+        dict(payload.get("candidate") or {}),
+        approved=bool(context.get("approved",False)),
+    )
+
 orch.action_bus.register(
     "garudanetra.start",_shared_garudanetra_start,
     description="Start a canonical Garudanetra browser session",
@@ -252,6 +285,43 @@ orch.action_bus.register(
     description="Replay recorded Garudanetra steps through the approval gate",
     mutating=True,permissions=("browser.act",),
     sources=("pc","system","agent","job","mcp","a2a"),
+)
+
+orch.action_bus.register(
+    "garudanetra.research.create",_shared_garudanetra_research_create,
+    description="Create a durable Garudanetra research mission with specialist browser scouts",
+    mutating=True,permissions=("browser.research","evidence.write"),
+    sources=("pc","system","agent","job","mcp","a2a"),
+)
+orch.action_bus.register(
+    "garudanetra.research.launch",_shared_garudanetra_research_launch,
+    description="Launch a research scout as a canonical Garudanetra task-memory browser session",
+    mutating=True,permissions=("browser.research","browser.act"),
+    sources=("pc","system","agent","job","mcp","a2a"),
+)
+orch.action_bus.register(
+    "garudanetra.research.ingest",_shared_garudanetra_research_ingest,
+    description="Add sourced candidate evidence to a Garudanetra research mission",
+    mutating=True,permissions=("browser.research","evidence.write"),
+    sources=("pc","system","agent","job","mcp","a2a"),
+)
+orch.action_bus.register(
+    "garudanetra.research.analyze",_shared_garudanetra_research_analyze,
+    description="Analyze mission evidence while preserving unresolved contradictions",
+    permissions=("browser.research","evidence.read"),
+    sources=("pc","system","agent","job","mcp","a2a"),
+)
+orch.action_bus.register(
+    "garudanetra.research.handoff",_shared_garudanetra_research_handoff,
+    description="Package Garudanetra evidence for Rishi, Shishya, LAB BOT or Gyan candidate review",
+    permissions=("browser.research","evidence.read"),
+    sources=("pc","system","agent","job","mcp","a2a"),
+)
+orch.action_bus.register(
+    "garudanetra.skill.promote",_shared_garudanetra_skill_promote,
+    description="Promote an owner-approved distilled browser research skill",
+    mutating=True,requires_approval=True,permissions=("browser.research","skill.write"),
+    sources=("pc","system"),
 )
 
 def _shared_garudanetra_upload_attachment(payload,context):
@@ -879,6 +949,20 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"live research run not found"})
         if path == "/api/garudanetra/fabric":
             return self._json(200, _browser_fabric.status())
+        if path == "/api/garudanetra/research/status":
+            return self._json(200,_browser_fabric.research.status())
+        if path == "/api/garudanetra/research/missions":
+            limit_raw=(query.get("limit") or ["100"])[0]
+            try:limit=max(1,min(int(limit_raw),500))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,{"missions":_browser_fabric.research.missions(limit)})
+        if path == "/api/garudanetra/research/mission":
+            mid=str((query.get("id") or [""])[0]).strip()
+            if not mid:return self._json(400,{"error":"id is required"})
+            try:return self._json(200,_browser_fabric.research.mission(mid))
+            except KeyError:return self._json(404,{"error":"research mission not found"})
+        if path == "/api/garudanetra/research/skills":
+            return self._json(200,{"skills":_browser_fabric.research.skills()})
         if path == "/api/garudanetra/sessions":
             return self._json(200, _garudanetra.status())
         if path == "/api/garudanetra/semantic":
