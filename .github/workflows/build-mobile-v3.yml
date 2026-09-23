@@ -81,6 +81,12 @@ jobs:
           dependencies {
             implementation 'androidx.browser:browser:1.8.0'
             implementation 'com.google.mlkit:object-detection:17.0.2'
+            implementation 'com.google.mlkit:text-recognition:16.0.1'
+            implementation 'com.google.mlkit:text-recognition-devanagari:16.0.1'
+            implementation 'com.google.mlkit:barcode-scanning:17.3.0'
+            implementation 'com.google.mlkit:face-detection:16.1.7'
+            implementation 'com.google.mlkit:pose-detection:18.0.0-beta5'
+            implementation 'com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1'
           }
           EOF
 
@@ -123,6 +129,7 @@ jobs:
               android:usesCleartextTraffic="true"
               android:allowBackup="false"
               android:networkSecurityConfig="@xml/network_security_config">
+              <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="subject_segment"/>
               <service android:name=".HawkeyeSyncJobService" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="false"/>
               <service android:name=".KrishnaWakeService" android:foregroundServiceType="microphone" android:exported="false"/>
               <activity android:name=".MainActivity" android:exported="true">
@@ -207,6 +214,14 @@ jobs:
           grep -q "openResearchBrowser" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "saveHawkeyeCapture" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "ML_KIT_OBJECT_TRACKER" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
+          grep -q "ML_KIT_LOCAL_RICH" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
+          grep -q "hawkeyeRichPerception" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "hawkeyeGeminiAnalyze" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "hawkeyeGeminiLiveToken" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q 'id="cameraAI"' app/src/main/assets/index.html
+          grep -q 'id="cameraGeminiLive"' app/src/main/assets/index.html
+          grep -q "toggleGeminiLive" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q "richPerception" app/src/main/assets/hawkeye-observer-ui.js
           grep -q "user-default-custom-tab" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "HawkeyeOfflinePerception.analyze" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "ANDROID_LOCAL_LIGHTWEIGHT_PROBE" app/src/main/java/com/krishna/mobile/HawkeyeOfflinePerception.java
