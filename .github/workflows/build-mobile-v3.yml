@@ -179,6 +179,7 @@ jobs:
           grep -q "SWIPE TO ROTATE" app/src/main/assets/index.html
           grep -q "showAvatarView" app/src/main/assets/index.html
           grep -q "hawkeye-observer-ui.js" app/src/main/assets/index.html
+          node --check app/src/main/assets/hawkeye-observer-ui.js
           grep -q "PHOTO+DATA" app/src/main/assets/index.html
           grep -q "REC+DATA" app/src/main/assets/index.html
           grep -q "autoZoom" app/src/main/assets/hawkeye-observer-ui.js
