@@ -7,6 +7,7 @@ through Model Scout, is benchmarked against existing local models, and may only 
 routing-enabled after explicit review + verification evidence.
 """
 
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 from pathlib import Path
 import hashlib
@@ -43,6 +44,7 @@ class SparkX25Manager:
     VERIFIED_RUNTIMES=("ollama","llama.cpp","lm-studio","mlx","vllm","sglang")
     MOBILE_RUNTIME_CANDIDATES=("llama.cpp-android","native-ndk-jni")
     UNVERIFIED_RUNTIMES=("litert","litert-lm")
+    STAGES=("DISCOVERED","DOWNLOADED","BENCHMARKED","CANDIDATE","REVIEWED","VERIFIED","ROUTING_ENABLED")
     SPECS={
         "spark-x2.5-1.7b":SparkSpec(
             "spark-x2.5-1.7b","SparkLLM/Spark-X2.5-1.7B",1.7,
@@ -65,18 +67,53 @@ class SparkX25Manager:
         self.router=router
         self._ensure_lifecycle()
 
+    @classmethod
+    def _default_state(cls):
+        return {
+            "stage":"DISCOVERED","routing_enabled":False,
+            "reviewed":False,"verified":False,
+        }
+
+    @classmethod
+    def _advance_stage_state(cls,state,target):
+        target=str(target or "").strip().upper()
+        if target not in cls.STAGES:raise ValueError("invalid Spark lifecycle stage: "+target)
+        current=str(state.get("stage") or "DISCOVERED").strip().upper()
+        if current not in cls.STAGES:current="DISCOVERED"
+        if cls.STAGES.index(target)>cls.STAGES.index(current):
+            state["stage"]=target
+        else:
+            state["stage"]=current
+        return state
+
+    @staticmethod
+    def _installed(status,model_id):
+        wanted=str(model_id or "").strip().lower()
+        installed={str(x or "").strip().lower() for x in (status.get("installed_models") or [])}
+        return wanted in installed or (wanted+":latest") in installed
+
     def _ensure_lifecycle(self):
         if self.lifecycle_path.exists():return
         self._save_lifecycle({
             "schema":1,"version":self.VERSION,
-            "models":{k:{"stage":"DISCOVERED","routing_enabled":False,"reviewed":False,"verified":False}
-                      for k in self.SPECS},
+            "models":{k:self._default_state() for k in self.SPECS},
             "updated_at":time.time(),
         })
 
     def _load_lifecycle(self):
-        try:return json.loads(self.lifecycle_path.read_text(encoding="utf-8"))
-        except Exception:return {"schema":1,"version":self.VERSION,"models":{}}
+        try:
+            data=json.loads(self.lifecycle_path.read_text(encoding="utf-8"))
+            if not isinstance(data,dict):raise ValueError("lifecycle root must be an object")
+            data.setdefault("schema",1);data.setdefault("version",self.VERSION);data.setdefault("models",{})
+            for key in self.SPECS:
+                state=data["models"].setdefault(key,self._default_state())
+                for field,value in self._default_state().items():state.setdefault(field,value)
+            return data
+        except Exception:
+            return {
+                "schema":1,"version":self.VERSION,
+                "models":{k:self._default_state() for k in self.SPECS},
+            }
 
     def _save_lifecycle(self,data):
         self.lifecycle_path.parent.mkdir(parents=True,exist_ok=True)
@@ -150,24 +187,71 @@ class SparkX25Manager:
         }
 
     def discover(self):
+        """Discover Spark candidates without downgrading prior benchmark/promotion state."""
         lifecycle=self._load_lifecycle()
+        ollama=self.ollama_status()
         rows={}
         for key,spec in self.SPECS.items():
-            row=self.model_scout.evaluate(ModelCandidate(
-                model_id=spec.model_id,
-                source="local",
-                task=spec.intended_role.lower(),
-                license=self.LICENSE,
-                local_capable=True,
-                quality=0.0,
-                benchmark_ref="",
-                notes="Spark-X2.5 official candidate; benchmark required before promotion",
-            ))
-            state=lifecycle.setdefault("models",{}).setdefault(key,{})
-            state.update({"stage":"DISCOVERED","routing_enabled":False,"reviewed":False,"verified":False})
-            rows[key]={"spec":self.candidate_metadata(key),"scout":row,"lifecycle":dict(state)}
+            state=lifecycle.setdefault("models",{}).setdefault(key,self._default_state())
+            for field,value in self._default_state().items():state.setdefault(field,value)
+            existing=dict(self.model_scout.rows.get(spec.model_id) or {})
+            if existing:
+                row=existing
+            else:
+                row=self.model_scout.evaluate(ModelCandidate(
+                    model_id=spec.model_id,
+                    source="local",
+                    task=spec.intended_role.lower(),
+                    license=self.LICENSE,
+                    local_capable=True,
+                    quality=0.0,
+                    benchmark_ref="",
+                    notes="Spark-X2.5 official candidate; benchmark required before promotion",
+                ))
+            if self._installed(ollama,spec.model_id):
+                self._advance_stage_state(state,"DOWNLOADED")
+            if row.get("benchmarked"):
+                self._advance_stage_state(state,"BENCHMARKED")
+                if row.get("benchmark_ref"):state.setdefault("benchmark_ref",row.get("benchmark_ref"))
+            if row.get("accepted"):self._advance_stage_state(state,"CANDIDATE")
+            if row.get("reviewed"):
+                state["reviewed"]=True
+                if row.get("review_ref"):state["review_ref"]=row.get("review_ref")
+                self._advance_stage_state(state,"REVIEWED")
+            if row.get("verified"):
+                state["verified"]=True
+                if row.get("verification_ref"):state["verification_ref"]=row.get("verification_ref")
+                self._advance_stage_state(state,"VERIFIED")
+            if row.get("routing_enabled"):
+                state.update({"reviewed":True,"verified":True,"routing_enabled":True})
+                self._advance_stage_state(state,"ROUTING_ENABLED")
+            rows[key]={"spec":self.candidate_metadata(key),"scout":dict(row),"lifecycle":dict(state)}
         self._save_lifecycle(lifecycle)
-        return {"family":"Spark-X2.5","candidates":rows,"routing_changed":False}
+        return {"family":"Spark-X2.5","candidates":rows,"routing_changed":False,"ollama":ollama}
+
+    def preflight(self,key):
+        spec=self.SPECS[key]
+        status=self.ollama_status()
+        lifecycle=self._load_lifecycle()
+        state=lifecycle.setdefault("models",{}).setdefault(key,self._default_state())
+        installed=self._installed(status,spec.model_id)
+        if installed:
+            self._advance_stage_state(state,"DOWNLOADED")
+            self._save_lifecycle(lifecycle)
+        return {
+            "model_key":key,
+            "model":spec.model_id,
+            "ollama":status,
+            "installed":installed,
+            "ready_for_benchmark":bool(
+                status.get("available")
+                and status.get("architecture_supported")
+                and status.get("windows_e_drive_policy_ok")
+                and installed
+            ),
+            "no_download_performed":True,
+            "lifecycle":dict(state),
+        }
 
     def install_plan(self,key):
         spec=self.SPECS[key]
@@ -223,6 +307,15 @@ class SparkX25Manager:
         except Exception:return 0.0
 
     def benchmark(self,key,runner=None,device=None,quantization="unknown",full=False):
+        if runner is None:
+            preflight=self.preflight(key)
+            if not preflight["ready_for_benchmark"]:
+                raise RuntimeError("Spark benchmark preflight failed; verify Ollama version, E-drive model storage, and installed model")
+        guard=self.resource_governor.job(timeout=0) if self.resource_governor else nullcontext()
+        with guard:
+            return self._benchmark_impl(key,runner=runner,device=device,quantization=quantization,full=full)
+
+    def _benchmark_impl(self,key,runner=None,device=None,quantization="unknown",full=False):
         spec=self.SPECS[key]
         runner=runner or (lambda prompt,ctx:self._ollama_generate(spec.model_id,prompt,ctx))
         tool_cases=[
@@ -289,8 +382,9 @@ class SparkX25Manager:
         path=self.benchmarks/(key+".json")
         path.write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding="utf-8")
         lifecycle=self._load_lifecycle()
-        state=lifecycle.setdefault("models",{}).setdefault(key,{})
-        state.update({"stage":"BENCHMARKED","benchmark_ref":report["benchmark_id"],"routing_enabled":False})
+        state=lifecycle.setdefault("models",{}).setdefault(key,self._default_state())
+        state["benchmark_ref"]=report["benchmark_id"]
+        self._advance_stage_state(state,"BENCHMARKED")
         self._save_lifecycle(lifecycle)
         return report
 
@@ -312,10 +406,12 @@ class SparkX25Manager:
             notes="Spark-X2.5 reviewed benchmark candidate",
         ),min_score=minimum_score)
         lifecycle=self._load_lifecycle()
-        state=lifecycle.setdefault("models",{}).setdefault(key,{})
+        state=lifecycle.setdefault("models",{}).setdefault(key,self._default_state())
+        if scout.get("accepted"):
+            self._advance_stage_state(state,"CANDIDATE")
+            state["reviewed"]=True
+            self._advance_stage_state(state,"REVIEWED")
         state.update({
-            "stage":"CANDIDATE" if scout.get("accepted") else "BENCHMARKED",
-            "reviewed":True,"verified":False,"routing_enabled":False,
             "review_ref":str(review_ref),"verification_ref":str(verification_ref),
             "quality":quality,
         })
@@ -327,17 +423,39 @@ class SparkX25Manager:
         })
         path.write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding="utf-8")
         self._save_lifecycle(lifecycle)
-        return {"benchmark":report,"scout":scout,"lifecycle":state}
+        return {"benchmark":report,"scout":scout,"lifecycle":dict(state)}
+
+    def verify(self,key,*,review_ref,verification_ref):
+        lifecycle=self._load_lifecycle()
+        state=lifecycle.setdefault("models",{}).setdefault(key,self._default_state())
+        if not state.get("reviewed"):
+            raise RuntimeError("Spark candidate must be reviewed before verification")
+        review_ref=str(review_ref or "").strip()
+        verification_ref=str(verification_ref or "").strip()
+        if not review_ref or not verification_ref:
+            raise ValueError("review_ref and verification_ref are required")
+        if state.get("review_ref") and str(state.get("review_ref"))!=review_ref:
+            raise ValueError("review_ref does not match reviewed candidate")
+        state.update({"reviewed":True,"verified":True,"review_ref":review_ref,"verification_ref":verification_ref})
+        self._advance_stage_state(state,"VERIFIED")
+        self._save_lifecycle(lifecycle)
+        return {"model":self.SPECS[key].model_id,"lifecycle":dict(state)}
 
     def enable_routing(self,key,*,review_ref,verification_ref):
         spec=self.SPECS[key]
-        result=self.model_scout.promote(spec.model_id,review_ref=review_ref,verification_ref=verification_ref)
         lifecycle=self._load_lifecycle()
-        state=lifecycle.setdefault("models",{}).setdefault(key,{})
-        state.update({"stage":"ROUTING_ENABLED","reviewed":True,"verified":True,"routing_enabled":True,
+        state=lifecycle.setdefault("models",{}).setdefault(key,self._default_state())
+        review_ref=str(review_ref or "").strip();verification_ref=str(verification_ref or "").strip()
+        if not state.get("reviewed") or not state.get("verified"):
+            raise RuntimeError("Spark candidate must be reviewed and verified before routing can be enabled")
+        if str(state.get("review_ref") or "")!=review_ref or str(state.get("verification_ref") or "")!=verification_ref:
+            raise ValueError("promotion references do not match verified lifecycle evidence")
+        result=self.model_scout.promote(spec.model_id,review_ref=review_ref,verification_ref=verification_ref)
+        state.update({"reviewed":True,"verified":True,"routing_enabled":True,
                       "review_ref":review_ref,"verification_ref":verification_ref})
+        self._advance_stage_state(state,"ROUTING_ENABLED")
         self._save_lifecycle(lifecycle)
-        return {"model":spec.model_id,"scout":result,"lifecycle":state}
+        return {"model":spec.model_id,"scout":result,"lifecycle":dict(state)}
 
     def mobile_plan(self):
         return {
@@ -371,6 +489,6 @@ class SparkX25Manager:
             "models":{k:{**self.candidate_metadata(k),"lifecycle":lifecycle.get("models",{}).get(k,{})} for k in self.SPECS},
             "ollama":self.ollama_status(),
             "mobile":self.mobile_plan(),
-            "promotion_policy":"DISCOVERED -> BENCHMARKED -> CANDIDATE -> REVIEWED/VERIFIED -> ROUTING_ENABLED",
+            "promotion_policy":"DISCOVERED -> DOWNLOADED -> BENCHMARKED -> CANDIDATE -> REVIEWED -> VERIFIED -> ROUTING_ENABLED",
             "vendor_claims_are_not_benchmark_evidence":True,
         }
