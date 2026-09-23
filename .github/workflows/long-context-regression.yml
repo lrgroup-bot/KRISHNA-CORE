@@ -1,0 +1,40 @@
+name: KRISHNA Long Context Regression
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly contract regression. The running KRISHNA runtime separately executes
+    # its model-backed local-only NIAH matrix every seven days.
+    - cron: '17 3 * * 3'
+  push:
+    paths:
+      - 'core/krishna_core/long_context.py'
+      - 'core/krishna_core/orchestrator.py'
+      - 'core/krishna_core/server.py'
+      - 'core/tests/test_long_context.py'
+      - '.github/workflows/long-context-regression.yml'
+  pull_request:
+    paths:
+      - 'core/krishna_core/long_context.py'
+      - 'core/krishna_core/orchestrator.py'
+      - 'core/krishna_core/server.py'
+      - 'core/tests/test_long_context.py'
+      - '.github/workflows/long-context-regression.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  long-context-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Compile long-context sources
+        run: python -m py_compile core/krishna_core/long_context.py core/krishna_core/orchestrator.py core/krishna_core/server.py
+      - name: Run long-context reliability tests
+        working-directory: core
+        run: python -m unittest tests.test_long_context -v
