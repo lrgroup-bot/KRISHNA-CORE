@@ -89,14 +89,15 @@ class HawkeyeLearningObserver:
 
         queries = []
         for term in terms[:6]:
-            for suffix in (
-                "",
-                " official",
-                " site:linkedin.com/in",
-                " site:instagram.com",
-                " site:facebook.com",
-                " site:x.com",
-            ):
+            suffixes = ["", " official"]
+            if identity_allowed or clues:
+                suffixes += [
+                    " site:linkedin.com/in",
+                    " site:instagram.com",
+                    " site:facebook.com",
+                    " site:x.com",
+                ]
+            for suffix in suffixes:
                 q = (term + suffix).strip()
                 if q and q not in queries:
                     queries.append(q)
