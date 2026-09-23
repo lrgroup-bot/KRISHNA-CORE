@@ -315,13 +315,15 @@ class GarudanetraResearchFabric:
         if not claim:raise ValueError("claim is required")
         title=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("title") or "")),1000)
         excerpt=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("excerpt") or "")),3000)
+        claim_key=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("claim_key") or claim)),500).lower()
+        source_date=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("source_date") or "")),80)
         item={
             "evidence_id":str(uuid.uuid4()),"source_kind":_clean(payload.get("source_kind") or "web",64),
             "url":_redact_url(payload.get("url")),"title":title,
-            "claim":claim,"claim_key":_clean(payload.get("claim_key") or claim,500).lower(),
+            "claim":claim,"claim_key":claim_key,
             "stance":stance,"quality":max(0.0,min(1.0,float(payload.get("quality") or 0.5))),
             "excerpt":excerpt,
-            "source_date":_clean(payload.get("source_date"),80),
+            "source_date":source_date,
             "added_at":_now(),
         }
         row["evidence"].append(item)
