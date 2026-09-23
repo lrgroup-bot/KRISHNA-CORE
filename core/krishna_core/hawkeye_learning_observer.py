@@ -27,8 +27,8 @@ from .field_perception import FieldPerceptionPolicy
 class HawkeyeLearningObserver:
     VERSION = "hawkeye-learning-observer-v1"
     SOURCE_TYPES = {
-        "camera", "video", "book", "page", "document", "screen", "object",
-        "audio", "mobile_curated_evidence", "pc", "web", "user_note",
+        "camera", "image", "video", "book", "page", "document", "screen", "object",
+        "audio", "mobile", "mobile_curated_evidence", "pc", "web", "user_note",
     }
     EVIDENCE_STATES = {"MEASURED", "OBSERVED", "INFERRED", "PREDICTED", "UNKNOWN"}
     ALLOWED_MODALITIES = {"image", "video", "audio", "text", "sensor", "document", "multimodal"}
