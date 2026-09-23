@@ -7,6 +7,8 @@ import os
 import urllib.error
 import urllib.request
 
+from .config import settings
+
 
 _IMAGE_TYPES={"image/jpeg","image/png","image/webp"}
 
@@ -63,6 +65,15 @@ class GeminiHawkeyeBridge:
                 "key":key,
                 "model":os.getenv("KRISHNA_GEMINI_MODEL",self.DEFAULT_MODEL).strip() or self.DEFAULT_MODEL,
                 "source":"environment",
+                "profile_id":None,
+            }
+        cloud_url=str(getattr(settings,"cloud_api_url","") or "").lower()
+        cloud_key=str(getattr(settings,"cloud_api_key","") or "").strip()
+        if cloud_key and ("gemini" in cloud_url or "generativelanguage.googleapis.com" in cloud_url):
+            return {
+                "key":cloud_key,
+                "model":os.getenv("KRISHNA_GEMINI_MODEL",self.DEFAULT_MODEL).strip() or self.DEFAULT_MODEL,
+                "source":"krishna-cloud-config",
                 "profile_id":None,
             }
         return None
@@ -178,7 +189,8 @@ class GeminiHawkeyeBridge:
             "local":False,
             "cloud":True,
             "selected_keyframe":True,
-            "raw_cloud_upload":False,
+            "selected_keyframe_cloud_upload":True,
+            "continuous_raw_camera_upload":False,
             "credential_location":"KRISHNA_PC_ONLY",
             "evidence_state":"OBSERVED",
         }
@@ -205,6 +217,7 @@ class GeminiHawkeyeBridge:
                 "config":{
                     "sessionResumption":{},
                     "responseModalities":["AUDIO"],
+                    "outputAudioTranscription":{},
                 },
             },
         }
