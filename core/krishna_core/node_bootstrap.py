@@ -20,7 +20,7 @@ def portable_manifest(root, version="1"):
     root=Path(root); files={}
     for p in root.rglob("*"):
         if p.is_file() and not any(x.lower() in EXCLUDED for x in p.parts):
-            files[str(p.relative_to(root))]=sha256(p)
+            files[p.relative_to(root).as_posix()]=sha256(p)
     return NodeManifest(socket.gethostname(),socket.gethostname(),version,files)
 
 def delta(source, target):
