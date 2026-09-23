@@ -996,6 +996,44 @@ class Orchestrator:
             )
             return result
 
+
+        def brahma_cognitive_analogies(payload,context):
+            return self.brahma.cognitive_analogies(
+                str(payload.get("concept") or payload.get("query") or ""),
+                limit=int(payload.get("limit") or 12),
+                min_score=float(payload.get("min_score") if payload.get("min_score") is not None else 0.30),
+            )
+
+        def brahma_cognitive_curiosity(payload,context):
+            return self.brahma.cognitive_curiosity(
+                limit=int(payload.get("limit") or 20),
+                queue_questions=bool(payload.get("queue_questions",False)),
+            )
+
+        def brahma_cognitive_consolidate(payload,context):
+            return self.brahma.cognitive_consolidate(
+                str(payload.get("project") or context.get("project") or "KRISHNA"),
+                min_occurrences=int(payload.get("min_occurrences") or 2),
+                limit=int(payload.get("limit") or 50),
+                queue_questions=bool(payload.get("queue_questions",False)),
+            )
+
+        def brahma_cognitive_forget(payload,context):
+            return self.brahma.cognitive_forget(
+                activation_ttl_days=int(payload.get("activation_ttl_days") or 30),
+                candidate_ttl_days=int(payload.get("candidate_ttl_days") or 180),
+                confidence_floor=float(payload.get("confidence_floor") if payload.get("confidence_floor") is not None else 0.20),
+                apply=bool(payload.get("apply",False)),
+            )
+
+        def brahma_cognitive_hypotheses(payload,context):
+            return self.brahma.cognitive_hypotheses(
+                str(payload.get("query") or payload.get("topic") or ""),
+                depth=int(payload.get("depth") or 3),
+                limit=int(payload.get("limit") or 8),
+                queue_questions=bool(payload.get("queue_questions",False)),
+            )
+
         def brahma_temporal_query(payload,context):
             return self.brahma.temporal_query(
                 str(payload.get("topic") or ""),
@@ -2042,6 +2080,38 @@ class Orchestrator:
         self.action_bus.register(
             "brahma.cognitive.study",brahma_cognitive_study,
             description="Create bounded Rishi/BRAHMAGYAN study missions only for activated knowledge gaps",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+
+        self.action_bus.register(
+            "brahma.cognitive.analogies",brahma_cognitive_analogies,
+            description="Generate bounded structural analogy candidates without asserting equivalence",
+            mutating=True,permissions=("runtime.read","memory.write"),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.cognitive.curiosity",brahma_cognitive_curiosity,
+            description="Convert unresolved contradictions into evidence-seeking Rishi questions",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.cognitive.consolidate",brahma_cognitive_consolidate,
+            description="Derive approval-gated semantic candidates from repeated episodic memory",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.cognitive.forget",brahma_cognitive_forget,
+            description="Prune old activation telemetry and reversibly dormancy-mark weak orphan candidates",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.cognitive.hypotheses",brahma_cognitive_hypotheses,
+            description="Generate falsifiable cross-domain hypothesis questions for Rishi or LAB BOT review",
             mutating=True,permissions=("memory.write","evidence.write"),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
