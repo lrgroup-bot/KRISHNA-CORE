@@ -249,6 +249,7 @@ core\skills\root-cause-investigation\SKILL.md
 core\skills\secure-mobile-gateway\SKILL.md
 core\skills\verification-gate\SKILL.md
 core\tests\test_agent_native_runtime.py
+core\tests\test_architecture_truth_classification.py
 core\tests\test_architecture_truth.py
 core\tests\test_autonomy_supervisor.py
 core\tests\test_avatar_asset_pipeline.py
@@ -282,6 +283,7 @@ core\tests\test_garuda_science_sources.py
 core\tests\test_garudanetra_browser_workspace_contract.py
 core\tests\test_garudanetra_research.py
 core\tests\test_garudanetra_session.py
+core\tests\test_gnn_trainer.py
 core\tests\test_graph_dataset.py
 core\tests\test_graph_intelligence.py
 core\tests\test_gyan_memory_fabric.py
