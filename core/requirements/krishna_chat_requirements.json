@@ -79,7 +79,8 @@
         "When browser work starts, transform into a Sudarshan/Garudanetra split workspace rather than opening a dead status page.",
         "Support project, research, investigate, plugin and developer workflows while KRISHNA selects internal engines automatically.",
         "UI/frontend work uses the Sudarshan Design Engine for selective design skills, a design-genome/drift model, bounded repair/retest and hard functional/visual/responsive/accessibility/security acceptance gates.",
-        "Sudarshan design work retrieves task-relevant verified Rishi Vishvakarma knowledge; candidate lessons preserve provenance/license/evidence and are not treated as verified until reviewed."
+        "Sudarshan design work retrieves task-relevant verified Rishi Vishvakarma knowledge; candidate lessons preserve provenance/license/evidence and are not treated as verified until reviewed.",
+        "Sudarshan Project Brain maintains structured PROJECT, ARCHITECTURE, RULES, PHASES, DESIGN, AGENTS and MEMORY governance layers in runtime-owned state while preserving database-backed verified learning and summary context."
       ]
     },
     {
@@ -376,7 +377,8 @@
     "Avatar production output passes full body, facial-viseme and required-animation inspection before being reported production-ready.",
     "Field 3D/AR scene generation requires measured GNSS and never upgrades missing depth/photogrammetry/device tracking into verified measurements.",
     "Sudarshan UI/frontend design work cannot claim verified completion until hard design acceptance gates pass after rendered verification; candidate Vishvakarma lessons are not verified knowledge.",
-    "Local Model Scout may evaluate/recommend candidates but must not download models, spend money, or become a competing routing authority."
+    "Local Model Scout may evaluate/recommend candidates but must not download models, spend money, or become a competing routing authority.",
+    "Structured Project Brain governance must persist across restart, preserve DB-backed verified learning, and remain runtime-owned unless a separately governed source-tree write is explicitly requested."
   ],
   "status_definitions": {
     "VERIFIED": "Implemented and proven by the required current runtime/device/integration evidence.",
@@ -718,6 +720,18 @@
         "core/tests/test_historical_consolidation_contract.py"
       ],
       "next": "runtime benchmark real installed local model candidates and verify scout recommendations remain advisory until separately governed activation"
+    },
+    {
+      "id": "structured_project_brain",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "Sudarshan Project Brain",
+      "evidence": [
+        "core/krishna_core/project_brain.py",
+        "core/krishna_core/orchestrator.py",
+        "core/tests/test_project_brain.py",
+        "core/tests/test_historical_consolidation_contract.py"
+      ],
+      "next": "post-deploy provision a registered project brain, record verified work, restart KRISHNA and confirm governance layers plus DB-backed context persist without source-tree mutation"
     }
   ]
 }
