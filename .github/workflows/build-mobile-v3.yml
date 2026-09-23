@@ -60,7 +60,10 @@ jobs:
           plugins { id 'com.android.application' version '8.7.3' apply false }
           EOF
 
-          echo 'org.gradle.jvmargs=-Xmx2048m' > gradle.properties
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m
+          android.useAndroidX=true
+          EOF
 
           cat > app/build.gradle <<'EOF'
           plugins { id 'com.android.application' }
