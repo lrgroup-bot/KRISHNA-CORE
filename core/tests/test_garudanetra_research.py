@@ -38,6 +38,25 @@ class GarudanetraResearchFabricTests(unittest.TestCase):
             self.assertIn("REDACTED",saved["evidence"][0]["url"])
             self.assertNotIn("secret",saved["evidence"][0]["url"])
 
+    def test_persisted_evidence_redacts_credentials_with_kabach_policy(self):
+        with tempfile.TemporaryDirectory() as td:
+            fabric=GarudanetraResearchFabric(Path(td))
+            row=fabric.create_mission({"question":"Inspect sourced evidence safely"})
+            item=fabric.ingest(row["mission_id"],{
+                "claim":"Result observed; password=supersecretvalue",
+                "claim_key":"token=verysecretvalue",
+                "title":"Authorization: Bearer abcdefghijklmnop",
+                "excerpt":"api_key=abcdef1234567890 and bearer xyzxyzxyzxyzxyz",
+                "source_date":"token=datedsecret",
+                "url":"https://example.org/?token=querysecret&safe=yes",
+                "stance":"neutral",
+            })
+            rendered=str(item).lower()
+            for secret in ("supersecretvalue","verysecretvalue","abcdefghijklmnop",
+                           "abcdef1234567890","xyzxyzxyzxyzxyz","datedsecret","querysecret"):
+                self.assertNotIn(secret,rendered)
+            self.assertIn("redacted",rendered)
+
     def test_handoff_preserves_candidate_state_for_lab_bot(self):
         with tempfile.TemporaryDirectory() as td:
             fabric=GarudanetraResearchFabric(Path(td))
