@@ -403,6 +403,56 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(code,201)
         self.assertEqual(stored["memory_kind"],"evidence")
 
+    def test_hawkeye_measurement_adapters_are_action_native_and_read_only(self):
+        code,session=self.call("/api/hawkeye/live/start",{
+            "project":"KRISHNA","purpose":"diagnose truck electronics and vibration","scene_hint":"vehicle"
+        })
+        self.assertEqual(code,201)
+        sid=session["session_id"]
+
+        code,status=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.diagnostic.adapters.status","project":"KRISHNA",
+            "permissions":["runtime.read"],"payload":{}
+        })
+        self.assertEqual(code,200)
+        self.assertFalse(status["result"]["vehicle"]["transmit"])
+
+        code,electrical=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.diagnostic.electronics.measure","project":"KRISHNA",
+            "permissions":["evidence.write"],
+            "payload":{"session_id":sid,"source":"multimeter","measurements":[
+                {"point":"TP1","quantity":"voltage","value":12.1,"unit":"V"}
+            ]}
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(electrical["result"]["evidence_state"],"MEASURED")
+
+        code,vehicle=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.diagnostic.vehicle.read","project":"KRISHNA",
+            "permissions":["evidence.write"],
+            "payload":{"session_id":sid,"protocol":"obd2","frames":[
+                {"mode":1,"pid":13,"data":[55],"direction":"rx"}
+            ]}
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(vehicle["result"]["frames"][0]["name"],"vehicle_speed")
+        self.assertFalse(vehicle["result"]["safety"]["transmit"])
+
+        samples=[0.0,0.5,1.0,0.5,0.0,-0.5,-1.0,-0.5]*8
+        code,acoustic=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.diagnostic.acoustic.analyze","project":"KRISHNA",
+            "permissions":["evidence.write"],
+            "payload":{"session_id":sid,"sample_rate":8000,"samples":samples}
+        })
+        self.assertEqual(code,200)
+        self.assertFalse(acoustic["result"]["raw_samples_retained"])
+
+        state=self.call("/api/hawkeye/live/state?session_id="+sid)[1]
+        self.assertGreaterEqual(state["hawkeye"]["lane_counts"]["diagnostic"],3)
+        self.assertIn(state["hawkeye"]["reasoning"]["conclusion_state"],{
+            "SUPPORTED","PRELIMINARY","CONTESTED"
+        })
+
     def test_brahma_memory_intelligence_http_and_action_contracts(self):
         code,receipt=self.call("/api/action-bus/dispatch",{
             "action":"brahma.intake","project":"KRISHNA",
