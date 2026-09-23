@@ -319,6 +319,41 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    boolean sensitiveCaptureKey(String key){
+      String k=String.valueOf(key==null?"":key).toLowerCase(java.util.Locale.US).replace("-","_").replace(" ","_");
+      return k.contains("password")||k.equals("passwd")||k.equals("pwd")||k.equals("pin")||k.equals("otp")||
+        k.contains("api_key")||k.contains("token")||k.contains("authorization")||k.contains("credential")||k.contains("secret");
+    }
+
+    String redactCaptureText(String value){
+      String s=String.valueOf(value==null?"":value);
+      s=s.replaceAll("(?i)(password|passwd|pwd|pin|otp|api[_ -]?key|access[_ -]?token|session[_ -]?token|authorization|credential|secret)\\s*[:=]\\s*[^\\s,;]+","$1: [SECRET REDACTED]");
+      s=s.replaceAll("(?i)bearer\\s+[A-Za-z0-9._~+\\-/=]{4,}","Bearer [SECRET REDACTED]");
+      s=s.replaceAll("\\bAIza[0-9A-Za-z_-]{20,}\\b","[SECRET REDACTED]");
+      return s;
+    }
+
+    Object sanitizeCaptureMetadata(String key,Object value)throws Exception{
+      if(value==null||value==JSONObject.NULL)return JSONObject.NULL;
+      if(sensitiveCaptureKey(key))return "[SECRET REDACTED]";
+      if(value instanceof JSONObject){
+        JSONObject src=(JSONObject)value,dst=new JSONObject();
+        java.util.Iterator<String> it=src.keys();
+        while(it.hasNext()){
+          String child=it.next();
+          dst.put(child,sanitizeCaptureMetadata(child,src.opt(child)));
+        }
+        return dst;
+      }
+      if(value instanceof JSONArray){
+        JSONArray src=(JSONArray)value,dst=new JSONArray();
+        for(int i=0;i<src.length();i++)dst.put(sanitizeCaptureMetadata(key,src.opt(i)));
+        return dst;
+      }
+      if(value instanceof String)return redactCaptureText((String)value);
+      return value;
+    }
+
     @JavascriptInterface public String saveHawkeyeCapture(String dataB64,String mimeType,String kind,String metadataJson){
       try{
         byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
@@ -332,9 +367,9 @@ public class MainActivity extends Activity {
 
         String ext="image/png".equals(type)?".png":("image/webp".equals(type)?".webp":("video/mp4".equals(type)?".mp4":("video/webm".equals(type)?".webm":".jpg")));
         String base="KRISHNA_HAWKEYE_"+System.currentTimeMillis();
-        JSONObject metadata=new JSONObject(metadataJson==null||metadataJson.trim().isEmpty()?"{}":metadataJson);
-        metadata.remove("password");metadata.remove("pin");metadata.remove("otp");metadata.remove("token");metadata.remove("api_key");
+        JSONObject metadata=(JSONObject)sanitizeCaptureMetadata("",new JSONObject(metadataJson==null||metadataJson.trim().isEmpty()?"{}":metadataJson));
         metadata.put("saved_at",System.currentTimeMillis());
+        metadata.put("raw_cloud_upload",false);
         metadata.put("privacy","user-requested local capture; no automatic cloud upload");
 
         JSONObject out=new JSONObject();
