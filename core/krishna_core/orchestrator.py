@@ -2010,7 +2010,6 @@ class Orchestrator:
                 agent_score=float(payload.get("agent_score") or 0.0),
                 multilingual_score=float(payload.get("multilingual_score") or 0.0),
                 review_ref=str(payload.get("review_ref") or ""),
-                verification_ref=str(payload.get("verification_ref") or ""),
                 ram_bytes=int(payload.get("ram_bytes") or 0),
                 vram_bytes=int(payload.get("vram_bytes") or 0),
                 latency_ms=float(payload.get("latency_ms") or 0.0),
