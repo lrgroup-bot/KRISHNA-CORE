@@ -380,7 +380,8 @@
     "Structured Project Brain governance is runtime-owned, survives restart, preserves DB-backed verified learning and does not silently modify project source trees.",
     "Rishi Vishvakarma is present in the permanent council and design learning map, and Design Intelligence runtime/UI status is reachable without adding sidebar clutter.",
     "Model Scout evaluate/recommend actions remain advisory and have neither cloud billing authority nor routing authority.",
-    "Spatial UI may become the default desktop shell only after project/chat/NARAD operational parity and rendered Windows acceptance; before that it remains an opt-in preview and the verified operational UI stays default."
+    "Spatial UI may become the default desktop shell only after project/chat/NARAD operational parity and rendered Windows acceptance; before that it remains an opt-in preview and the verified operational UI stays default.",
+    "Knowledge-bound Sudarshan UI work must block when no task-relevant verified Vishvakarma finding is available; candidate lessons cannot satisfy the gate."
   ],
   "status_definitions": {
     "VERIFIED": "Implemented and proven by the required current runtime/device/integration evidence.",
@@ -715,9 +716,10 @@
         "core/krishna_core/rishi_learning.py",
         "core/krishna_core/server.py",
         "app/spatial-ui/src/App.tsx",
-        "core/tests/test_prepull_final_reconciliation.py"
+        "core/tests/test_prepull_final_reconciliation.py",
+        "core/tests/test_final_design_tooling.py"
       ],
-      "next": "post-deploy acceptance: verified Vishvakarma lesson -> design.plan -> design drift/acceptance -> bounded repair/retest -> live /api/design/status -> rendered Windows Design Intelligence panel"
+      "next": "post-deploy acceptance: verified Vishvakarma knowledge -> design.plan/tooling -> design drift/acceptance -> bounded repair/retest -> live /api/design/status -> rendered Windows Design Intelligence panel"
     },
     {
       "id": "model_scout_admission",

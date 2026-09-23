@@ -279,6 +279,7 @@ core\tests\test_field_measurement_adapters.py
 core\tests\test_field_perception.py
 core\tests\test_field_scene.py
 core\tests\test_field_survey.py
+core\tests\test_final_design_tooling.py
 core\tests\test_garuda_science_sources.py
 core\tests\test_garudanetra_browser_workspace_contract.py
 core\tests\test_garudanetra_research.py
