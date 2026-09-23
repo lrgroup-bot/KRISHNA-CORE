@@ -11,6 +11,7 @@ from .router import ModelRouter
 from .model_gateway import ModelGatewayRegistry
 from .openrouter_free import OpenRouterFreeFabric
 from .direct_free import VerifiedDirectFreeFabric
+from .ai_role_policy import AIRolePolicyStore
 from .secure_vault import SecureSecretVault
 from .config import settings
 from .project_graph import ProjectGraph
@@ -107,9 +108,11 @@ class Orchestrator:
         self.model_gateway = ModelGatewayRegistry(runtime_state / "model-gateways.json", self.secure_vault)
         self.openrouter_free = OpenRouterFreeFabric(self.model_gateway, runtime_state / "openrouter-free")
         self.direct_free = VerifiedDirectFreeFabric(self.model_gateway)
+        self.ai_roles = AIRolePolicyStore(runtime_state / "ai-role-policy.json")
         self.router = ModelRouter(self.model_gateway)
         self.router.bind_openrouter_free(self.openrouter_free)
         self.router.bind_direct_free(self.direct_free)
+        self.router.bind_role_policy(self.ai_roles)
         self.graph = ProjectGraph()
         self.graph_intelligence = GraphIntelligence(self.graph, self.memory)
         self.gnn = OptionalGNNBackend()
@@ -212,6 +215,7 @@ class Orchestrator:
             self.action_bus,self.jobs,self.agi.critic,audit=self.memory.audit,
         )
         self.router.bind_sudarshan(self.sudarshan)
+        self.lab.bind_ai(self._route_model, self._route_model_pair, self.memory)
         self.agent_runtime.bind_sudarshan(self.sudarshan)
         self.protocols.bind_sudarshan(self.sudarshan)
         self.dispatcher.bind_sudarshan(self.sudarshan)
