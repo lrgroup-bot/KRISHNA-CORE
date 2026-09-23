@@ -169,8 +169,8 @@ $axeUser=[Environment]::GetEnvironmentVariable("KRISHNA_AXE_CORE_JS","User")
 if($axeUser){$env:KRISHNA_AXE_CORE_JS=$axeUser}
 Write-Host "PROJECT PERFECTION DEPENDENCIES VERIFIED" -ForegroundColor Green
 
-# Build and deploy the verified React spatial shell. The runtime keeps the legacy
-# validation HTML only as a fail-closed fallback when this bundle is unavailable.
+# Build and deploy the React spatial shell as an opt-in preview. The verified
+# operational HTML remains default until Spatial UI parity is explicitly accepted.
 $spatialRoot=Join-Path $Source "app\spatial-ui"
 $spatialIndex=Join-Path $spatialRoot "dist\index.html"
 if(!(Test-Path (Join-Path $spatialRoot "package.json"))){throw "SPATIAL UI PACKAGE MISSING: $spatialRoot"}

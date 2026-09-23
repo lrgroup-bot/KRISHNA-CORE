@@ -320,10 +320,12 @@ core\tests\test_node_provisioner.py
 core\tests\test_openrouter_free.py
 core\tests\test_optional_memory_adapters.py
 core\tests\test_plugin_runtime.py
+core\tests\test_prepull_final_reconciliation.py
 core\tests\test_privacy_browser_e2e.py
 core\tests\test_privacy_guardian.py
 core\tests\test_project_audit.py
 core\tests\test_project_bootstrap_idea.py
+core\tests\test_project_brain.py
 core\tests\test_project_perfection_adapters.py
 core\tests\test_project_perfection_browser_e2e.py
 core\tests\test_project_perfection_execution.py

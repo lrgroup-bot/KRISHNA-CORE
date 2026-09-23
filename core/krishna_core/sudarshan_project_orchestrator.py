@@ -22,13 +22,24 @@ class SudarshanProjectOrchestrator:
         baseline=self.bootstrap.baseline(loaded)
         return {"state":"DISCOVERY","project":project_id,"baseline":baseline,"next":"project-map-and-plan","owner":"Sudarshan"}
 
-    def design_plan(self,task_type,*,reference_image=False,existing_ui=False,agentic_browser=False):
+    def design_plan(self,task_type,*,reference_image=False,existing_ui=False,agentic_browser=False,topic=""):
         return self.design_engine.plan(DesignJob(
             task_type,
             reference_image=bool(reference_image),
             existing_ui=bool(existing_ui),
             agentic_browser=bool(agentic_browser),
+            topic=str(topic or task_type),
         ))
+
+    def status(self):
+        return {
+            "owner":"Sudarshan",
+            "project_bootstrap":True,
+            "idea_intake":True,
+            "design_policy":True,
+            "design_team":True,
+            "design_engine_bound":self.design_engine is not None,
+        }
 
     def dispatch(self,task_type,checks,findings=None):
         gate=self.design_policy.require(task_type,checks)

@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "version": "2026-09-23-master-product-truth-v7",
+  "version": "2026-09-23-master-product-truth-v8",
   "source": "Canonical KRISHNA product requirements consolidated from project conversations, merged repository decisions, runtime acceptance and current architecture",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -66,7 +66,8 @@
         "KRISHNA Cognitive Brain provides associative concept activation above Rishi/BRAHMA/Gyan memory; related-topic retrieval can traverse typed concept links instead of relying only on exact keywords.",
         "C6 synthesis forms structural analogy candidates, converts unresolved contradictions into research questions, derives semantic candidates from repeated episodic observations, and uses controlled forgetting only as reversible dormancy/activation-telemetry pruning; verified/provenanced/connected knowledge is never silently deleted.",
         "C7 cross-domain hypothesis generation produces falsifiable unverified questions for Rishi or LAB BOT testing; generated hypotheses never become trusted Gyan without normal evidence maturation, BRAHMA QC and approval.",
-        "Cognitive Brain must keep Vedic/classical and modern-science tracks source-faithful: cross-track comparison is allowed, unsupported equivalence and causal transfer are rejected."
+        "Cognitive Brain must keep Vedic/classical and modern-science tracks source-faithful: cross-track comparison is allowed, unsupported equivalence and causal transfer are rejected.",
+        "Rishi Vishvakarma is the permanent design/UI/software-craft knowledge curator; this is a KRISHNA design role inspired by traditional naming, not a claim that a historical/traditional figure practiced modern frontend engineering."
       ]
     },
     {
@@ -77,7 +78,8 @@
         "Active Work, Verification and System Load informer.",
         "When browser work starts, transform into a Sudarshan/Garudanetra split workspace rather than opening a dead status page.",
         "Support project, research, investigate, plugin and developer workflows while KRISHNA selects internal engines automatically.",
-        "UI/frontend/mobile/dashboard design work uses the canonical Sudarshan Design Engine with a structured Design Genome, drift detection, bounded repair/retest loop and hard functional/visual/responsive/accessibility/security acceptance gates; Rishi Vishvakarma supplies provenance-preserving design knowledge and optional Stagehand/Storybook helpers remain non-authoritative adapters."
+        "UI/frontend/mobile/dashboard design work uses the canonical Sudarshan Design Engine with a structured Design Genome, drift detection, bounded repair/retest loop and hard functional/visual/responsive/accessibility/security acceptance gates; Rishi Vishvakarma supplies provenance-preserving design knowledge and optional Stagehand/Storybook helpers remain non-authoritative adapters.",
+        "Sudarshan Project Brain maintains runtime-owned PROJECT, ARCHITECTURE, RULES, PHASES, DESIGN, AGENTS and MEMORY governance layers while preserving database-backed verified learning and summary context; these governance files must not silently mutate project source trees."
       ]
     },
     {
@@ -374,7 +376,11 @@
     "Avatar production output passes full body, facial-viseme and required-animation inspection before being reported production-ready.",
     "Field 3D/AR scene generation requires measured GNSS and never upgrades missing depth/photogrammetry/device tracking into verified measurements.",
     "Sudarshan design work is not accepted until Vishvakarma knowledge context, design specification, functional, visual, responsive, accessibility and security gates are satisfied.",
-    "Model Scout never promotes an unbenchmarked or duplicate candidate and never treats candidate/provider free labels as proof of non-billable cloud execution."
+    "Model Scout never promotes an unbenchmarked or duplicate candidate and never treats candidate/provider free labels as proof of non-billable cloud execution.",
+    "Structured Project Brain governance is runtime-owned, survives restart, preserves DB-backed verified learning and does not silently modify project source trees.",
+    "Rishi Vishvakarma is present in the permanent council and design learning map, and Design Intelligence runtime/UI status is reachable without adding sidebar clutter.",
+    "Model Scout evaluate/recommend actions remain advisory and have neither cloud billing authority nor routing authority.",
+    "Spatial UI may become the default desktop shell only after project/chat/NARAD operational parity and rendered Windows acceptance; before that it remains an opt-in preview and the verified operational UI stays default."
   ],
   "status_definitions": {
     "VERIFIED": "Implemented and proven by the required current runtime/device/integration evidence.",
@@ -561,7 +567,7 @@
         "app/spatial-ui/src/styles.css",
         ".github/workflows/spatial-ui.yml"
       ],
-      "next": "pass independent Node build CI, bind production runtime data/actions into the shell, then complete rendered Windows interaction/latency acceptance"
+      "next": "bind project/chat/NARAD production controls into the spatial shell, complete rendered Windows interaction/latency acceptance, then explicitly enable KRISHNA_SPATIAL_UI_DEFAULT; verified legacy UI remains default until parity passes"
     },
     {
       "id": "krishna_glass",
@@ -704,9 +710,14 @@
         "core/tests/test_vishvakarma_rishi.py",
         "core/tests/test_vishvakarma_learning.py",
         "core/tests/test_design_adapters.py",
-        "core/tests/test_design_runtime_wiring.py"
+        "core/tests/test_design_runtime_wiring.py",
+        "core/krishna_core/rishi_council.py",
+        "core/krishna_core/rishi_learning.py",
+        "core/krishna_core/server.py",
+        "app/spatial-ui/src/App.tsx",
+        "core/tests/test_prepull_final_reconciliation.py"
       ],
-      "next": "post-deploy acceptance: retrieve task-relevant Vishvakarma findings -> produce/retain design genome -> render/browser verification -> drift/repair loop -> all acceptance gates pass"
+      "next": "post-deploy acceptance: verified Vishvakarma lesson -> design.plan -> design drift/acceptance -> bounded repair/retest -> live /api/design/status -> rendered Windows Design Intelligence panel"
     },
     {
       "id": "model_scout_admission",
@@ -717,9 +728,25 @@
         "core/krishna_core/agi_kernel.py",
         "core/tests/test_model_scout.py",
         "core/krishna_core/benchmark_lab.py",
-        "core/krishna_core/router.py"
+        "core/krishna_core/router.py",
+        "core/krishna_core/server.py",
+        "core/krishna_core/orchestrator.py",
+        "core/tests/test_prepull_final_reconciliation.py"
       ],
-      "next": "runtime acceptance with actual local candidate benchmark records; scout must not download/activate candidates automatically and cloud zero-cost remains governed by live OpenRouter/direct-free verification"
+      "next": "runtime benchmark real installed local model candidates, exercise model.scout.evaluate/recommend and /api/model-scout, and confirm scout remains advisory with zero cloud billing/routing authority"
+    },
+    {
+      "id": "structured_project_brain",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "Sudarshan Project Brain",
+      "evidence": [
+        "core/krishna_core/project_brain.py",
+        "core/krishna_core/orchestrator.py",
+        "core/krishna_core/server.py",
+        "core/tests/test_project_brain.py",
+        "core/tests/test_prepull_final_reconciliation.py"
+      ],
+      "next": "post-deploy provision a registered project brain, record verified work, restart KRISHNA and confirm governance layers plus DB-backed context persist without source-tree mutation"
     }
   ]
 }

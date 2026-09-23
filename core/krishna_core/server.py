@@ -782,9 +782,11 @@ class Handler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query)
 
         if path in ("/", "/dashboard"):
-            spatial=spatial_ui_index()
-            if spatial is not None:
-                return self._html(200,spatial)
+            spatial_default=str(os.getenv("KRISHNA_SPATIAL_UI_DEFAULT") or "").strip().lower() in {"1","true","yes","on"}
+            if spatial_default:
+                spatial=spatial_ui_index()
+                if spatial is not None:
+                    return self._html(200,spatial)
             if not WEB_VALIDATION.exists():
                 return self._json(503, {
                     "error": "current KRISHNA desktop UI is unavailable",
@@ -797,6 +799,10 @@ class Handler(BaseHTTPRequestHandler):
                     "required_ui_version": "2026.09-current",
                 })
             return self._html(200, ui_text)
+        if path in ("/spatial", "/spatial-preview"):
+            spatial=spatial_ui_index()
+            if spatial is None:return self._json(404,{"error":"spatial UI preview unavailable"})
+            return self._html(200,spatial)
         if path.startswith("/spatial/"):
             rel=path[len("/spatial/"):]
             asset=spatial_ui_file(rel)
@@ -1166,6 +1172,36 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"project not registered"})
         if path == "/api/agi/status":
             return self._json(200, orch.agi_status())
+        if path == "/api/design/status":
+            learning=orch.agi.vishvakarma_learning.status()
+            return self._json(200,{
+                "design":orch.agi.design.status(),
+                "vishvakarma":{**orch.agi.vishvakarma.status(),**learning},
+                "project_lifecycle":orch.sudarshan_projects.status(),
+                "model_scout":orch.agi.model_scout.status(),
+            })
+        if path == "/api/design/knowledge":
+            topic=str((query.get("topic") or ["design"])[0]).strip() or "design"
+            verified=str((query.get("verified") or ["1"])[0]).lower() in {"1","true","yes"}
+            limit_raw=(query.get("limit") or ["20"])[0]
+            try:limit=max(1,min(int(limit_raw),100))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,{
+                "topic":topic,
+                "verified_only":verified,
+                "findings":orch.agi.vishvakarma_learning.list(
+                    topic=topic,status="verified" if verified else None,limit=limit
+                ),
+            })
+        if path == "/api/model-scout":
+            task=str((query.get("task") or ["general"])[0]).strip() or "general"
+            limit_raw=(query.get("limit") or ["10"])[0]
+            try:limit=max(1,min(int(limit_raw),100))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,{
+                "status":orch.agi.model_scout.status(),
+                "recommendations":orch.agi.model_scout.recommend(task,limit=limit),
+            })
         if path == "/api/runtime/integrity":
             return self._json(200, _integrity.status())
         if path == "/api/lab/status":
@@ -1435,6 +1471,9 @@ class Handler(BaseHTTPRequestHandler):
             })
         if path == "/api/projects":
             return self._json(200, {"projects": orch.projects.list()})
+        if path == "/api/project-brain":
+            project=str((query.get("project") or ["KRISHNA"])[0]).strip() or "KRISHNA"
+            return self._json(200,orch.project_brain.context(project))
         if path == "/api/plugins":
             return self._json(200, {"plugins": _plugins.list()})
         if path == "/api/specialists":
