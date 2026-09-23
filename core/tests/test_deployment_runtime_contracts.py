@@ -45,6 +45,22 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn('$proposal.brahma.verified_for_gyan',accept)
         self.assertNotIn('source="runtime_acceptance";verified=$true',accept)
 
+    def test_runtime_acceptance_requires_master_truth_and_unified_hawkeye(self):
+        root=repository_root()
+        accept=(root/"scripts"/"ACCEPT_KRISHNA_RUNTIME.ps1").read_text(encoding="utf-8")
+        self.assertIn('"/api/architecture/truth"',accept)
+        self.assertIn('"hawkeye-coordinator-v1"',accept)
+        self.assertIn('"perception","physio","behavior","temporal","diagnostic","reasoner"',accept)
+        self.assertIn("sensitive_input_guard.return_secret_value",accept)
+        self.assertIn("face_recognition.unknown_person_identity",accept)
+
+    def test_one_command_architecture_audit_exists(self):
+        root=repository_root()
+        audit=(root/"scripts"/"AUDIT_KRISHNA_ARCHITECTURE.ps1").read_text(encoding="utf-8")
+        self.assertIn("ArchitectureTruthAudit",audit)
+        self.assertIn("Missing evidence paths",audit)
+        self.assertIn("Orphan review candidates",audit)
+
     def test_repo_contract_tests_honor_authoritative_source_root(self):
         root=repository_root()
         audit=(root/"core"/"tests"/"test_project_audit.py").read_text(encoding="utf-8")
