@@ -23,6 +23,7 @@ import math
 import re
 import time
 import uuid
+from threading import RLock
 
 
 _SENSITIVE=re.compile(r"(?:token|secret|pass(?:word)?|api[_-]?key|auth|signature|credential|session|code)",re.I)
@@ -134,6 +135,7 @@ class GarudanetraResearchFabric:
         self.mission_root.mkdir(parents=True,exist_ok=True)
         self.skills_path=self.root/"skills.json"
         self.session_factory=session_factory
+        self._lock=RLock()
         self._seed_skills()
 
     def _atomic(self,path,data):
@@ -146,19 +148,20 @@ class GarudanetraResearchFabric:
         except Exception:return default
 
     def _seed_skills(self):
-        data=self._load_json(self.skills_path,{"schema":1,"skills":{}})
-        skills=data.setdefault("skills",{})
-        changed=False
-        for name,spec in self.BUILTIN_SKILLS.items():
-            if name not in skills:
-                skills[name]={
-                    "name":name,"description":spec["description"],"scout":spec["scout"],
-                    "origin":"builtin","active":True,"use_count":0,"success_count":0,
-                    "failure_count":0,"quality_score":0.5,"stage":"new",
-                    "created_at":_now(),"last_used_at":None,
-                }
-                changed=True
-        if changed or not self.skills_path.exists():self._atomic(self.skills_path,data)
+        with self._lock:
+            data=self._load_json(self.skills_path,{"schema":1,"skills":{}})
+            skills=data.setdefault("skills",{})
+            changed=False
+            for name,spec in self.BUILTIN_SKILLS.items():
+                if name not in skills:
+                    skills[name]={
+                        "name":name,"description":spec["description"],"scout":spec["scout"],
+                        "origin":"builtin","active":True,"use_count":0,"success_count":0,
+                        "failure_count":0,"quality_score":0.5,"stage":"new",
+                        "created_at":_now(),"last_used_at":None,
+                    }
+                    changed=True
+            if changed or not self.skills_path.exists():self._atomic(self.skills_path,data)
 
     def _skills(self):
         return self._load_json(self.skills_path,{"schema":1,"skills":{}})
@@ -188,17 +191,18 @@ class GarudanetraResearchFabric:
         return rows
 
     def use_skill(self,name,success=None):
-        data=self._skills();skills=data.get("skills",{})
-        row=skills.get(_clean(name,160))
-        if not row:raise KeyError(name)
-        row["use_count"]=int(row.get("use_count") or 0)+1
-        if success is True:row["success_count"]=int(row.get("success_count") or 0)+1
-        elif success is False:row["failure_count"]=int(row.get("failure_count") or 0)+1
-        row["last_used_at"]=_now()
-        row["quality_score"]=self._quality(row)
-        row["stage"]=self._stage(row)
-        self._atomic(self.skills_path,data)
-        return dict(row)
+        with self._lock:
+            data=self._skills();skills=data.get("skills",{})
+            row=skills.get(_clean(name,160))
+            if not row:raise KeyError(name)
+            row["use_count"]=int(row.get("use_count") or 0)+1
+            if success is True:row["success_count"]=int(row.get("success_count") or 0)+1
+            elif success is False:row["failure_count"]=int(row.get("failure_count") or 0)+1
+            row["last_used_at"]=_now()
+            row["quality_score"]=self._quality(row)
+            row["stage"]=self._stage(row)
+            self._atomic(self.skills_path,data)
+            return dict(row)
 
     def propose_skill(self,name,description,instructions,source_mission=None):
         name=_clean(name,160).lower()
@@ -212,22 +216,23 @@ class GarudanetraResearchFabric:
         }
 
     def promote_skill(self,candidate,approved=False):
-        if not approved:raise PermissionError("promoting a distilled browser skill requires owner approval")
-        row=dict(candidate or {})
-        name=_clean(row.get("name"),160).lower()
-        if not name.startswith("research."):raise ValueError("invalid research skill name")
-        data=self._skills();skills=data.setdefault("skills",{})
-        if name in skills:return dict(skills[name])
-        skills[name]={
-            "name":name,"description":_clean(row.get("description"),1000),
-            "instructions":_clean(row.get("instructions"),8000),
-            "scout":"custom","origin":"distilled","active":True,
-            "use_count":0,"success_count":0,"failure_count":0,
-            "quality_score":0.5,"stage":"new","created_at":_now(),"last_used_at":None,
-            "source_mission":_clean(row.get("source_mission"),120),
-        }
-        self._atomic(self.skills_path,data)
-        return dict(skills[name])
+        with self._lock:
+            if not approved:raise PermissionError("promoting a distilled browser skill requires owner approval")
+            row=dict(candidate or {})
+            name=_clean(row.get("name"),160).lower()
+            if not name.startswith("research."):raise ValueError("invalid research skill name")
+            data=self._skills();skills=data.setdefault("skills",{})
+            if name in skills:return dict(skills[name])
+            skills[name]={
+                "name":name,"description":_clean(row.get("description"),1000),
+                "instructions":_clean(row.get("instructions"),8000),
+                "scout":"custom","origin":"distilled","active":True,
+                "use_count":0,"success_count":0,"failure_count":0,
+                "quality_score":0.5,"stage":"new","created_at":_now(),"last_used_at":None,
+                "source_mission":_clean(row.get("source_mission"),120),
+            }
+            self._atomic(self.skills_path,data)
+            return dict(skills[name])
 
     def _mission_path(self,mission_id):
         # Mission IDs cross HTTP/action boundaries, so never use caller text as a
@@ -248,25 +253,26 @@ class GarudanetraResearchFabric:
         self._atomic(self._mission_path(row["mission_id"]),row)
 
     def create_mission(self,payload):
-        question=_clean(payload.get("question") or payload.get("goal"),4000)
-        if not question:raise ValueError("question or goal is required")
-        mid=str(uuid.uuid4())
-        scouts=list(payload.get("scouts") or self.SCOUTS.keys())
-        scouts=[str(x).strip().lower() for x in scouts if str(x).strip().lower() in self.SCOUTS]
-        if not scouts:raise ValueError("at least one valid research scout is required")
-        row={
-            "schema":1,"version":self.VERSION,"mission_id":mid,
-            "project":_clean(payload.get("project") or "KRISHNA",160),
-            "requested_by":_clean(payload.get("requested_by") or "KRISHNA",160),
-            "question":question,"status":"PLANNED",
-            "scouts":scouts,"targets":[],"sessions":[],
-            "evidence":[],"contradictions":[],"notes":[],
-            "created_at":_now(),"updated_at":_now(),
-            "handoff":None,
-        }
-        row["targets"]=self.plan_targets(question,scouts)
-        self._save_mission(row)
-        return row
+        with self._lock:
+            question=_clean(payload.get("question") or payload.get("goal"),4000)
+            if not question:raise ValueError("question or goal is required")
+            mid=str(uuid.uuid4())
+            scouts=list(payload.get("scouts") or self.SCOUTS.keys())
+            scouts=[str(x).strip().lower() for x in scouts if str(x).strip().lower() in self.SCOUTS]
+            if not scouts:raise ValueError("at least one valid research scout is required")
+            row={
+                "schema":1,"version":self.VERSION,"mission_id":mid,
+                "project":_clean(payload.get("project") or "KRISHNA",160),
+                "requested_by":_clean(payload.get("requested_by") or "KRISHNA",160),
+                "question":question,"status":"PLANNED",
+                "scouts":scouts,"targets":[],"sessions":[],
+                "evidence":[],"contradictions":[],"notes":[],
+                "created_at":_now(),"updated_at":_now(),
+                "handoff":None,
+            }
+            row["targets"]=self.plan_targets(question,scouts)
+            self._save_mission(row)
+            return row
 
     def plan_targets(self,question,scouts=None):
         selected=scouts or list(self.SCOUTS)
@@ -285,132 +291,136 @@ class GarudanetraResearchFabric:
         return out
 
     def launch_scout(self,mission_id,scout):
-        row=self._load_mission(mission_id)
-        scout=str(scout or "").strip().lower()
-        target=next((x for x in row.get("targets",[]) if x.get("scout")==scout),None)
-        if not target:raise KeyError(scout)
-        launches=[x for x in (row.get("sessions") or []) if x.get("scout")==scout]
-        if len(launches)>=3:
-            raise RuntimeError("research scout circuit breaker: repeated launch limit reached")
-        if launches and (_now()-float(launches[-1].get("started_at") or 0))<10:
-            raise RuntimeError("research scout duplicate launch suppressed")
-        if not callable(self.session_factory):raise RuntimeError("Garudanetra session factory is unavailable")
-        result=self.session_factory(row.get("project") or "KRISHNA",target["url"],"task_memory")
-        row["sessions"].append({
-            "scout":scout,"session_id":result.get("session_id"),
-            "url":_redact_url(target["url"]),"started_at":_now(),
-        })
-        row["status"]="RUNNING"
-        self._save_mission(row)
-        self.use_skill({
-            "papers":"research.paper.search","github":"research.github.inspect",
-            "patents":"research.patent.search","datasets":"research.dataset.find",
-            "standards":"research.standard.find","contradictions":"research.contradiction.find",
-        }[scout])
-        return {"mission_id":mission_id,"scout":scout,"session":result}
+        with self._lock:
+            row=self._load_mission(mission_id)
+            scout=str(scout or "").strip().lower()
+            target=next((x for x in row.get("targets",[]) if x.get("scout")==scout),None)
+            if not target:raise KeyError(scout)
+            launches=[x for x in (row.get("sessions") or []) if x.get("scout")==scout]
+            if len(launches)>=3:
+                raise RuntimeError("research scout circuit breaker: repeated launch limit reached")
+            if launches and (_now()-float(launches[-1].get("started_at") or 0))<10:
+                raise RuntimeError("research scout duplicate launch suppressed")
+            if not callable(self.session_factory):raise RuntimeError("Garudanetra session factory is unavailable")
+            result=self.session_factory(row.get("project") or "KRISHNA",target["url"],"task_memory")
+            row["sessions"].append({
+                "scout":scout,"session_id":result.get("session_id"),
+                "url":_redact_url(target["url"]),"started_at":_now(),
+            })
+            row["status"]="RUNNING"
+            self._save_mission(row)
+            self.use_skill({
+                "papers":"research.paper.search","github":"research.github.inspect",
+                "patents":"research.patent.search","datasets":"research.dataset.find",
+                "standards":"research.standard.find","contradictions":"research.contradiction.find",
+            }[scout])
+            return {"mission_id":mission_id,"scout":scout,"session":result}
 
     def ingest(self,mission_id,payload):
-        row=self._load_mission(mission_id)
-        stance=_clean(payload.get("stance") or "neutral",32).lower()
-        if stance not in {"support","contradict","neutral","mixed"}:
-            raise ValueError("stance must be support, contradict, neutral or mixed")
-        # Research evidence is persistent state. Reuse KABACH's canonical text
-        # sanitizer so credentials/tokens copied from pages are never written into
-        # mission JSON, even when they appear inside otherwise ordinary fields.
-        claim=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("claim") or "")),4000)
-        if not claim:raise ValueError("claim is required")
-        title=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("title") or "")),1000)
-        excerpt=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("excerpt") or "")),3000)
-        claim_key=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("claim_key") or claim)),500).lower()
-        source_date=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("source_date") or "")),80)
-        item={
-            "evidence_id":str(uuid.uuid4()),"source_kind":_clean(payload.get("source_kind") or "web",64),
-            "url":_redact_url(payload.get("url")),"title":title,
-            "claim":claim,"claim_key":claim_key,
-            "stance":stance,"quality":max(0.0,min(1.0,float(payload.get("quality") or 0.5))),
-            "excerpt":excerpt,
-            "source_date":source_date,
-            "added_at":_now(),
-        }
-        row["evidence"].append(item)
-        row["status"]="EVIDENCE_COLLECTED"
-        self._save_mission(row)
-        return item
+        with self._lock:
+            row=self._load_mission(mission_id)
+            stance=_clean(payload.get("stance") or "neutral",32).lower()
+            if stance not in {"support","contradict","neutral","mixed"}:
+                raise ValueError("stance must be support, contradict, neutral or mixed")
+            # Research evidence is persistent state. Reuse KABACH's canonical text
+            # sanitizer so credentials/tokens copied from pages are never written into
+            # mission JSON, even when they appear inside otherwise ordinary fields.
+            claim=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("claim") or "")),4000)
+            if not claim:raise ValueError("claim is required")
+            title=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("title") or "")),1000)
+            excerpt=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("excerpt") or "")),3000)
+            claim_key=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("claim_key") or claim)),500).lower()
+            source_date=_clean(PrivacyEvidenceStore.sanitize(str(payload.get("source_date") or "")),80)
+            item={
+                "evidence_id":str(uuid.uuid4()),"source_kind":_clean(payload.get("source_kind") or "web",64),
+                "url":_redact_url(payload.get("url")),"title":title,
+                "claim":claim,"claim_key":claim_key,
+                "stance":stance,"quality":max(0.0,min(1.0,float(payload.get("quality") or 0.5))),
+                "excerpt":excerpt,
+                "source_date":source_date,
+                "added_at":_now(),
+            }
+            row["evidence"].append(item)
+            row["status"]="EVIDENCE_COLLECTED"
+            self._save_mission(row)
+            return item
 
     def analyze(self,mission_id):
-        row=self._load_mission(mission_id)
-        evidence=list(row.get("evidence") or [])
-        groups={}
-        for item in evidence:
-            key=item.get("claim_key") or item.get("claim") or ""
-            groups.setdefault(key,[]).append(item)
-        contradictions=[]
-        for key,items in groups.items():
-            support=[x for x in items if x.get("stance")=="support"]
-            oppose=[x for x in items if x.get("stance")=="contradict"]
-            if support and oppose:
-                contradictions.append({
-                    "claim_key":key,"supporting":len(support),"contradicting":len(oppose),
-                    "max_support_quality":max(float(x.get("quality") or 0) for x in support),
-                    "max_contradict_quality":max(float(x.get("quality") or 0) for x in oppose),
-                    "status":"UNRESOLVED",
-                })
-        # Also detect near-duplicate claims with opposite stance so callers are not
-        # forced to supply an identical claim_key.
-        for i,a in enumerate(evidence):
-            if a.get("stance") not in {"support","contradict"}:continue
-            ta=_tokens(a.get("claim"))
-            if not ta:continue
-            for b in evidence[i+1:]:
-                if {a.get("stance"),b.get("stance")}!={"support","contradict"}:continue
-                tb=_tokens(b.get("claim"))
-                union=ta|tb
-                score=len(ta&tb)/max(1,len(union))
-                if score>=0.55 and a.get("claim_key")!=b.get("claim_key"):
+        with self._lock:
+            row=self._load_mission(mission_id)
+            evidence=list(row.get("evidence") or [])
+            groups={}
+            for item in evidence:
+                key=item.get("claim_key") or item.get("claim") or ""
+                groups.setdefault(key,[]).append(item)
+            contradictions=[]
+            for key,items in groups.items():
+                support=[x for x in items if x.get("stance")=="support"]
+                oppose=[x for x in items if x.get("stance")=="contradict"]
+                if support and oppose:
                     contradictions.append({
-                        "claim_key":"semantic:"+str(uuid.uuid5(uuid.NAMESPACE_URL,(a["claim"]+"|"+b["claim"]).lower())),
-                        "supporting":1,"contradicting":1,"similarity":round(score,4),"status":"UNRESOLVED",
+                        "claim_key":key,"supporting":len(support),"contradicting":len(oppose),
+                        "max_support_quality":max(float(x.get("quality") or 0) for x in support),
+                        "max_contradict_quality":max(float(x.get("quality") or 0) for x in oppose),
+                        "status":"UNRESOLVED",
                     })
-        # dedupe
-        seen=set();unique=[]
-        for x in contradictions:
-            k=x["claim_key"]
-            if k in seen:continue
-            seen.add(k);unique.append(x)
-        row["contradictions"]=unique
-        row["status"]="ANALYZED"
-        self._save_mission(row)
-        return {
-            "mission_id":mission_id,"evidence_count":len(evidence),
-            "supporting":sum(1 for x in evidence if x.get("stance")=="support"),
-            "contradicting":sum(1 for x in evidence if x.get("stance")=="contradict"),
-            "neutral_or_mixed":sum(1 for x in evidence if x.get("stance") in {"neutral","mixed"}),
-            "contradictions":unique,"unresolved_contradictions":len(unique),
-            "verification_policy":"contradictions remain visible; no automatic truth promotion",
-        }
+            # Also detect near-duplicate claims with opposite stance so callers are not
+            # forced to supply an identical claim_key.
+            for i,a in enumerate(evidence):
+                if a.get("stance") not in {"support","contradict"}:continue
+                ta=_tokens(a.get("claim"))
+                if not ta:continue
+                for b in evidence[i+1:]:
+                    if {a.get("stance"),b.get("stance")}!={"support","contradict"}:continue
+                    tb=_tokens(b.get("claim"))
+                    union=ta|tb
+                    score=len(ta&tb)/max(1,len(union))
+                    if score>=0.55 and a.get("claim_key")!=b.get("claim_key"):
+                        contradictions.append({
+                            "claim_key":"semantic:"+str(uuid.uuid5(uuid.NAMESPACE_URL,(a["claim"]+"|"+b["claim"]).lower())),
+                            "supporting":1,"contradicting":1,"similarity":round(score,4),"status":"UNRESOLVED",
+                        })
+            # dedupe
+            seen=set();unique=[]
+            for x in contradictions:
+                k=x["claim_key"]
+                if k in seen:continue
+                seen.add(k);unique.append(x)
+            row["contradictions"]=unique
+            row["status"]="ANALYZED"
+            self._save_mission(row)
+            return {
+                "mission_id":mission_id,"evidence_count":len(evidence),
+                "supporting":sum(1 for x in evidence if x.get("stance")=="support"),
+                "contradicting":sum(1 for x in evidence if x.get("stance")=="contradict"),
+                "neutral_or_mixed":sum(1 for x in evidence if x.get("stance") in {"neutral","mixed"}),
+                "contradictions":unique,"unresolved_contradictions":len(unique),
+                "verification_policy":"contradictions remain visible; no automatic truth promotion",
+            }
 
     def handoff(self,mission_id,target="rishi"):
-        row=self._load_mission(mission_id)
-        analysis=self.analyze(mission_id)
-        target=str(target or "rishi").strip().lower()
-        if target not in {"rishi","shishya","lab_bot","gyan_candidate"}:
-            raise ValueError("target must be rishi, shishya, lab_bot or gyan_candidate")
-        package={
-            "mission_id":mission_id,"target":target,"project":row.get("project"),
-            "question":row.get("question"),"evidence":row.get("evidence") or [],
-            "analysis":analysis,
-            "scientific_state":"candidate" if analysis["unresolved_contradictions"] else "evidence_collected",
-            "next_step":(
-                "design a controlled experiment with explicit controls/measurements"
-                if target=="lab_bot" else
-                "review evidence quality, provenance and unresolved contradictions"
-            ),
-            "requires_independent_verification":True,
-        }
-        row["handoff"]=package
-        row["status"]="HANDED_OFF"
-        self._save_mission(row)
-        return package
+        with self._lock:
+            row=self._load_mission(mission_id)
+            analysis=self.analyze(mission_id)
+            target=str(target or "rishi").strip().lower()
+            if target not in {"rishi","shishya","lab_bot","gyan_candidate"}:
+                raise ValueError("target must be rishi, shishya, lab_bot or gyan_candidate")
+            package={
+                "mission_id":mission_id,"target":target,"project":row.get("project"),
+                "question":row.get("question"),"evidence":row.get("evidence") or [],
+                "analysis":analysis,
+                "scientific_state":"candidate" if analysis["unresolved_contradictions"] else "evidence_collected",
+                "next_step":(
+                    "design a controlled experiment with explicit controls/measurements"
+                    if target=="lab_bot" else
+                    "review evidence quality, provenance and unresolved contradictions"
+                ),
+                "requires_independent_verification":True,
+            }
+            row["handoff"]=package
+            row["status"]="HANDED_OFF"
+            self._save_mission(row)
+            return package
 
     def mission(self,mission_id):
         return self._load_mission(mission_id)
