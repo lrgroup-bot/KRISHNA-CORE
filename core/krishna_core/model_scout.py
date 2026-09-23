@@ -2,9 +2,10 @@ from __future__ import annotations
 
 """KRISHNA candidate-model scout and admission ledger.
 
-Discovery is separate from installation/activation. This module evaluates supplied
-candidate metadata and benchmark evidence; it does not download models or assume a
-cloud provider is free merely because a candidate is labelled free.
+Discovery is separate from installation/activation. Candidate promotion requires
+benchmark evidence. This module never downloads models and never decides cloud
+billing eligibility; the canonical router/free-provider fabrics remain the only
+cloud-routing authorities.
 """
 
 from dataclasses import asdict, dataclass
@@ -15,7 +16,7 @@ import tempfile
 import time
 
 
-@dataclass
+@dataclass(frozen=True)
 class ModelCandidate:
     model_id: str
     source: str = "local"
@@ -37,7 +38,7 @@ class ModelScout:
     VERSION="model-scout-v2"
 
     def __init__(self,state_path):
-        self.path=Path(state_path)
+        self.path=Path(state_path).resolve()
         self.rows={}
         self.load_error=None
         self._load()
@@ -70,12 +71,12 @@ class ModelScout:
 
     @staticmethod
     def score(candidate: ModelCandidate):
+        if candidate.duplicate_of:
+            return -1.0
         quality=max(0.0,min(float(candidate.quality),1.0))
         latency_penalty=min(max(float(candidate.latency_ms),0.0)/10000.0,1.0)
         ram_penalty=min(max(int(candidate.ram_bytes),0)/(64*1024**3),1.0)
         vram_penalty=min(max(int(candidate.vram_bytes),0)/(24*1024**3),1.0)
-        if candidate.duplicate_of:
-            return -1.0
         return round(
             quality*0.70
             +(1-latency_penalty)*0.12
@@ -85,7 +86,7 @@ class ModelScout:
         )
 
     def evaluate(self,candidate: ModelCandidate,*,min_score=0.55):
-        if not candidate.model_id.strip():
+        if not str(candidate.model_id or "").strip():
             raise ValueError("model_id is required")
         score=self.score(candidate)
         benchmarked=bool(str(candidate.benchmark_ref or "").strip())
@@ -102,6 +103,7 @@ class ModelScout:
             "accepted":accepted,
             "decision":"PROMOTE_LOCAL_CANDIDATE" if accepted else "REJECT_OR_HOLD",
             "evaluated_at":time.time(),
+            "authority":"candidate evaluation only; installation and routing remain separate governed actions",
             "cloud_policy":"cloud candidate labels never establish zero-cost; live provider billing verification remains separate",
         }
         self.rows[candidate.model_id]=row
@@ -111,6 +113,17 @@ class ModelScout:
     def active(self):
         return [dict(x) for x in self.rows.values() if x.get("accepted")]
 
+    def recommend(self,task="general",*,max_ram_bytes=None,max_vram_bytes=None,limit=10):
+        rows=self.active()
+        task=str(task or "general").strip().lower()
+        rows=[x for x in rows if str(x.get("task") or "general").lower() in {task,"general"}]
+        if max_ram_bytes is not None:
+            rows=[x for x in rows if int(x.get("ram_bytes") or 0)<=int(max_ram_bytes)]
+        if max_vram_bytes is not None:
+            rows=[x for x in rows if int(x.get("vram_bytes") or 0)<=int(max_vram_bytes)]
+        rows.sort(key=lambda x:(float(x.get("score") or 0),-float(x.get("latency_ms") or 0)),reverse=True)
+        return rows[:max(1,min(int(limit),100))]
+
     def status(self):
         return {
             "version":self.VERSION,
@@ -118,7 +131,9 @@ class ModelScout:
             "download_policy":"no blind bulk downloads",
             "activation_policy":"candidate metadata alone never activates a model",
             "cloud_spend_limit_usd":0.0,
+            "cloud_billing_authority":False,
             "evaluated":len(self.rows),
             "active":len(self.active()),
+            "active_candidates":len(self.active()),
             "load_error":self.load_error,
         }
