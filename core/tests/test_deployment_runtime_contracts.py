@@ -115,7 +115,7 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn('Get-KrishnaProcess $oldGuardianPid "KRISHNA_GUARDIAN.ps1"',deploy)
         self.assertIn('Get-KrishnaProcess $oldCorePid "START_KRISHNA.ps1"',deploy)
         self.assertIn('"DEPLOY_GENERATION_HANDOFF"|Set-Content',deploy)
-        self.assertIn("Stop-Process -Id $oldCorePid -Force",deploy)
+        self.assertIn("taskkill.exe /PID $oldCorePid /T /F",deploy)
         self.assertIn("STALE_GUARDIAN_PID",guardian)
         self.assertIn('existingCmd -like "*KRISHNA_GUARDIAN.ps1*"',guardian)
 
