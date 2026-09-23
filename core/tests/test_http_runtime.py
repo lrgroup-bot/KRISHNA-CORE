@@ -223,6 +223,10 @@ class HTTPRuntimeTests(unittest.TestCase):
         code,saved=self.call("/api/garudanetra/research/mission?id="+mid)
         self.assertEqual(code,200)
         self.assertEqual(saved["status"],"HANDED_OFF")
+        self.assertEqual(
+            self.call("/api/garudanetra/research/mission?id=../../outside")[0],
+            404,
+        )
 
     def test_lab_bot_rishi_experiment_runtime(self):
         code,status=self.call("/api/lab/status")
