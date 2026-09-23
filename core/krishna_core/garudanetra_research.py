@@ -281,6 +281,11 @@ class GarudanetraResearchFabric:
         scout=str(scout or "").strip().lower()
         target=next((x for x in row.get("targets",[]) if x.get("scout")==scout),None)
         if not target:raise KeyError(scout)
+        launches=[x for x in (row.get("sessions") or []) if x.get("scout")==scout]
+        if len(launches)>=3:
+            raise RuntimeError("research scout circuit breaker: repeated launch limit reached")
+        if launches and (_now()-float(launches[-1].get("started_at") or 0))<10:
+            raise RuntimeError("research scout duplicate launch suppressed")
         if not callable(self.session_factory):raise RuntimeError("Garudanetra session factory is unavailable")
         result=self.session_factory(row.get("project") or "KRISHNA",target["url"],"task_memory")
         row["sessions"].append({
@@ -420,6 +425,7 @@ class GarudanetraResearchFabric:
             "implemented":[
                 "research_missions","specialist_scouts","browser_launch_targets","evidence_ingestion",
                 "contradiction_detection","skill_lifecycle","rishi_lab_handoff","task_memory_sessions",
+                "duplicate_launch_suppression","scout_circuit_breaker",
             ],
             "scouts":{k:{"role":v["role"]} for k,v in self.SCOUTS.items()},
             "skills":self.skills(),
