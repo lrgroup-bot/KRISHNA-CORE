@@ -245,11 +245,23 @@ class RishiLiveResearchExecutor:
             used += len(block)
         return "\n".join(parts)
 
-    def _model(self, prompt, privacy, project, actor):
-        result = self.model_call(prompt, privacy=privacy, project=project, actor=actor)
+    def _model(self, prompt, privacy, project, actor, role="rishi_research"):
+        try:
+            result = self.model_call(
+                prompt, privacy=privacy, project=project, actor=actor, role=role,
+            )
+        except TypeError as exc:
+            if "unexpected keyword argument" not in str(exc):
+                raise
+            result = self.model_call(prompt, privacy=privacy, project=project, actor=actor)
         if isinstance(result, dict):
-            return {"provider": result.get("provider"), "text": str(result.get("text") or "")}
-        return {"provider": None, "text": str(result or "")}
+            return {
+                "provider": result.get("provider"),
+                "model": result.get("model"),
+                "role": role,
+                "text": str(result.get("text") or ""),
+            }
+        return {"provider": None, "model": None, "role": role, "text": str(result or "")}
 
     def _extract_claims(self, mission, sources, privacy, max_claims):
         allowed_tracks = [
@@ -285,7 +297,7 @@ Return STRICT JSON only:
 Sources:
 {self._bundle_text(sources)}
 """
-        out = self._model(prompt, privacy, mission["project"], "rishi-live-claim-extractor")
+        out = self._model(prompt, privacy, mission["project"], "rishi-live-claim-extractor", "rishi_research")
         obj = self._json_object(out["text"])
         source_map = {x["source_id"]: x for x in sources}
         claims = []
@@ -346,7 +358,7 @@ Return STRICT JSON:
 Classical sources:
 {self._bundle_text(sources, max_chars=26000)}
 """
-        out=self._model(prompt,privacy,mission["project"],"rishi-live-classical-extractor")
+        out=self._model(prompt,privacy,mission["project"],"rishi-live-classical-extractor","rishi_research")
         obj=self._json_object(out["text"])
         source_map={x["source_id"]:x for x in sources}
         claims=[]
@@ -390,7 +402,7 @@ Return:
 Candidate evidence:
 {self._bundle_text(sources, max_chars=26000)}
 """
-        out = self._model(prompt, privacy, project, "rishi-live-counter-evidence")
+        out = self._model(prompt, privacy, project, "rishi-live-counter-evidence", "rishi_counter_evidence")
         obj = self._json_object(out["text"])
         valid = {x["source_id"] for x in sources}
         rels = []
@@ -437,7 +449,7 @@ Return strict JSON:
 Evidence:
 {self._bundle_text(evidence, max_chars=32000)}
 """
-        out = self._model(prompt, privacy, project, "rishi-live-gautama")
+        out = self._model(prompt, privacy, project, "rishi-live-gautama", "gautama_review")
         obj = self._json_object(out["text"])
         valid = {x.get("source_id") for x in evidence}
         reviews = []
@@ -478,7 +490,7 @@ Claims:
 Return strict JSON:
 {{"position":"...","claim_ids":["id"],"objections":["..."]}}
 """
-        out = self._model(prompt, privacy, mission["project"], "rishi-live-debate-" + rishi["id"])
+        out = self._model(prompt, privacy, mission["project"], "rishi-live-debate-" + rishi["id"], "rishi_debate")
         obj = self._json_object(out["text"])
         allowed = {c["claim_id"] for c in claims}
         ids = [str(x) for x in (obj.get("claim_ids") or []) if str(x) in allowed]
@@ -502,7 +514,7 @@ Debate:
 Return strict JSON:
 {{"evidence_sufficient":false,"notes":"...","unresolved":["..."]}}
 """
-        gout = self._model(gp, privacy, mission["project"], "rishi-live-gautama-debate")
+        gout = self._model(gp, privacy, mission["project"], "rishi-live-gautama-debate", "gautama_review")
         gobj = self._json_object(gout["text"])
         g_review = {
             "evidence_sufficient": bool(gobj.get("evidence_sufficient", False)),
@@ -523,7 +535,7 @@ Unresolved: {json.dumps(unresolved, ensure_ascii=False)}
 Return strict JSON:
 {{"synthesis":"..."}}
 """
-        vout = self._model(vp, privacy, mission["project"], "rishi-live-vyasa-debate")
+        vout = self._model(vp, privacy, mission["project"], "rishi-live-vyasa-debate", "vyasa_synthesis")
         vobj = self._json_object(vout["text"])
         return {
             "gautama_provider": gout["provider"],
@@ -546,7 +558,7 @@ Claims:
 Return strict JSON:
 {{"tests":[{{"claim_id":"id","test":"...","required_evidence":["..."]}}]}}
 """
-        out = self._model(prompt, privacy, mission["project"], "rishi-live-test-plan")
+        out = self._model(prompt, privacy, mission["project"], "rishi-live-test-plan", "bharadvaja_test_plan")
         obj = self._json_object(out["text"])
         allowed = {c["claim_id"] for c in claims}
         tests = []
@@ -595,7 +607,7 @@ State:
 Return strict JSON:
 {{"summary":"...","supported":["..."],"contested":["..."],"unknowns":["..."],"next_evidence":["..."]}}
 """
-        out = self._model(prompt, privacy, mission["project"], "rishi-live-final-vyasa")
+        out = self._model(prompt, privacy, mission["project"], "rishi-live-final-vyasa", "vyasa_synthesis")
         obj = self._json_object(out["text"])
         return {
             "provider": out["provider"],
