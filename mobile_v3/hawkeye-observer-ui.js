@@ -525,6 +525,16 @@
     }catch(_){}
   }
 
+  function sensorSnapshot(){
+    try{
+      if(window.Krishna&&Krishna.hawkeyeSensorSnapshot){
+        const out=JSON.parse(Krishna.hawkeyeSensorSnapshot());
+        return out&&typeof out==="object"?out:{available:false};
+      }
+    }catch(_){}
+    return {available:false,evidence_state:"UNKNOWN",pose_authority:false,survey_grade:false};
+  }
+
   function metadata(){
     let zoom=1;
     try{
@@ -548,6 +558,8 @@
       translation:{enabled:state.translationEnabled,target:state.translationTarget,text:String(state.translationText||"").slice(0,1500)},
       gestures:{enabled:state.gesturesEnabled,scope:state.handResult?"mediapipe-hand-finger":"upper-body-pose-fallback",last:state.lastGesture},
       torch_on:state.torchOn,
+      sensor_fusion:sensorSnapshot(),
+      spatial_handoff:{bhumiputra_ready:true,slam_pose_claimed:false,depth_claimed:false,survey_grade:false},
       privacy:{unknown_face_capture_masking:true,raw_cloud_upload:false}
     };
   }
