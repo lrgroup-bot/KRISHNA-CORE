@@ -36,6 +36,21 @@ class ArchitectureTruthAudit:
         ".github/workflows",
     )
 
+    CLASSIFIED_NON_ENTRY_MODULES = {
+        "autonomy_loop": "superseded by autonomy_supervisor; retained for historical compatibility",
+        "avatar_manifest": "superseded by avatar_asset_pipeline/avatar_production",
+        "garudanetra": "legacy compatibility module; browser_fabric is canonical authority",
+        "gnn_trainer": "optional experimental local-training adapter; no production training claim",
+        "intelligence_gateway": "superseded by Orchestrator plus canonical router/action authority",
+        "remote_runtime": "superseded by remote_access plus pairing/permission runtime",
+        "runtime_deployer": "utility superseded by DEPLOY_KRISHNA_ONCE.ps1 plus runtime_integrity",
+        "runtime_readiness": "superseded by runtime_integrity and runtime acceptance",
+        "voice_providers": "superseded by native_voice provider stack",
+        "voice_runtime": "superseded by native_voice provider stack",
+        "windows_remote_manager": "optional authorization facade; requires an explicit WinRM transport adapter",
+        "workers": "superseded by worker_fabric",
+    }
+
     STATUS_VALUES = {
         "VERIFIED",
         "IMPLEMENTED_NOT_VERIFIED",
@@ -64,6 +79,10 @@ class ArchitectureTruthAudit:
         rows = []
         for path in root.rglob("*"):
             if not path.is_file():
+                continue
+            if "__pycache__" in path.parts or ".pytest_cache" in path.parts:
+                continue
+            if path.suffix.lower() in {".pyc", ".pyo"}:
                 continue
             if suffix and path.suffix.lower() != suffix:
                 continue
@@ -114,7 +133,8 @@ class ArchitectureTruthAudit:
         by_hash = defaultdict(list)
         for path in paths:
             rel = self._relative(path)
-            by_name[path.name.lower()].append(rel)
+            if path.name.lower() != "__init__.py":
+                by_name[path.name.lower()].append(rel)
             try:
                 by_hash[self._sha(path)].append(rel)
             except OSError:
@@ -185,7 +205,7 @@ class ArchitectureTruthAudit:
         }
         out = []
         for name, path in sorted(modules.items()):
-            if name in referenced or name in entry_allow:
+            if name in referenced or name in entry_allow or name in self.CLASSIFIED_NON_ENTRY_MODULES:
                 continue
             out.append(
                 {
@@ -196,6 +216,21 @@ class ArchitectureTruthAudit:
                 }
             )
         return out
+
+    def _classified_non_entry_modules(self):
+        rows = []
+        core = self.root / "core" / "krishna_core"
+        for name, reason in sorted(self.CLASSIFIED_NON_ENTRY_MODULES.items()):
+            path = core / f"{name}.py"
+            if not path.is_file():
+                continue
+            rows.append({
+                "module": name,
+                "path": self._relative(path),
+                "classification": "known_non_entry_or_superseded",
+                "reason": reason,
+            })
+        return rows
 
     def _source_tree_drift(self):
         path = self.root / "KRISHNA_SOURCE_TREE.txt"
@@ -256,6 +291,7 @@ class ArchitectureTruthAudit:
             "requirements": requirements,
             "duplicates": duplicates,
             "orphan_candidates": orphans,
+            "classified_non_entry_modules": self._classified_non_entry_modules(),
             "source_tree_drift": source_tree,
             "summary": {
                 "requirements_indexed": len(requirements.get("implementation_index") or []),
@@ -264,6 +300,7 @@ class ArchitectureTruthAudit:
                 "duplicate_basenames": len(duplicates["same_basename"]),
                 "identical_content_groups": len(duplicates["identical_content"]),
                 "orphan_candidates": len(orphans),
+                "classified_non_entry_modules": len(self._classified_non_entry_modules()),
                 "source_tree_missing_current_modules": len(source_tree.get("missing_current_modules") or []),
             },
             "authority": [
