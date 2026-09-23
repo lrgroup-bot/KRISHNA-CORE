@@ -9,6 +9,8 @@ import android.media.*;
 import android.net.Uri;
 import android.util.Base64;
 import android.location.*;
+import android.provider.MediaStore;
+import androidx.browser.customtabs.CustomTabsIntent;
 import java.net.*;
 import java.io.*;
 import java.util.*;
@@ -211,6 +213,104 @@ public class MainActivity extends Activity {
         body.put("evidence_state",evidenceState==null?"UNKNOWN":evidenceState);
         body.put("audio_observations",new JSONObject(audioObservationsJson==null||audioObservationsJson.trim().isEmpty()?"{}":audioObservationsJson));
         return call("/api/hawkeye/learn/capture",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String hawkeyeObserveLearning(String payloadJson){
+      try{
+        JSONObject body=new JSONObject(payloadJson==null||payloadJson.trim().isEmpty()?"{}":payloadJson);
+        return call("/api/hawkeye/learn/capture",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String hawkeyeDetectObjects(String dataB64){
+      try{
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
+        if(bytes.length>2*1024*1024)throw new IllegalArgumentException("local object frame exceeds 2 MB");
+        return HawkeyeMobileVision.detect(bytes).toString();
+      }catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String openResearchBrowser(String value){
+      try{
+        String url=value==null?"":value.trim();
+        URI uri=new URI(url);
+        if(!"https".equalsIgnoreCase(uri.getScheme())||uri.getHost()==null||uri.getUserInfo()!=null)
+          throw new SecurityException("HAWKEYE research browser accepts HTTPS public URLs only");
+        runOnUiThread(()->{
+          try{
+            CustomTabsIntent tab=new CustomTabsIntent.Builder().setShowTitle(true).build();
+            tab.launchUrl(MainActivity.this,Uri.parse(url));
+          }catch(Exception e){
+            startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));
+          }
+        });
+        JSONObject out=new JSONObject();out.put("ok",true);out.put("url",url);
+        out.put("browser","user-default-custom-tab");
+        out.put("krishna_js_bridge_exposed",false);
+        return out.toString();
+      }catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String openResearchQuery(String query){
+      try{
+        String q=query==null?"":query.trim();
+        if(q.isEmpty())throw new IllegalArgumentException("research query is empty");
+        String url="https://www.google.com/search?q="+URLEncoder.encode(q,"UTF-8");
+        return openResearchBrowser(url);
+      }catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String saveHawkeyeCapture(String dataB64,String mimeType,String kind,String metadataJson){
+      try{
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
+        String type=mimeType==null?"":mimeType.split(";",2)[0].trim().toLowerCase(java.util.Locale.US);
+        String k=kind==null?"image":kind.trim().toLowerCase(java.util.Locale.US);
+        boolean image=k.equals("image")&&("image/jpeg".equals(type)||"image/png".equals(type)||"image/webp".equals(type));
+        boolean video=k.equals("video")&&("video/mp4".equals(type)||"video/webm".equals(type));
+        if(!image&&!video)throw new IllegalArgumentException("unsupported HAWKEYE capture type");
+        int max=image?12*1024*1024:20*1024*1024;
+        if(bytes.length==0||bytes.length>max)throw new IllegalArgumentException("HAWKEYE capture exceeds bounded size");
+
+        String ext="image/png".equals(type)?".png":("image/webp".equals(type)?".webp":("video/mp4".equals(type)?".mp4":("video/webm".equals(type)?".webm":".jpg")));
+        String base="KRISHNA_HAWKEYE_"+System.currentTimeMillis();
+        JSONObject metadata=new JSONObject(metadataJson==null||metadataJson.trim().isEmpty()?"{}":metadataJson);
+        metadata.remove("password");metadata.remove("pin");metadata.remove("otp");metadata.remove("token");metadata.remove("api_key");
+        metadata.put("saved_at",System.currentTimeMillis());
+        metadata.put("privacy","user-requested local capture; no automatic cloud upload");
+
+        JSONObject out=new JSONObject();
+        if(Build.VERSION.SDK_INT>=29){
+          android.content.ContentResolver resolver=getContentResolver();
+          ContentValues cv=new ContentValues();
+          cv.put(MediaStore.MediaColumns.DISPLAY_NAME,base+ext);
+          cv.put(MediaStore.MediaColumns.MIME_TYPE,type);
+          cv.put(MediaStore.MediaColumns.RELATIVE_PATH,(image?Environment.DIRECTORY_PICTURES:Environment.DIRECTORY_MOVIES)+"/KRISHNA/HAWKEYE");
+          cv.put(MediaStore.MediaColumns.IS_PENDING,1);
+          Uri collection=image?MediaStore.Images.Media.EXTERNAL_CONTENT_URI:MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+          Uri uri=resolver.insert(collection,cv);
+          if(uri==null)throw new IOException("MediaStore insert failed");
+          try(OutputStream os=resolver.openOutputStream(uri)){if(os==null)throw new IOException("MediaStore stream unavailable");os.write(bytes);}
+          cv.clear();cv.put(MediaStore.MediaColumns.IS_PENDING,0);resolver.update(uri,cv,null,null);
+
+          ContentValues side=new ContentValues();
+          side.put(MediaStore.MediaColumns.DISPLAY_NAME,base+".json");
+          side.put(MediaStore.MediaColumns.MIME_TYPE,"application/json");
+          side.put(MediaStore.MediaColumns.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/KRISHNA/HAWKEYE");
+          Uri metaUri=resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,side);
+          if(metaUri!=null)try(OutputStream os=resolver.openOutputStream(metaUri)){if(os!=null)os.write(metadata.toString(2).getBytes("UTF-8"));}
+          out.put("uri",uri.toString());out.put("metadata_uri",metaUri==null?JSONObject.NULL:metaUri.toString());
+          out.put("gallery_visible",true);
+        }else{
+          File root=new File(getExternalFilesDir(image?Environment.DIRECTORY_PICTURES:Environment.DIRECTORY_MOVIES),"KRISHNA/HAWKEYE");
+          if(!root.exists()&&!root.mkdirs())throw new IOException("capture directory unavailable");
+          File media=new File(root,base+ext),meta=new File(root,base+".json");
+          try(FileOutputStream os=new FileOutputStream(media)){os.write(bytes);}
+          try(FileOutputStream os=new FileOutputStream(meta)){os.write(metadata.toString(2).getBytes("UTF-8"));}
+          out.put("path",media.getAbsolutePath());out.put("metadata_path",meta.getAbsolutePath());out.put("gallery_visible",false);
+        }
+        out.put("ok",true);out.put("kind",k);out.put("mime_type",type);out.put("bytes",bytes.length);
+        return out.toString();
       }catch(Exception e){return error(e);}
     }
 
