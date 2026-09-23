@@ -176,6 +176,50 @@ class HawkeyeLearningObserverTests(unittest.TestCase):
             self.assertEqual(len(row["contradictions"]),1)
             self.assertEqual(len(row["lessons"]),1)
 
+    def test_research_request_is_distilled_local_first_and_gyan_gated(self):
+        with tempfile.TemporaryDirectory() as td:
+            observer=self.make(Path(td))
+            row=observer.capture(
+                utterance="learn this machine",
+                source_type="object",
+                source_ref="frame-44",
+                modalities=["image","sensor"],
+                subject="electric motor bearing",
+                analysis="Visible belt wear and periodic vibration require cross-checking.",
+                confidence=0.76,
+                evidence_state="OBSERVED",
+            )
+            self.assertTrue(row["research_required"])
+            request=observer.research_request(row["observation_id"])
+            self.assertTrue(request["eligible"])
+            self.assertEqual(request["payload"]["privacy"],"local_only")
+            self.assertTrue(request["policy"]["distilled_candidate_only"])
+            self.assertFalse(request["policy"]["raw_media_included"])
+            self.assertFalse(request["policy"]["automatic_cloud_escalation"])
+            self.assertFalse(request["policy"]["gyan_auto_approval"])
+            self.assertIn("Visible belt wear",request["payload"]["question"])
+
+            running=observer.record_research(
+                row["observation_id"],"RUNNING",
+                {"summary":"verification started"},
+            )
+            self.assertEqual(running["knowledge_status"],"candidate")
+            completed=observer.record_research(
+                row["observation_id"],"COMPLETED",
+                {
+                    "knowledge_status":"proposal_pending",
+                    "run_id":"run-1",
+                    "mission_id":"mission-1",
+                    "gyan_proposal_ids":["approval-1"],
+                    "trusted_ready_claims":1,
+                    "unresolved_contradictions":0,
+                    "summary":"cross-check completed",
+                },
+            )
+            self.assertEqual(completed["knowledge_status"],"proposal_pending")
+            self.assertTrue(completed["verification_required"])
+            self.assertEqual(observer.research_status(row["observation_id"])["run_id"],"run-1")
+
 
 if __name__=="__main__":
     unittest.main()
