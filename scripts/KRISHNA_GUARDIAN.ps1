@@ -9,9 +9,12 @@ $stateDir=Join-Path $RuntimeRoot "state\guardian"
 $logDir=Join-Path $RuntimeRoot "logs"
 New-Item -ItemType Directory -Force $stateDir,$logDir|Out-Null
 $statePath=Join-Path $stateDir "core-guardian.json"
+$pidPath=Join-Path $stateDir "guardian.pid"
 $logPath=Join-Path $logDir "core-guardian.jsonl"
 $stopPath=Join-Path $stateDir "STOP"
 $quarantinePath=Join-Path $stateDir "QUARANTINED"
+$coreStdout=Join-Path $logDir "core-runtime.stdout.log"
+$coreStderr=Join-Path $logDir "core-runtime.stderr.log"
 
 function Write-GuardianEvent([string]$event,[hashtable]$extra=@{}){
   $row=[ordered]@{time=(Get-Date).ToUniversalTime().ToString("o");event=$event}
@@ -31,9 +34,25 @@ if(Test-Path $quarantinePath){
   Write-Host "Core is quarantined. Remove $quarantinePath after diagnosis to resume." -ForegroundColor Red
   exit 3
 }
+if(Test-Path $pidPath){
+  $existingPid=0
+  try{$existingPid=[int](Get-Content -Raw $pidPath).Trim()}catch{$existingPid=0}
+  if($existingPid -gt 0 -and $existingPid -ne $PID){
+    $existing=Get-Process -Id $existingPid -ErrorAction SilentlyContinue
+    if($existing){
+      Write-GuardianEvent "ALREADY_RUNNING" @{guardian_pid=$existingPid}
+      Write-Host "KRISHNA Guardian is already running (PID $existingPid)." -ForegroundColor Yellow
+      exit 0
+    }
+  }
+  Remove-Item -Force $pidPath -ErrorAction SilentlyContinue
+}
+[string]$PID|Set-Content -Encoding ASCII $pidPath
+Write-GuardianEvent "GUARDIAN_START" @{guardian_pid=$PID}
 $crashes=New-Object System.Collections.Generic.List[double]
 $restartCount=0
 
+try{
 while($true){
   if(Test-Path $stopPath){
     Write-GuardianEvent "STOP_REQUESTED"
@@ -42,10 +61,12 @@ while($true){
   }
   if(Test-Path $quarantinePath){break}
   $start=[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-  Write-GuardianEvent "CORE_START" @{restart_count=$restartCount}
+  Write-GuardianEvent "CORE_START" @{restart_count=$restartCount;guardian_pid=$PID}
   $startScript=Join-Path $RuntimeRoot "scripts\START_KRISHNA.ps1"
   if(!(Test-Path $startScript)){throw "START_KRISHNA.ps1 missing: $startScript"}
-  $p=Start-Process powershell -ArgumentList @("-NoProfile","-ExecutionPolicy","Bypass","-File",$startScript,"-KrishnaRoot",$RuntimeRoot,"-SourceRoot",$SourceRoot) -PassThru -Wait
+  $p=Start-Process powershell -ArgumentList @("-NoProfile","-ExecutionPolicy","Bypass","-File",$startScript,"-KrishnaRoot",$RuntimeRoot,"-SourceRoot",$SourceRoot) -PassThru -WindowStyle Hidden -RedirectStandardOutput $coreStdout -RedirectStandardError $coreStderr
+  Save-State @{status="RUNNING";guardian_pid=$PID;core_pid=$p.Id;restart_count=$restartCount;started=(Get-Date).ToUniversalTime().ToString("o");stdout=$coreStdout;stderr=$coreStderr}
+  $p.WaitForExit()
   $end=[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
   $duration=$end-$start;$code=$p.ExitCode
   Write-GuardianEvent "CORE_EXIT" @{exit_code=$code;duration_seconds=$duration}
@@ -74,4 +95,9 @@ while($true){
   Write-GuardianEvent "RESTART_SCHEDULED" @{delay_seconds=$delay;restart_count=$restartCount}
   Start-Sleep -Seconds $delay
 }
-Save-State @{status="STOPPED";restart_count=$restartCount;crashes=@($crashes);updated=(Get-Date).ToUniversalTime().ToString("o")}
+Save-State @{status="STOPPED";guardian_pid=$PID;restart_count=$restartCount;crashes=@($crashes);updated=(Get-Date).ToUniversalTime().ToString("o")}
+}
+finally{
+  Write-GuardianEvent "GUARDIAN_EXIT" @{guardian_pid=$PID}
+  Remove-Item -Force $pidPath -ErrorAction SilentlyContinue
+}
