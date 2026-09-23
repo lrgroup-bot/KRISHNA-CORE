@@ -26,3 +26,7 @@ backups/
 Thumbs.db
 .vscode/
 .idea/
+
+# KRISHNA spatial UI generated artifacts
+app/spatial-ui/node_modules/
+app/spatial-ui/dist/
