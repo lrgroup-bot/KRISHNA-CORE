@@ -239,6 +239,11 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    @JavascriptInterface public String hawkeyeTranslateText(String text,String targetTag,boolean allowModelDownload){
+      try{return HawkeyeLanguage.translate(text,targetTag,allowModelDownload).toString();}
+      catch(Exception e){return error(e);}
+    }
+
     @JavascriptInterface public String hawkeyeGeminiStatus(){
       try{return call("/api/hawkeye/gemini/status",null);}
       catch(Exception e){return error(e);}
