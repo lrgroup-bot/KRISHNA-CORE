@@ -46,6 +46,12 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("hawkeyeRichPerception",self.activity)
         self.assertIn("richPerception",self.ui)
         self.assertIn("recommended_next_scan",self.ui)
+        self.assertIn("FaceLandmark",vision)
+        self.assertIn('"landmarks",landmarks',vision)
+        self.assertIn("toggleTargetLock",self.ui)
+        self.assertIn("lockedTrackingId",self.ui)
+        self.assertIn('id="cameraLock"',self.index)
+        self.assertIn("state.rich&&state.rich.ocr",self.ui)
 
     def test_gemini_mobile_uses_pc_credential_and_ephemeral_live_token(self):
         pc=(self.repo/"core"/"krishna_core"/"gemini_hawkeye.py").read_text(encoding="utf-8")
