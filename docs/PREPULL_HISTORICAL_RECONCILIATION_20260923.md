@@ -18,6 +18,7 @@ Historical and divergent feature/integration branches are evidence for compariso
 - **Sudarshan UI repair loop** — bounded repair/retest/escalate lifecycle.
 - **Local design-tool adapters** — Playwright CLI discovery, Storybook component-state contract and opt-in Stagehand recovery.
 - **Local Model Scout** — persistent local candidate scoring/recommendation by quality, latency and RAM/VRAM fit; no automatic download or routing authority.
+- **Structured Project Brain** — restored PROJECT/ARCHITECTURE/RULES/PHASES/DESIGN/AGENTS/MEMORY governance layers while preserving the newer DB-backed verified-learning/context API. Governance state is runtime-owned by default so deployment does not dirty source projects.
 - **Architecture truth CLI/CI gate** — wrapper around the current canonical `ArchitectureTruthAudit`, failing on missing indexed evidence or invalid product-truth statuses.
 
 ### Already present / newer current implementation
