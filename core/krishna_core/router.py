@@ -28,6 +28,15 @@ class ModelRouter:
     def __init__(self,gateway:ModelGatewayRegistry|None=None):
         self.gateway=gateway
         self.control_plane=None
+        self.openrouter_free=None
+
+    def bind_openrouter_free(self,fabric):
+        self.openrouter_free=fabric
+        return {"provider":"openrouter-free","bound":bool(fabric)}
+
+    @staticmethod
+    def paid_cloud_enabled():
+        return str(os.getenv("KRISHNA_ALLOW_PAID_CLOUD","0")).strip().lower() in {"1","true","yes","on"}
 
     def bind_sudarshan(self,control_plane):
         self.control_plane=control_plane
@@ -79,6 +88,19 @@ class ModelRouter:
             for row in self.gateway.list()["profiles"]:
                 out.append({"provider":"gateway:"+row["id"],"name":row["name"],"available":bool(row["enabled"] and row["credential_available"]),
                             "local":False,"model":row["model"],"credential_source":"windows-dpapi","free_only":row["free_only"]})
+        if self.openrouter_free:
+            try:
+                status=self.openrouter_free.status(refresh=False)
+                out.append({
+                    "provider":"openrouter-free","name":"OpenRouter Zero-Cost Fabric",
+                    "available":bool(status.get("configured")),"local":False,
+                    "model":"dynamic-live-zero-cost","credential_source":"windows-dpapi",
+                    "free_only":True,"zero_cost_verified":"live-catalog-preflight",
+                })
+            except Exception as exc:
+                out.append({"provider":"openrouter-free","name":"OpenRouter Zero-Cost Fabric","available":False,
+                            "local":False,"model":"dynamic-live-zero-cost","credential_source":"windows-dpapi",
+                            "free_only":True,"error":f"{type(exc).__name__}: {exc}"})
         return out
 
     def _chat_compatible(self,name,prompt):
@@ -102,6 +124,10 @@ class ModelRouter:
     def ask(self,provider,prompt):
         if provider=="ollama":return self.local(prompt,os.getenv("KRISHNA_LOCAL_MODEL","qwen2.5:3b"))
         if provider=="gpt4all":return self.gpt4all(prompt,os.getenv("KRISHNA_GPT4ALL_MODEL") or None)
+        if provider=="openrouter-free" or provider.startswith("openrouter-free:"):
+            if not self.openrouter_free:raise RuntimeError("OpenRouter zero-cost fabric is not configured")
+            role=provider.split(":",1)[1] if ":" in provider else "general"
+            return self.openrouter_free.complete(role,prompt,privacy="approved_cloud")["text"]
         if provider.startswith("gateway:"):
             if not self.gateway:raise RuntimeError("encrypted model gateway is not configured")
             return self.gateway.complete(provider.split(":",1)[1],prompt)
@@ -124,12 +150,20 @@ class ModelRouter:
         available=[x for x in self.available() if x["available"]]
         if privacy in {"local_only","restricted"}:
             available=[x for x in available if x["local"]]
-        elif free_only:
-            available=[x for x in available if x["local"] or x.get("free_only")]
-        preferred=["gpt4all","ollama"]
-        if not free_only:
-            preferred=["anthropic","openai","gemini","xai","openrouter","gpt4all","ollama"]
-        available.sort(key=lambda x:preferred.index(x["provider"]) if x["provider"] in preferred else (20 if x["provider"].startswith("gateway:") else 99))
+        else:
+            if free_only or not self.paid_cloud_enabled():
+                available=[x for x in available if x["local"] or x.get("free_only")]
+        # Local models remain first. Free cloud can provide an independent reviewer
+        # when available, while paid providers are opt-in only.
+        def rank(row):
+            if row.get("local"):
+                return 0 if row["provider"]=="ollama" else 1
+            if row["provider"]=="openrouter-free":
+                return 2
+            if row.get("free_only"):
+                return 3
+            return 20
+        available.sort(key=rank)
         roles=["implementation","architecture_review","bug_test_review","security_review"]
         return [{"role":role,"provider":available[i%len(available)]["provider"],"model":available[i%len(available)]["model"]} for i,role in enumerate(roles)] if available else []
 
@@ -143,18 +177,43 @@ class ModelRouter:
                 local_errors[name]=f"{type(exc).__name__}: {exc}"
         if privacy in {"local_only","restricted"}:
             raise RuntimeError("local model unavailable; cloud fallback blocked by privacy policy: "+json.dumps(local_errors))
+
+        # First cloud fallback is the live-catalog verified zero-cost OpenRouter
+        # fabric. It refuses a request if pricing is no longer zero.
+        if self.openrouter_free and self.openrouter_free.configured():
+            try:
+                provider="openrouter-free:general"
+                text=self._governed_ask(provider,prompt,privacy,True,project,actor)
+                if str(text).strip():return {"provider":provider,"text":text,"free_only":True,"zero_cost_verified":True}
+            except Exception:
+                pass
+
+        # Other encrypted free_only profiles (for example direct Gemini/Groq free
+        # tiers) remain allowed, but are declarations rather than catalog-verified
+        # billing guarantees.
         if self.gateway:
-            profiles=self.gateway.eligible(privacy,free_only=free_only)
+            profiles=self.gateway.eligible(privacy,free_only=True)
             for row in profiles:
-                try:return {"provider":"gateway:"+row.id,"text":self._governed_ask("gateway:"+row.id,prompt,privacy,free_only,project,actor),"free_only":row.free_only}
-                except Exception:
-                    # Deliberately continue only to another eligible profile of the same policy.
+                if str(row.base_url).rstrip("/").lower()=="https://openrouter.ai/api/v1":
                     continue
-        if free_only:
-            raise RuntimeError("free-only routing requested; no approved free-only local/gateway provider succeeded")
+                try:return {"provider":"gateway:"+row.id,"text":self._governed_ask("gateway:"+row.id,prompt,privacy,True,project,actor),
+                            "free_only":True,"zero_cost_verified":False}
+                except Exception:
+                    continue
+
+        if free_only or not self.paid_cloud_enabled():
+            raise RuntimeError("no approved zero/free-cost provider succeeded; paid cloud fallback is disabled")
+
+        # Paid cloud is never a silent fallback. It must be explicitly enabled by
+        # KRISHNA_ALLOW_PAID_CLOUD=1.
+        if self.gateway:
+            for row in self.gateway.eligible(privacy,free_only=False):
+                if row.free_only:continue
+                try:return {"provider":"gateway:"+row.id,"text":self._governed_ask("gateway:"+row.id,prompt,privacy,False,project,actor),"free_only":False}
+                except Exception:continue
         for row in self.available():
             if row["available"] and not row["local"] and row["provider"] in self.PROVIDERS:
-                try:return {"provider":row["provider"],"text":self._governed_ask(row["provider"],prompt,privacy,free_only,project,actor)}
+                try:return {"provider":row["provider"],"text":self._governed_ask(row["provider"],prompt,privacy,False,project,actor)}
                 except Exception:continue
         raise RuntimeError("no usable model provider")
 
