@@ -100,6 +100,13 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn('$p.WaitForExit()',guardian)
         self.assertIn('ALREADY_RUNNING',guardian)
 
+    def test_generation_handoff_terminates_verified_core_process_tree(self):
+        root=repository_root()
+        deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
+        self.assertIn("taskkill.exe /PID $oldCorePid /T /F",deploy)
+        self.assertIn("Port 8766 remains occupied after KRISHNA generation handoff",deploy)
+        self.assertIn("Refusing to kill an unverified listener",deploy)
+
     def test_verified_deploy_takes_over_previous_guardian_generation_safely(self):
         root=repository_root()
         deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
