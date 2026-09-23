@@ -41,7 +41,7 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | Unified Dispatch | IMPLEMENTED / RUNTIME VERIFY | DispatchRuntime targets action, agent or job while preserving one execution authority. |
 | Desktop / Mobile sync | IMPLEMENTED FOUNDATION / DEVICE VERIFY | Action state is mirrored as authenticated `action.sync` realtime events; mobile uses only its conversation status indicator, not a dashboard. |
 | Garuda / Garudanetra integration | IMPLEMENTED / RUNTIME VERIFY | Garuda scout and Garudanetra start/control/upload/replay actions are registered on the same bus; priority UI functions use direct Shared Action receipts. |
-| No decorative operational controls | PARTIAL / ENFORCED ON PRIORITY SURFACES | Repository contracts enforce action receipts for Projects/Chats/Garuda/Garudanetra. Remaining legacy POST-backed controls are real runtime endpoints but are migrated incrementally to named actions. |
+| No decorative operational controls | IMPLEMENTED / RUNTIME VERIFY | The new spatial shell renders status/navigation surfaces without fake mutation buttons; operational execution remains bound to Shared Action contracts. Legacy HTTP compatibility routes that mutate Projects/Chats/NARAD delegate into named actions and retain action receipts. |
 
 ## 2. Sudarshan
 
@@ -52,8 +52,8 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | Active Work / Verification / System Load informer | IMPLEMENTED / RUNTIME VERIFY | Command Center v4. |
 | 50/50 Sudarshan + Garudanetra live-work split | IMPLEMENTED / RUNTIME VERIFY | Real Chromium PNG frame stream, evidence feed, owner takeover, typing/navigation/tab controls and Expand are wired; final Windows latency/interaction acceptance remains. |
 | Files / Plugins / Projects / Research / Investigate tools | VERIFIED boundary | Existing APIs/UI. |
-| Dockview draggable/floating workspace | ROADMAP | Planned React migration; current UI is transition HTML. |
-| xterm terminal and React Flow NAG visualization | ROADMAP | Planned React migration. |
+| Dockview draggable/floating workspace | IMPLEMENTED / CI + RUNTIME VERIFY | `app/spatial-ui` now uses Dockview as the workspace shell; independent Node build CI is required before merge and Windows rendered acceptance remains. |
+| xterm terminal and React Flow NAG visualization | IMPLEMENTED / CI + RUNTIME VERIFY | The spatial shell includes a read-only xterm surface that cannot become raw shell without Shared Action authorization, plus a React Flow KRISHNA/Sudarshan/agent/verifier action graph. |
 
 ## 3. Garuda + Garudanetra Browser Fabric
 
@@ -84,7 +84,7 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | Working / episodic / semantic / graph / skill / evidence memory facade | IMPLEMENTED / RUNTIME VERIFY | Typed memory kinds are enforced in MemoryFabric/Gyan-Bhandar, inventory is exposed by API and the UI can filter/inspect each category. |
 | Provenance, confidence and explicit promotion | IMPLEMENTED / RUNTIME VERIFY | Learning and pending-approval records now preserve memory kind, provenance, confidence, evidence and approval state. |
 | Supersession of outdated knowledge | IMPLEMENTED / RUNTIME VERIFY | Replacement knowledge is proposed through the approval queue; on approval the previous fingerprint becomes superseded and links to its replacement. Graft remains an optional backing adapter. |
-| Code intelligence links from Codebase-Memory | PARTIAL | Optional CBM adapter exists; E:\KRISHNA-CBM / CBM-Runtime must be audited and connected. |
+| Code intelligence links from Codebase-Memory | IMPLEMENTED / ENVIRONMENT VERIFY | MemoryFabric now exposes bounded read-only structural-context queries through the optional CBM adapter; runtime discovery checks the configured/PATH/known E-drive binary locations. Actual local binary presence remains environment verification. |
 
 
 ## 4A. BRAHMA learning governor
@@ -138,18 +138,18 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | DRAFT → CANDIDATE/SANDBOX → VERIFIED → STABLE | VERIFIED | Runtime/tests. |
 | Execution history and dead letters | IMPLEMENTED / RUNTIME VERIFY | Durable execution history plus identified dead letters and explicit retry lifecycle are implemented. |
 | n8n / Activepieces / generic webhook boundaries | VERIFIED boundary | External execution is high-impact and approval gated. |
-| MCP adapter | PARTIAL | Architecture requirement retained; provider-specific execution wiring remains. |
+| MCP adapter | IMPLEMENTED / RUNTIME VERIFY | Authenticated MCP JSON-RPC `initialize`, `tools/list` and approval-gated `tools/call` now map into AgentProtocolGateway -> Sudarshan/Shared Action Bus. No public listener is enabled by default. |
 | Schedules / event triggers / webhooks | IMPLEMENTED / RUNTIME VERIFY | Stable workflows support durable event, >=60-second schedule and token-hashed webhook triggers; NaradScheduler runs as a Core daemon. |
 | Gmail / Telegram / Slack / WhatsApp / Drive / Sheets / Calendar integrations | IMPLEMENTED / RUNTIME VERIFY | NARAD provider hub implements bounded Telegram, Discord, Slack, WhatsApp, Gmail, Drive, Sheets and Calendar operations. Provider workflows remain Policy approval gated and credentials stay in references/vault. Live provider credentials/API acceptance remains environment-dependent. |
 | Credential vault / secret references | IMPLEMENTED / RUNTIME VERIFY | Narad supports environment references plus Windows user-bound DPAPI encrypted secrets. Plaintext is never returned by list/status APIs. Real Windows encryption round-trip is in runtime acceptance. |
-| Full Automations / Connections / Messages / Triggers / History UI | PARTIAL / expanded | Control Center now manages workflows, manual/event/schedule/webhook triggers, connection references, dead letters and history. Provider-specific message inbox/outbox and richer visual workflow editing remain. |
+| Full Automations / Connections / Messages / Triggers / History UI | IMPLEMENTED FOUNDATION / PROVIDER VERIFY | NARAD has workflows, manual/event/schedule/webhook triggers, connection references, checkpoints, dead letters, history and a durable secret-redacting inbox/outbox. The spatial workspace exposes an internal Automations panel; real provider inbox/outbox delivery remains provider acceptance. |
 
 ## 6. Code intelligence and specialist workers
 
 | Requirement | Status | Evidence / remaining work |
 | --- | --- | --- |
 | Codebase-Memory-MCP as structural code intelligence | IMPLEMENTED / RUNTIME VERIFY | Adapter now discovers the known E:\\AI-Tools\\codebase-memory-mcp executable as well as env/PATH/alternate E: locations; indexing acceptance still runs on the real PC. |
-| Graft behind Gyan-Bhandar | PARTIAL | Optional adapter exists; local runtime/CLI still requires reconciliation. |
+| Graft behind Gyan-Bhandar | IMPLEMENTED / ENVIRONMENT VERIFY | Graft is wired as optional read/query context behind MemoryFabric; Gyan-Bhandar remains canonical and trusted-memory promotion cannot be bypassed. Actual local binary presence remains environment verification. |
 | Context governor | VERIFIED boundary | Bounded verified-first context selection implemented. |
 | Privacy-aware multi-model pool | VERIFIED boundary | Model router exposes local/cloud providers and coding plans according to project privacy. |
 | Free/local-first routing (Ollama / GPT4All / encrypted free-only gateway) | IMPLEMENTED / RUNTIME VERIFY | Router tries local Ollama/GPT4All and supports DPAPI-backed OpenAI-compatible free-only gateway profiles. free_only requests never silently fall through to paid env-cloud providers. Provider runtime availability remains environment-dependent. |
@@ -173,9 +173,9 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | Field survey geometry / geofence / volume / route / export | IMPLEMENTED FOUNDATION / RUNTIME VERIFY | `field_survey.py` provides bounded polygon area/perimeter/centroid, point-in-boundary, evidence-gated visible volume, fail-closed route screening, GeoJSON/KML export and survey history through Shared Actions. |\n| GNSS/RTK/depth field measurement adapters | IMPLEMENTED / HARDWARE VERIFY | Supplied GNSS/RTK and depth samples are normalized as measured evidence with explicit accuracy/device/calibration limitations. RTK/depth hardware is never claimed verified from software input alone. |\n| Local photogrammetry worker boundary | IMPLEMENTED / ENVIRONMENT VERIFY | An owner-configured absolute `KRISHNA_PHOTOGRAMMETRY_CMD` worker receives only a generated JSON job manifest; execution is Shared-Action approval-gated and outputs remain verification-required. Real OpenDroneMap/NodeODM execution is not claimed until configured and accepted. |
 | Sensitive-input guard | VERIFIED BY UNIT CONTRACTS / RUNTIME VERIFY | Password/PIN/OTP/API/session/bearer values are redacted before live analysis persistence; login-surface exposure may be reported without returning secret values. |
 | Face identity boundary | IMPLEMENTED POLICY / ADAPTER REQUIRED | Unknown people remain UNKNOWN. Identity matching is limited to explicitly enrolled/consented local profiles; no cloud biometric provider is claimed. |
-| Deep electronics hardware engine | PARTIAL / expanded | Schematic/boardview/netlist/reference overlay plus a read-only structured electronics measurement adapter now exist. Physical multimeter/oscilloscope/device-telemetry transports and real-device fault/retest acceptance remain. |
-| Deep vehicle hardware engine | PARTIAL / expanded | Receive/read-only OBD-II/CAN/CAN-FD/J1939 evidence normalization is implemented, including common OBD PIDs and J1939 PGN metadata. Physical interface transport, service/DBC/SPN references and vehicle acceptance remain; transmit/program/control is disabled. |
-| Deep acoustic/vibration engine | PARTIAL / expanded | Bounded supplied sample analysis now produces RMS/peak/crest/ZCR/dominant-frequency MEASURED evidence without raw retention. Real microphone/vibration sensor transport, baselines and physical fault validation remain. |
+| Deep electronics hardware engine | IMPLEMENTED SOFTWARE / HARDWARE VERIFY | Structured electronics measurements plus the local read-only diagnostic evidence transport are implemented. Real multimeter/oscilloscope/device telemetry still require physical adapter evidence and repair->retest acceptance. |
+| Deep vehicle hardware engine | IMPLEMENTED SOFTWARE / HARDWARE VERIFY | Receive/read-only OBD-II/CAN/CAN-FD/J1939 normalization and local evidence ingestion are implemented; transmit/program/control remains disabled. A real vehicle interface and service/DBC/SPN evidence are required for physical acceptance. |
+| Deep acoustic/vibration engine | IMPLEMENTED SOFTWARE / HARDWARE VERIFY | Bounded RMS/peak/crest/ZCR/dominant-frequency extraction plus local read-only evidence ingestion are implemented without raw-sample retention. Real microphones/vibration sensors and baseline/fault validation remain physical acceptance. |
 
 ## 6B. Canonical product truth / architecture drift
 
@@ -216,7 +216,7 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | Secure pairing/device credential | VERIFIED boundary | Pair/resume/idempotency tests. |
 | Same KRISHNA conversation/session across PC/mobile | IMPLEMENTED / RUNTIME VERIFY | Mobile now auto-creates/reuses a persistent KRISHNA Mobile chat and sends through the same Core chat/history path; real-device acceptance remains. |
 | Proactive completion notifications | IMPLEMENTED / RUNTIME VERIFY | Android listens to task.completed realtime events and posts a local completion notification; real-device background delivery remains to be accepted. |
-| One canonical mobile runtime | PARTIAL | E:\Krishna-The GOD\mobile\companion and repository mobile_v3 must be reconciled. |
+| One canonical mobile runtime | IMPLEMENTED / DEVICE VERIFY | `mobile_v3` is the sole Android authority and a durable real-device acceptance ledger now governs compatibility-companion retirement. The old PC companion is never auto-deleted and becomes retirement-eligible only after every device gate passes. |
 | Remote use away from home | IMPLEMENTED PRIVATE-OVERLAY BOUNDARY / RUNTIME VERIFY | Core rejects public Internet clients, START_KRISHNA has Tailscale-only PrivateRemote mode, mobile accepts LAN/private-overlay targets, and configuration helper verifies Tailscale. Real away-from-home device acceptance remains. |
 
 ## 10. Voice and avatar
@@ -228,8 +228,8 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | Always-listening wake word “Krishna” | IMPLEMENTED / DEVICE VERIFY | PC keeps the local openWakeWord boundary. Android now has a foreground, on-device SpeechRecognizer wake service for Krishna/କୃଷ୍ଣ/कृष्ण when the OS exposes on-device recognition; it starts only after voice-gate enrollment + mic permission, and wake remains activation rather than authentication. Real-phone microphone/battery/lifecycle acceptance remains. |
 | Owner voice verification | IMPLEMENTED GATE / NOT SECURITY AUTHORITY | Mobile uses a local owner voice gate before speech recognition; device credentials remain authoritative for sensitive actions. This gate must not be treated as strong biometric authentication. |
 | Child KRISHNA avatar / local GLB route | VERIFIED boundary | Local avatar route/fallback and manifest boundary. |
-| Rigged walking/body animation | PARTIAL | Requires verified rigged GLB asset. |
-| Facial animation / lip sync / state animations (Dhyan, Flute, Work, Chat, Search) | PARTIAL / expanded | Canonical avatar runtime now maps IDLE/LISTENING/THINKING/SPEAKING/WISDOM/PLAYFUL/PROTECTION/FLUTE/DHYAN/SLEEPING/WAKING/WORKING and reports rig/morph requirements per command. Final rigged GLB + verified animation/morph assets remain. |
+| Rigged walking/body animation | IMPLEMENTED PIPELINE / PRIVATE-ASSET VERIFY | Local avatar production jobs now require Mixamo-compatible body/finger rigging and the complete animation pack; the private child GLB is not production-ready until the inspector passes. |
+| Facial animation / lip sync / state animations (Dhyan, Flute, Work, Chat, Search) | IMPLEMENTED PIPELINE / PRIVATE-ASSET VERIFY | The state machine, ARKit-52/Oculus-viseme inspector and production pipeline are implemented. Final proof requires the private GLB to contain the required morphs and all declared clips. |
 
 ## 11. Creator, media and revenue workers
 
@@ -246,11 +246,11 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | --- | --- | --- |
 | Liquid Glass + Bento + Spatial visual language | IMPLEMENTED / evolving | Current transition shell uses this direction. |
 | KRISHNA Home separate from Sudarshan | VERIFIED UX boundary | Home is governing/core view; Sudarshan is work console. |
-| Real-world/Vrindavan-inspired KRISHNA home option | PARTIAL | Prior patch/reference exists; final unified home still evolving. |
-| React/shadcn foundation | ROADMAP | Final migration after runtime contracts stabilize. |
-| Dockview | ROADMAP | Final workspace shell. |
-| React Flow / xyflow Neural Action Graph | ROADMAP | Final workspace shell. |
-| React Three Fiber avatar/spatial | ROADMAP | Final workspace shell. |
+| Real-world/Vrindavan-inspired KRISHNA home option | IMPLEMENTED FOUNDATION / RUNTIME VERIFY | The React Three Fiber spatial stage now contains a local Vrindavan-inspired environment and a verified-asset placeholder policy; final visual polish remains Design Studio work rather than a missing architecture. |
+| React/shadcn foundation | IMPLEMENTED FOUNDATION / CI + RUNTIME VERIFY | `app/spatial-ui` is a React 19/Vite/TypeScript shell with local composable UI primitives, CVA/twMerge support and no dependency on the legacy transition HTML for its build. |
+| Dockview | IMPLEMENTED / CI + RUNTIME VERIFY | Dockview is the spatial workspace shell for KRISHNA, Sudarshan, Action Graph, Automations, Avatar/Spatial, Terminal and Plugins panels. |
+| React Flow / xyflow Neural Action Graph | IMPLEMENTED / CI + RUNTIME VERIFY | `@xyflow/react` renders the Owner -> KRISHNA -> Sudarshan/Agents -> Independent Verifier execution graph. |
+| React Three Fiber avatar/spatial | IMPLEMENTED / CI + PRIVATE-ASSET VERIFY | `@react-three/fiber` renders the spatial/avatar stage and local Vrindavan-inspired environment; the private child avatar is loaded only after production asset verification. |
 | GUI Registry Stable / Candidate / Experimental / Rejected | IMPLEMENTED / RUNTIME VERIFY | Persistent registry and Developer UI are implemented with verified Stable promotion gate. |
 
 ## 13. Glass / XR
