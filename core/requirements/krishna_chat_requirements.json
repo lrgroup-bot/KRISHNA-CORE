@@ -379,7 +379,8 @@
     "Model Scout never promotes an unbenchmarked or duplicate candidate and never treats candidate/provider free labels as proof of non-billable cloud execution.",
     "Structured Project Brain governance is runtime-owned, survives restart, preserves DB-backed verified learning and does not silently modify project source trees.",
     "Rishi Vishvakarma is present in the permanent council and design learning map, and Design Intelligence runtime/UI status is reachable without adding sidebar clutter.",
-    "Model Scout evaluate/recommend actions remain advisory and have neither cloud billing authority nor routing authority."
+    "Model Scout evaluate/recommend actions remain advisory and have neither cloud billing authority nor routing authority.",
+    "Spatial UI may become the default desktop shell only after project/chat/NARAD operational parity and rendered Windows acceptance; before that it remains an opt-in preview and the verified operational UI stays default."
   ],
   "status_definitions": {
     "VERIFIED": "Implemented and proven by the required current runtime/device/integration evidence.",
@@ -566,7 +567,7 @@
         "app/spatial-ui/src/styles.css",
         ".github/workflows/spatial-ui.yml"
       ],
-      "next": "pass independent Node build CI, bind production runtime data/actions into the shell, then complete rendered Windows interaction/latency acceptance"
+      "next": "bind project/chat/NARAD production controls into the spatial shell, complete rendered Windows interaction/latency acceptance, then explicitly enable KRISHNA_SPATIAL_UI_DEFAULT; verified legacy UI remains default until parity passes"
     },
     {
       "id": "krishna_glass",
