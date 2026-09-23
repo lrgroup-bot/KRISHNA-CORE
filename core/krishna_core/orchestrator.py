@@ -84,6 +84,12 @@ from .krishna_protocol import KrishnaProtocol
 from .gyan_security import GyanACL,GyanEnvelopeCipher,GyanEncryptedStore,GyanContextCompiler,GyanSessionLearning,GyanReplicaManager
 from .long_context import HybridRAG,LongContextLab,RecursiveContextEngine,RecursiveBudget,WeeklyLongContextScheduler
 from .lab_bot import LabBot
+from .sudarshan_project_orchestrator import SudarshanProjectOrchestrator
+from .sudarshan_design_engine import SudarshanDesignEngine, DesignJob
+from .sudarshan_ui_pipeline import UIPipeline, UIEvidence
+from .vishvakarma_rishi import VishvakarmaRishi, DesignFinding
+from .vishvakarma_learning import VishvakarmaLearning, ResearchLesson
+from .model_scout import ModelCandidate
 
 
 class Orchestrator:
@@ -96,6 +102,20 @@ class Orchestrator:
         self.software_factory = SoftwareFactory(self.memory,self.commitments)
         self.project_brain = ProjectBrain(self.memory)
         runtime_state = Path(self.db_path).resolve().parent / ".krishna_state"
+        self.vishvakarma = VishvakarmaRishi(runtime_state / "vishvakarma")
+        self.vishvakarma_learning = VishvakarmaLearning(
+            runtime_state / "vishvakarma" / "learning",
+            self.vishvakarma,
+        )
+        self.sudarshan_design = SudarshanDesignEngine(
+            runtime_state / "sudarshan-design",
+            knowledge=self.vishvakarma,
+        )
+        self.sudarshan_ui = UIPipeline(self.sudarshan_design)
+        self.sudarshan_projects = SudarshanProjectOrchestrator(
+            vishvakarma=self.vishvakarma,
+            design_engine=self.sudarshan_design,
+        )
         self.lab = LabBot(runtime_state / "lab-bot")
         self.secure_vault = SecureSecretVault(runtime_state / "secure-secrets.json")
         self.model_gateway = ModelGatewayRegistry(runtime_state / "model-gateways.json", self.secure_vault)
