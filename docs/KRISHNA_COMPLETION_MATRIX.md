@@ -87,6 +87,18 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | Code intelligence links from Codebase-Memory | PARTIAL | Optional CBM adapter exists; E:\KRISHNA-CBM / CBM-Runtime must be audited and connected. |
 
 
+## 4B. KRISHNA Cognitive Brain
+
+| Requirement | Status | Evidence / remaining work |
+| --- | --- | --- |
+| Associative concept graph | IMPLEMENTED / RUNTIME VERIFY | Persistent concept graph stores concepts, aliases, typed relationships, confidence and provenance above Gyan-Bhandar. |
+| Related-topic activation | IMPLEMENTED / RUNTIME VERIFY | Multi-hop activation allows queries such as Anu to activate Paramanu, Atom comparisons and Molecule relationships without relying on exact keyword matches. |
+| Hybrid RAG concept expansion | IMPLEMENTED / RUNTIME VERIFY | Hybrid RAG accepts a Cognitive Brain query expander and scores Gyan records against the expanded concept neighborhood. |
+| Knowledge-gap detection before research | IMPLEMENTED / RUNTIME VERIFY | Activation plans compare active concepts against existing Gyan coverage and return only missing/weak branches for research. |
+| Rishi handoff suggestion | IMPLEMENTED FOUNDATION / RUNTIME VERIFY | Gap packets select a domain-appropriate suggested Rishi (for atomic/molecular topics, Kanada). Automatic mission launch remains governed by the existing BRAHMA/Sudarshan research path. |
+| Classical/modern evidence separation | VERIFIED boundary | Classical and modern-science tracks are explicit; silent same-as/equivalent links across those tracks are rejected. |
+| Lucy-style biological brain percentage claim | NOT A PRODUCT CLAIM | KRISHNA measures implemented cognitive capabilities rather than claiming humans use only a fixed percentage of the brain. |
+
 ## 4A. BRAHMA learning governor
 
 | Requirement | Status | Evidence / remaining work |
