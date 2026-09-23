@@ -269,7 +269,7 @@ public final class HawkeyeMobileVision {
     }
   }
 
-  private static JSONArray norm(Rect r,double w,double h){
+  private static JSONArray norm(Rect r,double w,double h)throws Exception{
     return new JSONArray()
       .put(Math.max(0,Math.min(1,r.left/w)))
       .put(Math.max(0,Math.min(1,r.top/h)))
