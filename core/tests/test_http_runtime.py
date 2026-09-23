@@ -70,7 +70,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/brahma/status", "/api/brahma/intelligence/status",
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
-                     "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
+                     "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/mobile/runtime", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
@@ -152,6 +152,25 @@ class HTTPRuntimeTests(unittest.TestCase):
         })
         self.assertEqual(code,200)
         self.assertEqual(receipt["result"]["version"],"architecture-truth-v1")
+
+    def test_canonical_mobile_runtime_identity(self):
+        code,mobile=self.call("/api/mobile/runtime")
+        self.assertEqual(code,200)
+        self.assertEqual(mobile["version"],"krishna-mobile-canonical-v1")
+        self.assertEqual(mobile["canonical_android_source"],"mobile_v3")
+        self.assertTrue(mobile["source_ready"])
+        self.assertEqual(
+            mobile["pc_runtime_companion"]["classification"],
+            "COMPATIBILITY_PC_SIDE_NOT_ANDROID_AUTHORITY",
+        )
+        self.assertFalse(mobile["migration"]["automatic_delete"])
+
+        code,receipt=self.call("/api/action-bus/dispatch",{
+            "action":"mobile.runtime.manifest","project":"KRISHNA",
+            "permissions":["runtime.read"],"payload":{}
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(receipt["result"]["package_id"],"com.krishna.mobile")
 
     def test_requirements_search_contract(self):
         code,d=self.call("/api/requirements?q=mobile")
