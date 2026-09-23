@@ -57,10 +57,10 @@ class AGIKernel:
             provider_hub=self.narad_providers,
         )
         self.media=OpenMontageAdapter(self.workers)
-        self.design=SudarshanDesignEngine(self.root/"design")
-        self.ui_pipeline=UIPipeline(self.design)
         self.vishvakarma=VishvakarmaRishi(self.root/"vishvakarma")
         self.vishvakarma_learning=VishvakarmaLearning(self.root/"vishvakarma"/"learning")
+        self.design=SudarshanDesignEngine(self.root/"design",knowledge=self.vishvakarma_learning)
+        self.ui_pipeline=UIPipeline(self.design)
         self.model_scout=ModelScout(self.root/"model-scout.json")
     def status(self):
         return {"name":"KRISHNA AGI CORE","version":self.VERSION,"architecture":"single-control-plane/modular-workers",
@@ -74,5 +74,5 @@ class AGIKernel:
         "specialists":self.specialists.list(),"garudanetra":"BrowserOperator/Garuda integration",
         "creator":self.creator.status(),"avatar":self.avatar.status(),"brahmagyan":self.brahmagyan.status(),"media":self.media.status(),
         "revenue":self.revenue.status(),"workers":self.workers.status(),
-        "design":self.design.status(),"vishvakarma":self.vishvakarma.status(),
+        "design":self.design.status(),"vishvakarma":{**self.vishvakarma.status(),"learning":self.vishvakarma_learning.status()},
         "model_scout":self.model_scout.status()}
