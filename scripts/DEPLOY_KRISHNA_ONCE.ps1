@@ -129,6 +129,8 @@ try{
   $env:KRISHNA_DB=Join-Path $sourceTestRuntime "krishna_core.db"
   $env:KRISHNA_SOURCE_ROOT=$Source
   Invoke-KrishnaTests $Source $Source
+  & $Py (Join-Path $Source "scripts\AUDIT_KRISHNA_ARCHITECTURE.py")
+  if($LASTEXITCODE -ne 0){throw "KRISHNA ARCHITECTURE TRUTH AUDIT FAILED"}
 }finally{
   if($null -eq $previousRuntimeRoot){Remove-Item Env:KRISHNA_RUNTIME_ROOT -ErrorAction SilentlyContinue}else{$env:KRISHNA_RUNTIME_ROOT=$previousRuntimeRoot}
   if($null -eq $previousDb){Remove-Item Env:KRISHNA_DB -ErrorAction SilentlyContinue}else{$env:KRISHNA_DB=$previousDb}

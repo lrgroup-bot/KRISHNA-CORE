@@ -239,6 +239,7 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | OpenMontage media bridge | IMPLEMENTED / RUNTIME VERIFY | E:\\AI-Tools\\OpenMontage installation is detected, but cloned source is not treated as executable authority; a dedicated OPENMONTAGE_CMD/worker bridge is required. |
 | Revenue/CRM/publishing adapters | VERIFIED boundary | Business layer only; not KRISHNA authority. |
 | Active provider workers installed and verified | ENVIRONMENT-DEPENDENT | Do not report active until binaries/services are present. |
+| Model Scout candidate admission | IMPLEMENTED / RUNTIME VERIFY | Candidate discovery is separate from installation/activation; benchmark evidence, duplicate checks and resource-aware scoring are required before local promotion, and cloud “free” labels never establish zero-cost eligibility. |
 
 ## 12. UI architecture
 
@@ -252,10 +253,11 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | React Flow / xyflow Neural Action Graph | IMPLEMENTED / CI + RUNTIME VERIFY | `@xyflow/react` renders the Owner -> KRISHNA -> Sudarshan/Agents -> Independent Verifier execution graph. |
 | React Three Fiber avatar/spatial | IMPLEMENTED / CI + PRIVATE-ASSET VERIFY | `@react-three/fiber` renders the spatial/avatar stage and local Vrindavan-inspired environment; the private child avatar is loaded only after production asset verification. |
 | GUI Registry Stable / Candidate / Experimental / Rejected | IMPLEMENTED / RUNTIME VERIFY | Persistent registry and Developer UI are implemented with verified Stable promotion gate. |
+| Sudarshan Design Engine + Vishvakarma design knowledge | IMPLEMENTED / RUNTIME VERIFY | Structured Design Genome, nested drift detection, bounded repair/retest, hard acceptance gates, provenance-preserving Vishvakarma learning/curation, and optional non-authoritative Stagehand/Storybook adapters are wired into the AGI kernel and Sudarshan project lifecycle. |
 
 ## 13. Glass / XR
 
-The KRISHNA Glass hardware remains a later dedicated roadmap item after PC + mobile are stable. A production-safe WearableBridge is now implemented to track only verified capabilities:
+The KRISHNA Glass software boundary is implemented, while physical Glass hardware remains unselected/unverified until PC + mobile are stable. A production-safe WearableBridge tracks only verified capabilities:
 - local sensorimotor/reflex layer beneath the main reasoning brain,
 - camera/vision, audio, IMU/head tracking,
 - hand gesture plus optional wrist/ring input,
@@ -269,7 +271,7 @@ Current bridge boundary:
 - Phase 3: IMU/gesture/wrist/ring/AR capabilities only after adapter/device evidence.
 Vendor-specific capability is never claimed from product marketing or source presence alone.
 
-Hardware Glass remains **ROADMAP / CAPABILITY-GATED**, not a production-complete claim.
+Physical Glass hardware remains **HARDWARE-UNVERIFIED / CAPABILITY-GATED**, not a production-complete hardware claim.
 
 ## Final release gate
 

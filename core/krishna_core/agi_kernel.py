@@ -20,6 +20,11 @@ from .narad.n8n_bridge import N8nBridge
 from .specialist_registry import SpecialistRegistry
 from .context_governor import ContextGovernor
 from .media_adapter import OpenMontageAdapter
+from .sudarshan_design_engine import SudarshanDesignEngine
+from .sudarshan_ui_pipeline import UIPipeline
+from .vishvakarma_learning import VishvakarmaLearning
+from .vishvakarma_rishi import VishvakarmaRishi
+from .model_scout import ModelScout
 
 class AGIKernel:
     VERSION="1.2.0-alpha"
@@ -52,6 +57,11 @@ class AGIKernel:
             provider_hub=self.narad_providers,
         )
         self.media=OpenMontageAdapter(self.workers)
+        self.design=SudarshanDesignEngine(self.root/"design")
+        self.ui_pipeline=UIPipeline(self.design)
+        self.vishvakarma=VishvakarmaRishi(self.root/"vishvakarma")
+        self.vishvakarma_learning=VishvakarmaLearning(self.root/"vishvakarma"/"learning")
+        self.model_scout=ModelScout(self.root/"model-scout.json")
     def status(self):
         return {"name":"KRISHNA AGI CORE","version":self.VERSION,"architecture":"single-control-plane/modular-workers",
         "orchestrator":"KRISHNA Neural Action Graph + durable adapter boundary","executors":self.executors.capabilities(),
@@ -63,4 +73,6 @@ class AGIKernel:
             "messages":self.narad_messages.status()},
         "specialists":self.specialists.list(),"garudanetra":"BrowserOperator/Garuda integration",
         "creator":self.creator.status(),"avatar":self.avatar.status(),"brahmagyan":self.brahmagyan.status(),"media":self.media.status(),
-        "revenue":self.revenue.status(),"workers":self.workers.status()}
+        "revenue":self.revenue.status(),"workers":self.workers.status(),
+        "design":self.design.status(),"vishvakarma":self.vishvakarma.status(),
+        "model_scout":self.model_scout.status()}

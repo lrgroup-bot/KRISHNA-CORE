@@ -31,6 +31,7 @@ from .job_runtime import JobRuntime
 from .protocol_gateway import AgentProtocolGateway
 from .dispatch_runtime import DispatchRuntime
 from .sudarshan_control import SudarshanControlPlane
+from .sudarshan_project_orchestrator import SudarshanProjectOrchestrator
 from .repository_index import RepositoryIndexer
 from .evidence_collectors import LocalEvidenceCollectors
 from .shadow_workspace import ShadowWorkspaceManager
@@ -168,6 +169,7 @@ class Orchestrator:
         self.hawkeye_diagnostic.bind_worker_runtime(self.ephemeral_workers,self.governor)
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
+        self.sudarshan_projects = SudarshanProjectOrchestrator(self.agi.design)
         self.gyan_acl = GyanACL(runtime_state / "gyan-acl.json")
         self.gyan_cipher = GyanEnvelopeCipher()
         self.hawkeye.bind_evidence_cipher(self.gyan_cipher,require_encryption=(__import__("os").name=="nt"))
