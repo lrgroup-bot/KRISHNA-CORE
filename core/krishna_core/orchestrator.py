@@ -80,6 +80,7 @@ from .mission_budget import MissionBudgetManager
 from .provider_contract import UnifiedProviderRegistry
 from .krishna_protocol import KrishnaProtocol
 from .gyan_security import GyanACL,GyanEnvelopeCipher,GyanEncryptedStore,GyanContextCompiler,GyanSessionLearning,GyanReplicaManager
+from .lab_bot import LabBot
 
 
 class Orchestrator:
@@ -92,6 +93,7 @@ class Orchestrator:
         self.software_factory = SoftwareFactory(self.memory,self.commitments)
         self.project_brain = ProjectBrain(self.memory)
         runtime_state = Path(self.db_path).resolve().parent / ".krishna_state"
+        self.lab = LabBot(runtime_state / "lab-bot")
         self.secure_vault = SecureSecretVault(runtime_state / "secure-secrets.json")
         self.model_gateway = ModelGatewayRegistry(runtime_state / "model-gateways.json", self.secure_vault)
         self.router = ModelRouter(self.model_gateway)
@@ -1556,6 +1558,36 @@ class Orchestrator:
                 payload.get("payload") or {},
             )
 
+        def lab_experiment_request(payload,context):
+            return self.lab.request(payload)
+
+        def lab_experiment_protocol(payload,context):
+            return self.lab.protocol(str(payload.get("experiment_id") or ""))
+
+        def lab_experiment_simulate(payload,context):
+            return self.lab.simulate(str(payload.get("experiment_id") or ""))
+
+        def lab_experiment_review(payload,context):
+            return self.lab.review(
+                str(payload.get("experiment_id") or ""),
+                protocol_reviewed=bool(payload.get("protocol_reviewed")),
+                facility_approved=bool(payload.get("facility_approved")),
+                human_operator_confirmed=bool(payload.get("human_operator_confirmed")),
+                owner_approved=bool(payload.get("owner_approved")),
+            )
+
+        def lab_experiment_execute(payload,context):
+            return self.lab.execute(
+                str(payload.get("experiment_id") or ""),
+                adapter=payload.get("adapter"),
+            )
+
+        def lab_experiment_record(payload,context):
+            return self.lab.record_result(
+                str(payload.get("experiment_id") or ""),
+                payload.get("evidence") or {},
+            )
+
         def architecture_truth_scan(payload,context):
             return self.architecture_truth.scan()
 
@@ -2306,6 +2338,43 @@ class Orchestrator:
         )
 
         self.action_bus.register(
+            "lab.experiment.request",lab_experiment_request,
+            description="Create a durable LAB BOT experiment request from a Rishi hypothesis",
+            mutating=True,permissions=("lab.plan","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "lab.experiment.protocol",lab_experiment_protocol,
+            description="Inspect the machine-checkable LAB BOT protocol and design gaps",
+            permissions=("lab.plan",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "lab.experiment.simulate",lab_experiment_simulate,
+            description="Dry-run a LAB BOT experiment without physical hardware",
+            mutating=True,permissions=("lab.simulate","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "lab.experiment.review",lab_experiment_review,
+            description="Record owner/facility/protocol review gates for a physical experiment",
+            mutating=True,requires_approval=True,permissions=("lab.review",),
+            sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "lab.experiment.execute",lab_experiment_execute,
+            description="Execute a reviewed experiment only through a registered physical lab adapter",
+            mutating=True,requires_approval=True,permissions=("lab.execute","evidence.write"),
+            sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "lab.experiment.record",lab_experiment_record,
+            description="Append measured evidence to a LAB BOT experiment record",
+            mutating=True,permissions=("lab.record","evidence.write"),
+            sources=("pc","system","agent","job"),
+        )
+
+        self.action_bus.register(
             "architecture.truth.scan",architecture_truth_scan,
             description="Inspect canonical KRISHNA requirements, legacy copies, duplication, orphan candidates and source-tree drift",
             permissions=("runtime.read",),
@@ -2374,6 +2443,12 @@ class Orchestrator:
         )
 
         self.agent_runtime.register(
+            "lab-bot","Rishi experiment planner, simulator and approved laboratory adapter coordinator",
+            permissions=("lab.plan","lab.simulate","lab.record","evidence.write","runtime.read"),
+            actions=("lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate","lab.experiment.record"),
+        )
+
+        self.agent_runtime.register(
             "brahma","learning governor and Gyan-Bhandar QC head",
             permissions=("runtime.read","memory.write","evidence.write"),
             actions=("brahma.*",),
@@ -2382,8 +2457,8 @@ class Orchestrator:
         for profile in self.agi.brahmagyan.council.list():
             self.agent_runtime.register(
                 "rishi:"+profile["id"],profile["role"],
-                permissions=("web.read","evidence.write","memory.write","worker.execute"),
-                actions=("brahmagyan.*","garuda.scout"),
+                permissions=("web.read","evidence.write","memory.write","worker.execute","lab.plan","lab.simulate"),
+                actions=("brahmagyan.*","garuda.scout","lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate"),
             )
 
     def dispatch_action(self,action,payload=None,project="KRISHNA",source="pc",actor="owner",
