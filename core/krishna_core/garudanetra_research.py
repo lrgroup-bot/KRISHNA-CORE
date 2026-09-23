@@ -230,7 +230,13 @@ class GarudanetraResearchFabric:
         return dict(skills[name])
 
     def _mission_path(self,mission_id):
-        return self.mission_root/(str(mission_id)+".json")
+        # Mission IDs cross HTTP/action boundaries, so never use caller text as a
+        # filesystem component. Canonical UUID parsing prevents ../ traversal,
+        # alternate separators and accidental reads outside the mission store.
+        raw=str(mission_id or "").strip()
+        try:mid=str(uuid.UUID(raw))
+        except (ValueError,TypeError,AttributeError):raise KeyError(raw)
+        return self.mission_root/(mid+".json")
 
     def _load_mission(self,mission_id):
         path=self._mission_path(mission_id)
