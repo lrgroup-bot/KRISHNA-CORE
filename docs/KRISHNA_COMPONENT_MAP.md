@@ -141,7 +141,10 @@ BRAHMA:
 - grades evidence/provenance;
 - tracks contradictions;
 - requires stronger learning where needed;
-- gates promotion into Gyan-Bhandar.
+- gates promotion into Gyan-Bhandar;
+- owns KRISHNA Cognitive Brain, an associative concept graph that activates related knowledge, reuses Rishi findings first, and turns weak branches into bounded BRAHMAGYAN study missions.
+
+The Cognitive Brain uses software capability stages C0-C5 (capture, recall, association, gap-aware, cross-domain, metacognitive). These are not human-brain percentages. Modern-science and Vedic/classical tracks remain separately sourced and cannot be silently collapsed into scientific equivalence.
 
 ## 7. Gyan-Bhandar — trusted knowledge store
 
@@ -366,6 +369,7 @@ SUDARSHAN  ------------------------------ execution / permission / verification
   |
   +-- BRAHMAGYAN ------------------------ Rishi + Shishya research
   |     +-- BRAHMA BOT ------------------ QC/learning governor
+  |     |     +-- COGNITIVE BRAIN -------- associative concept graph + gap detection
   |     +-- GYAN-BHANDAR ---------------- trusted knowledge
   |
   +-- HAWKEYE --------------------------- live evidence fusion
