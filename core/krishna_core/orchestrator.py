@@ -1808,6 +1808,31 @@ class Orchestrator:
         def lab_experiment_request(payload,context):
             return self.lab.request(payload)
 
+        def lab_hypothesis_assist(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            if project!="KRISHNA":
+                policy=self.projects.get(project)
+                if not policy:raise KeyError(project)
+                default_privacy=policy.privacy
+            else:
+                default_privacy="approved_cloud"
+            privacy=str(payload.get("privacy") or default_privacy).strip().lower()
+            return self.lab.hypothesis_assist(payload,privacy=privacy,project=project)
+
+        def lab_result_analyze(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            if project!="KRISHNA":
+                policy=self.projects.get(project)
+                if not policy:raise KeyError(project)
+                default_privacy=policy.privacy
+            else:
+                default_privacy="approved_cloud"
+            privacy=str(payload.get("privacy") or default_privacy).strip().lower()
+            return self.lab.analyze_results(
+                str(payload.get("experiment_id") or ""),
+                privacy=privacy,project=project,
+            )
+
         def lab_experiment_protocol(payload,context):
             return self.lab.protocol(str(payload.get("experiment_id") or ""))
 
