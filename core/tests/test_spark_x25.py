@@ -230,6 +230,9 @@ class SparkIntegrationContractTests(unittest.TestCase):
         self.assertIn("SparkX25Manager(", source)
         self.assertIn("self.agi.model_scout", source)
         self.assertIn("self.router.bind_model_scout(self.agi.model_scout)", source)
+        init_start = source.index("self.spark_x25 = SparkX25Manager(")
+        init_end = source.index("self.sudarshan_projects =", init_start)
+        self.assertNotIn("self.spark_x25.discover()", source[init_start:init_end])
         for action in (
             "model.spark.status",
             "model.spark.discover",
