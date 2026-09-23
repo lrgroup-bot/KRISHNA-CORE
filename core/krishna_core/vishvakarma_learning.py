@@ -22,7 +22,7 @@ class ResearchLesson:
 
 
 class VishvakarmaLearning:
-    VERSION = "vishvakarma-learning-v2"
+    VERSION = "vishvakarma-learning-v3"
 
     def __init__(self, root):
         self.root = Path(root)
@@ -47,8 +47,45 @@ class VishvakarmaLearning:
         return row
 
     def verify(self, lesson: ResearchLesson):
-        verified = ResearchLesson(**{**asdict(lesson), "status": "verified", "confidence": max(float(lesson.confidence), 0.8)})
+        verified = ResearchLesson(**{
+            **asdict(lesson),
+            "status": "verified",
+            "confidence": max(float(lesson.confidence), 0.8),
+        })
         return self.ingest(verified)
+
+    def list(self, *, topic="", status=None, limit=200):
+        if not self.path.exists():
+            return []
+        q=str(topic or "").strip().lower()
+        wanted=None if status in (None,"") else str(status).strip().lower()
+        rows=[]
+        for line in self.path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                row=json.loads(line)
+            except Exception:
+                continue
+            if wanted and str(row.get("status") or "").lower()!=wanted:
+                continue
+            haystack=" ".join(str(row.get(x) or "") for x in ("topic","lesson","evidence","failure_pattern")).lower()
+            if q and q not in haystack:
+                continue
+            rows.append(row)
+        return rows[-max(1,min(int(limit),1000)):]
+
+    def status(self):
+        rows=self.list(limit=1000)
+        return {
+            "version":self.VERSION,
+            "candidate":sum(1 for x in rows if x.get("status")=="candidate"),
+            "verified":sum(1 for x in rows if x.get("status")=="verified"),
+            "rejected":sum(1 for x in rows if x.get("status")=="rejected"),
+            "superseded":sum(1 for x in rows if x.get("status")=="superseded"),
+            "path":str(self.path),
+            "provenance_required":True,
+        }
 
     def curriculum(self):
         return {"curriculum": CURRICULUM, "rules": list(RULES), "version": self.VERSION}
