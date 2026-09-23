@@ -1,6 +1,7 @@
 param(
   [string]$RuntimeRoot="E:\Krishna-The GOD",
   [string]$SourceRoot="E:\KRISHNA-SOURCE",
+  [string]$RuntimeGeneration="",
   [int]$MaxCrashes=5,
   [int]$CrashWindowSeconds=600
 )
@@ -47,8 +48,10 @@ if(Test-Path $pidPath){
   }
   Remove-Item -Force $pidPath -ErrorAction SilentlyContinue
 }
+if(!$RuntimeGeneration){$RuntimeGeneration=[guid]::NewGuid().ToString("N")}
+$env:KRISHNA_RUNTIME_GENERATION=$RuntimeGeneration
 [string]$PID|Set-Content -Encoding ASCII $pidPath
-Write-GuardianEvent "GUARDIAN_START" @{guardian_pid=$PID}
+Write-GuardianEvent "GUARDIAN_START" @{guardian_pid=$PID;runtime_generation=$RuntimeGeneration}
 $crashes=New-Object System.Collections.Generic.List[double]
 $restartCount=0
 
@@ -65,7 +68,7 @@ while($true){
   $startScript=Join-Path $RuntimeRoot "scripts\START_KRISHNA.ps1"
   if(!(Test-Path $startScript)){throw "START_KRISHNA.ps1 missing: $startScript"}
   $p=Start-Process powershell -ArgumentList @("-NoProfile","-ExecutionPolicy","Bypass","-File",$startScript,"-KrishnaRoot",$RuntimeRoot,"-SourceRoot",$SourceRoot) -PassThru -WindowStyle Hidden -RedirectStandardOutput $coreStdout -RedirectStandardError $coreStderr
-  Save-State @{status="RUNNING";guardian_pid=$PID;core_pid=$p.Id;restart_count=$restartCount;started=(Get-Date).ToUniversalTime().ToString("o");stdout=$coreStdout;stderr=$coreStderr}
+  Save-State @{status="RUNNING";guardian_pid=$PID;core_pid=$p.Id;runtime_generation=$RuntimeGeneration;restart_count=$restartCount;started=(Get-Date).ToUniversalTime().ToString("o");stdout=$coreStdout;stderr=$coreStderr}
   $p.WaitForExit()
   $end=[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
   $duration=$end-$start;$code=$p.ExitCode
