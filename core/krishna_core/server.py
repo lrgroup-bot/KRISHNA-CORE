@@ -1081,6 +1081,10 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"project not registered"})
         if path == "/api/models/gateways":
             return self._json(200,orch.model_gateway.list())
+        if path == "/api/models/roles":
+            project=(query.get("project") or ["KRISHNA"])[0]
+            try:return self._json(200,orch.model_role_status(project))
+            except KeyError:return self._json(404,{"error":"project not registered"})
         if path == "/api/openrouter/free/status":
             refresh=str((query.get("refresh") or ["0"])[0]).lower() in {"1","true","yes"}
             if refresh and self.client_address[0] not in ("127.0.0.1","::1"):
@@ -2498,6 +2502,47 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError as exc:return self._json(404,{"error":str(exc)})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,RuntimeError) as exc:return self._json(503 if isinstance(exc,RuntimeError) else 400,{"error":str(exc)})
+
+        if post_path == "/api/models/roles/assign":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"AI role assignment must run on KRISHNA PC"})
+            try:
+                result=orch.model_role_assign(
+                    str(data.get("role") or ""),
+                    str(data.get("mode") or "auto"),
+                    data.get("provider"),
+                    data.get("model"),
+                )
+                return self._json(200,{
+                    "assignment":result,
+                    "roles":orch.model_role_status(str(data.get("project") or "KRISHNA")),
+                })
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/lab/hypothesis":
+            try:
+                project=str(data.get("project") or "KRISHNA")
+                out=orch.dispatch_action(
+                    "lab.hypothesis.assist",data,project=project,source="pc",actor="lab-http",
+                    permissions=("lab.plan","model.use","evidence.read"),
+                )
+                return self._json(200,out["result"])
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/lab/result/analyze":
+            try:
+                project=str(data.get("project") or "KRISHNA")
+                out=orch.dispatch_action(
+                    "lab.result.analyze",data,project=project,source="pc",actor="lab-http",
+                    permissions=("lab.review","model.use","evidence.read","evidence.write"),
+                )
+                return self._json(200,out["result"])
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/models/gateways/register":
             if self.client_address[0] not in ("127.0.0.1","::1"):
