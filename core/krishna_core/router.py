@@ -124,7 +124,11 @@ class ModelRouter:
             out.append({"provider":name,"available":bool(os.getenv(p["key"])),"local":False,
                         "model":os.getenv(p["model"],p["default"]),"credential_source":"environment","free_only":False})
         if self.gateway:
-            for row in self.gateway.list()["profiles"]:
+            try:
+                profiles=list((self.gateway.list() or {}).get("profiles") or [])
+            except (AttributeError,TypeError):
+                profiles=[]
+            for row in profiles:
                 out.append({"provider":"gateway:"+row["id"],"name":row["name"],"available":bool(row["enabled"] and row["credential_available"]),
                             "local":False,"model":row["model"],"credential_source":"windows-dpapi","free_only":row["free_only"],
                             "automatic_zero_cost_eligible":False,
