@@ -1208,6 +1208,14 @@ class Handler(BaseHTTPRequestHandler):
                 "status":orch.agi.model_scout.status(),
                 "recommendations":orch.agi.model_scout.recommend(task,limit=limit),
             })
+        if path == "/api/models/spark-x25/status":
+            return self._json(200,orch.spark_x25.status())
+        if path == "/api/models/spark-x25/install-plan":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"Spark installation planning is local-PC only"})
+            model=str((query.get("model") or ["spark-x2.5-4b"])[0]).strip() or "spark-x2.5-4b"
+            try:return self._json(200,orch.spark_x25.install_plan(model))
+            except KeyError:return self._json(404,{"error":"unknown Spark-X2.5 model key"})
         if path == "/api/runtime/integrity":
             return self._json(200, _integrity.status())
         if path == "/api/lab/status":
