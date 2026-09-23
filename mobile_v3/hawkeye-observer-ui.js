@@ -490,9 +490,29 @@
     return String(byId("cameraAnalysis")?.textContent||"").trim();
   }
 
+  function learningAnalysis(){
+    return currentAnalysis()
+      .split("\nLearning route:")[0]
+      .split("\nKnowledge status:")[0]
+      .trim();
+  }
+
+  function publicClues(){
+    const clues=[];
+    const add=value=>{
+      const text=String(value||"").replace(/\s+/g," ").trim();
+      if(!text||/\[SECRET REDACTED\]|\[WIFI CREDENTIAL REDACTED\]/i.test(text))return;
+      if(!clues.includes(text))clues.push(text.slice(0,240));
+    };
+    const rich=state.rich||{},ocr=rich.ocr||{};
+    for(const block of (Array.isArray(ocr.blocks)?ocr.blocks:[]))add(block&&block.text);
+    for(const code of (Array.isArray(rich.barcodes)?rich.barcodes:[]))add(code&&code.value);
+    return clues.slice(0,12);
+  }
+
   async function learningTick(force=false){
     if(!cameraActive()||(!state.learn&&!force)||!window.Krishna||!Krishna.hawkeyeObserveLearning)return;
-    const analysis=currentAnalysis();
+    const analysis=learningAnalysis();
     if(!analysis||(!force&&analysis===state.lastLearnText))return;
     state.lastLearnText=analysis;
     try{
@@ -512,15 +532,20 @@
         quality:0.7,
         importance:state.learn?0.9:0.65,
         audio_observations:{live_microphone:!!(typeof fieldAudio!=="undefined"&&fieldAudio),timestamp_ms:Date.now()},
-        public_clues:[]
+        public_clues:publicClues(),
+        outcome:"finding",
+        contradictions:[],
+        lessons:[]
       };
       const learned=JSON.parse(Krishna.hawkeyeObserveLearning(JSON.stringify(payload)));
       if(learned.error)throw new Error(learned.error);
       state.researchQueries=learned.research_plan&&Array.isArray(learned.research_plan.queries)?learned.research_plan.queries:[];
       if(learned.lead_rishi){
         const team=Array.isArray(learned.rishi_team)&&learned.rishi_team.length?" · "+learned.rishi_team.join(", "):"";
-        const base=currentAnalysis().split("\nLearning route:")[0];
-        byId("cameraAnalysis").textContent=base+"\nLearning route: "+learned.lead_rishi+team;
+        const base=learningAnalysis();
+        const status=String(learned.knowledge_status||"candidate");
+        const verification=learned.verification_required===false?"":" / verification required";
+        byId("cameraAnalysis").textContent=base+"\nLearning route: "+learned.lead_rishi+team+"\nKnowledge status: "+status+verification;
       }
     }catch(_){}
   }
