@@ -1073,6 +1073,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {
                 "ok": True,
                 "core": "ONLINE",
+                "runtime_generation": os.environ.get("KRISHNA_RUNTIME_GENERATION", ""),
                 "uptime_seconds": int(time.time() - started),
             })
         if path == "/api/status":
