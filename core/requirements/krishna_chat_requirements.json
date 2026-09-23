@@ -298,6 +298,19 @@
         "A release requires current Windows runtime acceptance, browser/UI verification, applicable Android real-device acceptance, recovery/rollback evidence and deployment-integrity proof.",
         "Hardware-dependent Glass/RTK/depth/CAN/instrument features may have software adapters implemented but remain HARDWARE_UNVERIFIED until tested with real hardware."
       ]
+    },
+    {
+      "id": "lab_bot",
+      "title": "LAB BOT — Rishi practical experiment and laboratory bridge",
+      "requirements": [
+        "LAB BOT is KRISHNA's bounded bridge from Rishi hypotheses to practical experiments; it does not replace KRISHNA, BRAHMA, the Rishi Council or Sudarshan authority.",
+        "Every LAB BOT experiment preserves the requesting Rishi, hypothesis, objective, domain, independent/dependent variables, controls, measurements, success criteria, source references, limitations and replication requirements when supplied.",
+        "Simulation/dry-run is the default first execution path and may validate experimental structure without claiming that a physical or biomedical result has been demonstrated.",
+        "Physical laboratory execution may occur only through an explicitly registered adapter and requires explicit owner/Sudarshan approval plus protocol review.",
+        "Biological, biomedical, medical, pharmacological, chemical and wet-lab physical execution additionally requires an approved facility context and a confirmed human operator.",
+        "Rishis may request, inspect and simulate LAB BOT experiments but do not receive unrestricted raw hardware, shell or laboratory-control authority.",
+        "Successful and failed experimental evidence, measurements, limitations and provenance are retained; practical findings require independent replication/review before promotion as verified Gyan-Bhandar knowledge."
+      ]
     }
   ],
   "release_gates": [
@@ -514,6 +527,18 @@
         "core/krishna_core/wearable_bridge.py"
       ],
       "next": "after PC/mobile stable and physical hardware selected"
+    },
+    {
+      "id": "lab_bot",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "LAB BOT / Rishi Council / Sudarshan",
+      "evidence": [
+        "core/krishna_core/lab_bot.py",
+        "core/tests/test_lab_bot.py",
+        "core/krishna_core/orchestrator.py",
+        "docs/KRISHNA_LAB_BOT.md"
+      ],
+      "next": "runtime acceptance for Rishi request -> simulation -> reviewed adapter execution; physical instruments remain HARDWARE_UNVERIFIED until connected and tested"
     }
   ]
 }
