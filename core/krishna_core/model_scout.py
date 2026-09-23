@@ -95,6 +95,7 @@ class ModelScout:
             and benchmarked
             and score>=float(min_score)
         )
+        prior=dict(self.rows.get(candidate.model_id) or {})
         row={
             **asdict(candidate),
             "score":score,
@@ -102,6 +103,11 @@ class ModelScout:
             "accepted":accepted,
             "decision":"PROMOTE_LOCAL_CANDIDATE" if accepted else "REJECT_OR_HOLD",
             "evaluated_at":time.time(),
+            "reviewed":bool(prior.get("reviewed",False)) if accepted else False,
+            "verified":bool(prior.get("verified",False)) if accepted else False,
+            "routing_enabled":bool(prior.get("routing_enabled",False)) if accepted else False,
+            "review_ref":str(prior.get("review_ref") or "") if accepted else "",
+            "verification_ref":str(prior.get("verification_ref") or "") if accepted else "",
             "cloud_policy":"cloud candidate labels never establish zero-cost; live provider billing verification remains separate",
         }
         self.rows[candidate.model_id]=row
@@ -110,6 +116,35 @@ class ModelScout:
 
     def active(self):
         return [dict(x) for x in self.rows.values() if x.get("accepted")]
+
+    def promote(self,model_id,*,review_ref,verification_ref):
+        key=str(model_id or "").strip()
+        row=self.rows.get(key)
+        if not row:raise KeyError("model candidate not found")
+        if not row.get("accepted") or not row.get("benchmarked"):
+            raise RuntimeError("model candidate must be benchmarked and accepted before promotion")
+        review_ref=str(review_ref or "").strip();verification_ref=str(verification_ref or "").strip()
+        if not review_ref or not verification_ref:
+            raise ValueError("review_ref and verification_ref are required")
+        row=dict(row)
+        row.update({
+            "reviewed":True,"verified":True,"routing_enabled":True,
+            "review_ref":review_ref,"verification_ref":verification_ref,
+            "promoted_at":time.time(),"decision":"ROUTING_ENABLED",
+        })
+        self.rows[key]=row;self._save()
+        return dict(row)
+
+    def routing_candidates(self,task="general",*,limit=10):
+        task=str(task or "general").strip().lower()
+        rows=[]
+        for row in self.active():
+            if not row.get("routing_enabled"):continue
+            row_task=str(row.get("task") or "general").strip().lower()
+            if task not in {"","general"} and row_task not in {"general",task}:continue
+            rows.append(row)
+        rows.sort(key=lambda x:(float(x.get("score") or 0),-float(x.get("latency_ms") or 0)),reverse=True)
+        return rows[:max(1,min(int(limit),100))]
 
     def recommend(self,task="general",*,max_ram_bytes=None,max_vram_bytes=None,limit=10):
         task=str(task or "general").strip().lower()
@@ -139,5 +174,6 @@ class ModelScout:
             "evaluated":len(self.rows),
             "active":len(active),
             "active_candidates":len(active),
+            "routing_enabled":sum(1 for x in active if x.get("routing_enabled")),
             "load_error":self.load_error,
         }
