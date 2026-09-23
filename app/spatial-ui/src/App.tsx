@@ -206,6 +206,14 @@ function PluginsPanel() {
 }
 
 export default function App() {
+  const dockApi = useRef<any>(null);
+  const [activeNav, setActiveNav] = useState<'krishna' | 'sudarshan' | 'plugins'>('krishna');
+  const focusPanel = (panelId: string, nav: 'krishna' | 'sudarshan' | 'plugins') => {
+    const panel = dockApi.current?.getPanel?.(panelId);
+    panel?.api?.setActive?.();
+    setActiveNav(nav);
+  };
+
   const components = useMemo(() => ({
     krishna: KrishnaHome,
     sudarshan: SudarshanPanel,
@@ -222,10 +230,16 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand"><Bot size={22} /><span>KRISHNA</span></div>
         <nav aria-label="Main Menu">
-          <div className="nav-item nav-item--active"><Bot size={18} /><span>KRISHNA</span></div>
-          <div className="nav-item"><Workflow size={18} /><span>Sudarshan</span></div>
+          <button type="button" className={activeNav === 'krishna' ? 'nav-item nav-item--active' : 'nav-item'} onClick={() => focusPanel('krishna-home', 'krishna')}>
+            <Bot size={18} /><span>KRISHNA</span>
+          </button>
+          <button type="button" className={activeNav === 'sudarshan' ? 'nav-item nav-item--active' : 'nav-item'} onClick={() => focusPanel('sudarshan-work', 'sudarshan')}>
+            <Workflow size={18} /><span>Sudarshan</span>
+          </button>
           <div className="nav-spacer" />
-          <div className="nav-item"><PlugZap size={18} /><span>Plugins</span></div>
+          <button type="button" className={activeNav === 'plugins' ? 'nav-item nav-item--active' : 'nav-item'} onClick={() => focusPanel('plugins', 'plugins')}>
+            <PlugZap size={18} /><span>Plugins</span>
+          </button>
         </nav>
       </aside>
       <main className="workspace">
@@ -233,6 +247,7 @@ export default function App() {
           theme={themeDark}
           components={components}
           onReady={(event) => {
+            dockApi.current = event.api;
             event.api.addPanel({ id: 'krishna-home', component: 'krishna', title: 'KRISHNA' });
             event.api.addPanel({ id: 'sudarshan-work', component: 'sudarshan', title: 'Sudarshan' });
             event.api.addPanel({ id: 'action-graph', component: 'graph', title: 'Action Graph' });
