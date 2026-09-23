@@ -29,10 +29,15 @@ class ModelRouter:
         self.gateway=gateway
         self.control_plane=None
         self.openrouter_free=None
+        self.direct_free=None
 
     def bind_openrouter_free(self,fabric):
         self.openrouter_free=fabric
         return {"provider":"openrouter-free","bound":bool(fabric)}
+
+    def bind_direct_free(self,fabric):
+        self.direct_free=fabric
+        return {"provider":"direct-free","bound":bool(fabric)}
 
     @staticmethod
     def paid_cloud_enabled():
@@ -101,6 +106,22 @@ class ModelRouter:
                 out.append({"provider":"openrouter-free","name":"OpenRouter Zero-Cost Fabric","available":False,
                             "local":False,"model":"dynamic-live-zero-cost","credential_source":"windows-dpapi",
                             "free_only":True,"error":f"{type(exc).__name__}: {exc}"})
+        if self.direct_free:
+            try:
+                status=self.direct_free.status(refresh=False)
+                out.append({
+                    "provider":status.get("provider_id") or "direct-free",
+                    "name":"Verified Direct Free Cloud",
+                    "available":bool(status.get("configured")),"local":False,
+                    "model":"configured-live-zero-billing","credential_source":"windows-dpapi",
+                    "free_only":True,"zero_cost_verified":"live-billing-preflight",
+                    "automatic_zero_cost_eligible":bool(status.get("automatic_zero_cost_eligible")),
+                })
+            except Exception as exc:
+                out.append({"provider":"direct-free:cloudflare-workers-ai","name":"Verified Direct Free Cloud",
+                            "available":False,"local":False,"model":"configured-live-zero-billing",
+                            "credential_source":"windows-dpapi","free_only":True,
+                            "error":f"{type(exc).__name__}: {exc}"})
         return out
 
     def _chat_compatible(self,name,prompt):
@@ -128,6 +149,9 @@ class ModelRouter:
             if not self.openrouter_free:raise RuntimeError("OpenRouter zero-cost fabric is not configured")
             role=provider.split(":",1)[1] if ":" in provider else "general"
             return self.openrouter_free.complete(role,prompt,privacy="approved_cloud")["text"]
+        if provider=="direct-free" or provider=="direct-free:cloudflare-workers-ai":
+            if not self.direct_free:raise RuntimeError("verified direct-free fabric is not configured")
+            return self.direct_free.complete(prompt,privacy="approved_cloud")["text"]
         if provider.startswith("gateway:"):
             if not self.gateway:raise RuntimeError("encrypted model gateway is not configured")
             return self.gateway.complete(provider.split(":",1)[1],prompt)
@@ -152,10 +176,12 @@ class ModelRouter:
             available=[x for x in available if x["local"]]
         else:
             if free_only or not self.paid_cloud_enabled():
-                # Automatic zero-cost planning trusts only local inference plus the
-                # live-catalog verified OpenRouter zero-cost fabric. A profile merely
+                # Automatic zero-cost planning trusts only local inference, the
+                # live-catalog verified OpenRouter fabric, and native direct adapters
+                # that perform their own live zero-billing preflight. A profile merely
                 # labelled free_only (Gemini/Groq/etc.) is not a billing guarantee.
-                available=[x for x in available if x["local"] or x["provider"]=="openrouter-free"]
+                available=[x for x in available if x["local"] or x["provider"]=="openrouter-free"
+                           or x["provider"]=="direct-free:cloudflare-workers-ai"]
         # Local models remain first. Free cloud can provide an independent reviewer
         # when available, while paid providers are opt-in only.
         def rank(row):
@@ -163,8 +189,10 @@ class ModelRouter:
                 return 0 if row["provider"]=="ollama" else 1
             if row["provider"]=="openrouter-free":
                 return 2
-            if row.get("free_only"):
+            if row["provider"]=="direct-free:cloudflare-workers-ai":
                 return 3
+            if row.get("free_only"):
+                return 4
             return 20
         available.sort(key=rank)
         roles=["implementation","architecture_review","bug_test_review","security_review"]
@@ -191,9 +219,23 @@ class ModelRouter:
             except Exception:
                 pass
 
-        # Direct gateway profiles labelled free_only may still be invoked explicitly
-        # by the owner, but they are not automatic fallbacks because KRISHNA cannot
-        # independently prove their account billing state from a profile label.
+        # Next fallback is a native direct provider only when its adapter can prove
+        # the configured account is currently non-billable. Cloudflare Workers AI
+        # performs a fresh Billing Read subscription preflight before every call.
+        if self.direct_free and self.direct_free.configured():
+            try:
+                result=self.direct_free.complete(prompt,privacy=privacy)
+                text=str(result.get("text") or "")
+                if text.strip():
+                    return {"provider":result.get("provider_id") or "direct-free:cloudflare-workers-ai",
+                            "text":text,"free_only":True,"zero_cost_verified":True,
+                            "zero_cost_proof":result.get("zero_cost_proof")}
+            except Exception:
+                pass
+
+        # Other direct gateway profiles labelled free_only may still be invoked
+        # explicitly by the owner, but they are not automatic fallbacks because
+        # KRISHNA cannot independently prove their account billing state.
         if free_only or not self.paid_cloud_enabled():
             raise RuntimeError("no live-verified zero-cost provider succeeded; declared-free/paid cloud auto-fallback is disabled")
 
