@@ -155,6 +155,27 @@ Concepts:
 - retrieval/context compilation;
 - approval-gated knowledge promotion.
 
+## 7A. KRISHNA Cognitive Brain — associative knowledge activation
+
+**Role:** connect concepts across trusted memory so KRISHNA can recall related knowledge, expose missing branches and route only genuine gaps to research.
+
+Core behavior:
+- persistent concept graph above Gyan-Bhandar;
+- query-time associative activation and multi-hop concept expansion;
+- Hybrid RAG expansion using related concepts rather than keyword-only retrieval;
+- memory-coverage checks before fresh research;
+- knowledge-gap packets with a suggested Rishi;
+- explicit provenance/confidence on concept relationships;
+- safe cross-domain comparison without silently asserting equivalence.
+
+Example:
+- Anu activates Paramanu, modern Atom comparisons and then Molecule through linked concepts.
+- Classical Anu/Paramanu remain on a **classical** evidence track.
+- Modern Atom/Molecule remain on a **modern_science** evidence track.
+- Cross-track links are comparisons, not claims that the concepts are identical.
+
+Gyan-Bhandar remains the trusted factual memory, BRAHMA remains the promotion/QC gate, and Rishis remain the research owners. The Cognitive Brain is the associative activation layer between them.
+
 ## 8. HAWKEYE — live perception/evidence fusion
 
 **Role:** coordinate measurable live-world evidence.
@@ -367,6 +388,7 @@ SUDARSHAN  ------------------------------ execution / permission / verification
   +-- BRAHMAGYAN ------------------------ Rishi + Shishya research
   |     +-- BRAHMA BOT ------------------ QC/learning governor
   |     +-- GYAN-BHANDAR ---------------- trusted knowledge
+  |     +-- COGNITIVE BRAIN ------------- associative concept activation
   |
   +-- HAWKEYE --------------------------- live evidence fusion
   |     +-- BHOOMIPUTRA ----------------- field/geospatial
