@@ -10,6 +10,7 @@
     geminiAnalysis: "",
     aiMode: "LOCAL",
     cloudApproved: false,
+    lockedTrackingId: null,
     objects: [],
     researchQueries: [],
     objectTimer: null,
@@ -115,7 +116,12 @@
     const caps=track.getCapabilities();
     if(!caps||!caps.zoom||typeof caps.zoom.min!=="number"||typeof caps.zoom.max!=="number")return;
     let best=null,bestArea=-1;
-    for(const item of objects){
+    if(state.lockedTrackingId!==null){
+      best=(objects||[]).find(x=>x&&x.tracking_id===state.lockedTrackingId)||null;
+      if(best&&Array.isArray(best.bbox))bestArea=Math.max(0,Number(best.bbox[2])||0)*Math.max(0,Number(best.bbox[3])||0);
+      if(!best){state.lockedTrackingId=null;const lock=byId("cameraLock");if(lock){lock.classList.remove("active");lock.textContent="LOCK";}}
+    }
+    if(!best)for(const item of objects){
       const b=item&&item.bbox;if(!Array.isArray(b)||b.length!==4)continue;
       const area=Math.max(0,Number(b[2])||0)*Math.max(0,Number(b[3])||0);
       if(area>bestArea){bestArea=area;best=item;}
@@ -458,9 +464,31 @@
     }catch(e){state.recorder=null;if(btn){btn.classList.remove("recording");btn.textContent="REC+DATA";}if(typeof reply==="function")reply("Recording: "+e.message,"bad");}
   }
 
+  function toggleTargetLock(){
+    const btn=byId("cameraLock");
+    if(state.lockedTrackingId!==null){
+      state.lockedTrackingId=null;
+      if(btn){btn.classList.remove("active");btn.textContent="LOCK";}
+      if(typeof reply==="function")reply("HAWKEYE target lock released.","good");
+      return;
+    }
+    let best=null,bestArea=-1;
+    for(const item of state.objects||[]){
+      const b=item&&item.bbox;if(!Array.isArray(b)||b.length!==4||item.tracking_id===null||item.tracking_id===undefined)continue;
+      const area=Math.max(0,Number(b[2])||0)*Math.max(0,Number(b[3])||0);
+      if(area>bestArea){bestArea=area;best=item;}
+    }
+    if(!best){if(typeof reply==="function")reply("No trackable target is visible yet.","warn");return;}
+    state.lockedTrackingId=best.tracking_id;
+    if(btn){btn.classList.add("active");btn.textContent="LOCK #"+best.tracking_id;}
+    if(typeof reply==="function")reply("HAWKEYE locked target #"+best.tracking_id+". Auto zoom will follow this tracking ID.","good");
+  }
+
   function research(){
     const labels=state.objects.map(x=>String(x.label||"")).filter(Boolean);
-    const initial=state.researchQueries[0]||labels.join(" ")||String(typeof fieldGoal!=="undefined"?fieldGoal:"current observed object");
+    const ocr=String(state.rich&&state.rich.ocr&&state.rich.ocr.text||"").replace(/\s+/g," ").trim();
+    const codes=(state.rich&&Array.isArray(state.rich.barcodes)?state.rich.barcodes:[]).map(x=>String(x.value||"")).filter(x=>x&&!x.includes("[")).join(" ");
+    const initial=state.researchQueries[0]||codes||ocr.slice(0,180)||labels.join(" ")||String(typeof fieldGoal!=="undefined"?fieldGoal:"current observed object");
     const q=(prompt("Research what HAWKEYE is seeing:",initial)||"").trim();if(!q)return;
     try{
       const out=JSON.parse(Krishna.openResearchQuery(q));if(out.error)throw new Error(out.error);
@@ -489,14 +517,15 @@
     state.objectTimer=state.learnTimer=state.richTimer=state.geminiTimer=null;
     stopGeminiLive();
     state.objects=[];state.researchQueries=[];state.lastLearnText="";state.rich=null;state.localSummary="";state.geminiAnalysis="";
-    state.aiMode="LOCAL";state.cloudApproved=false;
+    state.aiMode="LOCAL";state.cloudApproved=false;state.lockedTrackingId=null;
     for(const id of ["objectOverlay","richOverlay"]){const c=byId(id);if(c){const ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);}}
     if(state.recorder)stopRecording();
     state.learn=false;const btn=byId("cameraLearn");if(btn){btn.classList.remove("active");btn.textContent="LEARN";}
     const ai=byId("cameraAI");if(ai){ai.classList.remove("active");ai.textContent="AI:LOCAL";}
+    const lock=byId("cameraLock");if(lock){lock.classList.remove("active");lock.textContent="LOCK";}
   }
 
   setInterval(()=>{if(cameraActive())activate();else deactivate();},500);
 
-  window.HawkeyeObserverUI={toggleLearn,research,photo,record,detect,richPerception,learningTick,toggleAI,geminiTick,toggleGeminiLive,stopGeminiLive};
+  window.HawkeyeObserverUI={toggleLearn,research,photo,record,detect,richPerception,learningTick,toggleAI,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock};
 })();
