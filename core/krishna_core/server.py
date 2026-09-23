@@ -888,6 +888,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,status)
         if path == "/api/hawkeye/learning/missions":
             return self._json(200,{"agent":"hawkeye","missions":orch.hawkeye_learning.daily_missions()})
+        if path == "/api/hawkeye/observer/status":
+            return self._json(200,orch.hawkeye_observer.status())
         if path == "/api/hawkeye/diagnostic/status":
             return self._json(200,orch.hawkeye_diagnostic.status())
         if path == "/api/hawkeye/reference/status":
@@ -2726,39 +2728,29 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/hawkeye/learn/capture":
-            utterance=str(data.get("utterance") or "").strip()
-            source_type=str(data.get("source_type") or "mobile").strip()
-            source_ref=str(data.get("source_ref") or "").strip()
             modalities=data.get("modalities") or []
             if not isinstance(modalities,list):return self._json(400,{"error":"modalities must be an array"})
-            subject=str(data.get("subject") or "").strip()
-            analysis=str(data.get("analysis") or "").strip()
-            confidence=float(data.get("confidence") or 0.0)
-            evidence_state=str(data.get("evidence_state") or "UNKNOWN")
-            out=orch.universal_learning.ingest(
-                utterance=utterance,source_type=source_type,source_ref=source_ref,
-                modalities=modalities,subject=subject,confidence=confidence,
-                analysis=analysis,evidence_state=evidence_state,
-            )
-            if "audio" in [str(x).lower() for x in modalities]:
-                out["sound"]=orch.universal_learning.classify_sound_request(utterance,data.get("audio_observations") or {})
-            origin="pc" if source_type.lower()=="pc" else "mobile"
-            modality=(str(modalities[0]).lower() if len(modalities)==1 else ("multimodal" if modalities else "text"))
-            brahma_evidence=[{"source_ref":source_ref,"source_type":source_type}] if source_ref else []
-            out["brahma"]=orch.brahma.intake(
-                source=origin,
-                topic=subject or utterance or "Hawkeye learning observation",
-                content=analysis or utterance,
-                modality=modality,
-                evidence=brahma_evidence,
-                provenance={"source_ref":source_ref,"source_type":source_type,"hawkeye_learning_id":out.get("learning_id")},
-                confidence=confidence,
-                novelty=float(data.get("novelty") if data.get("novelty") is not None else 0.5),
-                quality=float(data.get("quality") if data.get("quality") is not None else max(confidence,0.5)),
-                importance=float(data.get("importance") if data.get("importance") is not None else (0.8 if subject else 0.5)),
-                evidence_status=evidence_state.lower(),
-            )
-            return self._json(201,out)
+            try:
+                out=orch.hawkeye_observer.capture(
+                    utterance=str(data.get("utterance") or "").strip(),
+                    source_type=str(data.get("source_type") or "mobile").strip(),
+                    source_ref=str(data.get("source_ref") or "").strip(),
+                    modalities=modalities,
+                    subject=str(data.get("subject") or "").strip(),
+                    analysis=str(data.get("analysis") or "").strip(),
+                    confidence=float(data.get("confidence") or 0.0),
+                    evidence_state=str(data.get("evidence_state") or "UNKNOWN"),
+                    audio_observations=data.get("audio_observations") or {},
+                    novelty=float(data.get("novelty") if data.get("novelty") is not None else 0.5),
+                    quality=float(data.get("quality") if data.get("quality") is not None else max(float(data.get("confidence") or 0.0),0.5)),
+                    importance=float(data.get("importance") if data.get("importance") is not None else (0.8 if str(data.get("subject") or "").strip() else 0.5)),
+                    known_identity=str(data.get("known_identity") or ""),
+                    identity_basis=str(data.get("identity_basis") or ""),
+                    public_clues=data.get("public_clues") or [],
+                )
+                return self._json(201,out)
+            except (ValueError,TypeError) as exc:
+                return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/hawkeye/evidence/ingest":
             mobile_session_id=str(data.get("session_id") or "").strip() or "mobile-evidence"
