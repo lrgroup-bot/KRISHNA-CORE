@@ -155,7 +155,9 @@
       const x=ox+(Number(b[0])||0)*dw,y=oy+(Number(b[1])||0)*dh,w=(Number(b[2])||0)*dw,h=(Number(b[3])||0)*dh;
       ctx.strokeStyle="#50f0ac";ctx.fillStyle="#50f0ac";ctx.strokeRect(x,y,w,h);
       const tid=item.tracking_id===null||item.tracking_id===undefined?"":" #"+item.tracking_id;
-      ctx.fillText(String(item.label||"object").slice(0,20)+tid,x+3,Math.max(14,y-2));
+      const top=Array.isArray(item.labels)&&item.labels.length?item.labels[0]:null;
+      const conf=top&&Number.isFinite(Number(top.confidence))?" "+Math.round(Number(top.confidence)*100)+"%":"";
+      ctx.fillText(String(item.label||"object").slice(0,20)+tid+conf,x+3,Math.max(14,y-2));
     }
   }
 
@@ -479,10 +481,14 @@
 
   function sourceType(){
     const goal=String(typeof fieldGoal!=="undefined"?fieldGoal:"").toLowerCase();
-    if(/book|page|read|textbook|manual/.test(goal))return"book";
-    if(/video|film|watch|screen/.test(goal))return"video";
+    if(/\bbook\b|textbook/.test(goal))return"book";
+    if(/\bpage\b/.test(goal))return"page";
+    if(/document|\bpdf\b|form|letter/.test(goal))return"document";
+    if(/screen|display|monitor/.test(goal))return"screen";
+    if(/video|film|watch/.test(goal))return"video";
     if(/listen|audio|sound/.test(goal))return"audio";
-    if(/object|device|machine|car|vehicle|tree|flower|animal/.test(goal))return"object";
+    if(/image|photo|picture/.test(goal))return"image";
+    if(/object|device|machine|car|vehicle|tree|flower|animal|circuit/.test(goal))return"object";
     return"camera";
   }
 
