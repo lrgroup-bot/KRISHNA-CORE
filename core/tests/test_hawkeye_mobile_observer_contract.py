@@ -38,7 +38,7 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("record()",self.ui)
 
     def test_apk_build_includes_required_dependencies_and_assets(self):
-        self.assertIn("androidx.browser:browser:1.10.0",self.workflow)
+        self.assertIn("androidx.browser:browser:1.9.0",self.workflow)
         self.assertIn("com.google.mlkit:object-detection:17.0.2",self.workflow)
         self.assertIn("hawkeye-observer-ui.js",self.workflow)
         self.assertIn("KRISHNA-v3.8-HAWKEYE-Observer-APK",self.workflow)
