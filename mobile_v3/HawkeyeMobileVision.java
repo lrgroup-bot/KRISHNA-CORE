@@ -13,6 +13,7 @@ import com.google.mlkit.vision.face.Face;
 import com.google.mlkit.vision.face.FaceDetection;
 import com.google.mlkit.vision.face.FaceDetector;
 import com.google.mlkit.vision.face.FaceDetectorOptions;
+import com.google.mlkit.vision.face.FaceLandmark;
 import com.google.mlkit.vision.pose.Pose;
 import com.google.mlkit.vision.pose.PoseDetection;
 import com.google.mlkit.vision.pose.PoseDetector;
@@ -64,6 +65,7 @@ public final class HawkeyeMobileVision {
   private static final FaceDetector FACES = FaceDetection.getClient(
     new FaceDetectorOptions.Builder()
       .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+      .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
       .enableTracking()
       .build()
   );
@@ -193,6 +195,17 @@ public final class HawkeyeMobileVision {
         row.put("tracking_id",face.getTrackingId()==null?JSONObject.NULL:face.getTrackingId());
         row.put("identity","UNKNOWN");
         row.put("biometric_web_search",false);
+        JSONArray landmarks=new JSONArray();
+        for(int type:new int[]{FaceLandmark.LEFT_EYE,FaceLandmark.RIGHT_EYE,FaceLandmark.NOSE_BASE,FaceLandmark.MOUTH_LEFT,FaceLandmark.MOUTH_RIGHT,FaceLandmark.MOUTH_BOTTOM,FaceLandmark.LEFT_EAR,FaceLandmark.RIGHT_EAR}){
+          FaceLandmark lm=face.getLandmark(type);
+          if(lm==null)continue;
+          JSONObject point=new JSONObject();
+          point.put("type",type);
+          point.put("x",Math.max(0,Math.min(1,lm.getPosition().x/w)));
+          point.put("y",Math.max(0,Math.min(1,lm.getPosition().y/h)));
+          landmarks.put(point);
+        }
+        row.put("landmarks",landmarks);
         faces.put(row);
       }
     }
