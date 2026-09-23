@@ -1873,6 +1873,135 @@ class Orchestrator:
         def kabach_privacy_release_gate(payload,context):
             return self.kabach.privacy_release_gate(payload.get("report") or {},str(payload.get("policy") or "STANDARD"))
 
+        def design_plan_action(payload,context):
+            return self.sudarshan_design.plan(DesignJob(
+                kind=str(payload.get("kind") or "frontend"),
+                reference_image=bool(payload.get("reference_image",False)),
+                existing_ui=bool(payload.get("existing_ui",False)),
+                agentic_browser=bool(payload.get("agentic_browser",False)),
+                topic=str(payload.get("topic") or payload.get("kind") or "design"),
+            ))
+
+        def design_drift_action(payload,context):
+            return self.sudarshan_design.drift.compare(
+                payload.get("expected") or {},payload.get("actual") or {},
+            )
+
+        def design_acceptance_action(payload,context):
+            return self.sudarshan_design.acceptance.evaluate(payload.get("checks") or {})
+
+        def design_ui_next_action(payload,context):
+            evidence=UIEvidence(
+                attempts=max(0,int(payload.get("attempts") or 0)),
+                findings=list(payload.get("findings") or []),
+            )
+            return self.sudarshan_ui.next_action(payload.get("checks") or {},evidence)
+
+        def vishvakarma_retrieve_action(payload,context):
+            return {
+                "findings":self.vishvakarma.retrieve(
+                    str(payload.get("topic") or "design"),
+                    limit=int(payload.get("limit") or 20),
+                    verified_only=bool(payload.get("verified_only",True)),
+                ),
+                "status":self.vishvakarma.status(),
+            }
+
+        def vishvakarma_learn_action(payload,context):
+            lesson=ResearchLesson(
+                source=str(payload.get("source") or ""),
+                source_version=str(payload.get("source_version") or ""),
+                license=str(payload.get("license") or "unknown"),
+                topic=str(payload.get("topic") or ""),
+                lesson=str(payload.get("lesson") or ""),
+                evidence=str(payload.get("evidence") or ""),
+                confidence=float(payload.get("confidence") or 0.5),
+                status="candidate",
+                failure_pattern=str(payload.get("failure_pattern") or ""),
+            )
+            return self.vishvakarma_learning.ingest(lesson)
+
+        def vishvakarma_verify_action(payload,context):
+            lesson=ResearchLesson(
+                source=str(payload.get("source") or ""),
+                source_version=str(payload.get("source_version") or ""),
+                license=str(payload.get("license") or "unknown"),
+                topic=str(payload.get("topic") or ""),
+                lesson=str(payload.get("lesson") or ""),
+                evidence=str(payload.get("evidence") or ""),
+                confidence=float(payload.get("confidence") or 0.8),
+                status="candidate",
+                failure_pattern=str(payload.get("failure_pattern") or ""),
+            )
+            return self.vishvakarma_learning.verify(lesson)
+
+        def model_scout_evaluate_action(payload,context):
+            candidate=ModelCandidate(
+                model_id=str(payload.get("model_id") or ""),
+                source=str(payload.get("source") or "local"),
+                task=str(payload.get("task") or "general"),
+                license=str(payload.get("license") or ""),
+                size_bytes=int(payload.get("size_bytes") or 0),
+                local_capable=bool(payload.get("local_capable",True)),
+                quality=float(payload.get("quality") or 0.0),
+                latency_ms=float(payload.get("latency_ms") or 0.0),
+                ram_bytes=int(payload.get("ram_bytes") or 0),
+                vram_bytes=int(payload.get("vram_bytes") or 0),
+                duplicate_of=str(payload.get("duplicate_of") or ""),
+                notes=str(payload.get("notes") or ""),
+            )
+            return self.agi.model_scout.evaluate(
+                candidate,min_score=float(payload.get("min_score") or 0.55),
+            )
+
+        def model_scout_recommend_action(payload,context):
+            return {
+                "models":self.agi.model_scout.recommend(
+                    str(payload.get("task") or "general"),
+                    max_ram_bytes=payload.get("max_ram_bytes"),
+                    max_vram_bytes=payload.get("max_vram_bytes"),
+                    limit=int(payload.get("limit") or 10),
+                ),
+                "status":self.agi.model_scout.status(),
+            }
+
+        self.action_bus.register(
+            "design.plan",design_plan_action,description="Build a Sudarshan design plan with verified Vishvakarma context",
+            permissions=("design.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "design.drift",design_drift_action,description="Compare expected and actual design genomes",
+            permissions=("design.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "design.acceptance",design_acceptance_action,description="Evaluate hard Sudarshan UI acceptance gates",
+            permissions=("design.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "design.ui.next",design_ui_next_action,description="Choose accept, repair/retest or escalate for UI evidence",
+            permissions=("design.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vishvakarma.retrieve",vishvakarma_retrieve_action,description="Retrieve provenance-backed Rishi Vishvakarma design knowledge",
+            permissions=("design.read","memory.read"),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vishvakarma.learn",vishvakarma_learn_action,description="Store a candidate Vishvakarma design lesson for BRAHMA review",
+            mutating=True,permissions=("design.write","memory.write"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vishvakarma.verify",vishvakarma_verify_action,description="Owner-approved promotion of a Vishvakarma lesson to verified",
+            mutating=True,requires_approval=True,permissions=("design.write","memory.write"),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "model.scout.evaluate",model_scout_evaluate_action,description="Evaluate a local model candidate without downloading or routing it",
+            mutating=True,permissions=("model.use",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "model.scout.recommend",model_scout_recommend_action,description="Recommend accepted local model candidates within resource limits",
+            permissions=("model.use",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
         self.action_bus.register(
             "gyan.acl.grant",gyan_acl_grant,description="Grant scoped delegated Gyan access",
             mutating=True,requires_approval=True,permissions=("memory.admin",),sources=("pc","system"),
