@@ -49,3 +49,49 @@ An adapter is not treated as physically available merely because software suppor
 ## Scientific evidence
 
 An adapter completing a run means only that the run completed. It does not automatically prove the hypothesis. LAB BOT retains successes and failures, and the result remains pending verification until independent replication/review is complete. Only then may BRAHMA propose the finding for trusted Gyan-Bhandar promotion.
+
+
+## Quantum Lab and Nano Lab
+
+LAB BOT includes a software-first Quantum/Nano research layer.
+
+### Quantum Lab
+
+Quantum Lab can:
+
+- create evidence-bounded quantum research plans;
+- require matched classical baselines;
+- run a bounded local state-vector simulator for small circuits;
+- model basic gates and entanglement workflows;
+- detect optional Qiskit and PennyLane installations;
+- plan Hamiltonian, variational, quantum-chemistry, QML and quantum-sensing studies.
+
+A simulator result is always labeled as classical simulation. Software presence never means a real QPU is connected, and no quantum-advantage claim is accepted without a valid matched benchmark.
+
+### Nano Lab
+
+Nano Lab can:
+
+- calculate bounded nanoscale geometry descriptors such as surface-to-volume ratio;
+- plan structure, surface, defect/interface, electronic, optical and mechanical analyses;
+- detect optional pymatgen and ASE installations;
+- prepare future Materials Project/provider workflows;
+- connect nanotechnology research to LAB BOT evidence and replication.
+
+Geometric descriptors are not material-property predictions. Atomistic or electronic-structure results must preserve the calculator/model, assumptions, convergence information and reference comparison.
+
+### Quantum + Nano intersection
+
+The joint research bridge prioritizes:
+
+- quantum materials;
+- quantum dots;
+- nanophotonics;
+- spin-defect sensing;
+- nanoscale quantum sensors;
+- mesoscopic/superconducting devices;
+- molecular and materials quantum simulation.
+
+The workflow is software-first: define a measurable target, establish a classical/materials baseline, simulate, quantify uncertainty, compare with trusted evidence, then design any physical test.
+
+Physical nanofabrication, quantum-hardware operation, quantum-materials fabrication and nanomaterials laboratory execution are not enabled merely by software support. They require registered physical adapters, protocol review, owner/Sudarshan approval, facility approval and a confirmed human operator before LAB BOT may execute them.
