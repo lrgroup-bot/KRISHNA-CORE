@@ -49,7 +49,7 @@ class UnifiedModelMesh:
                 w.failures=max(0,w.failures-1)
                 return {"provider":w.name,"model":w.model,"content":out["text"],"cost_usd":0.0}
             except QuotaExhausted as exc:
-                w.failures+=1; self.zero_cost.mark_exhausted(w.name); errors[w.name]=str(exc)
+                w.failures+=1; self.zero_cost.mark_exhausted_for(w.name,getattr(exc,"reset_seconds",None)); errors[w.name]=str(exc)
             except Exception as exc:
                 w.failures+=1; errors[w.name]=f"{type(exc).__name__}: {exc}"
             finally:w.inflight-=1
