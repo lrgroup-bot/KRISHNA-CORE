@@ -86,7 +86,7 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn('KRISHNA_GUARDIAN.ps1',deploy)
         self.assertIn('Start-Process powershell',deploy)
         self.assertIn('http://127.0.0.1:8766/health',deploy)
-        self.assertIn('Core did not become healthy on 8766',deploy)
+        self.assertIn('newly launched runtime generation did not become healthy on 8766',deploy)
         self.assertNotIn('& "$Runtime\\scripts\\START_KRISHNA.ps1"',deploy)
 
     def test_guardian_records_guardian_and_core_pid_plus_runtime_logs(self):
