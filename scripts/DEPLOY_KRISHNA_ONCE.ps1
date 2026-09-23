@@ -124,7 +124,7 @@ if(!(Test-Path $motionEngineAsset)){throw "MOTION ENGINE ASSET MISSING AFTER INS
 # Missing Blender/face-rig capability is reported, not disguised as a successful avatar.
 $avatarPrepare=Join-Path $Runtime "scripts\PREPARE_KRISHNA_AVATAR.ps1"
 if(Test-Path $avatarPrepare){
-  & powershell -NoProfile -ExecutionPolicy Bypass -File $avatarPrepare -RuntimeRoot $Runtime -SourceRoot $Source -TryBodyRig $true -InstallRigTools $true
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $avatarPrepare -RuntimeRoot $Runtime -SourceRoot $Source
   if($LASTEXITCODE -ne 0){
     Write-Warning "KRISHNA avatar candidate preparation reported a tooling failure. Core deployment will continue; the private source GLB remains untouched."
   }
@@ -137,16 +137,26 @@ if(!(Test-Path $gyanSecuritySetup)){throw "GYAN SECURITY SETUP MISSING: $gyanSec
 & powershell -NoProfile -ExecutionPolicy Bypass -File $gyanSecuritySetup -RuntimeRoot $Runtime
 if($LASTEXITCODE -ne 0){throw "GYAN SECURITY SETUP FAILED"}
 
-# Test the deployed runtime code, then repository-level contracts against runtime PYTHONPATH.
-$env:PYTHONPATH="$Runtime\core"
-& $Py -m compileall -q "$Runtime\core\krishna_core"
-if($LASTEXITCODE -ne 0){throw "DEPLOYED CORE COMPILE FAILED"}
-& $Py -m unittest discover -v -s "$Runtime\core\tests" -p "test_*.py"
-if($LASTEXITCODE -ne 0){throw "DEPLOYED CORE TESTS FAILED"}
-& $Py -m unittest discover -v -s "$Source\tests" -p "test_*.py"
-if($LASTEXITCODE -ne 0){throw "POST-DEPLOY CONTRACTS FAILED"}
-& $Py -c "from krishna_core.orchestrator import Orchestrator; print('ORCHESTRATOR_IMPORT_OK')"
-if($LASTEXITCODE -ne 0){throw "ORCHESTRATOR IMPORT FAILED"}
+# Test the deployed runtime code. Tests that validate repository-only contracts
+# (for example .github workflows) must resolve those files from the authoritative
+# source checkout instead of requiring CI metadata to be copied into the runtime.
+$previousSourceRoot=$env:KRISHNA_SOURCE_ROOT
+$env:KRISHNA_SOURCE_ROOT=$Source
+try{
+  $env:PYTHONPATH="$Runtime\core"
+  & $Py -m compileall -q "$Runtime\core\krishna_core"
+  if($LASTEXITCODE -ne 0){throw "DEPLOYED CORE COMPILE FAILED"}
+  & $Py -m unittest discover -v -s "$Runtime\core\tests" -p "test_*.py"
+  if($LASTEXITCODE -ne 0){throw "DEPLOYED CORE TESTS FAILED"}
+  & $Py -m unittest discover -v -s "$Source\tests" -p "test_*.py"
+  if($LASTEXITCODE -ne 0){throw "POST-DEPLOY CONTRACTS FAILED"}
+  & $Py -c "from krishna_core.orchestrator import Orchestrator; print('ORCHESTRATOR_IMPORT_OK')"
+  if($LASTEXITCODE -ne 0){throw "ORCHESTRATOR IMPORT FAILED"}
+}
+finally{
+  if($null -eq $previousSourceRoot){Remove-Item Env:KRISHNA_SOURCE_ROOT -ErrorAction SilentlyContinue}
+  else{$env:KRISHNA_SOURCE_ROOT=$previousSourceRoot}
+}
 
 # Write an atomic deployment manifest so KRISHNA can prove exactly what code is running.
 $deployDir=Join-Path $Runtime "state\deployment"
