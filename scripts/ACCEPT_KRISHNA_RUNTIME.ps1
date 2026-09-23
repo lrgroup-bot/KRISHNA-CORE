@@ -262,6 +262,21 @@ try{
   if($models.gateway.policy -match "no silent provider fallback"){Add-Check "Free-only model gateway" "PASS" "Gateway policy blocks silent paid fallback" $models.gateway}
   else{Add-Check "Free-only model gateway" "FAIL" "Free-only fallback policy missing" $models.gateway}
 
+  $zero=$models.openrouter_free
+  $zeroSafe=(
+    -not [bool]$models.paid_cloud_enabled -and
+    [string]$zero.version -eq "openrouter-zero-cost-v1" -and
+    [bool]$zero.zero_cost_policy.live_catalog_preflight_required -and
+    -not [bool]$zero.zero_cost_policy.paid_fallback -and
+    [string]$zero.zero_cost_policy.provider_data_collection -eq "deny" -and
+    [bool]$zero.zero_cost_policy.provider_zero_data_retention
+  )
+  if($zeroSafe){
+    Add-Check "Zero-cost cloud guard" "PASS" "Paid cloud defaults OFF; OpenRouter requires live zero-price + privacy-safe provider preflight" $zero
+  }else{
+    Add-Check "Zero-cost cloud guard" "FAIL" "OpenRouter free-cloud fail-closed policy is incomplete" $zero
+  }
+
   $voice=Get-Json "/api/voice/status"
   $voiceReady=($voice.stt.available -and $voice.tts.available -and $voice.wake.available)
   Add-Check "Native Odia/Hindi voice + wake" ($(if($voiceReady){"PASS"}else{"WARN"})) ($(if($voiceReady){"Indic STT/TTS and Krishna wake runtime ready"}else{"Voice boundaries installed; Hindi/Odia model workers and/or wake assets still require runtime configuration"})) $voice
