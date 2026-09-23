@@ -12,7 +12,7 @@ class T(unittest.TestCase):
    self.assertTrue(r.enroll("laptop","fp",approved=True).trusted)
  def test_knowledge_merge(self):
   with tempfile.TemporaryDirectory() as d:
-   a,b=Path(d)/"a",Path(d)/"b"; a.write_text('{"id":"1","v":"x"}\\n',encoding="utf-8")
+   a,b=Path(d)/"a",Path(d)/"b"; a.write_text('{"id":"1","v":"x"}\n',encoding="utf-8")
    self.assertEqual(KnowledgeSync().merge_jsonl(a,b)["added"],1)
  def test_resume_transfer(self):
   with tempfile.TemporaryDirectory() as d:
