@@ -45,6 +45,8 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
     <button id="cameraRef" class="cameraRef" onclick="configureReferenceAlignment()" aria-label="Align verified circuit reference">REF</button>
     <div class="cameraActions">
       <button id="cameraLearn" class="cameraAction" onclick="HawkeyeObserverUI.toggleLearn()" aria-label="Toggle Hawkeye learning observer">LEARN</button>
+      <button id="cameraAI" class="cameraAction" onclick="HawkeyeObserverUI.toggleAI()" aria-label="Cycle local auto and Gemini selected-frame reasoning">AI:LOCAL</button>
+      <button id="cameraGeminiLive" class="cameraAction" onclick="HawkeyeObserverUI.toggleGeminiLive()" aria-label="Toggle Gemini Live with an ephemeral token">G-LIVE</button>
       <button class="cameraAction" onclick="HawkeyeObserverUI.research()" aria-label="Research observed object">SEARCH</button>
       <button class="cameraAction" onclick="HawkeyeObserverUI.photo()" aria-label="Save Hawkeye photo with data">PHOTO+DATA</button>
       <button id="cameraRecord" class="cameraAction" onclick="HawkeyeObserverUI.record()" aria-label="Record Hawkeye object with data">REC+DATA</button>
@@ -250,6 +252,7 @@ async function sampleFieldFrame(){
  }finally{fieldBusy=false}
 }
 function stopFieldScan(){
+ try{if(window.HawkeyeObserverUI&&HawkeyeObserverUI.stopGeminiLive)HawkeyeObserverUI.stopGeminiLive()}catch(_){}
  clearInterval(fieldTimer);fieldTimer=null;clearInterval(fieldVideoClipTimer);fieldVideoClipTimer=null;clearInterval(fieldAudioClipTimer);fieldAudioClipTimer=null;
  if(fieldStream){for(const t of fieldStream.getTracks())try{t.stop()}catch(e){}}
  fieldStream=null;fieldBusy=false;fieldAudio=false;fieldProbe=null;fieldMediaBusy=false;fieldReference=null;fieldReferencePending=null;
