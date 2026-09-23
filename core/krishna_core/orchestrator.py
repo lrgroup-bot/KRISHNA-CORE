@@ -320,6 +320,25 @@ class Orchestrator:
                 str(payload.get("display_name") or "").strip(),
             )
 
+        def project_brain_provision(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            if not project:raise ValueError("project is required")
+            return self.project_brain.provision(project)
+
+        def project_brain_status(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            if not project:raise ValueError("project is required")
+            return self.project_brain.status(project)
+
+        def project_brain_record(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            if not project:raise ValueError("project is required")
+            return self.project_brain.record(
+                project,
+                str(payload.get("section") or ""),
+                str(payload.get("message") or ""),
+            )
+
         def work_managed_run(payload,context):
             return self._run_managed_goal_impl(
                 str(payload.get("project") or context.get("project") or ""),
@@ -2072,6 +2091,18 @@ class Orchestrator:
         self.action_bus.register(
             "project.unregister",project_unregister,description="Unregister a KRISHNA project",
             mutating=True,permissions=("project.write",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "project.brain.provision",project_brain_provision,description="Provision runtime-owned Sudarshan Project Brain governance layers",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "project.brain.status",project_brain_status,description="Read Sudarshan Project Brain governance status",
+            permissions=("project.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "project.brain.record",project_brain_record,description="Append a bounded Project Brain governance memory entry",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "project.rename",project_rename,description="Rename a project display label without changing its internal project key or root",
