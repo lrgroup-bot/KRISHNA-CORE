@@ -101,6 +101,7 @@ class ModelRouter:
                 if not model:continue
                 model_key=model.lower()
                 installed_now=model_key in installed or (model_key+":latest") in installed
+                row_task=str(row.get("task") or "general").strip().lower()
                 out.append({
                     "provider":"ollama-model:"+model,
                     "available":installed_now,
@@ -110,6 +111,7 @@ class ModelRouter:
                     "free_only":True,
                     "scout_routing_enabled":True,
                     "task":row.get("task"),
+                    "pc_routing_eligible":row_task!="local_mobile_reasoner",
                     "benchmark_ref":row.get("benchmark_ref"),
                     "error":None if installed_now else "routing-enabled candidate is not installed in Ollama",
                 })
@@ -202,7 +204,10 @@ class ModelRouter:
         return str(result.get("text") or "")
 
     def coding_plan(self,privacy="approved_cloud",free_only=False):
-        available=[x for x in self.available() if x["available"]]
+        available=[
+            x for x in self.available()
+            if x["available"] and x.get("pc_routing_eligible",True)
+        ]
         if privacy in {"local_only","restricted"}:
             available=[x for x in available if x["local"]]
         else:
@@ -235,6 +240,9 @@ class ModelRouter:
             for row in self.model_scout.routing_candidates(task,limit=5):
                 model=str(row.get("model_id") or "").strip()
                 if not model:continue
+                row_task=str(row.get("task") or "general").strip().lower()
+                if str(task or "general").strip().lower() in {"","general"} and row_task=="local_mobile_reasoner":
+                    continue
                 provider="ollama-model:"+model
                 try:
                     out=self._governed_ask(provider,prompt,privacy,free_only,project,actor)
