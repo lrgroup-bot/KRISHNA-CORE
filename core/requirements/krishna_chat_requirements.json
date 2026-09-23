@@ -309,7 +309,11 @@
         "Physical laboratory execution may occur only through an explicitly registered adapter and requires explicit owner/Sudarshan approval plus protocol review.",
         "Biological, biomedical, medical, pharmacological, chemical and wet-lab physical execution additionally requires an approved facility context and a confirmed human operator.",
         "Rishis may request, inspect and simulate LAB BOT experiments but do not receive unrestricted raw hardware, shell or laboratory-control authority.",
-        "Successful and failed experimental evidence, measurements, limitations and provenance are retained; practical findings require independent replication/review before promotion as verified Gyan-Bhandar knowledge."
+        "Successful and failed experimental evidence, measurements, limitations and provenance are retained; practical findings require independent replication/review before promotion as verified Gyan-Bhandar knowledge.",
+        "Quantum Lab provides software-first circuit simulation, quantum research planning and provider discovery; simulator output is never represented as real-QPU evidence or quantum advantage.",
+        "Nano Lab provides nanoscale geometry/materials research planning and optional materials-tool provider discovery; geometric or atomistic models are never represented as verified physical fabrication or biological efficacy.",
+        "Quantum/Nano joint research prioritizes quantum materials, quantum dots, nanophotonics, spin defects, nanoscale quantum sensing and molecular/materials simulation while keeping classical/materials baselines and uncertainty visible.",
+        "Physical nanofabrication, quantum hardware, quantum-materials fabrication and nanomaterials laboratory work remain facility-reviewed, human-supervised and hardware-unverified until real adapters are accepted."
       ]
     }
   ],
@@ -539,6 +543,19 @@
         "docs/KRISHNA_LAB_BOT.md"
       ],
       "next": "runtime acceptance for Rishi request -> simulation -> reviewed adapter execution; physical instruments remain HARDWARE_UNVERIFIED until connected and tested"
+    },
+    {
+      "id": "quantum_nano_lab",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "LAB BOT / Kanada / Vishwamitra / Sudarshan",
+      "evidence": [
+        "core/krishna_core/quantum_nano_lab.py",
+        "core/tests/test_quantum_nano_lab.py",
+        "core/krishna_core/lab_bot.py",
+        "core/krishna_core/orchestrator.py",
+        "docs/KRISHNA_LAB_BOT.md"
+      ],
+      "next": "runtime acceptance of Rishi quantum/nano actions; optional Qiskit/PennyLane/pymatgen/ASE providers and real QPU/nanofabrication remain SOFTWARE_OR_HARDWARE_UNVERIFIED until installed/connected and benchmarked"
     }
   ]
 }

@@ -84,6 +84,29 @@ class LabBotTests(unittest.TestCase):
             result=bot.execute(exp["experiment_id"])
             self.assertEqual(result["status"],"EXECUTED_PENDING_VERIFICATION")
 
+    def test_physical_nanotechnology_requires_facility_and_human_operator(self):
+        with tempfile.TemporaryDirectory() as td:
+            bot=LabBot(Path(td))
+            exp=self._request(
+                bot,domain="nanotechnology",mode="fabrication",adapter="nano-fab",
+            )
+            bot.register_adapter(
+                "nano-fab",
+                capabilities=("fabricate_reviewed_candidate",),
+                domains=("nanotechnology",),
+                physical=True,
+                handler=lambda record,context:{"completed":True},
+            )
+            bot.review(exp["experiment_id"],protocol_reviewed=True,owner_approved=True)
+            with self.assertRaises(PermissionError):
+                bot.execute(exp["experiment_id"])
+            bot.review(
+                exp["experiment_id"],protocol_reviewed=True,owner_approved=True,
+                facility_approved=True,human_operator_confirmed=True,
+            )
+            result=bot.execute(exp["experiment_id"])
+            self.assertEqual(result["status"],"EXECUTED_PENDING_VERIFICATION")
+
     def test_status_declares_adapter_and_verification_boundaries(self):
         with tempfile.TemporaryDirectory() as td:
             status=LabBot(Path(td)).status()

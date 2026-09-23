@@ -1029,6 +1029,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, _integrity.status())
         if path == "/api/lab/status":
             return self._json(200, orch.lab.status())
+        if path == "/api/lab/quantum-nano":
+            return self._json(200, orch.lab.quantum_nano.status())
         if path == "/api/lab/experiments":
             limit=max(1,min(int((query.get("limit") or ["100"])[0]),500))
             return self._json(200, {"experiments":orch.lab.list(limit)})

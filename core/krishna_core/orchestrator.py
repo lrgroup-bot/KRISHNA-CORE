@@ -1567,6 +1567,21 @@ class Orchestrator:
                 payload.get("payload") or {},
             )
 
+        def lab_quantum_plan(payload,context):
+            return self.lab.quantum_nano.quantum_plan(payload)
+
+        def lab_quantum_simulate(payload,context):
+            return self.lab.quantum_nano.quantum_simulate(payload)
+
+        def lab_nano_plan(payload,context):
+            return self.lab.quantum_nano.nano_plan(payload)
+
+        def lab_nano_geometry(payload,context):
+            return self.lab.quantum_nano.nano_geometry(payload)
+
+        def lab_quantum_nano_bridge(payload,context):
+            return self.lab.quantum_nano.bridge_plan(payload)
+
         def lab_experiment_request(payload,context):
             return self.lab.request(payload)
 
@@ -2347,6 +2362,37 @@ class Orchestrator:
         )
 
         self.action_bus.register(
+            "lab.quantum.plan",lab_quantum_plan,
+            description="Build an evidence-bounded quantum research plan with classical baselines",
+            permissions=("lab.plan","lab.quantum"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "lab.quantum.simulate",lab_quantum_simulate,
+            description="Run a bounded local state-vector quantum circuit simulation",
+            permissions=("lab.simulate","lab.quantum"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "lab.nano.plan",lab_nano_plan,
+            description="Build a nanotechnology/materials research plan without claiming physical fabrication",
+            permissions=("lab.plan","lab.nano"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "lab.nano.geometry",lab_nano_geometry,
+            description="Compute bounded nanoscale geometry descriptors for research planning",
+            permissions=("lab.simulate","lab.nano"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "lab.quantum-nano.bridge",lab_quantum_nano_bridge,
+            description="Plan cross-domain quantum materials, nanophotonics and nanoscale sensing research",
+            permissions=("lab.plan","lab.quantum","lab.nano"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
             "lab.experiment.request",lab_experiment_request,
             description="Create a durable LAB BOT experiment request from a Rishi hypothesis",
             mutating=True,permissions=("lab.plan","evidence.write"),
@@ -2453,8 +2499,8 @@ class Orchestrator:
 
         self.agent_runtime.register(
             "lab-bot","Rishi experiment planner, simulator and approved laboratory adapter coordinator",
-            permissions=("lab.plan","lab.simulate","lab.record","evidence.write","runtime.read"),
-            actions=("lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate","lab.experiment.record"),
+            permissions=("lab.plan","lab.simulate","lab.record","lab.quantum","lab.nano","evidence.write","runtime.read"),
+            actions=("lab.*",),
         )
 
         self.agent_runtime.register(
@@ -2466,8 +2512,8 @@ class Orchestrator:
         for profile in self.agi.brahmagyan.council.list():
             self.agent_runtime.register(
                 "rishi:"+profile["id"],profile["role"],
-                permissions=("web.read","evidence.write","memory.write","worker.execute","lab.plan","lab.simulate"),
-                actions=("brahmagyan.*","garuda.scout","lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate"),
+                permissions=("web.read","evidence.write","memory.write","worker.execute","lab.plan","lab.simulate","lab.quantum","lab.nano"),
+                actions=("brahmagyan.*","garuda.scout","lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate","lab.quantum.*","lab.nano.*","lab.quantum-nano.bridge"),
             )
 
     def dispatch_action(self,action,payload=None,project="KRISHNA",source="pc",actor="owner",

@@ -70,7 +70,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/brahma/status", "/api/brahma/intelligence/status",
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
-                     "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/lab/status", "/api/lab/experiments", "/api/mobile/runtime", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
+                     "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/lab/status", "/api/lab/quantum-nano", "/api/lab/experiments", "/api/mobile/runtime", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
@@ -187,6 +187,48 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(code,200)
         self.assertEqual(sim["result"]["status"],"SIMULATED")
         self.assertTrue(sim["verified"])
+
+    def test_quantum_nano_lab_runtime(self):
+        code,status=self.call("/api/lab/quantum-nano")
+        self.assertEqual(code,200)
+        self.assertEqual(status["version"],"krishna-quantum-nano-lab-v1")
+        self.assertTrue(status["quantum"]["local_statevector"])
+        self.assertFalse(status["quantum"]["real_qpu_verified"])
+        self.assertFalse(status["nano"]["nanofabrication_verified"])
+
+        code,bell=self.call("/api/action-bus/dispatch",{
+            "action":"lab.quantum.simulate","project":"KRISHNA",
+            "permissions":["lab.simulate","lab.quantum"],
+            "payload":{
+                "qubits":2,
+                "gates":[
+                    {"gate":"h","target":0},
+                    {"gate":"cx","control":0,"target":1},
+                ],
+            },
+        })
+        self.assertEqual(code,200)
+        self.assertAlmostEqual(bell["result"]["probabilities"]["00"],0.5,places=10)
+        self.assertAlmostEqual(bell["result"]["probabilities"]["11"],0.5,places=10)
+        self.assertTrue(bell["verified"])
+
+        code,nano=self.call("/api/action-bus/dispatch",{
+            "action":"lab.nano.geometry","project":"KRISHNA",
+            "permissions":["lab.simulate","lab.nano"],
+            "payload":{"shape":"sphere","radius_nm":5},
+        })
+        self.assertEqual(code,200)
+        self.assertAlmostEqual(nano["result"]["surface_to_volume_per_nm"],0.6,places=10)
+        self.assertTrue(nano["verified"])
+
+        code,bridge=self.call("/api/action-bus/dispatch",{
+            "action":"lab.quantum-nano.bridge","project":"KRISHNA",
+            "permissions":["lab.plan","lab.quantum","lab.nano"],
+            "payload":{"objective":"Explore a nanoscale quantum sensor"},
+        })
+        self.assertEqual(code,200)
+        self.assertIn("nanoscale quantum sensors",bridge["result"]["candidate_areas"])
+        self.assertFalse(bridge["result"]["physical_execution"])
 
     def test_canonical_mobile_runtime_identity(self):
         code,mobile=self.call("/api/mobile/runtime")
