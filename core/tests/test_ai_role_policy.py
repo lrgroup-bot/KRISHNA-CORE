@@ -120,7 +120,8 @@ class AIRoleRoutingTests(unittest.TestCase):
             plan={x["role"]:x for x in router.coding_plan("approved_cloud",free_only=True)}
             self.assertEqual(plan["implementation"]["provider"],"ollama")
             self.assertEqual(plan["implementation"]["model"],"coder-local")
-            self.assertEqual(plan["architecture_review"]["provider"],"openrouter-free:reasoning")
+            self.assertEqual(plan["architecture_review"]["provider"],"openrouter-free")
+            self.assertEqual(plan["architecture_review"]["route_provider"],"openrouter-free:reasoning")
 
 
 if __name__=="__main__":
