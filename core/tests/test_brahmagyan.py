@@ -41,10 +41,10 @@ class BrahmagyanTests(unittest.TestCase):
 
     def test_council_is_permanent_profiles_not_running_processes(self):
         status=RishiCouncil().status()
-        self.assertEqual(status["permanent_profiles"],28)
+        self.assertEqual(status["permanent_profiles"],29)
         self.assertEqual(status["running_processes"],0)
         ids={x["id"] for x in status["members"]}
-        for needed in ("veda-vyasa","gautama","vishwamitra","sushruta","charaka","panini"):
+        for needed in ("veda-vyasa","gautama","vishwamitra","vishvakarma","sushruta","charaka","panini"):
             self.assertIn(needed,ids)
         self.assertIn("historical association",status["policy"])
 
