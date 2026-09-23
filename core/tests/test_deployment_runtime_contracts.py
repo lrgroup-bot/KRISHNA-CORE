@@ -25,6 +25,26 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn("-RuntimeRoot $Runtime",line)
         self.assertIn("-SourceRoot $Source",line)
 
+    def test_acceptance_uses_current_shishya_tree_contract_not_legacy_four_worker_cap(self):
+        root=repository_root()
+        accept=(root/"scripts"/"ACCEPT_KRISHNA_RUNTIME.ps1").read_text(encoding="utf-8")
+        self.assertNotIn("requested_count -le 4",accept)
+        self.assertIn("$shishyaRequested -le 32",accept)
+        self.assertIn("$shishyaConcurrent -ge 1 -and $shishyaConcurrent -le 8",accept)
+        self.assertIn("$shishyaTreeNodes -ge 1 -and $shishyaTreeNodes -le 256",accept)
+        self.assertIn('$shishyaResult.retention_policy -eq "findings_and_provenance_only"',accept)
+        self.assertIn('$shishyaResult.destruction_policy -match "retire every Shishya"',accept)
+
+    def test_acceptance_exercises_brahma_qc_before_gyan_approval(self):
+        root=repository_root()
+        accept=(root/"scripts"/"ACCEPT_KRISHNA_RUNTIME.ps1").read_text(encoding="utf-8")
+        self.assertIn('verification_agent="gautama"',accept)
+        self.assertIn('compiler="veda-vyasa"',accept)
+        self.assertIn('maturity="L4"',accept)
+        self.assertIn('evidence_status="verified"',accept)
+        self.assertIn('$proposal.brahma.verified_for_gyan',accept)
+        self.assertNotIn('source="runtime_acceptance";verified=$true',accept)
+
     def test_repo_contract_tests_honor_authoritative_source_root(self):
         root=repository_root()
         audit=(root/"core"/"tests"/"test_project_audit.py").read_text(encoding="utf-8")
