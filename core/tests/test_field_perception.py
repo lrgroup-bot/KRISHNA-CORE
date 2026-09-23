@@ -1,5 +1,4 @@
 import tempfile
-import inspect
 import unittest
 from pathlib import Path
 
@@ -62,8 +61,7 @@ class FieldPerceptionTests(unittest.TestCase):
             self.assertTrue(out["privacy"]["secret_redaction"])
 
     def test_server_live_response_uses_redacted_persisted_analysis(self):
-        import krishna_core.server as server
-        source=inspect.getsource(server.Handler.do_POST)
+        source=(Path(__file__).resolve().parents[1]/"krishna_core"/"server.py").read_text(encoding="utf-8")
         self.assertIn('result["analysis"]=field["latest_analysis"]["analysis"]',source)
         self.assertIn('"analysis":field["latest_analysis"]["analysis"]',source)
         self.assertIn('"secret_redaction":True',source)
