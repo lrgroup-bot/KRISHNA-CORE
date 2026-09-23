@@ -333,7 +333,7 @@ class GarudanetraSessionManager:
     def _semantic_capture(self,page,session):
         revision=session.semantic_revision+1
         prefix=f"k{revision}-"
-        script="""({prefix}) => {
+        script=r"""({prefix}) => {
           for (const el of document.querySelectorAll('[data-krishna-ref]')) el.removeAttribute('data-krishna-ref');
           const selector='a[href],button,input:not([type=hidden]),textarea,select,[role=button],[role=link],[role=checkbox],[role=radio],[role=combobox],[tabindex]:not([tabindex="-1"])';
           const nodes=[...document.querySelectorAll(selector)].slice(0,350);
