@@ -11,6 +11,7 @@ from .router import ModelRouter
 from .model_gateway import ModelGatewayRegistry
 from .openrouter_free import OpenRouterFreeFabric
 from .direct_free import VerifiedDirectFreeFabric
+from .ai_role_policy import AIRolePolicyStore
 from .secure_vault import SecureSecretVault
 from .config import settings
 from .project_graph import ProjectGraph
@@ -106,9 +107,11 @@ class Orchestrator:
         self.model_gateway = ModelGatewayRegistry(runtime_state / "model-gateways.json", self.secure_vault)
         self.openrouter_free = OpenRouterFreeFabric(self.model_gateway, runtime_state / "openrouter-free")
         self.direct_free = VerifiedDirectFreeFabric(self.model_gateway)
+        self.ai_roles = AIRolePolicyStore(runtime_state / "ai-role-policy.json")
         self.router = ModelRouter(self.model_gateway)
         self.router.bind_openrouter_free(self.openrouter_free)
         self.router.bind_direct_free(self.direct_free)
+        self.router.bind_role_policy(self.ai_roles)
         self.graph = ProjectGraph()
         self.graph_intelligence = GraphIntelligence(self.graph, self.memory)
         self.gnn = OptionalGNNBackend()
@@ -875,7 +878,11 @@ class Orchestrator:
                 raise PermissionError("free-only policy blocks this model provider")
             if not info.get("local") and not info.get("free_only") and not self.router.paid_cloud_enabled():
                 raise PermissionError("paid cloud provider is disabled; set KRISHNA_ALLOW_PAID_CLOUD=1 only for explicit paid use")
-            return {"provider":provider,"model":info.get("model"),"text":self.router.ask(provider,prompt)}
+            requested_model=str(payload.get("model") or "").strip() or None
+            if requested_model and provider not in {"ollama","gpt4all"}:
+                raise ValueError("model override is supported only for local Ollama/GPT4All")
+            return {"provider":provider,"model":requested_model or info.get("model"),
+                    "text":self.router.ask(provider,prompt,model=requested_model,privacy=privacy)}
 
         def narad_publish_event(payload,context):
             topic=str(payload.get("topic") or "").strip()
@@ -2998,6 +3005,36 @@ class Orchestrator:
     def model_provider_status(self):
         return self.model_providers.status()
 
+    def model_role_status(self,project="KRISHNA"):
+        policy=self.projects.get(project) if project!="KRISHNA" else None
+        if project!="KRISHNA" and not policy:raise KeyError(project)
+        privacy=policy.privacy if policy else "approved_cloud"
+        status=self.ai_roles.status()
+        roles=[]
+        for row in status["roles"]:
+            item=dict(row)
+            try:
+                plan=self.router.role_plan(item["role"],privacy,free_only=not self.router.paid_cloud_enabled())
+                item["effective_plan"]=[
+                    {"provider":x.get("provider"),"model":x.get("model"),"local":bool(x.get("local")),
+                     "free_only":bool(x.get("local") or x.get("free_only"))}
+                    for x in plan[:5]
+                ]
+                item["blocked"]=False
+            except Exception as exc:
+                item["effective_plan"]=[]
+                item["blocked"]=True
+                item["error"]=f"{type(exc).__name__}: {exc}"
+            roles.append(item)
+        return {**status,"project":project,"privacy":privacy,"roles":roles,
+                "paid_cloud_enabled":self.router.paid_cloud_enabled(),
+                "routing_order":"role preference -> local safety path -> OpenRouter live-zero -> verified direct-free -> STOP unless paid cloud explicitly enabled"}
+
+    def model_role_assign(self,role,mode="auto",provider=None,model=None):
+        result=self.ai_roles.set(role,mode,provider,model)
+        self.memory.audit("ai_role_policy","updated",json.dumps(result,sort_keys=True))
+        return result
+
     def krishna_protocol_status(self):
         return self.protocol.status()
 
@@ -3667,6 +3704,7 @@ class Orchestrator:
         return {"providers":self.router.available(),"coding_plan":self.router.coding_plan(privacy),
                 "free_only_plan":self.router.coding_plan(privacy,free_only=True),"privacy":privacy,
                 "paid_cloud_enabled":self.router.paid_cloud_enabled(),
+                "ai_roles":self.model_role_status(project),
                 "openrouter_free":self.openrouter_free.status(refresh=False),
                 "direct_free":self.direct_free.status(refresh=False),
                 "gateway":self.model_gateway.list(),"secure_vault":self.secure_vault.list()}
@@ -3921,7 +3959,7 @@ class Orchestrator:
     def register_endpoint_probe(self, name, url, timeout=3.0):
         self.evidence.register_probe(name, LocalEvidenceCollectors.endpoint_probe(url, timeout))
 
-    def _route_model(self,prompt,privacy="approved_cloud",project="KRISHNA",actor="orchestrator"):
+    def _route_model(self,prompt,privacy="approved_cloud",project="KRISHNA",actor="orchestrator",role="general"):
         """Use Sudarshan-aware routing while remaining compatible with bounded test/provider shims.
 
         Production ModelRouter accepts project/actor and routes through Sudarshan.
@@ -3930,7 +3968,7 @@ class Orchestrator:
         those metadata kwargs.
         """
         try:
-            return self.router.route(prompt,privacy=privacy,project=project,actor=actor)
+            return self.router.route(prompt,privacy=privacy,project=project,actor=actor,role=role)
         except TypeError as exc:
             text=str(exc)
             if "unexpected keyword argument" not in text:
