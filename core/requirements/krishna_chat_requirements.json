@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "version": "2026-09-23-master-product-truth-v6",
+  "version": "2026-09-23-master-product-truth-v7",
   "source": "Canonical KRISHNA product requirements consolidated from project conversations, merged repository decisions, runtime acceptance and current architecture",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -66,7 +66,8 @@
         "KRISHNA Cognitive Brain provides associative concept activation above Rishi/BRAHMA/Gyan memory; related-topic retrieval can traverse typed concept links instead of relying only on exact keywords.",
         "C6 synthesis forms structural analogy candidates, converts unresolved contradictions into research questions, derives semantic candidates from repeated episodic observations, and uses controlled forgetting only as reversible dormancy/activation-telemetry pruning; verified/provenanced/connected knowledge is never silently deleted.",
         "C7 cross-domain hypothesis generation produces falsifiable unverified questions for Rishi or LAB BOT testing; generated hypotheses never become trusted Gyan without normal evidence maturation, BRAHMA QC and approval.",
-        "Cognitive Brain must keep Vedic/classical and modern-science tracks source-faithful: cross-track comparison is allowed, unsupported equivalence and causal transfer are rejected."
+        "Cognitive Brain must keep Vedic/classical and modern-science tracks source-faithful: cross-track comparison is allowed, unsupported equivalence and causal transfer are rejected.",
+        "Rishi Vishvakarma is the permanent design/UI/software-craft knowledge curator. Modern design specializations are explicit KRISHNA design roles inspired by the traditional name, not claims that a historical/traditional figure practiced modern frontend engineering."
       ]
     },
     {
@@ -76,7 +77,9 @@
         "GPT-style persistent project chats with file attachments and real Rename, Pin, Share, Move and Delete actions.",
         "Active Work, Verification and System Load informer.",
         "When browser work starts, transform into a Sudarshan/Garudanetra split workspace rather than opening a dead status page.",
-        "Support project, research, investigate, plugin and developer workflows while KRISHNA selects internal engines automatically."
+        "Support project, research, investigate, plugin and developer workflows while KRISHNA selects internal engines automatically.",
+        "UI/frontend work uses the Sudarshan Design Engine for selective design skills, a design-genome/drift model, bounded repair/retest and hard functional/visual/responsive/accessibility/security acceptance gates.",
+        "Sudarshan design work retrieves task-relevant verified Rishi Vishvakarma knowledge; candidate lessons preserve provenance/license/evidence and are not treated as verified until reviewed."
       ]
     },
     {
@@ -232,7 +235,8 @@
         "Paid OpenRouter speech, video, image or other media models remain disabled under free-only policy unless a future live catalog proves the requested operation is zero-cost or the owner explicitly enables paid cloud.",
         "Direct provider profiles merely labelled free_only remain explicit-use adapters, not automatic zero-cost fallbacks; a native direct adapter may enter automatic routing only when it independently proves the configured account is non-billable immediately before inference and still enforces KRISHNA privacy guards.",
         "Cloudflare Workers AI is the first verified native direct-free adapter: it requires an encrypted account-root profile, an @cf/* model, Billing Read subscription preflight, no active Workers-paid subscription, and a paid-only-model denylist; quota or paid-model errors stop rather than falling through to billing.",
-        "Automatic model hierarchy is Ollama/local -> live-zero OpenRouter -> live-zero-billing verified native direct APIs -> remaining local fallback/STOP; paid-cloud fallback is never silent."
+        "Automatic model hierarchy is Ollama/local -> live-zero OpenRouter -> live-zero-billing verified native direct APIs -> remaining local fallback/STOP; paid-cloud fallback is never silent.",
+        "Local Model Scout evaluates discovered local model candidates for quality, latency, RAM/VRAM fit and duplication without downloading models or gaining cloud-billing/routing authority; activation remains a separate governed decision."
       ]
     },
     {
@@ -370,7 +374,9 @@
     "NARAD inbox/outbox state redacts likely secrets and outbound delivery remains a separate approval-gated provider action.",
     "MCP JSON-RPC transport requires an authenticated principal and cannot expose an unauthenticated public control plane.",
     "Avatar production output passes full body, facial-viseme and required-animation inspection before being reported production-ready.",
-    "Field 3D/AR scene generation requires measured GNSS and never upgrades missing depth/photogrammetry/device tracking into verified measurements."
+    "Field 3D/AR scene generation requires measured GNSS and never upgrades missing depth/photogrammetry/device tracking into verified measurements.",
+    "Sudarshan UI/frontend design work cannot claim verified completion until hard design acceptance gates pass after rendered verification; candidate Vishvakarma lessons are not verified knowledge.",
+    "Local Model Scout may evaluate/recommend candidates but must not download models, spend money, or become a competing routing authority."
   ],
   "status_definitions": {
     "VERIFIED": "Implemented and proven by the required current runtime/device/integration evidence.",
@@ -680,6 +686,38 @@
         "core/tests/test_mobile_acceptance.py"
       ],
       "next": "record each required real-device gate; old PC companion becomes retirement-eligible only after every gate passes and is never auto-deleted"
+    },
+    {
+      "id": "sudarshan_design_vishvakarma",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "Sudarshan / Rishi Vishvakarma",
+      "evidence": [
+        "core/krishna_core/sudarshan_design_engine.py",
+        "core/krishna_core/sudarshan_ui_pipeline.py",
+        "core/krishna_core/sudarshan_design_policy.py",
+        "core/krishna_core/sudarshan_project_orchestrator.py",
+        "core/krishna_core/design_adapters.py",
+        "core/krishna_core/vishvakarma_curriculum.py",
+        "core/krishna_core/vishvakarma_rishi.py",
+        "core/krishna_core/vishvakarma_learning.py",
+        "core/krishna_core/rishi_council.py",
+        "core/tests/test_vishvakarma_design_runtime.py",
+        "core/tests/test_historical_consolidation_contract.py"
+      ],
+      "next": "post-deploy acceptance: verified Vishvakarma lesson -> design.plan -> design drift/acceptance -> bounded repair/retest -> rendered Windows Project Perfection verification"
+    },
+    {
+      "id": "local_model_scout",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "KRISHNA Model Runtime",
+      "evidence": [
+        "core/krishna_core/model_scout.py",
+        "core/krishna_core/agi_kernel.py",
+        "core/krishna_core/orchestrator.py",
+        "core/tests/test_model_scout_v2.py",
+        "core/tests/test_historical_consolidation_contract.py"
+      ],
+      "next": "runtime benchmark real installed local model candidates and verify scout recommendations remain advisory until separately governed activation"
     }
   ]
 }
