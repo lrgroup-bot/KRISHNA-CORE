@@ -1033,6 +1033,27 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"project not registered"})
         if path == "/api/models/gateways":
             return self._json(200,orch.model_gateway.list())
+        if path == "/api/openrouter/free/status":
+            refresh=str((query.get("refresh") or ["0"])[0]).lower() in {"1","true","yes"}
+            if refresh and self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"OpenRouter catalog refresh must run on KRISHNA PC"})
+            return self._json(200,orch.openrouter_free_status(refresh=refresh))
+        if path == "/api/openrouter/free/catalog":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"OpenRouter catalog is local-PC only"})
+            refresh=str((query.get("refresh") or ["0"])[0]).lower() in {"1","true","yes"}
+            try:return self._json(200,orch.openrouter_free_catalog(refresh=refresh))
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+        if path == "/api/openrouter/free/image":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"generated OpenRouter images are local-PC only"})
+            image_id=str((query.get("id") or [""])[0]).strip()
+            if not image_id:return self._json(400,{"error":"id is required"})
+            try:
+                image_path=orch.openrouter_free.image_path(image_id)
+                mime=mimetypes.guess_type(str(image_path))[0] or "application/octet-stream"
+                return self._binary_nostore(200,image_path.read_bytes(),mime)
+            except KeyError:return self._json(404,{"error":"image not found"})
         if path == "/api/secure-vault/status":
             return self._json(200,orch.secure_vault.list())
         if path == "/api/brahma/status":
@@ -2307,6 +2328,54 @@ class Handler(BaseHTTPRequestHandler):
             if language not in {"hi","or"}:return self._json(400,{"error":"local IndicConformer STT language must be one of: hi, or"})
             try:return self._json(200,{"text":_voice.stt.transcribe(audio_path,language=language),"provider":"ai4bharat-indicconformer","language":language})
             except (RuntimeError,ValueError,FileNotFoundError) as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/openrouter/free/complete":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"direct OpenRouter inference must run on KRISHNA PC"})
+            try:
+                receipt=orch.dispatch_action(
+                    "openrouter.free.complete",
+                    {
+                        "project":str(data.get("project") or "KRISHNA"),
+                        "role":str(data.get("role") or "general"),
+                        "prompt":str(data.get("prompt") or ""),
+                        "privacy":str(data.get("privacy") or ""),
+                        "sensitive":bool(data.get("sensitive",False)),
+                        "image_data_url":data.get("image_data_url"),
+                        "max_tokens":int(data.get("max_tokens") or 2048),
+                    },
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="openrouter-free-http",
+                    permissions=("model.use",),
+                )
+                return self._json(200,receipt["result"])
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(503 if isinstance(exc,RuntimeError) else 400,{"error":str(exc)})
+
+        if post_path == "/api/openrouter/free/image":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"direct OpenRouter image generation must run on KRISHNA PC"})
+            try:
+                receipt=orch.dispatch_action(
+                    "openrouter.free.image",
+                    {
+                        "project":str(data.get("project") or "KRISHNA"),
+                        "prompt":str(data.get("prompt") or ""),
+                        "privacy":str(data.get("privacy") or ""),
+                        "sensitive":bool(data.get("sensitive",False)),
+                        "model":str(data.get("model") or orch.openrouter_free.IMAGE_MODEL),
+                        "output_format":str(data.get("output_format") or "png"),
+                    },
+                    project=str(data.get("project") or "KRISHNA"),source="pc",actor="openrouter-free-http",
+                    permissions=("model.use","media.create"),
+                )
+                result=dict(receipt["result"])
+                if result.get("image_id"):
+                    result["image_url"]="/api/openrouter/free/image?id="+str(result["image_id"])
+                return self._json(201,result)
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(503 if isinstance(exc,RuntimeError) else 400,{"error":str(exc)})
 
         if post_path == "/api/models/gateways/register":
             if self.client_address[0] not in ("127.0.0.1","::1"):
