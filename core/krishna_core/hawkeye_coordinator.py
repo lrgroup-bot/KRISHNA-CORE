@@ -113,6 +113,26 @@ class HawkeyeCoordinator:
             raise KeyError(session_id)
         return json.loads(path.read_text(encoding="utf-8"))
 
+    def _ensure_state(self, session_id):
+        try:
+            return self._load(session_id)
+        except KeyError:
+            field=self.bhumiputra.get_live_session(session_id)
+            state=self._new_state(
+                session_id,
+                field.get("project"),
+                field.get("purpose"),
+                "legacy-field-session",
+            )
+            state["field_session"]={
+                "agent":field.get("agent"),
+                "version":field.get("version"),
+                "scene_hint":field.get("scene_hint"),
+                "coordinates":field.get("coordinates") or {},
+            }
+            with self.lock:self._save(state)
+            return state
+
     def _save(self, state):
         state["updated_at"]=time.time()
         path=self._path(state["session_id"])
@@ -140,8 +160,7 @@ class HawkeyeCoordinator:
 
     def get_live_session(self, session_id):
         field=self.bhumiputra.get_live_session(session_id)
-        try:state=self._load(session_id)
-        except KeyError:state=self._new_state(session_id,field.get("project"),field.get("purpose"),"legacy-field-session")
+        state=self._ensure_state(session_id)
         return {
             **field,
             "hawkeye":{
@@ -180,7 +199,7 @@ class HawkeyeCoordinator:
         evidence_state=str(evidence_state or "UNKNOWN").strip().upper()
         if evidence_state not in self.EVIDENCE_STATES:
             raise ValueError(f"invalid evidence state: {evidence_state}")
-        state=self._load(session_id)
+        state=self._ensure_state(session_id)
         payload=dict(payload or {}) if isinstance(payload,dict) else {"text":str(payload or "")[:8000]}
 
         if lane=="physio":
@@ -210,7 +229,7 @@ class HawkeyeCoordinator:
             "lane":lane,"state":evidence_state,"payload":payload,"source_refs":refs
         })
         with self.lock:
-            state=self._load(session_id)
+            state=self._ensure_state(session_id)
             state["lanes"].setdefault(lane,[]).append(row)
             state["lanes"][lane]=state["lanes"][lane][-200:]
             self._save(state)
@@ -255,7 +274,7 @@ class HawkeyeCoordinator:
         }
 
     def _record_temporal_from_latest(self, session_id):
-        state=self._load(session_id)
+        state=self._ensure_state(session_id)
         observations=list(state.get("lanes",{}).get("perception") or [])
         if len(observations)<2:
             return {"status":"insufficient_history"}
@@ -296,7 +315,7 @@ class HawkeyeCoordinator:
         )
 
     def add_contradiction(self, session_id, left_ref, right_ref, reason):
-        state=self._load(session_id)
+        state=self._ensure_state(session_id)
         row={
             "left_ref":str(left_ref or "")[:200],
             "right_ref":str(right_ref or "")[:200],
@@ -305,14 +324,14 @@ class HawkeyeCoordinator:
             "at":time.time(),
         }
         with self.lock:
-            state=self._load(session_id)
+            state=self._ensure_state(session_id)
             state["contradictions"].append(row)
             state["contradictions"]=state["contradictions"][-200:]
             self._save(state)
         return row
 
     def reason(self, session_id):
-        state=self._load(session_id)
+        state=self._ensure_state(session_id)
         rows=[]
         for lane in ("perception","physio","behavior","temporal","diagnostic"):
             rows.extend(state.get("lanes",{}).get(lane) or [])
@@ -373,7 +392,7 @@ class HawkeyeCoordinator:
             "at":time.time(),
         }
         with self.lock:
-            state=self._load(session_id)
+            state=self._ensure_state(session_id)
             state["reasoning"]=result
             state["lanes"]["reasoner"].append(result)
             state["lanes"]["reasoner"]=state["lanes"]["reasoner"][-100:]
