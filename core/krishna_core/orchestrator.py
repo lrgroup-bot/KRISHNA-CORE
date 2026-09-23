@@ -2473,14 +2473,27 @@ class Orchestrator:
         )
         self.agent_runtime.register(
             "garuda","research and evidence scout",
-            permissions=("web.read","evidence.write","memory.write"),
-            actions=("garuda.scout",),
+            permissions=("web.read","browser.research","evidence.read","evidence.write","memory.write"),
+            actions=("garuda.scout","garudanetra.research.*",),
         )
         self.agent_runtime.register(
-            "garudanetra","browser/computer execution and verification",
-            permissions=("browser.read","browser.act","evidence.write"),
+            "garudanetra","browser/computer execution, research and verification",
+            permissions=("browser.read","browser.act","browser.research","evidence.read","evidence.write","skill.write"),
             actions=("garudanetra.*",),
         )
+        for scout_id,role in (
+            ("paper-scout","scientific paper and replication scout"),
+            ("github-scout","open-source implementation and failure-case scout"),
+            ("patent-scout","patent and prior-art scout"),
+            ("dataset-scout","dataset and benchmark scout"),
+            ("standards-scout","standards and metrology scout"),
+            ("contradiction-scout","contradiction and failed-replication scout"),
+        ):
+            self.agent_runtime.register(
+                "garudanetra:"+scout_id,role,
+                permissions=("browser.read","browser.research","evidence.read","evidence.write"),
+                actions=("garudanetra.research.*",),
+            )
         self.agent_runtime.register(
             "ui-guardian","objective UI verification",
             permissions=("browser.read","browser.test","evidence.write"),
@@ -2512,8 +2525,8 @@ class Orchestrator:
         for profile in self.agi.brahmagyan.council.list():
             self.agent_runtime.register(
                 "rishi:"+profile["id"],profile["role"],
-                permissions=("web.read","evidence.write","memory.write","worker.execute","lab.plan","lab.simulate","lab.quantum","lab.nano"),
-                actions=("brahmagyan.*","garuda.scout","lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate","lab.quantum.*","lab.nano.*","lab.quantum-nano.bridge"),
+                permissions=("web.read","browser.research","evidence.read","evidence.write","memory.write","worker.execute","lab.plan","lab.simulate","lab.quantum","lab.nano"),
+                actions=("brahmagyan.*","garuda.scout","garudanetra.research.*","lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate","lab.quantum.*","lab.nano.*","lab.quantum-nano.bridge"),
             )
 
     def dispatch_action(self,action,payload=None,project="KRISHNA",source="pc",actor="owner",
