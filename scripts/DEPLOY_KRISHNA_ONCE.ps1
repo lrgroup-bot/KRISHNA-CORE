@@ -219,5 +219,39 @@ if(Test-Path $audit){
 
 if(!$SkipStart){
   $env:KRISHNA_ALLOW_ACTIONS="1"
-  & "$Runtime\scripts\START_KRISHNA.ps1"
+  $guardian=Join-Path $Runtime "scripts\KRISHNA_GUARDIAN.ps1"
+  if(!(Test-Path $guardian)){throw "KRISHNA Guardian missing: $guardian"}
+  $guardianStateDir=Join-Path $Runtime "state\guardian"
+  New-Item -ItemType Directory -Force $guardianStateDir|Out-Null
+  $stopMarker=Join-Path $guardianStateDir "STOP"
+  $quarantineMarker=Join-Path $guardianStateDir "QUARANTINED"
+  if(Test-Path $quarantineMarker){
+    throw "KRISHNA Guardian is quarantined. Diagnose $quarantineMarker before restart."
+  }
+  if(Test-Path $stopMarker){Remove-Item -Force $stopMarker -ErrorAction SilentlyContinue}
+
+  $guardianProc=Start-Process powershell -ArgumentList @(
+    "-NoProfile","-ExecutionPolicy","Bypass","-File",$guardian,
+    "-RuntimeRoot",$Runtime,"-SourceRoot",$Source
+  ) -WindowStyle Hidden -PassThru
+
+  $healthUrl="http://127.0.0.1:8766/health"
+  $online=$false
+  for($i=0;$i -lt 45;$i++){
+    Start-Sleep -Seconds 1
+    try{
+      $health=Invoke-RestMethod -Uri $healthUrl -TimeoutSec 2
+      if($health.ok){$online=$true;break}
+    }catch{}
+    if($guardianProc.HasExited){break}
+  }
+  if(!$online){
+    $guardianState=Join-Path $guardianStateDir "core-guardian.json"
+    $stderr=Join-Path $Runtime "logs\core-runtime.stderr.log"
+    $detail=""
+    if(Test-Path $guardianState){$detail+=" guardian_state="+(Get-Content -Raw $guardianState)}
+    if(Test-Path $stderr){$detail+=" stderr="+((Get-Content $stderr -Tail 20 -ErrorAction SilentlyContinue)-join " | ")}
+    throw ("KRISHNA Guardian started but Core did not become healthy on 8766."+ $detail)
+  }
+  Write-Host ("KRISHNA GUARDIAN ONLINE PID {0} | Core health {1}" -f $guardianProc.Id,$healthUrl) -ForegroundColor Green
 }

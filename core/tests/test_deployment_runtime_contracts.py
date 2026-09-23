@@ -80,6 +80,26 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn("Missing evidence paths",audit)
         self.assertIn("Orphan review candidates",audit)
 
+    def test_verified_deploy_starts_persistent_guardian_and_waits_for_health(self):
+        root=repository_root()
+        deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
+        self.assertIn('KRISHNA_GUARDIAN.ps1',deploy)
+        self.assertIn('Start-Process powershell',deploy)
+        self.assertIn('http://127.0.0.1:8766/health',deploy)
+        self.assertIn('Core did not become healthy on 8766',deploy)
+        self.assertNotIn('& "$Runtime\\scripts\\START_KRISHNA.ps1"',deploy)
+
+    def test_guardian_records_guardian_and_core_pid_plus_runtime_logs(self):
+        root=repository_root()
+        guardian=(root/"scripts"/"KRISHNA_GUARDIAN.ps1").read_text(encoding="utf-8")
+        self.assertIn('"guardian.pid"',guardian)
+        self.assertIn('guardian_pid=$PID',guardian)
+        self.assertIn('core_pid=$p.Id',guardian)
+        self.assertIn('core-runtime.stdout.log',guardian)
+        self.assertIn('core-runtime.stderr.log',guardian)
+        self.assertIn('$p.WaitForExit()',guardian)
+        self.assertIn('ALREADY_RUNNING',guardian)
+
     def test_repo_contract_tests_honor_authoritative_source_root(self):
         root=repository_root()
         audit=(root/"core"/"tests"/"test_project_audit.py").read_text(encoding="utf-8")
