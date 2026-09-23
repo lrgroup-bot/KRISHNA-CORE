@@ -141,7 +141,7 @@ try{
   try{
     $actionBus=Get-Json "/api/action-bus"
     $actionNames=@($actionBus.actions|ForEach-Object{$_.name})
-    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","project.rename","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","worker.ephemeral.execute","browser.inspect","browser.testing_lead","project.design.research","project.design.implement","project.visual_edit.implement","project.perfection.finish","development.git.status","development.git.commit","development.git.push","development.sync","development.stage","development.verify","work.managed.run","repair.shadow","promotion.prepare","promotion.apply","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment","brahmagyan.mission.create","brahmagyan.questions.add","brahmagyan.deep.discover","brahmagyan.claim.record","brahmagyan.evidence.add","brahmagyan.contradiction.resolve","brahmagyan.claim.advance","brahmagyan.claim.compile","brahmagyan.claim.promote","brahmagyan.curiosity.add","brahmagyan.gaps.generate","brahmagyan.council.propose","brahmagyan.background.check","brahmagyan.shishya.plan","brahmagyan.shishya.execute")
+    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","project.rename","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","worker.ephemeral.execute","browser.inspect","browser.testing_lead","project.design.research","project.design.implement","project.visual_edit.implement","project.perfection.finish","development.git.status","development.git.commit","development.git.push","development.sync","development.stage","development.verify","work.managed.run","repair.shadow","promotion.prepare","promotion.apply","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment","brahmagyan.mission.create","brahmagyan.questions.add","brahmagyan.deep.discover","brahmagyan.claim.record","brahmagyan.evidence.add","brahmagyan.contradiction.resolve","brahmagyan.claim.advance","brahmagyan.claim.compile","brahmagyan.claim.promote","brahmagyan.curiosity.add","brahmagyan.gaps.generate","brahmagyan.council.propose","brahmagyan.background.check","brahmagyan.shishya.plan","brahmagyan.shishya.execute","architecture.truth.scan","hawkeye.status","hawkeye.reason","hawkeye.lane.record")
     $missing=@($needed|Where-Object{$_ -notin $actionNames})
     if($actionBus.owner -eq "KRISHNA Shared Action Bus" -and $missing.Count -eq 0){
       Add-Check "Shared Action Bus" "PASS" ("registered="+$actionBus.registered_actions+"; Projects/Chats wired") $actionBus
@@ -339,6 +339,40 @@ try{
   $autonomy=Get-Json "/api/autonomy/status"
   if($autonomy.running -or $autonomy.enabled){Add-Check "Autonomy supervisor" "PASS" "Supervisor is active" $autonomy}
   else{Add-Check "Autonomy supervisor" "WARN" "Supervisor is installed but not active" $autonomy}
+
+  # Canonical product truth + unified HAWKEYE must be live before deeper acceptance.
+  try{
+    $truth=Get-Json "/api/architecture/truth"
+    $requirements=Get-Json "/api/requirements"
+    if(
+      $truth.component -eq "KRISHNA Architecture Truth Audit" -and
+      $truth.version -eq "architecture-truth-v1" -and
+      $truth.requirements.version -eq "2026-09-23-master-product-truth-v2"
+    ){
+      Add-Check "Canonical product truth" "PASS" ("ledger="+$truth.requirements.version+"; architecture audit live") $truth
+    }else{
+      Add-Check "Canonical product truth" "FAIL" "Runtime is not using the schema-2 master product truth" $truth
+    }
+
+    $hawkeye=Get-Json "/api/hawkeye/status"
+    $specialists=@($hawkeye.specialists.PSObject.Properties.Name)
+    $neededLanes=@("perception","physio","behavior","temporal","diagnostic","reasoner")
+    $missingLanes=@($neededLanes|Where-Object{$_ -notin $specialists})
+    $perception=$hawkeye.bhumiputra.perception
+    if(
+      $hawkeye.version -eq "hawkeye-coordinator-v1" -and
+      $hawkeye.authority -eq "KRISHNA" -and
+      $hawkeye.verification -eq "SUDARSHAN" -and
+      $missingLanes.Count -eq 0 -and
+      $perception.sensitive_input_guard.return_secret_value -eq $false -and
+      $perception.sensitive_input_guard.store_secret_value -eq $false -and
+      $perception.face_recognition.unknown_person_identity -eq "UNKNOWN"
+    ){
+      Add-Check "Unified HAWKEYE coordinator" "PASS" ("lanes="+($specialists -join ",")+"; BHOOMIPUTRA privacy boundary active") $hawkeye
+    }else{
+      Add-Check "Unified HAWKEYE coordinator" "FAIL" ("Missing or unsafe HAWKEYE lanes: "+($missingLanes -join ",")) $hawkeye
+    }
+  }catch{Add-Check "Canonical HAWKEYE/product truth" "FAIL" $_.Exception.Message $null}
 
   # Isolated Narad lifecycle acceptance. No external webhook and no mutation.
   $wf=Post-Json "/api/narad/workflows/create" @{name=("acceptance-"+[guid]::NewGuid().ToString("N").Substring(0,8));trigger=@{type="manual"};steps=@(@{action="publish_event";topic="krishna.acceptance";payload=@{source="acceptance"}});permissions=@()}

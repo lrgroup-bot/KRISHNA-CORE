@@ -1024,6 +1024,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, orch.agi_status())
         if path == "/api/runtime/integrity":
             return self._json(200, _integrity.status())
+        if path == "/api/architecture/truth":
+            return self._json(200, orch.architecture_truth.scan())
         if path == "/api/runtime/audit":
             return self._json(200, latest_e_drive_audit())
         if path == "/api/requirements":
@@ -2571,6 +2573,8 @@ class Handler(BaseHTTPRequestHandler):
                     )
                     result["session_id"]=session_id
                     result["frame_count"]=field["frame_count"]
+                    result["analysis"]=field["latest_analysis"]["analysis"]
+                    result["secret_redaction"]=True
                     if pc_evidence is not None:result["pc_evidence"]=pc_evidence
                     return self._json(200,result)
                 prompt=orch.hawkeye.live_prompt(
@@ -2584,8 +2588,8 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 out={
                     "session_id":session_id,"frame_count":field["frame_count"],"diagnostic":False,
-                    "analysis":vision.get("analysis") or "","confidence":0.0,"evidence_state":"OBSERVED",
-                    "model":vision.get("model"),"local":bool(vision.get("local",True)),
+                    "analysis":field["latest_analysis"]["analysis"],"confidence":0.0,"evidence_state":"OBSERVED",
+                    "model":vision.get("model"),"local":bool(vision.get("local",True)),"secret_redaction":True,
                 }
                 if pc_evidence is not None:out["pc_evidence"]=pc_evidence
                 return self._json(200,out)

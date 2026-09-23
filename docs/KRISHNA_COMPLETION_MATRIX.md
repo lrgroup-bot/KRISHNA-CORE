@@ -3,10 +3,14 @@
 This matrix is the canonical implementation ledger for the KRISHNA ideas agreed across the project chats. A feature is not marked complete merely because a UI card or adapter name exists.
 
 Status meanings:
-- **VERIFIED** — implemented with repository tests/contracts.
-- **IMPLEMENTED / RUNTIME VERIFY** — code exists; real Windows runtime or external dependency still needs acceptance.
-- **PARTIAL** — useful implementation exists but does not yet satisfy the complete design.
-- **ROADMAP** — deliberately deferred.
+- **VERIFIED** — implemented and proven by the required current runtime/device/integration evidence.
+- **IMPLEMENTED / RUNTIME VERIFY** — canonical code/tests exist; real Windows/runtime/device acceptance is still required.
+- **PARTIAL** — useful foundation exists but does not yet satisfy the complete design.
+- **MISSING** — required capability is absent from canonical source.
+- **ROADMAP** — deliberately deferred until prerequisites are ready.
+- **SUPERSEDED** — retained only for compatibility/history and not canonical product truth.
+
+The machine-readable source of truth is `core/requirements/krishna_chat_requirements.json` (schema 2). This matrix is its human-readable companion; stale snapshots, historical reports and unmerged branches are not release authority.
 
 ## 1. KRISHNA authority and autonomous control
 
@@ -139,6 +143,35 @@ Status meanings:
 | Agency-Agents specialist library | IMPLEMENTED / RUNTIME VERIFY | Runtime has external agency-agents library; selection/indexing exists. |
 | Architect / Backend / Frontend / Debugger / DevOps / Security / Test / Research / Data / UI / Docs patterns | IMPLEMENTED / RUNTIME VERIFY | Curated manifests and task-driven team assembly are implemented and surfaced in Specialist Teams UI; Agency-Agents remain prompt-only advisory contexts. |
 | OpenMontage only as media/YouTube worker | VERIFIED boundary | Media adapter keeps it outside the KRISHNA brain. |
+
+## 6A. HAWKEYE + BHOOMIPUTRA live intelligence
+
+| Requirement | Status | Evidence / remaining work |
+| --- | --- | --- |
+| One unified live HAWKEYE coordinator | IMPLEMENTED / RUNTIME VERIFY | `hawkeye_coordinator.py` now owns PERCEPTION / PHYSIO / BEHAVIOR / TEMPORAL / DIAGNOSTIC / REASONER live evidence lanes. Orchestrator no longer aliases `self.hawkeye = self.bhumiputra`; legacy field methods delegate through the coordinator. |
+| PERCEPTION | IMPLEMENTED / RUNTIME VERIFY | Live camera/frame observations enter an evidence lane with explicit OBSERVED state and provenance refs. |
+| PHYSIO | IMPLEMENTED BOUNDARY / RUNTIME VERIFY | Only supplied measurable numeric physical signals may be marked MEASURED. The coordinator explicitly blocks treating physiology as proof of emotion, deception or diagnosis. Real sensor adapters remain device-dependent. |
+| BEHAVIOR | IMPLEMENTED BOUNDARY / RUNTIME VERIFY | Observable activity/events are separated from hidden intent/private-state inference. |
+| TEMPORAL | IMPLEMENTED FOUNDATION / RUNTIME VERIFY | Consecutive perception evidence is fingerprint-compared and stored as temporal change evidence; richer cross-session tracking remains future adapter work. |
+| DIAGNOSTIC | IMPLEMENTED FOUNDATION / RUNTIME VERIFY | Existing HAWKEYE DIAGNOSTIC reference/overlay/temporary-worker pipeline is part of the coordinator evidence model; verified hidden faults still require real measurements/retest. |
+| REASONER | IMPLEMENTED / RUNTIME VERIFY | Fuses evidence state, confidence, independent source refs and contradictions into INSUFFICIENT_EVIDENCE / PRELIMINARY / SUPPORTED / CONTESTED rather than model-only certainty. |
+| Expanded BHOOMIPUTRA live perception | IMPLEMENTED / RUNTIME VERIFY | PR #53 capability intent was reconciled manually onto current source: terrain/structures/roads/machinery/utilities plus people/PPE, vehicles, electronics, ordinary OCR/assets, hazards and temporal change while preserving newer encrypted mobile evidence. |
+| Sensitive-input guard | VERIFIED BY UNIT CONTRACTS / RUNTIME VERIFY | Password/PIN/OTP/API/session/bearer values are redacted before live analysis persistence; login-surface exposure may be reported without returning secret values. |
+| Face identity boundary | IMPLEMENTED POLICY / ADAPTER REQUIRED | Unknown people remain UNKNOWN. Identity matching is limited to explicitly enrolled/consented local profiles; no cloud biometric provider is claimed. |
+| Deep electronics hardware engine | PARTIAL | Schematic/boardview/netlist/reference overlay and bounded diagnostic workers exist; multimeter/oscilloscope/device-telemetry adapters are still required. |
+| Deep vehicle hardware engine | PARTIAL | Diagnostic routing understands vehicle/OBD/CAN/J1939 concepts, but real read-first bus/service-data adapters and physical acceptance are still required. |
+| Deep acoustic/vibration engine | PARTIAL | Acoustic worker routing exists; timestamped capture/baseline/spectral/vibration adapter stack and physical validation remain. |
+
+## 6B. Canonical product truth / architecture drift
+
+| Requirement | Status | Evidence / remaining work |
+| --- | --- | --- |
+| Master requirements ledger | IMPLEMENTED / RUNTIME VERIFY | Schema-2 `krishna_chat_requirements.json` now includes current HAWKEYE, BHOOMIPUTRA, diagnostics, mobile-edge, BRAHMA and release-truth requirements plus an implementation index. |
+| Architecture Truth Audit | IMPLEMENTED / RUNTIME VERIFY | `architecture_truth.py` reports legacy roots, duplicate basenames/content, missing requirement evidence, stale source-tree entries and conservative orphan candidates. It never auto-deletes candidates. |
+| Stale source-tree isolation | IMPLEMENTED POLICY / RUNTIME VERIFY | `KRISHNA_SOURCE_TREE.txt` is advisory only; current source + ledger + tests + runtime acceptance + deployment manifest are authoritative. |
+| Duplicate/legacy source handling | IMPLEMENTED AUDIT / CLEANUP PENDING | GARUDANETRA/KRISHNA_AGI snapshot roots are classified non-canonical. Audit reports overlap; removal/deprecation remains an explicit reviewed cleanup, never automatic. |
+| PR #53 reconciliation | IMPLEMENTED / RUNTIME VERIFY | Useful expanded field-perception logic was manually ported onto current BHOOMIPUTRA rather than merging a branch that was 98 commits behind. |
+| PR #57 security-ops status | MERGED / RUNTIME VERIFY | The earlier audit was stale: security operations/autonomous verification was merged before this consolidation pass. |
 
 ## 7. KABACH
 

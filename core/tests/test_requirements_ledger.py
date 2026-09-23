@@ -14,6 +14,18 @@ class RequirementsLedgerTests(unittest.TestCase):
         for term in ("KRISHNA","Sudarshan","Garudanetra","Gyan-Bhandar","NARAD","KABACH","conversation-only","Krishna_AGI.exe"):
             self.assertIn(term.lower(),text.lower())
 
+    def test_schema2_product_truth_fields_are_exposed(self):
+        d=self.ledger.snapshot()
+        self.assertEqual(d["schema"],2)
+        self.assertEqual(d["version"],"2026-09-23-master-product-truth-v2")
+        self.assertIn("VERIFIED",d["status_definitions"])
+        self.assertIn("IMPLEMENTED_NOT_VERIFIED",d["status_definitions"])
+        self.assertIn("REAL_RUNTIME_OR_DEVICE_TEST",d["delivery_pipeline"])
+        self.assertGreaterEqual(len(d["implementation_index"]),10)
+        ids={x["id"] for x in d["implementation_index"]}
+        self.assertIn("hawkeye_live_coordinator",ids)
+        self.assertIn("canonical_mobile_runtime",ids)
+
     def test_prompt_contract_contains_non_negotiables(self):
         text=self.ledger.prompt_contract()
         self.assertIn("KRISHNA is the only public identity",text)

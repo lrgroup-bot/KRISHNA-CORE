@@ -8,6 +8,9 @@ import math
 import time
 import uuid
 
+from .field_perception import FieldPerceptionPolicy
+from .vision_adapter import VisionAdapter
+
 
 EARTH_RADIUS_M = 6_371_008.8
 
@@ -32,7 +35,7 @@ class BhumiputraAgent:
     """
 
     AGENT_ID = "bhumiputra"
-    VERSION = "0.1.0"
+    VERSION = "0.2.0"
 
     HEAVY_PIPELINE = (
         "mobile-camera-ingest",
@@ -64,6 +67,11 @@ class BhumiputraAgent:
         "road": ("road", "track", "haul road", "culvert", "turning radius", "clearance"),
         "machinery": ("excavator", "loader", "truck", "crane", "drill", "crusher"),
         "utility": ("transmission tower", "telecom tower", "pole", "substation", "pipeline"),
+        "people": ("person", "people", "face", "ppe", "worker", "crowd"),
+        "vehicle": ("car", "bike", "motorcycle", "bus", "truck", "dashboard", "number plate", "license plate"),
+        "electronics": ("pcb", "motherboard", "circuit", "connector", "wire", "device", "electronics"),
+        "document": ("document", "label", "sign", "screen", "ocr", "serial number", "asset tag"),
+        "hazard": ("fire", "smoke", "leak", "exposed wire", "obstacle", "open edge"),
         "general": (),
     }
 
@@ -77,7 +85,7 @@ class BhumiputraAgent:
         "as_built_design": "infer visible arrangement only; do not claim original design intent without drawings",
     }
 
-    def __init__(self, state_dir: str | Path):
+    def __init__(self, state_dir: str | Path, vision_adapter=None):
         self.state_dir = Path(state_dir)
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.surveys_dir = self.state_dir / "surveys"
@@ -86,6 +94,7 @@ class BhumiputraAgent:
         self.evidence_dir.mkdir(parents=True, exist_ok=True)
         self.evidence_cipher = None
         self.require_evidence_encryption = False
+        self.vision = vision_adapter or VisionAdapter()
 
     def bind_evidence_cipher(self, cipher, *, require_encryption=False):
         self.evidence_cipher = cipher
@@ -201,6 +210,7 @@ class BhumiputraAgent:
             "frame_count": 0,
             "latest_analysis": None,
             "truth_policy": dict(self.STRUCTURAL_TRUTH_POLICY),
+            "perception_policy": FieldPerceptionPolicy.status(),
             "privacy": {
                 "camera_transport": "paired KRISHNA private-network endpoint",
                 "vision_provider": "local-only",
@@ -220,21 +230,68 @@ class BhumiputraAgent:
         hint = str(scene_hint or "auto").strip().lower()
         sensors = dict(sensor_context or {})
         return (
-            "You are Bhumiputra, KRISHNA's field geo-engineering and visible-structure inspection specialist. "
+            "You are Bhumiputra, KRISHNA's live field perception, geo-engineering and inspection specialist. "
             "Analyze ONLY what can be supported by this camera frame and supplied sensor context. "
             "Automatically identify whether the scene is terrain/quarry, building/tower/bridge, road, machinery, "
-            "utility infrastructure, or general. For structures, identify visible structural system/components "
-            "(columns, beams, bracing, slabs, walls, roof, tower members, joints), apparent materials, geometry, "
-            "access/clearance, visible deterioration or damage indicators, and measurements only when scale/depth "
-            "evidence is supplied. For terrain, identify slopes, exposed rock/soil, access routes, drainage and "
-            "survey gaps. Never claim hidden reinforcement, foundation condition, certified load capacity, exact "
-            "material grade, subsurface reserves, or original design intent from imagery alone. Mark each important "
-            "finding as observed, estimated, inferred, or unknown. Return a concise field result with: scene_type, "
-            "visible_components, measurements_or_estimates, visible_condition, hazards_or_access_constraints, "
-            "recommended_next_scan, unknowns, and confidence. "
+            "utility infrastructure, people, vehicle, electronics/device, document/screen, hazard, or general. "
+            "For structures/buildings, identify visible structural system/components (columns, beams, bracing, slabs, "
+            "walls, openings, facade, stairs, roof, tower members, joints), apparent materials, access/clearance, "
+            "visible cracks/spalling/corrosion/deformation/dampness and measurements only when scale/depth evidence exists. "
+            "For terrain/quarry, identify slopes, exposed rock/soil, access routes, drainage, excavation activity and survey gaps. "
+            "For vehicles, report category, visible make/model cues, registration/asset markings when requested, body/tyre/light/glass "
+            "condition, dashboard indicators and visible leaks/smoke/damaged parts; hidden mechanical diagnosis requires OBD/CAN/J1939 "
+            "or measurements. For electronics, identify visible PCB/components/connectors/cables, labels, damaged/burnt/corroded areas "
+            "and explain likely functional blocks or signal/power flow without inventing electrical measurements. "
+            "For people, report count, visible PPE/activity and face presence; identify a person only if an explicitly enrolled, "
+            "consented local face profile is supplied, otherwise identity is UNKNOWN. Read ordinary signs, serial/model numbers, "
+            "asset tags and requested plate text. Detect hazards such as fire/smoke, exposed wiring, leaks, obstacles/open edges and "
+            "missing visible PPE. Compare with prior observations when temporal context is supplied and state what changed. "
+            "Never claim hidden reinforcement, foundation condition, certified load capacity, exact material grade, subsurface reserves "
+            "or original design intent from imagery alone. Mark important findings as observed, measured, estimated, inferred or unknown. "
+            + FieldPerceptionPolicy.prompt_rules() + " "
+            "Return a concise field result with: scene_type, visible_components, text_or_asset_markings, people_and_ppe, "
+            "vehicle_or_equipment_details, measurements_or_estimates, visible_condition, hazards_or_access_constraints, "
+            "temporal_changes, recommended_next_scan, unknowns, evidence_state and confidence. "
             f"Scene hint: {hint}. User goal: {str(user_goal or 'automatic field scan')}. "
             f"Sensor context: {json.dumps(sensors, ensure_ascii=False)[:4000]}."
         )
+
+    def ingest_live_frame(self, session_id: str, data: bytes, content_type: str,
+                          sensor_context=None):
+        session = self.get_live_session(session_id)
+        prompt = self.live_prompt(
+            scene_hint=session.get("scene_hint") or "auto",
+            user_goal=session.get("purpose") or "automatic field scan",
+            sensor_context=sensor_context or {},
+        )
+        result = self.vision.analyze_bytes(data, content_type, prompt)
+        analysis = FieldPerceptionPolicy.redact_sensitive_text(result.get("analysis"))
+        receipt = self.record_live_analysis(
+            session_id,
+            analysis,
+            model=result.get("model"),
+            sensor_context=sensor_context or {},
+            frame_meta={
+                "provider": result.get("provider"),
+                "content_type": content_type,
+                "bytes": len(data or b""),
+                "secret_redaction": True,
+            },
+        )
+        return {
+            "session_id": session_id,
+            "frame_count": receipt["frame_count"],
+            "analysis": analysis,
+            "provider": result.get("provider"),
+            "model": result.get("model"),
+            "evidence_state": "OBSERVED",
+            "confidence": 0.8,
+            "privacy": {
+                "local_vision": bool(result.get("local", True)),
+                "secret_redaction": True,
+                "unknown_face_identity": "UNKNOWN",
+            },
+        }
 
     def record_live_analysis(self, session_id: str, analysis: str, *,
                              model=None, sensor_context=None, frame_meta=None):
@@ -245,7 +302,7 @@ class BhumiputraAgent:
         now = time.time()
         item = {
             "at": now,
-            "analysis": str(analysis or "").strip(),
+            "analysis": FieldPerceptionPolicy.redact_sensitive_text(analysis).strip(),
             "model": str(model or ""),
             "sensor_context": dict(sensor_context or {}),
             "frame_meta": dict(frame_meta or {}),
@@ -475,6 +532,7 @@ class BhumiputraAgent:
             "mobile_evidence": self.mobile_evidence_status(),
             "scene_modes": sorted(self.SCENE_MODES),
             "structural_truth_policy": dict(self.STRUCTURAL_TRUTH_POLICY),
+            "perception": FieldPerceptionPolicy.status(),
             "heavy_pipeline": list(self.HEAVY_PIPELINE),
             "main_loop_blocking": False,
             "menu_visible": False,

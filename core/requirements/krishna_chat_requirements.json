@@ -1,7 +1,7 @@
 {
-  "schema": 1,
-  "version": "2026-09-21-minimal-sidebar-v1",
-  "source": "Consolidated from KRISHNA project conversations and verified repository decisions",
+  "schema": 2,
+  "version": "2026-09-23-master-product-truth-v2",
+  "source": "Canonical KRISHNA product requirements consolidated from project conversations, merged repository decisions, runtime acceptance and current architecture",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
     "KRISHNA is standalone and independent; E:\\KRISHNA-SOURCE is authoritative code and E:\\Krishna-The GOD is runtime/state/models/assets.",
@@ -58,9 +58,11 @@
         "Contradicting evidence is retained with explicit resolution history; credible conflicts are never silently collapsed.",
         "Temporal knowledge preserves previous/current state, validity, source history and supersession.",
         "Trusted Gyan proposals retain traceable provenance whenever provenance is available.",
-        "Rishis may request temporary Shishya researchers through AI-HR/Sudarshan; v1 batches are capped at four and require approval for execution.",
+        "Rishis may request temporary Shishya researchers through AI-HR/Sudarshan; requests are bounded by configurable total/tree budgets, concurrency is capped, execution is approval-gated, descendants inherit parent scope, and every temporary Shishya must retire after verified handover.",
         "Before Shishya retirement, verified findings, methods, failures, corrections, evaluation, sources, provenance and useful cross-domain learning are preserved.",
-        "BRAHMAGYAN curiosity is priority/resource bounded and v1 starts no autonomous background-learning daemon."
+        "BRAHMAGYAN curiosity is priority/resource bounded and v1 starts no autonomous background-learning daemon.",
+        "BRAHMA is the learning governor and Gyan-Bhandar QC head: phone/PC observations route to Rishis first, then provenance/evidence/maturity/contradiction checks, Gautama review and Veda Vyasa compilation before trusted Gyan promotion.",
+        "BRAHMA preserves bi-temporal claims, source-family independence, provenance fingerprints, contradiction history, teach-back verification, memory evaluation, low-load consolidation and freshness/decay without silently deleting history."
       ]
     },
     {
@@ -221,6 +223,81 @@
         "WearableBridge records only verified device capabilities; vendor camera/display/gesture support is never claimed before hardware adapter testing.",
         "Phase 1 wearable bridge is Bluetooth audio/microphone/speaker plus phone camera; vendor display/camera and gesture/IMU/wrist/ring remain capability-gated."
       ]
+    },
+    {
+      "id": "runtime_truth",
+      "title": "Canonical source, deployment and product truth",
+      "requirements": [
+        "E:\\KRISHNA-SOURCE is authoritative source; E:\\Krishna-The GOD is runtime/state/assets. GitHub origin, source commit, deployment manifest and running runtime must identify the same accepted commit before release.",
+        "The repository default/integration line is the only source used for deployment; divergent feature branches and PRs are candidates until reconciled and merged.",
+        "Runtime acceptance is authoritative over code presence. A failed acceptance rolls back the provisional manifest and must not start the final runtime.",
+        "Repository-only contracts such as .github workflows are read from KRISHNA_SOURCE_ROOT during deployed tests rather than copied into runtime.",
+        "Architecture truth must explicitly classify canonical modules, compatibility copies, legacy snapshots, duplicate implementations and orphan/unreferenced modules.",
+        "Generated/stale source-tree and test-report artifacts must never override the current requirements ledger/completion matrix/runtime evidence."
+      ]
+    },
+    {
+      "id": "hawkeye",
+      "title": "HAWKEYE coordinated perception and reasoning",
+      "requirements": [
+        "HAWKEYE is one coordinated runtime under KRISHNA, not an alias for BHOOMIPUTRA and not merely six learning-role definitions.",
+        "PERCEPTION answers what is actually seen/heard and preserves source/evidence state.",
+        "PHYSIO handles supplied measurable physical signals only; it must not infer private mental state, deception or diagnosis from weak proxies.",
+        "BEHAVIOR records observable actions/events only and separates observation from interpretation.",
+        "TEMPORAL compares current evidence with prior observations/sessions and records what changed.",
+        "DIAGNOSTIC forms bounded fault hypotheses, identifies the next safe test/measurement, and distinguishes observed/measured/inferred/predicted/unknown evidence.",
+        "REASONER fuses the specialist lanes, source independence, contradictions and uncertainty; conclusions require supporting evidence and unresolved conflicts remain visible.",
+        "HAWKEYE coordinates BHOOMIPUTRA field perception, diagnostic/reference systems, geo/field platforms, learning and mobile evidence without creating a second authority.",
+        "MobileEdgeBot decides what the phone should process/send; EvidenceCuratorBot decides what evidence is worth retaining; neither can promote observations directly to Gyan truth.",
+        "HAWKEYE raw camera/audio evidence remains local/private by default and authentication secrets are never learned or synchronized."
+      ]
+    },
+    {
+      "id": "bhumiputra",
+      "title": "BHOOMIPUTRA field, structure and live perception",
+      "requirements": [
+        "BHOOMIPUTRA covers terrain/quarry, buildings/towers/bridges, roads, machinery, utilities, people/PPE, vehicles, electronics/devices, documents/screens, hazards and temporal scene change.",
+        "Live field analysis uses local vision by default and marks important findings observed, measured, estimated, inferred or unknown.",
+        "People analysis may report count, visible PPE/activity and face presence; identity matching is limited to explicitly enrolled, consented local profiles and unknown identity remains UNKNOWN.",
+        "Ordinary OCR may read signs, labels, serial/model numbers, asset tags and requested registration/plate text; passwords, PINs, OTPs, API keys and session/bearer tokens are always redacted and never stored/learned/synced.",
+        "Camera-only structure analysis never claims hidden reinforcement, foundation state, certified load capacity, exact material grade, subsurface reserves or original design intent without supporting evidence.",
+        "Camera-only vehicle/electronics analysis remains preliminary; hidden faults require OBD/CAN/J1939, electrical instruments, device telemetry or other measurement evidence.",
+        "Field evidence can be retained only through bounded encrypted evidence storage and provenance-aware handoff to KRISHNA/HAWKEYE."
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "title": "Deep electronics, vehicle and acoustic diagnostics",
+      "requirements": [
+        "ElectronicsDiagnosticWorker must evolve behind a stable adapter contract for schematic/boardview/netlist/reference alignment, multimeter/oscilloscope/test-point evidence and safe fault-tree reasoning.",
+        "VehicleDiagnosticWorker must evolve behind read-first OBD-II/CAN/CAN-FD/J1939/service-data adapters; transmission/programming/control is separately permissioned and never implied by diagnosis.",
+        "AcousticDiagnosticWorker must evolve behind timestamped audio/vibration capture, baseline/spectral/temporal features and evidence-backed fault hypotheses.",
+        "The diagnostic coordinator uses test -> measurement -> hypothesis -> next test -> repair -> retest; model output alone cannot mark a hardware fault verified.",
+        "Mains/high-voltage/traction-battery work requires explicit hazard warnings and safe isolation/measurement procedures."
+      ]
+    },
+    {
+      "id": "mobile_edge",
+      "title": "Canonical mobile edge and evidence pipeline",
+      "requirements": [
+        "There must be one canonical Android source/runtime; mobile_v3 and any deployed companion history must be reconciled rather than maintained as competing products.",
+        "MobileEdgeBot performs lightweight device/network/resource-aware preprocessing and decides what should stay local, be compacted, or be sent to PC.",
+        "EvidenceCuratorBot retains only useful bounded evidence, encrypts it locally, synchronizes on approved private transport, and deletes phone copies only after retained-PC acknowledgement.",
+        "Offline mode continues conversation/evidence capture and lightweight inference where supported; unsupported heavy reasoning is queued for later PC processing rather than falsely reported complete.",
+        "Camera/audio sampling is bounded by cadence, TTL, item count and byte budgets so Hawkeye does not overload phone or PC.",
+        "Mobile and PC share one KRISHNA conversation/action state while the phone remains a conversation-first interface rather than a raw system dashboard."
+      ]
+    },
+    {
+      "id": "release_truth",
+      "title": "Verification, duplication and release discipline",
+      "requirements": [
+        "Every requirement is classified as VERIFIED, IMPLEMENTED_NOT_VERIFIED, PARTIAL, MISSING, ROADMAP or SUPERSEDED.",
+        "Compatibility/source snapshots such as GARUDANETRA_SOURCE and KRISHNA_AGI_V1_IMPLEMENTED are never treated as canonical runtime implementations.",
+        "Duplicate implementations must have an explicit canonical owner and compatibility/deprecation reason; dead or unreachable modules are reported rather than silently retained as proof of capability.",
+        "A release requires current Windows runtime acceptance, browser/UI verification, applicable Android real-device acceptance, recovery/rollback evidence and deployment-integrity proof.",
+        "Hardware-dependent Glass/RTK/depth/CAN/instrument features may have software adapters implemented but remain HARDWARE_UNVERIFIED until tested with real hardware."
+      ]
     }
   ],
   "release_gates": [
@@ -250,5 +327,180 @@
     "BRAHMAGYAN L0-L8 maturity gates, Rishi council manifests, dual-track knowledge discipline and provenance contracts pass.",
     "BRAHMAGYAN Shishya execution remains approval-gated, capped and temporary; no permanent research worker fleet is introduced.",
     "Minimal sidebar contract passes: no internal runtime modules are exposed as Main Menu items; project delete preserves chats by moving them to global Chats."
+  ],
+  "status_definitions": {
+    "VERIFIED": "Implemented and proven by the required current runtime/device/integration evidence.",
+    "IMPLEMENTED_NOT_VERIFIED": "Code and tests exist, but required physical/runtime/device acceptance is still outstanding.",
+    "PARTIAL": "A usable foundation exists, but one or more required product capabilities are not yet implemented or integrated.",
+    "MISSING": "Required capability is not present in the canonical source.",
+    "ROADMAP": "Deliberately deferred until prerequisite phases/hardware are ready.",
+    "SUPERSEDED": "Older implementation or requirement retained only for history/compatibility and not canonical."
+  },
+  "definition_of_done": [
+    "Requirement is present in this canonical ledger and mapped to a canonical implementation owner.",
+    "Implementation is reachable from the production runtime rather than only existing as an unused module or stale branch.",
+    "Unit tests cover normal and failure behavior.",
+    "Integration tests prove the component cooperates with its upstream/downstream runtime contracts.",
+    "Applicable restart/persistence behavior is verified.",
+    "Mutation or consequential execution remains permissioned, audited and independently verified.",
+    "UI work is verified in rendered runtime behavior, not by source presence alone.",
+    "Device/hardware capabilities stay IMPLEMENTED_NOT_VERIFIED or HARDWARE_UNVERIFIED until tested on the actual device.",
+    "No feature is declared VERIFIED solely because a PR merged or CI compiled."
+  ],
+  "delivery_pipeline": [
+    "IDEA",
+    "MASTER_LEDGER",
+    "ARCHITECTURE",
+    "CODE",
+    "UNIT_TEST",
+    "INTEGRATION_TEST",
+    "REAL_RUNTIME_OR_DEVICE_TEST",
+    "VERIFIED",
+    "MERGE",
+    "DEPLOY",
+    "POST_DEPLOY_VERIFY"
+  ],
+  "implementation_index": [
+    {
+      "id": "canonical_product_truth",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "requirements+architecture audit",
+      "evidence": [
+        "core/requirements/krishna_chat_requirements.json",
+        "core/krishna_core/architecture_truth.py"
+      ],
+      "next": "run architecture truth audit in source and deployed runtime"
+    },
+    {
+      "id": "hawkeye_live_coordinator",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "HAWKEYE",
+      "evidence": [
+        "core/krishna_core/hawkeye_coordinator.py",
+        "core/tests/test_hawkeye_coordinator.py"
+      ],
+      "next": "runtime/mobile live-session acceptance"
+    },
+    {
+      "id": "bhumiputra_expanded_perception",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "BHOOMIPUTRA",
+      "evidence": [
+        "core/krishna_core/field_perception.py",
+        "core/krishna_core/bhumiputra.py",
+        "core/tests/test_field_perception.py"
+      ],
+      "next": "real mobile camera and field acceptance"
+    },
+    {
+      "id": "hawkeye_diagnostic",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "HAWKEYE DIAGNOSTIC",
+      "evidence": [
+        "core/krishna_core/hawkeye_diagnostic.py",
+        "core/krishna_core/hawkeye_reference.py"
+      ],
+      "next": "real instrument/device adapter acceptance"
+    },
+    {
+      "id": "deep_hardware_diagnostics",
+      "status": "PARTIAL",
+      "owner": "HAWKEYE DIAGNOSTIC",
+      "evidence": [
+        "core/krishna_core/hawkeye_diagnostic.py"
+      ],
+      "next": "OBD/CAN/J1939 + electrical instrument + acoustic adapters"
+    },
+    {
+      "id": "mobile_edge_pipeline",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "KRISHNA Mobile",
+      "evidence": [
+        "mobile_v3/MobileEdgeBot.java",
+        "mobile_v3/HawkeyeEvidenceCuratorBot.java",
+        "mobile_v3/HawkeyeBackgroundSync.java"
+      ],
+      "next": "canonical APK reconciliation + real-device acceptance"
+    },
+    {
+      "id": "canonical_mobile_runtime",
+      "status": "PARTIAL",
+      "owner": "KRISHNA Mobile",
+      "evidence": [
+        "mobile_v3/"
+      ],
+      "next": "retire/reconcile competing deployed companion history"
+    },
+    {
+      "id": "brahma_rishi_gyan",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "BRAHMA/Rishis/Gyan-Bhandar",
+      "evidence": [
+        "core/krishna_core/brahma_bot.py",
+        "core/krishna_core/brahma_memory_intelligence.py",
+        "core/krishna_core/rishi_learning.py"
+      ],
+      "next": "post-deploy runtime acceptance of BRAHMA QC -> approval -> verified recall"
+    },
+    {
+      "id": "kabach_soc_security_ops",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "KABACH/SOC",
+      "evidence": [
+        "core/krishna_core/security_soc.py",
+        "core/krishna_core/threat_intel.py",
+        "core/krishna_core/dependency_audit.py",
+        "core/krishna_core/ops_monitor.py"
+      ],
+      "next": "runtime event-bus/remediation-retest acceptance"
+    },
+    {
+      "id": "production_child_avatar",
+      "status": "PARTIAL",
+      "owner": "KRISHNA Avatar",
+      "evidence": [
+        "core/krishna_core/avatar_asset_pipeline.py",
+        "core/krishna_core/video_avatar.py"
+      ],
+      "next": "production rigged GLB with required body/facial/viseme/state animation assets"
+    },
+    {
+      "id": "always_listening_mobile_voice",
+      "status": "PARTIAL",
+      "owner": "KRISHNA Voice",
+      "evidence": [
+        "core/krishna_core/native_voice.py"
+      ],
+      "next": "mobile always-listening wake + owner-filter lifecycle and real mic/model acceptance"
+    },
+    {
+      "id": "field_geo_3d_ar",
+      "status": "PARTIAL",
+      "owner": "BHOOMIPUTRA/HAWKEYE GEO",
+      "evidence": [
+        "core/krishna_core/hawkeye_field_platform.py",
+        "core/krishna_core/hawkeye_geo_engine.py",
+        "core/krishna_core/bhumiputra.py"
+      ],
+      "next": "real photogrammetry/DEM/offline-map/AR-depth/RTK adapters and field acceptance"
+    },
+    {
+      "id": "final_react_spatial_ui",
+      "status": "ROADMAP",
+      "owner": "KRISHNA UI",
+      "evidence": [
+        "docs/KRISHNA_COMPLETION_MATRIX.md"
+      ],
+      "next": "after canonical PC/mobile runtime stabilization"
+    },
+    {
+      "id": "krishna_glass",
+      "status": "ROADMAP",
+      "owner": "WearableBridge",
+      "evidence": [
+        "core/krishna_core/wearable_bridge.py"
+      ],
+      "next": "after PC/mobile stable and physical hardware selected"
+    }
   ]
 }

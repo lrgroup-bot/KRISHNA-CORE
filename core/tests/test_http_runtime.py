@@ -70,7 +70,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/brahma/status", "/api/brahma/intelligence/status",
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
-                     "/api/runtime/integrity", "/api/runtime/audit", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
+                     "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
@@ -127,6 +127,31 @@ class HTTPRuntimeTests(unittest.TestCase):
         events=self.call("/api/events?topic=MISSION_COMPLETED")[1]["events"]
         self.assertTrue(any((x.get("payload") or {}).get("mission_id")==job["mission_id"] for x in events))
         self.assertEqual(self.call("/api/protocol")[1]["version"],"1.0")
+
+    def test_architecture_truth_and_unified_hawkeye_contracts(self):
+        code,truth=self.call("/api/architecture/truth")
+        self.assertEqual(code,200)
+        self.assertEqual(truth["component"],"KRISHNA Architecture Truth Audit")
+        self.assertEqual(truth["requirements"]["version"],"2026-09-23-master-product-truth-v2")
+        self.assertIn("legacy_roots",truth)
+        self.assertIn("orphan_candidates",truth)
+        self.assertIn("source_tree_drift",truth)
+
+        code,hawkeye=self.call("/api/hawkeye/status")
+        self.assertEqual(code,200)
+        self.assertEqual(hawkeye["version"],"hawkeye-coordinator-v1")
+        self.assertEqual(set(hawkeye["specialists"]),{
+            "perception","physio","behavior","temporal","diagnostic","reasoner"
+        })
+        self.assertEqual(hawkeye["authority"],"KRISHNA")
+        self.assertEqual(hawkeye["verification"],"SUDARSHAN")
+
+        code,receipt=self.call("/api/action-bus/dispatch",{
+            "action":"architecture.truth.scan","project":"KRISHNA",
+            "permissions":["runtime.read"],"payload":{}
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(receipt["result"]["version"],"architecture-truth-v1")
 
     def test_requirements_search_contract(self):
         code,d=self.call("/api/requirements?q=mobile")
