@@ -225,6 +225,27 @@ public final class HawkeyeMobileVision {
     }
     out.put("pose_landmarks",pose);
 
+    JSONObject gesture=new JSONObject();
+    gesture.put("scope","upper-body-pose-only");
+    gesture.put("finger_tracking",false);
+    gesture.put("name","NONE");
+    gesture.put("confidence",0.0);
+    if(poseTask.isSuccessful()&&poseTask.getResult()!=null){
+      Pose pz=poseTask.getResult();
+      PoseLandmark lw=pz.getPoseLandmark(PoseLandmark.LEFT_WRIST);
+      PoseLandmark rw=pz.getPoseLandmark(PoseLandmark.RIGHT_WRIST);
+      PoseLandmark ls=pz.getPoseLandmark(PoseLandmark.LEFT_SHOULDER);
+      PoseLandmark rs=pz.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER);
+      boolean left=raised(lw,ls,h),right=raised(rw,rs,h);
+      if(left&&right)gesture.put("name","BOTH_HANDS_RAISED");
+      else if(left)gesture.put("name","LEFT_HAND_RAISED");
+      else if(right)gesture.put("name","RIGHT_HAND_RAISED");
+      double conf=0.0;int n=0;
+      for(PoseLandmark x:new PoseLandmark[]{lw,rw,ls,rs})if(x!=null){conf+=x.getInFrameLikelihood();n++;}
+      gesture.put("confidence",n==0?0.0:conf/n);
+    }
+    out.put("gesture",gesture);
+
     JSONArray subjects=new JSONArray();
     if(subjectTask.isSuccessful()&&subjectTask.getResult()!=null){
       for(Subject subject:subjectTask.getResult().getSubjects()){
@@ -306,6 +327,14 @@ public final class HawkeyeMobileVision {
     s=s.replaceAll("(?i)authorization\\s*:\\s*bearer\\s+[A-Za-z0-9._~+\\-/=]{4,}","authorization: [SECRET REDACTED]");
     s=s.replaceAll("\\bAIza[0-9A-Za-z_-]{20,}\\b","[SECRET REDACTED]");
     return s;
+  }
+
+
+  private static boolean raised(PoseLandmark wrist,PoseLandmark shoulder,double h){
+    if(wrist==null||shoulder==null)return false;
+    if(wrist.getInFrameLikelihood()<0.45f||shoulder.getInFrameLikelihood()<0.45f)return false;
+    double margin=Math.max(8.0,h*0.035);
+    return wrist.getPosition().y < shoulder.getPosition().y - margin;
   }
 
 }
