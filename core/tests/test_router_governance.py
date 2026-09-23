@@ -46,6 +46,7 @@ class FreeCloudDefaultTests(unittest.TestCase):
         router.available=lambda:[
             {"provider":"ollama","available":True,"local":True,"model":"local","free_only":True},
             {"provider":"openrouter-free","available":True,"local":False,"model":"dynamic","free_only":True},
+            {"provider":"gateway:declared-free","available":True,"local":False,"model":"declared","free_only":True},
             {"provider":"openai","available":True,"local":False,"model":"paid","free_only":False},
         ]
         with patch.dict(os.environ,{"KRISHNA_ALLOW_PAID_CLOUD":"0"},clear=False):
@@ -53,6 +54,7 @@ class FreeCloudDefaultTests(unittest.TestCase):
         providers={x["provider"] for x in plan}
         self.assertIn("ollama",providers)
         self.assertIn("openrouter-free",providers)
+        self.assertNotIn("gateway:declared-free",providers)
         self.assertNotIn("openai",providers)
 
     def test_route_does_not_reach_paid_gateway_without_explicit_opt_in(self):
@@ -67,7 +69,7 @@ class FreeCloudDefaultTests(unittest.TestCase):
             raise RuntimeError("unavailable")
         router._governed_ask=governed
         with patch.dict(os.environ,{"KRISHNA_ALLOW_PAID_CLOUD":"0"},clear=False):
-            with self.assertRaisesRegex(RuntimeError,"paid cloud fallback is disabled"):
+            with self.assertRaisesRegex(RuntimeError,"auto-fallback is disabled"):
                 router.route("hello",privacy="approved_cloud")
         self.assertEqual(called,["ollama","gpt4all"])
 
