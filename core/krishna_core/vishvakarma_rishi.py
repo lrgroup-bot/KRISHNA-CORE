@@ -24,8 +24,9 @@ class DesignFinding:
         source=str(self.source or "").strip()
         topic=str(self.topic or "").strip()
         finding=str(self.finding or "").strip()
-        if not source or not topic or not finding:
-            raise ValueError("source, topic and finding are required")
+        evidence=str(self.evidence or "").strip()
+        if not source or not topic or not finding or not evidence:
+            raise ValueError("source, topic, finding and evidence are required")
         confidence=max(0.0,min(float(self.confidence),1.0))
         status=str(self.status or "candidate").strip().lower()
         if status not in {"candidate","verified","rejected","superseded"}:
@@ -37,7 +38,7 @@ class DesignFinding:
             "finding":finding[:6000],
             "license":str(self.license or "unknown")[:160],
             "confidence":confidence,
-            "evidence":str(self.evidence or "")[:6000],
+            "evidence":evidence[:6000],
             "version":str(self.version or "")[:240],
             "status":status,
             "learned_at":float(self.learned_at or time.time()),
