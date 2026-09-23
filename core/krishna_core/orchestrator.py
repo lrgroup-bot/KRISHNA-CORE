@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 from pathlib import Path
 
@@ -104,7 +105,7 @@ class Orchestrator:
         self.knowledge = KnowledgeIngestor(self.memory)
         self.security = DefensiveSecurityScanner()
         self.skills = SkillRegistry([Path(__file__).resolve().parents[1] / "skills"])
-        repo_root = Path(__file__).resolve().parents[2]
+        repo_root = Path(os.getenv("KRISHNA_SOURCE_ROOT") or Path(__file__).resolve().parents[2]).resolve()
         self.architecture_truth = ArchitectureTruthAudit(repo_root)
         self.mobile_runtime_manifest = MobileRuntimeManifest(runtime_root=Path(self.db_path).resolve().parent)
         specialist_root = repo_root / "external" / "agency-agents"
