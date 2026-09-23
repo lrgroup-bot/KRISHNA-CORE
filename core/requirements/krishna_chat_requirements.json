@@ -236,7 +236,12 @@
         "Direct provider profiles merely labelled free_only remain explicit-use adapters, not automatic zero-cost fallbacks; a native direct adapter may enter automatic routing only when it independently proves the configured account is non-billable immediately before inference and still enforces KRISHNA privacy guards.",
         "Cloudflare Workers AI is the first verified native direct-free adapter: it requires an encrypted account-root profile, an @cf/* model, Billing Read subscription preflight, no active Workers-paid subscription, and a paid-only-model denylist; quota or paid-model errors stop rather than falling through to billing.",
         "Automatic model hierarchy is Ollama/local -> live-zero OpenRouter -> live-zero-billing verified native direct APIs -> remaining local fallback/STOP; paid-cloud fallback is never silent.",
-        "KRISHNA Model Scout separates discovery from installation/activation: candidate models require benchmark evidence, duplicate/resource checks and local-capability admission before promotion; candidate metadata or a provider's free label never establishes zero-cost cloud eligibility."
+        "KRISHNA Model Scout separates discovery from installation/activation: candidate models require benchmark evidence, duplicate/resource checks and local-capability admission before promotion; candidate metadata or a provider's free label never establishes zero-cost cloud eligibility.",
+        "KRISHNA has a persistent owner-controlled AI Role Policy for general, coding, reasoning, vision, research, medical research, implementation, architecture review, bug/test review and security review.",
+        "Each AI role supports Auto, Prefer and Pin modes: Auto follows KRISHNA policy, Prefer tries the selected AI first then safely falls back, and Pin stops rather than silently switching when the selected AI cannot run.",
+        "AI role assignments are routing preferences only and can never override project privacy, local-only/restricted handling, secret-egress blocking, verified zero-cost rules or the global paid-cloud-disabled default.",
+        "Automatic role routing remains local-first, then live-zero-cost OpenRouter, then live-zero-billing verified direct APIs, then STOP/local fallback; generic profiles merely labelled free_only are not promoted into automatic zero-cost routing.",
+        "Local Ollama/GPT4All roles may select a specific local model; OpenRouter role assignments select a live zero-price capability pool rather than pinning a model after it stops being free."
       ]
     },
     {
@@ -749,6 +754,20 @@
         "core/tests/test_prepull_final_reconciliation.py"
       ],
       "next": "post-deploy provision a registered project brain, record verified work, restart KRISHNA and confirm governance layers plus DB-backed context persist without source-tree mutation"
+    },
+    {
+      "id": "ai_role_policy",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "KRISHNA Model Router / Sudarshan / Owner",
+      "evidence": [
+        "core/krishna_core/ai_role_policy.py",
+        "core/krishna_core/router.py",
+        "core/krishna_core/orchestrator.py",
+        "core/krishna_core/server.py",
+        "core/tests/test_ai_role_policy.py",
+        "docs/AI_ROLE_POLICY.md"
+      ],
+      "next": "CI acceptance, then deploy to the KRISHNA PC and expose the role selector in the owner-facing Models/Settings UI."
     }
   ]
 }
