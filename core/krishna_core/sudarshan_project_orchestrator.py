@@ -48,6 +48,14 @@ class SudarshanProjectOrchestrator:
                 return {"state":"BLOCKED_DESIGN_GATES","missing":gate["missing"]}
             brief=self.design_team.brief(task_type,findings or [])
             plan=self.design_plan(task_type,existing_ui=True)
+            if plan.get("knowledge_bound") and not plan.get("verified_vishvakarma_findings"):
+                return {
+                    "state":"BLOCKED_VISHVAKARMA_KNOWLEDGE",
+                    "team":"design",
+                    "brief":brief,
+                    "design_plan":plan,
+                    "next":"research-review-verify-vishvakarma-knowledge",
+                }
             return {"state":"READY","team":"design","brief":brief,"design_plan":plan}
         return {"state":"READY","team":"domain-specialists"}
 
