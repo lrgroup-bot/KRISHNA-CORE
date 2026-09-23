@@ -61,7 +61,9 @@ jobs:
           EOF
 
           cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2048m
+          org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m
+          org.gradle.workers.max=2
+          org.gradle.daemon=false
           android.useAndroidX=true
           EOF
 
@@ -163,7 +165,7 @@ jobs:
           sed -i "s/from 'three'/from '.\/three.module.js'/" app/src/main/assets/three/GLTFLoader.js
 
       - name: Build APK
-        run: gradle :app:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
 
       - name: Verify conversation-only KRISHNA Mobile
         shell: bash
@@ -185,6 +187,10 @@ jobs:
           grep -q "REC+DATA" app/src/main/assets/index.html
           grep -q "autoZoom" app/src/main/assets/hawkeye-observer-ui.js
           grep -q "hawkeyeObserveLearning" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q "hawkeyeResearchObservation" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "onResearchResult" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q "isLearning" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q '"hawkeye_rishi_live_research_handoff": true' app/src/main/assets/canonical-runtime.json
           grep -q "Conversation only" app/src/main/assets/index.html
           grep -q "verifyVoice" app/src/main/assets/index.html
           grep -q "startFieldScan" app/src/main/assets/index.html

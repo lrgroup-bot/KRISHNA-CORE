@@ -229,6 +229,38 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    @JavascriptInterface public String hawkeyeResearchObservation(String observationId){
+      try{
+        final String oid=observationId==null?"":observationId.trim();
+        if(oid.isEmpty())throw new IllegalArgumentException("observation_id is required");
+        new Thread(()->{
+          String raw;
+          try{
+            JSONObject body=new JSONObject();body.put("observation_id",oid);
+            raw=call("/api/hawkeye/learn/research",body.toString());
+          }catch(Exception e){
+            try{raw=new JSONObject().put("error",e.getClass().getSimpleName()+": "+e.getMessage()).toString();}
+            catch(Exception ignored){raw="{\"error\":\"HAWKEYE research failed\"}";}
+          }
+          final String result=raw;
+          runOnUiThread(()->{
+            try{
+              web.evaluateJavascript(
+                "window.HawkeyeObserverUI&&window.HawkeyeObserverUI.onResearchResult("+
+                JSONObject.quote(result)+")",null
+              );
+            }catch(Exception ignored){}
+          });
+        },"hawkeye-rishi-research").start();
+        return new JSONObject()
+          .put("queued",true)
+          .put("observation_id",oid)
+          .put("raw_media_uploaded",false)
+          .put("cloud_default","local_only")
+          .toString();
+      }catch(Exception e){return error(e);}
+    }
+
     @JavascriptInterface public String hawkeyeDetectObjects(String dataB64){
       try{
         byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);

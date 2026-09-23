@@ -37,6 +37,7 @@ class HawkeyeLearningObserver:
         self.root = Path(state_dir)
         self.root.mkdir(parents=True, exist_ok=True)
         self.ledger = self.root / "observer-ledger.jsonl"
+        self.research_ledger = self.root / "observer-research.jsonl"
         self.universal_learning = universal_learning
         self.brahma = brahma
         self.council = council
@@ -254,6 +255,8 @@ class HawkeyeLearningObserver:
                 "reviewers": list(brahma.get("reviewers") or []),
             },
             "research_plan": research,
+            "research_required": bool(brahma.get("should_learn")),
+            "research_status": "PENDING" if brahma.get("should_learn") else "NOT_REQUIRED",
             "storage_policy": {
                 "raw_media_stored_here": False,
                 "distilled_finding_only": True,
@@ -284,6 +287,127 @@ class HawkeyeLearningObserver:
             ),
         }
 
+    def observation(self, observation_id):
+        observation_id = str(observation_id or "").strip()
+        if not observation_id:
+            raise ValueError("observation_id is required")
+        if not self.ledger.is_file():
+            raise KeyError(observation_id)
+        found = None
+        with self.ledger.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                try:
+                    row = json.loads(line)
+                except Exception:
+                    continue
+                if str(row.get("observation_id") or "") == observation_id:
+                    found = row
+        if found is None:
+            raise KeyError(observation_id)
+        return found
+
+    def research_status(self, observation_id):
+        observation_id = str(observation_id or "").strip()
+        if not observation_id:
+            raise ValueError("observation_id is required")
+        latest = None
+        if self.research_ledger.is_file():
+            with self.research_ledger.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    try:
+                        row = json.loads(line)
+                    except Exception:
+                        continue
+                    if str(row.get("observation_id") or "") == observation_id:
+                        latest = row
+        return latest or {
+            "observation_id": observation_id,
+            "status": "PENDING",
+            "knowledge_status": "candidate",
+            "verification_required": True,
+        }
+
+    def record_research(self, observation_id, status, details=None):
+        observation = self.observation(observation_id)
+        status = str(status or "UNKNOWN").strip().upper()
+        allowed = {"RUNNING", "COMPLETED", "FAILED", "NOT_REQUIRED"}
+        if status not in allowed:
+            raise ValueError("invalid research status")
+        details = dict(details or {})
+        row = {
+            "research_event_id": str(uuid.uuid4()),
+            "observation_id": observation["observation_id"],
+            "source_hash": observation["source_hash"],
+            "status": status,
+            "knowledge_status": str(details.get("knowledge_status") or "candidate"),
+            "verification_required": bool(details.get("verification_required", True)),
+            "run_id": details.get("run_id"),
+            "mission_id": details.get("mission_id"),
+            "lead_rishi": observation.get("lead_rishi"),
+            "rishi_team": list(observation.get("rishi_team") or []),
+            "gyan_proposal_ids": list(details.get("gyan_proposal_ids") or [])[:20],
+            "trusted_ready_claims": int(details.get("trusted_ready_claims") or 0),
+            "unresolved_contradictions": int(details.get("unresolved_contradictions") or 0),
+            "summary": FieldPerceptionPolicy.redact_sensitive_text(self._text(details.get("summary"), 4000)),
+            "error": FieldPerceptionPolicy.redact_sensitive_text(self._text(details.get("error"), 2000)),
+            "at": time.time(),
+        }
+        with self.research_ledger.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
+        if self.memory:
+            self.memory.audit(
+                "hawkeye_learning_research",
+                status.lower(),
+                f"{observation_id}:{row.get('run_id') or '-'}:{len(row['gyan_proposal_ids'])} proposals",
+            )
+        return row
+
+    def research_request(self, observation_id):
+        row = self.observation(observation_id)
+        if not bool((row.get("brahma_reference") or {}).get("should_learn")):
+            return {
+                "eligible": False,
+                "observation_id": row["observation_id"],
+                "reason": "BRAHMA marked this observation as not requiring new learning",
+            }
+        finding = self._text(row.get("finding"), 5000)
+        subject = self._text(row.get("subject"), 1000)
+        question = (
+            "Cross-check this HAWKEYE candidate finding against independent public evidence. "
+            "Preserve contradictions and uncertainty; do not promote it as verified knowledge unless "
+            "Gautama evidence review and the existing Gyan-Bhandar gates pass. "
+            f"Candidate finding: {finding or subject}"
+        )
+        preferred = []
+        for rid in [row.get("lead_rishi"), *(row.get("rishi_team") or [])]:
+            rid = str(rid or "").strip()
+            if rid and rid not in preferred:
+                preferred.append(rid)
+        return {
+            "eligible": True,
+            "observation_id": row["observation_id"],
+            "payload": {
+                "project": "KRISHNA",
+                "topic": subject or finding[:500] or "HAWKEYE observation",
+                "question": question[:7000],
+                "rishi_id": row.get("lead_rishi") or None,
+                "knowledge_track": "general",
+                "stakes": "normal",
+                "privacy": "local_only",
+                "source_limit": 4,
+                "max_perspectives": 3,
+                "max_claims": 4,
+                "auto_propose": True,
+                "preferred_rishis": preferred[:6],
+            },
+            "policy": {
+                "raw_media_included": False,
+                "distilled_candidate_only": True,
+                "automatic_cloud_escalation": False,
+                "gyan_auto_approval": False,
+            },
+        }
+
     def status(self):
         count = 0
         if self.ledger.is_file():
@@ -303,5 +427,7 @@ class HawkeyeLearningObserver:
             "known_identity_public_research": True,
             "default_knowledge_status": "candidate",
             "verification_required_before_gyan": True,
+            "research_handoff": "Rishi Live -> Garuda -> Gautama -> Gyan proposal gate",
+            "automatic_cloud_research": False,
             "ready": True,
         }
