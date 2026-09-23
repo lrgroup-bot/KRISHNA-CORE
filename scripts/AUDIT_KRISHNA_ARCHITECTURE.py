@@ -38,8 +38,11 @@ def main():
         "failures":failures,
         "review_candidates":{
             "orphan_candidates":summary.get("orphan_candidates",0),
+            "orphan_candidate_details":report.get("orphan_candidates") or [],
             "duplicate_basenames":summary.get("duplicate_basenames",0),
+            "duplicate_basename_details":((report.get("duplicates") or {}).get("same_basename") or [])[:50],
             "source_tree_missing_current_modules":summary.get("source_tree_missing_current_modules",0),
+            "source_tree_drift":report.get("source_tree_drift") or {},
         },
         "policy":"review candidates are reported but do not fail automatically; missing canonical evidence/invalid statuses fail closed",
     }
