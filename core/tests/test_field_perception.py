@@ -1,4 +1,5 @@
 import tempfile
+import inspect
 import unittest
 from pathlib import Path
 
@@ -59,6 +60,13 @@ class FieldPerceptionTests(unittest.TestCase):
             stored=agent.get_live_session(session["session_id"])
             self.assertNotIn("hunter2",stored["latest_analysis"]["analysis"])
             self.assertTrue(out["privacy"]["secret_redaction"])
+
+    def test_server_live_response_uses_redacted_persisted_analysis(self):
+        import krishna_core.server as server
+        source=inspect.getsource(server.Handler.do_POST)
+        self.assertIn('result["analysis"]=field["latest_analysis"]["analysis"]',source)
+        self.assertIn('"analysis":field["latest_analysis"]["analysis"]',source)
+        self.assertIn('"secret_redaction":True',source)
 
     def test_face_identity_policy_is_enrollment_scoped(self):
         face=FieldPerceptionPolicy.status()["face_recognition"]
