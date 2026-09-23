@@ -491,9 +491,11 @@
         "core/krishna_core/hawkeye_geo_engine.py",
         "core/krishna_core/field_survey.py",
         "core/krishna_core/bhumiputra.py",
-        "core/tests/test_field_survey.py"
+        "core/tests/test_field_survey.py",
+        "core/krishna_core/field_measurement_adapters.py",
+        "core/tests/test_field_measurement_adapters.py"
       ],
-      "next": "deterministic boundary/geofence/volume/route/export foundation implemented; real photogrammetry/DEM/offline-map/AR-depth/RTK adapters and field acceptance remain"
+      "next": "GNSS/RTK/depth normalization and optional local photogrammetry worker boundary are implemented; physical RTK/depth devices, actual photogrammetry provider execution, AR-depth and field acceptance remain HARDWARE/ENVIRONMENT_UNVERIFIED"
     },
     {
       "id": "final_react_spatial_ui",

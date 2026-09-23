@@ -472,6 +472,35 @@ class HTTPRuntimeTests(unittest.TestCase):
             "SUPPORTED","PRELIMINARY","CONTESTED"
         })
 
+    def test_hawkeye_field_measurement_actions_preserve_hardware_truth(self):
+        code,status=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.field.measurements.status","project":"KRISHNA",
+            "permissions":["runtime.read"],"payload":{}
+        })
+        self.assertEqual(code,200)
+        self.assertFalse(status["result"]["gnss_rtk"]["physical_device_verified"])
+        self.assertFalse(status["result"]["depth"]["physical_device_verified"])
+
+        code,gnss=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.field.gnss.ingest","project":"KRISHNA",
+            "permissions":["evidence.write"],
+            "payload":{"site_id":"test","sample":{
+                "lat":20.2961,"lon":85.8245,"fix_type":"rtk_fixed",
+                "device_id":"simulated-contract-input"
+            }}
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(gnss["result"]["evidence_state"],"MEASURED")
+        self.assertTrue(gnss["result"]["rtk_fixed"])
+
+        code,depth=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.field.depth.ingest","project":"KRISHNA",
+            "permissions":["evidence.write"],
+            "payload":{"site_id":"test","samples":[{"depth_m":1.25}],"device_id":"depth-contract"}
+        })
+        self.assertEqual(code,200)
+        self.assertFalse(depth["result"]["survey_grade"])
+
     def test_hawkeye_field_survey_actions_are_evidence_gated(self):
         boundary=[
             {"lat":20.3000,"lon":85.8000},
