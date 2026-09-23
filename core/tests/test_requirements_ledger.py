@@ -25,6 +25,8 @@ class RequirementsLedgerTests(unittest.TestCase):
         ids={x["id"] for x in d["implementation_index"]}
         self.assertIn("hawkeye_live_coordinator",ids)
         self.assertIn("canonical_mobile_runtime",ids)
+        self.assertIn("sudarshan_design_vishvakarma",ids)
+        self.assertIn("local_model_scout",ids)
 
     def test_prompt_contract_contains_non_negotiables(self):
         text=self.ledger.prompt_contract()
