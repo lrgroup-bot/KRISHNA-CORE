@@ -60,7 +60,7 @@ class HTTPRuntimeTests(unittest.TestCase):
 
     def test_read_endpoints(self):
         for path in ("/health", "/api/status", "/api/dashboard", "/api/capabilities",
-                     "/api/projects", "/api/plugins", "/api/specialists", "/api/specialist-teams", "/api/resources",
+                     "/api/projects", "/api/project-brain?project=KRISHNA", "/api/plugins", "/api/specialists", "/api/specialist-teams", "/api/resources",
                      "/api/tasks", "/api/missions", "/api/missions/status", "/api/queue", "/api/queue/status",
                      "/api/resource-locks", "/api/events", "/api/protocol", "/api/models/providers",
                      "/api/core/state", "/api/core/neural-state",
@@ -70,10 +70,104 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/brahma/status", "/api/brahma/intelligence/status",
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
-                     "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/lab/status", "/api/lab/quantum-nano", "/api/lab/experiments", "/api/mobile/runtime", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
+                     "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/design/status", "/api/design/knowledge?topic=ui", "/api/model-scout", "/api/lab/status", "/api/lab/quantum-nano", "/api/lab/experiments", "/api/mobile/runtime", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/openrouter/free/status", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
+
+    def test_project_brain_runtime_contract(self):
+        code,bus=self.call("/api/action-bus")
+        self.assertEqual(code,200)
+        specs={x["name"]:x for x in bus["actions"]}
+        for name in ("project.brain.provision","project.brain.status","project.brain.record"):
+            self.assertIn(name,specs)
+
+        code,provision=self.call("/api/action-bus/dispatch",{
+            "action":"project.brain.provision","project":"KRISHNA",
+            "permissions":["project.write"],"payload":{"project":"KRISHNA"},
+        })
+        self.assertEqual(code,200)
+        self.assertTrue(provision["result"]["complete"])
+        self.assertFalse(provision["result"]["source_tree_mutation"])
+
+        code,record=self.call("/api/action-bus/dispatch",{
+            "action":"project.brain.record","project":"KRISHNA",
+            "permissions":["project.write"],
+            "payload":{"project":"KRISHNA","section":"Tests and Verification","message":"HTTP Project Brain contract passed"},
+        })
+        self.assertEqual(code,200)
+        self.assertTrue(record["result"]["recorded"])
+
+        code,brain=self.call("/api/project-brain?project=KRISHNA")
+        self.assertEqual(code,200)
+        self.assertTrue(brain["governance"]["complete"])
+        self.assertEqual(brain["governance"]["governance_owner"],"Sudarshan")
+
+    def test_vishvakarma_design_and_model_scout_runtime_contracts(self):
+        code,status=self.call("/api/design/status")
+        self.assertEqual(code,200)
+        self.assertEqual(status["vishvakarma"]["name"],"Rishi Vishvakarma")
+        self.assertTrue(status["design"]["knowledge_bound"])
+        self.assertTrue(status["project_lifecycle"]["vishvakarma_bound"])
+        self.assertFalse(status["model_scout"]["cloud_billing_authority"])
+
+        code,bus=self.call("/api/action-bus")
+        self.assertEqual(code,200)
+        specs={x["name"]:x for x in bus["actions"]}
+        for name in (
+            "design.plan","design.drift","design.acceptance","design.ui.next",
+            "vishvakarma.retrieve","vishvakarma.learn","vishvakarma.verify",
+            "model.scout.evaluate","model.scout.recommend",
+        ):
+            self.assertIn(name,specs)
+        self.assertTrue(specs["vishvakarma.verify"]["requires_approval"])
+
+        lesson={
+            "source":"runtime-test","source_version":"v1","license":"MIT",
+            "topic":"ui","lesson":"Visible focus and complete component states",
+            "evidence":"HTTP integration evidence","confidence":0.9,
+        }
+        code,candidate=self.call("/api/action-bus/dispatch",{
+            "action":"vishvakarma.learn","project":"KRISHNA",
+            "permissions":["design.write","memory.write"],"payload":lesson,
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(candidate["result"]["status"],"candidate")
+
+        code,verified=self.call("/api/action-bus/dispatch",{
+            "action":"vishvakarma.verify","project":"KRISHNA","approved":True,
+            "permissions":["design.write","memory.write"],"payload":lesson,
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(verified["result"]["status"],"verified")
+
+        code,plan=self.call("/api/action-bus/dispatch",{
+            "action":"design.plan","project":"KRISHNA",
+            "permissions":["design.read"],
+            "payload":{"kind":"frontend","topic":"ui","existing_ui":True},
+        })
+        self.assertEqual(code,200)
+        self.assertTrue(plan["result"]["retrieved_verified_findings"])
+
+        code,scouted=self.call("/api/action-bus/dispatch",{
+            "action":"model.scout.evaluate","project":"KRISHNA",
+            "permissions":["model.use"],
+            "payload":{
+                "model_id":"runtime-local-model","source":"local","task":"general",
+                "quality":0.9,"latency_ms":300,"ram_bytes":1073741824,
+                "vram_bytes":536870912,"local_capable":True,
+                "benchmark_ref":"http-bench-001",
+            },
+        })
+        self.assertEqual(code,200)
+        self.assertTrue(scouted["result"]["accepted"])
+
+        code,recommended=self.call("/api/action-bus/dispatch",{
+            "action":"model.scout.recommend","project":"KRISHNA",
+            "permissions":["model.use"],"payload":{"task":"general"},
+        })
+        self.assertEqual(code,200)
+        self.assertTrue(any(x["model_id"]=="runtime-local-model" for x in recommended["result"]["models"]))
 
     def test_openrouter_zero_cost_runtime_contract_is_present_without_network_use(self):
         code,status=self.call("/api/openrouter/free/status")
