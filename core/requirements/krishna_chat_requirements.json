@@ -103,7 +103,10 @@
         "Garudanetra research missions coordinate specialist scouts for scientific papers, GitHub implementations/failure cases, patents/prior art, datasets/benchmarks, standards/metrology and contradictory/failed-replication evidence.",
         "Research evidence preserves provenance, stance and quality; supporting and contradicting evidence remain visible together and unresolved contradictions block automatic truth promotion.",
         "Research scouts run through canonical Garudanetra task-memory Playwright sessions; repeated/duplicate scout launches are circuit-broken rather than allowed to loop indefinitely.",
-        "Garudanetra may package evidence for Rishi, Shishya, LAB BOT or Gyan-candidate review, but research output remains candidate evidence until independent verification/BRAHMA QC."
+        "Garudanetra may package evidence for Rishi, Shishya, LAB BOT or Gyan-candidate review, but research output remains candidate evidence until independent verification/BRAHMA QC.",
+        "Garudanetra exposes a browser-local IndexedDB scratch workspace for temporary research notes and mission summaries; it is local-only, clearable independently, and never replaces authoritative KRISHNA evidence storage.",
+        "The browser-local research workspace redacts likely credentials/tokens before persistence and stores only bounded sanitized summaries rather than raw secret-bearing browser state.",
+        "The Garudanetra UI exposes Research Fabric mission creation, per-scout launch, contradiction analysis, reusable research-skill inspection, and explicit handoff to Rishi or LAB BOT."
       ]
     },
     {
