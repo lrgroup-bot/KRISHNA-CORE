@@ -63,6 +63,7 @@ from .ephemeral_workers import EphemeralWorkerRuntime
 from .agi_kernel import AGIKernel
 from .requirements_ledger import RequirementsLedger
 from .architecture_truth import ArchitectureTruthAudit
+from .mobile_runtime_manifest import MobileRuntimeManifest
 from .rishi_live_research import RishiLiveResearchExecutor
 from .science_atlas import ScienceAtlas
 from .rishi_learning import RishiLearningLedger, CouncilCollaborationEngine
@@ -103,6 +104,7 @@ class Orchestrator:
         self.skills = SkillRegistry([Path(__file__).resolve().parents[1] / "skills"])
         repo_root = Path(__file__).resolve().parents[2]
         self.architecture_truth = ArchitectureTruthAudit(repo_root)
+        self.mobile_runtime_manifest = MobileRuntimeManifest(runtime_root=Path(self.db_path).resolve().parent)
         specialist_root = repo_root / "external" / "agency-agents"
         specialist_state = Path(self.db_path).resolve().parent / ".krishna_state"
         self.specialists = SpecialistLibrary(specialist_state, specialist_root)
@@ -1429,6 +1431,9 @@ class Orchestrator:
                 str(payload.get("project") or context.get("project") or "KRISHNA"),
             )
 
+        def mobile_runtime_manifest_status(payload,context):
+            return self.mobile_runtime_manifest.status()
+
         def hawkeye_diagnostic_adapters_status(payload,context):
             return self.diagnostic_adapters.status()
 
@@ -2132,6 +2137,12 @@ class Orchestrator:
             sources=("pc","system","agent","job"),
         )
 
+        self.action_bus.register(
+            "mobile.runtime.manifest",mobile_runtime_manifest_status,
+            description="Inspect the canonical KRISHNA Android source/artifact identity and PC companion compatibility role",
+            permissions=("runtime.read",),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
         self.action_bus.register(
             "hawkeye.diagnostic.adapters.status",hawkeye_diagnostic_adapters_status,
             description="Inspect read-only electronics, vehicle and acoustic diagnostic evidence adapter contracts",
