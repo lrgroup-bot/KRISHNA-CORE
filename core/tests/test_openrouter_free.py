@@ -104,7 +104,9 @@ class OpenRouterFreeFabricTests(unittest.TestCase):
             self.assertEqual(result["text"],"ok")
             self.assertTrue(result["preflight_zero_cost"])
             chat=next(x for x in gateway.calls if x["path"]=="/chat/completions")
-            self.assertEqual(chat["payload"]["provider"],{"allow_fallbacks":False})
+            self.assertEqual(chat["payload"]["provider"]["allow_fallbacks"],False)
+            self.assertEqual(chat["payload"]["provider"]["data_collection"],"deny")
+            self.assertTrue(chat["payload"]["provider"]["zdr"])
             self.assertTrue(any(x["path"]=="/models" for x in gateway.calls))
 
     def test_vision_accepts_only_local_data_image_urls(self):
@@ -127,6 +129,16 @@ class OpenRouterFreeFabricTests(unittest.TestCase):
             self.assertNotIn("aspect_ratio",image_call["payload"])
             self.assertEqual(image_call["payload"]["model"],"inclusionai/ming-image-0.1-design")
             self.assertTrue(result["preflight_zero_cost"])
+
+    def test_image_generation_blocks_when_live_pricing_is_missing(self):
+        with tempfile.TemporaryDirectory() as td:
+            gateway=FakeGateway()
+            for row in gateway.models:
+                if row.get("id")=="inclusionai/ming-image-0.1-design":
+                    row["pricing"]={}
+            fabric=OpenRouterFreeFabric(gateway,td)
+            with self.assertRaises(ZeroCostPolicyError):
+                fabric.generate_image("unknown cost must stop",privacy="approved_cloud")
 
     def test_image_generation_blocks_when_live_price_is_nonzero(self):
         with tempfile.TemporaryDirectory() as td:
