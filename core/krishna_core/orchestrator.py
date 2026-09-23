@@ -182,7 +182,6 @@ class Orchestrator:
             router=self.router,
         )
         self.router.bind_model_scout(self.agi.model_scout)
-        self.spark_x25.discover()
         self.sudarshan_projects = SudarshanProjectOrchestrator(self.agi.design)
         self.gyan_acl = GyanACL(runtime_state / "gyan-acl.json")
         self.gyan_cipher = GyanEnvelopeCipher()
