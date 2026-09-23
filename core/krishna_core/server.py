@@ -1024,6 +1024,16 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, orch.agi_status())
         if path == "/api/runtime/integrity":
             return self._json(200, _integrity.status())
+        if path == "/api/lab/status":
+            return self._json(200, orch.lab.status())
+        if path == "/api/lab/experiments":
+            limit=max(1,min(int((query.get("limit") or ["100"])[0]),500))
+            return self._json(200, {"experiments":orch.lab.list(limit)})
+        if path == "/api/lab/experiment":
+            experiment_id=str((query.get("id") or [""])[0]).strip()
+            if not experiment_id:return self._json(400,{"error":"id is required"})
+            try:return self._json(200,orch.lab.get(experiment_id))
+            except KeyError:return self._json(404,{"error":"experiment not found"})
         if path == "/api/architecture/truth":
             return self._json(200, orch.architecture_truth.scan())
         if path == "/api/mobile/runtime":
