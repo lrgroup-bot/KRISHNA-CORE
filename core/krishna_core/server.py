@@ -1166,6 +1166,34 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"project not registered"})
         if path == "/api/agi/status":
             return self._json(200, orch.agi_status())
+        if path == "/api/design/status":
+            return self._json(200,{
+                "design":orch.sudarshan_design.status(),
+                "vishvakarma":orch.vishvakarma.status(),
+                "project_lifecycle":orch.sudarshan_projects.status(),
+                "model_scout":orch.agi.model_scout.status(),
+            })
+        if path == "/api/design/knowledge":
+            topic=str((query.get("topic") or ["design"])[0]).strip() or "design"
+            verified=str((query.get("verified") or ["1"])[0]).lower() in {"1","true","yes"}
+            limit_raw=(query.get("limit") or ["20"])[0]
+            try:limit=max(1,min(int(limit_raw),100))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            try:return self._json(200,{
+                "topic":topic,
+                "verified_only":verified,
+                "findings":orch.vishvakarma.retrieve(topic,limit=limit,verified_only=verified),
+            })
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+        if path == "/api/model-scout":
+            task=str((query.get("task") or ["general"])[0]).strip() or "general"
+            limit_raw=(query.get("limit") or ["10"])[0]
+            try:limit=max(1,min(int(limit_raw),100))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,{
+                "status":orch.agi.model_scout.status(),
+                "recommendations":orch.agi.model_scout.recommend(task,limit=limit),
+            })
         if path == "/api/runtime/integrity":
             return self._json(200, _integrity.status())
         if path == "/api/lab/status":
@@ -1435,6 +1463,9 @@ class Handler(BaseHTTPRequestHandler):
             })
         if path == "/api/projects":
             return self._json(200, {"projects": orch.projects.list()})
+        if path == "/api/project-brain":
+            project=str((query.get("project") or ["KRISHNA"])[0]).strip() or "KRISHNA"
+            return self._json(200,orch.project_brain.context(project))
         if path == "/api/plugins":
             return self._json(200, {"plugins": _plugins.list()})
         if path == "/api/specialists":
