@@ -25,6 +25,8 @@ class SpatialDeployContractTests(unittest.TestCase):
         self.assertIn('data-krishna-spatial-ui="2026.09"',index)
         self.assertIn("base: '/spatial/'",vite)
         self.assertIn('path.startswith("/spatial/")',server)
+        self.assertIn('path in ("/spatial", "/spatial-preview")',server)
+        self.assertIn("KRISHNA_SPATIAL_UI_DEFAULT",server)
         self.assertIn("spatial_ui_index()",server)
 
 
