@@ -344,14 +344,29 @@ try{
   try{
     $truth=Get-Json "/api/architecture/truth"
     $requirements=Get-Json "/api/requirements"
-    if(
+    $truthEvidenceMissing=@($truth.requirements.evidence_missing)
+    $truthInvalidStatuses=@($truth.requirements.invalid_statuses)
+    $truthConsistent=(
       $truth.component -eq "KRISHNA Architecture Truth Audit" -and
-      $truth.version -eq "architecture-truth-v1" -and
-      $truth.requirements.version -eq "2026-09-23-master-product-truth-v2"
-    ){
-      Add-Check "Canonical product truth" "PASS" ("ledger="+$truth.requirements.version+"; architecture audit live") $truth
+      [int]$truth.requirements.schema -eq 2 -and
+      [int]$requirements.schema -eq 2 -and
+      [string]$truth.requirements.version -eq [string]$requirements.version -and
+      $truthEvidenceMissing.Count -eq 0 -and
+      $truthInvalidStatuses.Count -eq 0
+    )
+    if($truthConsistent){
+      Add-Check "Canonical product truth" "PASS" ("ledger="+$truth.requirements.version+"; architecture audit + requirements API agree") $truth
     }else{
-      Add-Check "Canonical product truth" "FAIL" "Runtime is not using the schema-2 master product truth" $truth
+      Add-Check "Canonical product truth" "FAIL" ("Product truth mismatch: api="+[string]$requirements.version+" audit="+[string]$truth.requirements.version+" missing_evidence="+$truthEvidenceMissing.Count+" invalid_statuses="+$truthInvalidStatuses.Count) $truth
+    }
+
+    $duplicateGroups=[int]$truth.summary.duplicate_basenames+[int]$truth.summary.identical_content_groups
+    $orphanCandidates=[int]$truth.summary.orphan_candidates
+    $sourceTreeDrift=[int]$truth.summary.source_tree_missing_current_modules
+    if($duplicateGroups -eq 0 -and $orphanCandidates -eq 0 -and $sourceTreeDrift -eq 0){
+      Add-Check "Architecture duplicate/orphan review" "PASS" "No duplicate/orphan/source-tree review candidates reported" $truth.summary
+    }else{
+      Add-Check "Architecture duplicate/orphan review" "WARN" ("review_only duplicates="+$duplicateGroups+" orphan_candidates="+$orphanCandidates+" source_tree_drift="+$sourceTreeDrift+"; no automatic deletion") $truth
     }
 
     $hawkeye=Get-Json "/api/hawkeye/status"
