@@ -60,6 +60,8 @@ class ModelRouter:
         provider=str(provider or "").strip()
         if provider=="openrouter-free":
             return "openrouter-free:"+str(self.role_assignment(role).get("openrouter_role") or "general")
+        if provider=="direct-free":
+            return "direct-free:cloudflare-workers-ai"
         return provider
 
     @staticmethod
