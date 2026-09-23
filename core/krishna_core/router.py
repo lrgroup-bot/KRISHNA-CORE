@@ -153,7 +153,9 @@ class ModelRouter:
                     "available":bool(status.get("configured")),"local":False,
                     "model":"configured-live-zero-billing","credential_source":"windows-dpapi",
                     "free_only":True,"zero_cost_verified":"live-billing-preflight",
-                    "automatic_zero_cost_eligible":bool(status.get("automatic_zero_cost_eligible")),
+                    "automatic_zero_cost_eligible":bool(
+                        status.get("automatic_zero_cost_eligible",status.get("configured"))
+                    ),
                 })
             except Exception as exc:
                 out.append({"provider":"direct-free:cloudflare-workers-ai","name":"Verified Direct Free Cloud",
