@@ -89,6 +89,7 @@ jobs:
             implementation 'com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1'
             implementation 'com.google.mlkit:language-id:17.0.6'
             implementation 'com.google.mlkit:translate:17.0.3'
+            implementation 'com.google.mediapipe:tasks-vision:1.0.0'
           }
           EOF
 
@@ -149,6 +150,10 @@ jobs:
           cp mobile_v3/realtime-client.js app/src/main/assets/realtime-client.js
           cp mobile_v3/hawkeye-observer-ui.js app/src/main/assets/hawkeye-observer-ui.js
           cp mobile_v3/CANONICAL_RUNTIME.json app/src/main/assets/canonical-runtime.json
+          curl --retry 3 --fail --location --silent --show-error \
+            "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/latest/gesture_recognizer.task" \
+            -o app/src/main/assets/gesture_recognizer.task
+          test -s app/src/main/assets/gesture_recognizer.task
           base64 -d avatar/krishna_child_360.webp.b64 > app/src/main/assets/krishna_child_360.webp
 
           npm init -y >/dev/null 2>&1
@@ -231,6 +236,9 @@ jobs:
           grep -q 'id="cameraTorch"' app/src/main/assets/index.html
           grep -q "captureBestFrame" app/src/main/assets/hawkeye-observer-ui.js
           grep -q "privacy_faces_masked" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q "MEDIAPIPE_GESTURE_RECOGNIZER" app/src/main/java/com/krishna/mobile/HawkeyeHandGesture.java
+          grep -q "hawkeyeHandGesture" app/src/main/java/com/krishna/mobile/MainActivity.java
+          test -s app/src/main/assets/gesture_recognizer.task
           grep -q "user-default-custom-tab" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "HawkeyeOfflinePerception.analyze" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "ANDROID_LOCAL_LIGHTWEIGHT_PROBE" app/src/main/java/com/krishna/mobile/HawkeyeOfflinePerception.java
