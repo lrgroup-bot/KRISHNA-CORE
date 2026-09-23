@@ -8,8 +8,9 @@ from krishna_core.mobile_runtime_manifest import MobileRuntimeManifest
 
 class MobileRuntimeManifestTests(unittest.TestCase):
     def test_manifest_makes_mobile_v3_the_only_android_authority(self):
-        root=Path(__file__).resolve().parents[2]
-        status=MobileRuntimeManifest(root,Path(tempfile.gettempdir())/"krishna-no-runtime").status()
+        status=MobileRuntimeManifest(
+            runtime_root=Path(tempfile.gettempdir())/"krishna-no-runtime"
+        ).status()
         self.assertEqual(status["version"],"krishna-mobile-canonical-v1")
         self.assertEqual(status["canonical_android_source"],"mobile_v3")
         self.assertEqual(status["package_id"],"com.krishna.mobile")
@@ -23,8 +24,8 @@ class MobileRuntimeManifestTests(unittest.TestCase):
         self.assertFalse(status["migration"]["automatic_delete"])
 
     def test_manifest_lists_edge_curator_crypto_and_sync(self):
-        root=Path(__file__).resolve().parents[2]
-        data=json.loads((root/"mobile_v3"/"CANONICAL_RUNTIME.json").read_text(encoding="utf-8"))
+        manifest=MobileRuntimeManifest()
+        data=json.loads(manifest.manifest_path.read_text(encoding="utf-8"))
         files=set(data["canonical_files"])
         for name in (
             "MobileEdgeBot.java","HawkeyeEvidenceCuratorBot.java","HawkeyeCrypto.java",
