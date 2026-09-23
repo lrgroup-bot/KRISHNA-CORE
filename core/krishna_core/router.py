@@ -270,13 +270,16 @@ class ModelRouter:
     def coding_plan(self,privacy="approved_cloud",free_only=False):
         roles=["implementation","architecture_review","bug_test_review","security_review"]
         plan=[]
-        for role in roles:
+        for index,role in enumerate(roles):
             rows=self.role_plan(role,privacy,free_only)
             if not rows:
                 continue
-            row=rows[0]
+            assignment=self.role_assignment(role)
+            # Preserve independent-review diversity in Auto mode. Prefer/Pin places
+            # the owner's chosen worker first and therefore uses index zero.
+            row=rows[index % len(rows)] if assignment.get("mode")=="auto" else rows[0]
             plan.append({"role":role,"provider":row["provider"],"model":row.get("model"),
-                         "mode":self.role_assignment(role).get("mode","auto")})
+                         "mode":assignment.get("mode","auto")})
         return plan
 
     def route(self,prompt,privacy="approved_cloud",free_only=False,project="KRISHNA",actor="model-router",role="general"):
