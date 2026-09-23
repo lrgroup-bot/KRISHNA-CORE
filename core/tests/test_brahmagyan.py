@@ -28,6 +28,17 @@ class BrahmagyanTests(unittest.TestCase):
 
     def tearDown(self):self.tmp.cleanup()
 
+    def test_runtime_without_cognitive_binding_keeps_existing_claim_flow(self):
+        mission=self.bg.create_mission("KRISHNA","Standalone concept","Can it be recorded?",knowledge_track="engineering")
+        claim=self.bg.record_claim(
+            mission["mission_id"],
+            "Standalone BRAHMAGYAN remains valid before the optional Cognitive Brain is bound.",
+            [],
+            knowledge_track="engineering",
+        )
+        self.assertEqual(claim["topic"],"Standalone concept")
+        self.assertIsNone(self.bg.cognitive_brain)
+
     def test_council_is_permanent_profiles_not_running_processes(self):
         status=RishiCouncil().status()
         self.assertEqual(status["permanent_profiles"],28)

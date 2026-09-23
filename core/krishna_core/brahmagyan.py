@@ -60,6 +60,7 @@ class BrahmagyanRuntime:
         self.memory=memory
         self.council=RishiCouncil()
         self.gyan_qc=None
+        self.cognitive_brain=None
         self.lock=RLock()
         self.state={
             "missions":{},"claims":{},"debates":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
@@ -72,6 +73,14 @@ class BrahmagyanRuntime:
         """Bind BRAHMA's QC gate without changing Gyan-Bhandar storage authority."""
         self.gyan_qc=qc
         return {"bound":qc is not None,"authority":"BRAHMA QC -> Gyan proposal/approval"}
+
+    def bind_cognitive_brain(self, cognitive_brain):
+        """Bind BRAHMA's associative concept memory without changing research authority."""
+        self.cognitive_brain=cognitive_brain
+        return {
+            "bound": cognitive_brain is not None,
+            "authority": "BRAHMAGYAN matures evidence; Cognitive Brain stores associations only",
+        }
 
     def _load(self):
         if not self.path.is_file():return
@@ -509,6 +518,19 @@ class BrahmagyanRuntime:
             self.state["missions"][mission_id]["claim_ids"].append(cid)
             self.state["missions"][mission_id]["updated_at"]=self._now()
             self._save()
+        if self.cognitive_brain is not None:
+            try:
+                self.cognitive_brain.learn_concept(
+                    m["topic"],
+                    track=track,
+                    confidence=0.0,
+                    maturity="L0",
+                    evidence_status="unknown",
+                    provenance={"mission_id":mission_id,"claim_id":cid},
+                    rishi_id=m["lead_rishi"],
+                )
+            except Exception as exc:
+                self.memory.audit("cognitive_brain","claim_seed_failed",f"{cid}:{type(exc).__name__}:{exc}")
         self.memory.audit("brahmagyan_claim","L0",f"{cid}:{m['lead_rishi']}:{claim[:160]}")
         return dict(row)
 
@@ -595,6 +617,31 @@ class BrahmagyanRuntime:
             if levels:m["maturity"]=MATURITY[min(levels)][0]
             m["updated_at"]=self._now();self._save()
             out=json.loads(json.dumps(c))
+        if self.cognitive_brain is not None:
+            try:
+                mission=self.mission(out["mission_id"])
+                self.cognitive_brain.learn_concept(
+                    out["topic"],
+                    track=out.get("knowledge_track") or "general",
+                    confidence=out.get("confidence") or 0.0,
+                    maturity=out.get("maturity") or "L0",
+                    evidence_status=out.get("evidence_status") or "candidate",
+                    provenance={"mission_id":out["mission_id"],"claim_id":claim_id},
+                    rishi_id=mission.get("lead_rishi"),
+                )
+                if out.get("connections"):
+                    self.cognitive_brain.ingest_research(
+                        out["topic"],
+                        related_concepts=out.get("connections") or [],
+                        track=out.get("knowledge_track") or "general",
+                        confidence=out.get("confidence") or 0.0,
+                        maturity=out.get("maturity") or "L0",
+                        evidence_status=out.get("evidence_status") or "candidate",
+                        provenance={"mission_id":out["mission_id"],"claim_id":claim_id},
+                        rishi_id=mission.get("lead_rishi"),
+                    )
+            except Exception as exc:
+                self.memory.audit("cognitive_brain","claim_connect_failed",f"{claim_id}:{type(exc).__name__}:{exc}")
         self.memory.audit("brahmagyan_maturity",target,f"{claim_id}:{out['evidence_status']}:{out['confidence']}")
         return out
 

@@ -220,6 +220,7 @@ class Orchestrator:
             self.memory,
         )
         self.agi.brahmagyan.bind_gyan_qc(self.brahma.qc_for_gyan)
+        self.agi.brahmagyan.bind_cognitive_brain(self.brahma.cognitive)
         self.rishi_collaboration = CouncilCollaborationEngine(
             self.rishi_learning,
             self.agi.brahmagyan.council,
@@ -920,6 +921,80 @@ class Orchestrator:
                 source="brahma:"+str(context.get("source") or "system"),
                 supersedes=payload.get("supersedes"),
             )
+
+        def brahma_cognitive_status(payload,context):
+            return self.brahma.cognitive.status()
+
+        def brahma_cognitive_query(payload,context):
+            return self.brahma.cognitive_query(
+                str(payload.get("query") or payload.get("topic") or ""),
+                depth=int(payload.get("depth") or 2),
+                limit=int(payload.get("limit") or 30),
+                retrieve_limit=int(payload.get("retrieve_limit") or 4),
+            )
+
+        def brahma_cognitive_ingest(payload,context):
+            provenance=dict(payload.get("provenance") or {})
+            provenance.setdefault("source",str(context.get("source") or "system"))
+            provenance.setdefault("actor",str(context.get("actor") or "brahma"))
+            return self.brahma.cognitive_ingest(
+                str(payload.get("topic") or ""),
+                related_concepts=payload.get("related_concepts") or [],
+                relationships=payload.get("relationships") or [],
+                aliases=payload.get("aliases") or [],
+                track=str(payload.get("track") or "general"),
+                confidence=float(payload.get("confidence") or 0.0),
+                maturity=str(payload.get("maturity") or "L0"),
+                evidence_status=str(payload.get("evidence_status") or "candidate"),
+                provenance=provenance,
+                rishi_id=payload.get("rishi_id"),
+            )
+
+        def brahma_cognitive_study(payload,context):
+            query=str(payload.get("query") or payload.get("topic") or "").strip()
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            result=self.brahma.cognitive_study_plan(
+                query,
+                depth=int(payload.get("depth") or 2),
+                limit=int(payload.get("limit") or 30),
+                queue_gaps=bool(payload.get("queue_gaps",True)),
+            )
+            missions=[]
+            skipped_existing=[]
+            if bool(payload.get("create_missions",True)) and result.get("study_required"):
+                max_missions=max(1,min(int(payload.get("max_missions") or 3),8))
+                existing={
+                    str(x.get("topic") or "").strip().casefold()
+                    for x in self.agi.brahmagyan.missions(project,limit=500)
+                    if str(x.get("topic") or "").strip()
+                }
+                for gap in (result.get("activation") or {}).get("research_gaps",[])[:max_missions]:
+                    topic=str(gap.get("topic") or query).strip()
+                    question=str(gap.get("question") or f"What should KRISHNA learn about {topic}?").strip()
+                    if not topic or not question:
+                        continue
+                    key=topic.casefold()
+                    if key in existing:
+                        skipped_existing.append(topic)
+                        continue
+                    mission=self.agi.brahmagyan.create_mission(
+                        project,
+                        topic,
+                        question,
+                        None,
+                        str(payload.get("knowledge_track") or "general"),
+                        {"knowledge_gap":1.0,"relevance":1.0,"cross_domain":0.7},
+                        str(payload.get("target_level") or "L8"),
+                    )
+                    missions.append(mission)
+                    existing.add(key)
+            result["brahmagyan_missions"]=missions
+            result["skipped_existing_mission_topics"]=skipped_existing
+            result["execution_policy"]=(
+                "study creates bounded BRAHMAGYAN missions; live web/model research remains under "
+                "Sudarshan permissions and existing BRAHMAGYAN/NARAD execution paths"
+            )
+            return result
 
         def brahma_temporal_query(payload,context):
             return self.brahma.temporal_query(
@@ -1944,6 +2019,31 @@ class Orchestrator:
             description="Quality-gate Rishi/evidence-backed knowledge before Gyan-Bhandar proposal",
             mutating=True,permissions=("memory.write","evidence.write"),
             sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "brahma.cognitive.status",brahma_cognitive_status,
+            description="Read KRISHNA associative concept-memory and progressive-cognition status",
+            permissions=("runtime.read",),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.cognitive.query",brahma_cognitive_query,
+            description="Activate related concepts, reuse Rishi knowledge and expose research gaps",
+            mutating=True,permissions=("runtime.read","memory.write"),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.cognitive.ingest",brahma_cognitive_ingest,
+            description="Teach BRAHMA a provenance-preserving concept neighborhood and typed relationships",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahma.cognitive.study",brahma_cognitive_study,
+            description="Create bounded Rishi/BRAHMAGYAN study missions only for activated knowledge gaps",
+            mutating=True,permissions=("memory.write","evidence.write"),
+            sources=("pc","system","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
