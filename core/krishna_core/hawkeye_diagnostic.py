@@ -30,6 +30,7 @@ class HawkeyeDiagnosticRuntime:
         self.state_dir = Path(state_dir)
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.reference_registry = None
+        self.adapters = None
         self.worker_runtime = None
         self.governor = None
         self._worker_lock = threading.RLock()
@@ -39,6 +40,10 @@ class HawkeyeDiagnosticRuntime:
 
     def bind_reference_registry(self, registry):
         self.reference_registry = registry
+        return self.status()
+
+    def bind_adapters(self, adapters):
+        self.adapters = adapters
         return self.status()
 
     def bind_worker_runtime(self, worker_runtime, governor):
@@ -252,6 +257,47 @@ class HawkeyeDiagnosticRuntime:
         result["frame_count"] = state["frame_count"]
         return result
 
+    def _record_measurement_evidence(self, session_id, kind, evidence):
+        sid=self._safe_id(session_id)
+        path=self.state_dir/(sid+".json")
+        try:
+            state=json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        except Exception:
+            state={}
+        now=time.time()
+        state.setdefault("session_id",sid)
+        state.setdefault("created_at",now)
+        state["specialist"]=self.SPECIALIST_NAME
+        state["lightweight_permanent_role"]=True
+        rows=list(state.get("measurement_evidence") or [])
+        rows.append({
+            "kind":str(kind),
+            "at":now,
+            "fingerprint":evidence.get("fingerprint"),
+            "evidence_state":evidence.get("evidence_state"),
+            "evidence":evidence,
+        })
+        state["measurement_evidence"]=rows[-200:]
+        state["last_measurement"]=state["measurement_evidence"][-1]
+        state["updated_at"]=now
+        path.write_text(json.dumps(state,indent=2,sort_keys=True),encoding="utf-8")
+        return evidence
+
+    def ingest_electronics_measurements(self, session_id, measurements, **kwargs):
+        if self.adapters is None:raise RuntimeError("diagnostic adapters are not bound")
+        evidence=self.adapters.electronics.ingest(measurements,**kwargs)
+        return self._record_measurement_evidence(session_id,"electronics",evidence)
+
+    def ingest_vehicle_frames(self, session_id, protocol, frames, **kwargs):
+        if self.adapters is None:raise RuntimeError("diagnostic adapters are not bound")
+        evidence=self.adapters.vehicle.ingest(protocol,frames,**kwargs)
+        return self._record_measurement_evidence(session_id,"vehicle",evidence)
+
+    def ingest_acoustic_samples(self, session_id, samples, sample_rate, **kwargs):
+        if self.adapters is None:raise RuntimeError("diagnostic adapters are not bound")
+        evidence=self.adapters.acoustic.ingest(samples,sample_rate,**kwargs)
+        return self._record_measurement_evidence(session_id,"acoustic",evidence)
+
     def get_session(self, session_id):
         path = self.state_dir / (self._safe_id(session_id) + ".json")
         if not path.exists():
@@ -326,6 +372,8 @@ class HawkeyeDiagnosticRuntime:
             "reference_alignment": ["schematic", "boardview", "netlist", "service-manual"],
             "main_loop_blocking": False, "session_count": len(list(self.state_dir.glob("*.json"))),
             "reference_registry_bound": self.reference_registry is not None,
+            "diagnostic_adapters_bound": self.adapters is not None,
+            "diagnostic_adapters": self.adapters.status() if self.adapters is not None else None,
             "worker_runtime_bound": self.worker_runtime is not None,
             "worker_dispatch": self.worker_status(), "ready": True,
         }

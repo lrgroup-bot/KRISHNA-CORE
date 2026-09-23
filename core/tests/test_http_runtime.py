@@ -70,7 +70,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/brahma/status", "/api/brahma/intelligence/status",
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
-                     "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
+                     "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/mobile/runtime", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
@@ -152,6 +152,25 @@ class HTTPRuntimeTests(unittest.TestCase):
         })
         self.assertEqual(code,200)
         self.assertEqual(receipt["result"]["version"],"architecture-truth-v1")
+
+    def test_canonical_mobile_runtime_identity(self):
+        code,mobile=self.call("/api/mobile/runtime")
+        self.assertEqual(code,200)
+        self.assertEqual(mobile["version"],"krishna-mobile-canonical-v1")
+        self.assertEqual(mobile["canonical_android_source"],"mobile_v3")
+        self.assertTrue(mobile["source_ready"])
+        self.assertEqual(
+            mobile["pc_runtime_companion"]["classification"],
+            "COMPATIBILITY_PC_SIDE_NOT_ANDROID_AUTHORITY",
+        )
+        self.assertFalse(mobile["migration"]["automatic_delete"])
+
+        code,receipt=self.call("/api/action-bus/dispatch",{
+            "action":"mobile.runtime.manifest","project":"KRISHNA",
+            "permissions":["runtime.read"],"payload":{}
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(receipt["result"]["package_id"],"com.krishna.mobile")
 
     def test_requirements_search_contract(self):
         code,d=self.call("/api/requirements?q=mobile")
@@ -402,6 +421,56 @@ class HTTPRuntimeTests(unittest.TestCase):
         })
         self.assertEqual(code,201)
         self.assertEqual(stored["memory_kind"],"evidence")
+
+    def test_hawkeye_measurement_adapters_are_action_native_and_read_only(self):
+        code,session=self.call("/api/hawkeye/live/start",{
+            "project":"KRISHNA","purpose":"diagnose truck electronics and vibration","scene_hint":"vehicle"
+        })
+        self.assertEqual(code,201)
+        sid=session["session_id"]
+
+        code,status=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.diagnostic.adapters.status","project":"KRISHNA",
+            "permissions":["runtime.read"],"payload":{}
+        })
+        self.assertEqual(code,200)
+        self.assertFalse(status["result"]["vehicle"]["transmit"])
+
+        code,electrical=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.diagnostic.electronics.measure","project":"KRISHNA",
+            "permissions":["evidence.write"],
+            "payload":{"session_id":sid,"source":"multimeter","measurements":[
+                {"point":"TP1","quantity":"voltage","value":12.1,"unit":"V"}
+            ]}
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(electrical["result"]["evidence_state"],"MEASURED")
+
+        code,vehicle=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.diagnostic.vehicle.read","project":"KRISHNA",
+            "permissions":["evidence.write"],
+            "payload":{"session_id":sid,"protocol":"obd2","frames":[
+                {"mode":1,"pid":13,"data":[55],"direction":"rx"}
+            ]}
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(vehicle["result"]["frames"][0]["name"],"vehicle_speed")
+        self.assertFalse(vehicle["result"]["safety"]["transmit"])
+
+        samples=[0.0,0.5,1.0,0.5,0.0,-0.5,-1.0,-0.5]*8
+        code,acoustic=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.diagnostic.acoustic.analyze","project":"KRISHNA",
+            "permissions":["evidence.write"],
+            "payload":{"session_id":sid,"sample_rate":8000,"samples":samples}
+        })
+        self.assertEqual(code,200)
+        self.assertFalse(acoustic["result"]["raw_samples_retained"])
+
+        state=self.call("/api/hawkeye/live/state?session_id="+sid)[1]
+        self.assertGreaterEqual(state["hawkeye"]["lane_counts"]["diagnostic"],3)
+        self.assertIn(state["hawkeye"]["reasoning"]["conclusion_state"],{
+            "SUPPORTED","PRELIMINARY","CONTESTED"
+        })
 
     def test_brahma_memory_intelligence_http_and_action_contracts(self):
         code,receipt=self.call("/api/action-bus/dispatch",{

@@ -139,6 +139,23 @@ class HawkeyeCoordinatorTests(unittest.TestCase):
         self.assertIn("camera-only hidden faults",out["guardrails"][2])
         self.assertGreaterEqual(out["independent_source_refs"],2)
 
+    def test_diagnostic_record_refreshes_reasoner_state_immediately(self):
+        sid=self.session["session_id"]
+        self.hawkeye.record_diagnostic_result(
+            sid,{
+                "analysis":"voltage measurement captured",
+                "evidence_state":"MEASURED",
+                "confidence":1.0,
+            },
+            source_refs=["instrument:tp1"],
+        )
+        state=self.hawkeye.get_live_session(sid)
+        self.assertIsNotNone(state["hawkeye"]["reasoning"])
+        self.assertIn(state["hawkeye"]["reasoning"]["conclusion_state"],{
+            "SUPPORTED","PRELIMINARY","CONTESTED"
+        })
+        self.assertGreaterEqual(state["hawkeye"]["lane_counts"]["reasoner"],1)
+
     def test_open_contradiction_prevents_supported_state(self):
         sid=self.session["session_id"]
         a=self.hawkeye.record_behavior(

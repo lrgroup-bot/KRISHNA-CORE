@@ -158,9 +158,9 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | Expanded BHOOMIPUTRA live perception | IMPLEMENTED / RUNTIME VERIFY | PR #53 capability intent was reconciled manually onto current source: terrain/structures/roads/machinery/utilities plus people/PPE, vehicles, electronics, ordinary OCR/assets, hazards and temporal change while preserving newer encrypted mobile evidence. |
 | Sensitive-input guard | VERIFIED BY UNIT CONTRACTS / RUNTIME VERIFY | Password/PIN/OTP/API/session/bearer values are redacted before live analysis persistence; login-surface exposure may be reported without returning secret values. |
 | Face identity boundary | IMPLEMENTED POLICY / ADAPTER REQUIRED | Unknown people remain UNKNOWN. Identity matching is limited to explicitly enrolled/consented local profiles; no cloud biometric provider is claimed. |
-| Deep electronics hardware engine | PARTIAL | Schematic/boardview/netlist/reference overlay and bounded diagnostic workers exist; multimeter/oscilloscope/device-telemetry adapters are still required. |
-| Deep vehicle hardware engine | PARTIAL | Diagnostic routing understands vehicle/OBD/CAN/J1939 concepts, but real read-first bus/service-data adapters and physical acceptance are still required. |
-| Deep acoustic/vibration engine | PARTIAL | Acoustic worker routing exists; timestamped capture/baseline/spectral/vibration adapter stack and physical validation remain. |
+| Deep electronics hardware engine | PARTIAL / expanded | Schematic/boardview/netlist/reference overlay plus a read-only structured electronics measurement adapter now exist. Physical multimeter/oscilloscope/device-telemetry transports and real-device fault/retest acceptance remain. |
+| Deep vehicle hardware engine | PARTIAL / expanded | Receive/read-only OBD-II/CAN/CAN-FD/J1939 evidence normalization is implemented, including common OBD PIDs and J1939 PGN metadata. Physical interface transport, service/DBC/SPN references and vehicle acceptance remain; transmit/program/control is disabled. |
+| Deep acoustic/vibration engine | PARTIAL / expanded | Bounded supplied sample analysis now produces RMS/peak/crest/ZCR/dominant-frequency MEASURED evidence without raw retention. Real microphone/vibration sensor transport, baselines and physical fault validation remain. |
 
 ## 6B. Canonical product truth / architecture drift
 

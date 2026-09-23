@@ -128,6 +128,7 @@ jobs:
           cp mobile_v3/*.java app/src/main/java/com/krishna/mobile/
           cp mobile_v3/index.html app/src/main/assets/index.html
           cp mobile_v3/realtime-client.js app/src/main/assets/realtime-client.js
+          cp mobile_v3/CANONICAL_RUNTIME.json app/src/main/assets/canonical-runtime.json
           base64 -d avatar/krishna_child_360.webp.b64 > app/src/main/assets/krishna_child_360.webp
 
           npm init -y >/dev/null 2>&1
@@ -145,6 +146,10 @@ jobs:
           set -euo pipefail
           test -f app/build/outputs/apk/debug/app-debug.apk
           test -s app/src/main/assets/krishna_child_360.webp
+          test -s app/src/main/assets/canonical-runtime.json
+          grep -q '"version": "krishna-mobile-canonical-v1"' app/src/main/assets/canonical-runtime.json
+          grep -q '"canonical_android_source": "mobile_v3"' app/src/main/assets/canonical-runtime.json
+          grep -q '"package_id": "com.krishna.mobile"' app/src/main/assets/canonical-runtime.json
           grep -q "krishna_child_360.webp" app/src/main/assets/index.html
           grep -q "SWIPE TO ROTATE" app/src/main/assets/index.html
           grep -q "showAvatarView" app/src/main/assets/index.html

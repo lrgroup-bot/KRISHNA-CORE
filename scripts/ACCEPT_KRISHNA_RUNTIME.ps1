@@ -141,7 +141,7 @@ try{
   try{
     $actionBus=Get-Json "/api/action-bus"
     $actionNames=@($actionBus.actions|ForEach-Object{$_.name})
-    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","project.rename","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","worker.ephemeral.execute","browser.inspect","browser.testing_lead","project.design.research","project.design.implement","project.visual_edit.implement","project.perfection.finish","development.git.status","development.git.commit","development.git.push","development.sync","development.stage","development.verify","work.managed.run","repair.shadow","promotion.prepare","promotion.apply","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment","brahmagyan.mission.create","brahmagyan.questions.add","brahmagyan.deep.discover","brahmagyan.claim.record","brahmagyan.evidence.add","brahmagyan.contradiction.resolve","brahmagyan.claim.advance","brahmagyan.claim.compile","brahmagyan.claim.promote","brahmagyan.curiosity.add","brahmagyan.gaps.generate","brahmagyan.council.propose","brahmagyan.background.check","brahmagyan.shishya.plan","brahmagyan.shishya.execute","architecture.truth.scan","hawkeye.status","hawkeye.reason","hawkeye.lane.record")
+    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","project.rename","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","worker.ephemeral.execute","browser.inspect","browser.testing_lead","project.design.research","project.design.implement","project.visual_edit.implement","project.perfection.finish","development.git.status","development.git.commit","development.git.push","development.sync","development.stage","development.verify","work.managed.run","repair.shadow","promotion.prepare","promotion.apply","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment","brahmagyan.mission.create","brahmagyan.questions.add","brahmagyan.deep.discover","brahmagyan.claim.record","brahmagyan.evidence.add","brahmagyan.contradiction.resolve","brahmagyan.claim.advance","brahmagyan.claim.compile","brahmagyan.claim.promote","brahmagyan.curiosity.add","brahmagyan.gaps.generate","brahmagyan.council.propose","brahmagyan.background.check","brahmagyan.shishya.plan","brahmagyan.shishya.execute","architecture.truth.scan","hawkeye.status","hawkeye.reason","hawkeye.lane.record","mobile.runtime.manifest","hawkeye.diagnostic.adapters.status","hawkeye.diagnostic.electronics.measure","hawkeye.diagnostic.vehicle.read","hawkeye.diagnostic.acoustic.analyze")
     $missing=@($needed|Where-Object{$_ -notin $actionNames})
     if($actionBus.owner -eq "KRISHNA Shared Action Bus" -and $missing.Count -eq 0){
       Add-Check "Shared Action Bus" "PASS" ("registered="+$actionBus.registered_actions+"; Projects/Chats wired") $actionBus
@@ -373,6 +373,35 @@ try{
       Add-Check "Unified HAWKEYE coordinator" "FAIL" ("Missing or unsafe HAWKEYE lanes: "+($missingLanes -join ",")) $hawkeye
     }
   }catch{Add-Check "Canonical HAWKEYE/product truth" "FAIL" $_.Exception.Message $null}
+
+  try{
+    $mobileRuntime=Get-Json "/api/mobile/runtime"
+    if(
+      $mobileRuntime.version -eq "krishna-mobile-canonical-v1" -and
+      $mobileRuntime.canonical_android_source -eq "mobile_v3" -and
+      $mobileRuntime.package_id -eq "com.krishna.mobile" -and
+      $mobileRuntime.source_ready -and
+      $mobileRuntime.pc_runtime_companion.classification -eq "COMPATIBILITY_PC_SIDE_NOT_ANDROID_AUTHORITY" -and
+      -not $mobileRuntime.migration.automatic_delete
+    ){
+      Add-Check "Canonical mobile runtime identity" "PASS" "mobile_v3 is canonical Android source; PC companion classified as compatibility only" $mobileRuntime
+    }else{
+      Add-Check "Canonical mobile runtime identity" "FAIL" "Mobile source/runtime authority is ambiguous or incomplete" $mobileRuntime
+    }
+
+    $diagAdapters=$hawkeye.diagnostic.diagnostic_adapters
+    if(
+      $diagAdapters.version -eq "diagnostic-adapters-v1" -and
+      -not $diagAdapters.electronics.controls_hardware -and
+      -not $diagAdapters.vehicle.transmit -and
+      -not $diagAdapters.vehicle.programming -and
+      -not $diagAdapters.acoustic.raw_samples_retained
+    ){
+      Add-Check "HAWKEYE diagnostic adapter boundary" "PASS" "electronics measurements + receive-only vehicle data + bounded acoustic features are live; hardware control remains disabled" $diagAdapters
+    }else{
+      Add-Check "HAWKEYE diagnostic adapter boundary" "FAIL" "Diagnostic adapters are missing or violate read-only evidence policy" $diagAdapters
+    }
+  }catch{Add-Check "Mobile/diagnostic canonicalization" "FAIL" $_.Exception.Message $null}
 
   # Isolated Narad lifecycle acceptance. No external webhook and no mutation.
   $wf=Post-Json "/api/narad/workflows/create" @{name=("acceptance-"+[guid]::NewGuid().ToString("N").Substring(0,8));trigger=@{type="manual"};steps=@(@{action="publish_event";topic="krishna.acceptance";payload=@{source="acceptance"}});permissions=@()}
