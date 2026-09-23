@@ -61,6 +61,7 @@ from .software_factory import SoftwareFactory
 from .ephemeral_workers import EphemeralWorkerRuntime
 from .agi_kernel import AGIKernel
 from .requirements_ledger import RequirementsLedger
+from .architecture_truth import ArchitectureTruthAudit
 from .rishi_live_research import RishiLiveResearchExecutor
 from .science_atlas import ScienceAtlas
 from .rishi_learning import RishiLearningLedger, CouncilCollaborationEngine
@@ -100,6 +101,7 @@ class Orchestrator:
         self.security = DefensiveSecurityScanner()
         self.skills = SkillRegistry([Path(__file__).resolve().parents[1] / "skills"])
         repo_root = Path(__file__).resolve().parents[2]
+        self.architecture_truth = ArchitectureTruthAudit(repo_root)
         specialist_root = repo_root / "external" / "agency-agents"
         specialist_state = Path(self.db_path).resolve().parent / ".krishna_state"
         self.specialists = SpecialistLibrary(specialist_state, specialist_root)
@@ -1424,6 +1426,27 @@ class Orchestrator:
                 str(payload.get("project") or context.get("project") or "KRISHNA"),
             )
 
+        def architecture_truth_scan(payload,context):
+            return self.architecture_truth.scan()
+
+        def hawkeye_status_action(payload,context):
+            return self.hawkeye.status()
+
+        def hawkeye_reason_action(payload,context):
+            return self.hawkeye.reason(str(payload.get("session_id") or ""))
+
+        def hawkeye_lane_record_action(payload,context):
+            return self.hawkeye.record_lane(
+                str(payload.get("session_id") or ""),
+                str(payload.get("lane") or ""),
+                payload.get("payload") or {},
+                evidence_state=str(payload.get("evidence_state") or "OBSERVED"),
+                confidence=float(payload.get("confidence") or 0.5),
+                source_refs=payload.get("source_refs") or [],
+                limitations=payload.get("limitations") or [],
+                provenance=payload.get("provenance") or {},
+            )
+
         def kabach_privacy_audit(payload,context):
             target=self.kabach.privacy.classify_target(payload)
             profile=str(payload.get("profile") or "BASELINE")
@@ -2051,6 +2074,31 @@ class Orchestrator:
             description="Evaluate configured web/mobile privacy release gates for Sudarshan",
             permissions=("privacy.read","release.verify"),
             sources=("pc","system","agent","job"),
+        )
+
+        self.action_bus.register(
+            "architecture.truth.scan",architecture_truth_scan,
+            description="Inspect canonical KRISHNA requirements, legacy copies, duplication, orphan candidates and source-tree drift",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "hawkeye.status",hawkeye_status_action,
+            description="Inspect unified HAWKEYE specialist/coordinator runtime",
+            permissions=("runtime.read",),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "hawkeye.reason",hawkeye_reason_action,
+            description="Fuse current HAWKEYE specialist evidence for a live session",
+            permissions=("runtime.read","evidence.read"),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "hawkeye.lane.record",hawkeye_lane_record_action,
+            description="Record bounded evidence into a named HAWKEYE specialist lane",
+            mutating=True,permissions=("evidence.write",),
+            sources=("pc","mobile","system","agent","job"),
         )
 
         self.action_bus.register(
