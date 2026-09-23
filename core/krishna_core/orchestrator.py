@@ -96,12 +96,12 @@ class Orchestrator:
     def __init__(self, db_path=None):
         self.db_path = str(db_path or settings.db_path)
         self.memory = MemoryStore(self.db_path)
+        runtime_state = Path(self.db_path).resolve().parent / ".krishna_state"
         self.task_ledger = TaskLedger(self.db_path)
         self.commitments = CommitmentLedger(self.db_path)
         self.requirements = RequirementsLedger()
         self.software_factory = SoftwareFactory(self.memory,self.commitments)
-        self.project_brain = ProjectBrain(self.memory)
-        runtime_state = Path(self.db_path).resolve().parent / ".krishna_state"
+        self.project_brain = ProjectBrain(self.memory,runtime_state / "project-brain")
         self.vishvakarma = VishvakarmaRishi(runtime_state / "vishvakarma")
         self.vishvakarma_learning = VishvakarmaLearning(
             runtime_state / "vishvakarma" / "learning",
