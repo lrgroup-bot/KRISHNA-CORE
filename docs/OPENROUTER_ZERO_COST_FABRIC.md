@@ -108,3 +108,42 @@ non-sensitive design generation and similar approved-cloud work.
 
 Cloud model output is worker evidence, never KRISHNA authority and never automatic
 Gyan truth. Verification and promotion remain separate.
+
+
+## Native direct-free fallback
+
+OpenRouter remains the first cloud fallback. After OpenRouter has no eligible live-zero
+route, KRISHNA may use a native direct provider only when that adapter can prove the
+configured account is non-billable immediately before inference.
+
+The first such adapter is Cloudflare Workers AI. It requires:
+
+- an encrypted gateway profile rooted at
+  `https://api.cloudflare.com/client/v4/accounts/<account-id>`;
+- `free_only=true`;
+- a Cloudflare-hosted `@cf/*` Workers AI model;
+- a token with Workers AI access plus Billing Read;
+- a successful account subscription preflight showing no active Workers-paid plan;
+- a model not present in KRISHNA's current paid-only Workers AI denylist.
+
+On a verified Workers Free account, Cloudflare documents a hard 10,000-neuron daily free
+allocation. Exhaustion fails with HTTP 429, and models requiring Workers Paid fail with
+HTTP 403. KRISHNA never upgrades the plan, never adds a payment method, never switches to
+AI Gateway paid/unified-billing models, and never retries through a paid provider.
+
+Strong free offerings such as GroqCloud and Mistral Free mode remain explicit-use only
+until KRISHNA can machine-verify both their account billing tier and the privacy controls
+needed by KRISHNA. Alibaba/Qwen, Baidu Qianfan, Cerebras, Moonshot/Kimi direct, Doubao,
+DeepSeek, Hugging Face routed inference and NVIDIA hosted NIM are not classified as
+permanent production-safe zero-cost automatic fallbacks under the 2026-09-23 research
+snapshot.
+
+The resulting automatic hierarchy is:
+
+1. Ollama/local;
+2. live-zero-price OpenRouter;
+3. live-zero-billing verified native direct APIs (currently Cloudflare Workers AI);
+4. remaining local fallback or STOP.
+
+See `FREE_AI_PROVIDER_RESEARCH_2026-09-23.md` for the evidence and provider-by-provider
+decision record.
