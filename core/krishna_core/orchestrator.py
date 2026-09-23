@@ -9,6 +9,8 @@ from .candidate_repair import CandidateRepairGuard
 from .memory import MemoryStore
 from .router import ModelRouter
 from .model_gateway import ModelGatewayRegistry
+from .openrouter_free import OpenRouterFreeFabric
+from .direct_free import VerifiedDirectFreeFabric
 from .secure_vault import SecureSecretVault
 from .config import settings
 from .project_graph import ProjectGraph
@@ -97,7 +99,11 @@ class Orchestrator:
         self.lab = LabBot(runtime_state / "lab-bot")
         self.secure_vault = SecureSecretVault(runtime_state / "secure-secrets.json")
         self.model_gateway = ModelGatewayRegistry(runtime_state / "model-gateways.json", self.secure_vault)
+        self.openrouter_free = OpenRouterFreeFabric(self.model_gateway, runtime_state / "openrouter-free")
+        self.direct_free = VerifiedDirectFreeFabric(self.model_gateway)
         self.router = ModelRouter(self.model_gateway)
+        self.router.bind_openrouter_free(self.openrouter_free)
+        self.router.bind_direct_free(self.direct_free)
         self.graph = ProjectGraph()
         self.graph_intelligence = GraphIntelligence(self.graph, self.memory)
         self.gnn = OptionalGNNBackend()
@@ -771,12 +777,70 @@ class Orchestrator:
             self.memory.audit("project_visual_edit","verified" if verification.get("passed") else "failed",project)
             return result
 
+        def openrouter_free_complete(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            policy=self.projects.get(project) if project!="KRISHNA" else None
+            if project!="KRISHNA" and not policy:raise KeyError(project)
+            privacy=policy.privacy if policy else "approved_cloud"
+            requested=str(payload.get("privacy") or "").strip().lower()
+            if requested in {"local_only","restricted"}:privacy=requested
+            return self.openrouter_free.complete(
+                str(payload.get("role") or "general"),
+                str(payload.get("prompt") or ""),
+                privacy=privacy,
+                sensitive=bool(payload.get("sensitive",False)),
+                image_data_url=payload.get("image_data_url"),
+                max_tokens=int(payload.get("max_tokens") or 2048),
+            )
+
+        def openrouter_free_image(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            policy=self.projects.get(project) if project!="KRISHNA" else None
+            if project!="KRISHNA" and not policy:raise KeyError(project)
+            privacy=policy.privacy if policy else "approved_cloud"
+            requested=str(payload.get("privacy") or "").strip().lower()
+            if requested in {"local_only","restricted"}:privacy=requested
+            return self.openrouter_free.generate_image(
+                str(payload.get("prompt") or ""),
+                privacy=privacy,
+                sensitive=bool(payload.get("sensitive",False)),
+                model=str(payload.get("model") or self.openrouter_free.IMAGE_MODEL),
+                output_format=str(payload.get("output_format") or "png"),
+            )
+
+        def direct_free_complete(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            policy=self.projects.get(project) if project!="KRISHNA" else None
+            if project!="KRISHNA" and not policy:raise KeyError(project)
+            privacy=policy.privacy if policy else "approved_cloud"
+            requested=str(payload.get("privacy") or "").strip().lower()
+            if requested in {"local_only","restricted"}:privacy=requested
+            return self.direct_free.complete(
+                str(payload.get("prompt") or ""),
+                privacy=privacy,
+                sensitive=bool(payload.get("sensitive",False)),
+                max_tokens=int(payload.get("max_tokens") or 2048),
+            )
+
         def model_complete(payload,context):
             provider=str(payload.get("provider") or "").strip()
             prompt=str(payload.get("prompt") or "")
             privacy=str(payload.get("privacy") or "local_only").strip().lower()
             free_only=bool(payload.get("free_only",False))
             if not provider or not prompt:raise ValueError("provider and prompt are required")
+            if provider=="openrouter-free" or provider.startswith("openrouter-free:"):
+                role=provider.split(":",1)[1] if ":" in provider else "general"
+                result=self.openrouter_free.complete(role,prompt,privacy=privacy,sensitive=bool(payload.get("sensitive",False)))
+                return {"provider":provider,"model":result.get("model"),"text":result.get("text"),
+                        "free_only":True,"zero_cost_verified":True}
+            if provider=="direct-free" or provider=="direct-free:cloudflare-workers-ai":
+                result=self.direct_free.complete(
+                    prompt,privacy=privacy,sensitive=bool(payload.get("sensitive",False)),
+                    max_tokens=int(payload.get("max_tokens") or 2048),
+                )
+                return {"provider":result.get("provider_id"),"model":result.get("model"),
+                        "text":result.get("text"),"free_only":True,"zero_cost_verified":True,
+                        "zero_cost_proof":result.get("zero_cost_proof")}
             rows={x.get("provider"):x for x in self.router.available()}
             info=rows.get(provider)
             if not info or not info.get("available"):raise RuntimeError("requested model provider is unavailable")
@@ -784,6 +848,8 @@ class Orchestrator:
                 raise PermissionError("project privacy blocks cloud model provider")
             if free_only and not info.get("local") and not info.get("free_only"):
                 raise PermissionError("free-only policy blocks this model provider")
+            if not info.get("local") and not info.get("free_only") and not self.router.paid_cloud_enabled():
+                raise PermissionError("paid cloud provider is disabled; set KRISHNA_ALLOW_PAID_CLOUD=1 only for explicit paid use")
             return {"provider":provider,"model":info.get("model"),"text":self.router.ask(provider,prompt)}
 
         def narad_publish_event(payload,context):
@@ -1984,6 +2050,25 @@ class Orchestrator:
         )
 
         self.action_bus.register(
+            "openrouter.free.complete",openrouter_free_complete,
+            description="Run live-catalog verified zero-cost OpenRouter text/vision inference",
+            permissions=("model.use",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "openrouter.free.image",openrouter_free_image,
+            description="Generate an image only when the live OpenRouter catalog reports zero cost",
+            permissions=("model.use","media.create"),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "direct.free.complete",direct_free_complete,
+            description="Run a native direct provider only after live zero-billing verification",
+            permissions=("model.use",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
             "narad.publish_event",narad_publish_event,
             description="Publish a NARAD event through the canonical automation bus",
             permissions=("narad.execute",),
@@ -2671,8 +2756,8 @@ class Orchestrator:
         )
         self.agent_runtime.register(
             "developer","bounded project implementation and verification",
-            permissions=("code.read","candidate.write","git.push","tests.run","browser.read","browser.test","worker.execute","model.use"),
-            actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead","repair.shadow"),
+            permissions=("code.read","candidate.write","git.push","tests.run","browser.read","browser.test","worker.execute","model.use","media.create"),
+            actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead","repair.shadow","openrouter.free.*","direct.free.*"),
         )
         self.agent_runtime.register(
             "narad","durable automation and provider workflow runtime",
@@ -2695,8 +2780,8 @@ class Orchestrator:
         for profile in self.agi.brahmagyan.council.list():
             self.agent_runtime.register(
                 "rishi:"+profile["id"],profile["role"],
-                permissions=("web.read","browser.research","evidence.read","evidence.write","memory.write","worker.execute","lab.plan","lab.simulate","lab.quantum","lab.nano"),
-                actions=("brahmagyan.*","garuda.scout","garudanetra.research.*","lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate","lab.quantum.*","lab.nano.*","lab.quantum-nano.bridge"),
+                permissions=("web.read","browser.research","evidence.read","evidence.write","memory.write","worker.execute","lab.plan","lab.simulate","lab.quantum","lab.nano","model.use"),
+                actions=("brahmagyan.*","garuda.scout","garudanetra.research.*","lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate","lab.quantum.*","lab.nano.*","lab.quantum-nano.bridge","openrouter.free.complete","direct.free.complete"),
             )
 
     def dispatch_action(self,action,payload=None,project="KRISHNA",source="pc",actor="owner",
@@ -2729,6 +2814,20 @@ class Orchestrator:
 
     def lifecycle_event_status(self):
         return self.lifecycle_bus.status()
+
+    def openrouter_free_status(self,refresh=False):
+        return self.openrouter_free.status(refresh=refresh)
+
+    def direct_free_status(self,refresh=False):
+        return self.direct_free.status(refresh=refresh)
+
+    def openrouter_free_catalog(self,refresh=False):
+        data=self.openrouter_free.catalog(refresh=refresh)
+        return {
+            "fetched_at":data.get("fetched_at"),
+            "zero_cost_roles":self.openrouter_free.role_plan(refresh=False),
+            "policy":"only live zero-priced models are eligible; paid fallback is disabled",
+        }
 
     def model_provider_status(self):
         return self.model_providers.status()
@@ -3401,6 +3500,9 @@ class Orchestrator:
         privacy=policy.privacy if policy else "approved_cloud"
         return {"providers":self.router.available(),"coding_plan":self.router.coding_plan(privacy),
                 "free_only_plan":self.router.coding_plan(privacy,free_only=True),"privacy":privacy,
+                "paid_cloud_enabled":self.router.paid_cloud_enabled(),
+                "openrouter_free":self.openrouter_free.status(refresh=False),
+                "direct_free":self.direct_free.status(refresh=False),
                 "gateway":self.model_gateway.list(),"secure_vault":self.secure_vault.list()}
 
     def kabach_security_research(self, project, question, limit=10):

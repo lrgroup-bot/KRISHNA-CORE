@@ -128,6 +128,37 @@ class ModelGatewayRegistry:
         rows=[x for x in self.profiles.values() if x.enabled and (not free_only or x.free_only)]
         return sorted(rows,key=lambda x:x.created_at)
 
+    def request_json(self,profile_id,path,payload=None,method=None,timeout=120):
+        """Make an authenticated JSON request without exposing the stored secret.
+
+        Internal provider adapters may use only relative paths under the registered,
+        already-validated gateway base URL. This intentionally does not accept an
+        arbitrary URL or return the credential.
+        """
+        row=self.profiles.get(str(profile_id))
+        if not row or not row.enabled:raise RuntimeError("model gateway profile is unavailable")
+        relative=str(path or "").strip()
+        if not relative.startswith("/") or "://" in relative or "\\" in relative or ".." in relative:
+            raise ValueError("gateway request path must be a safe relative API path")
+        verb=str(method or ("POST" if payload is not None else "GET")).strip().upper()
+        if verb not in {"GET","POST"}:raise ValueError("gateway JSON request supports GET/POST only")
+        key=self.vault.resolve(row.secret_id)
+        body=None if payload is None else json.dumps(payload).encode()
+        headers={
+            "Accept":"application/json",
+            "Authorization":"Bearer "+key,
+            "X-Krishna-Free-Only":"1" if row.free_only else "0",
+        }
+        if body is not None:headers["Content-Type"]="application/json"
+        req=urllib.request.Request(row.base_url+relative,data=body,headers=headers,method=verb)
+        try:
+            with urllib.request.urlopen(req,timeout=max(1,int(timeout))) as response:
+                raw=response.read()
+        except Exception as exc:
+            raise RuntimeError(f"model gateway request failed without fallback: {type(exc).__name__}: {exc}") from exc
+        try:return json.loads(raw.decode())
+        except Exception as exc:raise RuntimeError("model gateway returned invalid JSON") from exc
+
     def complete(self,profile_id,prompt,system="You are a worker model for KRISHNA.",max_tokens=2048):
         row=self.profiles.get(str(profile_id))
         if not row or not row.enabled:raise RuntimeError("model gateway profile is unavailable")
