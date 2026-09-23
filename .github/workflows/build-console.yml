@@ -31,9 +31,9 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -139,7 +139,7 @@ jobs:
           '@ | Set-Content -LiteralPath project-perfection-exe-retest.py -Encoding UTF8
           python project-perfection-exe-retest.py
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: KRISHNA-Windows-App
           path: |
