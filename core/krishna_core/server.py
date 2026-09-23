@@ -1173,6 +1173,17 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"history":orch.agi.narad.history[-limit:]})
         if path == "/api/narad/connections":
             return self._json(200,orch.agi.narad_credentials.list())
+        if path == "/api/narad/messages":
+            direction=(query.get("direction") or [None])[0]
+            state=(query.get("state") or [None])[0]
+            provider=(query.get("provider") or [None])[0]
+            limit_raw=(query.get("limit") or ["200"])[0]
+            try:limit=max(1,min(int(limit_raw),1000))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,{
+                "messages":orch.agi.narad_messages.list(direction=direction,state=state,provider=provider,limit=limit),
+                "status":orch.agi.narad_messages.status(),
+            })
         if path == "/api/narad/dead-letters":
             return self._json(200,orch.agi.narad.dead_letter_status())
         if path == "/api/narad/checkpoints":
@@ -1878,6 +1889,36 @@ class Handler(BaseHTTPRequestHandler):
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"manual autonomy tick must run on KRISHNA PC"})
             return self._json(200,_autonomy.run_once())
+
+        if post_path == "/api/narad/messages/add":
+            direction=str(data.get("direction") or "").strip().lower()
+            try:
+                row=orch.agi.narad_messages.add(
+                    direction=direction,
+                    provider=str(data.get("provider") or ""),
+                    text=str(data.get("text") or ""),
+                    state=data.get("state"),
+                    account_ref=str(data.get("account_ref") or ""),
+                    thread_ref=str(data.get("thread_ref") or ""),
+                    sender=str(data.get("sender") or ""),
+                    recipients=data.get("recipients") or [],
+                    metadata=data.get("metadata") or {},
+                )
+                return self._json(201,row)
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/narad/messages/transition":
+            message_id=str(data.get("message_id") or "").strip()
+            state=str(data.get("state") or "").strip().lower()
+            if not message_id or not state:return self._json(400,{"error":"message_id and state are required"})
+            try:
+                return self._json(200,orch.agi.narad_messages.transition(
+                    message_id,state,
+                    provider_receipt=data.get("provider_receipt"),
+                    error=str(data.get("error") or ""),
+                ))
+            except KeyError:return self._json(404,{"error":"message not found"})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/narad/connections/register":
             try:
