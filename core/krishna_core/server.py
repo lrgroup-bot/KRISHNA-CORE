@@ -1463,6 +1463,9 @@ class Handler(BaseHTTPRequestHandler):
             })
         if path == "/api/projects":
             return self._json(200, {"projects": orch.projects.list()})
+        if path == "/api/project-brain":
+            project=str((query.get("project") or ["KRISHNA"])[0]).strip() or "KRISHNA"
+            return self._json(200,orch.project_brain.context(project))
         if path == "/api/plugins":
             return self._json(200, {"plugins": _plugins.list()})
         if path == "/api/specialists":
