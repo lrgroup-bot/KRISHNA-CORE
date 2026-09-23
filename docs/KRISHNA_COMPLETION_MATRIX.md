@@ -52,6 +52,7 @@ The machine-readable source of truth is `core/requirements/krishna_chat_requirem
 | Active Work / Verification / System Load informer | IMPLEMENTED / RUNTIME VERIFY | Command Center v4. |
 | 50/50 Sudarshan + Garudanetra live-work split | IMPLEMENTED / RUNTIME VERIFY | Real Chromium PNG frame stream, evidence feed, owner takeover, typing/navigation/tab controls and Expand are wired; final Windows latency/interaction acceptance remains. |
 | Files / Plugins / Projects / Research / Investigate tools | VERIFIED boundary | Existing APIs/UI. |
+| Structured Project Brain governance | IMPLEMENTED / RUNTIME VERIFY | Runtime-owned PROJECT/ARCHITECTURE/RULES/PHASES/DESIGN/AGENTS/MEMORY layers are restored alongside DB-backed verified learning. Shared Actions provision/status/record the brain without default source-tree mutation. |
 | Dockview draggable/floating workspace | IMPLEMENTED / CI + RUNTIME VERIFY | `app/spatial-ui` now uses Dockview as the workspace shell; independent Node build CI is required before merge and Windows rendered acceptance remains. |
 | xterm terminal and React Flow NAG visualization | IMPLEMENTED / CI + RUNTIME VERIFY | The spatial shell includes a read-only xterm surface that cannot become raw shell without Shared Action authorization, plus a React Flow KRISHNA/Sudarshan/agent/verifier action graph. |
 
