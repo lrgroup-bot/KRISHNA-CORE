@@ -782,9 +782,11 @@ class Handler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query)
 
         if path in ("/", "/dashboard"):
-            spatial=spatial_ui_index()
-            if spatial is not None:
-                return self._html(200,spatial)
+            spatial_default=str(os.getenv("KRISHNA_SPATIAL_UI_DEFAULT") or "").strip().lower() in {"1","true","yes","on"}
+            if spatial_default:
+                spatial=spatial_ui_index()
+                if spatial is not None:
+                    return self._html(200,spatial)
             if not WEB_VALIDATION.exists():
                 return self._json(503, {
                     "error": "current KRISHNA desktop UI is unavailable",
@@ -797,6 +799,10 @@ class Handler(BaseHTTPRequestHandler):
                     "required_ui_version": "2026.09-current",
                 })
             return self._html(200, ui_text)
+        if path in ("/spatial", "/spatial-preview"):
+            spatial=spatial_ui_index()
+            if spatial is None:return self._json(404,{"error":"spatial UI preview unavailable"})
+            return self._html(200,spatial)
         if path.startswith("/spatial/"):
             rel=path[len("/spatial/"):]
             asset=spatial_ui_file(rel)
