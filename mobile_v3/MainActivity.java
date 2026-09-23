@@ -231,6 +231,45 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    @JavascriptInterface public String hawkeyeRichPerception(String dataB64){
+      try{
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
+        if(bytes.length>3*1024*1024)throw new IllegalArgumentException("local rich-perception frame exceeds 3 MB");
+        return HawkeyeMobileVision.analyzeRich(bytes).toString();
+      }catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String hawkeyeGeminiStatus(){
+      try{return call("/api/hawkeye/gemini/status",null);}
+      catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String hawkeyeGeminiAnalyze(String dataB64,String contentType,String prompt,String metadataJson){
+      try{
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
+        if(bytes.length==0||bytes.length>4*1024*1024)throw new IllegalArgumentException("Gemini keyframe must be 1 byte to 4 MB");
+        JSONObject metadata=new JSONObject(metadataJson==null||metadataJson.trim().isEmpty()?"{}":metadataJson);
+        if(!metadata.optBoolean("cloud_approved",false))throw new SecurityException("Gemini mode requires explicit owner approval");
+        metadata.put("selected_keyframe",true);
+        JSONObject body=new JSONObject();
+        body.put("data_b64",Base64.encodeToString(bytes,Base64.NO_WRAP));
+        body.put("content_type",contentType==null||contentType.trim().isEmpty()?"image/jpeg":contentType);
+        body.put("prompt",prompt==null?"":prompt);
+        body.put("metadata",metadata);
+        return call("/api/hawkeye/gemini/analyze",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String hawkeyeGeminiLiveToken(String metadataJson){
+      try{
+        JSONObject metadata=new JSONObject(metadataJson==null||metadataJson.trim().isEmpty()?"{}":metadataJson);
+        if(!metadata.optBoolean("cloud_approved",false)||!metadata.optBoolean("user_explicit",false))
+          throw new SecurityException("Gemini Live requires an explicit owner action");
+        JSONObject body=new JSONObject();body.put("metadata",metadata);
+        return call("/api/hawkeye/gemini/live/token",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+
     @JavascriptInterface public String openResearchBrowser(String value){
       try{
         String url=value==null?"":value.trim();

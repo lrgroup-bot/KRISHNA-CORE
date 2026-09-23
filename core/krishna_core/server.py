@@ -13,6 +13,7 @@ from .plugin_runtime import PluginRegistry
 from .plugin_executor import PluginExecutor
 from .attachments import AttachmentStore
 from .vision_adapter import VisionAdapter
+from .gemini_hawkeye import GeminiHawkeyeBridge
 from .native_voice import KrishnaVoiceStack
 from .remote_access import PrivateRemotePolicy
 from .worker_fabric import WorkerResilienceSupervisor
@@ -139,6 +140,7 @@ def _cleanup_deleted_chat_attachments(event):
 
 orch.lifecycle_bus.subscribe("action.completed",_cleanup_deleted_chat_attachments)
 _vision = VisionAdapter()
+_gemini_hawkeye = GeminiHawkeyeBridge(orch.model_gateway)
 _voice = KrishnaVoiceStack(lambda event: orch.handle_event("wakeword","krishna_detected","Local wake word Krishna detected",severity="notice",project="system",payload=event))
 _remote_policy = PrivateRemotePolicy()
 _model_memory = ModelMemoryGovernor()
@@ -881,6 +883,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"attachments":_attachments.list(chat_id)})
         if path == "/api/vision/status":
             return self._json(200,_vision.status())
+        if path == "/api/hawkeye/gemini/status":
+            return self._json(200,_gemini_hawkeye.status())
         if path in ("/api/hawkeye/status", "/api/bhumiputra/status"):
             status=orch.hawkeye.status()
             status["agent"]="hawkeye"
@@ -2694,6 +2698,31 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, orch.index_project(project))
             except KeyError:
                 return self._json(404, {"error": "project not registered"})
+
+        if post_path == "/api/hawkeye/gemini/analyze":
+            raw_b64=str(data.get("data_b64") or "").strip()
+            if not raw_b64:return self._json(400,{"error":"data_b64 is required"})
+            try:raw=base64.b64decode(raw_b64,validate=True)
+            except Exception:return self._json(400,{"error":"invalid base64 HAWKEYE keyframe"})
+            metadata=data.get("metadata") or {}
+            if not isinstance(metadata,dict):return self._json(400,{"error":"metadata must be an object"})
+            try:
+                out=_gemini_hawkeye.analyze_image(
+                    raw,
+                    str(data.get("content_type") or "image/jpeg"),
+                    str(data.get("prompt") or ""),
+                    metadata,
+                )
+                return self._json(200,out)
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/gemini/live/token":
+            metadata=data.get("metadata") or {}
+            if not isinstance(metadata,dict):return self._json(400,{"error":"metadata must be an object"})
+            try:return self._json(201,_gemini_hawkeye.mint_live_token(metadata))
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(400,{"error":str(exc)})
 
         if post_path in ("/api/hawkeye/live/start", "/api/bhumiputra/live/start"):
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"

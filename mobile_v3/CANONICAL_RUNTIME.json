@@ -41,6 +41,29 @@
     "auto_zoom_when_supported": true,
     "user_browser_custom_tab": true,
     "local_photo_video_with_sidecar_data": true,
-    "unknown_face_social_identity_search": false
+    "unknown_face_social_identity_search": false,
+    "local_ocr": true,
+    "local_devanagari_ocr": true,
+    "local_barcode_scanning": true,
+    "local_face_presence_tracking": true,
+    "unknown_face_identity": "UNKNOWN",
+    "local_pose_landmarks": true,
+    "local_subject_segmentation": true,
+    "lens_style_capture_inside_hawkeye": true,
+    "google_lens_required": false,
+    "gemini_permanent_key_on_pc_only": true,
+    "gemini_selected_keyframe_mode": true,
+    "gemini_live_ephemeral_token": true,
+    "continuous_raw_camera_cloud_upload": false,
+    "sensitive_scene_cloud_block": true,
+    "local_face_landmarks": true,
+    "tracked_target_lock": true,
+    "ocr_barcode_seeded_browser_research": true
+  },
+  "research_integration": {
+    "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
+    "gemini_standard": "PC-owned credential; selected non-sensitive keyframes only after owner enables cloud mode",
+    "gemini_live": "direct device WebSocket using one-use short-lived token minted by KRISHNA PC",
+    "local_first": "ML Kit object/OCR/barcode/pose/face-presence/subject segmentation remain available without Gemini"
   }
 }
