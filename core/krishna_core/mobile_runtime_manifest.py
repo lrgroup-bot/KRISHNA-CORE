@@ -4,13 +4,15 @@ from __future__ import annotations
 
 The Android client and the PC-side companion have different roles. This module
 prevents either one from being mistaken for a second canonical phone product.
-It is read-only: retirement/deletion of compatibility data is never automatic.
+Retirement/deletion of compatibility data is never automatic.
 """
 
 from pathlib import Path
 import hashlib
 import json
 import os
+
+from .mobile_acceptance import MobileAcceptanceLedger, REQUIRED_GATES
 
 
 class MobileRuntimeManifest:
@@ -23,6 +25,10 @@ class MobileRuntimeManifest:
     @property
     def manifest_path(self):
         return self.repo_root/"mobile_v3"/"CANONICAL_RUNTIME.json"
+
+    @property
+    def acceptance_path(self):
+        return self.runtime_root/"state"/"mobile"/"canonical-acceptance.json"
 
     def load(self):
         data=json.loads(self.manifest_path.read_text(encoding="utf-8"))
@@ -50,6 +56,7 @@ class MobileRuntimeManifest:
                 missing.append(name)
         workflow=self.repo_root/data["build_workflow"]
         companion=self.runtime_root/"mobile"/"companion"
+        acceptance=MobileAcceptanceLedger(self.acceptance_path).status()
         return {
             "component":"KRISHNA Mobile Runtime Manifest",
             "version":self.VERSION,
@@ -72,15 +79,9 @@ class MobileRuntimeManifest:
             "migration":{
                 "automatic_delete":False,
                 "retirement_gate":(data.get("pc_runtime_companion") or {}).get("retirement_gate"),
-                "required_acceptance":[
-                    "real Android APK clean install and relaunch",
-                    "secure pairing and reconnect",
-                    "same KRISHNA conversation/session",
-                    "camera/audio permission and evidence capture",
-                    "encrypted offline evidence then selective sync",
-                    "PC retained acknowledgement before phone evidence deletion",
-                    "completion notification delivery",
-                ],
+                "required_acceptance":list(REQUIRED_GATES),
+                "acceptance":acceptance,
+                "companion_action":acceptance["companion_retirement"],
             },
             "authority_rule":"mobile_v3 is the only canonical Android source; PC companion is not a second mobile UI/source",
         }
