@@ -100,6 +100,18 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn('$p.WaitForExit()',guardian)
         self.assertIn('ALREADY_RUNNING',guardian)
 
+    def test_verified_deploy_takes_over_previous_guardian_generation_safely(self):
+        root=repository_root()
+        deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
+        guardian=(root/"scripts"/"KRISHNA_GUARDIAN.ps1").read_text(encoding="utf-8")
+        self.assertIn("Stop-ExistingKrishnaGuardian",deploy)
+        self.assertIn('Get-KrishnaProcess $oldGuardianPid "KRISHNA_GUARDIAN.ps1"',deploy)
+        self.assertIn('Get-KrishnaProcess $oldCorePid "START_KRISHNA.ps1"',deploy)
+        self.assertIn('"DEPLOY_GENERATION_HANDOFF"|Set-Content',deploy)
+        self.assertIn("Stop-Process -Id $oldCorePid -Force",deploy)
+        self.assertIn("STALE_GUARDIAN_PID",guardian)
+        self.assertIn('existingCmd -like "*KRISHNA_GUARDIAN.ps1*"',guardian)
+
     def test_deploy_health_is_bound_to_new_guardian_generation(self):
         root=repository_root()
         deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")

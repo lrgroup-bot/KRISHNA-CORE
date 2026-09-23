@@ -8,6 +8,71 @@ $Source="E:\KRISHNA-SOURCE"
 $Runtime="E:\Krishna-The GOD"
 $Py="$Runtime\.venv\Scripts\python.exe"
 
+function Get-KrishnaProcess([int]$ProcessId,[string]$ScriptName){
+  if($ProcessId -le 0){return $null}
+  try{
+    $row=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$ProcessId) -ErrorAction Stop
+    if(!$row){return $null}
+    $cmd=[string]$row.CommandLine
+    if($cmd -notlike ("*"+$ScriptName+"*")){return $null}
+    return $row
+  }catch{return $null}
+}
+
+function Stop-ExistingKrishnaGuardian([string]$RuntimeRoot){
+  $stateDir=Join-Path $RuntimeRoot "state\guardian"
+  New-Item -ItemType Directory -Force $stateDir|Out-Null
+  $pidPath=Join-Path $stateDir "guardian.pid"
+  $statePath=Join-Path $stateDir "core-guardian.json"
+  $stopPath=Join-Path $stateDir "STOP"
+
+  $oldGuardianPid=0
+  if(Test-Path $pidPath){try{$oldGuardianPid=[int](Get-Content -Raw $pidPath).Trim()}catch{$oldGuardianPid=0}}
+
+  $oldCorePid=0
+  if(Test-Path $statePath){
+    try{$oldCorePid=[int]((Get-Content -Raw $statePath|ConvertFrom-Json).core_pid)}catch{$oldCorePid=0}
+  }
+
+  $guardianProc=Get-KrishnaProcess $oldGuardianPid "KRISHNA_GUARDIAN.ps1"
+  $coreProc=Get-KrishnaProcess $oldCorePid "START_KRISHNA.ps1"
+
+  if($guardianProc){
+    "DEPLOY_GENERATION_HANDOFF"|Set-Content -Encoding ASCII $stopPath
+    Write-Host ("Stopping previous KRISHNA Guardian PID {0} before generation handoff..." -f $oldGuardianPid) -ForegroundColor Yellow
+  }elseif(Test-Path $pidPath){
+    Write-Host ("Removing stale Guardian PID file (recorded PID {0} is not KRISHNA_GUARDIAN.ps1)." -f $oldGuardianPid) -ForegroundColor Yellow
+    Remove-Item -Force $pidPath -ErrorAction SilentlyContinue
+  }
+
+  # Guardian blocks on the child Core process. Terminating only a verified
+  # START_KRISHNA.ps1 child releases that wait so the STOP marker can be honored.
+  if($coreProc){
+    Write-Host ("Stopping previous KRISHNA Core PID {0} for verified generation handoff..." -f $oldCorePid) -ForegroundColor Yellow
+    Stop-Process -Id $oldCorePid -Force -ErrorAction Stop
+  }
+
+  if($guardianProc){
+    $stopped=$false
+    for($i=0;$i -lt 20;$i++){
+      Start-Sleep -Milliseconds 500
+      if(!(Get-Process -Id $oldGuardianPid -ErrorAction SilentlyContinue)){$stopped=$true;break}
+    }
+    if(!$stopped){
+      $verified=Get-KrishnaProcess $oldGuardianPid "KRISHNA_GUARDIAN.ps1"
+      if($verified){
+        Write-Host ("Previous KRISHNA Guardian PID {0} did not stop cleanly; completing verified takeover." -f $oldGuardianPid) -ForegroundColor Yellow
+        Stop-Process -Id $oldGuardianPid -Force -ErrorAction Stop
+      }else{
+        throw "Guardian PID changed identity during generation handoff; refusing process termination."
+      }
+    }
+  }
+
+  Remove-Item -Force $pidPath -ErrorAction SilentlyContinue
+  Remove-Item -Force $stopPath -ErrorAction SilentlyContinue
+}
+
 function Invoke-KrishnaTests([string]$CoreRoot,[string]$ContractRoot){
   $env:PYTHONPATH="$CoreRoot\core"
   & $Py -m compileall -q "$CoreRoot\core\krishna_core"
@@ -228,6 +293,7 @@ if(!$SkipStart){
   if(Test-Path $quarantineMarker){
     throw "KRISHNA Guardian is quarantined. Diagnose $quarantineMarker before restart."
   }
+  Stop-ExistingKrishnaGuardian $Runtime
   if(Test-Path $stopMarker){Remove-Item -Force $stopMarker -ErrorAction SilentlyContinue}
 
   $runtimeGeneration=[guid]::NewGuid().ToString("N")
