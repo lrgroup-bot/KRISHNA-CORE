@@ -185,6 +185,10 @@ jobs:
           grep -q "REC+DATA" app/src/main/assets/index.html
           grep -q "autoZoom" app/src/main/assets/hawkeye-observer-ui.js
           grep -q "hawkeyeObserveLearning" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q "hawkeyeResearchObservation" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "onResearchResult" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q "isLearning" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q '"hawkeye_rishi_live_research_handoff": true' app/src/main/assets/canonical-runtime.json
           grep -q "Conversation only" app/src/main/assets/index.html
           grep -q "verifyVoice" app/src/main/assets/index.html
           grep -q "startFieldScan" app/src/main/assets/index.html
