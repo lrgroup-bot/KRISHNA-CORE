@@ -239,6 +239,10 @@ jobs:
           grep -q "privacy_faces_masked" app/src/main/assets/hawkeye-observer-ui.js
           grep -q "MEDIAPIPE_GESTURE_RECOGNIZER" app/src/main/java/com/krishna/mobile/HawkeyeHandGesture.java
           grep -q "hawkeyeHandGesture" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "hawkeyeSensorSnapshot" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "ANDROID_SENSOR_MANAGER" app/src/main/java/com/krishna/mobile/HawkeyeSensorFusion.java
+          grep -q "sensor_fusion" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q "spatial_handoff" app/src/main/assets/index.html
           test -s app/src/main/assets/gesture_recognizer.task
           grep -q "user-default-custom-tab" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "HawkeyeOfflinePerception.analyze" app/src/main/java/com/krishna/mobile/MainActivity.java
