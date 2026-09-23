@@ -153,8 +153,14 @@ class ModelRouter:
                     "available":bool(status.get("configured")),"local":False,
                     "model":"configured-live-zero-billing","credential_source":"windows-dpapi",
                     "free_only":True,"zero_cost_verified":"live-billing-preflight",
-                    "automatic_zero_cost_eligible":bool(
-                        status.get("automatic_zero_cost_eligible",status.get("configured"))
+                    # Native direct-free adapters are eligible to be attempted when
+                    # configured because complete() performs the live billing preflight
+                    # immediately before inference. This is eligibility-to-verify, not
+                    # a claim that the account was already verified in this status call.
+                    "automatic_zero_cost_eligible":bool(status.get("configured")),
+                    "zero_cost_verification_state":(
+                        "recently-verified" if status.get("automatic_zero_cost_eligible")
+                        else "verify-before-call"
                     ),
                 })
             except Exception as exc:
