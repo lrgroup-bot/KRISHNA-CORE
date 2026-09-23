@@ -16,7 +16,7 @@ class DesignRuntimeWiringTests(unittest.TestCase):
     def test_main_orchestrator_binds_project_lifecycle_to_design_engine(self):
         text=(self.root/"core"/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
         self.assertIn("SudarshanProjectOrchestrator",text)
-        self.assertIn("SudarshanProjectOrchestrator(self.agi.design)",text)
+        self.assertIn("design_engine=self.sudarshan_design",text)\n        self.assertIn("vishvakarma=self.vishvakarma",text)
 
 
 if __name__=="__main__":
