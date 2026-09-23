@@ -8,6 +8,7 @@ import json
 import time
 
 from .vishvakarma_curriculum import CURRICULUM
+from .design_adapters import PlaywrightCLI, StagehandAdapter, StorybookAdapter
 
 
 @dataclass(frozen=True)
@@ -101,6 +102,9 @@ class SudarshanDesignEngine:
         self.acceptance=AcceptanceGovernor()
         self.drift=DesignDrift()
         self.knowledge=knowledge
+        self.playwright_cli=PlaywrightCLI()
+        self.stagehand=StagehandAdapter(enabled=False)
+        self.storybook=StorybookAdapter()
 
     def plan(self,job:DesignJob):
         topic=str(job.topic or job.kind or "design").strip()
@@ -117,6 +121,11 @@ class SudarshanDesignEngine:
             "curriculum_available":sorted(CURRICULUM),
             "retrieved_verified_findings":findings,
             "krishna_context":"summary-only",
+            "tooling":{
+                "playwright_cli_available":self.playwright_cli.available(),
+                "stagehand":self.stagehand.status(),
+                "storybook_required_states":list(self.storybook.required_states()),
+            },
             "created_at":time.time(),
         }
 
@@ -126,5 +135,10 @@ class SudarshanDesignEngine:
             "skills":sorted(CURRICULUM),
             "hard_acceptance_checks":list(self.acceptance.REQUIRED),
             "knowledge_bound":self.knowledge is not None,
+            "tooling":{
+                "playwright_cli_available":self.playwright_cli.available(),
+                "stagehand":self.stagehand.status(),
+                "storybook_required_states":list(self.storybook.required_states()),
+            },
             "authority":"Sudarshan executes/verifies; Vishvakarma curates design knowledge",
         }
