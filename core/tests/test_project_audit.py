@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -5,9 +6,14 @@ from pathlib import Path
 from krishna_core.project_audit import KrishnaProjectAudit
 
 
+def repository_root():
+    configured=str(os.environ.get("KRISHNA_SOURCE_ROOT") or "").strip()
+    return Path(configured).resolve() if configured else Path(__file__).resolve().parents[2]
+
+
 class ProjectAuditTests(unittest.TestCase):
     def test_full_source_audit_has_no_contract_failures(self):
-        repo=Path(__file__).resolve().parents[2]
+        repo=repository_root()
         with tempfile.TemporaryDirectory() as td:
             report=KrishnaProjectAudit(repo,td).run()
         failures=[x for x in report["findings"] if x["status"]=="FAIL"]
