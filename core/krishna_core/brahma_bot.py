@@ -665,6 +665,102 @@ class BrahmaBot:
             ),
         }
 
+
+    def cognitive_analogies(self, concept, *, limit=12, min_score=0.30):
+        return self.cognitive.form_analogies(
+            concept, limit=limit, min_score=min_score
+        )
+
+    def cognitive_curiosity(self, *, limit=20, queue_questions=False):
+        """Turn open BRAHMA contradictions into explicit Rishi research questions."""
+        with self.memory_intelligence.lock:
+            contradictions = [
+                dict(x) for x in self.memory_intelligence.state.get("contradictions", [])
+                if x.get("status") == "open"
+            ]
+            claims = {
+                k: dict(v)
+                for k, v in self.memory_intelligence.state.get("temporal_claims", {}).items()
+            }
+        payload = []
+        for row in contradictions[: max(1, min(int(limit), 100))]:
+            left = claims.get(row.get("claim_a")) or {}
+            right = claims.get(row.get("claim_b")) or {}
+            topic = str(left.get("topic") or right.get("topic") or "contradictory evidence")
+            payload.append({
+                **row,
+                "topic": topic,
+                "claim_a_text": left.get("claim") or row.get("claim_a"),
+                "claim_b_text": right.get("claim") or row.get("claim_b"),
+            })
+        result = self.cognitive.curiosity_from_contradictions(payload, limit=limit)
+        queued = []
+        if queue_questions:
+            for item in result.get("questions") or []:
+                team, lead, _reviewers = self._team(item.get("topic") or "", limit=6)
+                rid = (lead or {}).get("id") or "gautama"
+                queued.append(self.rishi_learning.add_open_question(
+                    rid,
+                    item.get("topic") or "contradiction",
+                    item.get("question") or "Resolve contradictory evidence.",
+                ))
+        result["queued_rishi_questions"] = queued
+        return result
+
+    def cognitive_consolidate(self, project, *, min_occurrences=2, limit=50, queue_questions=False):
+        """Derive semantic candidates from repeated episodic Gyan records."""
+        episodes = []
+        if hasattr(self.gyan_bhandar, "recall"):
+            episodes = self.gyan_bhandar.recall(
+                str(project or "KRISHNA"), None, 1000, False, "episodic", False
+            )
+        result = self.cognitive.consolidate_episodes(
+            episodes, min_occurrences=min_occurrences, limit=limit
+        )
+        queued = []
+        if queue_questions:
+            for item in result.get("semantic_candidates") or []:
+                team, lead, _reviewers = self._team(item.get("topic") or "", limit=6)
+                rid = (lead or {}).get("id") or "veda-vyasa"
+                queued.append(self.rishi_learning.add_open_question(
+                    rid,
+                    item.get("topic") or "semantic consolidation",
+                    "Verify whether this repeated episodic pattern is general enough for semantic knowledge: "
+                    + str(item.get("lesson") or ""),
+                ))
+        result["queued_rishi_questions"] = queued
+        result["promotion_policy"] = (
+            "semantic candidates remain untrusted until Rishi verification, BRAHMA QC and normal Gyan approval"
+        )
+        return result
+
+    def cognitive_forget(self, *, activation_ttl_days=30, candidate_ttl_days=180,
+                         confidence_floor=0.20, apply=False):
+        return self.cognitive.controlled_forget(
+            activation_ttl_days=activation_ttl_days,
+            candidate_ttl_days=candidate_ttl_days,
+            confidence_floor=confidence_floor,
+            apply=apply,
+        )
+
+    def cognitive_hypotheses(self, query, *, depth=3, limit=8, queue_questions=False):
+        result = self.cognitive.generate_hypotheses(query, depth=depth, limit=limit)
+        queued = []
+        if queue_questions:
+            for item in result.get("hypotheses") or []:
+                topic = f"{item.get('left')} ↔ {item.get('right')}"
+                team, lead, _reviewers = self._team(topic, limit=6)
+                rid = (lead or {}).get("id") or "bharadvaja"
+                queued.append(self.rishi_learning.add_open_question(
+                    rid, topic, item.get("question") or "Test this cross-domain hypothesis."
+                ))
+        result["queued_rishi_questions"] = queued
+        result["lab_policy"] = (
+            "candidate hypotheses may be handed to LAB BOT only after a Rishi defines a falsifiable test; "
+            "no hypothesis is promoted as knowledge merely because it was generated"
+        )
+        return result
+
     def temporal_query(self, topic="", *, as_of=None, include_superseded=False, limit=100):
         return self.memory_intelligence.temporal_query(
             topic, as_of=as_of, include_superseded=include_superseded, limit=limit
