@@ -57,6 +57,7 @@ from .gyan_bhandar import GyanBhandarAgent
 from .kabach import KabachAgent
 from .bhumiputra import BhumiputraAgent
 from .hawkeye_learning import HawkeyeLearningRuntime
+from .hawkeye_learning_observer import HawkeyeLearningObserver
 from .hawkeye_coordinator import HawkeyeCoordinator
 from .hawkeye_diagnostic import HawkeyeDiagnosticRuntime
 from .diagnostic_adapters import DiagnosticAdapterRegistry
@@ -230,6 +231,13 @@ class Orchestrator:
             self.rishi_learning,
             self.gyan_bhandar,
             self.memory,
+        )
+        self.hawkeye_observer = HawkeyeLearningObserver(
+            runtime_state / "hawkeye" / "learning-observer",
+            universal_learning=self.universal_learning,
+            brahma=self.brahma,
+            council=self.agi.brahmagyan.council,
+            memory=self.memory,
         )
         self.agi.brahmagyan.bind_gyan_qc(self.brahma.qc_for_gyan)
         self.agi.brahmagyan.bind_cognitive_brain(self.brahma.cognitive)
