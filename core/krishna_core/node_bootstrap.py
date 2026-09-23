@@ -19,7 +19,7 @@ def sha256(path):
 def portable_manifest(root, version="1"):
     root=Path(root); files={}
     for p in root.rglob("*"):
-        if p.is_file() and not any(x.lower() in EXCLUDED for x in p.parts):
+        if p.is_file() and not any(part.lower() in EXCLUDED for part in p.relative_to(root).parts):
             files[p.relative_to(root).as_posix()]=sha256(p)
     return NodeManifest(socket.gethostname(),socket.gethostname(),version,files)
 
