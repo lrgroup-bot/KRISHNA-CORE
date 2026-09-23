@@ -245,6 +245,8 @@ class HawkeyeLearningObserver:
         return {
             **row,
             "universal": universal,
+            "unknown_resolution": universal.get("unknown_resolution"),
+            "sound": universal.get("sound"),
             "brahma": brahma,
             "next_action": (
                 "Rishi/BRAHMA research and cross-check on PC"
