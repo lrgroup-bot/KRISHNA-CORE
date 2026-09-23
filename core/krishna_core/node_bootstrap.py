@@ -47,7 +47,7 @@ def _contained(root,rel):
 def portable_manifest(root, version="1"):
     root=Path(root).resolve(); files={}
     for p in root.rglob("*"):
-        if not p.is_file():
+        if p.is_symlink() or not p.is_file():
             continue
         rel=p.relative_to(root)
         if _portable_relative(rel):
