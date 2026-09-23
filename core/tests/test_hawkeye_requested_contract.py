@@ -96,7 +96,9 @@ class HawkeyeRequestedContractTests(unittest.TestCase):
             self.assertIn(name,files)
 
     def test_16_android_build_pipeline_compiles_and_emulator_retests(self):
-        self.assertIn("gradle :app:assembleDebug",self.mobile_ci)
+        self.assertIn(":app:assembleDebug",self.mobile_ci)
+        self.assertIn("--stacktrace",self.mobile_ci)
+        self.assertIn("org.gradle.jvmargs=-Xmx4096m",self.mobile_ci)
         self.assertIn("android-emulator-runner",self.mobile_ci)
         self.assertIn("VERIFY_KRISHNA_APK.py",self.mobile_ci)
 
