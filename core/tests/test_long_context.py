@@ -119,6 +119,17 @@ class LongContextTests(unittest.TestCase):
         self.assertEqual(out["mode"], "hybrid_dense")
         self.assertTrue(out["items"][0]["retrieval"]["dense_used"])
 
+    def test_hybrid_rag_can_expand_associated_concepts(self):
+        rag = HybridRAG(
+            FakeGyan(),
+            ContextGovernor(max_items=8, max_chars=10000),
+            query_expander=lambda q: q + "\\nASSOCIATED CONCEPTS: bearing vibration outer race",
+        )
+        out = rag.query("KRISHNA", "wheel noise", limit=2)
+        self.assertTrue(out["query_expanded"])
+        self.assertIn("ASSOCIATED CONCEPTS:", out["retrieval_query"])
+        self.assertEqual(out["items"][0]["fingerprint"], "bearing")
+
     def test_recursive_context_engine_obeys_call_budget(self):
         engine = RecursiveContextEngine()
         calls = []
