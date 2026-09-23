@@ -182,11 +182,13 @@ class SparkX25Tests(unittest.TestCase):
                 agent_score=1.0,
                 multilingual_score=1.0,
                 review_ref="review-001",
-                verification_ref="verify-001",
             )
             self.assertEqual(reviewed["lifecycle"]["stage"], "REVIEWED")
             self.assertFalse(reviewed["lifecycle"]["verified"])
             self.assertFalse(reviewed["lifecycle"]["routing_enabled"])
+            self.assertNotIn("verification_ref", reviewed["lifecycle"])
+            self.assertFalse(reviewed["benchmark"]["promotion_ready"])
+            self.assertEqual(reviewed["benchmark"]["verification_status"], "NOT_VERIFIED")
 
             with self.assertRaises(RuntimeError):
                 manager.enable_routing(
@@ -202,6 +204,8 @@ class SparkX25Tests(unittest.TestCase):
             )
             self.assertEqual(verified["lifecycle"]["stage"], "VERIFIED")
             self.assertFalse(verified["lifecycle"]["routing_enabled"])
+            self.assertEqual(verified["benchmark"]["verification_status"], "VERIFIED")
+            self.assertTrue(verified["benchmark"]["promotion_ready"])
 
             enabled = manager.enable_routing(
                 key,
