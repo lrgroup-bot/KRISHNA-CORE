@@ -80,6 +80,7 @@ from .mission_budget import MissionBudgetManager
 from .provider_contract import UnifiedProviderRegistry
 from .krishna_protocol import KrishnaProtocol
 from .gyan_security import GyanACL,GyanEnvelopeCipher,GyanEncryptedStore,GyanContextCompiler,GyanSessionLearning,GyanReplicaManager
+from .long_context import HybridRAG,LongContextLab,RecursiveContextEngine,RecursiveBudget,WeeklyLongContextScheduler
 from .lab_bot import LabBot
 
 
@@ -168,6 +169,13 @@ class Orchestrator:
         self.gyan_context = GyanContextCompiler(self.gyan_bhandar,self.agi.context)
         self.gyan_session = GyanSessionLearning(self.gyan_bhandar)
         self.gyan_replica = GyanReplicaManager(self.db_path,Path(self.db_path).resolve().parent / "backups" / "gyan")
+        self.hybrid_rag = HybridRAG(self.gyan_bhandar,self.agi.context)
+        self.recursive_context = RecursiveContextEngine()
+        self.long_context_lab = LongContextLab()
+        self.long_context_scheduler = WeeklyLongContextScheduler(
+            runtime_state / "long-context",
+            self._run_weekly_long_context,
+        )
         self.permissions = PermissionRuntime()
         self.lifecycle_bus = DurableEventBus(self.db_path,compatibility_bus=self.agi.bus)
         self.missions = MissionEngine(self.db_path,event_bus=self.lifecycle_bus)
@@ -196,6 +204,7 @@ class Orchestrator:
         self.dispatcher.bind_sudarshan(self.sudarshan)
         self.agi.narad.bind_sudarshan(self.sudarshan)
         self.kabach.bind_privacy_runtime(browser=self.browser,event_bus=self.lifecycle_bus,gyan_bhandar=self.gyan_bhandar)
+        self.long_context_scheduler.start()
         if hasattr(self.ephemeral_workers,"bind_sudarshan"):
             self.ephemeral_workers.bind_sudarshan(self.sudarshan)
         self.rishi_learning = RishiLearningLedger(
@@ -2903,6 +2912,102 @@ class Orchestrator:
         req=self.gyan_context.parse_uri(uri)
         if not self.gyan_acl.permits(req["project"],principal,"read"):raise PermissionError("Gyan URI read denied by project ACL")
         return self.gyan_context.compile_uri(uri,limit)
+
+    @staticmethod
+    def _long_context_sizes(value=None):
+        raw=value
+        if raw is None:
+            raw=os.getenv("KRISHNA_LONG_CONTEXT_SIZES","4000,8000,16000,32000")
+        if isinstance(raw,str):
+            values=[x.strip() for x in raw.split(",") if x.strip()]
+        else:
+            values=list(raw or [])
+        out=[]
+        for item in values:
+            try:out.append(max(1000,min(int(item),250000)))
+            except (TypeError,ValueError):continue
+        return tuple(dict.fromkeys(out)) or (4000,8000,16000,32000)
+
+    @staticmethod
+    def _long_context_positions(value=None):
+        raw=value if value is not None else (0.0,0.1,0.25,0.5,0.75,0.9,1.0)
+        if isinstance(raw,str):
+            raw=[x.strip() for x in raw.split(",") if x.strip()]
+        out=[]
+        for item in raw:
+            try:out.append(max(0.0,min(float(item),1.0)))
+            except (TypeError,ValueError):continue
+        return tuple(dict.fromkeys(out)) or (0.0,0.5,1.0)
+
+    def _long_context_model_runner(self,prompt):
+        result=self._route_model(
+            prompt,
+            privacy="local_only",
+            project="KRISHNA",
+            actor="long-context-lab",
+        )
+        return str((result or {}).get("text") or "")
+
+    def _run_weekly_long_context(self):
+        try:
+            with self.governor.job(timeout=0):
+                report=self.long_context_lab.needle_matrix(
+                    self._long_context_model_runner,
+                    context_sizes=self._long_context_sizes(),
+                    positions=self._long_context_positions(),
+                )
+        except RuntimeError as exc:
+            if "resource governor busy" in str(exc).lower():
+                return {"status":"skipped_resource_governor_busy"}
+            raise
+        self.memory.audit(
+            "long_context_weekly",
+            "passed" if report.get("passed") else "degraded",
+            json.dumps({
+                "pass_rate":report.get("pass_rate"),
+                "lost_in_middle":report.get("lost_in_middle"),
+                "context_rot":report.get("context_rot"),
+            },separators=(",",":")),
+        )
+        return report
+
+    def long_context_run(self,context_sizes=None,positions=None):
+        return self.long_context_lab.needle_matrix(
+            self._long_context_model_runner,
+            context_sizes=self._long_context_sizes(context_sizes),
+            positions=self._long_context_positions(positions),
+        )
+
+    def long_context_status(self):
+        last=self.long_context_scheduler.status()
+        return {
+            "component":"KRISHNA Long Context Reliability",
+            "version":self.long_context_lab.VERSION,
+            "weekly_needle_test":last,
+            "rag":"hybrid lexical/fuzzy with optional dense embeddings",
+            "recursive_context":"bounded RLM-style external-context exploration",
+            "metrics":["needle_in_haystack","lost_in_the_middle","context_rot"],
+            "routing_policy":"weekly/model-backed tests are local_only",
+        }
+
+    def hybrid_rag_query(self,project,query,limit=12,verified_only=False,memory_kind=None):
+        if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)
+        return self.hybrid_rag.query(
+            project,query,limit=limit,verified_only=verified_only,memory_kind=memory_kind,
+        )
+
+    def recursive_context_solve(self,question,context,project="KRISHNA",budget=None):
+        if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)
+        cfg=RecursiveBudget(**dict(budget or {})) if isinstance(budget,dict) else (budget or RecursiveBudget())
+        def worker(prompt):
+            result=self._route_model(
+                prompt,
+                privacy="local_only",
+                project=project,
+                actor="recursive-context",
+            )
+            return str((result or {}).get("text") or "")
+        return self.recursive_context.solve(question,context,worker,budget=cfg)
 
     def brahmagyan_status(self):
         return self.agi.brahmagyan.status()
