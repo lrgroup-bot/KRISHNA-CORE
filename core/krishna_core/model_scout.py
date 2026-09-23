@@ -111,14 +111,33 @@ class ModelScout:
     def active(self):
         return [dict(x) for x in self.rows.values() if x.get("accepted")]
 
+    def recommend(self,task="general",*,max_ram_bytes=None,max_vram_bytes=None,limit=10):
+        task=str(task or "general").strip().lower()
+        rows=[]
+        for row in self.active():
+            row_task=str(row.get("task") or "general").strip().lower()
+            if task not in {"","general"} and row_task not in {"general",task}:
+                continue
+            if max_ram_bytes is not None and int(row.get("ram_bytes") or 0)>int(max_ram_bytes):
+                continue
+            if max_vram_bytes is not None and int(row.get("vram_bytes") or 0)>int(max_vram_bytes):
+                continue
+            rows.append(row)
+        rows.sort(key=lambda x:(float(x.get("score") or 0),-float(x.get("latency_ms") or 0)),reverse=True)
+        return rows[:max(1,min(int(limit),100))]
+
     def status(self):
+        active=self.active()
         return {
             "version":self.VERSION,
             "source_strategy":"discover-many-benchmark-few-promote-best",
             "download_policy":"no blind bulk downloads",
             "activation_policy":"candidate metadata alone never activates a model",
             "cloud_spend_limit_usd":0.0,
+            "cloud_billing_authority":False,
+            "routing_authority":False,
             "evaluated":len(self.rows),
-            "active":len(self.active()),
+            "active":len(active),
+            "active_candidates":len(active),
             "load_error":self.load_error,
         }
