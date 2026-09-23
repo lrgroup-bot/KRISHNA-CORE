@@ -123,6 +123,20 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("hawkeye-observer-ui.js",self.workflow)
         self.assertIn("KRISHNA-v3.8-HAWKEYE-Observer-APK",self.workflow)
 
+    def test_learning_overlay_has_candidate_status_and_visible_public_clues(self):
+        self.assertIn("learningAnalysis",self.ui)
+        self.assertIn("publicClues",self.ui)
+        self.assertIn("public_clues:publicClues()",self.ui)
+        self.assertIn("Knowledge status:",self.ui)
+        self.assertIn('outcome:"finding"',self.ui)
+
+    def test_capture_metadata_is_recursively_redacted_and_forced_local(self):
+        self.assertIn("sanitizeCaptureMetadata",self.activity)
+        self.assertIn("sensitiveCaptureKey",self.activity)
+        self.assertIn("redactCaptureText",self.activity)
+        self.assertIn('metadata.put("raw_cloud_upload",false)',self.activity)
+        self.assertIn("[SECRET REDACTED]",self.activity)
+
 
 if __name__=="__main__":
     unittest.main()
