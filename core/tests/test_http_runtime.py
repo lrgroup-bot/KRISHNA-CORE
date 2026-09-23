@@ -70,7 +70,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/narad/status", "/api/narad/workflows", "/api/narad/history", "/api/narad/connections", "/api/narad/dead-letters", "/api/narad/scheduler", "/api/intelligence/status",
                      "/api/brahma/status", "/api/brahma/intelligence/status",
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
-                     "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/mobile/runtime", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
+                     "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/lab/status", "/api/lab/experiments", "/api/mobile/runtime", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
@@ -152,6 +152,41 @@ class HTTPRuntimeTests(unittest.TestCase):
         })
         self.assertEqual(code,200)
         self.assertEqual(receipt["result"]["version"],"architecture-truth-v1")
+
+
+    def test_lab_bot_rishi_experiment_runtime(self):
+        code,status=self.call("/api/lab/status")
+        self.assertEqual(code,200)
+        self.assertEqual(status["version"],"krishna-lab-bot-v1")
+        self.assertTrue(status["policy"]["rishi_can_request"])
+        self.assertEqual(status["physical_adapters_connected"],0)
+
+        code,receipt=self.call("/api/action-bus/dispatch",{
+            "action":"lab.experiment.request","project":"KRISHNA",
+            "permissions":["lab.plan","evidence.write"],
+            "payload":{
+                "rishi":"kanada",
+                "hypothesis":"A bounded physical stimulus changes a measurable response.",
+                "objective":"Compare the response against a negative control.",
+                "domain":"physics","mode":"simulation",
+                "controls":["negative control"],
+                "measurements":["response"],
+                "success_criteria":["effect exceeds predefined uncertainty"],
+                "source_refs":["runtime:test"],
+            },
+        })
+        self.assertEqual(code,200)
+        exp=receipt["result"]
+        self.assertEqual(exp["requested_by"],"kanada")
+
+        code,sim=self.call("/api/action-bus/dispatch",{
+            "action":"lab.experiment.simulate","project":"KRISHNA",
+            "permissions":["lab.simulate","evidence.write"],
+            "payload":{"experiment_id":exp["experiment_id"]},
+        })
+        self.assertEqual(code,200)
+        self.assertEqual(sim["result"]["status"],"SIMULATED")
+        self.assertTrue(sim["verified"])
 
     def test_canonical_mobile_runtime_identity(self):
         code,mobile=self.call("/api/mobile/runtime")
