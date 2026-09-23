@@ -29,9 +29,14 @@ class MobileRuntimeManifestTests(unittest.TestCase):
         files=set(data["canonical_files"])
         for name in (
             "MobileEdgeBot.java","HawkeyeEvidenceCuratorBot.java","HawkeyeCrypto.java",
-            "HawkeyeBackgroundSync.java","HawkeyeSyncJobService.java"
+            "HawkeyeBackgroundSync.java","HawkeyeSyncJobService.java",
+            "HawkeyeMobileVision.java","hawkeye-observer-ui.js"
         ):
             self.assertIn(name,files)
+        self.assertTrue(data["boundaries"]["hawkeye_learning_observer"])
+        self.assertTrue(data["boundaries"]["local_object_tracking"])
+        self.assertTrue(data["boundaries"]["user_browser_custom_tab"])
+        self.assertFalse(data["boundaries"]["unknown_face_social_identity_search"])
 
 
 if __name__=="__main__":
