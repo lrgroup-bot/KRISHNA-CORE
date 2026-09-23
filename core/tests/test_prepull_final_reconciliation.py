@@ -60,7 +60,11 @@ class FinalReconciliationTests(unittest.TestCase):
         app=(self.repo/"app"/"spatial-ui"/"src"/"App.tsx").read_text(encoding="utf-8")
         self.assertIn("Design Intelligence",app)
         self.assertIn("fetch('/api/design/status'",app)
+        self.assertIn("focusPanel('krishna-home', 'krishna')",app)
+        self.assertIn("focusPanel('sudarshan-work', 'sudarshan')",app)
+        self.assertIn("focusPanel('plugins', 'plugins')",app)
         sidebar=app.split('<nav aria-label="Main Menu">',1)[1].split('</nav>',1)[0]
+        self.assertIn("<button",sidebar)
         self.assertIn("KRISHNA",sidebar)
         self.assertIn("Sudarshan",sidebar)
         self.assertIn("Plugins",sidebar)
