@@ -60,6 +60,7 @@ class BrahmagyanRuntime:
         self.memory=memory
         self.council=RishiCouncil()
         self.gyan_qc=None
+        self.cognitive_brain=None
         self.lock=RLock()
         self.state={
             "missions":{},"claims":{},"debates":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
