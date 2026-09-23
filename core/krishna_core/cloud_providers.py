@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import json, urllib.error, urllib.request
 
 class CloudProviderError(RuntimeError): pass
-class QuotaExhausted(CloudProviderError): pass
+class QuotaExhausted(CloudProviderError):\n    def __init__(self,message,reset_seconds=None):\n        super().__init__(message); self.reset_seconds=reset_seconds
 
 @dataclass(frozen=True)
 class CloudRequest:
@@ -31,7 +31,7 @@ class OpenAICloudProvider:
             with urllib.request.urlopen(q,timeout=self.timeout) as r:
                 data=json.loads(r.read().decode()); meta=dict(r.headers.items())
         except urllib.error.HTTPError as exc:
-            if exc.code==429: raise QuotaExhausted(f"{self.name}: free quota/rate limit exhausted") from exc
+            if exc.code==429:\n                retry=exc.headers.get("retry-after") if exc.headers else None\n                try: reset=float(retry) if retry else None\n                except (TypeError,ValueError): reset=None\n                raise QuotaExhausted(f"{self.name}: free quota/rate limit exhausted",reset) from exc
             raise CloudProviderError(f"{self.name}: HTTP {exc.code}") from exc
         return {"text":data["choices"][0]["message"]["content"],"headers":meta}
 
@@ -65,7 +65,7 @@ class GeminiProvider:
         try:
             with urllib.request.urlopen(q,timeout=self.timeout) as r:data=json.loads(r.read().decode())
         except urllib.error.HTTPError as exc:
-            if exc.code==429: raise QuotaExhausted("gemini: free quota/rate limit exhausted") from exc
+            if exc.code==429:\n                retry=exc.headers.get("retry-after") if exc.headers else None\n                try: reset=float(retry) if retry else None\n                except (TypeError,ValueError): reset=None\n                raise QuotaExhausted("gemini: free quota/rate limit exhausted",reset) from exc
             raise CloudProviderError(f"gemini: HTTP {exc.code}") from exc
         parts=((data.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
         return {"text":"".join(str(x.get("text") or "") for x in parts),"headers":{}}
