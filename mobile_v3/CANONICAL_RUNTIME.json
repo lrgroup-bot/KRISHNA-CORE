@@ -55,7 +55,10 @@
     "gemini_selected_keyframe_mode": true,
     "gemini_live_ephemeral_token": true,
     "continuous_raw_camera_cloud_upload": false,
-    "sensitive_scene_cloud_block": true
+    "sensitive_scene_cloud_block": true,
+    "local_face_landmarks": true,
+    "tracked_target_lock": true,
+    "ocr_barcode_seeded_browser_research": true
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
