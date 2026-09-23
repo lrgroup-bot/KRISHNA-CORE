@@ -497,7 +497,7 @@ class Orchestrator:
                 if not plan:
                     repair_history.append({"round":round_no,"status":"blocked","reason":"no model available","failed_gates":code_failed})
                     break
-                provider=plan[(round_no-1)%len(plan)]["provider"]
+                provider=plan[(round_no-1)%len(plan)].get("route_provider") or plan[(round_no-1)%len(plan)]["provider"]
                 prompt=CandidateRepairGuard.prompt(failed,source_context)
                 raw=self.router.ask(provider,prompt)
                 obj=self.ephemeral_workers._json_object(raw)
@@ -672,7 +672,7 @@ class Orchestrator:
             candidates=[]
             for idx in range(4):
                 ref=references[idx%len(references)]
-                provider=plan[idx%len(plan)]["provider"]
+                provider=plan[idx%len(plan)].get("route_provider") or plan[idx%len(plan)]["provider"]
                 prompt=(
                     "Create one ORIGINAL single-file HTML/CSS interface preview for KRISHNA Design Studio. "
                     "Do not copy the reference page. Use its high-level design lessons only. "
@@ -725,7 +725,7 @@ class Orchestrator:
             goal=str(metadata.get("goal") or payload.get("goal") or "Improve this project UI using the selected design.")
             plan=self.router.coding_plan(policy.privacy)
             if not plan:raise RuntimeError("no model available for design implementation")
-            provider=plan[0]["provider"]
+            provider=plan[0].get("route_provider") or plan[0]["provider"]
             prompt=DesignImplementationGuard.prompt(goal,selected_html,source_context)
             raw=self.router.ask(provider,prompt)
             obj=self.ephemeral_workers._json_object(raw)
@@ -776,7 +776,7 @@ class Orchestrator:
             if not source_context.get("files"):raise RuntimeError("no eligible frontend source files found")
             plan=self.router.coding_plan(policy.privacy)
             if not plan:raise RuntimeError("no model available for visual editing")
-            provider=plan[0]["provider"]
+            provider=plan[0].get("route_provider") or plan[0]["provider"]
             prompt=DesignImplementationGuard.visual_edit_prompt(
                 instruction,element,source_context,payload.get("from_box"),payload.get("to_box"),
             )
