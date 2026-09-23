@@ -396,13 +396,14 @@ class SparkX25Manager:
         self._save_lifecycle(lifecycle)
         return report
 
-    def review(self,key,*,coding_score,agent_score,multilingual_score,review_ref,verification_ref,
+    def review(self,key,*,coding_score,agent_score,multilingual_score,review_ref,
                ram_bytes=0,vram_bytes=0,latency_ms=0,minimum_score=0.55):
         path=self.benchmarks/(key+".json")
         if not path.exists():raise RuntimeError("Spark benchmark must run before review")
         report=json.loads(path.read_text(encoding="utf-8"))
-        if not str(review_ref).strip() or not str(verification_ref).strip():
-            raise ValueError("review_ref and verification_ref are required")
+        review_ref=str(review_ref or "").strip()
+        if not review_ref:
+            raise ValueError("review_ref is required")
         scores=[float(coding_score),float(agent_score),float(multilingual_score)]
         if any(x<0 or x>1 for x in scores):raise ValueError("review scores must be between 0 and 1")
         quality=(float(report.get("mechanical_score") or 0)*0.4)+(scores[0]*0.25)+(scores[1]*0.20)+(scores[2]*0.15)
@@ -420,15 +421,20 @@ class SparkX25Manager:
             state["reviewed"]=True
             self._advance_stage_state(state,"REVIEWED")
         state.update({
-            "review_ref":str(review_ref),"verification_ref":str(verification_ref),
+            "review_ref":review_ref,
             "quality":quality,
         })
+        state.pop("verification_ref",None)
         report.update({
             "coding_score":scores[0],"agent_score":scores[1],"multilingual_score":scores[2],
-            "review_ref":str(review_ref),"verification_ref":str(verification_ref),
-            "quality":quality,"promotion_ready":bool(scout.get("accepted")),
+            "review_ref":review_ref,
+            "quality":quality,
+            "candidate_accepted":bool(scout.get("accepted")),
+            "promotion_ready":False,
+            "verification_status":"NOT_VERIFIED",
             "review_status":"REVIEWED_CANDIDATE" if scout.get("accepted") else "REVIEWED_HOLD",
         })
+        report.pop("verification_ref",None)
         path.write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding="utf-8")
         self._save_lifecycle(lifecycle)
         return {"benchmark":report,"scout":scout,"lifecycle":dict(state)}
@@ -444,10 +450,23 @@ class SparkX25Manager:
             raise ValueError("review_ref and verification_ref are required")
         if state.get("review_ref") and str(state.get("review_ref"))!=review_ref:
             raise ValueError("review_ref does not match reviewed candidate")
+        spec=self.SPECS[key]
+        scout=dict(self.model_scout.rows.get(spec.model_id) or {})
+        if not scout.get("accepted") or not scout.get("benchmarked"):
+            raise RuntimeError("Spark candidate is no longer an accepted benchmark candidate")
         state.update({"reviewed":True,"verified":True,"review_ref":review_ref,"verification_ref":verification_ref})
         self._advance_stage_state(state,"VERIFIED")
+        path=self.benchmarks/(key+".json")
+        report=json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        report.update({
+            "review_ref":review_ref,
+            "verification_ref":verification_ref,
+            "verification_status":"VERIFIED",
+            "promotion_ready":True,
+        })
+        if report:path.write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding="utf-8")
         self._save_lifecycle(lifecycle)
-        return {"model":self.SPECS[key].model_id,"lifecycle":dict(state)}
+        return {"model":spec.model_id,"benchmark":report,"lifecycle":dict(state)}
 
     def enable_routing(self,key,*,review_ref,verification_ref):
         spec=self.SPECS[key]
