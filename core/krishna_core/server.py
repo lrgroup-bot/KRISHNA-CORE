@@ -1024,6 +1024,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, orch.agi_status())
         if path == "/api/runtime/integrity":
             return self._json(200, _integrity.status())
+        if path == "/api/architecture/truth":
+            return self._json(200, orch.architecture_truth.scan())
         if path == "/api/runtime/audit":
             return self._json(200, latest_e_drive_audit())
         if path == "/api/requirements":
