@@ -48,8 +48,15 @@ function Stop-ExistingKrishnaGuardian([string]$RuntimeRoot){
   # Guardian blocks on the child Core process. Terminating only a verified
   # START_KRISHNA.ps1 child releases that wait so the STOP marker can be honored.
   if($coreProc){
-    Write-Host ("Stopping previous KRISHNA Core PID {0} for verified generation handoff..." -f $oldCorePid) -ForegroundColor Yellow
-    Stop-Process -Id $oldCorePid -Force -ErrorAction Stop
+    Write-Host ("Stopping previous KRISHNA Core process tree rooted at PID {0} for verified generation handoff..." -f $oldCorePid) -ForegroundColor Yellow
+    # START_KRISHNA.ps1 launches python.exe as a child. Killing only the PowerShell
+    # wrapper can orphan the server and leave port 8766 occupied. The wrapper PID
+    # has already been verified above as KRISHNA's START_KRISHNA.ps1, so terminate
+    # that verified tree rather than touching unrelated processes.
+    & taskkill.exe /PID $oldCorePid /T /F | Out-Null
+    if($LASTEXITCODE -ne 0 -and (Get-Process -Id $oldCorePid -ErrorAction SilentlyContinue)){
+      throw ("Failed to stop verified KRISHNA Core process tree rooted at PID {0}" -f $oldCorePid)
+    }
   }
 
   if($guardianProc){
@@ -295,6 +302,17 @@ if(!$SkipStart){
   }
   Stop-ExistingKrishnaGuardian $Runtime
   if(Test-Path $stopMarker){Remove-Item -Force $stopMarker -ErrorAction SilentlyContinue}
+
+  # The old verified Core tree must release 8766 before a new generation is launched.
+  # Never kill an unknown listener here; fail closed with PID evidence instead.
+  $staleListener=Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+  if($staleListener){
+    $listenerPid=[int]$staleListener.OwningProcess
+    $listenerRow=$null
+    try{$listenerRow=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$listenerPid) -ErrorAction Stop}catch{}
+    $listenerCmd=if($listenerRow){[string]$listenerRow.CommandLine}else{""}
+    throw ("Port 8766 remains occupied after KRISHNA generation handoff. Refusing to kill an unverified listener. PID={0}; command={1}" -f $listenerPid,$listenerCmd)
+  }
 
   $runtimeGeneration=[guid]::NewGuid().ToString("N")
   $guardianProc=Start-Process powershell -ArgumentList @(
