@@ -84,6 +84,21 @@ class HawkeyeCoordinatorTests(unittest.TestCase):
             "SUPPORTED","PRELIMINARY"
         })
 
+    def test_existing_bhumiputra_session_is_migrated_without_losing_field_state(self):
+        legacy=self.bhumiputra.start_live_session(
+            project="KRISHNA",purpose="legacy field scan",scene_hint="terrain"
+        )
+        sid=legacy["session_id"]
+        self.assertFalse(self.hawkeye._path(sid).exists())
+        row=self.hawkeye.record_behavior(
+            sid,{"action":"excavator stopped"},source_refs=["camera:legacy"]
+        )
+        self.assertEqual(row["lane"],"behavior")
+        self.assertTrue(self.hawkeye._path(sid).exists())
+        state=self.hawkeye.get_live_session(sid)
+        self.assertEqual(state["scene_hint"],"terrain")
+        self.assertEqual(state["hawkeye"]["lane_counts"]["behavior"],1)
+
     def test_physio_requires_real_numeric_measurement_for_measured_state(self):
         sid=self.session["session_id"]
         with self.assertRaises(ValueError):
