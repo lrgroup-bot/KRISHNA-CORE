@@ -22,6 +22,7 @@ public class MainActivity extends Activity {
   static final int FILE_PICKER=73;
   WebView web;
   Bridge bridge;
+  HawkeyeSensorFusion hawkeyeSensors;
   ValueCallback<Uri[]> fileCallback;
   BroadcastReceiver wakeReceiver=new BroadcastReceiver(){
     @Override public void onReceive(Context context,Intent intent){
@@ -68,6 +69,7 @@ public class MainActivity extends Activity {
   @Override public void onCreate(Bundle b){
     super.onCreate(b);
     ensureNotifications();
+    hawkeyeSensors=new HawkeyeSensorFusion(this);
     HawkeyeBackgroundSync.schedule(this);
     if(Build.VERSION.SDK_INT>=33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED)
       requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},42);
@@ -147,7 +149,7 @@ public class MainActivity extends Activity {
   }
   @Override protected void onResume(){super.onResume();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");startWakeIfReady();if(bridge!=null)new Thread(()->bridge.hawkeyeSyncEvidence()).start();}
   @Override protected void onPause(){emitAsync("mobile_background","KRISHNA Mobile entered background");super.onPause();}
-  @Override protected void onDestroy(){try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}super.onDestroy();}
+  @Override protected void onDestroy(){try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}try{if(hawkeyeSensors!=null)hawkeyeSensors.close();}catch(Exception ignored){}super.onDestroy();}
 
   public class Bridge {
     final HawkeyeEvidenceCuratorBot hawkeyeCurator;
@@ -164,6 +166,10 @@ public class MainActivity extends Activity {
       }
     }
     @JavascriptInterface public String status(){return call("/api/status",null);}
+    @JavascriptInterface public String hawkeyeSensorSnapshot(){
+      try{return hawkeyeSensors==null?new JSONObject().put("available",false).toString():hawkeyeSensors.snapshot().toString();}
+      catch(Exception e){return error(e);}
+    }
     @JavascriptInterface public String connection(){return call("/api/mobile/connection",null);}
     @JavascriptInterface public String resume(long after){
       String raw=call("/api/mobile/resume?after="+after,null);
