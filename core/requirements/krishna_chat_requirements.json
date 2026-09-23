@@ -67,7 +67,11 @@
         "C6 synthesis forms structural analogy candidates, converts unresolved contradictions into research questions, derives semantic candidates from repeated episodic observations, and uses controlled forgetting only as reversible dormancy/activation-telemetry pruning; verified/provenanced/connected knowledge is never silently deleted.",
         "C7 cross-domain hypothesis generation produces falsifiable unverified questions for Rishi or LAB BOT testing; generated hypotheses never become trusted Gyan without normal evidence maturation, BRAHMA QC and approval.",
         "Cognitive Brain must keep Vedic/classical and modern-science tracks source-faithful: cross-track comparison is allowed, unsupported equivalence and causal transfer are rejected.",
-        "Rishi Vishvakarma is the permanent design/UI/software-craft knowledge curator; this is a KRISHNA design role inspired by traditional naming, not a claim that a historical/traditional figure practiced modern frontend engineering."
+        "Rishi Vishvakarma is the permanent design/UI/software-craft knowledge curator; this is a KRISHNA design role inspired by traditional naming, not a claim that a historical/traditional figure practiced modern frontend engineering.",
+        "BRAHMAGYAN/Rishi live research must route distinct research phases through dedicated AI roles: rishi_research, rishi_counter_evidence, rishi_debate, gautama_review, bharadvaja_test_plan and vyasa_synthesis instead of treating every phase as a generic model call.",
+        "Garuda remains the source-discovery/retrieval authority; Rishi model output is interpretation/challenge only and never counts as source evidence by itself.",
+        "Where project privacy permits, counter-evidence, Gautama review, debate and Vyasa synthesis should prefer an independent live-verified zero-cost cloud reasoning model to reduce single-model dependence; local_only/restricted work must remain local.",
+        "Modern scientific evidence and Vedic/classical textual evidence remain separate tracks through extraction, review, debate and synthesis; similarity between tracks is never scientific validation."
       ]
     },
     {
@@ -238,7 +242,10 @@
         "Direct provider profiles merely labelled free_only remain explicit-use adapters, not automatic zero-cost fallbacks; a native direct adapter may enter automatic routing only when it independently proves the configured account is non-billable immediately before inference and still enforces KRISHNA privacy guards.",
         "Cloudflare Workers AI is the first verified native direct-free adapter: it requires an encrypted account-root profile, an @cf/* model, Billing Read subscription preflight, no active Workers-paid subscription, and a paid-only-model denylist; quota or paid-model errors stop rather than falling through to billing.",
         "Automatic model hierarchy is Ollama/local -> live-zero OpenRouter -> live-zero-billing verified native direct APIs -> remaining local fallback/STOP; paid-cloud fallback is never silent.",
-        "KRISHNA Model Scout separates discovery from installation/activation: candidate models require benchmark evidence, duplicate/resource checks and local-capability admission before promotion; candidate metadata or a provider's free label never establishes zero-cost cloud eligibility."
+        "KRISHNA Model Scout separates discovery from installation/activation: candidate models require benchmark evidence, duplicate/resource checks and local-capability admission before promotion; candidate metadata or a provider's free label never establishes zero-cost cloud eligibility.",
+        "KRISHNA must persist owner-selectable AI role policy with Auto, Prefer and Pin modes for general/coding/vision/research plus Rishi and LAB research roles.",
+        "Automatic Rishi/LAB cloud routing may use only live-verified zero-cost providers (currently OpenRouter zero-cost fabric and verified direct-free adapters such as Cloudflare); generic Groq/Mistral/Gemini/HuggingFace/Cerebras profiles marked free_only remain manual until a provider-specific live billing guard exists.",
+        "AI role selection never overrides project privacy, secret-egress blocking, zero-cost verification, or the global paid-cloud-disabled default."
       ]
     },
     {
@@ -346,7 +353,11 @@
         "Quantum Lab provides software-first circuit simulation, quantum research planning and provider discovery; simulator output is never represented as real-QPU evidence or quantum advantage.",
         "Nano Lab provides nanoscale geometry/materials research planning and optional materials-tool provider discovery; geometric or atomistic models are never represented as verified physical fabrication or biological efficacy.",
         "Quantum/Nano joint research prioritizes quantum materials, quantum dots, nanophotonics, spin defects, nanoscale quantum sensing and molecular/materials simulation while keeping classical/materials baselines and uncertainty visible.",
-        "Physical nanofabrication, quantum hardware, quantum-materials fabrication and nanomaterials laboratory work remain facility-reviewed, human-supervised and hardware-unverified until real adapters are accepted."
+        "Physical nanofabrication, quantum hardware, quantum-materials fabrication and nanomaterials laboratory work remain facility-reviewed, human-supervised and hardware-unverified until real adapters are accepted.",
+        "LAB BOT must expose a lab_hypothesis AI role that can propose only explicitly UNVERIFIED, falsifiable hypothesis candidates; it cannot promote a hypothesis to verified knowledge.",
+        "LAB BOT must expose a lab_result_analysis AI role and, when privacy permits, seek two independent interpretations: one local model and one live-verified zero-cost cloud model.",
+        "AI agreement in LAB BOT is not evidence; experiment records, measurements, controls, replication and source provenance remain authoritative.",
+        "LAB AI assistance must not bypass existing owner, protocol, facility, human-operator or registered-adapter gates for physical experiments."
       ]
     }
   ],
@@ -788,6 +799,23 @@
         "core/tests/test_hawkeye_mobile_observer_contract.py"
       ],
       "next": "real Android acceptance: object tracking IDs/boxes -> supported-camera auto-zoom -> Custom Tab research -> PHOTO+DATA -> REC+DATA -> gallery/sidecar verification"
+    },
+    {
+      "id": "rishi_lab_ai_role_fabric",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "KRISHNA Model Router / BRAHMAGYAN / LAB BOT / Sudarshan",
+      "evidence": [
+        "core/krishna_core/ai_role_policy.py",
+        "core/krishna_core/router.py",
+        "core/krishna_core/rishi_live_research.py",
+        "core/krishna_core/lab_bot.py",
+        "core/krishna_core/orchestrator.py",
+        "core/krishna_core/server.py",
+        "core/tests/test_ai_role_policy.py",
+        "core/tests/test_rishi_lab_ai_fabric.py",
+        "docs/RISHI_LAB_AI_ROLE_FABRIC.md"
+      ],
+      "next": "Run Windows/Ubuntu core, privacy E2E, Project Perfection E2E, long-context and packaged-Windows restart gates; then deploy to the owner PC and verify live role/provider receipts."
     }
   ]
 }
