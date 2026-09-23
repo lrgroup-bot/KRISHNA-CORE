@@ -25,14 +25,21 @@ function Step([string]$Name,[scriptblock]$Run){
   Write-Host ("=== AUDIT BOT: "+$Name+" ===") -ForegroundColor Cyan
   $started=Get-Date
   try{
+    # Reset native-command state so a previous failed tool cannot poison a later
+    # PowerShell-only audit phase.
+    $global:LASTEXITCODE=0
     & $Run
-    $code=$LASTEXITCODE
+    $code=$global:LASTEXITCODE
     if($null -eq $code){$code=0}
     if($code -ne 0){throw "$Name returned exit code $code"}
     $steps.Add([ordered]@{name=$Name;status="PASS";seconds=[math]::Round(((Get-Date)-$started).TotalSeconds,2)})
   }catch{
     $steps.Add([ordered]@{name=$Name;status="FAIL";seconds=[math]::Round(((Get-Date)-$started).TotalSeconds,2);error=$_.Exception.Message})
-    throw
+    # A full-project audit must continue after an individual phase fails so the
+    # final report exposes every defect in one pass. The script still exits 2
+    # after the summary when any phase failed.
+    Write-Warning ("AUDIT STEP FAILED: {0}: {1}" -f $Name,$_.Exception.Message)
+    return
   }
 }
 
