@@ -229,7 +229,8 @@
         "Local-only, restricted, explicitly sensitive, or likely credential/secret-bearing payloads must never be sent to OpenRouter; local multimodal processing remains the default for private HAWKEYE/BHOOMIPUTRA evidence.",
         "OpenRouter free model selection is capability- and role-aware for coding, reasoning, vision, medical research and general work; expiring models are deprioritized and catalog availability is treated as dynamic rather than permanent.",
         "OpenRouter image generation uses the dedicated Images API and is permitted only for live zero-priced image models; Ming Image is prompt-only, no reference images or forced dimensions/aspect ratios are sent, and generated artifacts remain local KRISHNA runtime state.",
-        "Paid OpenRouter speech, video, image or other media models remain disabled under free-only policy unless a future live catalog proves the requested operation is zero-cost or the owner explicitly enables paid cloud."
+        "Paid OpenRouter speech, video, image or other media models remain disabled under free-only policy unless a future live catalog proves the requested operation is zero-cost or the owner explicitly enables paid cloud.",
+        "Direct provider profiles merely labelled free_only (for example a free-tier Gemini/Groq account) are explicit-use adapters, not automatic zero-cost fallbacks, because KRISHNA cannot independently prove their billing state from the profile label."
       ]
     },
     {
