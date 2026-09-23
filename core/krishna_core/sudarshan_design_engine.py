@@ -14,6 +14,7 @@ class DesignJob:
     reference_image: bool = False
     existing_ui: bool = False
     agentic_browser: bool = False
+    topic: str = ""
 
 
 class SkillRouter:
@@ -94,21 +95,30 @@ class AcceptanceGovernor:
 
 
 class SudarshanDesignEngine:
-    VERSION = "sudarshan-design-v2"
+    VERSION = "sudarshan-design-v3"
 
-    def __init__(self, root):
+    def __init__(self, root, knowledge=None):
         self.root = Path(root)
+        self.root.mkdir(parents=True,exist_ok=True)
         self.router = SkillRouter()
         self.drift = DesignDrift()
         self.acceptance = AcceptanceGovernor()
+        self.knowledge = knowledge
 
     def plan(self, job: DesignJob):
+        topic=str(job.topic or job.kind or "design").strip()
+        verified=[]
+        if self.knowledge is not None and hasattr(self.knowledge,"list"):
+            verified=self.knowledge.list(topic=topic,status="verified",limit=12)
         return {
             "owner": "Sudarshan",
             "version": self.VERSION,
             "skills": self.router.select(job),
             "krishna_context": "summary-only",
             "vishvakarma_required": True,
+            "knowledge_bound": self.knowledge is not None,
+            "verified_vishvakarma_findings": verified,
+            "topic": topic,
             "created_at": time.time(),
         }
 
@@ -117,7 +127,9 @@ class SudarshanDesignEngine:
             "component": "Sudarshan Design Engine",
             "version": self.VERSION,
             "skills": ["web-design", "taste-skill", "redesign-existing-projects", "image-to-code", "playwright-cli", "stagehand"],
+            "hard_acceptance_checks": list(self.acceptance.REQUIRED),
             "acceptance_gates": list(self.acceptance.REQUIRED),
             "design_genome_schema": DesignGenome.SCHEMA,
+            "knowledge_bound": self.knowledge is not None,
             "ready": True,
         }
