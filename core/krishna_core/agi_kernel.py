@@ -13,7 +13,7 @@ from .avatar_fabric import AvatarFabric
 from .brahmagyan import BrahmagyanRuntime
 from .revenue_engine import RevenueEngine
 from .integrations import CodebaseMemoryAdapter, GraftMemoryAdapter, WebhookAdapter
-from .narad import NaradRuntime
+from .narad import NaradRuntime, NaradMessageStore
 from .narad.credentials import NaradCredentialVault
 from .narad.providers import NaradProviderHub
 from .narad.n8n_bridge import N8nBridge
@@ -22,12 +22,14 @@ from .context_governor import ContextGovernor
 from .media_adapter import OpenMontageAdapter
 
 class AGIKernel:
-    VERSION="1.1.0-alpha"
+    VERSION="1.2.0-alpha"
     def __init__(self,runtime_root,memory,gyan,verification_engine,reviewer,secure_vault=None):
         self.root=Path(runtime_root); self.root.mkdir(parents=True,exist_ok=True)
         self.policy=PolicyKernel(self.root)
         self.executors=ExecutorFabric(self.policy)
-        self.memory=MemoryFabric(memory,gyan)
+        self.code_intelligence=CodebaseMemoryAdapter(cache_root=self.root/"cbm-cache")
+        self.graft=GraftMemoryAdapter(profile="krishna")
+        self.memory=MemoryFabric(memory,gyan,graft=self.graft,codebase_memory=self.code_intelligence)
         self.critic=IndependentCriticVerifier(verification_engine,reviewer)
         self.skills=SkillCompiler(self.root/"skills"/"compiled")
         self.benchmarks=BenchmarkLab()
@@ -37,12 +39,11 @@ class AGIKernel:
         self.avatar=AvatarFabric()
         self.brahmagyan=BrahmagyanRuntime(self.root/"brahmagyan",gyan,memory)
         self.revenue=RevenueEngine(self.bus)
-        self.code_intelligence=CodebaseMemoryAdapter(cache_root=self.root/"cbm-cache")
-        self.graft=GraftMemoryAdapter(profile="krishna")
         self.specialists=SpecialistRegistry()
         self.context=ContextGovernor()
         self.narad_credentials=NaradCredentialVault(self.root/"narad"/"credentials.json", secure_vault)
         self.narad_providers=NaradProviderHub()
+        self.narad_messages=NaradMessageStore(self.root/"narad"/"messages.json")
         self.narad=NaradRuntime(
             self.policy,self.bus,
             {"n8n":N8nBridge(),"activepieces":WebhookAdapter(),"webhook":WebhookAdapter()},
@@ -54,8 +55,12 @@ class AGIKernel:
     def status(self):
         return {"name":"KRISHNA AGI CORE","version":self.VERSION,"architecture":"single-control-plane/modular-workers",
         "orchestrator":"KRISHNA Neural Action Graph + durable adapter boundary","executors":self.executors.capabilities(),
-        "memory":{**self.memory.adapters(),"graft":self.graft.status()},"code_intelligence":self.code_intelligence.status(),
-        "critic":"independent","skill_compiler":"ready","benchmark_lab":"ready","narad":{**self.narad.status(),"credential_vault":{"connections":self.narad_credentials.list()["count"],"policy":"environment refs or Windows DPAPI encrypted secrets"},"providers":self.narad_providers.providers()},
+        "memory":self.memory.adapters(),"code_intelligence":self.code_intelligence.status(),
+        "critic":"independent","skill_compiler":"ready","benchmark_lab":"ready",
+        "narad":{**self.narad.status(),
+            "credential_vault":{"connections":self.narad_credentials.list()["count"],"policy":"environment refs or Windows DPAPI encrypted secrets"},
+            "providers":self.narad_providers.providers(),
+            "messages":self.narad_messages.status()},
         "specialists":self.specialists.list(),"garudanetra":"BrowserOperator/Garuda integration",
         "creator":self.creator.status(),"avatar":self.avatar.status(),"brahmagyan":self.brahmagyan.status(),"media":self.media.status(),
         "revenue":self.revenue.status(),"workers":self.workers.status()}

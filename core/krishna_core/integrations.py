@@ -45,11 +45,34 @@ class CodebaseMemoryAdapter:
     def status(self):
         out=AdapterStatus("codebase-memory-mcp",bool(self.executable),"subprocess/mcp",
                           str(self.executable or "not found")).as_dict()
-        out.update({"executable":self.executable,"cache_root":str(self.cache_root),"discovery":self.discovery})
+        out.update({
+            "executable":self.executable,"cache_root":str(self.cache_root),"discovery":self.discovery,
+            "operations":["query","project_context"],"authority":"read-only structural intelligence",
+        })
         return out
     def command(self,*args):
         if not self.executable: raise RuntimeError("codebase-memory-mcp is not installed/configured")
         return [str(self.executable),*map(str,args)]
+    def _run(self,args,timeout=30):
+        if not self.executable: raise RuntimeError("codebase-memory-mcp is not installed/configured")
+        env=dict(os.environ);env["KRISHNA_CBM_CACHE"]=str(self.cache_root)
+        p=subprocess.run(self.command(*args),capture_output=True,text=True,timeout=timeout,env=env,shell=False)
+        if p.returncode: raise RuntimeError((p.stderr or p.stdout or "").strip())
+        text=(p.stdout or "").strip()
+        try:return json.loads(text)
+        except Exception:return {"text":text[:30000]}
+    def query(self,text,*,project_root=None,limit=20):
+        q=str(text or "").strip()
+        if not q:raise ValueError("CBM query is required")
+        args=["query","--limit",str(max(1,min(int(limit),100))),q]
+        if project_root:
+            root=Path(project_root).resolve()
+            args[1:1]=["--root",str(root)]
+        return self._run(args)
+    def project_context(self,project_root,*,limit=200):
+        root=Path(project_root).resolve()
+        if not root.is_dir():raise FileNotFoundError(str(root))
+        return self._run(["context","--root",str(root),"--limit",str(max(1,min(int(limit),1000)))])
 
 class GraftMemoryAdapter:
     """Optional local Graft bridge behind Gyan-Bhandar; never replaces canonical MemoryFabric."""
@@ -73,15 +96,21 @@ class GraftMemoryAdapter:
     def status(self):
         out=AdapterStatus("graft",bool(self.executable),"cli/local",
                           str(self.executable or "not found")).as_dict()
-        out.update({"executable":self.executable,"profile":self.profile,"discovery":self.discovery})
+        out.update({
+            "executable":self.executable,"profile":self.profile,"discovery":self.discovery,
+            "authority":"optional read/query backing only; Gyan-Bhandar remains canonical",
+        })
         return out
     def _run(self,args,timeout=20):
         if not self.executable: raise RuntimeError("graft is not installed/configured")
         env=dict(os.environ); env["GRAFT_PROFILE"]=self.profile
-        p=subprocess.run([self.executable,*args],capture_output=True,text=True,timeout=timeout,env=env)
+        p=subprocess.run([self.executable,*args],capture_output=True,text=True,timeout=timeout,env=env,shell=False)
         if p.returncode: raise RuntimeError((p.stderr or p.stdout).strip())
         return p.stdout.strip()
-    def query(self,text): return self._run(["query",text])
+    def query(self,text):
+        q=str(text or "").strip()
+        if not q:raise ValueError("graft query is required")
+        return self._run(["query",q])
     def stats(self): return self._run(["stats"])
 
 class WebhookAdapter:

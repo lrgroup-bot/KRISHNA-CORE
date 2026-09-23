@@ -416,6 +416,7 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
     AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"
     AVATAR_ENGINE_ROOT = RUNTIME_ROOT / "dashboard" / "assets" / "avatar-engine"
+    SPATIAL_UI_ROOT = RUNTIME_ROOT / "dashboard" / "spatial-ui"
 else:
     _CORE_ROOT = Path(__file__).resolve().parents[1]
     _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -426,6 +427,32 @@ else:
     AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
     AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"
     AVATAR_ENGINE_ROOT = RUNTIME_ROOT / "dashboard" / "assets" / "avatar-engine"
+    _SOURCE_SPATIAL = _REPO_ROOT / "app" / "spatial-ui" / "dist"
+    SPATIAL_UI_ROOT = _SOURCE_SPATIAL if (_SOURCE_SPATIAL / "index.html").is_file() else RUNTIME_ROOT / "dashboard" / "spatial-ui"
+
+
+def spatial_ui_file(relative_path):
+    root=SPATIAL_UI_ROOT.resolve()
+    raw=str(relative_path or "").replace("\\","/").lstrip("/")
+    if not raw or raw.startswith(".") or "/../" in ("/"+raw) or raw.endswith("/.."):
+        return None
+    candidate=(root/raw).resolve()
+    if candidate!=root and root not in candidate.parents:
+        return None
+    return candidate if candidate.is_file() else None
+
+
+def spatial_ui_index():
+    index=SPATIAL_UI_ROOT/"index.html"
+    if not index.is_file():
+        return None
+    try:
+        text=index.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if 'data-krishna-spatial-ui="2026.09"' not in text:
+        return None
+    return text
 
 
 def avatar_engine_file(relative_path):
@@ -755,6 +782,9 @@ class Handler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query)
 
         if path in ("/", "/dashboard"):
+            spatial=spatial_ui_index()
+            if spatial is not None:
+                return self._html(200,spatial)
             if not WEB_VALIDATION.exists():
                 return self._json(503, {
                     "error": "current KRISHNA desktop UI is unavailable",
@@ -767,6 +797,12 @@ class Handler(BaseHTTPRequestHandler):
                     "required_ui_version": "2026.09-current",
                 })
             return self._html(200, ui_text)
+        if path.startswith("/spatial/"):
+            rel=path[len("/spatial/"):]
+            asset=spatial_ui_file(rel)
+            if not asset:return self._json(404,{"error":"spatial UI asset unavailable"})
+            mime=mimetypes.guess_type(str(asset))[0] or "application/octet-stream"
+            return self._binary(200,asset.read_bytes(),mime)
         if path == "/favicon.ico":
             return self._binary(204, b"", "image/x-icon")
         if path in ("/web", "/web-test", "/validation"):
@@ -1173,6 +1209,17 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"history":orch.agi.narad.history[-limit:]})
         if path == "/api/narad/connections":
             return self._json(200,orch.agi.narad_credentials.list())
+        if path == "/api/narad/messages":
+            direction=(query.get("direction") or [None])[0]
+            state=(query.get("state") or [None])[0]
+            provider=(query.get("provider") or [None])[0]
+            limit_raw=(query.get("limit") or ["200"])[0]
+            try:limit=max(1,min(int(limit_raw),1000))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,{
+                "messages":orch.agi.narad_messages.list(direction=direction,state=state,provider=provider,limit=limit),
+                "status":orch.agi.narad_messages.status(),
+            })
         if path == "/api/narad/dead-letters":
             return self._json(200,orch.agi.narad.dead_letter_status())
         if path == "/api/narad/checkpoints":
@@ -1878,6 +1925,36 @@ class Handler(BaseHTTPRequestHandler):
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"manual autonomy tick must run on KRISHNA PC"})
             return self._json(200,_autonomy.run_once())
+
+        if post_path == "/api/narad/messages/add":
+            direction=str(data.get("direction") or "").strip().lower()
+            try:
+                row=orch.agi.narad_messages.add(
+                    direction=direction,
+                    provider=str(data.get("provider") or ""),
+                    text=str(data.get("text") or ""),
+                    state=data.get("state"),
+                    account_ref=str(data.get("account_ref") or ""),
+                    thread_ref=str(data.get("thread_ref") or ""),
+                    sender=str(data.get("sender") or ""),
+                    recipients=data.get("recipients") or [],
+                    metadata=data.get("metadata") or {},
+                )
+                return self._json(201,row)
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/narad/messages/transition":
+            message_id=str(data.get("message_id") or "").strip()
+            state=str(data.get("state") or "").strip().lower()
+            if not message_id or not state:return self._json(400,{"error":"message_id and state are required"})
+            try:
+                return self._json(200,orch.agi.narad_messages.transition(
+                    message_id,state,
+                    provider_receipt=data.get("provider_receipt"),
+                    error=str(data.get("error") or ""),
+                ))
+            except KeyError:return self._json(404,{"error":"message not found"})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/narad/connections/register":
             try:

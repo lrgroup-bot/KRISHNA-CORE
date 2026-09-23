@@ -1,0 +1,38 @@
+name: KRISHNA Spatial UI
+
+on:
+  pull_request:
+    paths:
+      - "app/spatial-ui/**"
+      - ".github/workflows/spatial-ui.yml"
+  push:
+    branches:
+      - "fix/krishna-ui-runtime-verification"
+    paths:
+      - "app/spatial-ui/**"
+      - ".github/workflows/spatial-ui.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-spatial-ui:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/spatial-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/spatial-ui/package.json
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build
+        run: npm run build
+      - name: Verify output
+        run: |
+          test -f dist/index.html
+          test -d dist/assets
