@@ -230,20 +230,22 @@ if(!$SkipStart){
   }
   if(Test-Path $stopMarker){Remove-Item -Force $stopMarker -ErrorAction SilentlyContinue}
 
+  $runtimeGeneration=[guid]::NewGuid().ToString("N")
   $guardianProc=Start-Process powershell -ArgumentList @(
     "-NoProfile","-ExecutionPolicy","Bypass","-File",$guardian,
-    "-RuntimeRoot",$Runtime,"-SourceRoot",$Source
+    "-RuntimeRoot",$Runtime,"-SourceRoot",$Source,
+    "-RuntimeGeneration",$runtimeGeneration
   ) -WindowStyle Hidden -PassThru
 
   $healthUrl="http://127.0.0.1:8766/health"
   $online=$false
   for($i=0;$i -lt 45;$i++){
     Start-Sleep -Seconds 1
+    if($guardianProc.HasExited){break}
     try{
       $health=Invoke-RestMethod -Uri $healthUrl -TimeoutSec 2
-      if($health.ok){$online=$true;break}
+      if($health.ok -and [string]$health.runtime_generation -eq $runtimeGeneration){$online=$true;break}
     }catch{}
-    if($guardianProc.HasExited){break}
   }
   if(!$online){
     $guardianState=Join-Path $guardianStateDir "core-guardian.json"
@@ -251,7 +253,7 @@ if(!$SkipStart){
     $detail=""
     if(Test-Path $guardianState){$detail+=" guardian_state="+(Get-Content -Raw $guardianState)}
     if(Test-Path $stderr){$detail+=" stderr="+((Get-Content $stderr -Tail 20 -ErrorAction SilentlyContinue)-join " | ")}
-    throw ("KRISHNA Guardian started but Core did not become healthy on 8766."+ $detail)
+    throw ("KRISHNA Guardian started but the newly launched runtime generation did not become healthy on 8766. generation="+$runtimeGeneration+"."+ $detail)
   }
-  Write-Host ("KRISHNA GUARDIAN ONLINE PID {0} | Core health {1}" -f $guardianProc.Id,$healthUrl) -ForegroundColor Green
+  Write-Host ("KRISHNA GUARDIAN ONLINE PID {0} | generation {1} | Core health {2}" -f $guardianProc.Id,$runtimeGeneration,$healthUrl) -ForegroundColor Green
 }
