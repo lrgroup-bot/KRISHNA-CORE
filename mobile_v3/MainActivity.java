@@ -22,6 +22,7 @@ public class MainActivity extends Activity {
   static final int FILE_PICKER=73;
   WebView web;
   Bridge bridge;
+  HawkeyeSensorFusion hawkeyeSensors;
   ValueCallback<Uri[]> fileCallback;
   BroadcastReceiver wakeReceiver=new BroadcastReceiver(){
     @Override public void onReceive(Context context,Intent intent){
@@ -68,6 +69,7 @@ public class MainActivity extends Activity {
   @Override public void onCreate(Bundle b){
     super.onCreate(b);
     ensureNotifications();
+    hawkeyeSensors=new HawkeyeSensorFusion(this);
     HawkeyeBackgroundSync.schedule(this);
     if(Build.VERSION.SDK_INT>=33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED)
       requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},42);
@@ -147,7 +149,7 @@ public class MainActivity extends Activity {
   }
   @Override protected void onResume(){super.onResume();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");startWakeIfReady();if(bridge!=null)new Thread(()->bridge.hawkeyeSyncEvidence()).start();}
   @Override protected void onPause(){emitAsync("mobile_background","KRISHNA Mobile entered background");super.onPause();}
-  @Override protected void onDestroy(){try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}super.onDestroy();}
+  @Override protected void onDestroy(){try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}try{if(hawkeyeSensors!=null)hawkeyeSensors.close();}catch(Exception ignored){}super.onDestroy();}
 
   public class Bridge {
     final HawkeyeEvidenceCuratorBot hawkeyeCurator;
@@ -164,6 +166,10 @@ public class MainActivity extends Activity {
       }
     }
     @JavascriptInterface public String status(){return call("/api/status",null);}
+    @JavascriptInterface public String hawkeyeSensorSnapshot(){
+      try{return hawkeyeSensors==null?new JSONObject().put("available",false).toString():hawkeyeSensors.snapshot().toString();}
+      catch(Exception e){return error(e);}
+    }
     @JavascriptInterface public String connection(){return call("/api/mobile/connection",null);}
     @JavascriptInterface public String resume(long after){
       String raw=call("/api/mobile/resume?after="+after,null);
@@ -313,6 +319,42 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    boolean sensitiveCaptureKey(String key){
+      String k=String.valueOf(key==null?"":key).toLowerCase(java.util.Locale.US).replace("-","_").replace(" ","_");
+      return k.contains("password")||k.equals("passwd")||k.equals("pwd")||k.equals("pin")||k.equals("otp")||
+        k.contains("api_key")||k.contains("token")||k.contains("authorization")||k.contains("credential")||k.contains("secret");
+    }
+
+    String redactCaptureText(String value){
+      String s=String.valueOf(value==null?"":value);
+      s=s.replaceAll("(?i)(password|passwd|pwd|pin|otp|api[_ -]?key|access[_ -]?token|session[_ -]?token|authorization|credential|secret)\\s*[:=]\\s*[^\\s,;]+","$1: [SECRET REDACTED]");
+      s=s.replaceAll("(?i)bearer\\s+[A-Za-z0-9._~+\\-/=]{4,}","Bearer [SECRET REDACTED]");
+      String googleKeyPrefix="AI"+"za";
+      s=s.replaceAll("\\b"+googleKeyPrefix+"[0-9A-Za-z_-]{20,}\\b","[SECRET REDACTED]");
+      return s;
+    }
+
+    Object sanitizeCaptureMetadata(String key,Object value)throws Exception{
+      if(value==null||value==JSONObject.NULL)return JSONObject.NULL;
+      if(sensitiveCaptureKey(key))return "[SECRET REDACTED]";
+      if(value instanceof JSONObject){
+        JSONObject src=(JSONObject)value,dst=new JSONObject();
+        java.util.Iterator<String> it=src.keys();
+        while(it.hasNext()){
+          String child=it.next();
+          dst.put(child,sanitizeCaptureMetadata(child,src.opt(child)));
+        }
+        return dst;
+      }
+      if(value instanceof JSONArray){
+        JSONArray src=(JSONArray)value,dst=new JSONArray();
+        for(int i=0;i<src.length();i++)dst.put(sanitizeCaptureMetadata(key,src.opt(i)));
+        return dst;
+      }
+      if(value instanceof String)return redactCaptureText((String)value);
+      return value;
+    }
+
     @JavascriptInterface public String saveHawkeyeCapture(String dataB64,String mimeType,String kind,String metadataJson){
       try{
         byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
@@ -326,9 +368,9 @@ public class MainActivity extends Activity {
 
         String ext="image/png".equals(type)?".png":("image/webp".equals(type)?".webp":("video/mp4".equals(type)?".mp4":("video/webm".equals(type)?".webm":".jpg")));
         String base="KRISHNA_HAWKEYE_"+System.currentTimeMillis();
-        JSONObject metadata=new JSONObject(metadataJson==null||metadataJson.trim().isEmpty()?"{}":metadataJson);
-        metadata.remove("password");metadata.remove("pin");metadata.remove("otp");metadata.remove("token");metadata.remove("api_key");
+        JSONObject metadata=(JSONObject)sanitizeCaptureMetadata("",new JSONObject(metadataJson==null||metadataJson.trim().isEmpty()?"{}":metadataJson));
         metadata.put("saved_at",System.currentTimeMillis());
+        metadata.put("raw_cloud_upload",false);
         metadata.put("privacy","user-requested local capture; no automatic cloud upload");
 
         JSONObject out=new JSONObject();

@@ -76,6 +76,7 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
 const labels=['FRONT','FRONT-RIGHT','RIGHT','BACK-RIGHT','BACK','BACK-LEFT','LEFT','FRONT-LEFT'];
 let view=0,drag=false,startX=0,startView=0,mode='FLUTE',lastManual=0,autoTimer=null,busy=false,pendingAttachmentIds=[],pairingRequestedAt=0;
 let fieldStream=null,fieldTimer=null,fieldSession='',fieldBusy=false,fieldFrames=0,fieldGoal='automatic live field scan',fieldAudio=false,fieldProbe=null,fieldVideoClipTimer=null,fieldAudioClipTimer=null,fieldMediaBusy=false,fieldReference=null,fieldReferencePending=null;
+function hawkeyeSensors(){try{const x=JSON.parse(Krishna.hawkeyeSensorSnapshot());return x&&typeof x==='object'?x:{available:false};}catch(_){return {available:false,evidence_state:'UNKNOWN'};}}
 const stage=document.getElementById('stage'),sprite=document.getElementById('avatarSprite'),label=document.getElementById('viewLabel'),vp=document.getElementById('avatarViewport');
 function showAvatarView(i,manual=false){view=(i%8+8)%8;sprite.style.transform='translateX('+(-view*12.5)+'%)';label.textContent=labels[view];if(manual)lastManual=Date.now()}
 function step(delta,manual=true){showAvatarView(view+delta,manual)}
@@ -173,7 +174,7 @@ async function recordBoundedMedia(modality,durationMs){
    const rec=new MediaRecorder(stream,opts);rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
    const done=new Promise((resolve,reject)=>{rec.onerror=e=>reject(e.error||new Error('media recorder failed'));rec.onstop=resolve});rec.start();setTimeout(()=>{try{if(rec.state!=='inactive')rec.stop()}catch(_){}},durationMs);await done;
    const blob=new Blob(chunks,{type:rec.mimeType||mime});const max=modality==='audio'?1024*1024:4*1024*1024;if(!blob.size||blob.size>max)return;
-   const b64=await blobBase64(blob),sensors={timestamp_ms:Date.now(),mobile_local_first:true,bounded_clip:true,duration_ms:durationMs};
+   const b64=await blobBase64(blob),sensors={timestamp_ms:Date.now(),mobile_local_first:true,bounded_clip:true,duration_ms:durationMs,sensor_fusion:hawkeyeSensors(),spatial_handoff:{bhumiputra_ready:true,slam_pose_claimed:false,depth_claimed:false,survey_grade:false}};
    const d=JSON.parse(Krishna.hawkeyeCurateMedia(fieldSession,b64,blob.type||mime,modality,JSON.stringify(sensors),fieldGoal,0.55));
    if(d.pc_acknowledged&&d.specialist_dispatch)document.getElementById('cameraAnalysis').textContent+=(document.getElementById('cameraAnalysis').textContent?'\n\n':'')+'Specialist: '+String(d.specialist_dispatch.status||'queued');
  }catch(_){ }finally{for(const t of clones)try{t.stop()}catch(_){}fieldMediaBusy=false}
@@ -223,7 +224,7 @@ async function sampleFieldFrame(){
    canvas.getContext('2d',{alpha:false}).drawImage(video,0,0,canvas.width,canvas.height);
    const dataUrl=canvas.toDataURL('image/jpeg',0.62);
    const b64=dataUrl.split(',')[1]||'';
-   const sensors={timestamp_ms:Date.now(),orientation:'mobile-camera',frame_width:canvas.width,frame_height:canvas.height,mobile_local_first:true,quality:metrics.quality,novelty:metrics.novelty};
+   const sensors={timestamp_ms:Date.now(),orientation:'mobile-camera',frame_width:canvas.width,frame_height:canvas.height,mobile_local_first:true,quality:metrics.quality,novelty:metrics.novelty,sensor_fusion:hawkeyeSensors(),spatial_handoff:{bhumiputra_ready:true,slam_pose_claimed:false,depth_claimed:false,survey_grade:false}};
    if(fieldReference){sensors.reference_id=fieldReference.reference_id;sensors.reference_anchors=fieldReference.reference_anchors;}
    const d=JSON.parse(Krishna.hawkeyeCurateFrame(fieldSession,b64,'image/jpeg',JSON.stringify(sensors),fieldGoal,metrics.quality,metrics.novelty));
    if(d.error)throw new Error(d.error);

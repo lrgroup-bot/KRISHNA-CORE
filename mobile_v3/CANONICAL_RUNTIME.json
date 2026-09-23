@@ -14,9 +14,11 @@
     "HawkeyeBackgroundSync.java",
     "HawkeyeSyncJobService.java",
     "HawkeyeDeviceProfiler.java",
+    "HawkeyeSensorFusion.java",
     "index.html",
     "realtime-client.js",
     "HawkeyeMobileVision.java",
+    "HawkeyeOfflinePerception.java",
     "HawkeyeLanguage.java",
     "HawkeyeHandGesture.java",
     "hawkeye-observer-ui.js"
@@ -72,7 +74,11 @@
     "low_light_guidance": true,
     "mediapipe_hand_gesture_opt_in": true,
     "hand_landmarks_per_hand": 21,
-    "gesture_model_cloud_required": false
+    "gesture_model_cloud_required": false,
+    "local_imu_sensor_fusion": true,
+    "imu_is_slam_pose": false,
+    "depth_requires_real_device_evidence": true,
+    "spatial_keyframe_handoff": true
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
@@ -80,6 +86,7 @@
     "gemini_live": "direct device WebSocket using one-use short-lived token minted by KRISHNA PC",
     "local_first": "ML Kit object/OCR/barcode/pose/face-presence/subject segmentation/language ID/translation remain available without Gemini after required local model downloads",
     "translation": "ML Kit on-device translation; dynamic language models download on Wi-Fi and no Gemini API key is required",
-    "gestures": "MediaPipe Gesture Recognizer runs on-device with bundled hand/gesture model; pose-based hand raise remains a fallback"
+    "gestures": "MediaPipe Gesture Recognizer runs on-device with bundled hand/gesture model; pose-based hand raise remains a fallback",
+    "spatial": "Phone IMU/orientation metadata is attached to curated keyframes for BHOOMIPUTRA/photogrammetry correlation; it is not treated as SLAM, depth, or survey-grade pose by itself"
   }
 }

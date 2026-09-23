@@ -29,11 +29,17 @@ class UniversalLearningRuntime:
     DEEP_CUES=("research","master","deep","verify","cross-check","cross check","find out","elaborate")
     REMEMBER_CUES=("learn","remember","study","master")
     RISHI_ROUTES={
+        "veterinary":"shalihotra","animal health":"shalihotra","livestock":"shalihotra",
+        "agriculture":"parashara","agronomy":"parashara","crop":"parashara","soil":"parashara",
+        "biology":"kashyapa","botany":"kashyapa","zoology":"kashyapa","flower":"kashyapa",
+        "plant":"kashyapa","animal":"kashyapa",
+        "design system":"vishvakarma","frontend":"vishvakarma","ui":"vishvakarma","ux":"vishvakarma",
+        "electronics":"kanada","electrical":"kanada","circuit":"kanada","mechanical":"kanada","vehicle":"kanada",
         "physics":"kanada","material":"kanada","rock":"kanada","mineral":"kanada","machine":"kanada",
         "engineering":"kanada","system":"kapila","cognition":"kapila","behavior":"kapila",
         "language":"patanjali","speech":"patanjali","sound":"patanjali","audio":"patanjali",
         "evidence":"yajnavalkya","epistemology":"yajnavalkya","unknown":"yajnavalkya",
-        "environment":"agastya","plant":"agastya","animal":"agastya","ecology":"agastya",
+        "environment":"agastya","ecology":"agastya",
     }
     SOUND_CLASSES=("speech","music","bird","animal","insect","vehicle","engine","machine","tool",
                    "alarm","impact","water","rain","thunder","wind","fire","environment","unknown")

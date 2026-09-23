@@ -2776,6 +2776,9 @@ class Handler(BaseHTTPRequestHandler):
                     known_identity=str(data.get("known_identity") or ""),
                     identity_basis=str(data.get("identity_basis") or ""),
                     public_clues=data.get("public_clues") or [],
+                    outcome=str(data.get("outcome") or "finding"),
+                    contradictions=data.get("contradictions") if isinstance(data.get("contradictions"),list) else [],
+                    lessons=data.get("lessons") if isinstance(data.get("lessons"),list) else [],
                 )
                 return self._json(201,out)
             except (ValueError,TypeError) as exc:

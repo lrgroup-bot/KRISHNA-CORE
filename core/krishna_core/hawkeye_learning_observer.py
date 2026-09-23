@@ -132,8 +132,11 @@ class HawkeyeLearningObserver:
         known_identity="",
         identity_basis="",
         public_clues=None,
+        outcome="finding",
+        contradictions=None,
+        lessons=None,
     ):
-        source_type = str(source_type or "camera").strip().lower()
+        source_type = re.sub(r"[^a-z0-9]+", "_", str(source_type or "camera").strip().lower()).strip("_")
         if source_type not in self.SOURCE_TYPES:
             source_type = "camera"
 
@@ -153,6 +156,25 @@ class HawkeyeLearningObserver:
         confidence = self._clamp(confidence)
         observation_id = str(uuid.uuid4())
         source_hash = self._source_hash(source_type, source_ref, subject)
+        captured_at = time.time()
+        outcome = str(outcome or "finding").strip().lower()
+        if outcome not in {"finding", "failed_attempt", "incorrect_approach", "negative_result"}:
+            outcome = "finding"
+        contradictions = [
+            FieldPerceptionPolicy.redact_sensitive_text(self._text(x, 1200))
+            for x in (contradictions or []) if self._text(x, 1200)
+        ][:20]
+        lessons = [
+            FieldPerceptionPolicy.redact_sensitive_text(self._text(x, 1200))
+            for x in (lessons or []) if self._text(x, 1200)
+        ][:20]
+        provenance = {
+            "source_ref": source_ref,
+            "source_type": source_type,
+            "source_hash": source_hash,
+            "hawkeye_observation_id": observation_id,
+            "captured_at": captured_at,
+        }
 
         universal = self.universal_learning.ingest(
             utterance=utterance,
@@ -184,13 +206,7 @@ class HawkeyeLearningObserver:
             content=analysis or utterance,
             modality=modality,
             evidence=evidence,
-            provenance={
-                "source_ref": source_ref,
-                "source_type": source_type,
-                "source_hash": source_hash,
-                "hawkeye_observation_id": observation_id,
-                "captured_at": time.time(),
-            },
+            provenance=provenance,
             confidence=confidence,
             novelty=self._clamp(novelty),
             quality=self._clamp(quality),
@@ -210,7 +226,7 @@ class HawkeyeLearningObserver:
         row = {
             "observation_id": observation_id,
             "version": self.VERSION,
-            "created_at": time.time(),
+            "created_at": captured_at,
             "source_type": source_type,
             "source_ref": source_ref,
             "source_hash": source_hash,
@@ -219,12 +235,24 @@ class HawkeyeLearningObserver:
             "finding": analysis,
             "confidence": confidence,
             "evidence_state": state,
+            "knowledge_status": "candidate",
+            "verification_required": True,
+            "learning_outcome": outcome,
+            "contradictions": contradictions,
+            "lessons": lessons,
+            "provenance": provenance,
             "universal_learning_id": universal.get("learning_id"),
             "lead_rishi": brahma.get("lead_rishi") or universal.get("rishi"),
             "rishi_team": [
                 x.get("id") for x in (team.get("members") or []) if x.get("id")
             ],
             "brahma_decision_id": brahma.get("decision_id"),
+            "brahma_reference": {
+                "decision_id": brahma.get("decision_id"),
+                "should_learn": bool(brahma.get("should_learn")),
+                "recorded_finding_id": (brahma.get("recorded_finding") or {}).get("finding_id"),
+                "reviewers": list(brahma.get("reviewers") or []),
+            },
             "research_plan": research,
             "storage_policy": {
                 "raw_media_stored_here": False,
@@ -273,5 +301,7 @@ class HawkeyeLearningObserver:
             "distilled_findings_only": True,
             "face_to_social_search": False,
             "known_identity_public_research": True,
+            "default_knowledge_status": "candidate",
+            "verification_required_before_gyan": True,
             "ready": True,
         }

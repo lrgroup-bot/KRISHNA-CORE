@@ -175,6 +175,7 @@ jobs:
           grep -q '"version": "krishna-mobile-canonical-v1"' app/src/main/assets/canonical-runtime.json
           grep -q '"canonical_android_source": "mobile_v3"' app/src/main/assets/canonical-runtime.json
           grep -q '"package_id": "com.krishna.mobile"' app/src/main/assets/canonical-runtime.json
+          grep -q '"HawkeyeOfflinePerception.java"' app/src/main/assets/canonical-runtime.json
           grep -q "krishna_child_360.webp" app/src/main/assets/index.html
           grep -q "SWIPE TO ROTATE" app/src/main/assets/index.html
           grep -q "showAvatarView" app/src/main/assets/index.html
@@ -239,6 +240,10 @@ jobs:
           grep -q "privacy_faces_masked" app/src/main/assets/hawkeye-observer-ui.js
           grep -q "MEDIAPIPE_GESTURE_RECOGNIZER" app/src/main/java/com/krishna/mobile/HawkeyeHandGesture.java
           grep -q "hawkeyeHandGesture" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "hawkeyeSensorSnapshot" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "ANDROID_SENSOR_MANAGER" app/src/main/java/com/krishna/mobile/HawkeyeSensorFusion.java
+          grep -q "sensor_fusion" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q "spatial_handoff" app/src/main/assets/index.html
           test -s app/src/main/assets/gesture_recognizer.task
           grep -q "user-default-custom-tab" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "HawkeyeOfflinePerception.analyze" app/src/main/java/com/krishna/mobile/MainActivity.java
