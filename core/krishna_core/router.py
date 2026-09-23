@@ -30,6 +30,7 @@ class ModelRouter:
         self.control_plane=None
         self.openrouter_free=None
         self.direct_free=None
+        self.model_scout=None
 
     def bind_openrouter_free(self,fabric):
         self.openrouter_free=fabric
@@ -38,6 +39,10 @@ class ModelRouter:
     def bind_direct_free(self,fabric):
         self.direct_free=fabric
         return {"provider":"direct-free","bound":bool(fabric)}
+
+    def bind_model_scout(self,scout):
+        self.model_scout=scout
+        return {"provider":"model-scout","bound":bool(scout)}
 
     @staticmethod
     def paid_cloud_enabled():
@@ -86,6 +91,23 @@ class ModelRouter:
           {"provider":"ollama","available":ollama_ok,"local":True,"model":os.getenv("KRISHNA_LOCAL_MODEL","qwen2.5:3b"),"credential_source":"none","error":None if ollama_ok else ollama_data.get("error")},
           {"provider":"gpt4all","available":gpt_ok,"local":True,"model":os.getenv("KRISHNA_GPT4ALL_MODEL","auto"),"credential_source":"none","error":None if gpt_ok else gpt_data.get("error")},
         ]
+        if self.model_scout and ollama_ok:
+            installed={str(x.get("name") or x.get("model") or "") for x in (ollama_data.get("models") or [])}
+            for row in self.model_scout.routing_candidates("general",limit=20):
+                model=str(row.get("model_id") or "").strip()
+                if not model:continue
+                out.append({
+                    "provider":"ollama-model:"+model,
+                    "available":model in installed,
+                    "local":True,
+                    "model":model,
+                    "credential_source":"none",
+                    "free_only":True,
+                    "scout_routing_enabled":True,
+                    "task":row.get("task"),
+                    "benchmark_ref":row.get("benchmark_ref"),
+                    "error":None if model in installed else "routing-enabled candidate is not installed in Ollama",
+                })
         for name,p in self.PROVIDERS.items():
             out.append({"provider":name,"available":bool(os.getenv(p["key"])),"local":False,
                         "model":os.getenv(p["model"],p["default"]),"credential_source":"environment","free_only":False})
@@ -144,6 +166,10 @@ class ModelRouter:
 
     def ask(self,provider,prompt):
         if provider=="ollama":return self.local(prompt,os.getenv("KRISHNA_LOCAL_MODEL","qwen2.5:3b"))
+        if provider.startswith("ollama-model:"):
+            model=provider.split(":",1)[1].strip()
+            if not model:raise ValueError("Ollama candidate model is required")
+            return self.local(prompt,model)
         if provider=="gpt4all":return self.gpt4all(prompt,os.getenv("KRISHNA_GPT4ALL_MODEL") or None)
         if provider=="openrouter-free" or provider.startswith("openrouter-free:"):
             if not self.openrouter_free:raise RuntimeError("OpenRouter zero-cost fabric is not configured")
@@ -198,8 +224,18 @@ class ModelRouter:
         roles=["implementation","architecture_review","bug_test_review","security_review"]
         return [{"role":role,"provider":available[i%len(available)]["provider"],"model":available[i%len(available)]["model"]} for i,role in enumerate(roles)] if available else []
 
-    def route(self,prompt,privacy="approved_cloud",free_only=False,project="KRISHNA",actor="model-router"):
+    def route(self,prompt,privacy="approved_cloud",free_only=False,project="KRISHNA",actor="model-router",task="general"):
         local_errors={}
+        if self.model_scout:
+            for row in self.model_scout.routing_candidates(task,limit=5):
+                model=str(row.get("model_id") or "").strip()
+                if not model:continue
+                provider="ollama-model:"+model
+                try:
+                    out=self._governed_ask(provider,prompt,privacy,free_only,project,actor)
+                    if str(out).strip():return {"provider":provider,"model":model,"text":out,"model_scout":True}
+                except Exception as exc:
+                    local_errors[provider]=f"{type(exc).__name__}: {exc}"
         for name in ("ollama","gpt4all"):
             try:
                 out=self._governed_ask(name,prompt,privacy,free_only,project,actor)
