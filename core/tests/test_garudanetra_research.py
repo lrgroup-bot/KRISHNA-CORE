@@ -1,4 +1,5 @@
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 import unittest
 from pathlib import Path
 
@@ -37,6 +38,21 @@ class GarudanetraResearchFabricTests(unittest.TestCase):
             saved=fabric.mission(mid)
             self.assertIn("REDACTED",saved["evidence"][0]["url"])
             self.assertNotIn("secret",saved["evidence"][0]["url"])
+
+    def test_parallel_evidence_ingest_does_not_lose_updates(self):
+        with tempfile.TemporaryDirectory() as td:
+            fabric=GarudanetraResearchFabric(Path(td))
+            row=fabric.create_mission({"question":"Collect parallel evidence safely"})
+            mid=row["mission_id"]
+            def add(i):
+                return fabric.ingest(mid,{
+                    "claim":f"parallel evidence {i}",
+                    "claim_key":f"parallel-{i}",
+                    "stance":"neutral",
+                })
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                list(pool.map(add,range(32)))
+            self.assertEqual(len(fabric.mission(mid)["evidence"]),32)
 
     def test_mission_id_cannot_escape_research_store(self):
         with tempfile.TemporaryDirectory() as td:
