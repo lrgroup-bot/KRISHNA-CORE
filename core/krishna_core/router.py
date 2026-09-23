@@ -278,8 +278,10 @@ class ModelRouter:
             # Preserve independent-review diversity in Auto mode. Prefer/Pin places
             # the owner's chosen worker first and therefore uses index zero.
             row=rows[index % len(rows)] if assignment.get("mode")=="auto" else rows[0]
-            plan.append({"role":role,"provider":row["provider"],"model":row.get("model"),
-                         "mode":assignment.get("mode","auto")})
+            route_provider=row["provider"]
+            public_provider="openrouter-free" if route_provider.startswith("openrouter-free:") else route_provider
+            plan.append({"role":role,"provider":public_provider,"route_provider":route_provider,
+                         "model":row.get("model"),"mode":assignment.get("mode","auto")})
         return plan
 
     def route(self,prompt,privacy="approved_cloud",free_only=False,project="KRISHNA",actor="model-router",role="general"):
@@ -316,6 +318,8 @@ class ModelRouter:
                 out=self._governed_ask(name,prompt,privacy,free_only,project,actor,
                                        model=(local_model if assignment.get("provider")==name else None))
                 if str(out).strip():
+                    if role=="general" and assignment.get("mode","auto")=="auto":
+                        return {"provider":name,"text":out}
                     return {"provider":name,"role":role,"role_mode":assignment.get("mode","auto"),"text":out}
             except Exception as exc:
                 errors[name]=f"{type(exc).__name__}: {exc}"
@@ -328,6 +332,8 @@ class ModelRouter:
                 provider="openrouter-free:"+str(assignment.get("openrouter_role") or "general")
                 text=self._governed_ask(provider,prompt,privacy,True,project,actor)
                 if str(text).strip():
+                    if role=="general" and assignment.get("mode","auto")=="auto":
+                        return {"provider":provider,"text":text,"free_only":True,"zero_cost_verified":True}
                     return {"provider":provider,"role":role,"role_mode":assignment.get("mode","auto"),
                             "text":text,"free_only":True,"zero_cost_verified":True}
             except Exception as exc:
@@ -339,10 +345,12 @@ class ModelRouter:
                 result=self.direct_free.complete(prompt,privacy=privacy)
                 text=str(result.get("text") or "")
                 if text.strip():
-                    return {"provider":result.get("provider_id") or "direct-free:cloudflare-workers-ai",
-                            "role":role,"role_mode":assignment.get("mode","auto"),"text":text,
-                            "free_only":True,"zero_cost_verified":True,
-                            "zero_cost_proof":result.get("zero_cost_proof")}
+                    provider_id=result.get("provider_id") or "direct-free:cloudflare-workers-ai"
+                    base={"provider":provider_id,"text":text,"free_only":True,"zero_cost_verified":True,
+                          "zero_cost_proof":result.get("zero_cost_proof")}
+                    if not (role=="general" and assignment.get("mode","auto")=="auto"):
+                        base.update({"role":role,"role_mode":assignment.get("mode","auto")})
+                    return base
             except Exception as exc:
                 errors["direct-free"]=f"{type(exc).__name__}: {exc}"
 
