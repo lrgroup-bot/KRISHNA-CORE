@@ -175,6 +175,7 @@ jobs:
           grep -q '"version": "krishna-mobile-canonical-v1"' app/src/main/assets/canonical-runtime.json
           grep -q '"canonical_android_source": "mobile_v3"' app/src/main/assets/canonical-runtime.json
           grep -q '"package_id": "com.krishna.mobile"' app/src/main/assets/canonical-runtime.json
+          grep -q '"HawkeyeOfflinePerception.java"' app/src/main/assets/canonical-runtime.json
           grep -q "krishna_child_360.webp" app/src/main/assets/index.html
           grep -q "SWIPE TO ROTATE" app/src/main/assets/index.html
           grep -q "showAvatarView" app/src/main/assets/index.html
