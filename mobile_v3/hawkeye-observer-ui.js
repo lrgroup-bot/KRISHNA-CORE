@@ -744,6 +744,8 @@
     }catch(e){if(typeof reply==="function")reply("Research: "+e.message,"bad");}
   }
 
+  function isLearning(){return !!state.learn;}
+
   function toggleLearn(){
     state.learn=!state.learn;
     const btn=byId("cameraLearn");if(btn){btn.classList.toggle("active",state.learn);btn.textContent=state.learn?"LEARNING":"LEARN";}
@@ -782,5 +784,5 @@
 
   setInterval(()=>{if(cameraActive())activate();else deactivate();},500);
 
-  window.HawkeyeObserverUI={toggleLearn,research,photo,record,detect,richPerception,learningTick,onResearchResult,toggleAI,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
+  window.HawkeyeObserverUI={isLearning,toggleLearn,research,photo,record,detect,richPerception,learningTick,onResearchResult,toggleAI,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
 })();
