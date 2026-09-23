@@ -86,6 +86,12 @@ window.listen=()=>{if(busy)return;if(!Krishna.voiceEnrolled()){reply('Say a natu
  },20)
 }
 
+window.onKrishnaWake=(phrase)=>{
+ reply('KRISHNA wake detected locally. Owner voice check is required before the request is accepted.','good');
+ setMode('LISTENING','WAKE DETECTED');
+ setTimeout(()=>listen(),250);
+}
+
 function cameraPointFromEvent(e){
  const video=document.getElementById('fieldVideo'),r=video.getBoundingClientRect();if(!video.videoWidth||!video.videoHeight)return null;
  const scale=Math.max(r.width/video.videoWidth,r.height/video.videoHeight),dw=video.videoWidth*scale,dh=video.videoHeight*scale,ox=(r.width-dw)/2,oy=(r.height-dh)/2;

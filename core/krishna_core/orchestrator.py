@@ -57,6 +57,7 @@ from .universal_learning import UniversalLearningRuntime
 from .hawkeye_field_platform import HawkeyeFieldPlatform
 from .krishna_observability import KrishnaObservability
 from .hawkeye_geo_engine import HawkeyeGeoEngine
+from .field_survey import FieldSurveyEngine
 from .commitment_ledger import CommitmentLedger
 from .software_factory import SoftwareFactory
 from .ephemeral_workers import EphemeralWorkerRuntime
@@ -140,6 +141,7 @@ class Orchestrator:
         self.universal_learning = UniversalLearningRuntime(runtime_state / "hawkeye" / "universal-learning")
         self.hawkeye_field = HawkeyeFieldPlatform(runtime_state / "hawkeye" / "field")
         self.hawkeye_geo = HawkeyeGeoEngine(runtime_state / "hawkeye" / "geo")
+        self.field_survey = FieldSurveyEngine(runtime_state / "hawkeye" / "field-survey")
         self.hawkeye = HawkeyeCoordinator(
             runtime_state / "hawkeye" / "coordinator",
             bhumiputra=self.bhumiputra,
@@ -1487,6 +1489,41 @@ class Orchestrator:
             )
             return evidence
 
+        def hawkeye_field_survey_metrics(payload,context):
+            return self.field_survey.metrics(payload.get("boundary") or [])
+
+        def hawkeye_field_survey_contains(payload,context):
+            return self.field_survey.contains(
+                payload.get("boundary") or [],payload.get("point") or {}
+            )
+
+        def hawkeye_field_survey_volume(payload,context):
+            return self.field_survey.volume_estimate(
+                payload.get("boundary") or [],payload.get("depth_samples") or []
+            )
+
+        def hawkeye_field_survey_route(payload,context):
+            return self.field_survey.assess_route(
+                payload.get("segments") or [],payload.get("vehicle") or {}
+            )
+
+        def hawkeye_field_survey_export(payload,context):
+            site_id=str(payload.get("site_id") or "field-site").strip() or "field-site"
+            boundary=payload.get("boundary") or []
+            kind=str(payload.get("kind") or "geojson").strip().lower()
+            if kind=="geojson":
+                return {"kind":"geojson","data":self.field_survey.geojson(site_id,boundary,payload.get("properties") or {})}
+            if kind=="kml":
+                return {"kind":"kml","data":self.field_survey.kml(site_id,boundary)}
+            raise ValueError("kind must be geojson or kml")
+
+        def hawkeye_field_survey_record(payload,context):
+            return self.field_survey.record(
+                str(payload.get("site_id") or "field-site"),
+                str(payload.get("kind") or "observation"),
+                payload.get("payload") or {},
+            )
+
         def architecture_truth_scan(payload,context):
             return self.architecture_truth.scan()
 
@@ -2164,6 +2201,43 @@ class Orchestrator:
         self.action_bus.register(
             "hawkeye.diagnostic.acoustic.analyze",hawkeye_diagnostic_acoustic_analyze,
             description="Extract bounded acoustic/vibration measurement features without retaining raw samples",
+            mutating=True,permissions=("evidence.write",),
+            sources=("pc","mobile","system","agent","job"),
+        )
+
+        self.action_bus.register(
+            "hawkeye.field.survey.metrics",hawkeye_field_survey_metrics,
+            description="Calculate evidence-gated field boundary area, perimeter and centroid",
+            permissions=("runtime.read","evidence.read"),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "hawkeye.field.survey.contains",hawkeye_field_survey_contains,
+            description="Check whether a measured point falls within a supplied field boundary",
+            permissions=("runtime.read","evidence.read"),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "hawkeye.field.survey.volume",hawkeye_field_survey_volume,
+            description="Estimate visible survey volume only from supplied depth or height evidence",
+            permissions=("runtime.read","evidence.read"),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "hawkeye.field.survey.route",hawkeye_field_survey_route,
+            description="Screen field-route geometry while preserving unknown width, slope, clearance and load limits",
+            permissions=("runtime.read","evidence.read"),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "hawkeye.field.survey.export",hawkeye_field_survey_export,
+            description="Export a supplied survey boundary as GeoJSON or KML",
+            permissions=("runtime.read","evidence.read"),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "hawkeye.field.survey.record",hawkeye_field_survey_record,
+            description="Persist a bounded field-survey evidence/history item",
             mutating=True,permissions=("evidence.write",),
             sources=("pc","mobile","system","agent","job"),
         )

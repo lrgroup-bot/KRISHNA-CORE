@@ -132,7 +132,7 @@ class HTTPRuntimeTests(unittest.TestCase):
         code,truth=self.call("/api/architecture/truth")
         self.assertEqual(code,200)
         self.assertEqual(truth["component"],"KRISHNA Architecture Truth Audit")
-        self.assertEqual(truth["requirements"]["version"],"2026-09-23-master-product-truth-v2")
+        self.assertEqual(truth["requirements"]["version"],"2026-09-23-master-product-truth-v3")
         self.assertIn("legacy_roots",truth)
         self.assertIn("orphan_candidates",truth)
         self.assertIn("source_tree_drift",truth)
@@ -471,6 +471,36 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertIn(state["hawkeye"]["reasoning"]["conclusion_state"],{
             "SUPPORTED","PRELIMINARY","CONTESTED"
         })
+
+    def test_hawkeye_field_survey_actions_are_evidence_gated(self):
+        boundary=[
+            {"lat":20.3000,"lon":85.8000},
+            {"lat":20.3000,"lon":85.8010},
+            {"lat":20.3010,"lon":85.8010},
+            {"lat":20.3010,"lon":85.8000},
+        ]
+        code,metrics=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.field.survey.metrics","project":"KRISHNA",
+            "permissions":["runtime.read","evidence.read"],
+            "payload":{"boundary":boundary}
+        })
+        self.assertEqual(code,200)
+        self.assertGreater(metrics["result"]["area_m2"],1000)
+        code,volume=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.field.survey.volume","project":"KRISHNA",
+            "permissions":["runtime.read","evidence.read"],
+            "payload":{"boundary":boundary,"depth_samples":[]}
+        })
+        self.assertEqual(code,200)
+        self.assertIsNone(volume["result"]["volume_m3"])
+        self.assertEqual(volume["result"]["evidence_state"],"UNKNOWN")
+        code,exported=self.call("/api/action-bus/dispatch",{
+            "action":"hawkeye.field.survey.export","project":"KRISHNA",
+            "permissions":["runtime.read","evidence.read"],
+            "payload":{"site_id":"acceptance-site","boundary":boundary,"kind":"kml"}
+        })
+        self.assertEqual(code,200)
+        self.assertIn("<kml",exported["result"]["data"])
 
     def test_brahma_memory_intelligence_http_and_action_contracts(self):
         code,receipt=self.call("/api/action-bus/dispatch",{
