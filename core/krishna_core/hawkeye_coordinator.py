@@ -308,11 +308,16 @@ class HawkeyeCoordinator:
     def record_diagnostic_result(self, session_id, result, *, source_refs=None):
         state=str((result or {}).get("evidence_state") or "INFERRED").upper()
         if state not in self.EVIDENCE_STATES:state="INFERRED"
-        return self.record_lane(
+        row=self.record_lane(
             session_id,"diagnostic",result,evidence_state=state,
             confidence=float((result or {}).get("confidence") or 0),
             source_refs=source_refs,
         )
+        # A diagnostic measurement changes the evidence set immediately. Keep
+        # the fused REASONER state synchronized so live/status consumers never
+        # observe fresh diagnostic evidence paired with stale/None reasoning.
+        self.reason(session_id)
+        return row
 
     def add_contradiction(self, session_id, left_ref, right_ref, reason):
         state=self._ensure_state(session_id)
