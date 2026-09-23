@@ -18,6 +18,7 @@
     "index.html",
     "realtime-client.js",
     "HawkeyeMobileVision.java",
+    "HawkeyeOfflinePerception.java",
     "HawkeyeLanguage.java",
     "HawkeyeHandGesture.java",
     "hawkeye-observer-ui.js"
