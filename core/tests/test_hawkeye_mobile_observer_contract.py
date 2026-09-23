@@ -37,9 +37,45 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("photo()",self.ui)
         self.assertIn("record()",self.ui)
 
+    def test_lens_style_rich_perception_is_local(self):
+        vision=(self.mobile/"HawkeyeMobileVision.java").read_text(encoding="utf-8")
+        for token in ("ML_KIT_LOCAL_RICH","TextRecognition","BarcodeScanning","PoseDetection","SubjectSegmentation"):
+            self.assertIn(token,vision)
+        self.assertIn('"identity","UNKNOWN"',vision)
+        self.assertIn('"biometric_web_search",false',vision)
+        self.assertIn("hawkeyeRichPerception",self.activity)
+        self.assertIn("richPerception",self.ui)
+        self.assertIn("recommended_next_scan",self.ui)
+
+    def test_gemini_mobile_uses_pc_credential_and_ephemeral_live_token(self):
+        pc=(self.repo/"core"/"krishna_core"/"gemini_hawkeye.py").read_text(encoding="utf-8")
+        self.assertIn("x-goog-api-key",pc)
+        self.assertIn("KRISHNA_PC_ONLY",pc)
+        self.assertIn("auth_tokens",pc)
+        self.assertIn("hawkeyeGeminiAnalyze",self.activity)
+        self.assertIn("hawkeyeGeminiLiveToken",self.activity)
+        self.assertIn("BidiGenerateContentConstrained",self.ui)
+        self.assertIn("selected_keyframe:true",self.ui)
+        mobile=self.activity+"\n"+self.ui+"\n"+self.index
+        self.assertNotIn("x-goog-api-key",mobile)
+        self.assertNotIn("GEMINI_API_KEY",mobile)
+        self.assertNotIn("AIza",mobile)
+
+    def test_google_lens_is_not_required_for_hawkeye_capture(self):
+        runtime=(self.mobile/"CANONICAL_RUNTIME.json").read_text(encoding="utf-8")
+        self.assertIn('"google_lens_required": false',runtime)
+        self.assertIn('"lens_style_capture_inside_hawkeye": true',runtime)
+        self.assertIn("openResearchQuery",self.activity)
+        self.assertIn("TextRecognition", (self.mobile/"HawkeyeMobileVision.java").read_text(encoding="utf-8"))
+
     def test_apk_build_includes_required_dependencies_and_assets(self):
         self.assertIn("androidx.browser:browser:1.8.0",self.workflow)
         self.assertIn("com.google.mlkit:object-detection:17.0.2",self.workflow)
+        self.assertIn("com.google.mlkit:text-recognition:16.0.1",self.workflow)
+        self.assertIn("com.google.mlkit:text-recognition-devanagari:16.0.1",self.workflow)
+        self.assertIn("com.google.mlkit:barcode-scanning:17.3.0",self.workflow)
+        self.assertIn("com.google.mlkit:pose-detection:18.0.0-beta5",self.workflow)
+        self.assertIn("play-services-mlkit-subject-segmentation:16.0.0-beta1",self.workflow)
         self.assertIn("hawkeye-observer-ui.js",self.workflow)
         self.assertIn("KRISHNA-v3.8-HAWKEYE-Observer-APK",self.workflow)
 
