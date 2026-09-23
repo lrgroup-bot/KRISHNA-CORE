@@ -72,8 +72,31 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/lab/status", "/api/lab/quantum-nano", "/api/lab/experiments", "/api/mobile/runtime", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
-                     "/api/models/gateways", "/api/secure-vault/status", "/api/mobile/pair/pending"):
+                     "/api/models/gateways", "/api/openrouter/free/status", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
+
+    def test_openrouter_zero_cost_runtime_contract_is_present_without_network_use(self):
+        code,status=self.call("/api/openrouter/free/status")
+        self.assertEqual(code,200)
+        self.assertEqual(status["version"],"openrouter-zero-cost-v1")
+        self.assertEqual(status["paid_cloud_default"],"disabled")
+        self.assertTrue(status["zero_cost_policy"]["live_catalog_preflight_required"])
+        self.assertFalse(status["zero_cost_policy"]["paid_fallback"])
+        self.assertEqual(status["zero_cost_policy"]["provider_data_collection"],"deny")
+        self.assertTrue(status["zero_cost_policy"]["provider_zero_data_retention"])
+
+        code,bus=self.call("/api/action-bus")
+        self.assertEqual(code,200)
+        specs={x["name"]:x for x in bus["actions"]}
+        self.assertIn("openrouter.free.complete",specs)
+        self.assertIn("openrouter.free.image",specs)
+        self.assertIn("model.use",specs["openrouter.free.complete"]["permissions"])
+        self.assertIn("media.create",specs["openrouter.free.image"]["permissions"])
+
+        code,pool=self.call("/api/models?project=KRISHNA")
+        self.assertEqual(code,200)
+        self.assertFalse(pool["paid_cloud_enabled"])
+        self.assertIn("openrouter_free",pool)
 
     def test_phase1_mission_checkpoint_lock_and_durable_job_http(self):
         code,mission=self.call("/api/missions/create",{
