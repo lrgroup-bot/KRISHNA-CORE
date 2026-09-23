@@ -376,7 +376,9 @@ class KrishnaCognitiveBrain:
             exact = list(self.state["alias_index"].get(wanted) or [])
             concepts = json.loads(json.dumps(self.state["concepts"]))
         if exact:
-            return {"query": str(query), "concept_id": exact[0], "score": 1.0, "match": "exact"}
+            active_exact = [cid for cid in exact if not (concepts.get(cid) or {}).get("dormant")]
+            if active_exact:
+                return {"query": str(query), "concept_id": active_exact[0], "score": 1.0, "match": "exact"}
         wanted_terms = set(wanted.split())
         ranked = []
         for cid, row in concepts.items():
