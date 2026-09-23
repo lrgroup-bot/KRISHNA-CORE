@@ -21,6 +21,14 @@ public class MainActivity extends Activity {
   WebView web;
   Bridge bridge;
   ValueCallback<Uri[]> fileCallback;
+  BroadcastReceiver wakeReceiver=new BroadcastReceiver(){
+    @Override public void onReceive(Context context,Intent intent){
+      if(intent==null||!KrishnaWakeService.ACTION_WAKE.equals(intent.getAction()))return;
+      String phrase=intent.getStringExtra("phrase");
+      if(web!=null)runOnUiThread(()->web.evaluateJavascript(
+        "window.onKrishnaWake&&window.onKrishnaWake("+JSONObject.quote(phrase==null?"Krishna":phrase)+")",null));
+    }
+  };
 
   static final String NOTIFY_CHANNEL="krishna_completed";
   String deviceId(){
@@ -39,6 +47,20 @@ public class MainActivity extends Activity {
     Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,NOTIFY_CHANNEL):new Notification.Builder(this);
     b.setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle("KRISHNA completed work").setContentText(text).setAutoCancel(true);
     ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify((int)(System.currentTimeMillis()&0x7fffffff),b.build());
+  }
+
+  void startWakeIfReady(){
+    boolean enrolled=getSharedPreferences("k",0).getString("voiceprint","").startsWith("v3:");
+    boolean mic=Build.VERSION.SDK_INT<23||checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED;
+    if(!enrolled||!mic)return;
+    Intent i=new Intent(this,KrishnaWakeService.class).setAction(KrishnaWakeService.ACTION_START);
+    try{if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);}catch(Exception ignored){}
+  }
+  void stopWakeService(){
+    try{
+      Intent i=new Intent(this,KrishnaWakeService.class).setAction(KrishnaWakeService.ACTION_STOP);
+      startService(i);
+    }catch(Exception ignored){stopService(new Intent(this,KrishnaWakeService.class));}
   }
 
   @Override public void onCreate(Bundle b){
@@ -100,8 +122,12 @@ public class MainActivity extends Activity {
     });
     bridge=new Bridge();
     web.addJavascriptInterface(bridge,"Krishna");
+    IntentFilter wakeFilter=new IntentFilter(KrishnaWakeService.ACTION_WAKE);
+    if(Build.VERSION.SDK_INT>=33)registerReceiver(wakeReceiver,wakeFilter,Context.RECEIVER_NOT_EXPORTED);
+    else registerReceiver(wakeReceiver,wakeFilter);
     setContentView(web);
     web.loadUrl("file:///android_asset/index.html");
+    startWakeIfReady();
   }
 
   @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
@@ -117,8 +143,9 @@ public class MainActivity extends Activity {
     if(bridge==null)return;
     new Thread(()->bridge.event(kind,detail)).start();
   }
-  @Override protected void onResume(){super.onResume();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");if(bridge!=null)new Thread(()->bridge.hawkeyeSyncEvidence()).start();}
+  @Override protected void onResume(){super.onResume();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");startWakeIfReady();if(bridge!=null)new Thread(()->bridge.hawkeyeSyncEvidence()).start();}
   @Override protected void onPause(){emitAsync("mobile_background","KRISHNA Mobile entered background");super.onPause();}
+  @Override protected void onDestroy(){try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}super.onDestroy();}
 
   public class Bridge {
     final HawkeyeEvidenceCuratorBot hawkeyeCurator;
@@ -203,11 +230,16 @@ public class MainActivity extends Activity {
     @JavascriptInterface public String hawkeyeOfflineFrame(String sessionId,String dataB64,String contentType,String sensorJson,String goal){
       try{
         byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);JSONObject sensors=new JSONObject(sensorJson==null||sensorJson.trim().isEmpty()?"{}":sensorJson);
+        JSONObject local=HawkeyeOfflinePerception.analyze(MainActivity.this,sessionId,bytes);
         sensors.put("curator_selected",true);sensors.put("curator_goal",goal==null?"":goal);sensors.put("offline_capture",true);
-        JSONObject meta=HawkeyeEdgeMemory.rememberMedia(MainActivity.this,sessionId,"offline-frame",bytes,contentType,"image",sensors,0.5,"OBSERVED","encrypted offline fallback");
+        sensors.put("offline_perception",local);
+        double quality="LOW".equals(local.optString("capture_quality"))?0.25:0.65;
+        JSONObject meta=HawkeyeEdgeMemory.rememberMedia(MainActivity.this,sessionId,"offline-frame",bytes,contentType,"image",sensors,quality,"OBSERVED",local.optString("analysis","offline local probe"));
         HawkeyeEdgeMemory.enforceBudget(MainActivity.this,128L*1024L*1024L,48,24L*60L*60L*1000L);
         JSONObject d=new JSONObject();d.put("ok",true);d.put("mode","HAWKEYE_FIELD");d.put("stored_local",true);d.put("encrypted_at_rest",true);
-        d.put("observation_id",meta.optString("observation_id"));d.put("analysis","Encrypted offline evidence saved; bounded background sync will retry when KRISHNA is reachable.");return d.toString();
+        d.put("observation_id",meta.optString("observation_id"));d.put("offline_perception",local);
+        d.put("analysis",local.optString("analysis")+" Encrypted evidence saved; bounded sync will retry when KRISHNA is reachable.");
+        return d.toString();
       }catch(Exception e){return error(e);}
     }
 
@@ -383,9 +415,23 @@ public class MainActivity extends Activity {
         String fp=VoicePrint.capture(MainActivity.this,3200);
         getSharedPreferences("k",0).edit().putString("voiceprint",fp).putString("speaker_engine",SPEAKER_ENGINE).putBoolean("voice_enrolled",true).apply();
         event("voice_enrolled","Local owner voice gate enrolled; device authentication remains authoritative");
-        return "{\"ok\":true,\"engine\":\""+SPEAKER_ENGINE+"\",\"security_authority\":\"device_credential\"}";
+        startWakeIfReady();
+        JSONObject out=new JSONObject();out.put("ok",true);out.put("engine",SPEAKER_ENGINE);out.put("security_authority","device_credential");
+        out.put("wake",KrishnaWakeService.capability(MainActivity.this));return out.toString();
       }catch(Exception e){return error(e);}
     }
+    @JavascriptInterface public String wakeStatus(){
+      try{return KrishnaWakeService.capability(MainActivity.this).toString();}catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String wakeStart(){
+      startWakeIfReady();
+      return wakeStatus();
+    }
+    @JavascriptInterface public String wakeStop(){
+      stopWakeService();
+      return wakeStatus();
+    }
+
     @JavascriptInterface public String verifyVoice(){
       try{
         String enrolled=getSharedPreferences("k",0).getString("voiceprint","");
