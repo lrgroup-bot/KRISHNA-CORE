@@ -211,8 +211,9 @@ class ModelRouter:
         result=receipt.get("result") or {}
         return str(result.get("text") or "")
 
-    def _automatic_candidates(self,privacy="approved_cloud",free_only=False,role="general"):
-        rows=[x for x in self.available() if x.get("available")]
+    def _automatic_candidates(self,privacy="approved_cloud",free_only=False,role="general",available_rows=None):
+        source=self.available() if available_rows is None else available_rows
+        rows=[x for x in source if x.get("available")]
         locals_=[dict(x) for x in rows if x.get("local")]
         if privacy in {"local_only","restricted"}:
             return locals_
@@ -231,13 +232,14 @@ class ModelRouter:
             return cloud+locals_
         return locals_+cloud
 
-    def _role_selected_row(self,role,privacy="approved_cloud",free_only=False):
+    def _role_selected_row(self,role,privacy="approved_cloud",free_only=False,available_rows=None):
         assignment=self.role_assignment(role)
         provider=self._role_target_provider(role,assignment.get("provider"))
         if assignment.get("mode")=="auto" or not provider:
             return None
         base_provider="openrouter-free" if provider.startswith("openrouter-free:") else provider
-        rows={x.get("provider"):x for x in self.available()}
+        source=self.available() if available_rows is None else available_rows
+        rows={x.get("provider"):x for x in source}
         row=rows.get(base_provider)
         if not row or not row.get("available"):
             raise RuntimeError(f"AI role {role} selected provider is unavailable: {provider}")
@@ -260,28 +262,29 @@ class ModelRouter:
         selected["zero_cost_verified"]=verified
         return selected
 
-    def role_plan(self,role,privacy="approved_cloud",free_only=False):
+    def role_plan(self,role,privacy="approved_cloud",free_only=False,available_rows=None):
         assignment=self.role_assignment(role)
         selected=None
         try:
-            selected=self._role_selected_row(role,privacy,free_only)
+            selected=self._role_selected_row(role,privacy,free_only,available_rows)
         except Exception:
             if assignment.get("mode")=="pin":
                 raise
         if selected and assignment.get("mode")=="pin":
             return [selected]
-        candidates=self._automatic_candidates(privacy,free_only,role)
+        candidates=self._automatic_candidates(privacy,free_only,role,available_rows)
         if selected:
             key=(selected.get("provider"),selected.get("model"))
             candidates=[x for x in candidates if (x.get("provider"),x.get("model"))!=key]
             candidates.insert(0,selected)
         return candidates
 
-    def coding_plan(self,privacy="approved_cloud",free_only=False):
+    def coding_plan(self,privacy="approved_cloud",free_only=False,available_rows=None):
         roles=["implementation","architecture_review","bug_test_review","security_review"]
+        snapshot=self.available() if available_rows is None else available_rows
         plan=[]
         for index,role in enumerate(roles):
-            rows=self.role_plan(role,privacy,free_only)
+            rows=self.role_plan(role,privacy,free_only,snapshot)
             if not rows:continue
             assignment=self.role_assignment(role)
             row=rows[index % len(rows)] if assignment.get("mode")=="auto" else rows[0]
@@ -291,14 +294,15 @@ class ModelRouter:
                          "model":row.get("model"),"mode":assignment.get("mode","auto")})
         return plan
 
-    def research_plan(self,privacy="approved_cloud",free_only=True):
+    def research_plan(self,privacy="approved_cloud",free_only=True,available_rows=None):
         roles=[
             "rishi_research","rishi_counter_evidence","rishi_debate","gautama_review",
             "bharadvaja_test_plan","lab_hypothesis","lab_result_analysis","vyasa_synthesis",
         ]
+        snapshot=self.available() if available_rows is None else available_rows
         out=[]
         for role in roles:
-            rows=self.role_plan(role,privacy,free_only)
+            rows=self.role_plan(role,privacy,free_only,snapshot)
             first=rows[0] if rows else None
             out.append({
                 "role":role,
@@ -391,7 +395,8 @@ class ModelRouter:
         errors={}
         local_result=None
         cloud_result=None
-        local_rows=[x for x in self.available() if x.get("available") and x.get("local")]
+        snapshot=self.available()
+        local_rows=[x for x in snapshot if x.get("available") and x.get("local")]
         for row in local_rows:
             try:
                 local_result=self._run_candidate(row,prompt,"local_only",True,project,actor+"-local")
@@ -403,7 +408,7 @@ class ModelRouter:
             assignment=self.role_assignment(role)
             openrouter_role=str(assignment.get("openrouter_role") or "reasoning")
             cloud_candidates=[]
-            rows={x.get("provider"):x for x in self.available() if x.get("available")}
+            rows={x.get("provider"):x for x in snapshot if x.get("available")}
             if "openrouter-free" in rows:
                 item=dict(rows["openrouter-free"]);item["provider"]="openrouter-free:"+openrouter_role
                 cloud_candidates.append(item)
