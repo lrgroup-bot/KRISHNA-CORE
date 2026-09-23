@@ -80,8 +80,8 @@ class OpenRouterFreeFabric:
         pricing = dict(pricing or {})
         required = ("prompt", "completion")
         if image_output:
-            # Image models may report only token-style pricing in /models. Any
-            # numeric generation-related field that is non-zero blocks execution.
+            # Image models may report token-style or generation-specific pricing.
+            # Missing/opaque pricing is never interpreted as free.
             required = ()
         for key in required:
             value = cls._decimal(pricing.get(key))
@@ -92,14 +92,20 @@ class OpenRouterFreeFabric:
             "prompt", "completion", "request", "internal_reasoning",
             "image", "images", "output_image", "audio", "video",
         }
-        if not vision:
+        if not vision and not image_output:
             relevant.discard("image")
+        numeric_seen=0
         for key, raw in pricing.items():
             if key not in relevant:
                 continue
             value = cls._decimal(raw)
-            if value is not None and value != 0:
+            if value is None:
+                continue
+            numeric_seen+=1
+            if value != 0:
                 return False
+        if image_output and numeric_seen==0:
+            return False
         return True
 
     @staticmethod
