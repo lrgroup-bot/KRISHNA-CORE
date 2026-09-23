@@ -78,7 +78,11 @@
     "local_imu_sensor_fusion": true,
     "imu_is_slam_pose": false,
     "depth_requires_real_device_evidence": true,
-    "spatial_keyframe_handoff": true
+    "spatial_keyframe_handoff": true,
+    "hawkeye_rishi_live_research_handoff": true,
+    "hawkeye_learning_requires_learn_toggle": true,
+    "hawkeye_research_model_privacy_default": "local_only",
+    "hawkeye_gyan_auto_approval": false
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
@@ -87,6 +91,7 @@
     "local_first": "ML Kit object/OCR/barcode/pose/face-presence/subject segmentation/language ID/translation remain available without Gemini after required local model downloads",
     "translation": "ML Kit on-device translation; dynamic language models download on Wi-Fi and no Gemini API key is required",
     "gestures": "MediaPipe Gesture Recognizer runs on-device with bundled hand/gesture model; pose-based hand raise remains a fallback",
-    "spatial": "Phone IMU/orientation metadata is attached to curated keyframes for BHOOMIPUTRA/photogrammetry correlation; it is not treated as SLAM, depth, or survey-grade pose by itself"
+    "spatial": "Phone IMU/orientation metadata is attached to curated keyframes for BHOOMIPUTRA/photogrammetry correlation; it is not treated as SLAM, depth, or survey-grade pose by itself",
+    "learning_verification": "Distilled HAWKEYE candidates can run through Rishi Live -> Garuda -> Gautama -> Gyan proposal gate without raw-media transfer; automatic model escalation remains local-only"
   }
 }

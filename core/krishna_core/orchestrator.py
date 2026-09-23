@@ -3534,6 +3534,75 @@ class Orchestrator:
         )
         return receipt.get("result") or {}
 
+    def hawkeye_research_observation(self, observation_id):
+        request=self.hawkeye_observer.research_request(observation_id)
+        if not request.get("eligible"):
+            return self.hawkeye_observer.record_research(
+                observation_id,"NOT_REQUIRED",
+                {"knowledge_status":"candidate","verification_required":True,
+                 "summary":request.get("reason") or "research not required"},
+            )
+        existing=self.hawkeye_observer.research_status(observation_id)
+        if str(existing.get("status") or "").upper()=="COMPLETED":
+            return {**existing,"deduplicated":True}
+
+        self.hawkeye_observer.record_research(
+            observation_id,"RUNNING",
+            {"knowledge_status":"candidate","verification_required":True,
+             "summary":"Rishi research/cross-check started through the canonical action bus."},
+        )
+        try:
+            payload=dict(request["payload"])
+            receipt=self.dispatch_action(
+                "brahmagyan.live.run",payload,project="KRISHNA",source="pc",
+                actor="hawkeye-learning-observer",
+                permissions=("web.read","model.use","evidence.write","memory.write"),
+            )
+            result=receipt.get("result") or {}
+            run=result.get("run") or {}
+            mission=result.get("mission") or {}
+            dossier=result.get("dossier") or {}
+            score=dossier.get("scorecard") or {}
+            proposal_ids=[]
+            for item in result.get("gyan_proposals") or []:
+                proposal=(item or {}).get("proposal") or {}
+                pid=proposal.get("approval_id") or proposal.get("proposal_id")
+                if pid and pid not in proposal_ids:proposal_ids.append(str(pid))
+            synthesis=result.get("synthesis") or {}
+            knowledge_status="proposal_pending" if proposal_ids else "candidate_reviewed"
+            event=self.hawkeye_observer.record_research(
+                observation_id,"COMPLETED",
+                {
+                    "knowledge_status":knowledge_status,
+                    "verification_required":True,
+                    "run_id":run.get("run_id"),
+                    "mission_id":mission.get("mission_id"),
+                    "gyan_proposal_ids":proposal_ids,
+                    "trusted_ready_claims":score.get("trusted_ready_claims") or 0,
+                    "unresolved_contradictions":score.get("unresolved_contradictions") or 0,
+                    "summary":synthesis.get("summary") or (
+                        "Research/cross-check completed; knowledge remains gated until Gyan approval."
+                    ),
+                },
+            )
+            return {
+                **event,
+                "research_policy":request.get("policy") or {},
+                "gyan_proposal_count":len(proposal_ids),
+                "gyan_auto_approved":False,
+            }
+        except Exception as exc:
+            self.hawkeye_observer.record_research(
+                observation_id,"FAILED",
+                {
+                    "knowledge_status":"candidate",
+                    "verification_required":True,
+                    "error":f"{type(exc).__name__}: {exc}",
+                    "summary":"Research failed; the HAWKEYE finding remains candidate knowledge.",
+                },
+            )
+            raise
+
     def brahmagyan_live_status(self,run_id=None,project=None,limit=50):
         if run_id:return self.rishi_live.get(run_id)
         return {"status":self.rishi_live.status(),"runs":self.rishi_live.list(project,limit)}

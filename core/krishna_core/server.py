@@ -2784,6 +2784,15 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError,TypeError) as exc:
                 return self._json(400,{"error":str(exc)})
 
+        if post_path == "/api/hawkeye/learn/research":
+            observation_id=str(data.get("observation_id") or "").strip()
+            if not observation_id:return self._json(400,{"error":"observation_id is required"})
+            try:return self._json(200,orch.hawkeye_research_observation(observation_id))
+            except KeyError:return self._json(404,{"error":"HAWKEYE observation not found"})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
         if post_path == "/api/hawkeye/evidence/ingest":
             mobile_session_id=str(data.get("session_id") or "").strip() or "mobile-evidence"
             raw_b64=str(data.get("data_b64") or "").strip()

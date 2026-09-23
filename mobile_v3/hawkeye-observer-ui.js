@@ -500,6 +500,7 @@
     return currentAnalysis()
       .split("\nLearning route:")[0]
       .split("\nKnowledge status:")[0]
+      .split("\nResearch:")[0]
       .trim();
   }
 
@@ -553,7 +554,34 @@
         const verification=learned.verification_required===false?"":" / verification required";
         byId("cameraAnalysis").textContent=base+"\nLearning route: "+learned.lead_rishi+team+"\nKnowledge status: "+status+verification;
       }
+      if(learned.research_required&&learned.observation_id&&Krishna.hawkeyeResearchObservation){
+        try{
+          const queued=JSON.parse(Krishna.hawkeyeResearchObservation(String(learned.observation_id)));
+          if(queued.queued){
+            byId("cameraAnalysis").textContent=currentAnalysis().split("\nResearch:")[0]+
+              "\nResearch: queued · local-first Rishi/Garuda/Gautama verification";
+          }
+        }catch(_){}
+      }
     }catch(_){}
+  }
+
+  function onResearchResult(raw){
+    let result={};
+    try{result=typeof raw==="string"?JSON.parse(raw):raw||{};}catch(_){result={error:"invalid research result"};}
+    const box=byId("cameraAnalysis");if(!box)return;
+    const base=currentAnalysis().split("\nResearch:")[0];
+    if(result.error){
+      box.textContent=base+"\nResearch: failed · candidate retained · "+String(result.error).slice(0,180);
+      return;
+    }
+    const status=String(result.status||"COMPLETED").toLowerCase();
+    const knowledge=String(result.knowledge_status||"candidate");
+    const proposals=Number(result.gyan_proposal_count||((result.gyan_proposal_ids||[]).length)||0);
+    const contradiction=Number(result.unresolved_contradictions||0);
+    box.textContent=base+"\nResearch: "+status+" · "+knowledge+
+      (proposals?" · Gyan proposals "+proposals:"")+
+      (contradiction?" · contradictions "+contradiction:"");
   }
 
   function sensorSnapshot(){
@@ -716,6 +744,8 @@
     }catch(e){if(typeof reply==="function")reply("Research: "+e.message,"bad");}
   }
 
+  function isLearning(){return !!state.learn;}
+
   function toggleLearn(){
     state.learn=!state.learn;
     const btn=byId("cameraLearn");if(btn){btn.classList.toggle("active",state.learn);btn.textContent=state.learn?"LEARNING":"LEARN";}
@@ -754,5 +784,5 @@
 
   setInterval(()=>{if(cameraActive())activate();else deactivate();},500);
 
-  window.HawkeyeObserverUI={toggleLearn,research,photo,record,detect,richPerception,learningTick,toggleAI,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
+  window.HawkeyeObserverUI={isLearning,toggleLearn,research,photo,record,detect,richPerception,learningTick,onResearchResult,toggleAI,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
 })();
