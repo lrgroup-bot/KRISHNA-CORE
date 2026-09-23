@@ -60,7 +60,7 @@ class HTTPRuntimeTests(unittest.TestCase):
 
     def test_read_endpoints(self):
         for path in ("/health", "/api/status", "/api/dashboard", "/api/capabilities",
-                     "/api/projects", "/api/plugins", "/api/specialists", "/api/specialist-teams", "/api/resources",
+                     "/api/projects", "/api/project-brain?project=KRISHNA", "/api/plugins", "/api/specialists", "/api/specialist-teams", "/api/resources",
                      "/api/tasks", "/api/missions", "/api/missions/status", "/api/queue", "/api/queue/status",
                      "/api/resource-locks", "/api/events", "/api/protocol", "/api/models/providers",
                      "/api/core/state", "/api/core/neural-state",
@@ -74,6 +74,34 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/vision/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/openrouter/free/status", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
+
+    def test_project_brain_runtime_contract(self):
+        code,bus=self.call("/api/action-bus")
+        self.assertEqual(code,200)
+        specs={x["name"]:x for x in bus["actions"]}
+        for name in ("project.brain.provision","project.brain.status","project.brain.record"):
+            self.assertIn(name,specs)
+
+        code,provision=self.call("/api/action-bus/dispatch",{
+            "action":"project.brain.provision","project":"KRISHNA",
+            "permissions":["project.write"],"payload":{"project":"KRISHNA"},
+        })
+        self.assertEqual(code,200)
+        self.assertTrue(provision["result"]["complete"])
+        self.assertFalse(provision["result"]["source_tree_mutation"])
+
+        code,record=self.call("/api/action-bus/dispatch",{
+            "action":"project.brain.record","project":"KRISHNA",
+            "permissions":["project.write"],
+            "payload":{"project":"KRISHNA","section":"Tests and Verification","message":"HTTP Project Brain contract passed"},
+        })
+        self.assertEqual(code,200)
+        self.assertTrue(record["result"]["recorded"])
+
+        code,brain=self.call("/api/project-brain?project=KRISHNA")
+        self.assertEqual(code,200)
+        self.assertTrue(brain["governance"]["complete"])
+        self.assertEqual(brain["governance"]["governance_owner"],"Sudarshan")
 
     def test_vishvakarma_design_and_model_scout_runtime_contracts(self):
         code,status=self.call("/api/design/status")
