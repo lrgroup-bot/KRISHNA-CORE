@@ -18,6 +18,8 @@ import json
 import time
 import uuid
 
+from .quantum_nano_lab import QuantumNanoLab
+
 
 @dataclass(frozen=True)
 class LabAdapter:
@@ -43,6 +45,7 @@ class LabBot:
     PHYSICAL_MODES = frozenset({"measurement", "fabrication", "wet_lab"})
     REVIEWED_DOMAINS = frozenset({
         "biology", "biomedical", "medicine", "pharmacology", "chemistry", "wet_lab",
+        "nanotechnology", "nanomaterials", "quantum_hardware", "quantum_materials",
     })
 
     def __init__(self, state_root):
@@ -50,6 +53,7 @@ class LabBot:
         self.root.mkdir(parents=True, exist_ok=True)
         self._lock = RLock()
         self._adapters: dict[str, LabAdapter] = {}
+        self.quantum_nano = QuantumNanoLab()
         self.register_adapter(
             "simulation",
             capabilities=("simulate", "dry_run", "protocol_validate"),
@@ -337,7 +341,9 @@ class LabBot:
             "physical_adapters_connected": sum(1 for x in adapters if x["physical"] and x["connected"]),
             "capability_classes": [
                 "simulation", "measurement", "fabrication", "wet_lab", "imaging", "acoustics",
+                "quantum", "nanotechnology", "quantum_materials", "nanophotonics",
             ],
+            "quantum_nano": self.quantum_nano.status(),
             "future_adapter_targets": [
                 "PyLabRobot-compatible lab automation",
                 "Opentrons Python Protocol API",
