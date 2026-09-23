@@ -325,7 +325,11 @@ class OpenRouterFreeFabric:
                 ],
                 "max_tokens": max(1, min(int(max_tokens), 8192)),
                 "temperature": 0.2,
-                "provider": {"allow_fallbacks": False},
+                "provider": {
+                    "allow_fallbacks": False,
+                    "data_collection": "deny",
+                    "zdr": True,
+                },
             }
             try:
                 data = self.gateway.request_json(profile["id"], "/chat/completions", payload=payload, method="POST", timeout=120)
@@ -496,5 +500,7 @@ class OpenRouterFreeFabric:
                 "provider_reported_nonzero_cost": "policy violation",
                 "paid_fallback": False,
                 "stale_catalog_execution": False,
+                "provider_data_collection": "deny",
+                "provider_zero_data_retention": True,
             },
         }
