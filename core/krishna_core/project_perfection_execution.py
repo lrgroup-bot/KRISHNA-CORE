@@ -474,10 +474,17 @@ class ArtifactExecutor:
             steps.append({"name":"grant_"+permission.rsplit(".",1)[-1].lower(),"permission":permission,**grant})
         permission_dump=self._cmd([adb,"shell","dumpsys","package",package_id],45)
         permission_text=permission_dump.get("output","")
-        permission_verified={
-            permission: (permission in permission_text and "granted=true" in permission_text[permission_text.find(permission):permission_text.find(permission)+500])
-            for permission in ("android.permission.CAMERA","android.permission.RECORD_AUDIO","android.permission.POST_NOTIFICATIONS")
-        }
+        permission_verified={}
+        for permission in ("android.permission.CAMERA","android.permission.RECORD_AUDIO","android.permission.POST_NOTIFICATIONS"):
+            # dumpsys can mention a permission first in requested/install sections and
+            # only later in "runtime permissions". Parse every exact permission entry
+            # rather than slicing from the first occurrence, which can create a false
+            # negative even after `pm grant` succeeds.
+            matches=re.findall(
+                rf"(?m)^\s*{re.escape(permission)}\s*:\s*granted=(true|false)\b",
+                permission_text,
+            )
+            permission_verified[permission]=bool(matches and matches[-1].lower()=="true")
         launch=self._launch_android_app(adb,package_id)
         steps.append({"name":"launch",**launch})
         steps.append({"name":"process_alive",**launch["process"]})
