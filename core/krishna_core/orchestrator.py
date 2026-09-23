@@ -51,6 +51,7 @@ from .bhumiputra import BhumiputraAgent
 from .hawkeye_learning import HawkeyeLearningRuntime
 from .hawkeye_coordinator import HawkeyeCoordinator
 from .hawkeye_diagnostic import HawkeyeDiagnosticRuntime
+from .diagnostic_adapters import DiagnosticAdapterRegistry
 from .hawkeye_reference import HawkeyeReferenceRegistry
 from .universal_learning import UniversalLearningRuntime
 from .hawkeye_field_platform import HawkeyeFieldPlatform
@@ -131,7 +132,9 @@ class Orchestrator:
         self.hawkeye_learning = HawkeyeLearningRuntime(runtime_state / "hawkeye" / "learning")
         self.hawkeye_reference = HawkeyeReferenceRegistry(runtime_state / "hawkeye" / "references")
         self.hawkeye_diagnostic = HawkeyeDiagnosticRuntime(runtime_state / "hawkeye" / "diagnostic")
+        self.diagnostic_adapters = DiagnosticAdapterRegistry()
         self.hawkeye_diagnostic.bind_reference_registry(self.hawkeye_reference)
+        self.hawkeye_diagnostic.bind_adapters(self.diagnostic_adapters)
         self.universal_learning = UniversalLearningRuntime(runtime_state / "hawkeye" / "universal-learning")
         self.hawkeye_field = HawkeyeFieldPlatform(runtime_state / "hawkeye" / "field")
         self.hawkeye_geo = HawkeyeGeoEngine(runtime_state / "hawkeye" / "geo")
@@ -1426,6 +1429,59 @@ class Orchestrator:
                 str(payload.get("project") or context.get("project") or "KRISHNA"),
             )
 
+        def hawkeye_diagnostic_adapters_status(payload,context):
+            return self.diagnostic_adapters.status()
+
+        def hawkeye_diagnostic_electronics_measure(payload,context):
+            session_id=str(payload.get("session_id") or "").strip()
+            if not session_id:raise ValueError("session_id is required")
+            evidence=self.hawkeye_diagnostic.ingest_electronics_measurements(
+                session_id,payload.get("measurements") or [],
+                source=str(payload.get("source") or "instrument"),
+                reference_id=payload.get("reference_id"),
+                captured_at=payload.get("captured_at"),
+                circuit_state=str(payload.get("circuit_state") or "unknown"),
+            )
+            self.hawkeye.record_diagnostic_result(
+                session_id,
+                {**evidence,"analysis":f"{evidence['measurement_count']} electronics measurement(s) captured.",
+                 "confidence":1.0},
+                source_refs=[evidence["fingerprint"]],
+            )
+            return evidence
+
+        def hawkeye_diagnostic_vehicle_read(payload,context):
+            session_id=str(payload.get("session_id") or "").strip()
+            if not session_id:raise ValueError("session_id is required")
+            evidence=self.hawkeye_diagnostic.ingest_vehicle_frames(
+                session_id,str(payload.get("protocol") or ""),payload.get("frames") or [],
+                source=str(payload.get("source") or "vehicle-interface"),
+                captured_at=payload.get("captured_at"),
+            )
+            self.hawkeye.record_diagnostic_result(
+                session_id,
+                {**evidence,"analysis":f"{evidence['frame_count']} read-only vehicle frame(s) captured.",
+                 "confidence":1.0},
+                source_refs=[evidence["fingerprint"]],
+            )
+            return evidence
+
+        def hawkeye_diagnostic_acoustic_analyze(payload,context):
+            session_id=str(payload.get("session_id") or "").strip()
+            if not session_id:raise ValueError("session_id is required")
+            evidence=self.hawkeye_diagnostic.ingest_acoustic_samples(
+                session_id,payload.get("samples") or [],payload.get("sample_rate"),
+                source=str(payload.get("source") or "microphone"),
+                axis=payload.get("axis"),captured_at=payload.get("captured_at"),
+            )
+            self.hawkeye.record_diagnostic_result(
+                session_id,
+                {**evidence,"analysis":"Bounded acoustic/vibration features captured; fault interpretation still requires baseline/reference evidence.",
+                 "confidence":1.0},
+                source_refs=[evidence["fingerprint"]],
+            )
+            return evidence
+
         def architecture_truth_scan(payload,context):
             return self.architecture_truth.scan()
 
@@ -2074,6 +2130,31 @@ class Orchestrator:
             description="Evaluate configured web/mobile privacy release gates for Sudarshan",
             permissions=("privacy.read","release.verify"),
             sources=("pc","system","agent","job"),
+        )
+
+        self.action_bus.register(
+            "hawkeye.diagnostic.adapters.status",hawkeye_diagnostic_adapters_status,
+            description="Inspect read-only electronics, vehicle and acoustic diagnostic evidence adapter contracts",
+            permissions=("runtime.read",),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "hawkeye.diagnostic.electronics.measure",hawkeye_diagnostic_electronics_measure,
+            description="Record supplied electronics instrument measurements as MEASURED HAWKEYE evidence",
+            mutating=True,permissions=("evidence.write",),
+            sources=("pc","mobile","system","agent","job"),
+        )
+        self.action_bus.register(
+            "hawkeye.diagnostic.vehicle.read",hawkeye_diagnostic_vehicle_read,
+            description="Record receive-only OBD/CAN/CAN-FD/J1939 evidence; transmission/programming is prohibited",
+            mutating=True,permissions=("evidence.write",),
+            sources=("pc","mobile","system","agent","job"),
+        )
+        self.action_bus.register(
+            "hawkeye.diagnostic.acoustic.analyze",hawkeye_diagnostic_acoustic_analyze,
+            description="Extract bounded acoustic/vibration measurement features without retaining raw samples",
+            mutating=True,permissions=("evidence.write",),
+            sources=("pc","mobile","system","agent","job"),
         )
 
         self.action_bus.register(
