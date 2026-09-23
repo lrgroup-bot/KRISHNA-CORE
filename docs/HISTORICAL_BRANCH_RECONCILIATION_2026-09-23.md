@@ -63,3 +63,22 @@ fabric and the later C6/C7/quantum/nano/project-perfection work.
 
 Divergent historical branches remain reference evidence only and must never
 override the canonical branch automatically.
+
+## Final PR #91 unique-capability reconciliation
+
+A second audit of the still-open historical consolidation PR found four useful
+capabilities that were not fully represented by the first reconciliation merge.
+They are now ported onto the canonical architecture rather than merging the
+divergent branch wholesale:
+
+- runtime-owned structured Project Brain governance layers,
+- verified-only task-relevant Rishi Vishvakarma retrieval and permanent council
+  registration,
+- Shared Action/API surfaces for design intelligence, Vishvakarma, Project Brain
+  and benchmark-required Model Scout recommendations,
+- an internal Dockview Design Intelligence panel without adding sidebar clutter.
+
+The Model Scout port deliberately keeps the stricter canonical rule added later:
+no candidate is admitted without benchmark evidence, and recommendation never
+grants download, activation, routing or cloud-spend authority.
+
