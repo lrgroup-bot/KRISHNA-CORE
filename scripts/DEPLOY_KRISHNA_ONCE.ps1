@@ -336,11 +336,16 @@ if(!$SkipStart){
   }
 
   $runtimeGeneration=[guid]::NewGuid().ToString("N")
-  $guardianProc=Start-Process powershell -ArgumentList @(
-    "-NoProfile","-ExecutionPolicy","Bypass","-File",$guardian,
-    "-RuntimeRoot",$Runtime,"-SourceRoot",$Source,
-    "-RuntimeGeneration",$runtimeGeneration
-  ) -WindowStyle Hidden -PassThru
+  $guardianStdout=Join-Path $Runtime "logs\guardian-bootstrap.stdout.log"
+  $guardianStderr=Join-Path $Runtime "logs\guardian-bootstrap.stderr.log"
+  # Start-Process joins ArgumentList arrays into one command line and strips the
+  # outer PowerShell string quotes. Runtime/source paths contain spaces, so build
+  # one explicitly quoted argument string as recommended by Microsoft.
+  $guardianArgs='-NoProfile -ExecutionPolicy Bypass -File "'+$guardian+'" -RuntimeRoot "'+$Runtime+'" -SourceRoot "'+$Source+'" -RuntimeGeneration "'+$runtimeGeneration+'"'
+  $guardianProc=Start-Process -FilePath "powershell.exe" -ArgumentList $guardianArgs `
+    -WindowStyle Hidden -PassThru `
+    -RedirectStandardOutput $guardianStdout `
+    -RedirectStandardError $guardianStderr
 
   $healthUrl="http://127.0.0.1:8766/health"
   $online=$false
@@ -357,6 +362,8 @@ if(!$SkipStart){
     $stderr=Join-Path $Runtime "logs\core-runtime.stderr.log"
     $detail=""
     if(Test-Path $guardianState){$detail+=" guardian_state="+(Get-Content -Raw $guardianState)}
+    if(Test-Path $guardianStderr){$detail+=" guardian_stderr="+((Get-Content $guardianStderr -Tail 20 -ErrorAction SilentlyContinue)-join " | ")}
+    if(Test-Path $guardianStdout){$detail+=" guardian_stdout="+((Get-Content $guardianStdout -Tail 20 -ErrorAction SilentlyContinue)-join " | ")}
     if(Test-Path $stderr){$detail+=" stderr="+((Get-Content $stderr -Tail 20 -ErrorAction SilentlyContinue)-join " | ")}
     throw ("KRISHNA Guardian started but the newly launched runtime generation did not become healthy on 8766. generation="+$runtimeGeneration+"."+ $detail)
   }

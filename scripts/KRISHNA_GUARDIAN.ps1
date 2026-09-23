@@ -70,7 +70,11 @@ while($true){
   Write-GuardianEvent "CORE_START" @{restart_count=$restartCount;guardian_pid=$PID}
   $startScript=Join-Path $RuntimeRoot "scripts\START_KRISHNA.ps1"
   if(!(Test-Path $startScript)){throw "START_KRISHNA.ps1 missing: $startScript"}
-  $p=Start-Process powershell -ArgumentList @("-NoProfile","-ExecutionPolicy","Bypass","-File",$startScript,"-KrishnaRoot",$RuntimeRoot,"-SourceRoot",$SourceRoot) -PassThru -WindowStyle Hidden -RedirectStandardOutput $coreStdout -RedirectStandardError $coreStderr
+  # START_KRISHNA.ps1 and RuntimeRoot live under "E:\Krishna-The GOD".
+  # Quote every path-bearing argument explicitly; Start-Process otherwise flattens
+  # ArgumentList and can split paths containing spaces before PowerShell sees them.
+  $coreArgs='-NoProfile -ExecutionPolicy Bypass -File "'+$startScript+'" -KrishnaRoot "'+$RuntimeRoot+'" -SourceRoot "'+$SourceRoot+'"'
+  $p=Start-Process -FilePath "powershell.exe" -ArgumentList $coreArgs -PassThru -WindowStyle Hidden -RedirectStandardOutput $coreStdout -RedirectStandardError $coreStderr
   Save-State @{status="RUNNING";guardian_pid=$PID;core_pid=$p.Id;runtime_generation=$RuntimeGeneration;restart_count=$restartCount;started=(Get-Date).ToUniversalTime().ToString("o");stdout=$coreStdout;stderr=$coreStderr}
   $p.WaitForExit()
   $end=[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
