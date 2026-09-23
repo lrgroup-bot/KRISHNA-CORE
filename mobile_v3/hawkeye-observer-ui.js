@@ -288,11 +288,11 @@
     if(meta.contains_biometrics||meta.contains_credentials||meta.private_document){if(typeof reply==="function")reply("Gemini Live is blocked for this sensitive scene; HAWKEYE stays local.","warn");return;}
     try{
       const token=JSON.parse(Krishna.hawkeyeGeminiLiveToken(JSON.stringify(meta)));if(token.error)throw new Error(token.error);
-      const url="wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?access_token="+encodeURIComponent(token.token);
+      const url="wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token="+encodeURIComponent(token.token);
       const ws=new WebSocket(url);state.liveSocket=ws;
       const btn=byId("cameraGeminiLive");if(btn){btn.classList.add("active");btn.textContent="G-LIVE…";}
       ws.onopen=()=>{
-        ws.send(JSON.stringify({setup:{model:"models/"+token.live_model,responseModalities:["AUDIO"]}}));
+        ws.send(JSON.stringify({setup:{model:"models/"+token.live_model,generationConfig:{responseModalities:["AUDIO"]},outputAudioTranscription:{}}}));
         state.liveVideoTimer=setInterval(()=>{
           if(!state.liveSocket||state.liveSocket.readyState!==WebSocket.OPEN)return;
           const f=captureFrame(640,0.52);if(f&&f.b64)state.liveSocket.send(JSON.stringify({realtimeInput:{video:{data:f.b64,mimeType:"image/jpeg"}}}));
