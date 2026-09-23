@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DockviewReact, themeDark } from 'dockview-react';
 import { Background, Controls, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import { Canvas } from '@react-three/fiber';
@@ -32,6 +32,60 @@ function SudarshanPanel() {
         <span>Active Work</span><span>Verification</span><span>System Load</span>
       </div>
       <p className="muted">Operational controls are injected only after their Shared Action contract is available; this shell does not render fake action buttons.</p>
+    </section>
+  );
+}
+
+type DesignStatus = {
+  design?: { version?: string; knowledge_bound?: boolean; hard_acceptance_checks?: string[] };
+  vishvakarma?: { name?: string; verified?: number; candidate?: number };
+  project_lifecycle?: { vishvakarma_bound?: boolean; design_engine_bound?: boolean };
+  model_scout?: { evaluated?: number; active_candidates?: number; cloud_billing_authority?: boolean };
+};
+
+function DesignPanel() {
+  const [status, setStatus] = useState<DesignStatus | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/design/status', { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<DesignStatus>;
+      })
+      .then((data) => setStatus(data))
+      .catch((reason: unknown) => {
+        if ((reason as { name?: string })?.name !== 'AbortError') {
+          setError(reason instanceof Error ? reason.message : String(reason));
+        }
+      });
+    return () => controller.abort();
+  }, []);
+
+  return (
+    <section className="panel-content">
+      <div className="eyebrow">SUDARSHAN DESIGN · INTERNAL</div>
+      <h2>Vishvakarma design intelligence</h2>
+      <p className="muted">
+        Design knowledge is provenance-backed. Candidate lessons remain unverified until review,
+        and completion requires rendered functional, visual, responsive, accessibility and security evidence.
+      </p>
+      {error ? <p className="muted">Runtime status unavailable: {error}</p> : null}
+      <div className="bento">
+        <article className="card">
+          <strong>{status?.vishvakarma?.name ?? 'Rishi Vishvakarma'}</strong>
+          <span>Verified findings: {status?.vishvakarma?.verified ?? '—'} · Candidate: {status?.vishvakarma?.candidate ?? '—'}</span>
+        </article>
+        <article className="card">
+          <strong>Design Engine</strong>
+          <span>{status?.design?.knowledge_bound ? 'Knowledge bound' : 'Awaiting runtime status'} · hard gates: {status?.design?.hard_acceptance_checks?.length ?? '—'}</span>
+        </article>
+        <article className="card">
+          <strong>Local Model Scout</strong>
+          <span>Accepted candidates: {status?.model_scout?.active_candidates ?? '—'} · billing authority: {status?.model_scout?.cloud_billing_authority ? 'yes' : 'no'}</span>
+        </article>
+      </div>
     </section>
   );
 }
@@ -156,6 +210,7 @@ export default function App() {
     krishna: KrishnaHome,
     sudarshan: SudarshanPanel,
     narad: NaradPanel,
+    design: DesignPanel,
     graph: NeuralGraphPanel,
     avatar: AvatarPanel,
     terminal: TerminalPanel,
@@ -182,6 +237,7 @@ export default function App() {
             event.api.addPanel({ id: 'sudarshan-work', component: 'sudarshan', title: 'Sudarshan' });
             event.api.addPanel({ id: 'action-graph', component: 'graph', title: 'Action Graph' });
             event.api.addPanel({ id: 'narad', component: 'narad', title: 'Automations' });
+            event.api.addPanel({ id: 'design-intelligence', component: 'design', title: 'Design Intelligence' });
             event.api.addPanel({ id: 'avatar-stage', component: 'avatar', title: 'Avatar / Spatial' });
             event.api.addPanel({ id: 'terminal', component: 'terminal', title: 'Terminal' });
             event.api.addPanel({ id: 'plugins', component: 'plugins', title: 'Plugins' });
