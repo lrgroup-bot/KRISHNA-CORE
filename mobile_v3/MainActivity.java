@@ -242,7 +242,7 @@ public class MainActivity extends Activity {
             CustomTabsIntent tab=new CustomTabsIntent.Builder().setShowTitle(true).build();
             tab.launchUrl(MainActivity.this,Uri.parse(url));
           }catch(Exception e){
-            startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));
+            MainActivity.this.startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));
           }
         });
         JSONObject out=new JSONObject();out.put("ok",true);out.put("url",url);
