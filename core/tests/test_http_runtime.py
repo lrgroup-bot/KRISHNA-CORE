@@ -161,6 +161,12 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(status["canonical_browser"],"playwright")
         self.assertTrue(status["policy"]["jetbot_is_not_a_competing_authority"])
 
+        code,bus=self.call("/api/action-bus")
+        self.assertEqual(code,200)
+        specs={x["name"]:x for x in bus["actions"]}
+        self.assertTrue(specs["garudanetra.research.analyze"]["mutating"])
+        self.assertTrue(specs["garudanetra.research.handoff"]["mutating"])
+
         code,created=self.call("/api/action-bus/dispatch",{
             "action":"garudanetra.research.create","project":"KRISHNA",
             "permissions":["browser.research","evidence.write"],
