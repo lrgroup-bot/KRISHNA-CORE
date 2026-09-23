@@ -38,6 +38,18 @@ class GarudanetraResearchFabricTests(unittest.TestCase):
             self.assertIn("REDACTED",saved["evidence"][0]["url"])
             self.assertNotIn("secret",saved["evidence"][0]["url"])
 
+    def test_mission_id_cannot_escape_research_store(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            outside=root/"state"/"garudanetra"/"outside.json"
+            outside.parent.mkdir(parents=True,exist_ok=True)
+            outside.write_text('{"secret":"must-not-read"}',encoding="utf-8")
+            fabric=GarudanetraResearchFabric(root)
+            with self.assertRaises(KeyError):
+                fabric.mission("../../outside")
+            with self.assertRaises(KeyError):
+                fabric.mission("..\\..\\outside")
+
     def test_persisted_evidence_redacts_credentials_with_kabach_policy(self):
         with tempfile.TemporaryDirectory() as td:
             fabric=GarudanetraResearchFabric(Path(td))
