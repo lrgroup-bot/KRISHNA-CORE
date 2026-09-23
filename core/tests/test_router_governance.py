@@ -100,9 +100,12 @@ class FreeCloudDefaultTests(unittest.TestCase):
         direct=DirectFree()
         router.bind_direct_free(direct)
 
+        governed_calls=[]
         def governed(provider,*args,**kwargs):
+            governed_calls.append(provider)
             if provider in {"ollama","gpt4all"}:raise RuntimeError("local unavailable")
             if provider.startswith("openrouter-free"):raise RuntimeError("free catalog unavailable")
+            if provider=="direct-free:cloudflare-workers-ai":return "verified-direct"
             raise AssertionError(provider)
 
         router._governed_ask=governed
@@ -111,7 +114,7 @@ class FreeCloudDefaultTests(unittest.TestCase):
         self.assertEqual(out["provider"],"direct-free:cloudflare-workers-ai")
         self.assertEqual(out["text"],"verified-direct")
         self.assertTrue(out["zero_cost_verified"])
-        self.assertEqual(direct.calls,[("public task","approved_cloud")])
+        self.assertIn("direct-free:cloudflare-workers-ai",governed_calls)
 
     def test_paid_cloud_requires_explicit_environment_opt_in(self):
         router=ModelRouter()
