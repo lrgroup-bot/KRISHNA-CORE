@@ -71,9 +71,13 @@ jobs:
               applicationId 'com.krishna.mobile'
               minSdk 26
               targetSdk 35
-              versionCode 37
-              versionName '3.7.0'
+              versionCode 38
+              versionName '3.8.0'
             }
+          }
+          dependencies {
+            implementation 'androidx.browser:browser:1.10.0'
+            implementation 'com.google.mlkit:object-detection:17.0.2'
           }
           EOF
 
@@ -190,6 +194,11 @@ jobs:
           grep -q "edgeSamplingMs" app/src/main/assets/index.html
           grep -q 'android.permission.ACCESS_NETWORK_STATE' app/src/main/AndroidManifest.xml
           grep -q "hawkeyeOfflineFrame" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "hawkeyeDetectObjects" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "openResearchBrowser" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "saveHawkeyeCapture" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "ML_KIT_OBJECT_TRACKER" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
+          grep -q "user-default-custom-tab" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "HawkeyeOfflinePerception.analyze" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "ANDROID_LOCAL_LIGHTWEIGHT_PROBE" app/src/main/java/com/krishna/mobile/HawkeyeOfflinePerception.java
           grep -q "semantic_model_configured" app/src/main/java/com/krishna/mobile/HawkeyeOfflinePerception.java
