@@ -4,7 +4,6 @@ import { Background, Controls, ReactFlow, type Edge, type Node } from '@xyflow/r
 import { Canvas } from '@react-three/fiber';
 import { Terminal } from '@xterm/xterm';
 import { Bot, Boxes, PlugZap, ShieldCheck, Workflow } from 'lucide-react';
-import { Button } from './components/ui/Button';
 
 function KrishnaHome() {
   return (
@@ -32,7 +31,25 @@ function SudarshanPanel() {
       <div className="status-strip">
         <span>Active Work</span><span>Verification</span><span>System Load</span>
       </div>
-      <Button disabled title="Runtime endpoint binding is verified during deployment">Start verified work</Button>
+      <p className="muted">Operational controls are injected only after their Shared Action contract is available; this shell does not render fake action buttons.</p>
+    </section>
+  );
+}
+
+function NaradPanel() {
+  return (
+    <section className="panel-content">
+      <div className="eyebrow">NARAD · INTERNAL</div>
+      <h2>Automation + messages</h2>
+      <p className="muted">
+        Workflows, triggers, connections, checkpoints, dead letters, history, inbox and outbox share one provider-neutral surface.
+        Sending remains a separate approval-gated provider action.
+      </p>
+      <div className="bento">
+        <article className="card"><strong>Workflows</strong><span>Typed DAG + checkpoints + bounded retries.</span></article>
+        <article className="card"><strong>Inbox / Outbox</strong><span>Durable message state with secret redaction.</span></article>
+        <article className="card"><strong>Connections</strong><span>Credential references only; no plaintext secrets in UI state.</span></article>
+      </div>
     </section>
   );
 }
@@ -63,19 +80,43 @@ function NeuralGraphPanel() {
   );
 }
 
+function VrindavanEnvironment() {
+  return (
+    <>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.15, 0]}>
+        <circleGeometry args={[7, 64]} />
+        <meshStandardMaterial roughness={0.95} />
+      </mesh>
+      <mesh position={[-2.2, -0.65, -1.8]}>
+        <cylinderGeometry args={[0.16, 0.22, 1.7, 18]} />
+        <meshStandardMaterial roughness={1} />
+      </mesh>
+      <mesh position={[-2.2, 0.45, -1.8]}>
+        <sphereGeometry args={[0.85, 24, 18]} />
+        <meshStandardMaterial roughness={0.9} />
+      </mesh>
+      <mesh position={[2.2, -0.9, -1.9]} scale={[2.6, 0.12, 0.9]}>
+        <boxGeometry />
+        <meshStandardMaterial metalness={0.05} roughness={0.32} />
+      </mesh>
+    </>
+  );
+}
+
 function AvatarPanel() {
   return (
     <div className="avatar-panel">
-      <Canvas camera={{ position: [0, 0, 4], fov: 45 }}>
+      <Canvas camera={{ position: [0, 0.2, 4.8], fov: 45 }}>
         <ambientLight intensity={1.4} />
         <directionalLight position={[3, 4, 5]} intensity={2} />
-        <mesh>
-          <icosahedronGeometry args={[1, 2]} />
+        <VrindavanEnvironment />
+        <mesh position={[0, 0, 0]}>
+          <icosahedronGeometry args={[0.9, 2]} />
           <meshStandardMaterial roughness={0.28} metalness={0.22} />
         </mesh>
       </Canvas>
       <div className="avatar-caption">
-        Spatial runtime ready. The private child GLB is loaded only after the production rig/viseme inspector passes.
+        Vrindavan-inspired local spatial stage. The private child GLB replaces the placeholder only after the production rig/viseme/animation inspector passes.
       </div>
     </div>
   );
@@ -114,6 +155,7 @@ export default function App() {
   const components = useMemo(() => ({
     krishna: KrishnaHome,
     sudarshan: SudarshanPanel,
+    narad: NaradPanel,
     graph: NeuralGraphPanel,
     avatar: AvatarPanel,
     terminal: TerminalPanel,
@@ -124,11 +166,11 @@ export default function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand"><Bot size={22} /><span>KRISHNA</span></div>
-        <nav>
-          <button className="nav-item nav-item--active"><Bot size={18} />KRISHNA</button>
-          <button className="nav-item"><Workflow size={18} />Sudarshan</button>
+        <nav aria-label="Main Menu">
+          <div className="nav-item nav-item--active"><Bot size={18} /><span>KRISHNA</span></div>
+          <div className="nav-item"><Workflow size={18} /><span>Sudarshan</span></div>
           <div className="nav-spacer" />
-          <button className="nav-item"><PlugZap size={18} />Plugins</button>
+          <div className="nav-item"><PlugZap size={18} /><span>Plugins</span></div>
         </nav>
       </aside>
       <main className="workspace">
@@ -139,7 +181,8 @@ export default function App() {
             event.api.addPanel({ id: 'krishna-home', component: 'krishna', title: 'KRISHNA' });
             event.api.addPanel({ id: 'sudarshan-work', component: 'sudarshan', title: 'Sudarshan' });
             event.api.addPanel({ id: 'action-graph', component: 'graph', title: 'Action Graph' });
-            event.api.addPanel({ id: 'avatar-stage', component: 'avatar', title: 'Avatar' });
+            event.api.addPanel({ id: 'narad', component: 'narad', title: 'Automations' });
+            event.api.addPanel({ id: 'avatar-stage', component: 'avatar', title: 'Avatar / Spatial' });
             event.api.addPanel({ id: 'terminal', component: 'terminal', title: 'Terminal' });
             event.api.addPanel({ id: 'plugins', component: 'plugins', title: 'Plugins' });
           }}
