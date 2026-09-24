@@ -63,7 +63,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/projects", "/api/plugins", "/api/specialists", "/api/specialist-teams", "/api/resources",
                      "/api/tasks", "/api/missions", "/api/missions/status", "/api/queue", "/api/queue/status",
                      "/api/resource-locks", "/api/events", "/api/protocol", "/api/models/providers",
-                     "/api/core/state", "/api/core/neural-state",
+                     "/api/core/state", "/api/core/neural-state", "/api/hawkeye/free-cloud/status",
                      "/api/project-graph", "/api/recovery/ladder", "/api/incidents",
                      "/api/garuda/status", "/api/commitments", "/api/autonomy/status", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/gyan-bhandar/inventory?project=KRISHNA", "/api/software-factory/workers/status",
