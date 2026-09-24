@@ -1,6 +1,8 @@
 param(
   [switch]$SkipStart,
   [switch]$SkipAcceptance,
+  [switch]$PrivateRemote,
+  [string]$TailscaleExe = "E:\TailScale\tailscale.exe",
   [string]$Branch = ""
 )
 $ErrorActionPreference="Stop"
@@ -537,6 +539,10 @@ if(!$SkipStart){
   # outer PowerShell string quotes. Runtime/source paths contain spaces, so build
   # one explicitly quoted argument string as recommended by Microsoft.
   $guardianArgs='-NoProfile -ExecutionPolicy Bypass -File "'+$guardian+'" -RuntimeRoot "'+$Runtime+'" -SourceRoot "'+$Source+'" -RuntimeGeneration "'+$runtimeGeneration+'"'
+  if($PrivateRemote){
+    $guardianArgs+=' -PrivateRemote'
+    if($TailscaleExe){$guardianArgs+=' -TailscaleExe "'+$TailscaleExe+'"'}
+  }
   $guardianProc=Start-Process -FilePath "powershell.exe" -ArgumentList $guardianArgs `
     -WindowStyle Hidden -PassThru `
     -RedirectStandardOutput $guardianStdout `
