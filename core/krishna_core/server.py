@@ -899,7 +899,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/avatar/asset-audit":
             return self._json(200,avatar_asset_status())
         if path == "/api/avatar/performance":
-            return self._json(200,{"bible":orch.agi.avatar.performance_bible(),"runtime":orch.agi.avatar.status()})
+            return self._json(200,{**orch.agi.avatar.performance_bible(),"runtime":orch.agi.avatar.status()})
         if path == "/api/avatar/age":
             return self._json(200,orch.agi.avatar_age.status())
         if path == "/api/character":
