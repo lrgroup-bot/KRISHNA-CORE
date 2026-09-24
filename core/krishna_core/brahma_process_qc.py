@@ -104,6 +104,8 @@ class BrahmaProcessQC:
         p=event.get("payload") if isinstance(event.get("payload"),dict) else {};spec=p.get("spec") if isinstance(p.get("spec"),dict) else {}
         aid=str(p.get("action_id") or event.get("event_id") or "");action=str(p.get("action") or "").strip()
         if not aid or not action:return None
+        if str(p.get("actor") or "").strip().lower()=="brahma-qc":
+            return {"attempted":False,"blocked":True,"reason":"BRAHMA retry already failed; recursive retry blocked"}
         if spec.get("mutating") or spec.get("requires_approval"):
             return {"attempted":False,"blocked":True,"reason":"change requires KRISHNA approval/verified promotion"}
         if aid in self._retried:return {"attempted":False,"blocked":True,"reason":"safe retry already attempted"}
