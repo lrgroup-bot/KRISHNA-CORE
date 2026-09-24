@@ -26,13 +26,14 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
 .cameraActions{position:absolute;left:12px;right:62px;top:50px;z-index:10;pointer-events:auto;display:flex;gap:6px;flex-wrap:wrap}.cameraAction{height:34px;border-radius:12px;border:1px solid #45d4e8;background:#041623dd;color:#bdf9ff;padding:0 10px;font-size:9px;font-weight:800;letter-spacing:.4px}.cameraAction.active{border-color:#50f0ac;color:#50f0ac}.cameraAction.recording{border-color:#ff7189;color:#ff7189}
 .composer input[type=text]{min-width:0;background:transparent;color:#fff;border:0;outline:0;padding:10px}.composer select{max-width:74px;background:#061c29;color:#bdf9ff;border:1px solid #246173;border-radius:12px;padding:7px 4px;font-size:10px}.composer button{height:42px;border-radius:50%;border:1px solid #40dff4;background:#073148;color:#bdf9ff;font-size:17px}.composer .send{background:#116f87;color:#fff}.good{color:#50f0ac}.bad{color:#ff7189}.warn{color:#f2c96f}
 .security{font-size:9px;text-align:center;color:#6f91a0;margin-top:7px;letter-spacing:.25px}
+.gitaControls{display:none;justify-content:center;gap:8px;margin:5px 0 7px}.gitaControls.active{display:flex}.gitaControls button{border:1px solid #826f39;background:#171407;color:#f4d88b;border-radius:14px;padding:7px 11px;font-size:11px;font-weight:800}
 </style></head>
 <body><div class="app">
 <header><div class="brand">KRISHNA</div><div id="state" class="state" title="Tap to configure the private KRISHNA PC link" onclick="configurePc()">CONNECTING</div></header>
 <section id="stage" class="stage">
   <div class="halo"></div><div id="rotateHint" class="rotateHint">SWIPE TO ROTATE · 360°</div>
   <div id="avatarViewport" class="avatarViewport"><img id="avatarSprite" class="sprite" src="krishna_child_360.webp" alt="KRISHNA child avatar"><div id="viewLabel" class="viewLabel">FRONT</div></div>
-  <div id="bubble" class="bubble">Radhe Radhe. I am ready.</div>
+  <div id="bubble" class="bubble">କୁହ ପାର୍ଥ, କଣ ସହାୟତା ଦରକାର?</div>
   <div id="cameraLayer" class="cameraLayer">
     <video id="fieldVideo" autoplay playsinline muted></video>
     <canvas id="fieldCanvas" hidden></canvas>
@@ -58,7 +59,12 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
   </div>
 </section>
 <footer class="bottom">
- <div id="reply" class="reply">Talk to KRISHNA.</div>
+ <div id="reply" class="reply">କୃଷ୍ଣଙ୍କ ସହ କଥା ହୁଅନ୍ତୁ।</div>
+ <div id="gitaControls" class="gitaControls" aria-label="Gita playback controls">
+   <button onclick="gitaControl('previous')">◀ ପଛକୁ</button>
+   <button onclick="gitaControl('repeat')">↻ ପୁଣି</button>
+   <button onclick="gitaControl('next')">ଆଗକୁ ▶</button>
+ </div>
  <div class="composer">
    <button onclick="startFieldScan()" aria-label="Hawkeye live camera scan">◉</button>
    <button onclick="document.getElementById('attach').click()" aria-label="Attach photo or file">＋</button>
@@ -89,7 +95,8 @@ function reply(text,cls=''){const e=document.getElementById('reply');e.className
 function speechLocale(text=''){const value=String(text||'');if(/[\u0B00-\u0B7F]/.test(value))return'or-IN';if(/[\u0900-\u097F]/.test(value))return'hi-IN';return document.getElementById('voiceLang')?.value||'en-IN'}
 function speak(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang=speechLocale(t);speechSynthesis.speak(u)}catch(e){}}
 
-window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','KRISHNA is working…');reply('KRISHNA is thinking…');setTimeout(()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const d=JSON.parse(Krishna.chatWithAttachments(q,JSON.stringify(pendingAttachmentIds.slice(0,3))));if(d.error)throw new Error(d.error);pendingAttachmentIds=[];const text=d.reply||d.text||'Done';reply(text);setMode(d.avatar_state||'TALKING',text);speak(text)}catch(e){reply(e.message,'bad');setMode('CHAT','Connection error')}finally{busy=false}},20)}
+window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','କୃଷ୍ଣ କାମ କରୁଛନ୍ତି…');reply('କୃଷ୍ଣ ଭାବୁଛନ୍ତି…');setTimeout(()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const d=JSON.parse(Krishna.chatWithAttachments(q,JSON.stringify(pendingAttachmentIds.slice(0,3))));if(d.error)throw new Error(d.error);pendingAttachmentIds=[];const text=d.reply||d.text||'ସମ୍ପୂର୍ଣ୍ଣ';reply(text);setMode(d.avatar_state||'TALKING',text);const gc=document.getElementById('gitaControls');if(gc)gc.classList.toggle('active',d.capability==='gita-gyan');speak(text)}catch(e){reply(e.message,'bad');setMode('CHAT','ସଂଯୋଗ ତ୍ରୁଟି')}finally{busy=false}},20)}
+window.gitaControl=(action)=>{const i=document.getElementById('msg');if(!i||busy)return;if(action==='repeat')i.value='ପୁଣି କୁହ';else if(action==='previous')i.value='ପଛକୁ';else i.value='ଆଗକୁ';send()}
 
 window.listen=()=>{if(busy)return;if(!Krishna.voiceEnrolled()){reply('Say a natural sentence for a few seconds to create your local owner voice gate.','warn');setTimeout(()=>{const d=JSON.parse(Krishna.enrollVoice());if(d.error){reply(d.error,'bad');return}reply('Owner voice gate enrolled locally. Tap the microphone again and say “Krishna” before your request.','good')},80);return}
  reply('Say “Krishna” to verify the local owner voice gate…','warn');setMode('LISTENING','OWNER CHECK');
