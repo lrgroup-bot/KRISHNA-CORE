@@ -1,5 +1,5 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-import json, time, threading, base64, sys, uuid, os, mimetypes
+import json, time, threading, base64, sys, uuid, os, mimetypes, re
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
@@ -905,7 +905,30 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/character":
             return self._json(200,orch.agi.character.status())
         if path == "/api/gita/status":
-            return self._json(200,orch.gita_gyan.status())
+            return self._json(200,{**orch.gita_gyan.status(),"session_runtime":orch.gita_shloka.status()})
+        if path == "/api/gita/session":
+            return self._json(200,orch.gita_gyan.session_status())
+        if path == "/api/gita/verse":
+            try:
+                chapter=int((query.get("chapter") or [""])[0])
+                verse=int((query.get("verse") or [""])[0])
+                language=str((query.get("language") or ["or"])[0]).strip().lower() or "or"
+                depth=str((query.get("depth") or ["deep"])[0]).strip().lower() or "deep"
+                explain=str((query.get("explain") or ["1"])[0]).strip().lower() not in {"0","false","no"}
+                return self._json(200,orch.gita_verse(chapter,verse,language,depth,explain))
+            except (TypeError,ValueError) as exc:
+                return self._json(400,{"error":str(exc)})
+            except KeyError:
+                return self._json(404,{"error":"Gita verse not found"})
+        if path == "/api/gita/performance":
+            try:
+                chapter=int((query.get("chapter") or [""])[0])
+                verse=int((query.get("verse") or [""])[0])
+                return self._json(200,orch.gita_performance(chapter,verse))
+            except (TypeError,ValueError) as exc:
+                return self._json(400,{"error":str(exc)})
+            except KeyError:
+                return self._json(404,{"error":"Gita verse not found"})
         if path == "/api/gita/revise":
             raw=(query.get("limit") or ["7"])[0]
             try:limit=int(raw)
@@ -2504,6 +2527,53 @@ class Handler(BaseHTTPRequestHandler):
             model=str(data.get("model") or "").strip()
             try:return self._json(200,_model_memory.unload(model) if model else _model_memory.unload_all())
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gita/session/start":
+            try:
+                return self._json(200,orch.gita_session_start(
+                    int(data.get("chapter") or 1),
+                    int(data.get("verse") or 1),
+                    str(data.get("language") or "or").strip().lower(),
+                    str(data.get("depth") or "deep").strip().lower(),
+                    bool(data.get("include_explanation",True)),
+                ))
+            except (ValueError,TypeError) as exc:
+                return self._json(400,{"error":str(exc)})
+            except KeyError:
+                return self._json(404,{"error":"Gita verse not found"})
+
+        if post_path == "/api/gita/session/control":
+            try:
+                action=str(data.get("action") or "").strip().lower()
+                return self._json(200,orch.gita_session_control(
+                    action,
+                    int(data.get("count") or 1),
+                    data.get("chapter"),
+                    data.get("verse"),
+                    bool(data.get("include_explanation",True)),
+                ))
+            except (ValueError,TypeError) as exc:
+                return self._json(400,{"error":str(exc)})
+            except KeyError:
+                return self._json(404,{"error":"Gita verse not found"})
+
+        if post_path == "/api/gita/search":
+            query_text=str(data.get("query") or "").strip()
+            if not query_text:return self._json(400,{"error":"query is required"})
+            try:return self._json(200,orch.gita_search(query_text,int(data.get("limit") or 20)))
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gita/complete":
+            try:
+                return self._json(200,orch.gita_mark_complete(
+                    data.get("chapter"),
+                    data.get("verse"),
+                    bool(data.get("complete",True)),
+                ))
+            except (ValueError,TypeError) as exc:
+                return self._json(400,{"error":str(exc)})
+            except KeyError:
+                return self._json(404,{"error":"Gita verse not found"})
 
         if post_path == "/api/gita/today":
             language=str(data.get("language") or "or").strip().lower()
