@@ -655,10 +655,16 @@ try{
     $live=Post-Json "/api/garudanetra/session/start" @{project="KRISHNA";url="$base/";mode="task_memory";persistent_approved=$false}
     $sid=$live.session_id
     $ready=$null
+    $lastSession=$live
     for($i=0;$i -lt 30;$i++){
       Start-Sleep -Milliseconds 500
-      try{$s=Get-Json ("/api/garudanetra/session?id="+$sid);if($s.frame_available -or $s.state -eq "ERROR"){$ready=$s;break}}catch{}
+      try{
+        $s=Get-Json ("/api/garudanetra/session?id="+$sid)
+        $lastSession=$s
+        if($s.frame_available -or $s.state -eq "ERROR"){$ready=$s;break}
+      }catch{}
     }
+    if(!$ready){$ready=$lastSession}
     if($ready -and $ready.frame_available){
       if($ready.mode -ne "task_memory"){Add-Check "Garudanetra browser mode" "FAIL" "Task Memory mode was not preserved" $ready}else{Add-Check "Garudanetra browser mode" "PASS" "Private + Task Memory session active" $ready}
       $null=Post-Json "/api/garudanetra/session/control" @{session_id=$sid;action="takeover";payload=@{}}
@@ -701,7 +707,11 @@ try{
         else{Add-Check "Garudanetra action recording" "WARN" "Recording endpoint is live but no actions were captured yet" $recording}
       }catch{Add-Check "Garudanetra action recording" "FAIL" $_.Exception.Message $null}
     }else{
-      Add-Check "Garudanetra live browser" "FAIL" (($ready.last_error|Out-String).Trim()) $ready
+      $detail=if($ready){
+        $err=([string]$ready.last_error).Trim()
+        if($err){$err}else{"state="+[string]$ready.state+"; frame_available="+[string]$ready.frame_available+"; stream_mode="+[string]$ready.stream_mode}
+      }else{"session status unavailable"}
+      Add-Check "Garudanetra live browser" "FAIL" $detail $ready
     }
     try{$null=Post-Json "/api/garudanetra/session/control" @{session_id=$sid;action="stop";payload=@{}}}catch{}
   }catch{
@@ -723,7 +733,18 @@ try{
     $eval=Post-Json "/api/ui-guardian/evaluate" @{entry_id=$entry.id}
     if($eval.passed){Add-Check "UI Guardian matrix" "PASS" "All four viewport contracts passed" $eval}
     else{
-      $defectSummary=@($eval.defects | Select-Object -First 8 | ForEach-Object {
+      $orderedDefects=@($eval.defects | Sort-Object @{
+        Expression={
+          switch([string]$_.kind){
+            "request_failed" {0}
+            "http_error" {1}
+            "page_error" {2}
+            "inspection_error" {3}
+            default {4}
+          }
+        }
+      },viewport)
+      $defectSummary=@($orderedDefects | Select-Object -First 8 | ForEach-Object {
         $vp=[string]$_.viewport;$kind=[string]$_.kind;$detail=[string]$_.detail
         ("{0}:{1}:{2}" -f $vp,$kind,$detail)
       }) -join " | "
