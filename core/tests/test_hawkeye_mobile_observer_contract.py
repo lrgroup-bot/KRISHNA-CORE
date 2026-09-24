@@ -110,6 +110,13 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("markSynced",edge)
         self.assertIn("delete_after_verified",sync)
 
+    def test_user_requested_gallery_capture_is_encrypted_and_queued_for_lan_sync(self):
+        self.assertIn('"gallery-capture"',self.activity)
+        self.assertIn("HawkeyeEdgeMemory.rememberMedia",self.activity)
+        self.assertIn('"sync_observation_id"',self.activity)
+        self.assertIn('"WAITING_FOR_TRUSTED_LAN"',self.activity)
+        self.assertIn('"cellular_large_upload",false',self.activity)
+
     def test_google_lens_is_not_required_for_hawkeye_capture(self):
         runtime=(self.mobile/"CANONICAL_RUNTIME.json").read_text(encoding="utf-8")
         self.assertIn('"google_lens_required": false',runtime)
