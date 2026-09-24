@@ -13,6 +13,11 @@
     geminiAnalysis: "",
     freeCloudAnalysis: "",
     lastFreeCloudSignature: "",
+    lastFreeCloudProvider: "",
+    lastFreeCloudModel: "",
+    lastFreeCloudRole: "",
+    lastFreeCloudReviews: [],
+    lastFreeCloudPc: null,
     aiMode: "LOCAL",
     cloudApproved: false,
     lockedTrackingId: null,
@@ -395,15 +400,58 @@
       ));
       if(out.error)throw new Error(out.error);
       state.freeCloudAnalysis=String(out.analysis||"").trim();
+      state.lastFreeCloudProvider=String(out.provider||"free-cloud");
+      state.lastFreeCloudModel=String(out.model||"");
+      state.lastFreeCloudRole=String(out.role||"hawkeye_vision");
+      state.lastFreeCloudReviews=Array.isArray(out.reviews)?out.reviews.slice(0,4):[];
       const local=state.localSummary?state.localSummary+"\n\n":"";
-      const label=String(out.provider||"free-cloud")+(out.model?" · "+String(out.model):"");
+      const label=state.lastFreeCloudProvider+(state.lastFreeCloudModel?" · "+state.lastFreeCloudModel:"");
       let review="";
-      if(Array.isArray(out.reviews)&&out.reviews.length){
-        review="\n\nReviewers: "+out.reviews.map(x=>String(x.provider_family||x.provider||"free")).join(", ");
+      if(state.lastFreeCloudReviews.length){
+        review="\n\nReviewers: "+state.lastFreeCloudReviews.map(x=>String(x.provider_family||x.provider||"free")).join(", ");
       }
       if(state.freeCloudAnalysis)byId("cameraAnalysis").textContent=local+label+": "+state.freeCloudAnalysis+review;
+
+      if(state.freeCloudAnalysis&&window.Krishna&&Krishna.hawkeyeFreeCloudFinding){
+        try{
+          const finding={
+            analysis:state.freeCloudAnalysis,
+            provider:state.lastFreeCloudProvider,
+            model:state.lastFreeCloudModel,
+            role:state.lastFreeCloudRole,
+            reviews:state.lastFreeCloudReviews,
+            local_context:richMetadata(),
+            metadata:meta,
+            zero_cost_verified:!!out.zero_cost_verified,
+            selected_keyframe:true,
+            scene_signature:sig
+          };
+          const pc=JSON.parse(Krishna.hawkeyeFreeCloudFinding(
+            String(typeof fieldSession!=="undefined"?fieldSession:"field"),
+            String(typeof fieldGoal!=="undefined"?fieldGoal:"live visual assistance"),
+            JSON.stringify(finding)
+          ));
+          if(!pc.error)state.lastFreeCloudPc=pc;
+        }catch(_){}
+      }
     }catch(e){if(force&&typeof reply==="function")reply("HAWKEYE free cloud: "+e.message,"warn");}
     finally{state.freeCloudBusy=false;}
+  }
+
+  function pcOffloadContext(){
+    const pc=state.lastFreeCloudPc||{};
+    return {
+      free_cloud_active:state.aiMode!=="LOCAL",
+      analysis:String(state.freeCloudAnalysis||"").slice(0,4000),
+      provider:String(state.lastFreeCloudProvider||""),
+      model:String(state.lastFreeCloudModel||""),
+      role:String(state.lastFreeCloudRole||""),
+      pc_recorded:!!pc.pc_recorded,
+      pc_observation_id:String(pc.observation_id||""),
+      pc_session_id:String(pc.pc_session_id||""),
+      scene_signature:String(state.lastFreeCloudSignature||""),
+      local_vision_skip_recommended:!!(pc.pc_recorded&&state.freeCloudAnalysis)
+    };
   }
 
   async function geminiTick(force=false){return freeCloudTick(force);}
@@ -796,7 +844,7 @@
     state.objectTimer=state.learnTimer=state.richTimer=state.handTimer=state.geminiTimer=state.freeCloudTimer=null;
     stopGeminiLive();
     if(state.torchOn&&fieldStream){try{const t=fieldStream.getVideoTracks()[0];if(t&&t.applyConstraints)t.applyConstraints({advanced:[{torch:false}]});}catch(_){}}
-    state.objects=[];state.researchQueries=[];state.lastLearnText="";state.rich=null;state.handResult=null;state.localSummary="";state.geminiAnalysis="";state.freeCloudAnalysis="";state.lastFreeCloudSignature="";
+    state.objects=[];state.researchQueries=[];state.lastLearnText="";state.rich=null;state.handResult=null;state.localSummary="";state.geminiAnalysis="";state.freeCloudAnalysis="";state.lastFreeCloudSignature="";state.lastFreeCloudProvider="";state.lastFreeCloudModel="";state.lastFreeCloudRole="";state.lastFreeCloudReviews=[];state.lastFreeCloudPc=null;
     state.aiMode="LOCAL";state.cloudApproved=false;state.lockedTrackingId=null;
     state.translationEnabled=false;state.translationText="";state.translationSource="";state.translationBusy=false;
     state.gesturesEnabled=false;state.gestureCandidate="NONE";state.gestureCandidateCount=0;state.lastGesture="NONE";state.torchOn=false;
@@ -812,5 +860,5 @@
 
   setInterval(()=>{if(cameraActive())activate();else deactivate();},500);
 
-  window.HawkeyeObserverUI={isLearning,toggleLearn,research,photo,record,detect,richPerception,learningTick,onResearchResult,toggleAI,freeCloudTick,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
+  window.HawkeyeObserverUI={isLearning,toggleLearn,research,photo,record,detect,richPerception,learningTick,onResearchResult,toggleAI,freeCloudTick,pcOffloadContext,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
 })();
