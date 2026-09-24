@@ -209,6 +209,7 @@ class Orchestrator:
         self.action_bus = SharedActionBus(
             self.lifecycle_bus,self.agi.policy,audit=self.memory.audit,
             permission_resolver=self.permissions.authorize,
+            idempotency_db_path=self.db_path,
         )
         self.agent_runtime = AgentRuntime(self.action_bus)
         self.jobs = JobRuntime(
@@ -3123,7 +3124,7 @@ class Orchestrator:
     def close(self):
         """Release every database owned by this runtime, including durable mission state."""
         for obj in (
-            self.resource_locks,self.queue,self.mission_budgets,self.missions,self.lifecycle_bus,
+            self.action_bus,self.resource_locks,self.queue,self.mission_budgets,self.missions,self.lifecycle_bus,
             self.commitments,self.task_ledger,self.memory,
         ):
             try:obj.close()
