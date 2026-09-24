@@ -12,7 +12,13 @@ function Normalize-Root([string]$Path){
   if(!$Path){return ""}
   try{
     $full=[IO.Path]::GetFullPath($Path)
-    if($full -match '^[A-Za-z]:\\
+    $pathRoot=[IO.Path]::GetPathRoot($full)
+    if($pathRoot -and $full -ieq $pathRoot){return $full}
+    return $full.TrimEnd("\\")
+  }catch{
+    return $Path.TrimEnd("\\")
+  }
+}
 function Get-HashSafe([string]$Path){
   if(!(Test-Path -LiteralPath $Path -PathType Leaf)){return $null}
   try{return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()}catch{return $null}
