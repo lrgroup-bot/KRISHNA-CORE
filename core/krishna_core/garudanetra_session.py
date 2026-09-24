@@ -448,14 +448,17 @@ class GarudanetraSessionManager:
             playwright_cm=sync_playwright();p=playwright_cm.start()
             if session.mode=="persistent_workspace":
                 Path(session.profile_path).mkdir(parents=True,exist_ok=True)
-                try:context=p.chromium.launch_persistent_context(session.profile_path,channel="chrome",headless=self.headless,
+                # Prefer KRISHNA's pinned Playwright Chromium. System Chrome is
+                # only a fallback so cold acceptance runs do not stall in channel
+                # discovery/startup before the session can become NAVIGATING.
+                try:context=p.chromium.launch_persistent_context(session.profile_path,headless=self.headless,
                                                                   viewport=dict(session.viewport),accept_downloads=True)
-                except Exception:context=p.chromium.launch_persistent_context(session.profile_path,headless=self.headless,
+                except Exception:context=p.chromium.launch_persistent_context(session.profile_path,channel="chrome",headless=self.headless,
                                                                                viewport=dict(session.viewport),accept_downloads=True)
                 page=context.pages[0] if context.pages else context.new_page()
             else:
-                try:browser=p.chromium.launch(channel="chrome",headless=self.headless)
-                except Exception:browser=p.chromium.launch(headless=self.headless)
+                try:browser=p.chromium.launch(headless=self.headless)
+                except Exception:browser=p.chromium.launch(channel="chrome",headless=self.headless)
                 context=browser.new_context(viewport=dict(session.viewport),accept_downloads=True,java_script_enabled=True)
                 page=context.new_page()
             page.set_default_timeout(self.timeout_ms)
