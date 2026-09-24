@@ -75,7 +75,7 @@ if($code -eq 7){
 }
 if($code -ne 0){throw "IndicConformer model download failed"}
 
-$cmd='\"'+$sttPy+'\" \"'+$worker+'\" --audio \"{audio}\" --language \"{language}\" --model \"'+$modelRoot+'\" --decoder ctc'
+$cmd='"'+$sttPy+'" "'+$worker+'" --audio "{audio}" --language "{language}" --model "'+$modelRoot+'" --decoder ctc'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $setup -RuntimeRoot $RuntimeRoot -IndicSttCommand $cmd
 if($LASTEXITCODE -ne 0){throw "KRISHNA IndicConformer configuration failed"}
 
