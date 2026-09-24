@@ -150,6 +150,11 @@ class SharedActionBus:
     @staticmethod
     def _is_sensitive_key(key):
         raw=str(key or "").strip().lower()
+        # promotion_token is a bounded in-memory transaction identifier, not an
+        # authentication credential. Redacting it from action results breaks the
+        # verified candidate -> explicit approval -> promotion workflow.
+        if raw=="promotion_token":
+            return False
         if raw in _SENSITIVE_KEYS:
             return True
         compact="".join(ch for ch in raw if ch.isalnum())
