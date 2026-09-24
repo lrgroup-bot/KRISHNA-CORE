@@ -101,6 +101,14 @@ class BrahmaProcessQCTests(unittest.TestCase):
         self.assertEqual(calls,[])
         self.assertEqual(qc.status()["latest_color"],"red")
 
+    def test_state_save_recovers_if_state_directory_was_rotated(self):
+        qc,_,_=self.make_qc()
+        import shutil
+        shutil.rmtree(qc.root)
+        qc.notify("working","state rotation recovery",component="brahma")
+        self.assertTrue(qc.path.is_file())
+        self.assertTrue(qc.root.is_dir())
+
     def test_work_and_done_events_update_tiny_god_status(self):
         qc,bus,_=self.make_qc();qc.attach()
         bus.publish("action.requested",{
