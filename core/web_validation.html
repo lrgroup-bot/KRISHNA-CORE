@@ -1428,6 +1428,35 @@ async function speakKrishnaReply(text){
   avatarState('IDLE');if(state)state.textContent='Local voice output unavailable';
  }
 }
+async function playKrishnaGitaAudio(bundle,fallbackText=''){
+ const segments=(bundle&&bundle.segments)||[];let played=0;avatarState('WISDOM');
+ for(const seg of segments){
+  if(!seg||!seg.available||!seg.audio_url)continue;
+  try{
+   const response=await fetch(seg.audio_url,{cache:'no-store'});if(!response.ok)continue;
+   const blob=await response.blob(),url=URL.createObjectURL(blob);
+   await new Promise(resolve=>{const audio=new Audio(url);audio.onended=()=>{URL.revokeObjectURL(url);resolve()};audio.onerror=()=>{URL.revokeObjectURL(url);resolve()};audio.play().catch(()=>{URL.revokeObjectURL(url);resolve()})});
+   played++;
+  }catch(e){}
+ }
+ if(!played&&fallbackText)await speakKrishnaReply(fallbackText);
+ return played;
+}
+async function checkDailyGita(){
+ try{
+  const status=await req('/api/gita/status'),p=status.progress||{},day=p.last_date,id=p.last_id;
+  if(!day||!id||localStorage.getItem('krishna_gita_seen')===day)return;
+  const choice=$('krishnaVoiceLang')?.value||'or-IN',language=choice.startsWith('hi')?'hi':'or';
+  const lesson=await req('/api/gita/today?deep=1&language='+encodeURIComponent(language));
+  const e=lesson.explanation||{},parts=['Bhagavad Gita '+lesson.chapter+'.'+lesson.verse,lesson.sanskrit||''];
+  for(const k of ['literal_meaning','context','deep_explanation','practical_application','reflection_question'])if(e[k])parts.push(e[k]);
+  const text=parts.filter(Boolean).join('\n\n');
+  const spoken=await req('/api/gita/speak',{verse_id:lesson.id,language,deep:true});
+  const state=$('krishnaVoiceState');if(state)state.textContent='GITA-GYAN · '+lesson.id;
+  await playKrishnaGitaAudio(spoken.audio,text);
+  localStorage.setItem('krishna_gita_seen',day);
+ }catch(e){}
+}
 async function sendKrishnaPopup(){
  const input=$('krishnaPopupInput'),sendBtn=$('krishnaPopupSend');const text=String(input?.value||'').trim();
  if(!text||krishnaPopupSending)return;
@@ -1436,7 +1465,8 @@ async function sendKrishnaPopup(){
   const id=await ensureKrishnaPopupChat(),project=$('project')?.value||'KRISHNA';
   const d=await req('/api/core/chat',{message:text,project,chat_id:id,source:'web-popup',mode:'chat',attachment_ids:[]});
   const reply=d.reply||d.text||JSON.stringify(d);popupMessage('assistant',reply);await loadGeneralChats();
-  if(krishnaVoiceConversation)await speakKrishnaReply(reply);else avatarState('IDLE');
+  if(d.gita_audio){avatarState('WISDOM');await playKrishnaGitaAudio(d.gita_audio,reply)}
+  else if(krishnaVoiceConversation)await speakKrishnaReply(reply);else avatarState('IDLE');
  }catch(e){popupMessage('assistant','ERROR: '+e.message);avatarState('IDLE')}
  finally{krishnaPopupSending=false;if(sendBtn)sendBtn.disabled=false}
 }
@@ -1472,6 +1502,7 @@ async function refreshCommandCenter(){
  }catch(e){setOps('verify','Core/API error','bad')}
 }
 setInterval(refreshCommandCenter,2500); setTimeout(refreshCommandCenter,250);
+setInterval(checkDailyGita,60000); setTimeout(checkDailyGita,1800);
 setTimeout(()=>{const frame=$('garudaFrame');if(frame){let dragStart=null;frame.addEventListener('pointerdown',e=>{if(!garudaSessionId||!garudaOwnerControl)return;const r=frame.getBoundingClientRect();dragStart={x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};frame.setPointerCapture(e.pointerId)});frame.addEventListener('pointerup',async e=>{if(!dragStart||!garudaSessionId||!garudaOwnerControl)return;const r=frame.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height,start=dragStart;dragStart=null;const dist=Math.hypot(x-start.x,y-start.y);try{if(dist>.03)await garudaControlPayload('drag_xy',{x1:start.x,y1:start.y,x2:x,y2:y});else await garudaControlPayload('click_xy',{x,y})}catch(err){log(err.message)}});frame.addEventListener('wheel',async e=>{if(!garudaSessionId||!garudaOwnerControl)return;e.preventDefault();try{await garudaControlPayload('scroll',{dy:e.deltaY})}catch(err){log(err.message)}},{passive:false})}},100);
 
 function requestDialog(message,value,confirmation){const dialog=$('actionDialog');if(dialog.open)return Promise.resolve(null);$('dialogLabel').textContent=message;$('dialogInput').hidden=confirmation;$('dialogInput').value=value||'';$('dialogAccept').textContent=confirmation?'Confirm':'Save';return new Promise(resolve=>{dialog.addEventListener('close',()=>resolve(dialog.returnValue==='accept'?(confirmation?true:$('dialogInput').value):null),{once:true});dialog.returnValue='cancel';dialog.showModal();(confirmation?$('dialogAccept'):$('dialogInput')).focus()})}
