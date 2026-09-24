@@ -98,7 +98,8 @@ if(!(Test-Path $Py)){throw "KRISHNA venv missing: $Py"}
 Set-Location $Source
 if((git status --porcelain)){throw "E:\KRISHNA-SOURCE has local changes. Refusing destructive update."}
 
-git fetch --prune origin
+& git fetch --quiet --prune origin
+if($LASTEXITCODE -ne 0){throw "Cannot fetch origin"}
 if(!$Branch){
   $currentBranch=(git branch --show-current).Trim()
   if($currentBranch){$Branch=$currentBranch}
@@ -108,9 +109,9 @@ if(!$Branch){
   }
 }
 if(!$Branch){throw "Could not resolve deployment branch"}
-git checkout $Branch
+& git checkout --quiet $Branch
 if($LASTEXITCODE -ne 0){throw "Cannot checkout $Branch"}
-git pull --ff-only origin $Branch
+& git pull --quiet --ff-only origin $Branch
 if($LASTEXITCODE -ne 0){throw "Cannot fast-forward $Branch"}
 $Head=(git rev-parse HEAD).Trim()
 Write-Host "SOURCE $Branch @ $Head" -ForegroundColor Cyan
