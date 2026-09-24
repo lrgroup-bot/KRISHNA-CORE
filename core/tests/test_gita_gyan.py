@@ -5,8 +5,6 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo
-
 from krishna_core.gita_gyan import GitaDailyScheduler, GitaGyan
 
 
@@ -106,7 +104,7 @@ class GitaGyanTests(unittest.TestCase):
             timezone_name="Asia/Kolkata",
             enabled=True,
         )
-        tz = ZoneInfo("Asia/Kolkata")
+        tz = scheduler.timezone
         self.assertEqual(scheduler.run_due(datetime(2026, 9, 24, 7, 29, tzinfo=tz))["status"], "not_due")
         self.assertEqual(scheduler.run_due(datetime(2026, 9, 24, 7, 30, tzinfo=tz))["status"], "completed")
         self.assertEqual(scheduler.run_due(datetime(2026, 9, 24, 20, 0, tzinfo=tz))["status"], "already_ran")
