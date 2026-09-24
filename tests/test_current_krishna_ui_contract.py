@@ -20,6 +20,7 @@ class CurrentKrishnaUIContractTests(unittest.TestCase):
         self.assertIn("showView('home')",menu)
         self.assertIn("showView('sudarshan')",menu)
         self.assertIn("showView('plugins')",menu)
+        self.assertNotIn("showView('workingGods')",menu)
         for hidden in ("kabach","garuda","garudanetra","brahmagyan","gyan","narad","specialists","developer","work","activity","system"):
             self.assertNotIn(f"showView('{hidden}')",menu)
 
