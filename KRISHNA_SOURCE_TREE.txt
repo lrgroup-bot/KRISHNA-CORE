@@ -35,6 +35,8 @@ core\krishna_core\autonomy_loop.py
 core\krishna_core\autonomy_supervisor.py
 core\krishna_core\avatar_asset_pipeline.py
 core\krishna_core\avatar_fabric.py
+core\krishna_core\character_persona.py
+core\krishna_core\avatar_age_profile.py
 core\krishna_core\avatar_manifest.py
 core\krishna_core\avatar_production.py
 core\krishna_core\avatar_runtime.py
@@ -260,6 +262,7 @@ core\tests\test_autonomy_supervisor.py
 core\tests\test_avatar_asset_pipeline.py
 core\tests\test_avatar_production.py
 core\tests\test_avatar_runtime_states.py
+core\tests\test_character_persona_avatar_age.py
 core\tests\test_bhumiputra_agent.py
 core\tests\test_brahma_bot.py
 core\tests\test_brahma_memory_intelligence.py

@@ -4560,6 +4560,7 @@ The evidence below was actually collected by registered non-mutating probes. Rep
 User request: {message}
 Project: {project}
 Registered project: {bool(registered)}
+Owner-address rule: {self.agi.character.address_rule()}
 
 Observed evidence:
 {evidence_summary}
@@ -4693,6 +4694,8 @@ Operating loop: Observe -> Understand -> Investigate -> Research -> Plan -> Act 
 Be concise and truthful. Never claim an action completed unless verification evidence exists.
 Never execute arbitrary shell commands from natural language. Mutating actions must use registered workers/policies.
 For registered projects, prefer evidence, shadow testing, verification, rollback, and learned incident memory.
+
+{self.agi.character.prompt_contract()}
 
 {self.requirements.prompt_contract()}
 

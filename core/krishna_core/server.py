@@ -141,7 +141,18 @@ def _cleanup_deleted_chat_attachments(event):
 orch.lifecycle_bus.subscribe("action.completed",_cleanup_deleted_chat_attachments)
 _vision = VisionAdapter()
 _gemini_hawkeye = GeminiHawkeyeBridge(orch.model_gateway)
-_voice = KrishnaVoiceStack(lambda event: orch.handle_event("wakeword","krishna_detected","Local wake word Krishna detected",severity="notice",project="system",payload=event))
+
+def _on_local_krishna_wake(event):
+    payload=dict(event or {})
+    payload["reply_text"]=orch.agi.character.ODIA_WAKE
+    payload["owner_address"]=orch.agi.character.OWNER_ADDRESS
+    payload["avatar_state"]="WAKING"
+    return orch.handle_event(
+        "wakeword","krishna_detected","Local wake word Krishna detected",
+        severity="notice",project="system",payload=payload,
+    )
+
+_voice = KrishnaVoiceStack(_on_local_krishna_wake)
 _remote_policy = PrivateRemotePolicy()
 _model_memory = ModelMemoryGovernor()
 _wearables = WearableBridge(Path(settings.db_path).resolve().parent / ".krishna_state" / "wearables.json")
@@ -853,12 +864,18 @@ class Handler(BaseHTTPRequestHandler):
                                    "english":"trained-model","hindi":"audio-driven approximation","odia":"audio-driven approximation"},
                 "asset_pipeline":asset,
                 "video_avatar":_video_avatar.status(),
+                "age":orch.agi.avatar_age.status(),
+                "character":orch.agi.character.status(),
                 **orch.agi.avatar.status(),
             })
         if path == "/api/avatar/asset-audit":
             return self._json(200,avatar_asset_status())
         if path == "/api/avatar/performance":
             return self._json(200,orch.agi.avatar.performance_bible())
+        if path == "/api/avatar/age":
+            return self._json(200,orch.agi.avatar_age.status())
+        if path == "/api/character":
+            return self._json(200,orch.agi.character.status())
         if path == "/api/avatar/video/status":
             return self._json(200,_video_avatar.status())
         if path == "/api/avatar/video/recommend":
@@ -936,7 +953,7 @@ class Handler(BaseHTTPRequestHandler):
             if not audio_path.is_file():return self._json(404,{"error":"voice audio not found"})
             return self._binary_nostore(200,audio_path.read_bytes(),"audio/wav")
         if path == "/api/voice/status":
-            return self._json(200,_voice.status())
+            return self._json(200,{**_voice.status(),"character":orch.agi.character.status()})
         if path == "/api/garuda/status":
             return self._json(200, orch.garuda_status())
         if path == "/api/brahmagyan/status":
@@ -1588,6 +1605,8 @@ class Handler(BaseHTTPRequestHandler):
                 "operator": {
                     "avatar_state": orch.agi.avatar.state_for_activity(current),
                     "character_bible": orch.agi.avatar.VERSION,
+                    "owner_address": orch.agi.character.OWNER_ADDRESS,
+                    "avatar_age": orch.agi.avatar_age.status(),
                     "current": {"task": current},
                     "updated": current_state["updated"],
                 },
@@ -2428,6 +2447,18 @@ class Handler(BaseHTTPRequestHandler):
             model=str(data.get("model") or "").strip()
             try:return self._json(200,_model_memory.unload(model) if model else _model_memory.unload_all())
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/avatar/age/configure":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"avatar age configuration must run on KRISHNA PC"})
+            try:
+                return self._json(200,orch.agi.avatar_age.configure(
+                    baseline_date=data.get("baseline_date"),
+                    base_visual_age_years=data.get("base_visual_age_years"),
+                    growth_rate_days_per_day=float(data.get("growth_rate_days_per_day",1.0)),
+                ))
+            except (ValueError,TypeError) as exc:
+                return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/voice/wake/start":
             if self.client_address[0] not in ("127.0.0.1","::1"):
