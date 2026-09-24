@@ -132,6 +132,7 @@ class FullAuditHardeningTests(unittest.TestCase):
         policy = PrivateRemotePolicy()
         missing = sorted(path for path in paths if path not in public and not policy.mobile_route_allowed(path))
         self.assertEqual(missing, [], "mobile API path missing from paired-device allowlist: " + ", ".join(missing))
+        self.assertFalse(policy.mobile_route_allowed("/api/mobile/control"), "conversation-only mobile must not expose legacy remote-control API")
 
     def test_development_candidates_use_configured_promotion_staging_root(self):
         with tempfile.TemporaryDirectory() as td:
