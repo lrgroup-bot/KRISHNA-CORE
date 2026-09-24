@@ -78,7 +78,10 @@ class GitaPerformanceEngine:
         "background_profile", "aura_profile", "prop_profile", "voice_profile",
         "recitation_profile", "pause_profile", "explanation_profile",
         "partha_dialogue_profile", "scriptural_evidence", "confidence",
-        "manual_override",
+        "manual_override", "blink_style", "mouth_viseme_profile",
+        "neck_movement", "shoulder_state", "torso_posture", "arm_movement",
+        "body_energy_level", "breathing_tempo", "gaze_relationship",
+        "scene_profile", "speaking_tempo", "renderer_claim",
     )
 
     CHAPTER_ARCS = {
@@ -152,7 +155,9 @@ class GitaPerformanceEngine:
             return "SILENT_WISDOM", True
         if (c, v) in {(6, 5), (6, 6), (6, 26)}:
             return "DHYANA_KRISHNA", True
-        if c == 11 and v == 8:
+        if c == 11 and 1 <= v <= 4:
+            return "DIVINE_REVEALER", manual
+        if c == 11 and 5 <= v <= 8:
             return "VISHVARUPA_TRANSITION", True
         if c == 11 and 9 <= v <= 49:
             return "VISHVARUPA", True
@@ -225,6 +230,27 @@ class GitaPerformanceEngine:
         })
         return evidence
 
+    @staticmethod
+    def _micro_profile(family: str, profile: dict) -> dict:
+        cosmic = family == "VISHVARUPA"
+        transition = family == "VISHVARUPA_TRANSITION"
+        meditative = family in {"DHYANA_KRISHNA", "SILENT_WISDOM"}
+        reassuring = family in {"COMPASSIONATE_GUIDE", "BHAKTI_KRISHNA", "LOVING_COUNSEL", "REASSURING_PERSONAL_FORM"}
+        return {
+            "blink_style": "cosmic/nonhuman" if cosmic else ("slow sparse" if meditative else "natural restrained"),
+            "mouth_viseme_profile": "SANSKRIT_RECITATION_THEN_LANGUAGE_PROSE",
+            "neck_movement": "none/cosmic" if cosmic else ("minimal" if meditative else "subtle conversational"),
+            "shoulder_state": "cosmic-scale/nonhuman" if cosmic else "relaxed and grounded",
+            "torso_posture": profile.get("body_pose") or "upright relaxed",
+            "arm_movement": "cosmic symbolic" if cosmic else ("transitioning" if transition else "restrained contextual"),
+            "body_energy_level": "cosmic_high" if cosmic else ("rising" if transition else ("very_low" if meditative else "low")),
+            "breathing_tempo": "not-humanlike/cosmic" if cosmic else ("slow" if meditative or reassuring else "calm_normal"),
+            "gaze_relationship": "cosmic/nonordinary" if cosmic else "toward Partha with natural thought breaks; no constant staring",
+            "scene_profile": profile.get("background_profile") or "NEUTRAL_CONVERSATION",
+            "speaking_tempo": "controlled_dramatic" if cosmic else ("slow_measured" if meditative or reassuring else "measured"),
+            "renderer_claim": "COMMAND_ONLY_UNTIL_ASSET_VERIFIED",
+        }
+
     def record(self, chapter: int, verse: int) -> dict:
         row = self.gita.verse(chapter, verse)
         c, v = int(row["chapter"]), int(row["verse"])
@@ -232,6 +258,7 @@ class GitaPerformanceEngine:
         profile = deepcopy(self.FAMILY_PROFILE[family])
         theme, secondary = self._theme(c, v)
         arc = self.CHAPTER_ARCS[c][0]
+        micro = self._micro_profile(family, profile)
         krishna_form = "vishvarupa_cosmic" if family == "VISHVARUPA" else (
             "personal_form_return" if family == "REASSURING_PERSONAL_FORM" else "personal_two_armed"
         )
@@ -275,6 +302,7 @@ class GitaPerformanceEngine:
             "krishna_form": krishna_form,
             "avatar_family": family,
             **profile,
+            **micro,
             "recitation_profile": recitation,
             "pause_profile": pause,
             "explanation_profile": explanation,
@@ -309,8 +337,23 @@ class GitaPerformanceEngine:
         c, v = int(record.get("chapter") or 0), int(record.get("verse") or 0)
         if family == "VISHVARUPA" and not (c == 11 and 9 <= v <= 49):
             errors.append("vishvarupa_outside_supported_passage")
-        if c == 11 and v in {50, 51} and family != "REASSURING_PERSONAL_FORM":
+        if family == "VISHVARUPA_TRANSITION" and not (c == 11 and 5 <= v <= 8):
+            errors.append("vishvarupa_transition_outside_supported_passage")
+        if c == 11 and 50 <= v <= 55 and family != "REASSURING_PERSONAL_FORM":
             errors.append("missing_post_vishvarupa_return")
+        if family in {"VRINDAVAN_KRISHNA","FLUTE_KRISHNA"} and c == 11:
+            errors.append("incompatible_vrindavan_battlefield_styling")
+        if record.get("movement_intensity") in {"high","controlled_high"} and family != "VISHVARUPA":
+            errors.append("excessive_animation")
+        evidence_kinds={str(x.get("kind") or "") for x in (record.get("scriptural_evidence") or []) if isinstance(x,dict)}
+        if "TEXTUAL_FACT" not in evidence_kinds:
+            errors.append("missing_textual_provenance")
+        if "ANIMATION_DESIGN_DECISION" not in evidence_kinds:
+            errors.append("missing_animation_provenance")
+        if self._high_priority(c,v) and not bool(record.get("manual_override")):
+            errors.append("missing_high_priority_override")
+        if record.get("renderer_claim") != "COMMAND_ONLY_UNTIL_ASSET_VERIFIED":
+            errors.append("unverified_renderer_claim")
         if record.get("partha_dialogue_profile", {}).get("address") != "Partha":
             errors.append("owner_address_not_partha")
         return errors
