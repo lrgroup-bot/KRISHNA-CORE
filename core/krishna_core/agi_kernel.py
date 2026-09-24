@@ -10,6 +10,8 @@ from .automation_bus import AutomationBus
 from .worker_fabric import WorkerFabric
 from .creator_runtime import CreatorRuntime
 from .avatar_fabric import AvatarFabric
+from .avatar_age_profile import AvatarAgeProfile
+from .character_persona import KrishnaCharacterPersona
 from .brahmagyan import BrahmagyanRuntime
 from .revenue_engine import RevenueEngine
 from .integrations import CodebaseMemoryAdapter, GraftMemoryAdapter, WebhookAdapter
@@ -42,6 +44,8 @@ class AGIKernel:
         self.workers=WorkerFabric(self.root)
         self.creator=CreatorRuntime(self.workers)
         self.avatar=AvatarFabric()
+        self.character=KrishnaCharacterPersona()
+        self.avatar_age=AvatarAgeProfile(self.root)
         self.brahmagyan=BrahmagyanRuntime(self.root/"brahmagyan",gyan,memory)
         self.revenue=RevenueEngine(self.bus)
         self.specialists=SpecialistRegistry()
@@ -72,7 +76,8 @@ class AGIKernel:
             "providers":self.narad_providers.providers(),
             "messages":self.narad_messages.status()},
         "specialists":self.specialists.list(),"garudanetra":"BrowserOperator/Garuda integration",
-        "creator":self.creator.status(),"avatar":self.avatar.status(),"brahmagyan":self.brahmagyan.status(),"media":self.media.status(),
+        "creator":self.creator.status(),"avatar":{**self.avatar.status(),"age":self.avatar_age.status()},
+        "character":self.character.status(),"brahmagyan":self.brahmagyan.status(),"media":self.media.status(),
         "revenue":self.revenue.status(),"workers":self.workers.status(),
         "design":self.design.status(),"vishvakarma":{**self.vishvakarma.status(),"learning":self.vishvakarma_learning.status()},
         "model_scout":self.model_scout.status()}
