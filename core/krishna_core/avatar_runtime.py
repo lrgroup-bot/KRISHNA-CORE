@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .avatar_fabric import AvatarFabric
+from .lip_sync import KrishnaLipSyncPlanner
 
 
 class AvatarRuntime:
@@ -124,6 +125,20 @@ class AvatarRuntime:
             "action":"talk","state":"SPEAKING","phonemes":list(phonemes),
             "requires_rigged_glb":True,"requires_morph_targets":True,
             "required_channels":"Oculus visemes or provider-equivalent verified viseme mapping",
+            "character_bible":AvatarFabric.VERSION,
+            "current_performance":dict(self.current_performance) if self.current_performance else None,
+        }
+
+    def plan_lip_sync(self,text,language="or",mode="GITA_EXPLANATION"):
+        """Build a truthful fallback viseme timeline for renderer consumption."""
+        plan=KrishnaLipSyncPlanner.plan(text,language,mode)
+        self.state="SPEAKING"
+        return {
+            "action":"talk","state":"SPEAKING",
+            "lip_sync":plan,
+            "requires_rigged_glb":True,
+            "requires_morph_targets":True,
+            "acoustic_alignment_verified":False,
             "character_bible":AvatarFabric.VERSION,
             "current_performance":dict(self.current_performance) if self.current_performance else None,
         }
