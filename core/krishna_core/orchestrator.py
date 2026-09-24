@@ -3266,21 +3266,17 @@ class Orchestrator:
         self.memory.audit("project_unregister", "completed", f"{name}:moved_chats={moved}")
         return {"name": name, "removed": True, "moved_chats_to_global": moved}
 
-    def _run_managed_goal_impl(self, project, goal, action_name=None, components=None, approved=False):
-        """Run a bounded managed-work transaction.
+    def _run_managed_goal_impl(self, project, goal, action_name=None, components=None, approved=False, amcc_signals=None):
+        """Run a bounded managed-work transaction with aMCC effort control.
 
-        Investigation is always allowed for a registered project. Mutation requires:
-        1) a pre-registered project action,
-        2) the action to be allowed by project policy,
-        3) global KRISHNA_ALLOW_ACTIONS=1,
-        4) explicit approval for this transaction,
-        5) successful verification in a disposable shadow workspace.
-
-        This method never promotes shadow files into the live project. Promotion is a
-        separate boundary so a verified candidate cannot silently overwrite live work.
+        Investigation is always allowed for a registered project. Mutation still
+        requires the existing action registry, project policy, global mutation
+        switch, explicit approval, shadow execution and independent verification.
+        The aMCC layer cannot grant permissions or promote live changes.
         """
         task = self.task_ledger.create(project, goal)
         task_id = task["task_id"]
+        control = None
         try:
             policy = self.projects.get(project)
             if not policy:
@@ -3302,70 +3298,107 @@ class Orchestrator:
                 })
                 raise KeyError(f"{project}:{action_name}")
 
-            self.task_ledger.update(task_id, "running", "investigate")
+            control_signals = self._amcc_runtime_signals()
+            if isinstance(amcc_signals, dict):
+                control_signals.update(amcc_signals)
+            control = self.amcc.evaluate(project, goal, control_signals, action=action_name)
+            self.memory.audit("amcc", control["mode"], f"{project}:{goal[:120]}")
+
+            if not control.get("execute", True):
+                self.amcc.record_outcome(project, goal, "blocked", error="aMCC explicit high-risk abort")
+                return self.task_ledger.update(task_id, "rejected", "amcc_gate", {
+                    "action": action_name,
+                    "mutation_performed": False,
+                    "amcc": control,
+                    "reason": "aMCC high-risk stop; permissions and safety policy remain authoritative",
+                })
+
+            self.task_ledger.update(task_id, "running", "investigate", {"amcc": control})
             investigation = self.investigate(goal, project, components or [])
 
             if not action_name:
+                self.amcc.record_outcome(project, goal, "waiting", metadata={"phase": "action_selection"})
                 return self.task_ledger.update(task_id, "waiting_approval", "action_selection", {
                     "investigation": investigation,
                     "allowed_actions": list(policy.allowed_actions),
                     "mutation_performed": False,
+                    "amcc": control,
                     "reason": "registered action must be selected before mutation",
                 })
 
             if registered[action_name].get("mutating"):
-                self.projects.assert_mutable(project,action_name)
+                self.projects.assert_mutable(project, action_name)
                 if not settings.allow_actions:
+                    self.amcc.record_outcome(project, goal, "waiting", metadata={"phase": "mutation_disabled"})
                     return self.task_ledger.update(task_id, "waiting_approval", "mutation_disabled", {
                         "action": action_name, "investigation": investigation,
                         "mutation_performed": False,
+                        "amcc": control,
                         "reason": "KRISHNA_ALLOW_ACTIONS is disabled",
                     })
                 if not approved:
+                    self.amcc.record_outcome(project, goal, "waiting", metadata={"phase": "approval"})
                     return self.task_ledger.update(task_id, "waiting_approval", "approval", {
                         "action": action_name, "investigation": investigation,
                         "mutation_performed": False,
+                        "amcc": control,
                         "reason": "explicit approval required for this mutating transaction",
                     })
 
             self.task_ledger.update(task_id, "running", "shadow_repair", {
-                "action": action_name, "mutation_scope": "shadow_only",
+                "action": action_name,
+                "mutation_scope": "shadow_only",
+                "amcc": control,
             })
-            result = self._run_shadow_repair_impl(project, goal, action_name, components or [])
+            result = self._run_shadow_repair_impl(project, goal, action_name, components or [], control=control)
             if result.get("promotable"):
+                self.amcc.record_outcome(project, goal, "verified", progress=1.0, metadata={"phase": "promotion_ready"})
                 self.project_brain.learn_verified(project, goal, result)
-                candidate_root=result.get("candidate_root")
-                promotion=self._prepare_promotion_impl(project,candidate_root,task_id=task_id) if candidate_root else None
+                candidate_root = result.get("candidate_root")
+                promotion = self._prepare_promotion_impl(project, candidate_root, task_id=task_id) if candidate_root else None
                 return self.task_ledger.update(task_id, "verified", "promotion_ready", {
                     "repair": result,
                     "promotion": promotion,
                     "mutation_performed": True,
                     "live_project_modified": False,
                     "promotion_ready": bool(promotion),
+                    "amcc": control,
                 })
+
+            self.amcc.record_outcome(project, goal, "rejected", metadata={"phase": "verification"})
             return self.task_ledger.update(task_id, "rejected", "verification", {
                 "repair": result,
                 "mutation_performed": True,
                 "live_project_modified": False,
                 "promotion_ready": False,
+                "amcc": control,
             })
         except Exception as exc:
+            if control is not None:
+                self.amcc.record_outcome(project, goal, "failed", error=f"{type(exc).__name__}: {exc}")
             current = self.task_ledger.get(task_id)
             if not current or current.get("status") != "failed":
                 self.task_ledger.update(task_id, "failed", "error", {
                     "error": f"{type(exc).__name__}: {exc}",
                     "live_project_modified": False,
+                    "amcc": control,
                 })
             raise
 
-
-    def run_managed_goal(self, project, goal, action_name=None, components=None, approved=False):
-        receipt=self.dispatch_action(
+    def run_managed_goal(self, project, goal, action_name=None, components=None, approved=False, amcc_signals=None):
+        receipt = self.dispatch_action(
             "work.managed.run",
-            {"project":project,"goal":goal,"action_name":action_name,"components":components or []},
-            project=project,source="pc",actor="work-console",approved=approved,
+            {
+                "project": project,
+                "goal": goal,
+                "action_name": action_name,
+                "components": components or [],
+                "amcc": amcc_signals or {},
+            },
+            project=project, source="pc", actor="work-console", approved=approved,
         )
         return receipt["result"]
+
 
     def _prepare_promotion_impl(self, project, candidate_root, task_id=None):
         policy=self.projects.get(project)
