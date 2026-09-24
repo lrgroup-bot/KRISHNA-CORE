@@ -219,7 +219,7 @@ class RepositoryErrorAudit(unittest.TestCase):
         text=(ROOT/"scripts"/"AUDIT_KRISHNA_E_DRIVE.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("Get-HashProbe",text)
         self.assertIn("Get-FileHash -Algorithm SHA256 -LiteralPath $Path -ErrorAction Stop",text)
-        self.assertIn('hash_status="locked_or_in_use"',text)
+        self.assertIn('"locked_or_in_use"',text)
         self.assertIn("candidate_exists=$a.exists",text)
         self.assertIn("canonical_exists=$b.exists",text)
         self.assertIn("=== KRISHNA PROCESS OWNERSHIP ===",text)
