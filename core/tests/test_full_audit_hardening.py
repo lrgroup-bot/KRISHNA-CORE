@@ -8,6 +8,7 @@ from krishna_core.automation_bus import AutomationBus
 from krishna_core.kabach import KabachAgent
 from krishna_core.development_operator import DevelopmentOperator
 from krishna_core.model_scout import ModelCandidate, ModelScout
+from krishna_core.mission_budget import MissionBudgetManager
 from krishna_core.policy_kernel import PolicyKernel
 from krishna_core.remote_access import PrivateRemotePolicy
 from krishna_core.shared_action_bus import SharedActionBus
@@ -123,6 +124,24 @@ class FullAuditHardeningTests(unittest.TestCase):
             server,
         )
         self.assertEqual(leaking, [], "generic HTTP 500 handlers must not echo internal exception messages")
+
+    def test_mission_budget_corrupt_state_and_negative_consumption_fail_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "core.db"
+            budgets = MissionBudgetManager(db)
+            budgets.configure("m1", {"max_tool_calls": 10})
+            with budgets.lock:
+                budgets.db.execute("UPDATE mission_budgets SET usage_json=? WHERE mission_id=?", ("{bad-json", "m1"))
+                budgets.db.commit()
+            with self.assertRaises(RuntimeError):
+                budgets.status("m1")
+            with budgets.lock:
+                budgets.db.execute("UPDATE mission_budgets SET usage_json=? WHERE mission_id=?", (json.dumps({"tool_calls": 1}), "m1"))
+                budgets.db.commit()
+            with self.assertRaises(ValueError):
+                budgets.consume("m1", "tool_calls", -1)
+            self.assertEqual(budgets.status("m1")["usage"]["tool_calls"], 1)
+            budgets.close()
 
     def test_model_scout_incompatible_version_fails_closed_and_preserves_file(self):
         with tempfile.TemporaryDirectory() as td:
