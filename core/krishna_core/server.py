@@ -2984,6 +2984,88 @@ class Handler(BaseHTTPRequestHandler):
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
+        if post_path == "/api/hawkeye/free-cloud/finding":
+            session_id=str(data.get("session_id") or "").strip()
+            mobile_session_id=str(data.get("mobile_session_id") or "").strip()
+            goal=str(data.get("goal") or "live visual assistance").strip()
+            finding=data.get("finding") or {}
+            if not session_id:return self._json(400,{"error":"session_id is required"})
+            if not isinstance(finding,dict):return self._json(400,{"error":"finding must be an object"})
+            analysis=str(finding.get("analysis") or "").strip()[:8000]
+            if not analysis:return self._json(400,{"error":"finding.analysis is required"})
+            provider=str(finding.get("provider") or "free-cloud").strip()[:120]
+            model=str(finding.get("model") or "").strip()[:240]
+            role=str(finding.get("role") or "hawkeye_vision").strip()[:120]
+            local_context=finding.get("local_context") or {}
+            metadata=finding.get("metadata") or {}
+            reviewers=finding.get("reviews") or []
+            if not isinstance(local_context,dict):return self._json(400,{"error":"finding.local_context must be an object"})
+            if not isinstance(metadata,dict):return self._json(400,{"error":"finding.metadata must be an object"})
+            if not isinstance(reviewers,list):return self._json(400,{"error":"finding.reviews must be an array"})
+            reviewer_rows=[]
+            for row in reviewers[:4]:
+                if not isinstance(row,dict):continue
+                reviewer_rows.append({
+                    "provider":str(row.get("provider_family") or row.get("provider") or "")[:120],
+                    "model":str(row.get("model") or "")[:240],
+                    "text":str(row.get("text") or "")[:2500],
+                })
+            try:
+                orch.hawkeye.get_live_session(session_id)
+            except KeyError:
+                return self._json(404,{"error":"live session not found"})
+            try:
+                field=orch.hawkeye.record_live_analysis(
+                    session_id,analysis,
+                    model=(provider+(":"+model if model else "")),
+                    sensor_context={
+                        "mobile_session_id":mobile_session_id,
+                        "local_context":local_context,
+                        "selected_keyframe":bool(finding.get("selected_keyframe",True)),
+                        "scene_signature":str(finding.get("scene_signature") or "")[:240],
+                    },
+                    frame_meta={
+                        "source":"HAWKEYE_MOBILE_FREE_CLOUD",
+                        "provider":provider,"model":model,"role":role,
+                        "reviews":reviewer_rows,
+                        "zero_cost_verified":bool(finding.get("zero_cost_verified",False)),
+                        "raw_media_included":False,
+                        "pc_local_vision_rerun":False,
+                    },
+                )
+                observation=orch.hawkeye_observer.capture(
+                    utterance=goal,
+                    source_type="mobile_curated_evidence",
+                    source_ref=f"hawkeye-free-cloud:{session_id}:{provider}:{model}",
+                    modalities=["image","text"],
+                    subject=goal or "HAWKEYE cloud finding",
+                    analysis=analysis,
+                    confidence=float(finding.get("confidence") or 0.5),
+                    evidence_state="INFERRED",
+                    novelty=float(local_context.get("novelty") or 0.5),
+                    quality=float(local_context.get("quality") or 0.7),
+                    importance=0.8,
+                    public_clues=[],
+                )
+                return self._json(200,{
+                    "pc_recorded":True,
+                    "pc_local_vision_rerun":False,
+                    "session_id":session_id,
+                    "mobile_session_id":mobile_session_id,
+                    "frame_count":field.get("frame_count"),
+                    "provider":provider,"model":model,"role":role,
+                    "observation_id":observation.get("observation_id"),
+                    "knowledge_status":observation.get("knowledge_status"),
+                    "verification_required":observation.get("verification_required"),
+                    "lead_rishi":observation.get("lead_rishi"),
+                    "rishi_team":observation.get("rishi_team"),
+                    "brahma_reference":observation.get("brahma_reference"),
+                })
+            except (ValueError,TypeError) as exc:
+                return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:
+                return self._json(503,{"error":str(exc)})
+
         if post_path == "/api/openrouter/free/role-preference":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"OpenRouter role preferences must be changed on KRISHNA PC"})
@@ -3110,8 +3192,32 @@ class Handler(BaseHTTPRequestHandler):
                 sensor_context=dict(sensor_context);sensor_context["mobile_session_id"]=mobile_session_id;sensor_context["curator_selected"]=True
                 pc_evidence=orch.hawkeye.store_mobile_evidence(session_id,raw,content_type,sensor_context)
                 diagnostic=orch.hawkeye_diagnostic.should_activate(goal)
+                free_cloud=sensor_context.get("free_cloud") or {}
+                if not isinstance(free_cloud,dict):free_cloud={}
+                cloud_analysis=str(free_cloud.get("analysis") or "").strip()
+                cloud_recorded=bool(
+                    free_cloud.get("pc_recorded")
+                    and free_cloud.get("pc_observation_id")
+                    and cloud_analysis
+                    and not sensor_context.get("force_pc_vision",False)
+                )
                 if modality=="image":
-                    if diagnostic:
+                    if cloud_recorded:
+                        latest=orch.hawkeye.get_live_session(session_id)
+                        result={
+                            "diagnostic":diagnostic,
+                            "analysis":cloud_analysis[:8000],
+                            "confidence":0.5,
+                            "evidence_state":"INFERRED",
+                            "provider":str(free_cloud.get("provider") or "free-cloud"),
+                            "model":str(free_cloud.get("model") or ""),
+                            "local":False,
+                            "frame_count":int(latest.get("frame_count") or 0),
+                            "pc_local_vision_skipped":True,
+                            "cloud_observation_id":str(free_cloud.get("pc_observation_id") or ""),
+                            "cloud_finding_reused":True,
+                        }
+                    elif diagnostic:
                         prompt=orch.hawkeye_diagnostic.vision_prompt(goal=goal,sensor_context=sensor_context)
                         with orch.governor.job(timeout=0):vision=_vision.analyze_bytes(raw,content_type,prompt,mode="detailed")
                         result=orch.hawkeye_diagnostic.record_model_result(session_id,vision.get("analysis") or "",goal=goal,sensor_context=sensor_context,model=vision.get("model") or "")
@@ -3133,28 +3239,38 @@ class Handler(BaseHTTPRequestHandler):
                         result["warnings"]=list(previous.get("warnings") or [])[:8]
                 result["session_id"]=session_id;result["pc_session_id"]=session_id;result["mobile_session_id"]=mobile_session_id
                 result["pc_evidence"]=pc_evidence
-                if diagnostic:
+                if diagnostic and not cloud_recorded:
                     result["specialist_dispatch"]=orch.hawkeye_diagnostic.maybe_dispatch_worker(session_id,result,goal=goal,modality=modality,evidence=pc_evidence)
+                elif diagnostic and cloud_recorded:
+                    result["specialist_dispatch_deferred"]=True
+                    result["heavy_escalation"]="explicit_only"
                 evidence_ref={
                     "observation_id":sensor_context.get("mobile_observation_id") or sensor_context.get("observation_id"),
                     "pc_evidence_id":pc_evidence.get("evidence_id") if isinstance(pc_evidence,dict) else None,
                     "sha256":pc_evidence.get("sha256") if isinstance(pc_evidence,dict) else None,
                     "modality":modality,
                 }
-                result["brahma"]=orch.brahma.intake(
-                    source="mobile",topic=goal,content=str(result.get("analysis") or ""),
-                    modality=modality,evidence=[evidence_ref],
-                    provenance={
-                        "observation_id":evidence_ref.get("observation_id"),
-                        "session_id":session_id,"mobile_session_id":mobile_session_id,
-                        "source_ref":evidence_ref.get("sha256"),
-                    },
-                    confidence=float(result.get("confidence") or 0.0),
-                    novelty=float(sensor_context.get("curator_novelty") or 0.5),
-                    quality=float(sensor_context.get("curator_quality") or 0.5),
-                    importance=0.9 if diagnostic else 0.6,
-                    evidence_status=str(result.get("evidence_state") or "candidate").lower(),
-                )
+                if cloud_recorded:
+                    result["brahma"]={
+                        "reused_cloud_observation":True,
+                        "observation_id":str(free_cloud.get("pc_observation_id") or ""),
+                        "duplicate_intake_skipped":True,
+                    }
+                else:
+                    result["brahma"]=orch.brahma.intake(
+                        source="mobile",topic=goal,content=str(result.get("analysis") or ""),
+                        modality=modality,evidence=[evidence_ref],
+                        provenance={
+                            "observation_id":evidence_ref.get("observation_id"),
+                            "session_id":session_id,"mobile_session_id":mobile_session_id,
+                            "source_ref":evidence_ref.get("sha256"),
+                        },
+                        confidence=float(result.get("confidence") or 0.0),
+                        novelty=float(sensor_context.get("curator_novelty") or 0.5),
+                        quality=float(sensor_context.get("curator_quality") or 0.5),
+                        importance=0.9 if diagnostic else 0.6,
+                        evidence_status=str(result.get("evidence_state") or "candidate").lower(),
+                    )
                 return self._json(200,result)
             except ValueError as exc:return self._json(400,{"error":str(exc)})
             except RuntimeError as exc:return self._json(503,{"error":str(exc)})
