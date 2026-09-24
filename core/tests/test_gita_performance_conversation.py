@@ -73,6 +73,19 @@ class GitaPerformanceTests(unittest.TestCase):
         textual = [x for x in record["scriptural_evidence"] if x["kind"] == "TEXTUAL_FACT"]
         self.assertTrue(any("reflect fully" in x["detail"] for x in textual))
 
+    def test_all_required_high_priority_ranges_are_manual_review_candidates(self):
+        required = [
+            (2,7),(2,10),(2,13),(2,14),(2,20),(2,47),(2,48),(3,19),
+            (4,7),(4,8),(4,34),(6,5),(6,6),(6,26),(7,7),(8,5),(9,22),
+            (9,26),(10,8),(10,20),(10,41),(11,8),(11,32),(11,45),(11,51),
+            (12,13),(12,20),(15,7),(18,61),(18,63),(18,65),(18,66),
+        ]
+        for chapter, verse in required:
+            self.assertTrue(
+                self.performance.record(chapter, verse)["manual_override"],
+                f"{chapter}.{verse} should be a high-priority manual-review record",
+            )
+
     def test_animation_choice_is_not_misrepresented_as_scripture(self):
         record = self.performance.record(2, 47)
         kinds = {x["kind"] for x in record["scriptural_evidence"]}
@@ -129,6 +142,21 @@ class KrishnaShlokaConversationTests(unittest.TestCase):
         self.assertEqual(nxt["reference"], "Bhagavad Gita 2.48")
         prev = self.shloka.parse_request("previous verse")
         self.assertEqual(prev["reference"], "Bhagavad Gita 2.47")
+
+    def test_follow_up_explain_this_verse_reuses_last_reference(self):
+        self.shloka.parse_request("Gita 2.47")
+        out = self.shloka.parse_request("explain this verse in Hindi")
+        self.assertEqual(out["reference"], "Bhagavad Gita 2.47")
+        self.assertEqual(out["language"], "hi")
+
+    def test_vishvarupa_request_returns_transition_cosmic_and_return_states(self):
+        out = self.shloka.parse_request("Krishna, show me the Vishvarupa verses")
+        self.assertEqual(out["passage"], "VISHVARUPA")
+        families = {x["verse"]: x["performance"]["avatar_family"] for x in out["items"]}
+        self.assertEqual(families[8], "VISHVARUPA_TRANSITION")
+        self.assertEqual(families[32], "VISHVARUPA")
+        self.assertEqual(families[50], "REASSURING_PERSONAL_FORM")
+        self.assertEqual(families[51], "REASSURING_PERSONAL_FORM")
 
     def test_direct_partha_line_never_uses_forbidden_owner_titles(self):
         out = self.shloka.verse(11, 51, language="en")
