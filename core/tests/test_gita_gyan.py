@@ -256,7 +256,7 @@ class GitaContinuousWiringTests(unittest.TestCase):
         for route in (
             '"/api/gita/session"','"/api/gita/verse"','"/api/gita/performance"',
             '"/api/gita/session/start"','"/api/gita/session/control"',
-            '"/api/gita/search"','"/api/gita/complete"',
+            '"/api/gita/search"','"/api/gita/speak"','"/api/gita/complete"',
         ):
             self.assertIn(route,text)
         self.assertIn('"ପୁଣି"',text)
@@ -268,6 +268,8 @@ class GitaContinuousWiringTests(unittest.TestCase):
         self.assertIn('"/api/gita/session/control"',text)
         self.assertIn('"/api/gita/performance"',text)
         self.assertIn('"/api/gita/search"',text)
+        self.assertIn('"/api/gita/speak"',text)
+        self.assertIn('"/api/voice/audio"',text)
 
 
 
