@@ -960,6 +960,7 @@ class Orchestrator:
                 str(payload.get("workflow_id") or "").strip(),
                 target,
                 verified=bool(payload.get("verified",False)),
+                approved=bool(context.get("approved",False)),
             )
 
         def narad_workflow_execute(payload,context):
