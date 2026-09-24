@@ -61,6 +61,7 @@ try{
       $mainMenu -match "showView\('home'\)" -and
       $mainMenu -match "showView\('sudarshan'\)" -and
       $mainMenu -match "showView\('plugins'\)" -and
+      $mainMenu -notmatch "showView\('workingGods'\)" -and
       $mainMenu -notmatch "showView\('(kabach|garuda|garudanetra|brahmagyan|gyan|narad|specialists|developer|work|activity|system)'\)" -and
       $uiHtml -match 'SUDARSHAN CLEAN CHAT MODE' -and
       $uiHtml -match '#sudarshan \.sudarshanBar\{\s*display:none !important;' -and
