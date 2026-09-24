@@ -67,6 +67,19 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertNotIn("GEMINI_API_KEY",mobile)
         self.assertNotIn("AIza",mobile)
 
+    def test_mobile_free_cloud_router_has_no_mobile_qwen_runtime(self):
+        runtime=(self.mobile/"CANONICAL_RUNTIME.json").read_text(encoding="utf-8")
+        self.assertIn('"mobile_qwen": false',runtime)
+        self.assertIn('"hawkeye_free_cloud_fabric": true',runtime)
+        self.assertIn('"openrouter_zero_cost_role_routing": true',runtime)
+        self.assertIn("hawkeyeFreeCloudAnalyze",self.activity)
+        self.assertIn("/api/hawkeye/free-cloud/analyze",self.activity)
+        self.assertIn("freeCloudTick",self.ui)
+        self.assertIn("OPENROUTER",self.ui)
+        combined=self.activity+"\n"+self.workflow
+        self.assertNotIn("MNN",combined)
+        self.assertNotIn("llama.cpp",combined)
+
     def test_google_lens_is_not_required_for_hawkeye_capture(self):
         runtime=(self.mobile/"CANONICAL_RUNTIME.json").read_text(encoding="utf-8")
         self.assertIn('"google_lens_required": false',runtime)
