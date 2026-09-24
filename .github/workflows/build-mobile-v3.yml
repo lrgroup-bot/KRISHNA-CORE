@@ -292,7 +292,7 @@ jobs:
           grep -q "ensureChat" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "task.completed" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "device_credential" app/src/main/java/com/krishna/mobile/MainActivity.java
-          grep -q "KRISHNA_DISCOVER_V1" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "KRISHNA_DISCOVER_V1" app/src/main/java/com/krishna/mobile/KrishnaPrivateCore.java
           grep -q "setAllowUniversalAccessFromFileURLs(false)" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "privateCoreUrl" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "configurePc" app/src/main/assets/index.html
