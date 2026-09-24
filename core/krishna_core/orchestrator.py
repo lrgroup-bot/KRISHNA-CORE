@@ -94,6 +94,7 @@ from .gyan_security import GyanACL,GyanEnvelopeCipher,GyanEncryptedStore,GyanCon
 from .long_context import HybridRAG,LongContextLab,RecursiveContextEngine,RecursiveBudget,WeeklyLongContextScheduler
 from .lab_bot import LabBot
 from .gita_gyan import GitaGyan
+from .krishna_shloka_orchestrator import KrishnaShlokaOrchestrator
 
 
 class Orchestrator:
@@ -181,6 +182,7 @@ class Orchestrator:
         self.hawkeye_diagnostic.bind_worker_runtime(self.ephemeral_workers,self.governor)
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
+        self.gita_shloka = KrishnaShlokaOrchestrator(self.gita_gyan,self.agi.avatar,explain=self._gita_explain)
         self.spark_x25 = SparkX25Manager(
             runtime_state / "spark-x25",
             self.agi.model_scout,
@@ -4577,15 +4579,43 @@ Evidence:
     def agi_status(self):
         return self.agi.status()
 
+    def _gita_explain(self,prompt):
+        result=self._route_model(
+            prompt,
+            privacy="local_only",
+            project="KRISHNA",
+            actor="gita-gyan",
+        )
+        return str((result or {}).get("text") or "").strip()
+
+    def gita_session_start(self,chapter=1,verse=1,language="or",depth="deep",include_explanation=True):
+        out=self.gita_shloka.start(chapter,verse,language,depth,include_explanation)
+        self.memory.audit("gita_session","start",out["reference"])
+        return out
+
+    def gita_session_control(self,action,count=1,chapter=None,verse=None,include_explanation=True):
+        out=self.gita_shloka.control(action,count,chapter,verse,include_explanation)
+        self.memory.audit("gita_session","control",f"{action}:{out['reference']}")
+        return out
+
+    def gita_verse(self,chapter,verse,language="or",depth="deep",include_explanation=True):
+        return self.gita_shloka.verse(chapter,verse,language,depth,include_explanation)
+
+    def gita_performance(self,chapter,verse):
+        return self.gita_shloka.performance(chapter,verse)
+
+    def gita_search(self,query,limit=20):
+        return {
+            "query":str(query),
+            "items":self.gita_gyan.search(query,limit),
+            "default_language":"or",
+        }
+
+    def gita_mark_complete(self,chapter=None,verse=None,complete=True):
+        return self.gita_gyan.mark_complete(chapter,verse,complete)
+
     def gita_daily_lesson(self, language="or", depth="deep", mark_complete=True):
-        def explain(prompt):
-            result = self._route_model(
-                prompt,
-                privacy="local_only",
-                project="KRISHNA",
-                actor="gita-gyan",
-            )
-            return str((result or {}).get("text") or "").strip()
+        explain=self._gita_explain
         try:
             lesson = self.gita_gyan.daily_lesson(
                 language=language,
