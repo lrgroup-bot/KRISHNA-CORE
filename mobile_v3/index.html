@@ -111,7 +111,7 @@ function renderGita(d){
  document.getElementById('gitaMeaning').textContent=trusted||generated||'Trusted translation is not bundled for this verse; ask KRISHNA for an explanation.';
  card.classList.add('active');
 }
-function toggleGitaRecitation(){if(!lastGita?.sanskrit)return;try{if(speechSynthesis.speaking){speechSynthesis.cancel();return}const u=new SpeechSynthesisUtterance(lastGita.sanskrit);u.lang='hi-IN';u.rate=.78;speechSynthesis.speak(u)}catch(e){}}
+function toggleGitaRecitation(){if(!lastGita?.sanskrit)return;try{if(speechSynthesis.speaking){speechSynthesis.cancel();return}reply('Device speech fallback is playing the Sanskrit text; pronunciation is not marked verified until the local Sanskrit recitation worker passes.','warn');const u=new SpeechSynthesisUtterance(lastGita.sanskrit);u.lang='hi-IN';u.rate=.78;speechSynthesis.speak(u)}catch(e){}}
 function repeatGita(){try{speechSynthesis.cancel()}catch(e){};toggleGitaRecitation()}
 function speakGitaExplanation(){if(!lastGita)return;const t=lastGita.generated_explanation||lastGita.explanation||lastGita.trusted_summary_en||'';if(t)speak(t)}
 window.toggleGitaRecitation=toggleGitaRecitation;window.repeatGita=repeatGita;window.speakGitaExplanation=speakGitaExplanation;
