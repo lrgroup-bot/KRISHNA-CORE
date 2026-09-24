@@ -122,13 +122,13 @@ class FreeCloudDefaultTests(unittest.TestCase):
 
 
 
-class QwenPcOptInPolicyTests(unittest.TestCase):
-    def test_qwen_is_not_an_automatic_default_or_fallback(self):
+class QwenPcRolePolicyTests(unittest.TestCase):
+    def test_qwen_is_owner_approved_pc_general_default(self):
         with patch.dict(os.environ,{},clear=True):
             candidates=ModelRouter.local_model_candidates()
         self.assertTrue(candidates)
-        self.assertEqual(candidates[0],"gemma3:4b")
-        self.assertFalse(any(x.lower().startswith("qwen") for x in candidates))
+        self.assertEqual(candidates[0],"qwen3.5:4b")
+        self.assertIn("gemma3:4b",candidates)
 
     def test_explicit_pc_qwen_environment_is_honored(self):
         with patch.dict(os.environ,{
