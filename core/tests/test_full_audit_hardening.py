@@ -105,7 +105,7 @@ class FullAuditHardeningTests(unittest.TestCase):
         repo_root = Path(__file__).resolve().parents[2]
         server = (repo_root / "core" / "krishna_core" / "server.py").read_text(encoding="utf-8")
         leaking = re.findall(
-            r'except Exception as exc:\\s*\\n(?:\\s+.*\\n){0,4}?\\s*return self\\._json\\(500, \\{"error": ?str\\(exc\\)\\}\\)',
+            r'except Exception as exc:\s*\n(?:\s+.*\n){0,4}?\s*return self\._json\(500, \{"error": ?str\(exc\)\}\)',
             server,
         )
         self.assertEqual(leaking, [], "generic HTTP 500 handlers must not echo internal exception messages")
