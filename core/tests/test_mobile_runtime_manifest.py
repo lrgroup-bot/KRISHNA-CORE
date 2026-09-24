@@ -40,6 +40,7 @@ class MobileRuntimeManifestTests(unittest.TestCase):
         self.assertTrue(data["boundaries"]["automatic_private_core_bootstrap"])
         self.assertTrue(data["boundaries"]["zero_code_pairing_request"])
         self.assertTrue(data["boundaries"]["large_media_sync_unmetered_only"])
+        self.assertTrue(data["boundaries"]["large_media_same_lan_required"])
         self.assertFalse(data["boundaries"]["cellular_large_media_upload"])
         self.assertTrue(data["boundaries"]["large_media_resumable"])
         self.assertTrue(data["boundaries"]["large_media_sha256_verified"])
