@@ -24,7 +24,8 @@ $env:HUGGINGFACE_HUB_CACHE=Join-Path $hfHome "hub"
 $env:TRANSFORMERS_CACHE=Join-Path $hfHome "transformers"
 New-Item -ItemType Directory -Force $voiceRoot,$modelRoot,$hfHome,$env:TEMP,$env:PIP_CACHE_DIR|Out-Null
 
-$pyCmd=$null
+$pythonExe=$null
+$pythonArgs=@()
 foreach($candidate in @(
   @{exe="py.exe";args=@("-3.12")},
   @{exe="py.exe";args=@("-3.11")},
@@ -33,14 +34,18 @@ foreach($candidate in @(
   try{
     $cmd=Get-Command $candidate.exe -ErrorAction Stop
     & $cmd.Source @($candidate.args) -c "import sys;print(sys.version_info[:2])" | Out-Null
-    if($LASTEXITCODE -eq 0){$pyCmd=@($cmd.Source)+@($candidate.args);break}
+    if($LASTEXITCODE -eq 0){
+      $pythonExe=$cmd.Source
+      $pythonArgs=@($candidate.args)
+      break
+    }
   }catch{}
 }
-if(!$pyCmd){throw "No supported Python found for isolated Sanskrit TTS runtime"}
+if(!$pythonExe){throw "No supported Python found for isolated Sanskrit TTS runtime"}
 
 $ttsPy=Join-Path $envRoot "Scripts\python.exe"
 if(!(Test-Path -LiteralPath $ttsPy)){
-  & $pyCmd[0] @($pyCmd[1..($pyCmd.Count-1)]) -m venv $envRoot
+  & $pythonExe @pythonArgs -m venv $envRoot
   if($LASTEXITCODE -ne 0){throw "Failed to create Sanskrit TTS environment"}
 }
 
@@ -76,6 +81,26 @@ except Exception as exc:
     Write-Warning "AI4Bharat Indic Parler-TTS is free/Apache-2.0 but Hugging Face requires the account access agreement. Accept the model conditions and authenticate locally; no token should be pasted into chat."
     exit 7
   }
+
+  # The Parler checkpoint references a separate description/text-encoder tokenizer.
+  # Cache it under HF_HOME now so the worker can remain offline at synthesis time.
+  $cacheDeps=@'
+from transformers import AutoConfig
+from huggingface_hub import snapshot_download
+import os,sys
+root=sys.argv[1]
+cfg=AutoConfig.from_pretrained(root,local_files_only=True)
+enc=getattr(getattr(cfg,"text_encoder",None),"_name_or_path",None)
+if not enc:
+    data=getattr(cfg,"text_encoder",None)
+    if isinstance(data,dict):
+        enc=data.get("_name_or_path")
+if enc and not os.path.isdir(str(enc)):
+    snapshot_download(repo_id=str(enc),token=os.getenv("HF_TOKEN") or None)
+print("KRISHNA_SANSKRIT_DEPENDENCY_CACHE_OK",enc)
+'@
+  & $ttsPy -c $cacheDeps $modelRoot
+  if($LASTEXITCODE -ne 0){throw "Failed to cache Sanskrit description tokenizer dependency"}
 }
 
 $required=@("config.json")
