@@ -6,9 +6,19 @@ import re
 import tempfile
 import threading
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+
+def _resolve_timezone(name):
+    value=str(name or "Asia/Kolkata").strip() or "Asia/Kolkata"
+    try:
+        return ZoneInfo(value)
+    except Exception:
+        if value in {"Asia/Kolkata","Asia/Calcutta"}:
+            return timezone(timedelta(hours=5,minutes=30),name="IST")
+        return datetime.now().astimezone().tzinfo or timezone.utc
 
 
 class GitaGyan:
@@ -158,7 +168,7 @@ class GitaGyan:
     def _date_string(value=None) -> str:
         if value is None:
             timezone_name = str(os.getenv("KRISHNA_TIMEZONE", "Asia/Kolkata") or "Asia/Kolkata")
-            return datetime.now(ZoneInfo(timezone_name)).date().isoformat()
+            return datetime.now(_resolve_timezone(timezone_name)).date().isoformat()
         if isinstance(value, datetime):
             return value.date().isoformat()
         if isinstance(value, date):
@@ -532,7 +542,7 @@ class GitaDailyScheduler:
         self.callback = callback
         self.daily_time = self._validate_time(daily_time)
         self.timezone_name = str(timezone_name or "Asia/Kolkata")
-        self.timezone = ZoneInfo(self.timezone_name)
+        self.timezone = _resolve_timezone(self.timezone_name)
         self.poll_seconds = max(5, int(poll_seconds))
         self.enabled = bool(enabled)
         self.last_run_date = None
