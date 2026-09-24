@@ -80,6 +80,17 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertNotIn("MNN",combined)
         self.assertNotIn("llama.cpp",combined)
 
+    def test_free_cloud_findings_sync_back_to_pc_without_mobile_qwen(self):
+        runtime=(self.mobile/"CANONICAL_RUNTIME.json").read_text(encoding="utf-8")
+        self.assertIn('"hawkeye_cloud_findings_synced_to_pc": true',runtime)
+        self.assertIn('"pc_duplicate_vision_skip": true',runtime)
+        self.assertIn("hawkeyeFreeCloudFinding",self.activity)
+        self.assertIn("/api/hawkeye/free-cloud/finding",self.activity)
+        self.assertIn("pcOffloadContext",self.ui)
+        self.assertIn("pc_recorded",self.ui)
+        self.assertIn("free_cloud:freeCloud",self.index)
+        self.assertIn('"mobile_qwen": false',runtime)
+
     def test_google_lens_is_not_required_for_hawkeye_capture(self):
         runtime=(self.mobile/"CANONICAL_RUNTIME.json").read_text(encoding="utf-8")
         self.assertIn('"google_lens_required": false',runtime)
