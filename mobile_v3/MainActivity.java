@@ -315,6 +315,26 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    @JavascriptInterface public String hawkeyeFreeCloudFinding(String sessionId,String goal,String findingJson){
+      try{
+        JSONObject finding=new JSONObject(findingJson==null||findingJson.trim().isEmpty()?"{}":findingJson);
+        String localSession=sessionId==null||sessionId.trim().isEmpty()?"field":sessionId.trim();
+        String task=goal==null?"":goal.trim();
+        String pcSession=resolvePcHawkeyeSession(localSession,task);
+        JSONObject body=new JSONObject();
+        body.put("session_id",pcSession);
+        body.put("mobile_session_id",localSession);
+        body.put("goal",task);
+        body.put("finding",finding);
+        JSONObject result=new JSONObject(call("/api/hawkeye/free-cloud/finding",body.toString()));
+        if(!result.has("error")){
+          result.put("mobile_session_id",localSession);
+          result.put("pc_session_id",pcSession);
+        }
+        return result.toString();
+      }catch(Exception e){return error(e);}
+    }
+
     @JavascriptInterface public String hawkeyeGeminiStatus(){
       try{return call("/api/hawkeye/gemini/status",null);}
       catch(Exception e){return error(e);}
