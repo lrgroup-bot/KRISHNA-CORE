@@ -280,7 +280,11 @@ try{
   $env:PYTHONPATH="$Runtime\core"
   & $Py -m compileall -q "$Runtime\core\krishna_core"
   if($LASTEXITCODE -ne 0){throw "DEPLOYED CORE COMPILE FAILED"}
-  & $Py -m unittest discover -v -s "$Runtime\core\tests" -p "test_*.py"
+  # Discover tests from the authoritative source tree so repository-contract
+  # fixtures resolve .github/mobile_v3/app/.gitignore from the real repository,
+  # while PYTHONPATH remains bound to the deployed runtime Core. This verifies
+  # the deployed Python code without pretending the runtime is a full Git checkout.
+  & $Py -m unittest discover -v -s "$Source\core\tests" -p "test_*.py"
   if($LASTEXITCODE -ne 0){throw "DEPLOYED CORE TESTS FAILED"}
   & $Py -m unittest discover -v -s "$Source\tests" -p "test_*.py"
   if($LASTEXITCODE -ne 0){throw "POST-DEPLOY CONTRACTS FAILED"}
