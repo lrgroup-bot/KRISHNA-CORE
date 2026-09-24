@@ -20,6 +20,7 @@ class PrivateRemotePolicy:
         "/api/gita/search",
         "/api/gita/explain",
         "/api/gita/speak",
+        "/api/voice/audio",
         "/api/gita/performance/apply",
         "/api/gita/performance/qc",
         "/api/attachments",
