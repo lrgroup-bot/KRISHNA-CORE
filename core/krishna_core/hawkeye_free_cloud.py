@@ -197,6 +197,9 @@ class HawkeyeFreeCloudFabric:
 
         if result is None and provider in {"auto","gemini"}:
             try:
+                gemini_status=self.gemini.status()
+                if not bool(gemini_status.get("free_only_declared",False)):
+                    raise PermissionError("Gemini is not marked free_only for automatic HAWKEYE routing")
                 row=self.gemini.analyze_image(data,ctype,prompt,meta)
                 result={
                     "provider":"google-gemini",
