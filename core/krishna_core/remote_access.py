@@ -9,7 +9,6 @@ class PrivateRemotePolicy:
         "/api/status",
         "/api/mobile/connection",
         "/api/mobile/resume",
-        "/api/mobile/control",
         "/api/core/event",
         "/api/core/state",
         "/api/core/chat",
