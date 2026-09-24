@@ -3,7 +3,9 @@ param(
   [string]$SourceRoot="E:\KRISHNA-SOURCE",
   [string]$RuntimeGeneration="",
   [int]$MaxCrashes=5,
-  [int]$CrashWindowSeconds=600
+  [int]$CrashWindowSeconds=600,
+  [switch]$PrivateRemote,
+  [string]$TailscaleExe="E:\TailScale\tailscale.exe"
 )
 $ErrorActionPreference="Stop"
 $stateDir=Join-Path $RuntimeRoot "state\guardian"
@@ -54,7 +56,7 @@ if(Test-Path $pidPath){
 if(!$RuntimeGeneration){$RuntimeGeneration=[guid]::NewGuid().ToString("N")}
 $env:KRISHNA_RUNTIME_GENERATION=$RuntimeGeneration
 [string]$PID|Set-Content -Encoding ASCII $pidPath
-Write-GuardianEvent "GUARDIAN_START" @{guardian_pid=$PID;runtime_generation=$RuntimeGeneration}
+Write-GuardianEvent "GUARDIAN_START" @{guardian_pid=$PID;runtime_generation=$RuntimeGeneration;private_remote=[bool]$PrivateRemote;tailscale_exe=$TailscaleExe}
 $crashes=New-Object System.Collections.Generic.List[double]
 $restartCount=0
 
@@ -74,6 +76,10 @@ while($true){
   # Quote every path-bearing argument explicitly; Start-Process otherwise flattens
   # ArgumentList and can split paths containing spaces before PowerShell sees them.
   $coreArgs='-NoProfile -ExecutionPolicy Bypass -File "'+$startScript+'" -KrishnaRoot "'+$RuntimeRoot+'" -SourceRoot "'+$SourceRoot+'"'
+  if($PrivateRemote){
+    $coreArgs+=' -PrivateRemote'
+    if($TailscaleExe){$coreArgs+=' -TailscaleExe "'+$TailscaleExe+'"'}
+  }
   $p=Start-Process -FilePath "powershell.exe" -ArgumentList $coreArgs -PassThru -WindowStyle Hidden -RedirectStandardOutput $coreStdout -RedirectStandardError $coreStderr
   Save-State @{status="RUNNING";guardian_pid=$PID;core_pid=$p.Id;runtime_generation=$RuntimeGeneration;restart_count=$restartCount;started=(Get-Date).ToUniversalTime().ToString("o");stdout=$coreStdout;stderr=$coreStderr}
   $p.WaitForExit()
