@@ -18,8 +18,9 @@ class GitaGyan:
     EXPECTED_VERSE_COUNT = 700
     CHAPTER_VERSE_COUNTS = (
         47, 72, 43, 42, 29, 47, 30, 28, 34,
-        42, 55, 20, 35, 27, 20, 24, 28, 78,
+        42, 55, 20, 34, 27, 20, 24, 28, 78,
     )
+    VERSE_NUMBERING = "700-verse recension; some editions include an additional opening verse in chapter 13 and total 701"
     LANGUAGES = {"or": "odia", "hi": "hindi", "en": "english"}
 
     SEED = (
@@ -144,6 +145,7 @@ class GitaGyan:
             "version": self.VERSION,
             "available_verses": len(corpus),
             "expected_verses": self.EXPECTED_VERSE_COUNT,
+            "verse_numbering": self.VERSE_NUMBERING,
             "corpus_complete": len(corpus) == self.EXPECTED_VERSE_COUNT,
             "completed_count": len(set(progress["completed"])),
             "preferred_language": progress["preferred_language"],
