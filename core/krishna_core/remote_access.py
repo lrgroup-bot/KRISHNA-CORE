@@ -26,6 +26,18 @@ class PrivateRemotePolicy:
         "/api/hawkeye/learn/research",
         "/api/hawkeye/live/start",
         "/api/hawkeye/reference/item",
+        "/api/gita/status",
+        "/api/gita/progress",
+        "/api/gita/today",
+        "/api/gita/verse",
+        "/api/gita/revision",
+        "/api/gita/preference",
+        "/api/gita/lesson",
+        "/api/gita/understood",
+        "/api/gita/question",
+        "/api/gita/speak",
+        "/api/gita/command",
+        "/api/voice/audio",
         "/api/mobile-log",
     })
     """Network boundary for KRISHNA Mobile/remote clients.
