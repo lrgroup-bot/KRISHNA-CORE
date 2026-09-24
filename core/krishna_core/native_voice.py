@@ -81,6 +81,42 @@ class IndicTTS:
         return str(output)
 
 
+class SanskritChantTTS:
+    """Dedicated isolated local Sanskrit shloka recitation boundary.
+
+    Configure KRISHNA_SANSKRIT_TTS_CMD with placeholders {text}, {output}
+    and optionally {meter}. Hindi/Odia TTS is never treated as Sanskrit.
+    """
+    def __init__(self,command=None):
+        self.command=CommandTemplate(command or os.getenv("KRISHNA_SANSKRIT_TTS_CMD"))
+
+    def status(self):
+        return {
+            "provider":"edge-sanskrit-tts",
+            "language":"sa",
+            "languages":["sa"],
+            "local":True,
+            "available":self.command.available(),
+            "config":"KRISHNA_SANSKRIT_TTS_CMD",
+            "mode":"isolated-worker",
+            "note":"Dedicated Sanskrit recitation worker; Indic Hindi/Odia TTS is not a Sanskrit substitute.",
+        }
+
+    def speak(self,text,output_path=None,meter="anushtubh"):
+        value=str(text or "").strip()
+        if not value:
+            raise ValueError("Sanskrit text is required")
+        output=Path(output_path or "krishna-sa.wav").resolve()
+        self.command.run({
+            "text":value,
+            "output":str(output),
+            "meter":str(meter or "anushtubh").strip() or "anushtubh",
+        },timeout=900)
+        if not output.is_file():
+            raise RuntimeError("local Sanskrit TTS command did not create output audio")
+        return str(output)
+
+
 class ExternalWakeWordService:
     """Run wake-word detection in an isolated local worker process.
 
@@ -260,8 +296,9 @@ class KrishnaVoiceStack:
     def __init__(self,on_wake=None):
         self.stt=IndicConformerSTT()
         self.tts=IndicTTS()
+        self.sanskrit_tts=SanskritChantTTS()
         wake_command=os.getenv("KRISHNA_WAKEWORD_CMD")
         self.wake=ExternalWakeWordService(wake_command,on_wake=on_wake) if wake_command else WakeWordService(on_wake=on_wake)
     def status(self):
-        return {"stt":self.stt.status(),"tts":self.tts.status(),"wake":self.wake.status(),
+        return {"stt":self.stt.status(),"tts":self.tts.status(),"sanskrit_tts":self.sanskrit_tts.status(),"wake":self.wake.status(),
                 "language":"or-IN","mode":"local-first","authentication":"device/policy gate remains authoritative"}
