@@ -80,6 +80,7 @@ core\krishna_core\garudanetra_recovery.py
 core\krishna_core\garudanetra_research.py
 core\krishna_core\garudanetra_session.py
 core\krishna_core\garudanetra.py
+core\krishna_core\gemini_hawkeye.py
 core\krishna_core\github_research.py
 core\krishna_core\gnn_backend.py
 core\krishna_core\gnn_trainer.py
@@ -209,6 +210,7 @@ core\krishna_core\shared_action_bus.py
 core\krishna_core\skill_compiler.py
 core\krishna_core\skill_runtime.py
 core\krishna_core\software_factory.py
+core\krishna_core\spark_x25.py
 core\krishna_core\specialist_library.py
 core\krishna_core\specialist_registry.py
 core\krishna_core\specialist_team.py
