@@ -1153,6 +1153,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,orch.secure_vault.list())
         if path == "/api/brahma/status":
             return self._json(200,orch.brahma.status())
+        if path in {"/api/brahma/process-qc","/api/working-gods"}:
+            return self._json(200,orch.brahma_process_status())
         if path == "/api/brahma/retrieve":
             topic=str((query.get("topic") or [""])[0]).strip()
             if not topic:return self._json(400,{"error":"topic is required"})
