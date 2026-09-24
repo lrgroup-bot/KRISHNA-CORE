@@ -4,7 +4,8 @@ param(
     [Parameter(Mandatory=$false)][string]$SourceRoot = "",
     [Parameter(Mandatory=$false)][switch]$PrivateRemote,
     [Parameter(Mandatory=$false)][switch]$MobileLan,
-    [Parameter(Mandatory=$false)][string]$PrivateRemoteCIDRs = ""
+    [Parameter(Mandatory=$false)][string]$PrivateRemoteCIDRs = "",
+    [Parameter(Mandatory=$false)][string]$TailscaleExe = ""
 )
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -62,9 +63,16 @@ if($MobileLan){
     }catch{$lanIp=""}
 }
 if($PrivateRemote){
-    $tailscale=(Get-Command tailscale.exe -ErrorAction SilentlyContinue)
-    if(!$tailscale){throw "PrivateRemote requested but tailscale.exe is not installed/found"}
-    $tsIp=(& $tailscale.Source ip -4 2>$null | Select-Object -First 1).Trim()
+    $tailscalePath=""
+    if($TailscaleExe -and (Test-Path $TailscaleExe)){
+        $tailscalePath=[IO.Path]::GetFullPath($TailscaleExe)
+    }else{
+        $tailscale=(Get-Command tailscale.exe -ErrorAction SilentlyContinue)
+        if($tailscale){$tailscalePath=$tailscale.Source}
+        elseif(Test-Path "E:\TailScale\tailscale.exe"){$tailscalePath="E:\TailScale\tailscale.exe"}
+    }
+    if(!$tailscalePath){throw "PrivateRemote requested but tailscale.exe is not installed/found"}
+    $tsIp=(& $tailscalePath ip -4 2>$null | Select-Object -First 1).Trim()
     if(!$tsIp){throw "PrivateRemote requested but no Tailscale IPv4 address is available"}
     $parsed=$null
     if(![System.Net.IPAddress]::TryParse($tsIp,[ref]$parsed)){throw "Tailscale returned an invalid IP: $tsIp"}
