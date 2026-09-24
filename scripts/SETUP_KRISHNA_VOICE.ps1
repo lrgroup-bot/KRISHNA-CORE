@@ -5,7 +5,8 @@ param(
   [switch]$InstallEmbeddedWakeDependencies,
   [string]$IndicSttCommand="",
   [string]$IndicTtsCommand="",
-  [ValidateSet("hi,or","en,hi,or")][string]$IndicTtsLanguages="hi,or"
+  [ValidateSet("hi,or","en,hi,or")][string]$IndicTtsLanguages="hi,or",
+  [string]$SanskritTtsCommand=""
 )
 $ErrorActionPreference="Stop"
 $py=Join-Path $RuntimeRoot ".venv\Scripts\python.exe"
@@ -41,6 +42,7 @@ if($WakeModel){
 }
 if($IndicSttCommand){$values["KRISHNA_INDIC_STT_CMD"]=$IndicSttCommand}
 if($IndicTtsCommand){$values["KRISHNA_INDIC_TTS_CMD"]=$IndicTtsCommand}
+if($SanskritTtsCommand){$values["KRISHNA_SANSKRIT_TTS_CMD"]=$SanskritTtsCommand}
 if($PSBoundParameters.ContainsKey("IndicTtsLanguages")){
   $values["KRISHNA_INDIC_TTS_LANGUAGES"]=$IndicTtsLanguages
 }elseif($IndicTtsCommand -and !$values.Contains("KRISHNA_INDIC_TTS_LANGUAGES")){
@@ -57,7 +59,8 @@ $preferred=@(
   "KRISHNA_WAKEWORD_THRESHOLD",
   "KRISHNA_INDIC_STT_CMD",
   "KRISHNA_INDIC_TTS_CMD",
-  "KRISHNA_INDIC_TTS_LANGUAGES"
+  "KRISHNA_INDIC_TTS_LANGUAGES",
+  "KRISHNA_SANSKRIT_TTS_CMD"
 )
 $written=New-Object System.Collections.Generic.HashSet[string]
 foreach($name in $preferred){
@@ -76,4 +79,4 @@ foreach($name in ($values.Keys | Sort-Object)){
 }
 $lines|Set-Content -Encoding UTF8 $envFile
 Write-Host "Voice config: $envFile" -ForegroundColor Green
-Write-Host "AI4Bharat workers are never claimed active unless local commands are configured. Default TTS languages are Hindi/Odia; use -IndicTtsLanguages 'en,hi,or' only when an English checkpoint is installed." -ForegroundColor Yellow
+Write-Host "AI4Bharat workers are never claimed active unless local commands are configured. Default prose TTS languages are Hindi/Odia; Sanskrit recitation uses a separate isolated local worker when configured. No paid voice fallback is enabled." -ForegroundColor Yellow
