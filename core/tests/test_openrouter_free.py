@@ -86,6 +86,22 @@ class OpenRouterFreeFabricTests(unittest.TestCase):
             all_ids={x["id"] for x in fabric.rank("general",20)}
             self.assertNotIn("paid/model",all_ids)
 
+    def test_role_preference_is_persistent_and_must_remain_zero_cost(self):
+        with tempfile.TemporaryDirectory() as td:
+            fabric=OpenRouterFreeFabric(FakeGateway(),td)
+            out=fabric.set_role_preference("hawkeye_vision","inclusionai/ling-3.0-flash-vl:free")
+            self.assertTrue(out["verified_zero_cost"])
+            self.assertEqual(out["role"],"vision")
+            self.assertEqual(fabric.role_preferences()["vision"],"inclusionai/ling-3.0-flash-vl:free")
+            ranked=fabric.rank("hawkeye_vision",3,refresh=False)
+            self.assertEqual(ranked[0]["id"],"inclusionai/ling-3.0-flash-vl:free")
+
+    def test_role_preference_rejects_paid_model(self):
+        with tempfile.TemporaryDirectory() as td:
+            fabric=OpenRouterFreeFabric(FakeGateway(),td)
+            with self.assertRaises(ZeroCostPolicyError):
+                fabric.set_role_preference("coding","paid/model")
+
     def test_cloud_privacy_and_secret_guards_fail_closed(self):
         with tempfile.TemporaryDirectory() as td:
             fabric=OpenRouterFreeFabric(FakeGateway(),td)
