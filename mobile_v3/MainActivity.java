@@ -586,7 +586,7 @@ public class MainActivity extends Activity {
     }
 
     JSONObject uploadCuratedEvidence(JSONObject meta,byte[] payload,String contentType,String fallbackGoal)throws Exception{
-      if(!KrishnaPrivateCore.unmeteredTrustedNetwork(MainActivity.this)){
+      if(!KrishnaPrivateCore.trustedLanReady(MainActivity.this)){
         JSONObject held=new JSONObject();
         held.put("status","WAITING_FOR_TRUSTED_LAN");held.put("retained_local",true);
         held.put("cellular_large_upload",false);held.put("raw_cloud_upload",false);
