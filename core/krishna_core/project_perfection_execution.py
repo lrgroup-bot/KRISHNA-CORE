@@ -326,6 +326,29 @@ class ArtifactExecutor:
         except Exception as exc:
             return {"passed":False,"pid":pid,"error":f"{type(exc).__name__}: {exc}"}
 
+    @staticmethod
+    def _cleanup_sandbox(path: str | Path, attempts: int=20, delay_seconds: float=0.25) -> dict[str, Any]:
+        """Remove a clean-install sandbox after Windows releases executable handles.
+
+        Windows may keep an image section briefly after taskkill/proc.wait succeeds.
+        That transient lock must not turn a successful launch/restart verification into
+        an unhandled TemporaryDirectory cleanup exception.
+        """
+        root=Path(path)
+        last_error=None
+        for attempt in range(1,max(1,int(attempts))+1):
+            if not root.exists():
+                return {"passed":True,"attempts":attempt-1}
+            try:
+                shutil.rmtree(root)
+                return {"passed":True,"attempts":attempt}
+            except (PermissionError,OSError) as exc:
+                last_error=f"{type(exc).__name__}: {exc}"
+                if attempt<max(1,int(attempts)) and delay_seconds>0:
+                    time.sleep(float(delay_seconds))
+        return {"passed":not root.exists(),"attempts":max(1,int(attempts)),
+                "error":last_error,"path":str(root)}
+
     def _wait_android_ready(self, adb: str, attempts: int=60,
                             delay_seconds: float=1.0) -> dict[str, Any]:
         """Wait for ADB transport and core Android framework services before app operations."""
@@ -419,8 +442,12 @@ class ArtifactExecutor:
             return {"kind":"exe","executed":False,"passed":False,"reason":"artifact_missing","artifact":str(path)}
         artifact_hash=sha256(path.read_bytes()).hexdigest()
         runs=[]
-        with tempfile.TemporaryDirectory(prefix="krishna-exe-clean-install-") as td:
-            sandbox=Path(td).resolve();staged=sandbox/path.name;shutil.copy2(path,staged)
+        td=tempfile.mkdtemp(prefix="krishna-exe-clean-install-")
+        sandbox=Path(td).resolve();staged=sandbox/path.name
+        staged_hash=None
+        cleanup={"passed":False,"reason":"not_attempted"}
+        try:
+            shutil.copy2(path,staged)
             for cycle in ("launch","restart"):
                 proc=None
                 try:
@@ -438,9 +465,14 @@ class ArtifactExecutor:
                         runs[-1]["termination"]=termination
                         runs[-1]["passed"]=bool(runs[-1].get("passed") and termination.get("passed"))
             staged_hash=sha256(staged.read_bytes()).hexdigest() if staged.is_file() else None
+        finally:
+            cleanup=self._cleanup_sandbox(sandbox)
+        functional_pass=bool(staged_hash==artifact_hash and all(x["passed"] for x in runs))
         return {"kind":"exe","executed":True,"artifact":str(path),"artifact_sha256":artifact_hash,
                 "clean_install":True,"sandbox_copy_verified":staged_hash==artifact_hash,
-                "runs":runs,"passed":bool(staged_hash==artifact_hash and all(x["passed"] for x in runs))}
+                "sandbox_cleanup":cleanup,"runs":runs,
+                "passed":functional_pass,
+                "cleanup_warning":None if cleanup.get("passed") else "temporary Windows executable remained locked after bounded cleanup retries"}
 
     def apk(self, artifact: str | Path, package_id: str="com.krishna.mobile") -> dict[str, Any]:
         path=Path(artifact).resolve()

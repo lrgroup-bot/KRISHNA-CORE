@@ -62,9 +62,25 @@ class BrahmaProcessQC:
 
     def _save(self):
         if self.load_error:raise RuntimeError("BRAHMA process QC state unreadable")
-        tmp=self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self.state,ensure_ascii=False,indent=2),encoding="utf-8")
-        os.replace(tmp,self.path)
+        payload=json.dumps(self.state,ensure_ascii=False,indent=2)
+        last_error=None
+        for attempt in range(2):
+            try:
+                self.path.parent.mkdir(parents=True,exist_ok=True)
+                tmp=self.path.with_suffix(".tmp")
+                tmp.write_text(payload,encoding="utf-8")
+                os.replace(tmp,self.path)
+                return
+            except FileNotFoundError as exc:
+                # A teardown/rotation can remove the state directory between
+                # mkdir and the atomic write. Recreate once instead of killing
+                # the daemon QC worker with an uncaught race.
+                last_error=exc
+                if attempt==0:
+                    continue
+                raise
+        if last_error:
+            raise last_error
 
     def bind_runtime(self,*,retry_dispatch=None,investigate=None,consult_krishna=None,repair_known=None):
         self.retry_dispatch=retry_dispatch;self.investigate=investigate
