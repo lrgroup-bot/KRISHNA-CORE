@@ -30,13 +30,21 @@ class MobileRuntimeManifestTests(unittest.TestCase):
         for name in (
             "MobileEdgeBot.java","HawkeyeEvidenceCuratorBot.java","HawkeyeCrypto.java",
             "HawkeyeBackgroundSync.java","HawkeyeSyncJobService.java",
-            "HawkeyeMobileVision.java","hawkeye-observer-ui.js"
+            "KrishnaPrivateCore.java","HawkeyeMobileVision.java","hawkeye-observer-ui.js"
         ):
             self.assertIn(name,files)
         self.assertTrue(data["boundaries"]["hawkeye_learning_observer"])
         self.assertTrue(data["boundaries"]["local_object_tracking"])
         self.assertTrue(data["boundaries"]["user_browser_custom_tab"])
         self.assertFalse(data["boundaries"]["unknown_face_social_identity_search"])
+        self.assertTrue(data["boundaries"]["automatic_private_core_bootstrap"])
+        self.assertTrue(data["boundaries"]["zero_code_pairing_request"])
+        self.assertTrue(data["boundaries"]["large_media_sync_unmetered_only"])
+        self.assertFalse(data["boundaries"]["cellular_large_media_upload"])
+        self.assertTrue(data["boundaries"]["large_media_resumable"])
+        self.assertTrue(data["boundaries"]["large_media_sha256_verified"])
+        self.assertTrue(data["boundaries"]["mobile_retains_verified_copy_default"])
+        self.assertFalse(data["boundaries"]["delete_after_verified_default"])
 
 
 if __name__=="__main__":
