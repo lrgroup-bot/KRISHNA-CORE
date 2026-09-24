@@ -15,7 +15,7 @@ class GitaGyan:
     Runtime overrides live under KRISHNA state and never rewrite bundled scripture.
     """
 
-    VERSION = "gita-gyan-v2"
+    VERSION = "gita-gyan-v3-continuous"
     EXPECTED_VERSE_COUNT = 700
     CHAPTER_VERSE_COUNTS = (
         47, 72, 43, 42, 29, 47, 30, 28, 34,
@@ -42,6 +42,7 @@ class GitaGyan:
         self.root = Path(state_root)
         self.root.mkdir(parents=True, exist_ok=True)
         self.progress_path = self.root / "progress.json"
+        self.session_path = self.root / "session.json"
         self.override_path = self.root / "bhagavad_gita.override.json"
         self.bundled_corpus_path = Path(__file__).resolve().parent / "data" / self.BUNDLED_FILENAME
         self._explicit_corpus = Path(corpus_path) if corpus_path else None
@@ -330,6 +331,191 @@ Rules:
             "corpus_complete": status["corpus_complete"],
             "corpus_sha256": status["corpus_sha256"],
         }
+
+    def _default_session(self) -> dict:
+        return {
+            "active": False,
+            "chapter": 1,
+            "verse": 1,
+            "language": "or",
+            "depth": "deep",
+            "last_action": None,
+            "repeat_count": 0,
+            "history": [],
+            "completion_required_for_navigation": False,
+            "owner_controls_progression": True,
+        }
+
+    def _load_session(self) -> dict:
+        data=self._default_session()
+        if self.session_path.exists():
+            try:
+                raw=json.loads(self.session_path.read_text(encoding="utf-8"))
+                if isinstance(raw,dict):
+                    data.update(raw)
+            except (OSError,json.JSONDecodeError):
+                pass
+        if str(data.get("language") or "or") not in self.LANGUAGES:
+            data["language"]="or"
+        if str(data.get("depth") or "deep") not in {"brief","deep"}:
+            data["depth"]="deep"
+        return data
+
+    def _save_session(self,data:dict) -> None:
+        payload=dict(self._default_session())
+        payload.update(data or {})
+        tmp=self.session_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding="utf-8")
+        tmp.replace(self.session_path)
+
+    def session_status(self) -> dict:
+        state=self._load_session()
+        try:
+            row=self.verse(state.get("chapter",1),state.get("verse",1))
+            current_reference=f"Bhagavad Gita {row['chapter']}.{row['verse']}"
+        except (KeyError,TypeError,ValueError):
+            row=self._load_corpus()[0]
+            state["chapter"],state["verse"]=row["chapter"],row["verse"]
+            current_reference=f"Bhagavad Gita {row['chapter']}.{row['verse']}"
+        return {
+            **state,
+            "current_reference":current_reference,
+            "available_verses":len(self._load_corpus()),
+            "navigation_controls":["repeat","previous","next","forward","skip","goto"],
+            "next_does_not_require_completion":True,
+        }
+
+    def start_session(self,chapter:int=1,verse:int=1,language:str="or",depth:str="deep") -> tuple[dict,dict]:
+        row=self.verse(chapter,verse)
+        lang=str(language or "or").strip().lower()
+        dep=str(depth or "deep").strip().lower()
+        if lang not in self.LANGUAGES:
+            raise ValueError("language must be one of: or, hi, en")
+        if dep not in {"brief","deep"}:
+            raise ValueError("depth must be brief or deep")
+        state=self._default_session()
+        state.update({
+            "active":True,
+            "chapter":row["chapter"],
+            "verse":row["verse"],
+            "language":lang,
+            "depth":dep,
+            "last_action":"start",
+            "history":[self._key(row)],
+        })
+        self._save_session(state)
+        return self.session_status(),dict(row)
+
+    def configure_session(self,language:str|None=None,depth:str|None=None) -> dict:
+        state=self._load_session()
+        if language is not None:
+            lang=str(language).strip().lower()
+            if lang not in self.LANGUAGES:
+                raise ValueError("language must be one of: or, hi, en")
+            state["language"]=lang
+        if depth is not None:
+            dep=str(depth).strip().lower()
+            if dep not in {"brief","deep"}:
+                raise ValueError("depth must be brief or deep")
+            state["depth"]=dep
+        self._save_session(state)
+        return self.session_status()
+
+    def navigate_session(
+        self,action:str,count:int=1,chapter:int|None=None,verse:int|None=None
+    ) -> tuple[dict,dict]:
+        corpus=self._load_corpus()
+        if not corpus:
+            raise RuntimeError("gita corpus is empty")
+        state=self._load_session()
+        action=str(action or "").strip().lower()
+        aliases={"prev":"previous","back":"previous","repeat_current":"repeat","forward":"next","skip":"next"}
+        action=aliases.get(action,action)
+        if action not in {"repeat","previous","next","goto"}:
+            raise ValueError("action must be one of: repeat, previous, next, forward, skip, goto")
+        amount=max(1,min(100,int(count or 1)))
+        keys=[self._key(row) for row in corpus]
+        current=f"{int(state.get('chapter',1))}.{int(state.get('verse',1))}"
+        try:index=keys.index(current)
+        except ValueError:index=0
+
+        if action=="goto":
+            if chapter is None or verse is None:
+                raise ValueError("goto requires chapter and verse")
+            target=self.verse(chapter,verse)
+            index=keys.index(self._key(target))
+        elif action=="next":
+            index=min(len(corpus)-1,index+amount)
+        elif action=="previous":
+            index=max(0,index-amount)
+        elif action=="repeat":
+            state["repeat_count"]=int(state.get("repeat_count") or 0)+1
+
+        row=corpus[index]
+        history=[str(x) for x in state.get("history") or []]
+        if action!="repeat" or not history:
+            history.append(self._key(row))
+        state.update({
+            "active":True,
+            "chapter":row["chapter"],
+            "verse":row["verse"],
+            "last_action":action,
+            "history":history[-100:],
+            "completion_required_for_navigation":False,
+            "owner_controls_progression":True,
+        })
+        self._save_session(state)
+        return self.session_status(),dict(row)
+
+    def mark_complete(self,chapter:int|None=None,verse:int|None=None,complete:bool=True) -> dict:
+        state=self._load_session()
+        chapter=int(chapter if chapter is not None else state.get("chapter",1))
+        verse=int(verse if verse is not None else state.get("verse",1))
+        row=self.verse(chapter,verse)
+        key=self._key(row)
+        progress=self._load_progress()
+        completed=[str(x) for x in progress.get("completed") or []]
+        if complete and key not in completed:
+            completed.append(key)
+        if not complete:
+            completed=[x for x in completed if x!=key]
+        progress["completed"]=completed
+        progress["preferred_language"]=state.get("language") or progress.get("preferred_language") or "or"
+        self._save_progress(progress)
+        return {
+            "reference":f"Bhagavad Gita {key}",
+            "completed":bool(complete),
+            "completed_count":len(completed),
+            "navigation_affected":False,
+        }
+
+    def search(self,query:str,limit:int=20) -> list[dict]:
+        text=" ".join(str(query or "").strip().lower().split())
+        if not text:
+            raise ValueError("query is required")
+        limit=max(1,min(100,int(limit)))
+        if "." in text:
+            parts=text.replace("gita","").replace("bhagavad","").strip().split(".")
+            if len(parts)==2:
+                try:
+                    row=self.verse(int(parts[0]),int(parts[1]))
+                    return [dict(row)]
+                except (ValueError,KeyError):
+                    pass
+        terms=[x for x in text.split() if x]
+        scored=[]
+        for row in self._load_corpus():
+            hay=" ".join([
+                f"{row['chapter']}.{row['verse']}",
+                str(row.get("sanskrit") or ""),
+                str(row.get("transliteration") or ""),
+                str(row.get("summary_en") or ""),
+            ]).lower()
+            score=sum(1 for term in terms if term in hay)
+            if score:
+                scored.append((score,row))
+        scored.sort(key=lambda item:(-item[0],item[1]["chapter"],item[1]["verse"]))
+        return [dict(row) for _score,row in scored[:limit]]
 
     def revise(self, limit: int = 7) -> list[dict]:
         limit = max(1, min(30, int(limit)))
