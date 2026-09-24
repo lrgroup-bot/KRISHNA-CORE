@@ -200,6 +200,8 @@ class GitaApiContractTests(unittest.TestCase):
             '"/api/avatar/status"',
         ):
             self.assertIn(token, text)
+        self.assertIn('"lip_sync":segment.get("lip_sync")', text)
+        self.assertIn('"lip_sync_timing":"estimated_not_acoustically_aligned"', text)
 
     def test_orchestrator_uses_one_canonical_gita_and_avatar_runtime(self):
         text = (Path(__file__).resolve().parents[1] / "krishna_core" / "orchestrator.py").read_text(encoding="utf-8-sig")
