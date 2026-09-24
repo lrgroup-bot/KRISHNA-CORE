@@ -18,6 +18,8 @@ $env:KRISHNA_HOST="127.0.0.1"
 $env:KRISHNA_PORT=[string]$Port
 $env:KRISHNA_DB=Join-Path $acceptanceState "krishna_core.db"
 $env:KRISHNA_ALLOW_ACTIONS="0"
+$playwrightRoot=Join-Path $RuntimeRoot "playwright-browsers"
+if(Test-Path $playwrightRoot){$env:PLAYWRIGHT_BROWSERS_PATH=$playwrightRoot}
 $base="http://127.0.0.1:$Port"
 $reportDir=Join-Path $RuntimeRoot "reports"
 New-Item -ItemType Directory -Force $reportDir|Out-Null
@@ -656,7 +658,10 @@ try{
     $sid=$live.session_id
     $ready=$null
     $lastSession=$live
-    for($i=0;$i -lt 30;$i++){
+    # First Playwright/Chromium launch on Windows can be materially slower
+    # than subsequent UI Guardian launches. Wait up to 60 seconds for a real
+    # frame or terminal ERROR rather than failing a healthy cold start at 15s.
+    for($i=0;$i -lt 120;$i++){
       Start-Sleep -Milliseconds 500
       try{
         $s=Get-Json ("/api/garudanetra/session?id="+$sid)
