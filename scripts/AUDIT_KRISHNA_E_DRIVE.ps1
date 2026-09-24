@@ -187,7 +187,7 @@ function Get-CoreServerInstances([object[]]$Processes){
 function Get-ListenerInventory([object[]]$Processes){
   $byPid=@{}
   foreach($p in $Processes){$byPid[[string]$p.pid]=$p}
-  $knownPorts=@(8765,8766,8876,11434)
+  $knownPorts=@(8765,8766,8767,8876,11434)
   $rows=New-Object System.Collections.Generic.List[object]
   try{
     foreach($c in (Get-NetTCPConnection -State Listen -ErrorAction Stop)){
@@ -484,7 +484,7 @@ if($coreInstanceCount -gt 1){
 if($guardian.guardian_pid -gt 0 -and !$guardian.guardian_pid_valid){[void]$findings.Add([ordered]@{status="STALE";code="STALE_GUARDIAN_PID";detail=[string]$guardian.guardian_pid})}
 if($guardian.core_pid -gt 0 -and !$guardian.core_pid_valid){[void]$findings.Add([ordered]@{status="STALE";code="STALE_CORE_PID";detail=[string]$guardian.core_pid})}
 
-foreach($port in @(8765,8766,11434)){
+foreach($port in @(8766,11434)){
   $rows=@($listenerRows|Where-Object{$_.local_port -eq $port})
   if($rows.Count -eq 0){
     [void]$findings.Add([ordered]@{status="WARN";code="EXPECTED_PORT_NOT_LISTENING";detail=[string]$port})
@@ -493,6 +493,20 @@ foreach($port in @(8765,8766,11434)){
   }else{
     [void]$findings.Add([ordered]@{status="PASS";code="EXPECTED_PORT_LISTENER";detail=([string]$port+" pid="+[string]$rows[0].pid)})
   }
+}
+$legacyMobileRows=@($listenerRows|Where-Object{$_.local_port -eq 8765})
+if($legacyMobileRows.Count -eq 0){
+  [void]$findings.Add([ordered]@{status="PASS";code="LEGACY_MOBILE_PORT_CLEAR";detail="8765; canonical mobile_v3 connects to Core 8766"})
+}elseif($legacyMobileRows.Count -gt 1){
+  [void]$findings.Add([ordered]@{status="DUPLICATE";code="MULTIPLE_LEGACY_MOBILE_LISTENERS";detail="8765";pids=@($legacyMobileRows | ForEach-Object { $_.pid })})
+}else{
+  [void]$findings.Add([ordered]@{status="STALE";code="LEGACY_MOBILE_LISTENER_PRESENT";detail=("8765 pid="+[string]$legacyMobileRows[0].pid+"; verify legacy companion need before retirement")})
+}
+$lanDiscoveryRows=@($listenerRows|Where-Object{$_.local_port -eq 8767})
+if($lanDiscoveryRows.Count -eq 0){
+  [void]$findings.Add([ordered]@{status="PASS";code="LAN_DISCOVERY_INACTIVE";detail="8767; expected while Core is loopback/private-LAN mode is not active"})
+}else{
+  [void]$findings.Add([ordered]@{status="PASS";code="LAN_DISCOVERY_LISTENER";detail=("8767 pid="+[string]$lanDiscoveryRows[0].pid)})
 }
 $acceptanceRows=@($listenerRows | Where-Object { $_.local_port -eq 8876 })
 if($acceptanceRows.Count -eq 0){

@@ -233,6 +233,15 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn("MULTIPLE_CORE_SERVER_INSTANCES",text)
         self.assertIn("core_server_instances=$coreServerInstances",text)
 
+    def test_e_drive_audit_uses_canonical_mobile_port_semantics(self):
+        text=(ROOT/"scripts"/"AUDIT_KRISHNA_E_DRIVE.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("LEGACY_MOBILE_PORT_CLEAR",text)
+        self.assertIn("LEGACY_MOBILE_LISTENER_PRESENT",text)
+        self.assertIn("canonical mobile_v3 connects to Core 8766",text)
+        self.assertIn("LAN_DISCOVERY_INACTIVE",text)
+        self.assertIn("8767",text)
+        self.assertNotIn("foreach($port in @(8765,8766,11434))",text)
+
     def test_start_output_uses_ascii_separators(self):
         text=(ROOT/"scripts"/"START_KRISHNA.ps1").read_text(encoding="utf-8-sig")
         self.assertIn('| discovery ON | pairing required',text)
