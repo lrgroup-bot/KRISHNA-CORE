@@ -18,22 +18,38 @@ class VisionAdapter:
     never sends them to cloud providers.
     """
 
+    DEFAULT_MODEL="qwen3.5:4b"
+    DEFAULT_FALLBACKS=("qwen2.5vl:7b",)
+
     def __init__(self,model=None,base_url=None,timeout=120):
-        self.model=model or os.getenv("KRISHNA_VISION_MODEL","qwen2.5vl:7b")
+        self.model=model or os.getenv("KRISHNA_VISION_MODEL",self.DEFAULT_MODEL)
+        raw=str(os.getenv("KRISHNA_VISION_FALLBACK_MODELS",",".join(self.DEFAULT_FALLBACKS)) or "")
+        self.fallback_models=[]
+        for item in raw.split(","):
+            item=item.strip()
+            if item and item!=self.model and item not in self.fallback_models:self.fallback_models.append(item)
         self.base_url=(base_url or settings.ollama_url).rstrip("/")
         self.timeout=int(timeout)
 
+    def candidates(self):
+        return [self.model,*self.fallback_models]
+
     def status(self):
-        available=False;models=[];error=None
+        available=False;models=[];error=None;selected=None
         try:
             with urllib.request.urlopen(self.base_url+"/api/tags",timeout=3) as r:
                 rows=json.loads(r.read().decode()).get("models",[])
             models=[str(x.get("name") or x.get("model") or "") for x in rows]
-            target=self.model.split(":",1)[0].lower()
-            available=any(str(x).lower()==self.model.lower() or str(x).lower().startswith(target+":") for x in models)
+            installed={x.lower() for x in models}
+            selected=next((m for m in self.candidates() if m.lower() in installed or (m.lower()+":latest") in installed),None)
+            available=bool(selected)
         except Exception as exc:
             error=f"{type(exc).__name__}: {exc}"
-        return {"provider":"ollama","model":self.model,"local":True,"available":available,"models":models[:40],"error":error}
+        return {
+            "provider":"ollama","model":selected or self.model,"primary_model":self.model,
+            "fallback_models":list(self.fallback_models),"selected_model":selected,
+            "local":True,"available":available,"models":models[:40],"error":error,
+        }
 
     def analyze_bytes(self,data:bytes,content_type:str,prompt:str)->dict:
         content_type=str(content_type or "").split(";",1)[0].strip().lower()
@@ -42,18 +58,32 @@ class VisionAdapter:
         if len(data)>25*1024*1024:raise ValueError("image exceeds 25 MB")
         prompt=str(prompt or "Describe this image and extract useful evidence.").strip()
         if not prompt:raise ValueError("vision prompt is required")
-        payload={
-            "model":self.model,
-            "messages":[{"role":"user","content":prompt,"images":[base64.b64encode(data).decode("ascii")]}],
-            "stream":False,
-            "options":{"temperature":0.1},
-        }
-        req=urllib.request.Request(self.base_url+"/api/chat",data=json.dumps(payload).encode(),
-                                   headers={"Content-Type":"application/json"})
-        try:
-            with urllib.request.urlopen(req,timeout=self.timeout) as r:out=json.loads(r.read().decode())
-        except Exception as exc:
-            raise RuntimeError(f"local vision model unavailable: {type(exc).__name__}: {exc}") from exc
-        text=str((out.get("message") or {}).get("content") or "").strip()
-        if not text:raise RuntimeError("local vision model returned no text")
-        return {"provider":"ollama","model":self.model,"local":True,"analysis":text}
+        encoded=base64.b64encode(data).decode("ascii")
+        status=self.status()
+        ordered=[status.get("selected_model"),*self.candidates()]
+        candidates=[]
+        for model in ordered:
+            model=str(model or "").strip()
+            if model and model not in candidates:candidates.append(model)
+        errors={}
+        for model in candidates:
+            payload={
+                "model":model,
+                "messages":[{"role":"user","content":prompt,"images":[encoded]}],
+                "stream":False,
+                "options":{"temperature":0.1},
+            }
+            req=urllib.request.Request(self.base_url+"/api/chat",data=json.dumps(payload).encode(),
+                                       headers={"Content-Type":"application/json"})
+            try:
+                with urllib.request.urlopen(req,timeout=self.timeout) as r:out=json.loads(r.read().decode())
+                text=str((out.get("message") or {}).get("content") or "").strip()
+                if text:
+                    return {
+                        "provider":"ollama","model":model,"primary_model":self.model,
+                        "fallback_used":model!=self.model,"local":True,"analysis":text,
+                    }
+                errors[model]="empty response"
+            except Exception as exc:
+                errors[model]=f"{type(exc).__name__}: {exc}"
+        raise RuntimeError("local vision models unavailable: "+json.dumps(errors,ensure_ascii=False))
