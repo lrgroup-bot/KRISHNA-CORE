@@ -4326,7 +4326,7 @@ Evidence:
         self.memory.audit("repository_index", "complete", f"{project}:{result['file_count']}")
         return result
 
-    def _run_shadow_repair_impl(self, project, symptom, action_name, components=None):
+    def _run_shadow_repair_impl(self, project, symptom, action_name, components=None, control=None):
         item = self.projects.get(project)
         if not item:
             raise KeyError(project)
@@ -4335,10 +4335,13 @@ Evidence:
             raise PermissionError(f"action not allowed for project: {action_name}")
 
         def patcher(workspace: Path, investigation: dict):
+            bounded_investigation = dict(investigation or {})
+            if control:
+                bounded_investigation["amcc_control"] = control
             return self.actions.execute(
                 project,
                 action_name,
-                {"workspace": str(workspace), "investigation": investigation},
+                {"workspace": str(workspace), "investigation": bounded_investigation},
                 allow_mutation=True,
             )
 
@@ -4366,6 +4369,8 @@ Evidence:
             primary_provider="",
             reviewer_provider="",
         )
+        if control:
+            result["amcc_control"] = control
         return result
 
     def run_shadow_repair(self, project, symptom, action_name, components=None):
