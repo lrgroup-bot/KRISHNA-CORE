@@ -60,17 +60,19 @@ class RepositoryErrorAudit(unittest.TestCase):
 
     def test_mobile_webview_and_private_link_are_hardened(self):
         text=(ROOT/"mobile_v3"/"MainActivity.java").read_text(encoding="utf-8-sig")
+        private_core=(ROOT/"mobile_v3"/"KrishnaPrivateCore.java").read_text(encoding="utf-8-sig")
         for token in (
             "setAllowFileAccessFromFileURLs(false)",
             "setAllowUniversalAccessFromFileURLs(false)",
             "MIXED_CONTENT_NEVER_ALLOW",
             "shouldOverrideUrlLoading",
             "privateCoreUrl",
-            "KRISHNA_DISCOVER_V1",
             "coreBase()",
         ):
             self.assertIn(token,text)
-        self.assertNotIn("192.168.0.106",text)
+        for token in ("KRISHNA_DISCOVER_V1","100&&d>=64&&d<=127","private_remote_url"):
+            self.assertIn(token,private_core)
+        self.assertNotIn("192.168.0.106",text+private_core)
         self.assertIn("try(OutputStream out=c.getOutputStream())",text)
         self.assertIn("finally{c.disconnect();}",text)
 
