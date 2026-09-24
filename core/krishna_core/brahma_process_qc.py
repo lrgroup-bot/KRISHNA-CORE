@@ -135,6 +135,9 @@ class BrahmaProcessQC:
         if topic in self.WORK:return self.notify("working",f"{name} working",topic,component=comp,topic=topic,project=project)
         if topic in self.DONE:return self.notify("done",f"{name} completed",topic,component=comp,topic=topic,project=project)
         if topic not in self.FAIL:return None
+        if topic=="action.failed" and str(p.get("actor") or "").strip().lower()=="brahma-qc":
+            error=str(p.get("error") or "safe retry failed")
+            return self.notify("error","BRAHMA safe retry failed",error,component="brahma",topic=topic,project=project)
         key=str(event.get("event_id") or uuid.uuid4())
         if key in self._handling:return None
         self._handling.add(key)
