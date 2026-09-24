@@ -24,6 +24,17 @@ class VoiceIsolationContractTests(unittest.TestCase):
         self.assertIn("KRISHNA_WAKEWORD_CMD",text)
         self.assertIn("Production Core venv left unchanged",text)
 
+    def test_voice_setup_preserves_existing_provider_settings(self):
+        text=(ROOT/"scripts"/"SETUP_KRISHNA_VOICE.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("$values=[ordered]@{}",text)
+        self.assertIn("$assignmentPattern=",text)
+        self.assertIn("Get-Content -LiteralPath $envFile",text)
+        self.assertIn('KRISHNA_WAKEWORD_CMD',text)
+        self.assertIn('KRISHNA_INDIC_STT_CMD',text)
+        self.assertIn('KRISHNA_INDIC_TTS_CMD',text)
+        self.assertIn('$values.Keys | Sort-Object',text)
+        self.assertNotIn('. $envFile',text)
+
     def test_isolated_wake_installer_targets_runtime_voice_env(self):
         text=(ROOT/"scripts"/"INSTALL_KRISHNA_WAKE_RUNTIME.ps1").read_text(encoding="utf-8-sig")
         self.assertIn('voice',text)
