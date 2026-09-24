@@ -472,3 +472,7 @@ tests\test_voice_isolation_contract.py
 tests\test_indic_voice_workers_contract.py
 tests\test_web_integrity.py
 tools\INSTALL_AGENCY_SPECIALISTS.ps1
+core/krishna_core/data/bhagavad_gita_public_domain.json
+core/krishna_core/gita_gyan.py
+core/tests/test_gita_gyan.py
+docs/GITA_GYAN.md
