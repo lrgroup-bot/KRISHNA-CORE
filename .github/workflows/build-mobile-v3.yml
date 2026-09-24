@@ -239,6 +239,11 @@ jobs:
           grep -q "ML_KIT_LOCAL_RICH" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
           grep -q "hawkeyeRichPerception" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "hawkeyeGeminiAnalyze" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "hawkeyeFreeCloudAnalyze" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "/api/hawkeye/free-cloud/analyze" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "freeCloudTick" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q '"mobile_qwen": false' app/src/main/assets/canonical-runtime.json
+          grep -q '"openrouter_zero_cost_role_routing": true' app/src/main/assets/canonical-runtime.json
           grep -q "hawkeyeGeminiLiveToken" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q 'id="cameraAI"' app/src/main/assets/index.html
           grep -q 'id="cameraGeminiLive"' app/src/main/assets/index.html

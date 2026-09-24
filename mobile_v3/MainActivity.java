@@ -290,6 +290,51 @@ public class MainActivity extends Activity {
       catch(Exception e){return error(e);}
     }
 
+    @JavascriptInterface public String hawkeyeFreeCloudStatus(){
+      try{return call("/api/hawkeye/free-cloud/status",null);}
+      catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String hawkeyeFreeCloudAnalyze(String dataB64,String contentType,String prompt,String metadataJson,String provider,String openrouterRole,String preferredModel,boolean includeReviews){
+      try{
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
+        if(bytes.length==0||bytes.length>4*1024*1024)throw new IllegalArgumentException("free-cloud keyframe must be 1 byte to 4 MB");
+        JSONObject metadata=new JSONObject(metadataJson==null||metadataJson.trim().isEmpty()?"{}":metadataJson);
+        if(!metadata.optBoolean("cloud_approved",false))throw new SecurityException("free-cloud mode requires explicit owner approval");
+        metadata.put("selected_keyframe",true);
+        JSONObject body=new JSONObject();
+        body.put("data_b64",Base64.encodeToString(bytes,Base64.NO_WRAP));
+        body.put("content_type",contentType==null||contentType.trim().isEmpty()?"image/jpeg":contentType);
+        body.put("prompt",prompt==null?"":prompt);
+        body.put("metadata",metadata);
+        body.put("provider",provider==null||provider.trim().isEmpty()?"auto":provider.trim());
+        body.put("openrouter_role",openrouterRole==null||openrouterRole.trim().isEmpty()?"hawkeye_vision":openrouterRole.trim());
+        body.put("preferred_model",preferredModel==null?"":preferredModel.trim());
+        body.put("include_reviews",includeReviews);
+        return call("/api/hawkeye/free-cloud/analyze",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String hawkeyeFreeCloudFinding(String sessionId,String goal,String findingJson){
+      try{
+        JSONObject finding=new JSONObject(findingJson==null||findingJson.trim().isEmpty()?"{}":findingJson);
+        String localSession=sessionId==null||sessionId.trim().isEmpty()?"field":sessionId.trim();
+        String task=goal==null?"":goal.trim();
+        String pcSession=resolvePcHawkeyeSession(localSession,task);
+        JSONObject body=new JSONObject();
+        body.put("session_id",pcSession);
+        body.put("mobile_session_id",localSession);
+        body.put("goal",task);
+        body.put("finding",finding);
+        JSONObject result=new JSONObject(call("/api/hawkeye/free-cloud/finding",body.toString()));
+        if(!result.has("error")){
+          result.put("mobile_session_id",localSession);
+          result.put("pc_session_id",pcSession);
+        }
+        return result.toString();
+      }catch(Exception e){return error(e);}
+    }
+
     @JavascriptInterface public String hawkeyeGeminiStatus(){
       try{return call("/api/hawkeye/gemini/status",null);}
       catch(Exception e){return error(e);}

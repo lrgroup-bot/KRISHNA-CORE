@@ -63,7 +63,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/projects", "/api/plugins", "/api/specialists", "/api/specialist-teams", "/api/resources",
                      "/api/tasks", "/api/missions", "/api/missions/status", "/api/queue", "/api/queue/status",
                      "/api/resource-locks", "/api/events", "/api/protocol", "/api/models/providers",
-                     "/api/core/state", "/api/core/neural-state",
+                     "/api/core/state", "/api/core/neural-state", "/api/hawkeye/free-cloud/status",
                      "/api/project-graph", "/api/recovery/ladder", "/api/incidents",
                      "/api/garuda/status", "/api/commitments", "/api/autonomy/status", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/gyan-bhandar/inventory?project=KRISHNA", "/api/software-factory/workers/status",
@@ -805,6 +805,44 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertIn("verify_sources",mission["deep_learning_loop"])
         self.assertIn("gautama",mission["review_flow"])
         self.assertIn("veda-vyasa",mission["review_flow"])
+
+    def test_hawkeye_cloud_finding_is_recorded_on_pc_and_curated_sync_skips_duplicate_vision(self):
+        code,session=self.call("/api/hawkeye/live/start",{
+            "project":"KRISHNA","purpose":"inspect machine","scene_hint":"machinery"
+        })
+        self.assertEqual(code,201)
+        sid=session["session_id"]
+
+        code,finding=self.call("/api/hawkeye/free-cloud/finding",{
+            "session_id":sid,
+            "mobile_session_id":"mobile-test-session",
+            "goal":"inspect machine",
+            "finding":{
+                "analysis":"Observed housing and an inferred possible leak near the visible coupling.",
+                "provider":"openrouter",
+                "model":"vision/free",
+                "role":"hawkeye_vision",
+                "selected_keyframe":True,
+                "zero_cost_verified":True,
+                "scene_signature":"test-scene",
+                "local_context":{"quality":0.8,"novelty":0.7,"ocr_text":"PUMP A"},
+                "metadata":{"selected_keyframe":True},
+                "reviews":[{"provider":"cloudflare","model":"review/free","text":"Possible leak remains uncertain."}]
+            }
+        })
+        self.assertEqual(code,200)
+        self.assertTrue(finding["pc_recorded"])
+        self.assertFalse(finding["pc_local_vision_rerun"])
+        self.assertTrue(finding["observation_id"])
+        self.assertTrue(finding["verification_required"])
+
+        code,state=self.call("/api/hawkeye/live/state?session_id="+sid)
+        self.assertEqual(code,200)
+        self.assertIn("possible leak",state["latest_analysis"]["analysis"].lower())
+        self.assertEqual(state["latest_analysis"]["frame_meta"]["provider"],"openrouter")
+        self.assertFalse(state["latest_analysis"]["frame_meta"]["pc_local_vision_rerun"])
+
+
 
     def test_narad_workflow_lifecycle(self):
         code,w=self.call("/api/narad/workflows/create",{"name":"http-safe","trigger":{"type":"manual"},"steps":[{"action":"publish_event","topic":"http.test"}]})

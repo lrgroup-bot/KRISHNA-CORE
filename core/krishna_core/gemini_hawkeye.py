@@ -53,6 +53,7 @@ class GeminiHawkeyeBridge:
                 "model":str(row.model or self.DEFAULT_MODEL),
                 "source":"model_gateway",
                 "profile_id":str(row.id),
+                "free_only":bool(getattr(row,"free_only",False)),
             }
         key=(
             os.getenv("KRISHNA_GEMINI_API_KEY")
@@ -66,6 +67,7 @@ class GeminiHawkeyeBridge:
                 "model":os.getenv("KRISHNA_GEMINI_MODEL",self.DEFAULT_MODEL).strip() or self.DEFAULT_MODEL,
                 "source":"environment",
                 "profile_id":None,
+                "free_only":str(os.getenv("KRISHNA_GEMINI_FREE_ONLY","0")).strip().lower() in {"1","true","yes","on"},
             }
         cloud_url=str(getattr(settings,"cloud_api_url","") or "").lower()
         cloud_key=str(getattr(settings,"cloud_api_key","") or "").strip()
@@ -75,6 +77,7 @@ class GeminiHawkeyeBridge:
                 "model":os.getenv("KRISHNA_GEMINI_MODEL",self.DEFAULT_MODEL).strip() or self.DEFAULT_MODEL,
                 "source":"krishna-cloud-config",
                 "profile_id":None,
+                "free_only":str(os.getenv("KRISHNA_GEMINI_FREE_ONLY","0")).strip().lower() in {"1","true","yes","on"},
             }
         return None
 
@@ -137,6 +140,7 @@ class GeminiHawkeyeBridge:
             "model":None if cfg is None else cfg["model"],
             "credential_source":None if cfg is None else cfg["source"],
             "profile_id":None if cfg is None else cfg["profile_id"],
+            "free_only_declared":False if cfg is None else bool(cfg.get("free_only",False)),
         }
 
     def analyze_image(self,data:bytes,content_type:str,prompt:str,metadata=None):

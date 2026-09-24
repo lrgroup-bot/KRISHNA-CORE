@@ -29,6 +29,15 @@ class OpenRouterFreeFabric:
     CACHE_SECONDS = 300
     MAX_IMAGE_BYTES = 32 * 1024 * 1024
 
+    ROLE_ALIASES = {
+        "hawkeye_vision": "vision",
+        "hawkeye_reasoning": "reasoning",
+        "hawkeye_ocr": "general",
+        "hawkeye_research": "reasoning",
+        "ocr": "general",
+        "research": "reasoning",
+    }
+
     ROLE_HINTS = {
         "coding": (
             ("nex", 18), ("kimi", 16), ("north", 14), ("code", 12),
@@ -66,6 +75,7 @@ class OpenRouterFreeFabric:
         self.state_root = Path(state_root)
         self.cache_path = self.state_root / "catalog.json"
         self.image_dir = self.state_root / "images"
+        self.preferences_path = self.state_root / "role-preferences.json"
         self._cache = None
 
     @staticmethod
@@ -219,9 +229,70 @@ class OpenRouterFreeFabric:
         rows = list((data or {}).get("data") or [])
         return self._write_cache(rows)
 
+    @classmethod
+    def normalize_role(cls, role):
+        value = str(role or "general").strip().lower()
+        value = cls.ROLE_ALIASES.get(value, value)
+        return value if value in cls.ROLE_HINTS else "general"
+
+    def role_preferences(self):
+        if not self.preferences_path.exists():
+            return {}
+        try:
+            raw = json.loads(self.preferences_path.read_text(encoding="utf-8-sig"))
+            rows = dict(raw.get("roles") or {}) if isinstance(raw, dict) else {}
+            return {
+                self.normalize_role(role): str(model).strip()
+                for role, model in rows.items()
+                if str(model or "").strip()
+            }
+        except Exception:
+            return {}
+
+    def _write_role_preferences(self, rows):
+        self.state_root.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema": 1,
+            "updated_at": time.time(),
+            "roles": dict(rows or {}),
+        }
+        fd, tmp = tempfile.mkstemp(prefix="openrouter-role-preferences-", suffix=".json", dir=str(self.state_root))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=2)
+            os.replace(tmp, self.preferences_path)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+        return payload
+
+    def set_role_preference(self, role, model_id):
+        role = self.normalize_role(role)
+        model_id = str(model_id or "").strip()
+        prefs = self.role_preferences()
+        if not model_id:
+            prefs.pop(role, None)
+            self._write_role_preferences(prefs)
+            return {"role": role, "model": None, "cleared": True}
+
+        eligible = self._free_rows(role=role, refresh=True)
+        row = next((x for x in eligible if str(x.get("id") or "") == model_id), None)
+        if row is None:
+            raise ZeroCostPolicyError(
+                f"preferred OpenRouter model is not currently eligible and zero-cost for role {role}: {model_id}"
+            )
+        prefs[role] = model_id
+        self._write_role_preferences(prefs)
+        return {
+            "role": role,
+            "model": model_id,
+            "verified_zero_cost": True,
+            "input_modalities": list((row.get("architecture") or {}).get("input_modalities") or []),
+        }
+
     def _free_rows(self, *, role="general", refresh=False):
         rows = list(self.catalog(refresh=refresh).get("models") or [])
-        role = str(role or "general").strip().lower()
+        role = self.normalize_role(role)
         out = []
         for row in rows:
             if self._expired(row):
@@ -239,10 +310,15 @@ class OpenRouterFreeFabric:
             out.append(dict(row))
         return out
 
-    def rank(self, role="general", limit=8, refresh=False):
-        role = str(role or "general").strip().lower()
+    def rank(self, role="general", limit=8, refresh=False, preferred_model=None):
+        role = self.normalize_role(role)
         hints = self.ROLE_HINTS.get(role, self.ROLE_HINTS["general"])
         rows = self._free_rows(role=role, refresh=refresh)
+        preferred_model = str(
+            preferred_model
+            or self.role_preferences().get(role)
+            or ""
+        ).strip()
 
         def score(row):
             hay = (str(row.get("id") or "") + " " + str(row.get("name") or "")).lower()
@@ -261,6 +337,8 @@ class OpenRouterFreeFabric:
             value += min(8, context // 131072)
             if self._expires_soon(row):
                 value -= 30
+            if preferred_model and str(row.get("id") or "") == preferred_model:
+                value += 10000
             return value
 
         rows.sort(key=lambda row: (-score(row), -int(row.get("context_length") or 0), str(row.get("id") or "")))
@@ -283,9 +361,13 @@ class OpenRouterFreeFabric:
 
     def role_plan(self, refresh=False):
         plan = {}
+        prefs = self.role_preferences()
         for role in ("coding", "reasoning", "vision", "medical", "general"):
             rows = self.rank(role, 3, refresh=refresh)
-            plan[role] = rows
+            plan[role] = {
+                "preferred_model": prefs.get(role),
+                "candidates": rows,
+            }
         return plan
 
     @staticmethod
@@ -300,10 +382,10 @@ class OpenRouterFreeFabric:
             return None
 
     def complete(self, role, prompt, *, privacy="approved_cloud", sensitive=False,
-                 image_data_url=None, max_tokens=2048):
+                 image_data_url=None, max_tokens=2048, preferred_model=None):
         self._assert_cloud_allowed(privacy, prompt, sensitive=sensitive)
-        role = str(role or "general").strip().lower()
-        candidates = self.rank(role, 8, refresh=True)
+        role = self.normalize_role(role)
+        candidates = self.rank(role, 8, refresh=True, preferred_model=preferred_model)
         if not candidates:
             raise ZeroCostPolicyError(f"no live zero-cost OpenRouter model is eligible for role: {role}")
         profile = self.profile()
@@ -487,6 +569,8 @@ class OpenRouterFreeFabric:
                 "error": catalog_error,
             },
             "role_plan": plan,
+            "role_preferences": self.role_preferences(),
+            "role_aliases": dict(self.ROLE_ALIASES),
             "image_model": self.IMAGE_MODEL,
             "paid_cloud_default": "disabled",
             "privacy": {
