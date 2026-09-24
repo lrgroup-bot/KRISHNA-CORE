@@ -27,6 +27,7 @@ if((Get-Content -Raw $ui) -notmatch 'data-krishna-ui="2026\.09-current"'){throw 
   --collect-all playwright `
   --collect-all webview `
   --add-data "$Source\core\web_validation.html;." `
+  --add-data "$Source\core\krishna_core\data;krishna_core\data" `
   --add-data "$Source\avatar\krishna_child_360.webp.b64;avatar" `
   "$Source\core\krishna_desktop.py"
 if($LASTEXITCODE -ne 0){throw "KRISHNA desktop build failed"}
