@@ -66,6 +66,18 @@ class KrishnaShlokaOrchestrator:
         tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
         os.replace(tmp, self.state_path)
 
+    def last_reference(self) -> tuple[int, int] | None:
+        raw = str(self._state().get("last_reference") or "").strip()
+        try:
+            chapter, verse = [int(x) for x in raw.split(".", 1)]
+        except (ValueError, TypeError):
+            return None
+        try:
+            self.gita.verse(chapter, verse)
+        except KeyError:
+            return None
+        return chapter, verse
+
     @staticmethod
     def _lang(message: str, default: str = "or") -> str:
         text = str(message or "").lower()
@@ -138,6 +150,33 @@ class KrishnaShlokaOrchestrator:
             ],
             "canonical_sanskrit_unchanged": True,
             "generated_commentary_separate": True,
+        }
+
+    def vishvarupa_passage(self, start: int = 8, end: int = 51) -> dict:
+        start = max(8, int(start))
+        end = min(55, int(end))
+        if start > end:
+            raise ValueError("invalid Vishvarupa passage")
+        items = []
+        for verse in range(start, end + 1):
+            row = self.gita.verse(11, verse)
+            items.append({
+                "chapter": 11,
+                "verse": verse,
+                "verse_id": f"11.{verse}",
+                "sanskrit": row["sanskrit"],
+                "transliteration": row.get("transliteration"),
+                "source": row.get("source"),
+                "performance": self.performance.record(11, verse),
+            })
+        self._save_state(last_reference=f"11.{end}")
+        return {
+            "chapter": 11,
+            "passage": "VISHVARUPA",
+            "start_verse": start,
+            "end_verse": end,
+            "items": items,
+            "transition_rule": "personal form -> cosmic revelation -> reassuring personal form",
         }
 
     def chapter(self, chapter: int, *, include_performance: bool = True) -> dict:
@@ -245,6 +284,18 @@ class KrishnaShlokaOrchestrator:
         text = " ".join(raw.lower().split())
         language = self._lang(raw)
         depth = self._depth(raw)
+
+        last = self.last_reference()
+        followup_markers = (
+            "this verse", "this shloka", "this sloka", "explain deeply",
+            "what are you teaching me here", "ଏହି ଶ୍ଲୋକ", "ଏହାର ଅର୍ଥ",
+            "इस श्लोक", "इसका अर्थ",
+        )
+        if last and any(marker in text for marker in followup_markers):
+            return self.verse(*last, language=language, depth=depth, explain=explain)
+
+        if any(marker in text for marker in ("vishvarupa", "viśvarūpa", "विश्व रूप", "विश्वरूप", "ବିଶ୍ୱରୂପ")):
+            return self.vishvarupa_passage()
 
         exact = re.search(r"(?<!\d)(1[0-8]|[1-9])\s*[\.:/-]\s*(\d{1,3})(?!\d)", text)
         if exact:
