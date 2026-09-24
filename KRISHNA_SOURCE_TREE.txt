@@ -55,6 +55,7 @@ core\krishna_core\command_line.py
 core\krishna_core\commitment_ledger.py
 core\krishna_core\completion_runtime.py
 core\krishna_core\config.py
+core\krishna_core\data\bhagavad_gita_700.json
 core\krishna_core\content_guard.py
 core\krishna_core\context_governor.py
 core\krishna_core\creator_runtime.py
@@ -84,6 +85,8 @@ core\krishna_core\garudanetra_research.py
 core\krishna_core\garudanetra_session.py
 core\krishna_core\garudanetra.py
 core\krishna_core\gemini_hawkeye.py
+core\krishna_core\gita_gyan.py
+core\krishna_core\gita_performance.py
 core\krishna_core\github_research.py
 core\krishna_core\gnn_backend.py
 core\krishna_core\gnn_trainer.py
@@ -112,6 +115,7 @@ core\krishna_core\knowledge_sync.py
 core\krishna_core\knowledge.py
 core\krishna_core\krishna_observability.py
 core\krishna_core\krishna_protocol.py
+core\krishna_core\krishna_shloka_orchestrator.py
 core\krishna_core\lab_bot.py
 core\krishna_core\lan_discovery.py
 core\krishna_core\long_context.py
