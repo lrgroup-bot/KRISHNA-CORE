@@ -54,6 +54,7 @@ $bindHost="127.0.0.1"
 $lanIp=""
 $remoteIp=""
 $env:KRISHNA_LAN_DISCOVERY="0"
+$env:KRISHNA_PRIVATE_REMOTE_URL=""
 if($PrivateRemote -and $MobileLan){throw "Choose either -PrivateRemote or -MobileLan, not both"}
 if($MobileLan){
     $bindHost="0.0.0.0"
@@ -79,7 +80,11 @@ if($PrivateRemote){
     $remoteIp=$tsIp
     # Bind loopback + private interfaces through one listener; Core itself rejects public clients.
     $bindHost="0.0.0.0"
+    # Keep UDP discovery available on the trusted local network for first-time
+    # zero-code mobile enrollment. Authenticated control remains pairing-gated.
+    $env:KRISHNA_LAN_DISCOVERY="1"
     $env:KRISHNA_PRIVATE_REMOTE_CIDRS=if($PrivateRemoteCIDRs){$PrivateRemoteCIDRs}else{"100.64.0.0/10"}
+    $env:KRISHNA_PRIVATE_REMOTE_URL=("http://{0}:{1}" -f $remoteIp,$Port)
 }
 $env:KRISHNA_HOST=$bindHost
 $env:KRISHNA_PORT=[string]$Port
