@@ -30,3 +30,4 @@ Thumbs.db
 # KRISHNA spatial UI generated artifacts
 app/spatial-ui/node_modules/
 app/spatial-ui/dist/
+*.tsbuildinfo
