@@ -730,6 +730,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def _internal_error(self, context, exc):
         orch.memory.audit("server",str(context or "unhandled_exception"),f"{type(exc).__name__}: {exc}")
+        try:
+            orch.lifecycle_bus.publish(
+                "TOOL_ERROR",
+                {"project":"KRISHNA","component":"server","context":str(context or "unhandled_exception"),"error":type(exc).__name__},
+                source="krishna-server",
+            )
+        except Exception:
+            pass
         return self._json(500, {"error": "internal server error", "type": type(exc).__name__})
 
     def _dispatch(self, method):
@@ -1152,7 +1160,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/secure-vault/status":
             return self._json(200,orch.secure_vault.list())
         if path == "/api/brahma/status":
-            return self._json(200,orch.brahma.status())
+            return self._json(200,{**orch.brahma.status(),"process_qc":orch.brahma_process_status()})
+        if path in {"/api/brahma/process-qc","/api/working-gods"}:
+            return self._json(200,orch.brahma_process_status())
         if path == "/api/brahma/retrieve":
             topic=str((query.get("topic") or [""])[0]).strip()
             if not topic:return self._json(400,{"error":"topic is required"})
