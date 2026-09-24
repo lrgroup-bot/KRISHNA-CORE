@@ -81,6 +81,109 @@ class IndicTTS:
         return str(output)
 
 
+class ExternalWakeWordService:
+    """Run wake-word detection in an isolated local worker process.
+
+    KRISHNA Core never imports the worker's ML/audio dependencies. The worker
+    emits one JSON line per activation, for example:
+    {"event":"wake","wake_word":"Krishna","score":0.91,"at":1234567890.0}
+    """
+
+    def __init__(self,command=None,on_wake=None):
+        self.raw=str(command or os.getenv("KRISHNA_WAKEWORD_CMD") or "").strip()
+        self.on_wake=on_wake
+        self._thread=None
+        self._proc=None
+        self._stop=threading.Event()
+        self.last_score=0.0
+        self.last_wake=0.0
+        self.error=None
+
+    def status(self):
+        return {
+            "provider":"external-local-wake",
+            "wake_word":"Krishna",
+            "local":True,
+            "available":bool(self.raw),
+            "running":bool(self._thread and self._thread.is_alive() and self._proc and self._proc.poll() is None),
+            "config":"KRISHNA_WAKEWORD_CMD",
+            "last_score":self.last_score,
+            "last_wake":self.last_wake,
+            "error":self.error,
+            "security_note":"wake word is an activation signal, not authentication",
+        }
+
+    def start(self):
+        if self._thread and self._thread.is_alive():
+            return self.status()
+        if not self.raw:
+            raise RuntimeError("external wake worker command is not configured")
+        split_command(self.raw,empty_message="external wake worker command is not configured")
+        self._stop.clear()
+        self.error=None
+        self._thread=threading.Thread(target=self._loop,name="krishna-wakeword-external",daemon=True)
+        self._thread.start()
+        return self.status()
+
+    def stop(self):
+        self._stop.set()
+        proc=self._proc
+        if proc and proc.poll() is None:
+            try:proc.terminate()
+            except Exception:pass
+            try:proc.wait(timeout=2)
+            except Exception:
+                try:proc.kill()
+                except Exception:pass
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=3)
+        return self.status()
+
+    def _loop(self):
+        proc=None
+        try:
+            args=split_command(self.raw,empty_message="external wake worker command is not configured")
+            proc=subprocess.Popen(
+                args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                text=True,bufsize=1,shell=False,
+            )
+            self._proc=proc
+            while not self._stop.is_set():
+                line=proc.stdout.readline() if proc.stdout else ""
+                if not line:
+                    if proc.poll() is not None:break
+                    time.sleep(0.05)
+                    continue
+                try:
+                    event=json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if str(event.get("event") or "").strip().lower() not in {"wake","krishna_detected"}:
+                    continue
+                try:score=float(event.get("score",1.0))
+                except (TypeError,ValueError):score=1.0
+                now=float(event.get("at") or time.time())
+                self.last_score=max(0.0,min(1.0,score))
+                self.last_wake=now
+                payload=dict(event)
+                payload.setdefault("score",self.last_score)
+                payload.setdefault("at",now)
+                if self.on_wake:
+                    try:self.on_wake(payload)
+                    except Exception as exc:
+                        self.error=f"wake_callback: {type(exc).__name__}: {exc}"
+            if proc.poll() not in (None,0) and not self._stop.is_set():
+                detail=""
+                try:detail=(proc.stderr.read() if proc.stderr else "")[-2000:]
+                except Exception:pass
+                self.error=f"wake_worker_exit={proc.returncode}: {detail}".strip()
+        except Exception as exc:
+            self.error=f"{type(exc).__name__}: {exc}"
+        finally:
+            self._proc=None
+            self._stop.set()
+
+
 class WakeWordService:
     """Optional always-listening local openWakeWord service.
 
@@ -157,7 +260,8 @@ class KrishnaVoiceStack:
     def __init__(self,on_wake=None):
         self.stt=IndicConformerSTT()
         self.tts=IndicTTS()
-        self.wake=WakeWordService(on_wake=on_wake)
+        wake_command=os.getenv("KRISHNA_WAKEWORD_CMD")
+        self.wake=ExternalWakeWordService(wake_command,on_wake=on_wake) if wake_command else WakeWordService(on_wake=on_wake)
     def status(self):
         return {"stt":self.stt.status(),"tts":self.tts.status(),"wake":self.wake.status(),
                 "language":"or-IN","mode":"local-first","authentication":"device/policy gate remains authoritative"}
