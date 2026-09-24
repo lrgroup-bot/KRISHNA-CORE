@@ -643,9 +643,9 @@ def _gita_daily_tick():
     if progress.get("delivered_count") and int(progress["delivered_count"])%7==0:
         revision=_gita.revision(language=language,limit=7,deep=False)
     payload={"lesson":lesson,"audio":audio,"revision":revision,"progress":progress}
-    with _mobile_lock:
-        device=_mobile_link.get("device")
-    if device:
+    devices=[str(x.get("device_id") or "").strip() for x in (_pairing.paired().get("devices") or [])]
+    devices=[x for x in devices if x]
+    for device in devices:
         _sessions.publish(
             device,"gita.daily",payload,
             idempotency_key=f"gita-daily:{lesson.get('date')}:{device}",
@@ -659,7 +659,7 @@ def _gita_daily_tick():
     )
     return {
         "verse_id":lesson.get("id"),"date":lesson.get("date"),"language":language,
-        "mobile_published":bool(device),"audio_ready":any(x.get("available") for x in audio.get("segments") or []),
+        "mobile_published":bool(devices),"mobile_device_count":len(devices),"audio_ready":any(x.get("available") for x in audio.get("segments") or []),
         "revision_due":bool(revision),
     }
 
