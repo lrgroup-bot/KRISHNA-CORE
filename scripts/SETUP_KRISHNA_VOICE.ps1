@@ -20,19 +20,58 @@ if($InstallEmbeddedWakeDependencies){
 }
 $envFile=Join-Path $RuntimeRoot "config\voice-runtime.ps1"
 New-Item -ItemType Directory -Force (Split-Path $envFile)|Out-Null
+
+# Merge with the existing generated voice config instead of replacing previously
+# configured wake/STT/TTS providers. Parse only simple KRISHNA env assignments;
+# never dot-source an existing file during configuration.
+$values=[ordered]@{}
+if(Test-Path -LiteralPath $envFile){
+  foreach($line in (Get-Content -LiteralPath $envFile -ErrorAction Stop)){
+    if($line -match "^\s*\$env:(KRISHNA_[A-Z0-9_]+)='((?:''|[^'])*)'\s*$"){
+      $values[$matches[1]]=$matches[2].Replace("''","'")
+    }
+  }
+}
+
+if($WakeCommand){$values["KRISHNA_WAKEWORD_CMD"]=$WakeCommand}
+if($WakeModel){
+  $resolved=(Resolve-Path -LiteralPath $WakeModel).Path
+  $values["KRISHNA_WAKEWORD_MODEL"]=$resolved
+}
+if($IndicSttCommand){$values["KRISHNA_INDIC_STT_CMD"]=$IndicSttCommand}
+if($IndicTtsCommand){$values["KRISHNA_INDIC_TTS_CMD"]=$IndicTtsCommand}
+if($PSBoundParameters.ContainsKey("IndicTtsLanguages")){
+  $values["KRISHNA_INDIC_TTS_LANGUAGES"]=$IndicTtsLanguages
+}elseif($IndicTtsCommand -and !$values.Contains("KRISHNA_INDIC_TTS_LANGUAGES")){
+  $values["KRISHNA_INDIC_TTS_LANGUAGES"]="hi,or"
+}
+
 $lines=@(
   '# Generated KRISHNA local voice configuration',
   '# Wake word is activation only; device/policy authentication remains authoritative.'
 )
-if($WakeCommand){$lines += '$env:KRISHNA_WAKEWORD_CMD='+("'" + $WakeCommand.Replace("'","''") + "'")}
-if($WakeModel){
-  $resolved=(Resolve-Path $WakeModel).Path
-  $lines += '$env:KRISHNA_WAKEWORD_MODEL='+("'" + $resolved.Replace("'","''") + "'")
+$preferred=@(
+  "KRISHNA_WAKEWORD_CMD",
+  "KRISHNA_WAKEWORD_MODEL",
+  "KRISHNA_WAKEWORD_THRESHOLD",
+  "KRISHNA_INDIC_STT_CMD",
+  "KRISHNA_INDIC_TTS_CMD",
+  "KRISHNA_INDIC_TTS_LANGUAGES"
+)
+$written=New-Object System.Collections.Generic.HashSet[string]
+foreach($name in $preferred){
+  if($values.Contains($name) -and [string]$values[$name]){
+    $escaped=([string]$values[$name]).Replace("'","''")
+    $lines += ('$env:'+$name+"='"+$escaped+"'")
+    [void]$written.Add($name)
+  }
 }
-if($IndicSttCommand){$lines += '$env:KRISHNA_INDIC_STT_CMD='+("'" + $IndicSttCommand.Replace("'","''") + "'")}
-if($IndicTtsCommand){
-  $lines += '$env:KRISHNA_INDIC_TTS_CMD='+("'" + $IndicTtsCommand.Replace("'","''") + "'")
-  $lines += '$env:KRISHNA_INDIC_TTS_LANGUAGES='+("'" + $IndicTtsLanguages + "'")
+foreach($name in ($values.Keys | Sort-Object)){
+  if($written.Contains([string]$name)){continue}
+  if([string]$values[$name]){
+    $escaped=([string]$values[$name]).Replace("'","''")
+    $lines += ('$env:'+[string]$name+"='"+$escaped+"'")
+  }
 }
 $lines|Set-Content -Encoding UTF8 $envFile
 Write-Host "Voice config: $envFile" -ForegroundColor Green
