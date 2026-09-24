@@ -25,9 +25,10 @@ New-Item -ItemType Directory -Force (Split-Path $envFile)|Out-Null
 # configured wake/STT/TTS providers. Parse only simple KRISHNA env assignments;
 # never dot-source an existing file during configuration.
 $values=[ordered]@{}
+$assignmentPattern="^\s*`$env:(KRISHNA_[A-Z0-9_]+)='((?:''|[^'])*)'\s*$"
 if(Test-Path -LiteralPath $envFile){
   foreach($line in (Get-Content -LiteralPath $envFile -ErrorAction Stop)){
-    if($line -match "^\s*\$env:(KRISHNA_[A-Z0-9_]+)='((?:''|[^'])*)'\s*$"){
+    if($line -match $assignmentPattern){
       $values[$matches[1]]=$matches[2].Replace("''","'")
     }
   }
