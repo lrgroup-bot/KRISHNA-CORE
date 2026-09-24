@@ -105,9 +105,16 @@
     "learning_verification": "Distilled HAWKEYE candidates can run through Rishi Live -> Garuda -> Gautama -> Gyan proposal gate without raw-media transfer; automatic model escalation remains local-only",
     "openrouter": "KRISHNA PC brokers credentials; HAWKEYE selected non-sensitive keyframes use a live zero-cost vision model chosen by role preference or dynamic ranking.",
     "free_cloud_reviews": "Sanitized HAWKEYE text summaries may be reviewed by verified Cloudflare Workers AI and configured free_only text gateways such as Groq/Mistral; raw camera frames are not sent to text-only providers.",
-    "mobile_qwen": "disabled; no Qwen model is hosted on the phone. PC Qwen remains available to KRISHNA.",
+    "mobile_qwen": "disabled; no Qwen model is hosted on the phone. PC Qwen remains available to KRISHNA as an explicit opt-in local model.",
     "pc_offload": "HAWKEYE cloud inference is preferred for approved non-sensitive selected frames so PC local inference is reserved for explicit heavy escalation.",
     "pc_finding_sync": "Distilled HAWKEYE cloud findings are written to the PC live-session ledger and Learning Observer with provider/model/reviewer provenance; raw keyframes are not required for this finding handoff.",
     "pc_compute_relief": "When a cloud finding is already recorded, curated evidence sync stores the bounded evidence but skips duplicate PC vision/BRAHMA intake unless explicit heavy escalation is requested."
+  },
+  "model_policy": {
+    "pc_qwen_allowed": true,
+    "mobile_qwen_allowed": false,
+    "mobile_qwen_dependency": false,
+    "mobile_cloud_mode": "verified-free-only",
+    "mobile_cloud_credentials": "PC-owned or short-lived device token only"
   }
 }
