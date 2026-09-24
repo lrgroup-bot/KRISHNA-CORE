@@ -263,16 +263,28 @@ if(!(Test-Path $gyanSecuritySetup)){throw "GYAN SECURITY SETUP MISSING: $gyanSec
 & powershell -NoProfile -ExecutionPolicy Bypass -File $gyanSecuritySetup -RuntimeRoot $Runtime
 if($LASTEXITCODE -ne 0){throw "GYAN SECURITY SETUP FAILED"}
 
-# Test the deployed runtime code. Tests that validate repository-only contracts
-# (for example .github workflows) must resolve those files from the authoritative
-# source checkout instead of requiring CI metadata to be copied into the runtime.
+# Test the deployed runtime code in an isolated disposable runtime state.
+# Unit/integration tests must never read or mutate the production KRISHNA DB/state;
+# the real live runtime is validated later by ACCEPT_KRISHNA_RUNTIME.ps1.
+# Repository-only contracts (for example .github workflows) still resolve from
+# the authoritative source checkout.
+$deployedTestRuntime=Join-Path $Runtime ("workspace\deployed-tests\"+[guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Force $deployedTestRuntime|Out-Null
+$previousRuntimeRoot=$env:KRISHNA_RUNTIME_ROOT
+$previousDb=$env:KRISHNA_DB
 $previousSourceRoot=$env:KRISHNA_SOURCE_ROOT
-$env:KRISHNA_SOURCE_ROOT=$Source
 try{
+  $env:KRISHNA_RUNTIME_ROOT=$deployedTestRuntime
+  $env:KRISHNA_DB=Join-Path $deployedTestRuntime "krishna_core.db"
+  $env:KRISHNA_SOURCE_ROOT=$Source
   $env:PYTHONPATH="$Runtime\core"
   & $Py -m compileall -q "$Runtime\core\krishna_core"
   if($LASTEXITCODE -ne 0){throw "DEPLOYED CORE COMPILE FAILED"}
-  & $Py -m unittest discover -v -s "$Runtime\core\tests" -p "test_*.py"
+  # Discover tests from the authoritative source tree so repository-contract
+  # fixtures resolve .github/mobile_v3/app/.gitignore from the real repository,
+  # while PYTHONPATH remains bound to the deployed runtime Core. This verifies
+  # the deployed Python code without pretending the runtime is a full Git checkout.
+  & $Py -m unittest discover -v -s "$Source\core\tests" -p "test_*.py"
   if($LASTEXITCODE -ne 0){throw "DEPLOYED CORE TESTS FAILED"}
   & $Py -m unittest discover -v -s "$Source\tests" -p "test_*.py"
   if($LASTEXITCODE -ne 0){throw "POST-DEPLOY CONTRACTS FAILED"}
@@ -280,8 +292,10 @@ try{
   if($LASTEXITCODE -ne 0){throw "ORCHESTRATOR IMPORT FAILED"}
 }
 finally{
-  if($null -eq $previousSourceRoot){Remove-Item Env:KRISHNA_SOURCE_ROOT -ErrorAction SilentlyContinue}
-  else{$env:KRISHNA_SOURCE_ROOT=$previousSourceRoot}
+  if($null -eq $previousRuntimeRoot){Remove-Item Env:KRISHNA_RUNTIME_ROOT -ErrorAction SilentlyContinue}else{$env:KRISHNA_RUNTIME_ROOT=$previousRuntimeRoot}
+  if($null -eq $previousDb){Remove-Item Env:KRISHNA_DB -ErrorAction SilentlyContinue}else{$env:KRISHNA_DB=$previousDb}
+  if($null -eq $previousSourceRoot){Remove-Item Env:KRISHNA_SOURCE_ROOT -ErrorAction SilentlyContinue}else{$env:KRISHNA_SOURCE_ROOT=$previousSourceRoot}
+  Remove-Item -Recurse -Force $deployedTestRuntime -ErrorAction SilentlyContinue
 }
 
 # Write an atomic deployment manifest so KRISHNA can prove exactly what code is running.
