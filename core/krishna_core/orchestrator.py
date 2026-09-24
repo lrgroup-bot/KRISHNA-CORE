@@ -46,6 +46,7 @@ from .neural_action_graph import NeuralActionGraph
 from .browser_operator import BrowserOperator
 from .github_research import GitHubResearchAgent
 from .goal_evaluator import GoalEvaluator
+from .amcc_controller import AMCCController
 from .skill_runtime import SkillRegistry
 from .content_guard import assess_untrusted_content
 from .task_ledger import TaskLedger
@@ -135,6 +136,7 @@ class Orchestrator:
 
         self.projects = ProjectRegistry()
         self.governor = ResourceGovernor()
+        self.amcc = AMCCController(runtime_state / "amcc")
         self.actions = ActionRegistry()
         self.indexer = RepositoryIndexer()
         self.shadow = ShadowWorkspaceManager()
@@ -350,6 +352,30 @@ class Orchestrator:
                 str(payload.get("action_name") or "").strip() or None,
                 payload.get("components") or [],
                 approved=bool(context.get("approved",False)),
+                amcc_signals=payload.get("amcc") or {},
+            )
+
+        def amcc_evaluate_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            goal=str(payload.get("goal") or "").strip()
+            if not goal:raise ValueError("goal is required")
+            return self.amcc_evaluate(
+                project,goal,payload.get("signals") or {},
+                action=str(payload.get("action") or "").strip() or None,
+            )
+
+        def amcc_status_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip() or None
+            return self.amcc_status(project=project,limit=int(payload.get("limit") or 50))
+
+        def amcc_outcome_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            goal=str(payload.get("goal") or "").strip()
+            if not goal:raise ValueError("goal is required")
+            return self.amcc_record_outcome(
+                project,goal,str(payload.get("status") or "unknown"),
+                progress=payload.get("progress"),error=payload.get("error"),
+                metadata=payload.get("metadata") or {},
             )
 
         def repair_shadow(payload,context):
@@ -2214,6 +2240,24 @@ class Orchestrator:
             sources=("pc","system"),
         )
         self.action_bus.register(
+            "cognition.amcc.evaluate",amcc_evaluate_action,
+            description="Evaluate expected control value, effort intensity and adaptive persistence strategy",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "cognition.amcc.status",amcc_status_action,
+            description="Read KRISHNA aMCC controller state and recent goal-control modes",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "cognition.amcc.outcome",amcc_outcome_action,
+            description="Record a bounded task outcome for adaptive persistence learning",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
             "repair.shadow",repair_shadow,
             description="Run a bounded repair in KRISHNA shadow workspace",
             permissions=("candidate.write","tests.run"),
@@ -3068,6 +3112,34 @@ class Orchestrator:
             action,payload,project=project,source=source,actor=actor,approved=approved,
             permissions=permissions,idempotency_key=idempotency_key,
         )
+
+    def _amcc_runtime_signals(self):
+        snapshot=self.governor.snapshot()
+        active=float(snapshot.get("active_jobs") or 0)
+        maximum=max(1.0,float(snapshot.get("max_concurrent_jobs") or 1))
+        pressure=max(0.0,min(1.0,active/maximum))
+        return {
+            "resource_pressure":pressure,
+            "compute_cost":max(0.15,min(1.0,0.15+0.65*pressure)),
+            "owner_priority":0.85,
+        }
+
+    def amcc_evaluate(self,project,goal,signals=None,action=None):
+        merged=self._amcc_runtime_signals()
+        if isinstance(signals,dict):merged.update(signals)
+        result=self.amcc.evaluate(project,goal,merged,action=action)
+        self.memory.audit("amcc",result["mode"],f"{project}:{goal[:120]}")
+        return result
+
+    def amcc_status(self,project=None,limit=50):
+        return self.amcc.status(project=project,limit=limit)
+
+    def amcc_record_outcome(self,project,goal,status,progress=None,error=None,metadata=None):
+        result=self.amcc.record_outcome(
+            project,goal,status,progress=progress,error=error,metadata=metadata or {},
+        )
+        self.memory.audit("amcc_outcome",str(status),f"{project}:{goal[:120]}")
+        return result
 
     def action_bus_status(self):
         return self.action_bus.status()
