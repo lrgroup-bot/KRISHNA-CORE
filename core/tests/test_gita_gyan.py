@@ -7,6 +7,8 @@ from datetime import date
 from pathlib import Path
 
 from krishna_core.gita_gyan import GitaGyan
+from krishna_core.gita_performance import GitaPerformanceEngine
+from krishna_core.krishna_shloka_orchestrator import KrishnaShlokaOrchestrator
 
 
 class GitaGyanTests(unittest.TestCase):
@@ -144,6 +146,129 @@ class GitaWiringContractTests(unittest.TestCase):
         local_build = (root / "BUILD_KRISHNA_AGI.ps1").read_text(encoding="utf-8-sig")
         self.assertGreaterEqual(workflow.count('core/krishna_core/data;krishna_core/data'), 2)
         self.assertIn('core\\krishna_core\\data;krishna_core\\data', local_build)
+
+
+class GitaContinuousSessionTests(unittest.TestCase):
+    def test_navigation_does_not_require_completion(self):
+        with tempfile.TemporaryDirectory() as td:
+            gita=GitaGyan(Path(td))
+            state,row=gita.start_session(1,1,"or","deep")
+            self.assertEqual((row["chapter"],row["verse"]),(1,1))
+            self.assertEqual(gita.status()["completed_count"],0)
+            state,row=gita.navigate_session("next")
+            self.assertEqual((row["chapter"],row["verse"]),(1,2))
+            self.assertEqual(gita.status()["completed_count"],0)
+            self.assertTrue(state["next_does_not_require_completion"])
+            self.assertFalse(state["completion_required_for_navigation"])
+
+    def test_repeat_previous_forward_and_goto_are_owner_controlled(self):
+        with tempfile.TemporaryDirectory() as td:
+            gita=GitaGyan(Path(td))
+            gita.start_session(2,47)
+            state,row=gita.navigate_session("repeat")
+            self.assertEqual((row["chapter"],row["verse"]),(2,47))
+            self.assertEqual(state["repeat_count"],1)
+            _state,row=gita.navigate_session("previous")
+            self.assertEqual((row["chapter"],row["verse"]),(2,46))
+            _state,row=gita.navigate_session("forward")
+            self.assertEqual((row["chapter"],row["verse"]),(2,47))
+            _state,row=gita.navigate_session("goto",chapter=11,verse=50)
+            self.assertEqual((row["chapter"],row["verse"]),(11,50))
+
+    def test_complete_is_explicit_metadata_and_does_not_move_session(self):
+        with tempfile.TemporaryDirectory() as td:
+            gita=GitaGyan(Path(td))
+            gita.start_session(3,1)
+            marked=gita.mark_complete()
+            self.assertTrue(marked["completed"])
+            self.assertFalse(marked["navigation_affected"])
+            state=gita.session_status()
+            self.assertEqual((state["chapter"],state["verse"]),(3,1))
+            _state,row=gita.navigate_session("next")
+            self.assertEqual((row["chapter"],row["verse"]),(3,2))
+            unmarked=gita.mark_complete(3,1,False)
+            self.assertFalse(unmarked["completed"])
+
+    def test_search_can_resolve_exact_reference(self):
+        with tempfile.TemporaryDirectory() as td:
+            gita=GitaGyan(Path(td))
+            found=gita.search("Bhagavad Gita 2.47")
+            self.assertEqual(len(found),1)
+            self.assertEqual((found[0]["chapter"],found[0]["verse"]),(2,47))
+
+
+class GitaPerformanceTests(unittest.TestCase):
+    def test_all_700_verses_get_unique_performance_ids(self):
+        with tempfile.TemporaryDirectory() as td:
+            gita=GitaGyan(Path(td))
+            engine=GitaPerformanceEngine()
+            records=engine.records_for(gita._load_corpus())
+            self.assertEqual(len(records),700)
+            self.assertEqual(len({x["performance_id"] for x in records}),700)
+            self.assertTrue(all(x["renderer_contract"]["one_identity"] for x in records))
+
+    def test_special_scriptural_performance_transitions(self):
+        engine=GitaPerformanceEngine()
+        self.assertEqual(engine.performance(2,10)["family"],"SMILING_TEACHER")
+        self.assertEqual(engine.performance(2,47)["family"],"KARMA_YOGA_TEACHER")
+        self.assertEqual(engine.performance(11,32)["family"],"VISHVARUPA")
+        self.assertEqual(engine.performance(11,50)["family"],"REASSURING_PERSONAL_FORM")
+        self.assertEqual(engine.performance(18,63)["family"],"CLOSING_COUNSEL")
+
+
+class _FakeAvatar:
+    def __init__(self):self.last=None
+    def set_state(self,state,**params):
+        self.last={"state":state,"params":params}
+        return dict(self.last)
+
+
+class KrishnaShlokaOrchestratorTests(unittest.TestCase):
+    def test_presented_verse_has_separate_sanskrit_and_global_odia_explanation(self):
+        with tempfile.TemporaryDirectory() as td:
+            gita=GitaGyan(Path(td))
+            avatar=_FakeAvatar()
+            runtime=KrishnaShlokaOrchestrator(
+                gita,avatar,explain=lambda _prompt:"ପାର୍ଥ, ଏହା କର୍ମ ଓ ଫଳାସକ୍ତି ବିଷୟରେ ଶିକ୍ଷା।"
+            )
+            out=runtime.start(2,47)
+            self.assertEqual(out["language"],"or")
+            self.assertEqual(out["speech_sequence"][0]["language"],"sa")
+            self.assertEqual(out["speech_sequence"][1]["language"],"or")
+            self.assertEqual(out["performance"]["family"],"KARMA_YOGA_TEACHER")
+            self.assertFalse(out["navigation"]["completion_required_for_next"])
+            self.assertTrue(out["navigation"]["owner_controls_progression"])
+
+    def test_repeat_does_not_advance(self):
+        with tempfile.TemporaryDirectory() as td:
+            gita=GitaGyan(Path(td))
+            runtime=KrishnaShlokaOrchestrator(gita,_FakeAvatar(),explain=None)
+            runtime.start(4,7,include_explanation=False)
+            again=runtime.control("repeat",include_explanation=False)
+            self.assertEqual((again["chapter"],again["verse"]),(4,7))
+            nxt=runtime.control("next",include_explanation=False)
+            self.assertEqual((nxt["chapter"],nxt["verse"]),(4,8))
+
+
+class GitaContinuousWiringTests(unittest.TestCase):
+    def test_server_exposes_owner_controlled_session_routes(self):
+        text=(Path(__file__).resolve().parents[1]/"krishna_core"/"server.py").read_text(encoding="utf-8-sig")
+        for route in (
+            '"/api/gita/session"','"/api/gita/verse"','"/api/gita/performance"',
+            '"/api/gita/session/start"','"/api/gita/session/control"',
+            '"/api/gita/search"','"/api/gita/complete"',
+        ):
+            self.assertIn(route,text)
+        self.assertIn('"ପୁଣି"',text)
+        self.assertIn('"ଆଗକୁ"',text)
+        self.assertIn('"ପଛକୁ"',text)
+
+    def test_private_mobile_policy_includes_new_gita_controls(self):
+        text=(Path(__file__).resolve().parents[1]/"krishna_core"/"remote_access.py").read_text(encoding="utf-8-sig")
+        self.assertIn('"/api/gita/session/control"',text)
+        self.assertIn('"/api/gita/performance"',text)
+        self.assertIn('"/api/gita/search"',text)
+
 
 
 if __name__ == "__main__":
