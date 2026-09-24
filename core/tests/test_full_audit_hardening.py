@@ -6,6 +6,7 @@ from pathlib import Path
 
 from krishna_core.automation_bus import AutomationBus
 from krishna_core.kabach import KabachAgent
+from krishna_core.development_operator import DevelopmentOperator
 from krishna_core.model_scout import ModelCandidate, ModelScout
 from krishna_core.policy_kernel import PolicyKernel
 from krishna_core.remote_access import PrivateRemotePolicy
@@ -100,6 +101,19 @@ class FullAuditHardeningTests(unittest.TestCase):
         policy = PrivateRemotePolicy()
         missing = sorted(path for path in paths if path not in public and not policy.mobile_route_allowed(path))
         self.assertEqual(missing, [], "mobile API path missing from paired-device allowlist: " + ", ".join(missing))
+
+    def test_development_candidates_use_configured_promotion_staging_root(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = root / "project"
+            staging = root / "runtime" / ".krishna_state" / "promotion-candidates"
+            source.mkdir(parents=True)
+            (source / "app.py").write_text("print('old')\n", encoding="utf-8")
+            dev = DevelopmentOperator(None, staging_root=staging)
+            staged = dev.stage(source, [{"path": "app.py", "content": "print('new')\n"}])
+            candidate = Path(staged["candidate_root"]).resolve()
+            candidate.relative_to(staging.resolve())
+            self.assertEqual((candidate / "app.py").read_text(encoding="utf-8"), "print('new')\n")
 
     def test_server_generic_exception_handlers_do_not_echo_exception_messages(self):
         repo_root = Path(__file__).resolve().parents[2]
