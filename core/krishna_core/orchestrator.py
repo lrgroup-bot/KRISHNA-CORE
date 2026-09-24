@@ -4593,7 +4593,11 @@ Evidence:
     def _apply_gita_performance(self, payload):
         performance = payload.get("performance") if isinstance(payload, dict) else None
         if isinstance(performance, dict):
-            payload["avatar"] = self.agi.avatar.apply_performance(performance)
+            avatar = self.agi.avatar.apply_performance(performance)
+            payload["avatar"] = avatar
+            payload["avatar_state"] = avatar.get("state")
+            payload["avatar_family"] = avatar.get("performance_family")
+            payload["renderer_mode"] = avatar.get("renderer_mode")
         return payload
 
     def gita_daily_lesson(self, language="or", depth="deep", mark_complete=True):
