@@ -150,6 +150,11 @@ class KrishnaShlokaOrchestrator:
             ],
             "canonical_sanskrit_unchanged": True,
             "generated_commentary_separate": True,
+            "navigation": {
+                "completion_required_for_next": False,
+                "owner_controls_progression": True,
+                "controls": ["repeat", "previous", "next", "forward", "skip", "goto"],
+            },
         }
 
     def vishvarupa_passage(self, start: int = 8, end: int = 51) -> dict:
@@ -305,10 +310,27 @@ class KrishnaShlokaOrchestrator:
         if chapter_match and any(x in text for x in ("recite", "say", "chapter", "kuha", "କୁହ", "सुन")):
             return self.chapter(int(chapter_match.group(1)))
 
-        if any(x in text for x in ("next verse", "next shloka", "next sloka", "ପରବର୍ତ୍ତୀ", "अगला")):
-            return self.adjacent(1, language=language, depth=depth, explain=explain)
-        if any(x in text for x in ("previous verse", "previous shloka", "previous sloka", "ପୂର୍ବ", "पिछला")):
-            return self.adjacent(-1, language=language, depth=depth, explain=explain)
+        if last and any(x in text for x in (
+            "repeat", "again", "repeat verse", "repeat shloka",
+            "ପୁଣି", "ପୁଣି କୁହ", "ଆଉଥରେ", "दोबारा", "फिर से",
+        )):
+            out=self.verse(*last, language=language, depth=depth, explain=explain)
+            out["navigation_action"]="repeat"
+            return out
+        if any(x in text for x in (
+            "next verse", "next shloka", "next sloka", "forward", "skip",
+            "ଆଗକୁ", "ପରବର୍ତ୍ତୀ", "ଛାଡ଼", "अगला", "आगे",
+        )):
+            out=self.adjacent(1, language=language, depth=depth, explain=explain)
+            out["navigation_action"]="next"
+            return out
+        if any(x in text for x in (
+            "previous verse", "previous shloka", "previous sloka",
+            "ପଛକୁ", "ପୂର୍ବ", "पिछला", "पीछे",
+        )):
+            out=self.adjacent(-1, language=language, depth=depth, explain=explain)
+            out["navigation_action"]="previous"
+            return out
         if any(x in text for x in ("random verse", "random shloka", "random sloka")):
             return self.random_verified(language=language, depth=depth, explain=explain)
 
