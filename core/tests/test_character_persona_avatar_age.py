@@ -18,6 +18,14 @@ class KrishnaPersonaTests(unittest.TestCase):
         self.assertIn("use only 'Partha'",prompt)
         self.assertIn("କୁହ ପାର୍ଥ, କଣ ହେଲା?",prompt)
 
+    def test_odia_is_global_default_conversation_language(self):
+        status=KrishnaCharacterPersona.status()
+        self.assertEqual(status["default_conversation_language"],"or")
+        self.assertEqual(status["default_conversation_locale"],"or-IN")
+        self.assertTrue(status["global_odia_default"])
+        prompt=KrishnaCharacterPersona.prompt_contract()
+        self.assertIn("Global default conversation language is natural Odia",prompt)
+
     def test_scripture_grounding_is_explicit(self):
         refs=KrishnaCharacterPersona.status()["scripture_grounding"]
         self.assertIn("bhagavad_gita_2_10",refs)
