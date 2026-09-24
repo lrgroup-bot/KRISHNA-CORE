@@ -2448,6 +2448,18 @@ class Handler(BaseHTTPRequestHandler):
             try:return self._json(200,_model_memory.unload(model) if model else _model_memory.unload_all())
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
+        if post_path == "/api/avatar/age/configure":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"avatar age configuration must run on KRISHNA PC"})
+            try:
+                return self._json(200,orch.agi.avatar_age.configure(
+                    baseline_date=data.get("baseline_date"),
+                    base_visual_age_years=data.get("base_visual_age_years"),
+                    growth_rate_days_per_day=float(data.get("growth_rate_days_per_day",1.0)),
+                ))
+            except (ValueError,TypeError) as exc:
+                return self._json(400,{"error":str(exc)})
+
         if post_path == "/api/voice/wake/start":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"microphone wake service must be controlled on KRISHNA PC"})
