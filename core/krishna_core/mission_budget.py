@@ -44,8 +44,13 @@ class MissionBudgetManager:
 
     @staticmethod
     def _loads(raw):
-        try:return json.loads(raw)
-        except Exception:return {}
+        try:
+            value=json.loads(raw)
+        except Exception as exc:
+            raise RuntimeError(f"mission budget state is unreadable: {type(exc).__name__}") from exc
+        if not isinstance(value,dict):
+            raise RuntimeError("mission budget state is unreadable: expected JSON object")
+        return value
 
     def configure(self,mission_id,limits=None):
         merged=dict(DEFAULT_LIMITS)
@@ -79,9 +84,11 @@ class MissionBudgetManager:
     def consume(self,mission_id,counter,amount=1):
         counter=str(counter)
         if counter not in _COUNTER_MAP:raise ValueError("unsupported mission budget counter")
+        amount=float(amount)
+        if amount<0:raise ValueError("mission budget consumption cannot be negative")
         row=self.status(mission_id)
         if row is None:row=self.configure(mission_id)
-        usage=dict(row["usage"]);usage[counter]=float(usage.get(counter) or 0)+float(amount)
+        usage=dict(row["usage"]);usage[counter]=float(usage.get(counter) or 0)+amount
         with self.lock:
             self.db.execute("UPDATE mission_budgets SET usage_json=?,updated_at=? WHERE mission_id=?",
                             (json.dumps(usage),time.time(),str(mission_id)));self.db.commit()
