@@ -145,6 +145,45 @@ function Get-ProcessInventory([string[]]$Roots){
   }catch{}
   return @($rows|ForEach-Object{$_})
 }
+function Get-CoreServerInstances([object[]]$Processes){
+  $cores=@($Processes|Where-Object{$_.core_server})
+  $byPid=@{}
+  foreach($p in $cores){$byPid[[string]$p.pid]=$p}
+  $groups=@{}
+  foreach($p in $cores){
+    $root=$p
+    $guard=0
+    while($guard -lt 16){
+      $guard++
+      $parent=$byPid[[string]$root.parent_pid]
+      if(!$parent){break}
+      $sameRoot=([string]$parent.owning_root -ieq [string]$root.owning_root)
+      $sameCommand=([string]$parent.command_line -eq [string]$root.command_line)
+      if(!$sameRoot -or !$sameCommand){break}
+      $root=$parent
+    }
+    $key=[string]$root.pid
+    if(!$groups.ContainsKey($key)){
+      $groups[$key]=New-Object System.Collections.Generic.List[object]
+    }
+    [void]$groups[$key].Add($p)
+  }
+  $rows=New-Object System.Collections.Generic.List[object]
+  foreach($key in $groups.Keys){
+    $members=@($groups[$key]|Sort-Object pid)
+    $root=$byPid[$key]
+    [void]$rows.Add([ordered]@{
+      instance_root_pid=[int]$root.pid
+      process_count=$members.Count
+      pids=@($members|ForEach-Object{[int]$_.pid})
+      owning_root=$root.owning_root
+      command_line=$root.command_line
+      classification=if($members.Count -gt 1){"launcher_child_chain"}else{"single_process"}
+    })
+  }
+  return @($rows|Sort-Object instance_root_pid)
+}
+
 function Get-ListenerInventory([object[]]$Processes){
   $byPid=@{}
   foreach($p in $Processes){$byPid[[string]$p.pid]=$p}
@@ -305,6 +344,7 @@ try{
 $candidateRoots=@(($explicitRoots+$discoveredRoots)|ForEach-Object{Normalize-Root $_}|Where-Object{$_}|Sort-Object -Unique)
 
 $processRows=Get-ProcessInventory $candidateRoots
+$coreServerInstances=Get-CoreServerInstances $processRows
 $listenerRows=Get-ListenerInventory $processRows
 $guardian=Get-GuardianState $RuntimeRoot $processRows
 
@@ -432,10 +472,15 @@ foreach($row in $rootRows){
 }
 $guardianCount=@($processRows|Where-Object{$_.guardian}).Count
 $coreCount=@($processRows|Where-Object{$_.core_server}).Count
+$coreInstanceCount=@($coreServerInstances).Count
 $startCount=@($processRows|Where-Object{$_.start_krishna}).Count
 if($guardianCount -gt 1){[void]$findings.Add([ordered]@{status="DUPLICATE";code="MULTIPLE_GUARDIANS";detail=("count="+$guardianCount)})}
 if($startCount -gt 1){[void]$findings.Add([ordered]@{status="DUPLICATE";code="MULTIPLE_START_KRISHNA";detail=("count="+$startCount)})}
-if($coreCount -gt 1){[void]$findings.Add([ordered]@{status="DUPLICATE";code="MULTIPLE_CORE_SERVERS";detail=("count="+$coreCount)})}
+if($coreInstanceCount -gt 1){
+  [void]$findings.Add([ordered]@{status="DUPLICATE";code="MULTIPLE_CORE_SERVER_INSTANCES";detail=("instances="+$coreInstanceCount+" raw_processes="+$coreCount);instances=$coreServerInstances})
+}elseif($coreCount -gt 1 -and $coreInstanceCount -eq 1){
+  [void]$findings.Add([ordered]@{status="PASS";code="CORE_SERVER_LAUNCHER_CHILD_CHAIN";detail=("one runtime instance uses "+$coreCount+" linked Windows Python processes; no duplicate runtime inferred");instances=$coreServerInstances})
+}
 if($guardian.guardian_pid -gt 0 -and !$guardian.guardian_pid_valid){[void]$findings.Add([ordered]@{status="STALE";code="STALE_GUARDIAN_PID";detail=[string]$guardian.guardian_pid})}
 if($guardian.core_pid -gt 0 -and !$guardian.core_pid_valid){[void]$findings.Add([ordered]@{status="STALE";code="STALE_CORE_PID";detail=[string]$guardian.core_pid})}
 
@@ -473,6 +518,7 @@ $report=[ordered]@{
   candidate_roots=$rootOutput
   source_runtime=$sourceRuntime
   guardian=$guardian
+  core_server_instances=$coreServerInstances
   processes=$processRows
   listeners=$listenerRows
   components=$components
