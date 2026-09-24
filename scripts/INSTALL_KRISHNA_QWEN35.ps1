@@ -16,8 +16,10 @@ $env:KRISHNA_LOCAL_MODEL = $PrimaryModel
 $env:KRISHNA_LOCAL_FALLBACK_MODELS = "qwen2.5:3b,qwen2.5vl:7b"
 $env:KRISHNA_OLLAMA_MODEL = $PrimaryModel
 $env:KRISHNA_OLLAMA_FALLBACK_MODELS = "qwen2.5:3b,qwen2.5vl:7b"
-$env:KRISHNA_VISION_MODEL = $PrimaryModel
-$env:KRISHNA_VISION_FALLBACK_MODELS = "qwen2.5vl:7b"
+$env:KRISHNA_VISION_MODEL = "qwen2.5vl:7b"
+$env:KRISHNA_VISION_FALLBACK_MODELS = $PrimaryModel
+$env:KRISHNA_FAST_VISION_MODEL = $PrimaryModel
+$env:KRISHNA_FAST_VISION_FALLBACK_MODELS = "qwen2.5vl:7b"
 
 if (-not $SkipPull) {
     Write-Host "Pulling $PrimaryModel into $ModelRoot ..."
@@ -56,6 +58,9 @@ Write-Host "=== KRISHNA QWEN PRIMARY VERIFIED ==="
 Write-Host "Primary: $PrimaryModel"
 Write-Host "Model root: $ModelRoot"
 Write-Host "Text fallback: qwen2.5:3b"
-Write-Host "Vision fallback: qwen2.5vl:7b"
+Write-Host "Detailed vision primary: qwen2.5vl:7b"
+Write-Host "Detailed vision fallback: $PrimaryModel"
+Write-Host "Fast/live vision primary: $PrimaryModel"
+Write-Host "Fast/live vision fallback: qwen2.5vl:7b"
 Write-Host "Old Qwen models were NOT deleted."
 Write-Host "Response: $($result.response)"

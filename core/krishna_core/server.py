@@ -2304,7 +2304,7 @@ class Handler(BaseHTTPRequestHandler):
                 for aid in attachment_ids[:3]:
                     try:
                         meta,raw=_attachments.read(data.get("chat_id"),str(aid))
-                        vr=_vision.analyze_bytes(raw,meta.get("content_type"),"Analyze this image for the user's current request: "+msg)
+                        vr=_vision.analyze_bytes(raw,meta.get("content_type"),"Analyze this image for the user's current request: "+msg,mode="detailed")
                         vision_evidence.append({"attachment_id":str(aid),"name":meta.get("name"),"sha256":meta.get("sha256"),"analysis":vr["analysis"],"model":vr["model"]})
                     except Exception as exc:
                         vision_evidence.append({"attachment_id":str(aid),"error":f"{type(exc).__name__}: {exc}"})
@@ -3070,13 +3070,13 @@ class Handler(BaseHTTPRequestHandler):
                 if modality=="image":
                     if diagnostic:
                         prompt=orch.hawkeye_diagnostic.vision_prompt(goal=goal,sensor_context=sensor_context)
-                        with orch.governor.job(timeout=0):vision=_vision.analyze_bytes(raw,content_type,prompt)
+                        with orch.governor.job(timeout=0):vision=_vision.analyze_bytes(raw,content_type,prompt,mode="detailed")
                         result=orch.hawkeye_diagnostic.record_model_result(session_id,vision.get("analysis") or "",goal=goal,sensor_context=sensor_context,model=vision.get("model") or "")
                         field=orch.hawkeye.record_live_analysis(session_id,result["analysis"],model=vision.get("model"),sensor_context=sensor_context,frame_meta={"content_type":content_type,"diagnostic":True,"curated":True})
                         result["frame_count"]=field["frame_count"]
                     else:
                         prompt=orch.hawkeye.live_prompt(scene_hint=session.get("scene_hint") or "auto",user_goal=goal,sensor_context=sensor_context)
-                        with orch.governor.job(timeout=0):vision=_vision.analyze_bytes(raw,content_type,prompt)
+                        with orch.governor.job(timeout=0):vision=_vision.analyze_bytes(raw,content_type,prompt,mode="detailed")
                         field=orch.hawkeye.record_live_analysis(session_id,vision.get("analysis") or "",model=vision.get("model"),sensor_context=sensor_context,frame_meta={"content_type":content_type,"diagnostic":False,"curated":True})
                         result={"diagnostic":False,"analysis":vision.get("analysis") or "","confidence":0.0,"evidence_state":"OBSERVED","model":vision.get("model"),"local":bool(vision.get("local",True)),"frame_count":field["frame_count"]}
                 else:
@@ -3137,7 +3137,7 @@ class Handler(BaseHTTPRequestHandler):
                 if orch.hawkeye_diagnostic.should_activate(goal):
                     prompt=orch.hawkeye_diagnostic.vision_prompt(goal=goal,sensor_context=sensor_context)
                     with orch.governor.job(timeout=0):
-                        vision=_vision.analyze_bytes(raw,content_type,prompt)
+                        vision=_vision.analyze_bytes(raw,content_type,prompt,mode="detailed")
                     result=orch.hawkeye_diagnostic.record_model_result(
                         session_id,vision.get("analysis") or "",goal=goal,sensor_context=sensor_context,model=vision.get("model") or ""
                     )
@@ -3155,7 +3155,7 @@ class Handler(BaseHTTPRequestHandler):
                     scene_hint=session.get("scene_hint") or "auto",user_goal=goal,sensor_context=sensor_context
                 )
                 with orch.governor.job(timeout=0):
-                    vision=_vision.analyze_bytes(raw,content_type,prompt)
+                    vision=_vision.analyze_bytes(raw,content_type,prompt,mode="fast")
                 field=orch.hawkeye.record_live_analysis(
                     session_id,vision.get("analysis") or "",model=vision.get("model"),sensor_context=sensor_context,
                     frame_meta={"content_type":content_type,"diagnostic":False},
@@ -3163,7 +3163,7 @@ class Handler(BaseHTTPRequestHandler):
                 out={
                     "session_id":session_id,"frame_count":field["frame_count"],"diagnostic":False,
                     "analysis":field["latest_analysis"]["analysis"],"confidence":0.0,"evidence_state":"OBSERVED",
-                    "model":vision.get("model"),"local":bool(vision.get("local",True)),"secret_redaction":True,
+                    "model":vision.get("model"),"vision_mode":vision.get("vision_mode"),"local":bool(vision.get("local",True)),"secret_redaction":True,
                 }
                 if pc_evidence is not None:out["pc_evidence"]=pc_evidence
                 return self._json(200,out)
@@ -3202,7 +3202,7 @@ class Handler(BaseHTTPRequestHandler):
             if not aid:return self._json(400,{"error":"attachment_id is required"})
             try:
                 meta,raw=_attachments.read(chat_id,aid)
-                result=_vision.analyze_bytes(raw,meta.get("content_type"),str(data.get("prompt") or "Analyze this image as evidence for the current KRISHNA conversation."))
+                result=_vision.analyze_bytes(raw,meta.get("content_type"),str(data.get("prompt") or "Analyze this image as evidence for the current KRISHNA conversation."),mode="detailed")
                 evidence={"attachment_id":aid,"sha256":meta.get("sha256"),"name":meta.get("name"),**result}
                 orch.memory.add_chat_message(chat_id,"tool","Local vision analysis",{"vision":evidence})
                 proposal=None
