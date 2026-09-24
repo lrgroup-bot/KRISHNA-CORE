@@ -40,8 +40,16 @@ class BrowserOperator:
     def summarize_findings(console_errors=None, page_errors=None,
                            failed_requests=None, bad_responses=None) -> list[dict]:
         findings: list[dict] = []
+        failed_rows=[str(x) for x in (failed_requests or [])]
         for item in console_errors or []:
-            findings.append(asdict(BrowserFinding("console_error", str(item))))
+            detail=str(item)
+            # Chromium emits a generic console error for the same transport
+            # failure that Playwright reports with the exact request URL. Keep
+            # the URL-bearing request_failed finding as authoritative instead
+            # of double-counting one network defect.
+            if failed_rows and detail.startswith("Failed to load resource: net::ERR_"):
+                continue
+            findings.append(asdict(BrowserFinding("console_error", detail)))
         for item in page_errors or []:
             findings.append(asdict(BrowserFinding("page_error", str(item), "critical")))
         for item in failed_requests or []:
