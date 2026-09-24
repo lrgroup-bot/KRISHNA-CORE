@@ -8,7 +8,11 @@ from krishna_core.avatar_runtime import AvatarRuntime
 from krishna_core.gita_gyan import GitaGyan
 from krishna_core.gita_performance import GitaPerformanceEngine
 from krishna_core.krishna_shloka import KrishnaShlokaOrchestrator
-from krishna_core.lip_sync import KrishnaLipSyncPlanner, OCULUS_VISEMES
+from krishna_core.lip_sync import (
+    KrishnaLipSyncPlanner,
+    OCULUS_VISEMES,
+    OCULUS_MORPH_TARGETS,
+)
 
 
 class KrishnaLipSyncPlannerTests(unittest.TestCase):
@@ -28,6 +32,8 @@ class KrishnaLipSyncPlannerTests(unittest.TestCase):
             self.assertTrue(plan["requires_audio_alignment_for_production"])
             for event in plan["events"]:
                 self.assertIn(event["viseme"], OCULUS_VISEMES)
+                self.assertEqual(event["morph_target"], OCULUS_MORPH_TARGETS[event["viseme"]])
+                self.assertTrue(event["morph_target"].startswith("viseme_"))
                 self.assertLessEqual(event["start_ms"], event["end_ms"])
 
     def test_shloka_profile_is_slower_than_explanation(self):
