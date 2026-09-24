@@ -22,6 +22,14 @@ class IndicVoiceWorkerContractTests(unittest.TestCase):
         self.assertIn("-IndicTtsCommand $cmd",text)
         self.assertIn("Production Core venv unchanged",text)
 
+    def test_windows_worker_commands_use_real_quotes_not_backslash_escaped_quotes(self):
+        tts=(ROOT/"scripts"/"INSTALL_KRISHNA_INDIC_TTS.ps1").read_text(encoding="utf-8-sig")
+        stt=(ROOT/"scripts"/"INSTALL_KRISHNA_INDIC_STT.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn('$cmd=\'"\'+$ttsPy+\'" "\'+$worker',tts)
+        self.assertIn('$cmd=\'"\'+$sttPy+\'" "\'+$worker',stt)
+        self.assertNotIn("$cmd='\\\\\"'",tts)
+        self.assertNotIn("$cmd='\\\\\"'",stt)
+
     def test_stt_worker_matches_official_multilingual_conformer_contract(self):
         text=(ROOT/"scripts"/"voice"/"indicconformer_worker.py").read_text(encoding="utf-8-sig")
         self.assertIn('LANGUAGES = {"hi", "or"}',text)
