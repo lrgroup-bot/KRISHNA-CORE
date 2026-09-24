@@ -34,6 +34,7 @@ public class MainActivity extends Activity {
   };
 
   static final String NOTIFY_CHANNEL="krishna_completed";
+  static final String GITA_CHANNEL="krishna_gita";
   String deviceId(){
     android.content.SharedPreferences p=getSharedPreferences("k",0);
     String id=p.getString("device_id","");
@@ -44,12 +45,18 @@ public class MainActivity extends Activity {
     if(Build.VERSION.SDK_INT>=26){
       NotificationManager n=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
       n.createNotificationChannel(new NotificationChannel(NOTIFY_CHANNEL,"KRISHNA completed work",NotificationManager.IMPORTANCE_DEFAULT));
+      n.createNotificationChannel(new NotificationChannel(GITA_CHANNEL,"KRISHNA GITA-GYAN",NotificationManager.IMPORTANCE_DEFAULT));
     }
   }
   void notifyCompleted(String text){
     Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,NOTIFY_CHANNEL):new Notification.Builder(this);
     b.setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle("KRISHNA completed work").setContentText(text).setAutoCancel(true);
     ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify((int)(System.currentTimeMillis()&0x7fffffff),b.build());
+  }
+  void notifyGita(String text){
+    Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,GITA_CHANNEL):new Notification.Builder(this);
+    b.setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle("KRISHNA · GITA-GYAN").setContentText(text).setAutoCancel(true);
+    ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(47001,b.build());
   }
 
   void startWakeIfReady(){
@@ -80,6 +87,7 @@ public class MainActivity extends Activity {
     web=new WebView(this);
     web.getSettings().setJavaScriptEnabled(true);
     web.getSettings().setDomStorageEnabled(true);
+    web.getSettings().setMediaPlaybackRequiresUserGesture(false);
     web.getSettings().setAllowFileAccess(true); // required only for android_asset shell
     web.getSettings().setAllowFileAccessFromFileURLs(false);
     web.getSettings().setAllowUniversalAccessFromFileURLs(false);
@@ -179,6 +187,9 @@ public class MainActivity extends Activity {
           JSONObject e=a.getJSONObject(i);
           if("task.completed".equals(e.optString("type"))){
             JSONObject p=e.optJSONObject("payload");if(p!=null)notifyCompleted(p.optString("summary","KRISHNA completed the task"));
+          }else if("gita.daily".equals(e.optString("type"))){
+            JSONObject p=e.optJSONObject("payload"),lesson=p==null?null:p.optJSONObject("lesson");
+            if(lesson!=null)notifyGita("Today's verse: "+lesson.optString("id","Bhagavad Gita"));
           }
         }
       }catch(Exception ignored){}
@@ -197,6 +208,48 @@ public class MainActivity extends Activity {
       return call("/api/core/event","{\"source\":\"mobile\",\"kind\":"+JSONObject.quote(kind)+",\"detail\":"+JSONObject.quote(detail)+",\"project\":\"system\"}");
     }
     @JavascriptInterface public String state(){return call("/api/core/state",null);}
+    @JavascriptInterface public String gitaToday(boolean deep,boolean speak){
+      try{
+        JSONObject body=new JSONObject();body.put("deep",deep);body.put("speak",speak);
+        return call("/api/gita/lesson",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String gitaCommand(String text,boolean speak){
+      try{
+        JSONObject body=new JSONObject();body.put("text",text==null?"":text);body.put("speak",speak);
+        return call("/api/gita/command",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String gitaQuestion(String verseId,String question,String language){
+      try{
+        JSONObject body=new JSONObject();body.put("verse_id",verseId==null?"":verseId);body.put("question",question==null?"":question);
+        if(language!=null&&!language.trim().isEmpty())body.put("language",language);
+        return call("/api/gita/question",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String gitaUnderstood(String verseId,boolean understood,String note){
+      try{
+        JSONObject body=new JSONObject();body.put("verse_id",verseId==null?"":verseId);body.put("understood",understood);body.put("note",note==null?"":note);
+        return call("/api/gita/understood",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String voiceAudioData(String path){
+      try{
+        String value=path==null?"":path.trim();
+        if(!value.matches("^/api/voice/audio\\?id=[0-9a-fA-F-]{36}$"))
+          throw new SecurityException("voice audio path is not allowed");
+        HttpURLConnection c=conn(value);
+        try{
+          int code=c.getResponseCode();
+          if(code>=400)throw new IOException("voice audio HTTP "+code);
+          try(InputStream in=c.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){
+            byte[]buf=new byte[8192];int total=0;
+            for(int n;(n=in.read(buf))>0;){total+=n;if(total>8*1024*1024)throw new IOException("voice audio exceeds 8 MB");out.write(buf,0,n);}
+            return "data:audio/wav;base64,"+Base64.encodeToString(out.toByteArray(),Base64.NO_WRAP);
+          }
+        }finally{c.disconnect();}
+      }catch(Exception e){return error(e);}
+    }
 
     @JavascriptInterface public String edgeBotStatus(){
       try{return MobileEdgeBot.status(MainActivity.this).toString();}
