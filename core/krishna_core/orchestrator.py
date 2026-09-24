@@ -94,6 +94,8 @@ from .gyan_security import GyanACL,GyanEnvelopeCipher,GyanEncryptedStore,GyanCon
 from .long_context import HybridRAG,LongContextLab,RecursiveContextEngine,RecursiveBudget,WeeklyLongContextScheduler
 from .lab_bot import LabBot
 from .gita_gyan import GitaGyan
+from .gita_performance import GitaPerformanceEngine
+from .krishna_shloka import KrishnaShlokaOrchestrator
 
 
 class Orchestrator:
@@ -108,6 +110,8 @@ class Orchestrator:
         self.project_brain = ProjectBrain(self.memory,runtime_state / "project-brain")
         self.lab = LabBot(runtime_state / "lab-bot")
         self.gita_gyan = GitaGyan(runtime_state / "gita-gyan")
+        self.gita_performance = GitaPerformanceEngine(self.gita_gyan)
+        self.gita_shloka = KrishnaShlokaOrchestrator(self.gita_gyan, self.gita_performance, runtime_state / "gita-gyan" / "conversation.json")
         self.secure_vault = SecureSecretVault(runtime_state / "secure-secrets.json")
         self.model_gateway = ModelGatewayRegistry(runtime_state / "model-gateways.json", self.secure_vault)
         self.openrouter_free = OpenRouterFreeFabric(self.model_gateway, runtime_state / "openrouter-free")
@@ -4577,20 +4581,31 @@ Evidence:
     def agi_status(self):
         return self.agi.status()
 
+    def _gita_explain(self, prompt):
+        result = self._route_model(
+            prompt,
+            privacy="local_only",
+            project="KRISHNA",
+            actor="gita-gyan",
+        )
+        return str((result or {}).get("text") or "").strip()
+
+    def _apply_gita_performance(self, payload):
+        performance = payload.get("performance") if isinstance(payload, dict) else None
+        if isinstance(performance, dict):
+            avatar = self.agi.avatar.apply_performance(performance)
+            payload["avatar"] = avatar
+            payload["avatar_state"] = avatar.get("state")
+            payload["avatar_family"] = avatar.get("performance_family")
+            payload["renderer_mode"] = avatar.get("renderer_mode")
+        return payload
+
     def gita_daily_lesson(self, language="or", depth="deep", mark_complete=True):
-        def explain(prompt):
-            result = self._route_model(
-                prompt,
-                privacy="local_only",
-                project="KRISHNA",
-                actor="gita-gyan",
-            )
-            return str((result or {}).get("text") or "").strip()
         try:
             lesson = self.gita_gyan.daily_lesson(
                 language=language,
                 depth=depth,
-                explain=explain,
+                explain=self._gita_explain,
                 mark_complete=bool(mark_complete),
             )
         except Exception as exc:
@@ -4601,7 +4616,13 @@ Evidence:
                 explain=None,
                 mark_complete=bool(mark_complete),
             )
-        lesson["avatar"] = self.agi.avatar.set_state("WISDOM", source="gita-gyan")
+        performance = self.gita_performance.record(lesson["chapter"], lesson["verse"])
+        lesson["performance"] = performance
+        lesson["speech_segments"] = [
+            {"kind":"shloka","mode":"SHLOKA_RECITATION","language":"sa","text":lesson["sanskrit"],"timing_profile":performance["recitation_profile"]},
+            {"kind":"explanation","mode":"GITA_EXPLANATION","language":language,"text":lesson.get("explanation"),"timing_profile":performance["pause_profile"]},
+        ]
+        self._apply_gita_performance(lesson)
         self.memory.audit("gita_gyan", "daily_lesson", lesson["reference"])
         return lesson
 
@@ -4610,6 +4631,53 @@ Evidence:
             "items": self.gita_gyan.revise(limit),
             "avatar": self.agi.avatar.set_state("WISDOM", source="gita-gyan-revision"),
         }
+
+    def gita_verse(self, chapter, verse, language="or", depth="deep", explain=True, apply_performance=True):
+        try:
+            out = self.gita_shloka.verse(
+                int(chapter), int(verse), language=language, depth=depth,
+                explain=self._gita_explain if explain else None,
+            )
+        except Exception as exc:
+            if not explain:
+                raise
+            self.memory.audit("gita_gyan", "explanation_fallback", f"{type(exc).__name__}: {exc}")
+            out = self.gita_shloka.verse(int(chapter), int(verse), language=language, depth=depth, explain=None)
+        if apply_performance:
+            self._apply_gita_performance(out)
+        self.memory.audit("gita_gyan", "verse", out["reference"])
+        return out
+
+    def gita_chapter(self, chapter, include_performance=True):
+        return self.gita_shloka.chapter(int(chapter), include_performance=bool(include_performance))
+
+    def gita_search(self, query, limit=10):
+        return self.gita_shloka.search(query, limit=limit)
+
+    def gita_performance_record(self, chapter, verse):
+        return self.gita_performance.record(int(chapter), int(verse))
+
+    def gita_performance_qc(self):
+        return self.gita_performance.qc_report()
+
+    def gita_apply_performance(self, chapter, verse):
+        performance = self.gita_performance_record(chapter, verse)
+        return {
+            "performance": performance,
+            "avatar": self.agi.avatar.apply_performance(performance),
+        }
+
+    def gita_request(self, message):
+        try:
+            out = self.gita_shloka.parse_request(message, explain=self._gita_explain)
+        except Exception as exc:
+            self.memory.audit("gita_gyan", "request_explanation_fallback", f"{type(exc).__name__}: {exc}")
+            out = self.gita_shloka.parse_request(message, explain=None)
+        if isinstance(out, dict) and isinstance(out.get("performance"), dict):
+            self._apply_gita_performance(out)
+        if isinstance(out, dict):
+            out.setdefault("capability", "gita-gyan")
+        return out
 
     @staticmethod
     def _looks_like_work_request(message):

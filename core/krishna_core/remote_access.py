@@ -17,6 +17,11 @@ class PrivateRemotePolicy:
         "/api/gita/status",
         "/api/gita/today",
         "/api/gita/revise",
+        "/api/gita/search",
+        "/api/gita/explain",
+        "/api/gita/speak",
+        "/api/gita/performance/apply",
+        "/api/gita/performance/qc",
         "/api/attachments",
         "/api/bhumiputra/live/start",
         "/api/bhumiputra/live/frame",
@@ -31,6 +36,8 @@ class PrivateRemotePolicy:
         "/api/hawkeye/reference/item",
         "/api/mobile-log",
     })
+    MOBILE_ROUTE_PREFIXES=("/api/gita/verse/","/api/gita/chapter/","/api/gita/performance/")
+
     """Network boundary for KRISHNA Mobile/remote clients.
 
     Loopback and RFC1918/ULA LAN addresses are allowed. Overlay address ranges are
@@ -70,7 +77,8 @@ class PrivateRemotePolicy:
         return bool(self.classify(address)["allowed"])
 
     def mobile_route_allowed(self,path:str)->bool:
-        return str(path or "") in self.MOBILE_ROUTES
+        value=str(path or "")
+        return value in self.MOBILE_ROUTES or any(value.startswith(prefix) for prefix in self.MOBILE_ROUTE_PREFIXES)
 
     def status(self):
         return {"mode":"private-network-only","overlay_cidrs":[str(x) for x in self.networks],
