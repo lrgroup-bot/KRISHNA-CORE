@@ -271,12 +271,15 @@ class ArchitectureContracts(unittest.TestCase):
         server=self.text("core/krishna_core/server.py")
         rpc=self.text("core/krishna_core/mobile_rpc.py")
         mobile=self.text("mobile_v3/MainActivity.java")
+        private_core=self.text("mobile_v3/KrishnaPrivateCore.java")
         mobile_ui=self.text("mobile_v3/index.html")
         requirements=self.text("core/requirements/krishna_chat_requirements.json")
         for dangerous in ("system.run","filesystem.write","credentials.read","trade.execute"):
             self.assertNotIn('"'+dangerous+'"',rpc)
-        for token in ("privateCoreUrl","100&&d>=64&&d<=127","credential_sha256","pairingRequest"):
+        for token in ("privateCoreUrl","credential_sha256","pairingRequest"):
             self.assertIn(token,mobile)
+        for token in ("100&&d>=64&&d<=127","KRISHNA_DISCOVER_V1","private_remote_url"):
+            self.assertIn(token,private_core)
         core_base=mobile.split("String coreBase()throws Exception{",1)[1].split("@JavascriptInterface public String configureCoreUrl",1)[0]
         self.assertNotIn("cloud_url",core_base)
         self.assertNotIn("secureCloudUrl(cloud)",core_base)
