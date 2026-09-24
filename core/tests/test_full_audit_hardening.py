@@ -9,6 +9,7 @@ from krishna_core.kabach import KabachAgent
 from krishna_core.development_operator import DevelopmentOperator
 from krishna_core.model_scout import ModelCandidate, ModelScout
 from krishna_core.mission_budget import MissionBudgetManager
+from krishna_core.narad import NaradRuntime
 from krishna_core.policy_kernel import PolicyKernel
 from krishna_core.remote_access import PrivateRemotePolicy
 from krishna_core.shared_action_bus import SharedActionBus
@@ -155,6 +156,29 @@ class FullAuditHardeningTests(unittest.TestCase):
             server,
         )
         self.assertEqual(leaking, [], "generic HTTP 500 handlers must not echo internal exception messages")
+
+    def test_narad_state_schema_and_high_assurance_promotion_fail_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            state = root / "narad.json"
+            original = json.dumps({"schema": 99, "workflows": [], "history": []})
+            state.write_text(original, encoding="utf-8")
+            broken = NaradRuntime(PolicyKernel(root / "policy-bad"), AutomationBus(), state_path=state)
+            self.assertTrue(broken.load_error)
+            with self.assertRaises(RuntimeError):
+                broken.create_workflow("x", {"type": "manual"}, [{"action": "mission.create"}])
+            self.assertEqual(state.read_text(encoding="utf-8"), original)
+
+            state.unlink()
+            narad = NaradRuntime(PolicyKernel(root / "policy-good"), AutomationBus(), state_path=state)
+            workflow = narad.create_workflow("x", {"type": "manual"}, [{"action": "mission.create"}])
+            wid = workflow["id"]
+            narad.promote(wid, "candidate")
+            narad.promote(wid, "sandbox")
+            with self.assertRaises(PermissionError):
+                narad.promote(wid, "verified", verified=True, approved=False)
+            promoted = narad.promote(wid, "verified", verified=True, approved=True)
+            self.assertEqual(promoted["state"], "verified")
 
     def test_mission_budget_corrupt_state_and_negative_consumption_fail_closed(self):
         with tempfile.TemporaryDirectory() as td:
