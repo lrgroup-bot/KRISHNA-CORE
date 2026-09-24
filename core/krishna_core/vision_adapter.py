@@ -22,7 +22,7 @@ class VisionAdapter:
     DEFAULT_FALLBACKS=()
     DEFAULT_FAST_MODEL="gemma3:4b"
     DEFAULT_FAST_FALLBACKS=()
-    DISABLED_MODEL_PREFIXES=("qwen",)
+    DISABLED_MODEL_PREFIXES=()
 
     @classmethod
     def model_allowed(cls,model):

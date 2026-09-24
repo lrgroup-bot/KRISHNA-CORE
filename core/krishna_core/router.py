@@ -19,7 +19,7 @@ class ModelRouter:
 
     DEFAULT_LOCAL_MODEL="gemma3:4b"
     DEFAULT_LOCAL_FALLBACKS=("granite3.3:2b","smollm2:1.7b","llama3.2:1b","deepseek-r1:1.5b")
-    DISABLED_LOCAL_MODEL_PREFIXES=("qwen",)
+    DISABLED_LOCAL_MODEL_PREFIXES=()
 
     PROVIDERS={
       "openai":{"key":"OPENAI_API_KEY","url":"https://api.openai.com/v1/chat/completions","model":"OPENAI_MODEL","default":"gpt-4o-mini"},
