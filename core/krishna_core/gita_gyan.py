@@ -159,6 +159,31 @@ class GitaGyan:
     def _key(row: dict) -> str:
         return f'{int(row["chapter"])}.{int(row["verse"])}'
 
+    def is_completed(self, chapter: int, verse: int) -> bool:
+        key=f"{int(chapter)}.{int(verse)}"
+        return key in {str(x) for x in (self._load_progress().get("completed") or [])}
+
+    def mark_completed(self, chapter: int, verse: int, language: str | None = None) -> dict:
+        row=self.verse(int(chapter),int(verse))
+        key=self._key(row)
+        progress=self._load_progress()
+        completed=[str(x) for x in progress.get("completed") or []]
+        if key not in completed:
+            completed.append(key)
+        progress["completed"]=completed
+        progress["last_key"]=key
+        if language:
+            lang=str(language).strip().lower()
+            if lang not in self.LANGUAGES:
+                raise ValueError("language must be one of: or, hi, en")
+            progress["preferred_language"]=lang
+        self._save_progress(progress)
+        return {
+            "reference":key,
+            "completed":True,
+            "completed_count":len(set(completed)),
+        }
+
     def status(self) -> dict:
         meta, _raw = self._read_payload()
         corpus = self._load_corpus()

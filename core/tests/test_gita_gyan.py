@@ -150,6 +150,39 @@ class GitaConversationSessionTests(unittest.TestCase):
             prev=runtime.control("previous",explain=None)
             self.assertEqual(prev["reference"],"Bhagavad Gita 2.47")
 
+    def test_next_marks_current_complete_but_repeat_does_not_advance(self):
+        with tempfile.TemporaryDirectory() as td:
+            runtime=self._runtime(td)
+            runtime.verse(2,47,language="or",explain=None)
+            self.assertFalse(runtime.session_status()["current_completed"])
+            repeated=runtime.control("repeat",explain=None)
+            self.assertEqual(repeated["reference"],"Bhagavad Gita 2.47")
+            self.assertFalse(runtime.session_status()["current_completed"])
+            nxt=runtime.control("next",explain=None)
+            self.assertEqual(nxt["reference"],"Bhagavad Gita 2.48")
+            self.assertTrue(runtime.gita.is_completed(2,47))
+            self.assertEqual(nxt["completed_previous"]["reference"],"2.47")
+            self.assertFalse(runtime.session_status()["current_completed"])
+
+    def test_gita_response_is_directly_renderable_in_odia_chat(self):
+        with tempfile.TemporaryDirectory() as td:
+            runtime=self._runtime(td)
+            out=runtime.verse(2,47,language="or",explain=lambda _:"ପାର୍ଥ, କର୍ମ କର; ଫଳରେ ଆସକ୍ତ ହେଅନି।")
+            self.assertIn("ଭଗବଦ୍ ଗୀତା 2.47",out["text"])
+            self.assertIn("ପୁଣି କୁହ",out["text"])
+            self.assertIn("ଆଗକୁ",out["text"])
+            self.assertIn("ପଛକୁ",out["text"])
+
+    def test_request_detector_only_hijacks_gita_or_active_session_controls(self):
+        with tempfile.TemporaryDirectory() as td:
+            runtime=self._runtime(td)
+            self.assertFalse(runtime.matches_request("ମୋ project health check କର"))
+            self.assertTrue(runtime.matches_request("Krishna Gita 2.47 kuha"))
+            runtime.verse(2,47,language="or",explain=None)
+            self.assertTrue(runtime.matches_request("ଆଗକୁ"))
+            self.assertTrue(runtime.matches_request("ପୁଣି କୁହ"))
+            self.assertFalse(runtime.matches_request("ମୋ project deploy କର"))
+
     def test_short_odia_controls_work_without_repeating_gita(self):
         with tempfile.TemporaryDirectory() as td:
             runtime=self._runtime(td)
@@ -177,6 +210,12 @@ class GitaConversationSessionTests(unittest.TestCase):
 
 
 class GitaWiringContractTests(unittest.TestCase):
+    def test_normal_chat_routes_gita_requests_before_generic_model(self):
+        text = (Path(__file__).resolve().parents[1] / "krishna_core" / "orchestrator.py").read_text(encoding="utf-8-sig")
+        self.assertIn("self.gita_shloka.matches_request(message)", text)
+        self.assertIn('"provider":"gita-gyan"', text)
+        self.assertIn("GLOBAL CONVERSATION LANGUAGE OVERRIDE", text)
+
     def test_orchestrator_wires_gita_runtime(self):
         text = (Path(__file__).resolve().parents[1] / "krishna_core" / "orchestrator.py").read_text(encoding="utf-8-sig")
         self.assertIn("from .gita_gyan import GitaGyan", text)
