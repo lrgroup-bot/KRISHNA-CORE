@@ -23,7 +23,7 @@ class HTTPRuntimeTests(unittest.TestCase):
             cls.port = sock.getsockname()[1]
         env = dict(os.environ, KRISHNA_DB=str(cls.root / "core.db"),
                    KRISHNA_HOST="127.0.0.1", KRISHNA_PORT=str(cls.port),
-                   KRISHNA_ALLOW_ACTIONS="0")
+                   KRISHNA_ALLOW_ACTIONS="0", KRISHNA_GITA_DAILY_ENABLED="0")
         cls.log = (cls.root / "server.log").open("w")
         cls.proc = subprocess.Popen([sys.executable, "-m", "krishna_core.server"],
             cwd=Path(__file__).resolve().parents[1], env=env,
@@ -71,9 +71,31 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/brahma/status", "/api/brahma/intelligence/status",
                      "/api/brahmagyan/status", "/api/brahmagyan/council", "/api/brahmagyan/missions", "/api/brahmagyan/curiosity",
                      "/api/runtime/integrity", "/api/runtime/audit", "/api/architecture/truth", "/api/lab/status", "/api/lab/quantum-nano", "/api/lab/experiments", "/api/mobile/runtime", "/api/requirements", "/api/garudanetra/sessions", "/api/ui-guardian/registry", "/api/project-perfection/status",
-                     "/api/vision/status", "/api/hawkeye/observer/status", "/api/voice/status", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
+                     "/api/vision/status", "/api/hawkeye/observer/status", "/api/voice/status", "/api/gita/status", "/api/gita/progress", "/api/gita/today?deep=0", "/api/gita/verse?chapter=2&verse=47&deep=0", "/api/avatar/status", "/api/avatar/asset-audit", "/api/avatar/performance", "/api/avatar/video/status", "/api/remote/status", "/api/resilience/status", "/api/wearables",
                      "/api/models/gateways", "/api/openrouter/free/status", "/api/secure-vault/status", "/api/mobile/pair/pending"):
             with self.subTest(path=path): self.assertEqual(self.call(path)[0], 200)
+
+    def test_gita_gyan_http_contract_without_model_or_tts_dependency(self):
+        code,status=self.call("/api/gita/status")
+        self.assertEqual(code,200)
+        self.assertEqual(status["module"],"GITA-GYAN")
+        self.assertEqual(status["avatar_state"],"WISDOM")
+        self.assertGreaterEqual(status["verses_loaded"],700)
+        self.assertTrue(status["canonical_scripture_separate_from_commentary"])
+        self.assertFalse(status["scheduler"]["enabled"])
+
+        code,verse=self.call("/api/gita/verse?chapter=2&verse=47&language=or&deep=0")
+        self.assertEqual(code,200)
+        self.assertEqual((verse["chapter"],verse["verse"]),(2,47))
+        self.assertTrue(verse["sanskrit"])
+        self.assertIsNone(verse["explanation"])
+
+        code,pref=self.call("/api/gita/preference",{"language":"hi"})
+        self.assertEqual(code,200)
+        self.assertEqual(pref["preferred_language"],"hi")
+        code,progress=self.call("/api/gita/progress")
+        self.assertEqual(code,200)
+        self.assertEqual(progress["preferred_language"],"hi")
 
     def test_openrouter_zero_cost_runtime_contract_is_present_without_network_use(self):
         code,status=self.call("/api/openrouter/free/status")
