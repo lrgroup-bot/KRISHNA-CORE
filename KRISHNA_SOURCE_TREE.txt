@@ -469,6 +469,7 @@ tests\test_current_krishna_ui_contract.py
 tests\test_error_audit.py
 tests\test_full_audit_contract.py
 tests\test_full_ui_function_contract.py
+tests\test_gita_partha_contract.py
 tests\test_gyan_avatar_contract.py
 tests\test_indic_voice_workers_contract.py
 tests\test_musetalk_setup_contract.py
