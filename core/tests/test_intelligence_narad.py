@@ -85,8 +85,8 @@ class IntelligenceNaradTests(unittest.TestCase):
             n.promote(w["id"],"sandbox")
             r=n.execute(w["id"]); self.assertEqual(r["results"][0]["event"]["topic"],"x")
             with self.assertRaises(PermissionError): n.promote(w["id"],"stable")
-            n.promote(w["id"],"verified",verified=True)
-            n.promote(w["id"],"stable",verified=True)
+            n.promote(w["id"],"verified",verified=True,approved=True)
+            n.promote(w["id"],"stable",verified=True,approved=True)
     def test_narad_blocks_unapproved_mutation(self):
         with TemporaryDirectory() as td:
             n=NaradRuntime(PolicyKernel(Path(td)),AutomationBus())
@@ -115,7 +115,7 @@ class IntelligenceNaradTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 n.create_workflow("too-fast",{"type":"schedule","every_seconds":30},[{"action":"publish_event","topic":"x"}])
             w=n.create_workflow("hourly",{"type":"schedule","every_seconds":3600},[{"action":"publish_event","topic":"scheduled"}])
-            n.promote(w["id"],"sandbox");n.promote(w["id"],"verified",verified=True);n.promote(w["id"],"stable",verified=True)
+            n.promote(w["id"],"sandbox");n.promote(w["id"],"verified",verified=True,approved=True);n.promote(w["id"],"stable",verified=True,approved=True)
             out=n.run_due(now=10000)
             self.assertEqual(out["due"],1)
             self.assertEqual(out["results"][0]["result"]["trigger_source"],"schedule")
@@ -126,7 +126,7 @@ class IntelligenceNaradTests(unittest.TestCase):
             state=Path(td)/"narad.json"
             n=NaradRuntime(PolicyKernel(Path(td)),AutomationBus(),state_path=state)
             w=n.create_workflow("incoming",{"type":"webhook"},[{"action":"publish_event","topic":"incoming"}])
-            n.promote(w["id"],"sandbox");n.promote(w["id"],"verified",verified=True);n.promote(w["id"],"stable",verified=True)
+            n.promote(w["id"],"sandbox");n.promote(w["id"],"verified",verified=True,approved=True);n.promote(w["id"],"stable",verified=True,approved=True)
             hook=n.provision_webhook(w["id"])
             raw=state.read_text(encoding="utf-8")
             self.assertNotIn(hook["token"],raw)
@@ -183,7 +183,7 @@ class IntelligenceNaradTests(unittest.TestCase):
             letter=n.dead_letter_status()["dead_letters"][0]
             with self.assertRaises(PermissionError): n.retry_dead_letter(letter["id"],approved=False)
             with self.assertRaises(PermissionError): n.retry_dead_letter(letter["id"],approved=True)
-            n.promote(w["id"],"verified",verified=True);n.promote(w["id"],"stable",verified=True)
+            n.promote(w["id"],"verified",verified=True,approved=True);n.promote(w["id"],"stable",verified=True,approved=True)
             result=n.retry_dead_letter(letter["id"],approved=True)
             self.assertEqual(result["dead_letter"]["status"],"retried")
             self.assertEqual(result["result"]["results"][0]["status"],200)
