@@ -313,8 +313,10 @@ New-Item -ItemType Directory -Force "$Runtime\scripts"|Out-Null
 & robocopy "$Source\scripts" "$Runtime\scripts" /E /R:1 /W:1 /XF "*.pyc"
 if($LASTEXITCODE -ge 8){throw "SCRIPT COPY FAILED: robocopy=$LASTEXITCODE"}
 
-# Qwen remains available on the KRISHNA PC. Mobile HAWKEYE does not host Qwen.
-# No model is forcibly stopped during canonical deployment.
+# Owner policy: PC-local Qwen is permitted as an opt-in model.
+# Deployment must not unload, delete or otherwise disable installed/running Qwen
+# models on the PC. Mobile inference policy is separate and remains Qwen-free.
+Write-Host "PC QWEN POLICY: preserve installed/running PC models; mobile remains Qwen-free" -ForegroundColor Green
 
 # Deploy only the repository-owned 360 preview asset required by /api/avatar360.
 # Private runtime avatar assets (for example dashboard\assets\avatar\krishna.glb)
