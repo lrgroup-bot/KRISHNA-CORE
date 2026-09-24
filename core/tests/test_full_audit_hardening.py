@@ -9,12 +9,14 @@ from krishna_core.kabach import KabachAgent
 from krishna_core.development_operator import DevelopmentOperator
 from krishna_core.durable_queue import DurableQueue
 from krishna_core.model_scout import ModelCandidate, ModelScout
+from krishna_core.model_gateway import ModelGatewayRegistry
 from krishna_core.mission_budget import MissionBudgetManager
 from krishna_core.mission_engine import MissionEngine
 from krishna_core.narad import NaradRuntime
 from krishna_core.narad.credentials import NaradCredentialVault
 from krishna_core.policy_kernel import PolicyKernel
 from krishna_core.remote_access import PrivateRemotePolicy
+from krishna_core.router import ModelRouter
 from krishna_core.shared_action_bus import SharedActionBus
 from krishna_core.spark_x25 import SparkX25Manager
 
@@ -159,6 +161,61 @@ class FullAuditHardeningTests(unittest.TestCase):
             server,
         )
         self.assertEqual(leaking, [], "generic HTTP 500 handlers must not echo internal exception messages")
+
+    def test_model_gateway_persisted_state_and_runtime_url_validation_fail_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            path = root / "gateways.json"
+            bad = {
+                "schema": 1,
+                "profiles": [{
+                    "id": "bad", "name": "bad", "base_url": "http://169.254.169.254",
+                    "model": "x", "secret_id": "secret", "free_only": True,
+                    "enabled": True, "created_at": 1.0,
+                }],
+            }
+            original = json.dumps(bad)
+            path.write_text(original, encoding="utf-8")
+            gateway = ModelGatewayRegistry(path)
+            self.assertTrue(gateway.load_error)
+            self.assertEqual(path.read_text(encoding="utf-8"), original)
+
+            wrong_schema = json.dumps({"schema": 99, "profiles": []})
+            path.write_text(wrong_schema, encoding="utf-8")
+            gateway = ModelGatewayRegistry(path)
+            self.assertTrue(gateway.load_error)
+            self.assertEqual(path.read_text(encoding="utf-8"), wrong_schema)
+
+    def test_direct_free_automatic_fallback_uses_governed_model_action(self):
+        class Direct:
+            def configured(self): return True
+            def complete(self, *args, **kwargs):
+                raise AssertionError("automatic fallback must not bypass governed model action")
+
+        class Control:
+            def __init__(self): self.calls = []
+            def action(self, action, payload, **kwargs):
+                self.calls.append((action, dict(payload), dict(kwargs)))
+                provider = payload.get("provider")
+                if provider in {"ollama", "gpt4all"}:
+                    raise RuntimeError("local unavailable")
+                if provider == "direct-free:cloudflare-workers-ai":
+                    return {"result": {
+                        "provider": provider, "text": "governed-ok",
+                        "zero_cost_proof": {"verified": True},
+                    }}
+                raise AssertionError(provider)
+
+        router = ModelRouter()
+        router.bind_direct_free(Direct())
+        control = Control()
+        router.bind_sudarshan(control)
+        out = router.route("safe public prompt", privacy="approved_cloud", free_only=True)
+        self.assertEqual(out["text"], "governed-ok")
+        self.assertTrue(out["zero_cost_verified"])
+        direct_calls = [x for x in control.calls if x[1].get("provider") == "direct-free:cloudflare-workers-ai"]
+        self.assertEqual(len(direct_calls), 1)
+        self.assertEqual(direct_calls[0][0], "model.complete")
 
     def test_durable_queue_and_mission_corruption_fail_closed(self):
         with tempfile.TemporaryDirectory() as td:
