@@ -92,6 +92,7 @@ from .krishna_protocol import KrishnaProtocol
 from .gyan_security import GyanACL,GyanEnvelopeCipher,GyanEncryptedStore,GyanContextCompiler,GyanSessionLearning,GyanReplicaManager
 from .long_context import HybridRAG,LongContextLab,RecursiveContextEngine,RecursiveBudget,WeeklyLongContextScheduler
 from .lab_bot import LabBot
+from .gita_gyan import GitaGyan
 
 
 class Orchestrator:
@@ -105,6 +106,7 @@ class Orchestrator:
         runtime_state = Path(self.db_path).resolve().parent / ".krishna_state"
         self.project_brain = ProjectBrain(self.memory,runtime_state / "project-brain")
         self.lab = LabBot(runtime_state / "lab-bot")
+        self.gita_gyan = GitaGyan(runtime_state / "gita-gyan")
         self.secure_vault = SecureSecretVault(runtime_state / "secure-secrets.json")
         self.model_gateway = ModelGatewayRegistry(runtime_state / "model-gateways.json", self.secure_vault)
         self.openrouter_free = OpenRouterFreeFabric(self.model_gateway, runtime_state / "openrouter-free")
@@ -4490,6 +4492,40 @@ Evidence:
 
     def agi_status(self):
         return self.agi.status()
+
+    def gita_daily_lesson(self, language="or", depth="deep", mark_complete=True):
+        def explain(prompt):
+            result = self._route_model(
+                prompt,
+                privacy="local_only",
+                project="KRISHNA",
+                actor="gita-gyan",
+            )
+            return str((result or {}).get("text") or "").strip()
+        try:
+            lesson = self.gita_gyan.daily_lesson(
+                language=language,
+                depth=depth,
+                explain=explain,
+                mark_complete=bool(mark_complete),
+            )
+        except Exception as exc:
+            self.memory.audit("gita_gyan", "explanation_fallback", f"{type(exc).__name__}: {exc}")
+            lesson = self.gita_gyan.daily_lesson(
+                language=language,
+                depth=depth,
+                explain=None,
+                mark_complete=bool(mark_complete),
+            )
+        lesson["avatar"] = self.agi.avatar.set_state("WISDOM", source="gita-gyan")
+        self.memory.audit("gita_gyan", "daily_lesson", lesson["reference"])
+        return lesson
+
+    def gita_revision(self, limit=7):
+        return {
+            "items": self.gita_gyan.revise(limit),
+            "avatar": self.agi.avatar.set_state("WISDOM", source="gita-gyan-revision"),
+        }
 
     @staticmethod
     def _looks_like_work_request(message):
