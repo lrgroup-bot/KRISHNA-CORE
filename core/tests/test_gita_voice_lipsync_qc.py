@@ -76,7 +76,8 @@ class SanskritVoiceBoundaryTests(unittest.TestCase):
     def test_installer_is_e_drive_isolated_and_has_no_paid_fallback(self):
         script=(ROOT/"scripts"/"INSTALL_KRISHNA_SANSKRIT_TTS.ps1").read_text(encoding="utf-8-sig")
         self.assertIn('E:\\Krishna-The GOD',script)
-        self.assertIn('voice\\envs\\sanskrit-tts',script)
+        self.assertIn('$voiceRoot=Join-Path $RuntimeRoot "voice"',script)
+        self.assertIn('$envRoot=Join-Path $voiceRoot "envs\\sanskrit-tts"',script)
         self.assertIn('7d5b0b162477e1c2489c72da3ab2e3052c9a59bd',script)
         self.assertIn('13f7c4d627cc10111aea8fe9c0039462cacacdc7',script)
         self.assertIn('-SanskritTtsCommand',script)
@@ -138,7 +139,7 @@ class GitaVoiceApiContractTests(unittest.TestCase):
     def test_server_uses_separate_sanskrit_provider_and_never_claims_verified_audio_or_lipsync(self):
         server=(ROOT/"core"/"krishna_core"/"server.py").read_text(encoding="utf-8-sig")
         self.assertIn("_voice.sanskrit.speak",server)
-        self.assertIn('"provider":"edge-sanskrit-tts"',server)
+        self.assertIn('provider="edge-sanskrit-tts"',server)
         self.assertIn('payload["sanskrit_audio_generated"]',server)
         self.assertIn('payload["sanskrit_audio_verified"]=False',server)
         self.assertIn('payload["lip_sync_verified"]=False',server)
