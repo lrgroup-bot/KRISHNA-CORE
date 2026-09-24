@@ -1,6 +1,5 @@
 import os
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
 from krishna_core.router import ModelRouter
@@ -123,28 +122,35 @@ class FreeCloudDefaultTests(unittest.TestCase):
 
 
 
-class QwenPcPolicyTests(unittest.TestCase):
-    def test_qwen_is_pc_default_and_fallback_candidate(self):
+class QwenPcOptInPolicyTests(unittest.TestCase):
+    def test_qwen_is_not_an_automatic_default_or_fallback(self):
+        with patch.dict(os.environ,{},clear=True):
+            candidates=ModelRouter.local_model_candidates()
+        self.assertTrue(candidates)
+        self.assertEqual(candidates[0],"gemma3:4b")
+        self.assertFalse(any(x.lower().startswith("qwen") for x in candidates))
+
+    def test_explicit_pc_qwen_environment_is_honored(self):
         with patch.dict(os.environ,{
             "KRISHNA_LOCAL_MODEL":"qwen3.5:4b",
-            "KRISHNA_LOCAL_FALLBACK_MODELS":"qwen2.5:3b,qwen2.5vl:7b",
-        },clear=False):
+            "KRISHNA_LOCAL_FALLBACK_MODELS":"qwen2.5:3b,qwen2.5vl:7b,gemma3:4b",
+        },clear=True):
             candidates=ModelRouter.local_model_candidates()
-        self.assertEqual(candidates[:3],["qwen3.5:4b","qwen2.5:3b","qwen2.5vl:7b"])
+        self.assertEqual(candidates[0],"qwen3.5:4b")
+        self.assertIn("qwen2.5:3b",candidates)
+        self.assertIn("qwen2.5vl:7b",candidates)
 
-    def test_explicit_pc_qwen_request_reaches_ollama(self):
+    def test_explicit_qwen_request_reaches_pc_ollama(self):
         router=ModelRouter()
         calls=[]
         router._ollama_generate=lambda model,prompt: calls.append((model,prompt)) or "ok"
         self.assertEqual(router.local("hello","qwen3.5:4b"),"ok")
         self.assertEqual(calls,[("qwen3.5:4b","hello")])
 
-    def test_mobile_manifest_explicitly_disables_mobile_qwen(self):
-        root=Path(__file__).resolve().parents[2]
-        text=(root/"mobile_v3"/"CANONICAL_RUNTIME.json").read_text(encoding="utf-8")
-        self.assertIn('"mobile_qwen": false',text)
-        self.assertIn('"hawkeye_free_cloud_fabric": true',text)
-
+    def test_qwen_family_is_allowed_on_pc(self):
+        self.assertTrue(ModelRouter.local_model_allowed("qwen3.5:4b"))
+        self.assertTrue(ModelRouter.local_model_allowed("library/qwen2.5vl:7b"))
+        self.assertTrue(ModelRouter.local_model_allowed("gemma3:4b"))
 
 
 if __name__=="__main__":
