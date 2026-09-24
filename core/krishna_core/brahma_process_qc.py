@@ -23,7 +23,7 @@ class BrahmaProcessQC:
     def __init__(self,state_root,event_bus,memory=None):
         self.root=Path(state_root);self.root.mkdir(parents=True,exist_ok=True)
         self.path=self.root/"process-qc.json";self.event_bus=event_bus;self.memory=memory
-        self.lock=RLock();self.retry_dispatch=None;self.investigate=None;self.consult_krishna=None
+        self.lock=RLock();self.retry_dispatch=None;self.investigate=None;self.consult_krishna=None;self.repair_known=None
         self._attached=False;self._handling=set();self._retried=set();now=time.time()
         self.state={"version":self.VERSION,"latest_state":"idle","notifications":[],"gods":{
             k:{"id":k,"name":n,"logo":logo,"state":"idle","color":"red","detail":"Idle","updated_at":now}
@@ -52,8 +52,8 @@ class BrahmaProcessQC:
         if self.load_error:raise RuntimeError("BRAHMA process QC state unreadable")
         tmp=self.path.with_suffix(".tmp");tmp.write_text(json.dumps(self.state,ensure_ascii=False,indent=2),encoding="utf-8");os.replace(tmp,self.path)
 
-    def bind_runtime(self,*,retry_dispatch=None,investigate=None,consult_krishna=None):
-        self.retry_dispatch=retry_dispatch;self.investigate=investigate;self.consult_krishna=consult_krishna;return self
+    def bind_runtime(self,*,retry_dispatch=None,investigate=None,consult_krishna=None,repair_known=None):
+        self.retry_dispatch=retry_dispatch;self.investigate=investigate;self.consult_krishna=consult_krishna;self.repair_known=repair_known;return self
 
     def attach(self):
         if not self._attached:self.event_bus.subscribe("*",self.on_event);self._attached=True
@@ -115,6 +115,18 @@ class BrahmaProcessQC:
             return {"attempted":True,"fixed":True,"result":result}
         except Exception as exc:return {"attempted":True,"fixed":False,"error":f"{type(exc).__name__}: {self.compact(exc,500)}"}
 
+    def _known_repair(self,event,error):
+        if not callable(self.repair_known):return None
+        p=event.get("payload") if isinstance(event.get("payload"),dict) else {}
+        try:
+            return self.repair_known(
+                str(p.get("project") or "KRISHNA"),
+                str(error or ""),
+                str(p.get("action") or ""),
+            )
+        except Exception as exc:
+            return {"available":True,"error":f"{type(exc).__name__}: {self.compact(exc,500)}"}
+
     def on_event(self,event):
         topic=str(event.get("topic") or "");source=str(event.get("source") or "")
         if source=="brahma-process-qc" or topic.startswith("BRAHMA_QC_"):return None
@@ -134,12 +146,18 @@ class BrahmaProcessQC:
             if retry and retry.get("fixed"):
                 self.notify("done",f"{name} fixed",topic,component=comp,topic=topic,project=project,metadata={"recovery":retry})
                 return self.notify("done","BRAHMA QC done",discussion or "Safe retry verified",component="brahma",topic=topic,project=project)
+            repair=self._known_repair(event,error)
+            if isinstance(repair,dict) and repair.get("fixed"):
+                self.notify("done",f"{name} fixed",topic,component=comp,topic=topic,project=project,metadata={"repair":repair})
+                return self.notify("done","BRAHMA repair verified",discussion or "Verified recovery completed",component="brahma",topic=topic,project=project)
+            if isinstance(repair,dict) and repair.get("candidate_ready"):
+                return self.notify("handling","BRAHMA verified repair candidate ready","Waiting for normal KRISHNA promotion approval.",component="brahma",topic=topic,project=project,metadata={"repair":repair,"krishna_discussion":discussion})
             investigation=None
             if callable(self.investigate):
                 try:investigation=self.investigate(project,error)
                 except Exception as exc:investigation={"error":f"{type(exc).__name__}: {self.compact(exc,500)}"}
             reason=(retry or {}).get("reason") or (retry or {}).get("error") or "No safe automatic repair was proven."
-            return self.notify("error","BRAHMA needs verified repair",reason+((" KRISHNA: "+discussion) if discussion else ""),component="brahma",topic=topic,project=project,metadata={"recovery":retry,"investigation":investigation})
+            return self.notify("error","BRAHMA needs verified repair",reason+((" KRISHNA: "+discussion) if discussion else ""),component="brahma",topic=topic,project=project,metadata={"recovery":retry,"repair":locals().get("repair"),"investigation":investigation})
         finally:self._handling.discard(key)
 
     def status(self):
