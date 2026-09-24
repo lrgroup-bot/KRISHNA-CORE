@@ -418,7 +418,7 @@ class ModelRouter:
         for name in ("ollama","gpt4all"):
             try:
                 out=self._governed_ask(name,prompt,privacy,free_only,project,actor)
-                if str(out).strip():return {"provider":name,"text":out,"task":task_name}
+                if str(out).strip():return {"provider":name,"text":out}
             except Exception as exc:
                 local_errors[name]=f"{type(exc).__name__}: {exc}"
         if privacy in {"local_only","restricted"}:
