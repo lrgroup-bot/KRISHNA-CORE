@@ -2629,7 +2629,12 @@ class Handler(BaseHTTPRequestHandler):
                             audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"unavailable","reason":"local voice model not configured"})
                             continue
                         resolved=_voice.tts.speak(text_value,out_path,language=seg_lang)
-                    audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"ready","output_path":resolved,"audio_id":audio_id,"audio_url":"/api/voice/audio?id="+audio_id})
+                    audio_segments.append({
+                        "kind":segment.get("kind"),"language":seg_lang,"status":"ready",
+                        "output_path":resolved,"audio_id":audio_id,"audio_url":"/api/voice/audio?id="+audio_id,
+                        "lip_sync":segment.get("lip_sync"),
+                        "lip_sync_timing":"estimated_not_acoustically_aligned",
+                    })
                 except (RuntimeError,ValueError) as exc:
                     audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"failed","error":str(exc)})
             payload["audio_segments"]=audio_segments
