@@ -32,6 +32,8 @@ class PrivateRemotePolicy:
         "/api/hawkeye/gemini/analyze",
         "/api/hawkeye/gemini/live/token",
         "/api/hawkeye/gemini/status",
+        "/api/hawkeye/free-cloud/analyze",
+        "/api/hawkeye/free-cloud/status",
         "/api/hawkeye/learn/capture",
         "/api/hawkeye/learn/research",
         "/api/hawkeye/live/start",
