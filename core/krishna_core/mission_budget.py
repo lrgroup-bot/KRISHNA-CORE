@@ -87,11 +87,20 @@ class MissionBudgetManager:
         amount=float(amount)
         if amount<0:raise ValueError("mission budget consumption cannot be negative")
         row=self.status(mission_id)
-        if row is None:row=self.configure(mission_id)
-        usage=dict(row["usage"]);usage[counter]=float(usage.get(counter) or 0)+amount
+        if row is None:self.configure(mission_id)
         with self.lock:
-            self.db.execute("UPDATE mission_budgets SET usage_json=?,updated_at=? WHERE mission_id=?",
-                            (json.dumps(usage),time.time(),str(mission_id)));self.db.commit()
+            self.db.execute("BEGIN IMMEDIATE")
+            try:
+                current=self.db.execute("SELECT usage_json FROM mission_budgets WHERE mission_id=?",(str(mission_id),)).fetchone()
+                if current is None:raise RuntimeError("mission budget disappeared during consumption")
+                usage=self._loads(current["usage_json"])
+                usage[counter]=float(usage.get(counter) or 0)+amount
+                self.db.execute("UPDATE mission_budgets SET usage_json=?,updated_at=? WHERE mission_id=?",
+                                (json.dumps(usage),time.time(),str(mission_id)))
+                self.db.commit()
+            except Exception:
+                self.db.rollback()
+                raise
         status=self.status(mission_id)
         if not status["allowed"]:
             raise RuntimeError("mission resource budget exceeded: "+",".join(status["exceeded"]))
