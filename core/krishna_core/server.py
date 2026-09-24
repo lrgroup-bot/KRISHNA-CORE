@@ -2578,6 +2578,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400,{"error":"chapter and verse are required integers"})
             language=str(data.get("language") or "or").strip().lower()
             depth=str(data.get("depth") or "deep").strip().lower()
+            meter=str(data.get("meter") or "anushtubh").strip() or "anushtubh"
             if language not in {"or","hi","en"}:return self._json(400,{"error":"language must be one of: or, hi, en"})
             try:
                 payload=orch.gita_verse(chapter,verse,language,depth,bool(data.get("explain",True)))
@@ -2590,17 +2591,60 @@ class Handler(BaseHTTPRequestHandler):
                 text_value=str(segment.get("text") or "").strip()
                 seg_lang=str(segment.get("language") or language).strip().lower()
                 if not text_value:continue
-                if seg_lang not in configured:
-                    audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"unavailable","reason":"local voice model not configured"})
-                    continue
                 audio_id=str(uuid.uuid4());out_path=out_dir/(audio_id+".wav")
+                if seg_lang=="sa":
+                    status=_voice.sanskrit_tts.status()
+                    if not status.get("available"):
+                        audio_segments.append({
+                            "kind":segment.get("kind"),"language":"sa","status":"unavailable",
+                            "reason":"dedicated local Sanskrit recitation worker not configured",
+                            "provider":"edge-sanskrit-tts",
+                        })
+                        continue
+                    try:
+                        resolved=_voice.sanskrit_tts.speak(text_value,out_path,meter=meter)
+                        audio_segments.append({
+                            "kind":segment.get("kind"),"language":"sa","status":"ready",
+                            "output_path":resolved,"audio_id":audio_id,
+                            "audio_url":"/api/voice/audio?id="+audio_id,
+                            "provider":"edge-sanskrit-tts","meter":meter,
+                        })
+                    except (RuntimeError,ValueError) as exc:
+                        audio_segments.append({
+                            "kind":segment.get("kind"),"language":"sa","status":"failed",
+                            "error":str(exc),"provider":"edge-sanskrit-tts",
+                        })
+                    continue
+                if seg_lang not in configured:
+                    audio_segments.append({
+                        "kind":segment.get("kind"),"language":seg_lang,"status":"unavailable",
+                        "reason":"local voice model not configured","provider":"ai4bharat-indic-tts",
+                    })
+                    continue
                 try:
                     resolved=_voice.tts.speak(text_value,out_path,language=seg_lang)
-                    audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"ready","output_path":resolved,"audio_id":audio_id,"audio_url":"/api/voice/audio?id="+audio_id})
+                    audio_segments.append({
+                        "kind":segment.get("kind"),"language":seg_lang,"status":"ready",
+                        "output_path":resolved,"audio_id":audio_id,
+                        "audio_url":"/api/voice/audio?id="+audio_id,
+                        "provider":"ai4bharat-indic-tts",
+                    })
                 except (RuntimeError,ValueError) as exc:
-                    audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"failed","error":str(exc)})
+                    audio_segments.append({
+                        "kind":segment.get("kind"),"language":seg_lang,"status":"failed",
+                        "error":str(exc),"provider":"ai4bharat-indic-tts",
+                    })
             payload["audio_segments"]=audio_segments
-            payload["sanskrit_audio_verified"]=any(x.get("kind")=="shloka" and x.get("status")=="ready" for x in audio_segments)
+            payload["sanskrit_audio_verified"]=any(
+                x.get("kind")=="shloka" and x.get("language")=="sa" and
+                x.get("status")=="ready" and x.get("provider")=="edge-sanskrit-tts"
+                for x in audio_segments
+            )
+            payload["navigation"]={
+                "completion_required_for_next":False,
+                "owner_controls_progression":True,
+                "controls":["repeat","previous","next","forward","skip","goto"],
+            }
             return self._json(200,payload)
 
         if post_path == "/api/gita/corpus/import":
