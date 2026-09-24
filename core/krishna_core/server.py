@@ -697,6 +697,10 @@ class Handler(BaseHTTPRequestHandler):
             touch_mobile(device, self.path)
         return True
 
+    def _internal_error(self, context, exc):
+        orch.memory.audit("server",str(context or "unhandled_exception"),f"{type(exc).__name__}: {exc}")
+        return self._json(500, {"error": "internal server error", "type": type(exc).__name__})
+
     def _dispatch(self, method):
         if not self._authorize():
             return
@@ -711,8 +715,7 @@ class Handler(BaseHTTPRequestHandler):
         except RuntimeError as exc:
             return self._json(409, {"error": str(exc)})
         except Exception as exc:
-            orch.memory.audit("server","unhandled_exception",f"{type(exc).__name__}: {exc}")
-            return self._json(500, {"error": "internal server error", "type": type(exc).__name__})
+            return self._internal_error("unhandled_exception",exc)
 
     def do_GET(self):
         return self._dispatch(self._get)
@@ -2199,7 +2202,7 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, RuntimeError) as exc:
                 return self._json(400, {"error": str(exc)})
             except Exception as exc:
-                return self._json(500, {"error": str(exc)})
+                return self._internal_error("mobile_control_failed",exc)
 
         if post_path in ("/v1/chat", "/api/core/chat"):
             msg = data.get("message", "")
@@ -2257,9 +2260,10 @@ class Handler(BaseHTTPRequestHandler):
                         })
                 return self._json(200, out)
             except Exception as exc:
-                mark("ERROR", str(exc)[:160])
+                orch.memory.audit("server","chat_failed",f"{type(exc).__name__}: {exc}")
+                mark("ERROR", type(exc).__name__)
                 set_current_activity("Error")
-                return self._json(500, {"error": str(exc)})
+                return self._json(500, {"error": "internal server error", "type": type(exc).__name__})
 
         if post_path == "/api/specialists/index":
             try:
@@ -2937,8 +2941,9 @@ class Handler(BaseHTTPRequestHandler):
                 activity["current_activity"] = "Idle"
                 return self._json(200, out)
             except Exception as exc:
-                mark("INVESTIGATION ERROR", str(exc)[:160])
-                return self._json(500, {"error": str(exc)})
+                orch.memory.audit("server","investigation_failed",f"{type(exc).__name__}: {exc}")
+                mark("INVESTIGATION ERROR", type(exc).__name__)
+                return self._json(500, {"error": "internal server error", "type": type(exc).__name__})
 
         if post_path == "/api/attachments":
             chat_id=str(data.get("chat_id") or "").strip()
@@ -3393,7 +3398,7 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, RuntimeError) as exc:
                 return self._json(400, {"error": str(exc)})
             except Exception as exc:
-                return self._json(500, {"error": str(exc)})
+                return self._internal_error("browser_inspect_failed",exc)
 
         if post_path == "/api/research/github":
             project = str(data.get("project", "general"))
@@ -3406,7 +3411,7 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, RuntimeError) as exc:
                 return self._json(400, {"error": str(exc)})
             except Exception as exc:
-                return self._json(500, {"error": str(exc)})
+                return self._internal_error("github_research_failed",exc)
 
         if post_path == "/api/goal/evaluate":
             project = str(data.get("project", "general"))
