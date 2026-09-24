@@ -2314,28 +2314,52 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception as exc:
                         vision_evidence.append({"attachment_id":str(aid),"error":f"{type(exc).__name__}: {exc}"})
                 vision_text="\n".join("- "+x.get("analysis",x.get("error","")) for x in vision_evidence) if vision_evidence else None
-                # GITA-GYAN is a native KRISHNA capability. Keep daily scripture
-                # requests out of generic project-work routing so the canonical verse,
-                # learning progress and WISDOM avatar state remain authoritative.
+                # GITA-GYAN is a native KRISHNA capability. It runs as a continuous
+                # owner-controlled session: repeat/previous/next/goto never depend on
+                # whether a verse has been marked complete. Odia is the global default.
                 normalized_msg=" ".join(msg.lower().split())
                 gita_request_tokens=("gita","geeta","गीता","ଗୀତା","shloka","sloka","श्लोक","ଶ୍ଲୋକ")
-                gita_daily_markers=("today","daily","aaj","आज","ଆଜି","today's","todays")
                 gita_revision_markers=("revise","revision","review","yesterday","पुनरावृत्ति","ପୁନରାବୃତ୍ତି")
+                repeat_markers=("repeat","again","once more","ପୁଣି","ପୁନି","ଆଉଥରେ","फिर","दोबारा")
+                previous_markers=("previous","back","ପଛକୁ","ପୂର୍ବ","ପୂର୍ବତନ","पीछे","पिछला")
+                next_markers=("next","forward","skip","ଆଗକୁ","ପରବର୍ତ୍ତୀ","ଛାଡ଼","अगला","आगे")
                 is_gita_request=any(token in normalized_msg for token in gita_request_tokens)
+                session_state=orch.gita_gyan.session_status()
+                session_active=bool(session_state.get("active"))
+                verse_match=re.search(r"(?<!\d)(\d{1,2})\s*[\.:]\s*(\d{1,2})(?!\d)",normalized_msg)
+
+                control_action=None
+                if any(token in normalized_msg for token in repeat_markers):control_action="repeat"
+                elif any(token in normalized_msg for token in previous_markers):control_action="previous"
+                elif any(token in normalized_msg for token in next_markers):control_action="next"
+
                 if is_gita_request and any(token in normalized_msg for token in gita_revision_markers):
                     out=orch.gita_revision(int(data.get("limit") or 7))
-                    out.update({"text":"GITA-GYAN revision ready.","capability":"gita-gyan","task_id":str(uuid.uuid4())})
-                elif is_gita_request and (
-                    any(token in normalized_msg for token in gita_daily_markers)
-                    or normalized_msg.strip() in gita_request_tokens
-                ):
-                    language="hi" if any(x in normalized_msg for x in ("hindi","हिंदी","हिन्दी")) else "or"
+                    out.update({"text":"ପାର୍ଥ, ଗୀତା ପୁନରାବୃତ୍ତି ପ୍ରସ୍ତୁତ ଅଛି।","capability":"gita-gyan","task_id":str(uuid.uuid4())})
+                elif (is_gita_request or session_active) and verse_match:
+                    chapter=int(verse_match.group(1));verse=int(verse_match.group(2))
+                    language="hi" if any(x in normalized_msg for x in ("hindi","हिंदी","हिन्दी")) else "en" if "english" in normalized_msg else "or"
                     depth="brief" if any(x in normalized_msg for x in ("brief","short","संक्षेप","ଛୋଟ")) else "deep"
-                    lesson=orch.gita_daily_lesson(language,depth,True)
-                    text_parts=[lesson["reference"],lesson["sanskrit"]]
-                    if lesson.get("explanation"):text_parts.append(lesson["explanation"])
-                    elif lesson.get("trusted_summary_en"):text_parts.append(lesson["trusted_summary_en"])
-                    out={**lesson,"text":"\n\n".join(text_parts),"capability":"gita-gyan","task_id":str(uuid.uuid4())}
+                    out=orch.gita_session_start(chapter,verse,language,depth,True)
+                    text_parts=[out["reference"],out["sanskrit"]]
+                    if out.get("explanation"):text_parts.append(out["explanation"])
+                    out.update({"text":"\n\n".join(text_parts),"capability":"gita-gyan","task_id":str(uuid.uuid4())})
+                elif session_active and control_action:
+                    out=orch.gita_session_control(control_action,int(data.get("count") or 1),include_explanation=True)
+                    text_parts=[out["reference"],out["sanskrit"]]
+                    if out.get("explanation"):text_parts.append(out["explanation"])
+                    text_parts.append("ପାର୍ଥ, ‘ପୁଣି କୁହ’, ‘ପଛକୁ’ କିମ୍ବା ‘ଆଗକୁ’ କହି ଆପଣ ନିଜେ ନିୟନ୍ତ୍ରଣ କରିପାରିବେ।")
+                    out.update({"text":"\n\n".join(text_parts),"capability":"gita-gyan","task_id":str(uuid.uuid4())})
+                elif is_gita_request:
+                    language="hi" if any(x in normalized_msg for x in ("hindi","हिंदी","हिन्दी")) else "en" if "english" in normalized_msg else "or"
+                    depth="brief" if any(x in normalized_msg for x in ("brief","short","संक्षेप","ଛୋଟ")) else "deep"
+                    chapter=int(session_state.get("chapter") or 1) if session_active else 1
+                    verse=int(session_state.get("verse") or 1) if session_active else 1
+                    out=orch.gita_session_start(chapter,verse,language,depth,True)
+                    text_parts=[out["reference"],out["sanskrit"]]
+                    if out.get("explanation"):text_parts.append(out["explanation"])
+                    text_parts.append("ପାର୍ଥ, ଏଠାରୁ ଆପଣ ‘ଆଗକୁ’, ‘ପଛକୁ’, ‘ପୁଣି କୁହ’ କିମ୍ବା ନିର୍ଦ୍ଦିଷ୍ଟ ଶ୍ଲୋକ ସଂଖ୍ୟା କହିପାରିବେ।")
+                    out.update({"text":"\n\n".join(text_parts),"capability":"gita-gyan","task_id":str(uuid.uuid4())})
                 elif orch._looks_like_work_request(msg):
                     out = orch.handle_managed_request(msg, project, data.get("source", "pc"), data.get("chat_id"), vision_text)
                 else:
