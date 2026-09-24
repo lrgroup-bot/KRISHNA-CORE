@@ -8,96 +8,98 @@ from krishna_core.vision_adapter import VisionAdapter
 from krishna_core.model_router import ModelRouter as LegacyModelRouter
 
 
-class Qwen35RoutingTests(unittest.TestCase):
-    def test_primary_qwen35_and_old_qwen_fallback_order(self):
+class QwenStopPolicyIntegrationTests(unittest.TestCase):
+    def test_primary_and_fallback_order_is_non_qwen(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(
                 ModelRouter.local_model_candidates(),
-                ["qwen3.5:4b", "qwen2.5:3b", "qwen2.5vl:7b"],
+                [
+                    "gemma3:4b",
+                    "granite3.3:2b",
+                    "smollm2:1.7b",
+                    "llama3.2:1b",
+                    "deepseek-r1:1.5b",
+                ],
             )
 
-    def test_router_selects_qwen35_when_installed(self):
+    def test_qwen_environment_cannot_reenable_router(self):
+        with patch.dict(os.environ, {
+            "KRISHNA_LOCAL_MODEL":"qwen3.5:4b",
+            "KRISHNA_LOCAL_FALLBACK_MODELS":"qwen2.5:3b,qwen2.5vl:7b",
+        }, clear=True):
+            candidates=ModelRouter.local_model_candidates()
+        self.assertTrue(candidates)
+        self.assertFalse(any("qwen" in x.lower() for x in candidates))
+
+    def test_router_selects_non_qwen_when_only_qwen_and_gemma_are_installed(self):
         router=ModelRouter()
         router._probe_json=lambda *_: (True, {
             "models":[
-                {"name":"qwen2.5:3b"},
                 {"name":"qwen3.5:4b"},
                 {"name":"qwen2.5vl:7b"},
+                {"name":"gemma3:4b"},
             ]
         })
         with patch.dict(os.environ, {}, clear=True):
             status=router.local_model_status()
         self.assertTrue(status["available"])
-        self.assertEqual(status["selected_model"], "qwen3.5:4b")
-        self.assertEqual(status["fallback_models"], ["qwen2.5:3b", "qwen2.5vl:7b"])
+        self.assertEqual(status["selected_model"], "gemma3:4b")
 
-    def test_router_falls_back_without_deleting_old_qwen(self):
+    def test_explicit_qwen_is_blocked_before_ollama(self):
         router=ModelRouter()
-        router._probe_json=lambda *_: (True, {"models":[{"name":"qwen2.5:3b"}]})
-        called=[]
-        router._ollama_generate=lambda model,prompt: called.append((model,prompt)) or "ok"
-        with patch.dict(os.environ, {}, clear=True):
-            out=router.local("hello")
-        self.assertEqual(out, "ok")
-        self.assertEqual(called, [("qwen2.5:3b","hello")])
+        router._ollama_generate=lambda *args,**kwargs: self.fail("Qwen reached Ollama")
+        with self.assertRaisesRegex(RuntimeError, "disabled by owner policy"):
+            router.local("hello", "qwen3.5:4b")
 
-    def test_hawkeye_detailed_vision_prefers_qwen25vl(self):
-        with patch.dict(os.environ, {}, clear=True):
+    def test_hawkeye_vision_is_non_qwen_and_qwen_env_is_ignored(self):
+        with patch.dict(os.environ, {
+            "KRISHNA_VISION_MODEL":"qwen2.5vl:7b",
+            "KRISHNA_VISION_FALLBACK_MODELS":"qwen3.5:4b",
+            "KRISHNA_FAST_VISION_MODEL":"qwen3.5:4b",
+            "KRISHNA_FAST_VISION_FALLBACK_MODELS":"qwen2.5vl:7b",
+        }, clear=True):
             adapter=VisionAdapter()
-        self.assertEqual(adapter.model, "qwen2.5vl:7b")
-        self.assertEqual(adapter.fallback_models, ["qwen3.5:4b"])
-        self.assertEqual(adapter.candidates("detailed"), ["qwen2.5vl:7b","qwen3.5:4b"])
+        self.assertEqual(adapter.model, "gemma3:4b")
+        self.assertEqual(adapter.fast_model, "gemma3:4b")
+        self.assertFalse(any("qwen" in x.lower() for x in adapter.candidates("detailed")))
+        self.assertFalse(any("qwen" in x.lower() for x in adapter.candidates("fast")))
 
-    def test_hawkeye_fast_live_vision_prefers_qwen35(self):
-        with patch.dict(os.environ, {}, clear=True):
-            adapter=VisionAdapter()
-        self.assertEqual(adapter.fast_model, "qwen3.5:4b")
-        self.assertEqual(adapter.fast_fallback_models, ["qwen2.5vl:7b"])
-        self.assertEqual(adapter.candidates("fast"), ["qwen3.5:4b","qwen2.5vl:7b"])
-        self.assertEqual(adapter.candidates("live"), ["qwen3.5:4b","qwen2.5vl:7b"])
-
-    def test_hawkeye_status_reports_both_profiles(self):
-        with patch.dict(os.environ, {}, clear=True):
-            adapter=VisionAdapter()
-        adapter._installed_models=lambda: (
-            ["qwen3.5:4b","qwen2.5vl:7b"],
-            {"qwen3.5:4b","qwen2.5vl:7b"},
-        )
-        detailed=adapter.status()
-        fast=adapter.status("fast")
-        self.assertEqual(detailed["selected_model"], "qwen2.5vl:7b")
-        self.assertEqual(detailed["profiles"]["fast"]["selected_model"], "qwen3.5:4b")
-        self.assertEqual(fast["selected_model"], "qwen3.5:4b")
-        self.assertEqual(fast["mode"], "fast")
-
-    def test_legacy_router_uses_same_qwen_order(self):
-        with patch.dict(os.environ, {}, clear=True):
+    def test_legacy_router_is_non_qwen_even_with_qwen_env(self):
+        with patch.dict(os.environ, {
+            "KRISHNA_OLLAMA_MODEL":"qwen3.5:4b",
+            "KRISHNA_OLLAMA_FALLBACK_MODELS":"qwen2.5:3b,qwen2.5vl:7b",
+        }, clear=True):
             router=LegacyModelRouter()
-        names=[(p.name,p.model) for p in router.providers[:3]]
-        self.assertEqual(names,[
-            ("ollama","qwen3.5:4b"),
-            ("ollama-model:qwen2.5:3b","qwen2.5:3b"),
-            ("ollama-model:qwen2.5vl:7b","qwen2.5vl:7b"),
-        ])
+        models=[p.model for p in router.providers if p.name.startswith("ollama")]
+        self.assertTrue(models)
+        self.assertEqual(models[0], "gemma3:4b")
+        self.assertFalse(any("qwen" in str(x).lower() for x in models))
 
-    def test_install_script_never_removes_old_models(self):
+    def test_legacy_qwen_installer_is_fail_closed(self):
         root=Path(__file__).resolve().parents[2]
         script=(root/"scripts"/"INSTALL_KRISHNA_QWEN35.ps1").read_text(encoding="utf-8")
-        self.assertIn("qwen3.5:4b",script)
-        self.assertIn("qwen2.5vl:7b",script)
-        self.assertIn("KRISHNA_FAST_VISION_MODEL",script)
-        self.assertIn("OLLAMA_MODELS",script)
-        self.assertNotIn("ollama rm",script.lower())
+        self.assertIn("Qwen is disabled by owner policy", script)
+        self.assertNotIn("ollama pull", script.lower())
 
-    def test_env_example_records_general_and_dual_vision_roles(self):
+    def test_stop_script_stops_without_deleting_models(self):
+        root=Path(__file__).resolve().parents[2]
+        script=(root/"scripts"/"STOP_KRISHNA_QWEN.ps1").read_text(encoding="utf-8")
+        self.assertIn(" stop $model", script)
+        self.assertIn("Installed model files were not deleted", script)
+        self.assertNotIn("ollama rm", script.lower())
+
+    def test_env_example_has_no_qwen_defaults(self):
         root=Path(__file__).resolve().parents[1]
         text=(root/".env.example").read_text(encoding="utf-8")
-        self.assertIn("KRISHNA_LOCAL_MODEL=qwen3.5:4b",text)
-        self.assertIn("KRISHNA_LOCAL_FALLBACK_MODELS=qwen2.5:3b,qwen2.5vl:7b",text)
-        self.assertIn("KRISHNA_VISION_MODEL=qwen2.5vl:7b",text)
-        self.assertIn("KRISHNA_VISION_FALLBACK_MODELS=qwen3.5:4b",text)
-        self.assertIn("KRISHNA_FAST_VISION_MODEL=qwen3.5:4b",text)
-        self.assertIn("KRISHNA_FAST_VISION_FALLBACK_MODELS=qwen2.5vl:7b",text)
+        self.assertNotIn("qwen", text.lower())
+        self.assertIn("KRISHNA_LOCAL_MODEL=gemma3:4b", text)
+        self.assertIn("KRISHNA_VISION_MODEL=gemma3:4b", text)
+
+    def test_canonical_deploy_runs_qwen_stop_policy(self):
+        root=Path(__file__).resolve().parents[2]
+        text=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
+        self.assertIn("STOP_KRISHNA_QWEN.ps1", text)
+        self.assertIn("QWEN STOP POLICY FAILED", text)
 
     def test_hawkeye_server_uses_fast_only_for_ordinary_live_frames(self):
         root=Path(__file__).resolve().parents[1]
