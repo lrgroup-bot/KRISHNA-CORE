@@ -442,9 +442,29 @@ try{
   }else{Add-Check "NARAD workflow plan" "FAIL" "Workflow plan did not resolve through Sudarshan/verifier" $plan}
   $null=Post-Json "/api/narad/workflows/promote" @{workflow_id=$wid;state="sandbox";verified=$false}
   $run=Post-Json "/api/narad/workflows/execute" @{workflow_id=$wid;context=@{};approved=$false}
-  $null=Post-Json "/api/narad/workflows/promote" @{workflow_id=$wid;state="verified";verified=$true}
-  $null=Post-Json "/api/narad/workflows/promote" @{workflow_id=$wid;state="stable";verified=$true}
-  Add-Check "NARAD lifecycle" "PASS" ("workflow "+$wid+" executed and promoted") $run
+
+  $naradApprovalGatePassed=$false
+  try{
+    $null=Post-Json "/api/narad/workflows/promote" @{workflow_id=$wid;state="verified";verified=$true;approved=$false}
+    Add-Check "NARAD promotion approval gate" "FAIL" "Verified workflow promotion succeeded without explicit owner approval" $null
+  }catch{
+    $statusCode=$null
+    try{$statusCode=[int]$_.Exception.Response.StatusCode}catch{}
+    if($statusCode -eq 403){
+      $naradApprovalGatePassed=$true
+      Add-Check "NARAD promotion approval gate" "PASS" "Verified promotion correctly refused without explicit owner approval" @{status_code=$statusCode}
+    }else{
+      Add-Check "NARAD promotion approval gate" "FAIL" ("Unexpected rejection while testing approval gate: "+$_.Exception.Message) @{status_code=$statusCode}
+    }
+  }
+
+  if(!$naradApprovalGatePassed){
+    throw "NARAD approval gate acceptance failed"
+  }
+
+  $null=Post-Json "/api/narad/workflows/promote" @{workflow_id=$wid;state="verified";verified=$true;approved=$true}
+  $null=Post-Json "/api/narad/workflows/promote" @{workflow_id=$wid;state="stable";verified=$true;approved=$true}
+  Add-Check "NARAD lifecycle" "PASS" ("workflow "+$wid+" executed and promoted with explicit approval") $run
 
   # BRAHMAGYAN must remain deep, source-faithful and resource-light.
   try{
