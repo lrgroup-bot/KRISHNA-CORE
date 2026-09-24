@@ -4876,6 +4876,30 @@ STRICT OUTPUT CONTRACT:
                 raise ValueError("chat does not belong to selected project")
             chat_context = self.memory.chat_messages(chat_id, 24)
             self.memory.add_chat_message(chat_id, "user", message, {"task_id": task_id, "source": source})
+        if self.gita_shloka.matches_request(message):
+            gita=self.gita_request(message)
+            owner_text=str(gita.get("text") or "").strip()
+            if not owner_text:
+                owner_text="ପାର୍ଥ, ଗୀତା ସତ୍ର ପ୍ରସ୍ତୁତ ଅଛି।"
+                gita["text"]=owner_text
+            self.memory.remember(project, "conversation", message, {
+                "task_id":task_id, "chat_id":chat_id, "capability":"gita-gyan",
+            })
+            if chat_id:
+                self.memory.add_chat_message(
+                    chat_id, "assistant", owner_text,
+                    {"task_id":task_id, "provider":"gita-gyan", "capability":"gita-gyan"},
+                )
+            self.memory.audit(task_id, "answered", "gita-gyan")
+            return {
+                "task_id":task_id,
+                "chat_id":chat_id,
+                "neural_intent":neural["intent"],
+                "skills_used":[],
+                "provider":"gita-gyan",
+                **gita,
+            }
+
         p = self.projects.get(project)
         privacy = p.privacy if p else "approved_cloud"
         skill_names, skill_context = self.skills.render_for_prompt(message, project)
@@ -4886,6 +4910,11 @@ Never execute arbitrary shell commands from natural language. Mutating actions m
 For registered projects, prefer evidence, shadow testing, verification, rollback, and learned incident memory.
 
 {self.agi.character.prompt_contract()}
+
+GLOBAL CONVERSATION LANGUAGE OVERRIDE:
+- Write all owner-facing conversational prose in natural Odia unless Partha explicitly asks for Hindi or English.
+- Preserve code, paths, API names, model names, logs, quotations and source text exactly where translation would reduce precision.
+- This applies globally, not only to Gita conversations.
 
 {self.requirements.prompt_contract()}
 
