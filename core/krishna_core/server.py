@@ -1164,6 +1164,13 @@ class Handler(BaseHTTPRequestHandler):
             project=(query.get("project") or ["KRISHNA"])[0]
             try:return self._json(200,orch.model_pool(project))
             except KeyError:return self._json(404,{"error":"project not registered"})
+        if path == "/api/models/roles":
+            roles=orch.router.role_status()
+            roles["pc"]["hawkeye_detailed"]=_vision.status("detailed")
+            roles["pc"]["hawkeye_fast"]=_vision.status("fast")
+            roles["mobile"]["hawkeye_free_cloud"]=_hawkeye_free_cloud.status(refresh=False)
+            roles["mobile"]["qwen_runtime"]=False
+            return self._json(200,roles)
         if path == "/api/models/gateways":
             return self._json(200,orch.model_gateway.list())
         if path == "/api/openrouter/free/status":
