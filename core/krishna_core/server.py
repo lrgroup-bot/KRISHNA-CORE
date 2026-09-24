@@ -15,6 +15,7 @@ from .attachments import AttachmentStore
 from .vision_adapter import VisionAdapter
 from .gemini_hawkeye import GeminiHawkeyeBridge
 from .native_voice import KrishnaVoiceStack
+from .gita_gyan import GitaDailyScheduler, GitaGyan
 from .remote_access import PrivateRemotePolicy
 from .worker_fabric import WorkerResilienceSupervisor
 from .model_memory_governor import ModelMemoryGovernor
@@ -153,6 +154,14 @@ def _on_local_krishna_wake(event):
     )
 
 _voice = KrishnaVoiceStack(_on_local_krishna_wake)
+
+def _gita_local_explainer(prompt):
+    return orch.router.local(prompt)
+
+_gita = GitaGyan(
+    Path(settings.db_path).resolve().parent / ".krishna_state" / "gita-gyan",
+    explainer=_gita_local_explainer,
+)
 _remote_policy = PrivateRemotePolicy()
 _model_memory = ModelMemoryGovernor()
 _wearables = WearableBridge(Path(settings.db_path).resolve().parent / ".krishna_state" / "wearables.json")
@@ -586,6 +595,170 @@ pc_observer = PCObserver(
 )
 pc_observer.start()
 
+def _gita_audio_segment(text_value, language):
+    text_value=str(text_value or "").strip()
+    language=str(language or "").strip().lower()
+    configured=set(_voice.tts.status().get("languages") or [])
+    if not text_value:
+        return {"available":False,"language":language,"error":"empty speech text"}
+    if language not in configured:
+        return {
+            "available":False,"language":language,
+            "error":"local Indic-TTS language is not configured",
+            "configured_languages":sorted(configured),
+        }
+    out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
+    audio_id=str(uuid.uuid4());out_path=out_dir/(audio_id+".wav")
+    try:
+        _voice.tts.speak(text_value,out_path,language=language)
+        return {
+            "available":True,"language":language,"audio_id":audio_id,
+            "audio_url":"/api/voice/audio?id="+audio_id,
+            "provider":"ai4bharat-indic-tts",
+        }
+    except Exception as exc:
+        return {"available":False,"language":language,"error":f"{type(exc).__name__}: {exc}"}
+
+
+def _gita_speak_lesson(lesson):
+    set_current_activity("wisdom")
+    explanation=dict(lesson.get("explanation") or {})
+    segments=[
+        {
+            "kind":"sanskrit",
+            "pronunciation_mode":"Hindi Indic-TTS Devanagari rendering; not a Vedic-recitation verifier",
+            **_gita_audio_segment(lesson.get("sanskrit"),"hi"),
+        }
+    ]
+    if explanation and not explanation.get("degraded"):
+        teaching=" ".join(
+            str(explanation.get(key) or "").strip()
+            for key in ("literal_meaning","context","deep_explanation","practical_application","reflection_question")
+            if str(explanation.get(key) or "").strip()
+        )
+        if teaching:
+            segments.append({"kind":"explanation",**_gita_audio_segment(teaching,lesson.get("language") or "or")})
+    timer=threading.Timer(90.0,lambda: set_current_activity("Idle"))
+    timer.daemon=True;timer.start()
+    return {"avatar_state":"WISDOM","segments":segments}
+
+
+def _gita_daily_tick():
+    language=str(os.getenv("KRISHNA_GITA_LANGUAGE","or") or "or")
+    deep=str(os.getenv("KRISHNA_GITA_DEEP","1")).strip().lower() not in {"0","false","no","off"}
+    lesson=_gita.daily_lesson(language=language,deep=deep)
+    audio=_gita_speak_lesson(lesson)
+    progress=_gita.progress()
+    revision=None
+    if progress.get("delivered_count") and int(progress["delivered_count"])%7==0:
+        revision=_gita.revision(language=language,limit=7,deep=False)
+    payload={"lesson":lesson,"audio":audio,"revision":revision,"progress":progress}
+    devices=[str(x.get("device_id") or "").strip() for x in (_pairing.paired().get("devices") or [])]
+    devices=[x for x in devices if x]
+    for device in devices:
+        _sessions.publish(
+            device,"gita.daily",payload,
+            idempotency_key=f"gita-daily:{lesson.get('date')}:{device}",
+        )
+    mark("GITA-GYAN",f"wisdom {lesson.get('id')}")
+    orch.memory.audit("gita_gyan","daily_lesson",f"{lesson.get('date')}:{lesson.get('id')}:{language}")
+    orch.handle_event(
+        "gita_gyan","daily_lesson_ready",f"{lesson.get('id')} ready in {language}",
+        severity="info",project="KRISHNA",
+        payload={"verse_id":lesson.get("id"),"language":language,"revision_due":bool(revision)},
+    )
+    return {
+        "verse_id":lesson.get("id"),"date":lesson.get("date"),"language":language,
+        "mobile_published":bool(devices),"mobile_device_count":len(devices),"audio_ready":any(x.get("available") for x in audio.get("segments") or []),
+        "revision_due":bool(revision),
+    }
+
+
+_gita_daily_scheduler = GitaDailyScheduler(
+    _gita_daily_tick,
+    daily_time=os.getenv("KRISHNA_GITA_DAILY_TIME","07:30"),
+    timezone_name=os.getenv("KRISHNA_TIMEZONE","Asia/Kolkata"),
+    poll_seconds=int(os.getenv("KRISHNA_GITA_POLL_SECONDS","30")),
+    enabled=str(os.getenv("KRISHNA_GITA_DAILY_ENABLED","1")).strip().lower() not in {"0","false","no","off"},
+)
+_gita_daily_scheduler.start()
+
+
+def _gita_message_requested(text):
+    raw=str(text or "")
+    low=raw.lower()
+    terms=("gita","geeta","bhagavad","shloka","sloka","gita gyan","gita-gyan")
+    return any(x in low for x in terms) or "ଗୀତା" in raw or "ଶ୍ଲୋକ" in raw or "गीता" in raw or "श्लोक" in raw
+
+
+def _gita_followup_question(text):
+    raw=str(text or "")
+    low=raw.lower()
+    question_terms=("why","how","what","meaning","apply","business","life","explain","understand","deep")
+    local_terms=("କାହିଁକି","କେମିତି","ଅର୍ଥ","ବୁଝ","ଜୀବନ","କାମ","क्यों","कैसे","अर्थ","समझ","जीवन","काम")
+    explicit_new=("today","daily","next","revise","revision","chapter","adhyay","आज","अध्याय","ଆଜି","ଅଧ୍ୟାୟ")
+    return (
+        ("?" in raw or any(x in low for x in question_terms) or any(x in raw for x in local_terms))
+        and not any(x in low or x in raw for x in explicit_new)
+    )
+
+
+def _gita_lesson_reply(lesson):
+    explanation=dict(lesson.get("explanation") or {})
+    parts=[f"Bhagavad Gita {lesson.get('chapter')}.{lesson.get('verse')}",str(lesson.get("sanskrit") or "").strip()]
+    if explanation:
+        for key in ("literal_meaning","context","deep_explanation","practical_application","reflection_question"):
+            value=str(explanation.get(key) or "").strip()
+            if value:parts.append(value)
+    elif lesson.get("public_domain_english"):
+        parts.append(str(lesson.get("public_domain_english")))
+    return "\n\n".join(x for x in parts if x)
+
+
+def _gita_chat_response(message,project,source,chat_id):
+    task_id=str(uuid.uuid4())
+    if chat_id:
+        chat=orch.memory.chat(chat_id)
+        if not chat:raise KeyError(f"chat not found: {chat_id}")
+        if chat["project"]!=project:raise ValueError("chat does not belong to selected project")
+        orch.memory.add_chat_message(chat_id,"user",message,{"task_id":task_id,"source":source,"capability":"gita-gyan"})
+    parsed=_gita.interpret_command(message)
+    last_id=_gita.progress().get("last_id")
+    if last_id and _gita_followup_question(message):
+        qa=_gita.ask_question(last_id,message,parsed.get("language"))
+        reply=qa["answer"]
+        audio={"avatar_state":"WISDOM","segments":[{"kind":"explanation",**_gita_audio_segment(reply,qa["language"])}]}
+        detail={"kind":"question","qa":qa}
+    elif parsed.get("intent")=="revision":
+        revision=_gita.revision(parsed["language"],7,parsed["deep"])
+        rows=revision.get("lessons") or []
+        reply="Revision\n\n"+"\n\n".join(
+            f"{x.get('id')}\n{x.get('sanskrit')}\n{x.get('public_domain_english')}" for x in rows
+        )
+        audio=None
+        detail={"kind":"revision","revision":revision}
+    else:
+        if parsed.get("intent")=="verse":
+            lesson=_gita.verse(parsed["chapter"],parsed["verse"],parsed["language"],True)
+        else:
+            lesson=_gita.daily_lesson(parsed["language"],True)
+        reply=_gita_lesson_reply(lesson)
+        audio=_gita_speak_lesson(lesson)
+        detail={"kind":"lesson","lesson":lesson}
+    if chat_id:
+        orch.memory.add_chat_message(
+            chat_id,"assistant",reply,
+            {"task_id":task_id,"provider":"gita-gyan/local","capability":"gita-gyan"},
+        )
+    orch.memory.remember(project,"gita_gyan",message,{"task_id":task_id,"chat_id":chat_id,"kind":detail["kind"]})
+    orch.memory.audit(task_id,"gita_gyan_answered",detail["kind"])
+    return {
+        "task_id":task_id,"chat_id":chat_id,"text":reply,"reply":reply,
+        "provider":"gita-gyan/local","capability":"gita-gyan","avatar_state":"WISDOM",
+        "gita":detail,"gita_audio":audio,
+    }
+
+
 def _science_frontier_tick():
     snap=pc_observer.snapshot()
     return orch.brahmagyan_science_background_tick(
@@ -656,6 +829,7 @@ def shutdown_runtime_services():
         ("narad_scheduler", _narad_scheduler.stop),
         ("science_frontier_scheduler", _science_frontier_scheduler.stop),
         ("brahma_consolidation_scheduler", _brahma_consolidation_scheduler.stop),
+        ("gita_daily_scheduler", _gita_daily_scheduler.stop),
         ("long_context_scheduler", orch.long_context_scheduler.stop),
         ("worker_resilience", _worker_resilience.stop),
         ("pc_observer", pc_observer.stop),
@@ -945,6 +1119,30 @@ class Handler(BaseHTTPRequestHandler):
             if not session_id:return self._json(400,{"error":"session_id is required"})
             try:return self._json(200,orch.hawkeye.get_live_session(session_id))
             except KeyError:return self._json(404,{"error":"live session not found"})
+        if path == "/api/gita/status":
+            return self._json(200,{**_gita.status(),"scheduler":_gita_daily_scheduler.status()})
+        if path == "/api/gita/progress":
+            return self._json(200,_gita.progress())
+        if path == "/api/gita/today":
+            language=str((query.get("language") or [_gita.progress().get("preferred_language") or "or"])[0]).strip()
+            deep=str((query.get("deep") or ["1"])[0]).strip().lower() not in {"0","false","no","off"}
+            try:return self._json(200,_gita.daily_lesson(language=language,deep=deep))
+            except (ValueError,RuntimeError) as exc:return self._json(400 if isinstance(exc,ValueError) else 503,{"error":str(exc)})
+        if path == "/api/gita/verse":
+            chapter=(query.get("chapter") or [""])[0];verse=(query.get("verse") or [""])[0]
+            language=str((query.get("language") or [_gita.progress().get("preferred_language") or "or"])[0]).strip()
+            deep=str((query.get("deep") or ["0"])[0]).strip().lower() not in {"0","false","no","off"}
+            if not str(chapter).strip() or not str(verse).strip():
+                return self._json(400,{"error":"chapter and verse are required"})
+            try:return self._json(200,_gita.verse(int(chapter),int(verse),language=language,deep=deep))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+        if path == "/api/gita/revision":
+            language=str((query.get("language") or [_gita.progress().get("preferred_language") or "or"])[0]).strip()
+            limit=(query.get("limit") or ["7"])[0]
+            deep=str((query.get("deep") or ["0"])[0]).strip().lower() not in {"0","false","no","off"}
+            try:return self._json(200,_gita.revision(language=language,limit=limit,deep=deep))
+            except (ValueError,RuntimeError) as exc:return self._json(400 if isinstance(exc,ValueError) else 503,{"error":str(exc)})
         if path == "/api/voice/audio":
             audio_id=str((query.get("id") or [""])[0]).strip()
             try:audio_id=str(uuid.UUID(audio_id))
@@ -2256,7 +2454,9 @@ class Handler(BaseHTTPRequestHandler):
                 vision_text="\n".join("- "+x.get("analysis",x.get("error","")) for x in vision_evidence) if vision_evidence else None
                 # KRISHNA selects internal capabilities automatically. Clients never
                 # need to choose Sudarshan/Karma/Vishwakarma manually.
-                if orch._looks_like_work_request(msg):
+                if _gita_message_requested(msg):
+                    out = _gita_chat_response(msg,project,data.get("source","pc"),data.get("chat_id"))
+                elif orch._looks_like_work_request(msg):
                     out = orch.handle_managed_request(msg, project, data.get("source", "pc"), data.get("chat_id"), vision_text)
                 else:
                     out = orch.handle(msg, project, data.get("source", "pc"), data.get("chat_id"), vision_text)
@@ -2265,7 +2465,7 @@ class Handler(BaseHTTPRequestHandler):
                 out["identity"] = "KRISHNA"
                 out.setdefault("capability", "conversation")
                 mark("REQUEST COMPLETE", "Response generated by Core")
-                set_current_activity("Idle")
+                set_current_activity("wisdom" if out.get("capability")=="gita-gyan" else "Idle")
                 orch.handle_event(
                     data.get("source", "pc"),
                     "response_generated",
@@ -2459,6 +2659,71 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             except (ValueError,TypeError) as exc:
                 return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gita/preference":
+            try:return self._json(200,_gita.set_language(str(data.get("language") or "")))
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/gita/lesson":
+            language=str(data.get("language") or _gita.progress().get("preferred_language") or "or")
+            deep=bool(data.get("deep",True))
+            advance=bool(data.get("advance",False))
+            try:
+                lesson=_gita.daily_lesson(language=language,deep=deep,advance=advance)
+                result={"lesson":lesson,"progress":_gita.progress()}
+                if bool(data.get("speak",False)):
+                    result["audio"]=_gita_speak_lesson(lesson)
+                return self._json(200,result)
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/gita/understood":
+            verse_id=str(data.get("verse_id") or _gita.progress().get("last_id") or "").strip()
+            if not verse_id:return self._json(400,{"error":"verse_id is required"})
+            try:return self._json(200,_gita.mark_understood(verse_id,bool(data.get("understood",True)),data.get("note")))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/gita/question":
+            verse_id=str(data.get("verse_id") or _gita.progress().get("last_id") or "").strip()
+            question=str(data.get("question") or "").strip()
+            if not verse_id or not question:return self._json(400,{"error":"verse_id/current lesson and question are required"})
+            try:return self._json(200,_gita.ask_question(verse_id,question,data.get("language")))
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/gita/speak":
+            verse_id=str(data.get("verse_id") or _gita.progress().get("last_id") or "").strip()
+            language=str(data.get("language") or _gita.progress().get("preferred_language") or "or")
+            deep=bool(data.get("deep",True))
+            if not verse_id:return self._json(400,{"error":"verse_id/current lesson is required"})
+            try:
+                lesson=_gita.lesson_for_id(verse_id,language=language,deep=deep)
+                return self._json(200,{"lesson":lesson,"audio":_gita_speak_lesson(lesson)})
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gita/command":
+            command=str(data.get("text") or "").strip()
+            if not command:return self._json(400,{"error":"text is required"})
+            try:
+                parsed=_gita.interpret_command(command,data.get("language"))
+                intent=parsed.get("intent")
+                if intent=="verse":
+                    result=_gita.verse(parsed["chapter"],parsed["verse"],parsed["language"],parsed["deep"])
+                elif intent=="revision":
+                    result=_gita.revision(parsed["language"],7,parsed["deep"])
+                else:
+                    result=_gita.daily_lesson(parsed["language"],parsed["deep"])
+                response={"command":parsed,"result":result}
+                if bool(data.get("speak",False)) and isinstance(result,dict) and result.get("sanskrit"):
+                    response["audio"]=_gita_speak_lesson(result)
+                return self._json(200,response)
+            except KeyError as exc:return self._json(404,{"error":str(exc)})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/voice/wake/start":
             if self.client_address[0] not in ("127.0.0.1","::1"):
