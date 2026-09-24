@@ -612,6 +612,33 @@ public class MainActivity extends Activity {
         JSONObject ok=new JSONObject();ok.put("ok",true);ok.put("project",project);ok.put("chat_id",chatId);return ok.toString();
       }catch(Exception e){return error(e);}
     }
+    @JavascriptInterface public String gitaSpeak(int chapter,int verse,String language){
+      try{
+        JSONObject body=new JSONObject();
+        body.put("chapter",chapter);
+        body.put("verse",verse);
+        body.put("language",(language==null||language.trim().isEmpty())?"or":language.trim().toLowerCase(java.util.Locale.US));
+        body.put("depth","deep");
+        body.put("explain",true);
+        body.put("meter","anushtubh");
+        return call("/api/gita/speak",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String voiceAudioDataUrl(String audioId){
+      HttpURLConnection c=null;
+      try{
+        String id=java.util.UUID.fromString(audioId).toString();
+        c=conn("/api/voice/audio?id="+URLEncoder.encode(id,"UTF-8"));
+        int code=c.getResponseCode();
+        if(code>=400)throw new IOException("voice audio HTTP "+code);
+        try(InputStream in=c.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){
+          byte[] buf=new byte[8192];for(int n;(n=in.read(buf))>0;)out.write(buf,0,n);
+          return "data:audio/wav;base64,"+Base64.encodeToString(out.toByteArray(),Base64.NO_WRAP);
+        }
+      }catch(Exception e){return error(e);}
+      finally{if(c!=null)c.disconnect();}
+    }
+
     @JavascriptInterface public String chat(String m){return chatWithAttachments(m,"[]");}
     @JavascriptInterface public String chatWithAttachments(String m,String attachmentIdsJson){
       try{
