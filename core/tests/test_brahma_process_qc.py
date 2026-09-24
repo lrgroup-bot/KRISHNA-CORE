@@ -33,6 +33,7 @@ class BrahmaProcessQCTests(unittest.TestCase):
         self.addCleanup(td.cleanup)
         bus=FakeBus();memory=Memory()
         qc=BrahmaProcessQC(Path(td.name),bus,memory)
+        self.addCleanup(qc.detach)
         return qc,bus,memory
 
     def test_color_contract_matches_working_gods_request(self):
@@ -57,6 +58,7 @@ class BrahmaProcessQCTests(unittest.TestCase):
             "spec":{"mutating":False,"requires_approval":False},
             "error":"RuntimeError",
         },source="shared-action-bus")
+        self.assertTrue(qc.wait_until_idle(2))
         self.assertEqual(len(calls),1)
         status=qc.status()
         self.assertEqual(status["latest_color"],"green")
@@ -80,6 +82,7 @@ class BrahmaProcessQCTests(unittest.TestCase):
             "spec":{"mutating":True,"requires_approval":True},
             "error":"PermissionError",
         },source="shared-action-bus")
+        self.assertTrue(qc.wait_until_idle(2))
         self.assertEqual(calls,[])
         status=qc.status()
         self.assertEqual(status["latest_color"],"red")
