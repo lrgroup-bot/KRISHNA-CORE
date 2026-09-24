@@ -19,7 +19,7 @@ function Get-KrishnaProcess([int]$ProcessId,[string]$ScriptName){
   }catch{return $null}
 }
 
-function Get-KrishnaListenerOwnership([int]$ProcessId,[string]$RuntimeRoot){
+function Get-KrishnaListenerOwnership([int]$ProcessId,[string]$RuntimeRoot,[int]$RecordedCorePid=0,[int]$RecordedGuardianPid=0){
   if($ProcessId -le 0){return $null}
   $runtime=[IO.Path]::GetFullPath($RuntimeRoot).TrimEnd("\\")
   $chain=@()
@@ -50,28 +50,54 @@ function Get-KrishnaListenerOwnership([int]$ProcessId,[string]$RuntimeRoot){
   $listener=$chain[0]
   if(([string]$listener.name) -notmatch "(?i)^python(?:\.exe)?$"){return $null}
 
+  # Primary proof: command/executable evidence explicitly points at this runtime.
   $runtimeEvidence=@($chain | Where-Object {
     ([string]$_.executable_path).StartsWith($runtime,[StringComparison]::OrdinalIgnoreCase) -or
     ([string]$_.command_line).IndexOf($runtime,[StringComparison]::OrdinalIgnoreCase) -ge 0
   })
-  if(!$runtimeEvidence.Count){return $null}
-
   $startProc=$null
   $guardianProc=$null
   foreach($row in $chain){
     if(([string]$row.command_line) -match "(?i)START_KRISHNA\.ps1"){$startProc=$row}
     if(([string]$row.command_line) -match "(?i)KRISHNA_GUARDIAN\.ps1"){$guardianProc=$row}
   }
-  if(!$startProc){return $null}
-
-  return [pscustomobject]@{
-    listener_pid=$ProcessId
-    start_pid=[int]$startProc.pid
-    guardian_pid=if($guardianProc){[int]$guardianProc.pid}else{0}
-    start_command_line=[string]$startProc.command_line
-    start_executable=[string]$startProc.executable_path
-    evidence=$chain
+  if($runtimeEvidence.Count -and $startProc){
+    return [pscustomobject]@{
+      proof="command_line"
+      listener_pid=$ProcessId
+      start_pid=[int]$startProc.pid
+      guardian_pid=if($guardianProc){[int]$guardianProc.pid}else{0}
+      evidence=$chain
+    }
   }
+
+  # Windows can redact CommandLine/ExecutablePath. In that case accept only an
+  # exact match between the live listener ancestry and KRISHNA's own recorded
+  # guardian state. This cannot authorize an arbitrary PID: the recorded Core PID
+  # must be an ancestor of the actual 8766 Python listener, and the recorded
+  # Guardian PID (when present) must also be in that same ancestry.
+  if($RecordedCorePid -gt 0){
+    $recordedCore=@($chain | Where-Object {
+      [int]$_.pid -eq $RecordedCorePid -and ([string]$_.name) -match "(?i)^powershell(?:\.exe)?$"
+    } | Select-Object -First 1)
+    $recordedGuardian=@()
+    if($RecordedGuardianPid -gt 0){
+      $recordedGuardian=@($chain | Where-Object {
+        [int]$_.pid -eq $RecordedGuardianPid -and ([string]$_.name) -match "(?i)^powershell(?:\.exe)?$"
+      } | Select-Object -First 1)
+    }
+    if($recordedCore.Count -and ($RecordedGuardianPid -le 0 -or $recordedGuardian.Count)){
+      return [pscustomobject]@{
+        proof="recorded_pid_ancestry"
+        listener_pid=$ProcessId
+        start_pid=$RecordedCorePid
+        guardian_pid=$RecordedGuardianPid
+        evidence=$chain
+      }
+    }
+  }
+
+  return $null
 }
 
 function Stop-ExistingKrishnaGuardian([string]$RuntimeRoot){
@@ -91,6 +117,23 @@ function Stop-ExistingKrishnaGuardian([string]$RuntimeRoot){
 
   $guardianProc=Get-KrishnaProcess $oldGuardianPid "KRISHNA_GUARDIAN.ps1"
   $coreProc=Get-KrishnaProcess $oldCorePid "START_KRISHNA.ps1"
+
+  # WMI may redact command lines on an otherwise valid KRISHNA process chain.
+  # Recover ownership only when the recorded Core/Guardian PIDs appear in the
+  # ancestry of the actual 8766 Python listener.
+  if(!$coreProc -and $oldCorePid -gt 0){
+    $live8766=Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    if($live8766){
+      $ownership=Get-KrishnaListenerOwnership ([int]$live8766.OwningProcess) $RuntimeRoot $oldCorePid $oldGuardianPid
+      if($ownership -and $ownership.proof -eq "recorded_pid_ancestry"){
+        try{$coreProc=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$oldCorePid) -ErrorAction Stop}catch{$coreProc=$null}
+        if($oldGuardianPid -gt 0 -and !$guardianProc){
+          try{$guardianProc=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$oldGuardianPid) -ErrorAction Stop}catch{$guardianProc=$null}
+        }
+        Write-Host ("Verified KRISHNA ownership by recorded PID ancestry: listener={0} core={1} guardian={2}" -f $ownership.listener_pid,$oldCorePid,$oldGuardianPid) -ForegroundColor Yellow
+      }
+    }
+  }
 
   if($guardianProc){
     "DEPLOY_GENERATION_HANDOFF"|Set-Content -Encoding ASCII $stopPath
@@ -433,7 +476,17 @@ if(!$SkipStart){
   $staleListener=Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
   if($staleListener){
     $listenerPid=[int]$staleListener.OwningProcess
-    $ownership=Get-KrishnaListenerOwnership $listenerPid $Runtime
+    $stateForRecovery=Join-Path $guardianStateDir "core-guardian.json"
+    $recordedCorePid=0
+    $recordedGuardianPid=0
+    if(Test-Path $stateForRecovery){
+      try{
+        $recordedState=Get-Content -Raw $stateForRecovery|ConvertFrom-Json
+        $recordedCorePid=[int]$recordedState.core_pid
+        $recordedGuardianPid=[int]$recordedState.guardian_pid
+      }catch{}
+    }
+    $ownership=Get-KrishnaListenerOwnership $listenerPid $Runtime $recordedCorePid $recordedGuardianPid
     if($ownership){
       $recoveredState=Join-Path $guardianStateDir "core-guardian.json"
       @{
