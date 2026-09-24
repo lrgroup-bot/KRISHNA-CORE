@@ -2581,6 +2581,71 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:
                 return self._json(404,{"error":"Gita verse not found"})
 
+        if post_path == "/api/gita/speak":
+            try:
+                chapter=int(data.get("chapter"))
+                verse=int(data.get("verse"))
+                language=str(data.get("language") or "or").strip().lower()
+                depth=str(data.get("depth") or "deep").strip().lower()
+                include_explanation=bool(data.get("include_explanation",True))
+                meter=str(data.get("meter") or "anushtubh").strip() or "anushtubh"
+                lesson=orch.gita_verse(chapter,verse,language,depth,include_explanation)
+            except (TypeError,ValueError) as exc:
+                return self._json(400,{"error":str(exc)})
+            except KeyError:
+                return self._json(404,{"error":"Gita verse not found"})
+
+            out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
+            segments=[]
+            sa_status=_voice.sanskrit_tts.status()
+            if not sa_status.get("available"):
+                return self._json(503,{
+                    "error":"local Sanskrit recitation worker is not configured",
+                    "provider_status":sa_status,
+                    "lesson":lesson,
+                })
+            sa_id=str(uuid.uuid4());sa_path=out_dir/(sa_id+".wav")
+            try:
+                resolved=_voice.sanskrit_tts.speak(lesson["sanskrit"],sa_path,meter=meter)
+            except (RuntimeError,ValueError) as exc:
+                return self._json(503,{"error":str(exc),"provider_status":_voice.sanskrit_tts.status()})
+            segments.append({
+                "kind":"shloka","language":"sa","audio_id":sa_id,
+                "audio_url":"/api/voice/audio?id="+sa_id,
+                "output_path":resolved,"provider":"edge-sanskrit-tts","meter":meter,
+            })
+
+            explanation=lesson.get("explanation")
+            if include_explanation and explanation:
+                configured=set(_voice.tts.status().get("languages") or [])
+                if language in configured:
+                    ex_id=str(uuid.uuid4());ex_path=out_dir/(ex_id+".wav")
+                    try:
+                        resolved=_voice.tts.speak(explanation,ex_path,language=language)
+                        segments.append({
+                            "kind":"explanation","language":language,"audio_id":ex_id,
+                            "audio_url":"/api/voice/audio?id="+ex_id,
+                            "output_path":resolved,"provider":"ai4bharat-indic-tts",
+                        })
+                    except (RuntimeError,ValueError) as exc:
+                        segments.append({
+                            "kind":"explanation","language":language,"available":False,
+                            "error":str(exc),"provider":"ai4bharat-indic-tts",
+                        })
+                else:
+                    segments.append({
+                        "kind":"explanation","language":language,"available":False,
+                        "error":"local explanation TTS is not configured for this language",
+                        "provider":"ai4bharat-indic-tts",
+                    })
+            return self._json(200,{
+                "reference":lesson["reference"],
+                "performance":lesson["performance"],
+                "segments":segments,
+                "navigation":lesson["navigation"],
+                "default_conversation_language":"or",
+            })
+
         if post_path == "/api/gita/search":
             query_text=str(data.get("query") or "").strip()
             if not query_text:return self._json(400,{"error":"query is required"})
