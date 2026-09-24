@@ -93,5 +93,12 @@
     "gestures": "MediaPipe Gesture Recognizer runs on-device with bundled hand/gesture model; pose-based hand raise remains a fallback",
     "spatial": "Phone IMU/orientation metadata is attached to curated keyframes for BHOOMIPUTRA/photogrammetry correlation; it is not treated as SLAM, depth, or survey-grade pose by itself",
     "learning_verification": "Distilled HAWKEYE candidates can run through Rishi Live -> Garuda -> Gautama -> Gyan proposal gate without raw-media transfer; automatic model escalation remains local-only"
+  },
+  "model_policy": {
+    "pc_qwen_allowed": true,
+    "mobile_qwen_allowed": false,
+    "mobile_qwen_dependency": false,
+    "mobile_cloud_mode": "verified-free-only",
+    "mobile_cloud_credentials": "PC-owned or short-lived device token only"
   }
 }
