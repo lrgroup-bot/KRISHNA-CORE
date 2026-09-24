@@ -4632,7 +4632,7 @@ Evidence:
             "avatar": self.agi.avatar.set_state("WISDOM", source="gita-gyan-revision"),
         }
 
-    def gita_verse(self, chapter, verse, language="or", depth="deep", explain=True):
+    def gita_verse(self, chapter, verse, language="or", depth="deep", explain=True, apply_performance=True):
         try:
             out = self.gita_shloka.verse(
                 int(chapter), int(verse), language=language, depth=depth,
@@ -4643,7 +4643,8 @@ Evidence:
                 raise
             self.memory.audit("gita_gyan", "explanation_fallback", f"{type(exc).__name__}: {exc}")
             out = self.gita_shloka.verse(int(chapter), int(verse), language=language, depth=depth, explain=None)
-        self._apply_gita_performance(out)
+        if apply_performance:
+            self._apply_gita_performance(out)
         self.memory.audit("gita_gyan", "verse", out["reference"])
         return out
 
