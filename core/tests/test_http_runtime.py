@@ -813,8 +813,8 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"sandbox"})[0],200)
         self.assertEqual(self.call("/api/narad/workflows/execute",{"workflow_id":wid})[0],200)
         self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"stable"})[0],403)
-        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"verified","verified":True})[0],200)
-        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"stable","verified":True})[0],200)
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"verified","verified":True,"approved":True})[0],200)
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"stable","verified":True,"approved":True})[0],200)
         self.assertTrue(self.call("/api/narad/history")[1]["history"])
 
     def test_narad_webhook_and_connection_reference_contract(self):
