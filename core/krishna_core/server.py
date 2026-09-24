@@ -147,6 +147,26 @@ def _on_local_krishna_wake(event):
     payload["reply_text"]=orch.agi.character.ODIA_WAKE
     payload["owner_address"]=orch.agi.character.OWNER_ADDRESS
     payload["avatar_state"]="WAKING"
+    try:
+        gita_status=orch.gita_gyan.status()
+        today=time.strftime("%Y-%m-%d")
+        if gita_status.get("last_date") != today:
+            lesson=orch.gita_daily_lesson(
+                language=gita_status.get("preferred_language") or "or",
+                depth="deep",
+                mark_complete=True,
+            )
+            payload["daily_gita"]=lesson
+            payload["avatar_state"]="WISDOM"
+            lesson_text=str(lesson.get("explanation") or lesson.get("trusted_summary_en") or "").strip()
+            payload["reply_text"]=(
+                orch.agi.character.ODIA_WAKE+"\n\n"
+                +lesson["reference"]+"\n"
+                +lesson["sanskrit"]
+                +(("\n\n"+lesson_text) if lesson_text else "")
+            )
+    except Exception as exc:
+        orch.memory.audit("gita_gyan","wake_lesson_failed",f"{type(exc).__name__}: {exc}")
     return orch.handle_event(
         "wakeword","krishna_detected","Local wake word Krishna detected",
         severity="notice",project="system",payload=payload,
@@ -2261,9 +2281,29 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception as exc:
                         vision_evidence.append({"attachment_id":str(aid),"error":f"{type(exc).__name__}: {exc}"})
                 vision_text="\n".join("- "+x.get("analysis",x.get("error","")) for x in vision_evidence) if vision_evidence else None
-                # KRISHNA selects internal capabilities automatically. Clients never
-                # need to choose Sudarshan/Karma/Vishwakarma manually.
-                if orch._looks_like_work_request(msg):
+                # GITA-GYAN is a native KRISHNA capability. Keep daily scripture
+                # requests out of generic project-work routing so the canonical verse,
+                # learning progress and WISDOM avatar state remain authoritative.
+                normalized_msg=" ".join(msg.lower().split())
+                gita_request_tokens=("gita","geeta","गीता","ଗୀତା","shloka","sloka","श्लोक","ଶ୍ଲୋକ")
+                gita_daily_markers=("today","daily","aaj","आज","ଆଜି","today's","todays")
+                gita_revision_markers=("revise","revision","review","yesterday","पुनरावृत्ति","ପୁନରାବୃତ୍ତି")
+                is_gita_request=any(token in normalized_msg for token in gita_request_tokens)
+                if is_gita_request and any(token in normalized_msg for token in gita_revision_markers):
+                    out=orch.gita_revision(int(data.get("limit") or 7))
+                    out.update({"text":"GITA-GYAN revision ready.","capability":"gita-gyan","task_id":str(uuid.uuid4())})
+                elif is_gita_request and (
+                    any(token in normalized_msg for token in gita_daily_markers)
+                    or normalized_msg.strip() in gita_request_tokens
+                ):
+                    language="hi" if any(x in normalized_msg for x in ("hindi","हिंदी","हिन्दी")) else "or"
+                    depth="brief" if any(x in normalized_msg for x in ("brief","short","संक्षेप","ଛୋଟ")) else "deep"
+                    lesson=orch.gita_daily_lesson(language,depth,True)
+                    text_parts=[lesson["reference"],lesson["sanskrit"]]
+                    if lesson.get("explanation"):text_parts.append(lesson["explanation"])
+                    elif lesson.get("trusted_summary_en"):text_parts.append(lesson["trusted_summary_en"])
+                    out={**lesson,"text":"\n\n".join(text_parts),"capability":"gita-gyan","task_id":str(uuid.uuid4())}
+                elif orch._looks_like_work_request(msg):
                     out = orch.handle_managed_request(msg, project, data.get("source", "pc"), data.get("chat_id"), vision_text)
                 else:
                     out = orch.handle(msg, project, data.get("source", "pc"), data.get("chat_id"), vision_text)
