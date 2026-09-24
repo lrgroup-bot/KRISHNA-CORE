@@ -105,10 +105,22 @@ class ModelRouter:
         if model:
             return self._ollama_generate(str(model).strip(),prompt)
         status=self.local_model_status()
-        selected=status.get("selected_model")
-        if not selected:
-            raise RuntimeError("no preferred KRISHNA Ollama model is installed: "+json.dumps(status))
-        return self._ollama_generate(selected,prompt)
+        ordered=[status.get("selected_model"),*self.local_model_candidates()]
+        candidates=[]
+        for candidate in ordered:
+            candidate=str(candidate or "").strip()
+            if candidate and candidate not in candidates:candidates.append(candidate)
+        errors={}
+        for candidate in candidates:
+            try:
+                out=self._ollama_generate(candidate,prompt)
+                if str(out).strip():return out
+                errors[candidate]="empty response"
+            except Exception as exc:
+                errors[candidate]=f"{type(exc).__name__}: {exc}"
+        raise RuntimeError("no preferred KRISHNA Ollama model succeeded: "+json.dumps({
+            **status,"attempted_models":candidates,"attempt_errors":errors,
+        }))
 
     def gpt4all(self,prompt,model=None):
         model=model or os.getenv("KRISHNA_GPT4ALL_MODEL","")
