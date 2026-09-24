@@ -151,10 +151,10 @@ class KrishnaProjectAudit:
         main=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',html)
         menu=main.group(1) if main else ""
         buttons=menu.count("<button")
-        correct=(buttons==3 and all(x in menu for x in ("showView('home')","showView('sudarshan')","showView('plugins')")))
+        correct=(buttons==4 and all(x in menu for x in ("showView('home')","showView('sudarshan')","showView('workingGods')","showView('plugins')")))
         forbidden=[x for x in ("KABACH","Garuda","Garudanetra","BRAHMAGYAN","Gyan-Bhandar","NARAD","System") if x in menu]
         self.add("ui","minimal MAIN MENU","PASS" if correct and not forbidden else "FAIL",
-                 "MAIN MENU is KRISHNA / Sudarshan / Plugins" if correct and not forbidden else "owner-visible menu contract mismatch",
+                 "MAIN MENU is KRISHNA / Sudarshan / Working Gods / Plugins" if correct and not forbidden else "owner-visible menu contract mismatch",
                  button_count=buttons,forbidden=forbidden)
 
         ids=set(re.findall(r'id="([^"]+)"',html))
