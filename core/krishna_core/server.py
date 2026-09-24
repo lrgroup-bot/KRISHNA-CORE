@@ -1,4 +1,4 @@
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler
 import json, time, threading, base64, sys, uuid, os, mimetypes
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -35,6 +35,7 @@ from .science_atlas import ScienceFrontierScheduler
 from .brahma_memory_intelligence import BrahmaConsolidationScheduler
 from .windows_desktop_fabric import WindowsDesktopFabric
 from .android_test_fabric import AndroidTestFabric
+from .http_server_runtime import KrishnaThreadingHTTPServer
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -3949,7 +3950,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = ThreadingHTTPServer((settings.host, settings.port), Handler)
+    server = KrishnaThreadingHTTPServer((settings.host, settings.port), Handler)
     if os.getenv("KRISHNA_LAN_DISCOVERY","0") == "1":
         _lan_discovery = LanDiscoveryService(settings.port)
         _lan_discovery.start()
