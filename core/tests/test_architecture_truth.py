@@ -18,9 +18,11 @@ class ArchitectureTruthAuditTests(unittest.TestCase):
             (root/"core"/"krishna_core"/"alpha.py").write_text("VALUE=1\n",encoding="utf-8")
             (root/"core"/"krishna_core"/"beta.py").write_text("from .alpha import VALUE\n",encoding="utf-8")
             (root/"core"/"krishna_core"/"orphan.py").write_text("VALUE=3\n",encoding="utf-8")
+            (root/"core"/"krishna_core"/"data").mkdir()
+            (root/"core"/"krishna_core"/"data"/"corpus.json").write_text("{}",encoding="utf-8")
             (root/"GARUDANETRA_SOURCE"/"core"/"krishna_core"/"alpha.py").write_text("VALUE=1\n",encoding="utf-8")
             (root/"KRISHNA_SOURCE_TREE.txt").write_text(
-                "core\\krishna_core\\alpha.py\ncore\\krishna_core\\old.py\n",
+                "core\\krishna_core\\alpha.py\ncore\\krishna_core\\old.py\ncore\\krishna_core\\data\\corpus.json\n",
                 encoding="utf-8",
             )
             ledger={
@@ -48,6 +50,10 @@ class ArchitectureTruthAuditTests(unittest.TestCase):
             )
             self.assertIn(
                 "core\\krishna_core\\old.py",
+                report["source_tree_drift"]["stale_entries"],
+            )
+            self.assertNotIn(
+                "core\\krishna_core\\data\\corpus.json",
                 report["source_tree_drift"]["stale_entries"],
             )
             self.assertTrue(any(x["module"]=="orphan" for x in report["orphan_candidates"]))
