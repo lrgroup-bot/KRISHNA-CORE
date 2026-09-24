@@ -6,10 +6,13 @@
     richBusy: false,
     handBusy: false,
     geminiBusy: false,
+    freeCloudBusy: false,
     rich: null,
     handResult: null,
     localSummary: "",
     geminiAnalysis: "",
+    freeCloudAnalysis: "",
+    lastFreeCloudSignature: "",
     aiMode: "LOCAL",
     cloudApproved: false,
     lockedTrackingId: null,
@@ -32,6 +35,7 @@
     richTimer: null,
     handTimer: null,
     geminiTimer: null,
+    freeCloudTimer: null,
     liveSocket: null,
     liveVideoTimer: null,
     liveAudioContext: null,
@@ -376,29 +380,52 @@
     ].filter(Boolean).join("\n");
   }
 
-  async function geminiTick(force=false){
-    if(!cameraActive()||state.aiMode==="LOCAL"||state.geminiBusy||!state.cloudApproved||!window.Krishna||!Krishna.hawkeyeGeminiAnalyze)return;
-    const sig=sceneSignature();if(state.aiMode==="AUTO"&&!force&&sig&&sig===state.lastGeminiSignature)return;
-    const meta=geminiMetadata();
+  async function freeCloudTick(force=false){
+    if(!cameraActive()||state.aiMode==="LOCAL"||state.freeCloudBusy||!state.cloudApproved||!window.Krishna||!Krishna.hawkeyeFreeCloudAnalyze)return;
+    const sig=sceneSignature();if(state.aiMode==="AUTO"&&!force&&sig&&sig===state.lastFreeCloudSignature)return;
+    const meta=geminiMetadata({source:"HAWKEYE_MOBILE_FREE_CLOUD"});
     if(meta.contains_biometrics||meta.contains_credentials||meta.private_document)return;
     const frame=await captureBestFrame(720,0.60,3);if(!frame||!frame.b64)return;
-    state.geminiBusy=true;state.lastGeminiSignature=sig;
+    const provider=state.aiMode==="OPENROUTER"?"openrouter":(state.aiMode==="GEMINI"?"gemini":"auto");
+    state.freeCloudBusy=true;state.lastFreeCloudSignature=sig;
     try{
-      const out=JSON.parse(Krishna.hawkeyeGeminiAnalyze(frame.b64,"image/jpeg",geminiPrompt(),JSON.stringify(meta)));
+      const out=JSON.parse(Krishna.hawkeyeFreeCloudAnalyze(
+        frame.b64,"image/jpeg",geminiPrompt(),JSON.stringify(meta),
+        provider,"hawkeye_vision","",!!force
+      ));
       if(out.error)throw new Error(out.error);
-      state.geminiAnalysis=String(out.analysis||"").trim();
+      state.freeCloudAnalysis=String(out.analysis||"").trim();
       const local=state.localSummary?state.localSummary+"\n\n":"";
-      if(state.geminiAnalysis)byId("cameraAnalysis").textContent=local+"Gemini: "+state.geminiAnalysis;
-    }catch(e){if(force&&typeof reply==="function")reply("Gemini: "+e.message,"warn");}
-    finally{state.geminiBusy=false;}
+      const label=String(out.provider||"free-cloud")+(out.model?" · "+String(out.model):"");
+      let review="";
+      if(Array.isArray(out.reviews)&&out.reviews.length){
+        review="\n\nReviewers: "+out.reviews.map(x=>String(x.provider_family||x.provider||"free")).join(", ");
+      }
+      if(state.freeCloudAnalysis)byId("cameraAnalysis").textContent=local+label+": "+state.freeCloudAnalysis+review;
+    }catch(e){if(force&&typeof reply==="function")reply("HAWKEYE free cloud: "+e.message,"warn");}
+    finally{state.freeCloudBusy=false;}
   }
 
+  async function geminiTick(force=false){return freeCloudTick(force);}
+
   function toggleAI(){
-    const next=state.aiMode==="LOCAL"?"AUTO":(state.aiMode==="AUTO"?"GEMINI":"LOCAL");
+    const order=["LOCAL","AUTO","OPENROUTER","GEMINI"];
+    const at=Math.max(0,order.indexOf(state.aiMode));
+    const next=order[(at+1)%order.length];
     state.aiMode=next;state.cloudApproved=next!=="LOCAL";
-    const btn=byId("cameraAI");if(btn){btn.textContent=next==="LOCAL"?"AI:LOCAL":("AI:"+next);btn.classList.toggle("active",next!=="LOCAL");}
-    if(next==="LOCAL"){state.geminiAnalysis="";if(typeof reply==="function")reply("HAWKEYE cloud reasoning is off; camera processing remains local.","good");}
-    else {if(typeof reply==="function")reply("HAWKEYE "+next+" enabled for selected non-sensitive keyframes only.","good");setTimeout(()=>geminiTick(true),80);}
+    const btn=byId("cameraAI");if(btn){btn.textContent="AI:"+next;btn.classList.toggle("active",next!=="LOCAL");}
+    if(next==="LOCAL"){
+      state.freeCloudAnalysis="";state.geminiAnalysis="";
+      if(typeof reply==="function")reply("HAWKEYE cloud reasoning is off; ML Kit and MediaPipe stay local.","good");
+    }else{
+      const note=next==="AUTO"
+        ?"AUTO uses verified zero-cost OpenRouter vision first, then Gemini fallback; selected non-sensitive frames only."
+        :(next==="OPENROUTER"
+          ?"OpenRouter vision uses the role-selected model only if the live catalog still reports zero cost."
+          :"Gemini selected-keyframe mode enabled; sensitive scenes remain local.");
+      if(typeof reply==="function")reply(note,"good");
+      setTimeout(()=>freeCloudTick(true),80);
+    }
   }
 
   function bytesToBase64(bytes){
@@ -614,6 +641,7 @@
       ai_mode:state.aiMode,
       rich_perception:richMetadata(),
       gemini_analysis:String(state.geminiAnalysis||"").slice(0,2000),
+      free_cloud_analysis:String(state.freeCloudAnalysis||"").slice(0,2000),
       translation:{enabled:state.translationEnabled,target:state.translationTarget,text:String(state.translationText||"").slice(0,1500)},
       gestures:{enabled:state.gesturesEnabled,scope:state.handResult?"mediapipe-hand-finger":"upper-body-pose-fallback",last:state.lastGesture},
       torch_on:state.torchOn,
@@ -759,16 +787,16 @@
     state.richTimer=setInterval(richPerception,2600);
     state.handTimer=setInterval(handPerception,900);
     state.learnTimer=setInterval(()=>learningTick(false),6000);
-    state.geminiTimer=setInterval(()=>geminiTick(false),8000);
+    state.freeCloudTimer=setInterval(()=>freeCloudTick(false),8000);
     setTimeout(detect,300);setTimeout(richPerception,650);
   }
   function deactivate(){
     if(!state.active)return;state.active=false;
-    clearInterval(state.objectTimer);clearInterval(state.learnTimer);clearInterval(state.richTimer);clearInterval(state.handTimer);clearInterval(state.geminiTimer);
-    state.objectTimer=state.learnTimer=state.richTimer=state.handTimer=state.geminiTimer=null;
+    clearInterval(state.objectTimer);clearInterval(state.learnTimer);clearInterval(state.richTimer);clearInterval(state.handTimer);clearInterval(state.geminiTimer);clearInterval(state.freeCloudTimer);
+    state.objectTimer=state.learnTimer=state.richTimer=state.handTimer=state.geminiTimer=state.freeCloudTimer=null;
     stopGeminiLive();
     if(state.torchOn&&fieldStream){try{const t=fieldStream.getVideoTracks()[0];if(t&&t.applyConstraints)t.applyConstraints({advanced:[{torch:false}]});}catch(_){}}
-    state.objects=[];state.researchQueries=[];state.lastLearnText="";state.rich=null;state.handResult=null;state.localSummary="";state.geminiAnalysis="";
+    state.objects=[];state.researchQueries=[];state.lastLearnText="";state.rich=null;state.handResult=null;state.localSummary="";state.geminiAnalysis="";state.freeCloudAnalysis="";state.lastFreeCloudSignature="";
     state.aiMode="LOCAL";state.cloudApproved=false;state.lockedTrackingId=null;
     state.translationEnabled=false;state.translationText="";state.translationSource="";state.translationBusy=false;
     state.gesturesEnabled=false;state.gestureCandidate="NONE";state.gestureCandidateCount=0;state.lastGesture="NONE";state.torchOn=false;
@@ -784,5 +812,5 @@
 
   setInterval(()=>{if(cameraActive())activate();else deactivate();},500);
 
-  window.HawkeyeObserverUI={isLearning,toggleLearn,research,photo,record,detect,richPerception,learningTick,onResearchResult,toggleAI,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
+  window.HawkeyeObserverUI={isLearning,toggleLearn,research,photo,record,detect,richPerception,learningTick,onResearchResult,toggleAI,freeCloudTick,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
 })();
