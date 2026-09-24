@@ -197,6 +197,9 @@ class ArchitectureContracts(unittest.TestCase):
         aside=web.split('<aside class="side">',1)[1].split('</aside>',1)[0]
         for visible in ("KRISHNA","Sudarshan","Plugins","PROJECTS","CHATS"):
             self.assertIn(visible,aside)
+        self.assertNotIn("Working Gods",aside)
+        requirements=self.text("core/requirements/krishna_chat_requirements.json")
+        self.assertNotIn("Working Gods",requirements)
         for internal in ("KABACH","Garuda","Garudanetra","BRAHMAGYAN","Gyan-Bhandar","NARAD","Specialists","Developer","UI Guardian","Work progress","Activity","System"):
             self.assertNotIn("<span class=\"txt\">"+internal+"</span>",aside)
         self.assertIn('"project.rename"',orch)
