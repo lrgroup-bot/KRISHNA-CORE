@@ -255,6 +255,7 @@ class Orchestrator:
             retry_dispatch=self._brahma_qc_retry,
             investigate=self._brahma_qc_investigate,
             consult_krishna=self._brahma_qc_consult,
+            repair_known=self._brahma_qc_known_repair,
         )
         self.brahma_process_qc.attach()
         self.hawkeye_observer = HawkeyeLearningObserver(
@@ -3161,6 +3162,38 @@ Project: {payload.get('project')}
         result=self._route_model(prompt,privacy="local_only",project="KRISHNA",actor="brahma-qc-consult")
         return str((result or {}).get("text") or "").strip()
 
+    def _brahma_qc_known_repair(self,project,error,failed_action):
+        project=str(project or "KRISHNA")
+        failed_action=str(failed_action or "").strip()
+        if not failed_action or not self.projects.get(project):
+            return {"available":False,"reason":"no registered project repair path"}
+        registered={x["name"]:x for x in self.actions.list(project)}
+        if failed_action not in registered:
+            return {"available":False,"reason":"failed action has no registered shadow-repair implementation"}
+        result=self._run_shadow_repair_impl(
+            project,
+            "BRAHMA QC: "+str(error or "")[:1200],
+            failed_action,
+            [],
+        )
+        if result.get("promotable") and result.get("candidate_root"):
+            prepared=self._prepare_promotion_impl(project,result["candidate_root"],None)
+            return {
+                "available":True,
+                "candidate_ready":True,
+                "repair_id":result.get("repair_id"),
+                "status":result.get("status"),
+                "verification":result.get("verification"),
+                "promotion_token":prepared.get("promotion_token"),
+                "diff":prepared.get("diff"),
+            }
+        return {
+            "available":True,
+            "candidate_ready":False,
+            "status":result.get("status"),
+            "verification":result.get("verification"),
+        }
+
     def brahma_process_status(self):
         return self.brahma_process_qc.status()
 
@@ -3253,6 +3286,8 @@ Project: {payload.get('project')}
 
     def close(self):
         """Release every database owned by this runtime, including durable mission state."""
+        try:self.brahma_process_qc.detach()
+        except Exception:pass
         for obj in (
             self.action_bus,self.resource_locks,self.queue,self.mission_budgets,self.missions,self.lifecycle_bus,
             self.commitments,self.task_ledger,self.memory,
