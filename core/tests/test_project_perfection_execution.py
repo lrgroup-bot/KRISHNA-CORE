@@ -128,6 +128,15 @@ class ExecutionTests(unittest.TestCase):
         self.assertTrue(out["passed"])
         self.assertEqual(out["attempts"],2)
 
+    def test_cleanup_sandbox_removes_tree_without_context_manager_cleanup_race(self):
+        with tempfile.TemporaryDirectory() as td:
+            sandbox=Path(td)/"clean-install"
+            sandbox.mkdir()
+            (sandbox/"KRISHNA.exe").write_bytes(b"test")
+            out=ArtifactExecutor._cleanup_sandbox(sandbox,attempts=2,delay_seconds=0)
+            self.assertTrue(out["passed"])
+            self.assertFalse(sandbox.exists())
+
     def test_database_chaos_uses_isolated_copy_and_recovers(self):
         import sqlite3
         with tempfile.TemporaryDirectory() as td:
