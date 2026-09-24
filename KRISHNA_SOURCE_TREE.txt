@@ -296,6 +296,7 @@ core\tests\test_garuda_science_sources.py
 core\tests\test_garudanetra_browser_workspace_contract.py
 core\tests\test_garudanetra_research.py
 core\tests\test_garudanetra_session.py
+core\tests\test_gita_gyan.py
 core\tests\test_gnn_trainer.py
 core\tests\test_graph_dataset.py
 core\tests\test_graph_intelligence.py
@@ -444,6 +445,7 @@ scripts\CONFIGURE_KRISHNA_PRIVATE_REMOTE.ps1
 scripts\DEPLOY_KRISHNA_ONCE.ps1
 scripts\FINISH_KRISHNA_PROJECT.ps1
 scripts\INSTALL_AVATAR_ENGINE.ps1
+scripts\INSTALL_KRISHNA_SANSKRIT_TTS.ps1
 scripts\INSTALL_VIDEO_AVATAR_ENGINES.ps1
 scripts\KRISHNA_GUARDIAN.ps1
 scripts\PATCH_KRISHNA_V3.ps1
@@ -453,6 +455,7 @@ scripts\SETUP_KRISHNA_VOICE.ps1
 scripts\voice\krishna_wake_worker.py
 scripts\voice\indic_tts_worker.py
 scripts\voice\indicconformer_worker.py
+scripts\voice\sanskrit_tts_worker.py
 scripts\INSTALL_KRISHNA_WAKE_RUNTIME.ps1
 scripts\INSTALL_KRISHNA_INDIC_TTS.ps1
 scripts\INSTALL_KRISHNA_INDIC_STT.ps1
