@@ -193,6 +193,28 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertNotIn('findings=@($findings)',text)
         self.assertIn('OPENMONTAGE_BRIDGE_READY',text)
 
+    def test_e_drive_cleanup_audit_is_read_only_and_covers_named_roots(self):
+        text=(ROOT/"scripts"/"AUDIT_KRISHNA_E_DRIVE.ps1").read_text(encoding="utf-8-sig")
+        for token in (
+            'E:\\KRISHNA',
+            'E:\\KRISHNA-SOURCE',
+            'E:\\Krishna-The',
+            'E:\\Krishna-The GOD',
+            'E:\\KRISHNA-CBM',
+            'E:\\KRISHNA-E2E-PROBE',
+            'E:\\KRISHNA-AUDIT',
+            'E:\\New folder',
+            '8765','8766','8876','11434',
+            'CANONICAL SOURCE','ACTIVE RUNTIME','REQUIRED DATA','BACKUP','CACHE',
+            'TEST/PROBE','OLD/STAGING','DUPLICATE','UNKNOWN - DO NOT DELETE',
+            'PRE-CANONICAL-SYNC-20260923-213620',
+            'automatic_delete_allowed=$false',
+            'deletion_performed=$false',
+        ):
+            self.assertIn(token,text)
+        for destructive in ('Remove-Item','Stop-Process','taskkill.exe','rd /s','rmdir /s'):
+            self.assertNotIn(destructive,text)
+
     def test_start_output_uses_ascii_separators(self):
         text=(ROOT/"scripts"/"START_KRISHNA.ps1").read_text(encoding="utf-8-sig")
         self.assertIn('| discovery ON | pairing required',text)
