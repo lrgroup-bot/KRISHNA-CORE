@@ -3192,15 +3192,9 @@ class Handler(BaseHTTPRequestHandler):
                 sensor_context=dict(sensor_context);sensor_context["mobile_session_id"]=mobile_session_id;sensor_context["curator_selected"]=True
                 pc_evidence=orch.hawkeye.store_mobile_evidence(session_id,raw,content_type,sensor_context)
                 diagnostic=orch.hawkeye_diagnostic.should_activate(goal)
-                free_cloud=sensor_context.get("free_cloud") or {}
-                if not isinstance(free_cloud,dict):free_cloud={}
-                cloud_analysis=str(free_cloud.get("analysis") or "").strip()
-                cloud_recorded=bool(
-                    free_cloud.get("pc_recorded")
-                    and free_cloud.get("pc_observation_id")
-                    and cloud_analysis
-                    and not sensor_context.get("force_pc_vision",False)
-                )
+                free_cloud=_hawkeye_free_cloud.recorded_pc_finding(sensor_context)
+                cloud_recorded=bool(free_cloud)
+                cloud_analysis=str((free_cloud or {}).get("analysis") or "").strip()
                 if modality=="image":
                     if cloud_recorded:
                         latest=orch.hawkeye.get_live_session(session_id)
