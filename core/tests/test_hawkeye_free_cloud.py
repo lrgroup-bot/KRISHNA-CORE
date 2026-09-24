@@ -35,7 +35,7 @@ class FakeGemini:
     def __init__(self):
         self.calls=[]
     def status(self):
-        return {"configured":True,"provider":"google-gemini"}
+        return {"configured":True,"provider":"google-gemini","free_only_declared":True}
     def analyze_image(self,data,content_type,prompt,metadata=None):
         self.calls.append((data,content_type,prompt,metadata))
         return {"model":"gemini-free","analysis":"Observed: machine housing."}
