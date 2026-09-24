@@ -184,8 +184,10 @@ try{
   & $npmCmd.Source run build
   if($LASTEXITCODE -ne 0){throw "SPATIAL UI BUILD FAILED"}
 }finally{Pop-Location}
-if((git -C $Source status --porcelain)){
-  throw "SPATIAL UI BUILD DIRTY THE SOURCE REPOSITORY. Generated Node artifacts must remain ignored and package-lock creation is disabled."
+$spatialDirty=(git -C $Source status --porcelain)
+if($spatialDirty){
+  $dirtyDetail=($spatialDirty -join " | ")
+  throw ("SPATIAL UI BUILD DIRTY THE SOURCE REPOSITORY. Generated artifacts must remain ignored and package-lock creation is disabled. Dirty paths: " + $dirtyDetail)
 }
 if(!(Test-Path $spatialIndex)){throw "SPATIAL UI INDEX MISSING AFTER BUILD: $spatialIndex"}
 $spatialText=Get-Content -LiteralPath $spatialIndex -Raw
