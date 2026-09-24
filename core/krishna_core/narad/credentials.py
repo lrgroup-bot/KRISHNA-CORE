@@ -43,8 +43,18 @@ class NaradCredentialVault:
             return
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8-sig"))
+            if not isinstance(raw,dict):
+                raise ValueError("Narad credential metadata root must be an object")
+            schema=raw.get("schema",2)
+            if schema!=2:
+                raise ValueError(f"unsupported Narad credential schema: {schema!r}")
+            credentials=raw.get("credentials",[])
+            if not isinstance(credentials,list):
+                raise ValueError("Narad credential metadata credentials must be a list")
             refs = {}
-            for x in raw.get("credentials", []):
+            for x in credentials:
+                if not isinstance(x,dict):
+                    raise ValueError("Narad credential entry must be an object")
                 if not x.get("id"):
                     continue
                 row = dict(x)
