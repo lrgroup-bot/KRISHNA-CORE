@@ -157,7 +157,8 @@ class GitaGyan:
     @staticmethod
     def _date_string(value=None) -> str:
         if value is None:
-            return date.today().isoformat()
+            timezone_name = str(os.getenv("KRISHNA_TIMEZONE", "Asia/Kolkata") or "Asia/Kolkata")
+            return datetime.now(ZoneInfo(timezone_name)).date().isoformat()
         if isinstance(value, datetime):
             return value.date().isoformat()
         if isinstance(value, date):
@@ -367,6 +368,64 @@ class GitaGyan:
             self._save()
         return row
 
+    def ask_question(self, verse_id: str, question: str, language=None) -> dict:
+        vid = str(verse_id or "").strip().upper()
+        q = str(question or "").strip()
+        if vid not in self._by_id:
+            raise KeyError("Bhagavad Gita verse not found")
+        if not q:
+            raise ValueError("question is required")
+        lang = self._normalize_language(language or self.state.get("preferred_language") or "or")
+        row = self._by_id[vid]
+        lesson = self.lesson_for_id(vid, language=lang, deep=True)
+        existing = lesson.get("explanation") or {}
+        if not self.explainer:
+            answer = (
+                "ସ୍ଥାନୀୟ ବ୍ୟାଖ୍ୟା ମଡେଲ୍ ଉପଲବ୍ଧ ହେଲେ KRISHNA ଏହି ପ୍ରଶ୍ନର ଗଭୀର ଉତ୍ତର ଦେବ।"
+                if lang == "or" else
+                "स्थानीय व्याख्या मॉडल उपलब्ध होने पर KRISHNA इस प्रश्न का गहरा उत्तर देगा।"
+            )
+            degraded = True
+        else:
+            prompt = (
+                "You are KRISHNA GITA-GYAN answering a follow-up question about one Bhagavad Gita verse. "
+                f"Answer in natural {self.SUPPORTED_LANGUAGES[lang]}. "
+                "Separate the canonical verse from interpretation. Do not attribute a view to a named philosophical school unless a source for that school is supplied. "
+                "If the question asks for modern practical application, distinguish the ancient textual idea from your modern application. "
+                "Be thoughtful and concrete, not dogmatic. "
+                f"\nVERSE ID: {row['id']}\nSANSKRIT:\n{row['sanskrit']}"
+                f"\nPUBLIC-DOMAIN ENGLISH:\n{row['english']}"
+                f"\nCACHED TEACHING AID:\n{json.dumps(existing, ensure_ascii=False)}"
+                f"\nUSER QUESTION:\n{q}\n"
+            )
+            try:
+                answer = str(self.explainer(prompt) or "").strip()
+                if not answer:
+                    raise ValueError("local explainer returned an empty answer")
+                degraded = False
+            except Exception as exc:
+                answer = (
+                    "ସ୍ଥାନୀୟ ମଡେଲ୍ ଏବେ ଉତ୍ତର ଦେଇପାରିଲା ନାହିଁ।"
+                    if lang == "or" else
+                    "स्थानीय मॉडल अभी उत्तर नहीं दे सका।"
+                )
+                answer += f" ({type(exc).__name__})"
+                degraded = True
+        record = {
+            "verse_id": vid,
+            "question": q[:8000],
+            "answer": answer[:24000],
+            "language": lang,
+            "degraded": degraded,
+            "at": time.time(),
+        }
+        with self._lock:
+            self._healthy()
+            self.state["questions"].append(record)
+            self.state["questions"] = self.state["questions"][-500:]
+            self._save()
+        return record
+
     def revision(self, language=None, limit=7, deep=False) -> dict:
         lang = self._normalize_language(language or self.state.get("preferred_language") or "or")
         try:
@@ -521,8 +580,10 @@ class GitaDailyScheduler:
             return {"status": "failed", "date": day, "error": self.last_error}
 
     def _loop(self):
-        while not self._stop.wait(self.poll_seconds):
+        while not self._stop.is_set():
             self.run_due()
+            if self._stop.wait(self.poll_seconds):
+                break
 
     def start(self):
         if not self.enabled:
@@ -532,7 +593,6 @@ class GitaDailyScheduler:
         self._stop.clear()
         self._thread = threading.Thread(target=self._loop, name="krishna-gita-daily", daemon=True)
         self._thread.start()
-        self.run_due()
         return self.status()
 
     def stop(self):
