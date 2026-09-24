@@ -18,6 +18,14 @@ class KrishnaPersonaTests(unittest.TestCase):
         self.assertIn("use only 'Partha'",prompt)
         self.assertIn("କୁହ ପାର୍ଥ, କଣ ହେଲା?",prompt)
 
+    def test_odia_is_global_default_conversation_language(self):
+        status=KrishnaCharacterPersona.status()
+        self.assertEqual(status["default_conversation_language"],"or")
+        self.assertEqual(status["default_conversation_locale"],"or-IN")
+        self.assertTrue(status["global_odia_default"])
+        prompt=KrishnaCharacterPersona.prompt_contract()
+        self.assertIn("Global default conversation language is natural Odia",prompt)
+
     def test_scripture_grounding_is_explicit(self):
         refs=KrishnaCharacterPersona.status()["scripture_grounding"]
         self.assertIn("bhagavad_gita_2_10",refs)
@@ -53,6 +61,14 @@ class AvatarAgeProfileTests(unittest.TestCase):
 
 
 class WiringContractTests(unittest.TestCase):
+    def test_avatar_fabric_accepts_canonical_gita_state_commands(self):
+        from krishna_core.avatar_fabric import AvatarFabric
+        avatar=AvatarFabric()
+        out=avatar.set_state("WISDOM",source="gita-test",performance_id="gita-02-047")
+        self.assertEqual(out["state"],"WISDOM")
+        self.assertEqual(out["params"]["performance_id"],"gita-02-047")
+        self.assertFalse(out["visible_animation_verified"])
+
     def test_avatar_fabric_exposes_partha_and_scripture_style(self):
         text=(Path(__file__).resolve().parents[1]/"krishna_core"/"avatar_fabric.py").read_text(encoding="utf-8-sig")
         self.assertIn('OWNER_ADDRESS="Partha"',text)
