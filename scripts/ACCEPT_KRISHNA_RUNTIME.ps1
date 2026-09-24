@@ -277,7 +277,87 @@ try{
     Add-Check "Zero-cost cloud guard" "FAIL" "OpenRouter free-cloud fail-closed policy is incomplete" $zero
   }
 
+  # KRISHNA-PARTHA global character + GITA session contract.
+  $character=Get-Json "/api/character"
+  $characterOk=(
+    [string]$character.owner_address -eq "Partha" -and
+    [string]$character.global_conversation_language -eq "or"
+  )
+  if($characterOk){
+    Add-Check "KRISHNA Partha + global Odia" "PASS" "Owner address is Partha and global owner-facing conversation defaults to Odia" $character
+  }else{
+    Add-Check "KRISHNA Partha + global Odia" "FAIL" "Partha-only/global-Odia character contract is not live" $character
+  }
+
+  $gita=Get-Json "/api/gita/status"
+  $gitaOk=(
+    [bool]$gita.corpus_complete -and
+    [int]$gita.available_verses -eq 700 -and
+    [bool]$gita.session.one_verse_at_a_time -and
+    -not [bool]$gita.session.auto_advance
+  )
+  if($gitaOk){
+    Add-Check "GITA-GYAN one-verse session" "PASS" "700-verse corpus live; session is owner-controlled and never auto-advances" $gita
+  }else{
+    Add-Check "GITA-GYAN one-verse session" "FAIL" "Gita corpus/session contract is incomplete" $gita
+  }
+
+  $gitaQc=Get-Json "/api/gita/performance/qc"
+  if([bool]$gitaQc.valid -and [int]$gitaQc.record_count -eq 700 -and [int]$gitaQc.unique_verse_count -eq 700){
+    Add-Check "GITA-GYAN verse performances" "PASS" "All 700 verses have valid deterministic performance records" $gitaQc
+  }else{
+    Add-Check "GITA-GYAN verse performances" "FAIL" "Verse-performance QC does not cover 700 valid unique verses" $gitaQc
+  }
+
+  $verse247=Get-Json "/api/gita/verse/2/47"
+  $verse247Ok=(
+    [int]$verse247.chapter -eq 2 -and
+    [int]$verse247.verse -eq 47 -and
+    [string]$verse247.performance.avatar_family -eq "KARMA_YOGA_TEACHER" -and
+    [bool]$verse247.one_verse_at_a_time -and
+    -not [bool]$verse247.auto_advance
+  )
+  if($verse247Ok){
+    Add-Check "GITA 2.47 deterministic state" "PASS" "2.47 resolves to KARMA_YOGA_TEACHER and waits for owner control" $verse247
+  }else{
+    Add-Check "GITA 2.47 deterministic state" "FAIL" "2.47 did not resolve to the expected one-verse performance state" $verse247
+  }
+
+  $session=Get-Json "/api/gita/session"
+  $sessionControls=@($session.controls)
+  $missingControls=@("repeat","next","previous","pause","resume","explain") | Where-Object {$_ -notin $sessionControls}
+  if($missingControls.Count -eq 0 -and -not [bool]$session.auto_advance){
+    Add-Check "GITA owner controls" "PASS" "repeat/next/previous/pause/resume/explain are available; auto-advance is disabled" $session
+  }else{
+    Add-Check "GITA owner controls" "FAIL" ("Missing controls: "+($missingControls -join ", ")) $session
+  }
+
   $voice=Get-Json "/api/voice/status"
+  $sanskritBoundaryOk=(
+    $null -ne $voice.sanskrit_tts -and
+    [string]$voice.sanskrit_tts.language -eq "sa" -and
+    [string]$voice.sanskrit_tts.config -eq "KRISHNA_SANSKRIT_TTS_CMD"
+  )
+  if($sanskritBoundaryOk){
+    Add-Check "Sanskrit recitation boundary" "PASS" "Dedicated local Sanskrit recitation provider boundary is present; no silent Hindi/Odia fallback" $voice.sanskrit_tts
+  }else{
+    Add-Check "Sanskrit recitation boundary" "FAIL" "Dedicated Sanskrit recitation boundary is missing" $voice
+  }
+  if($voice.sanskrit_tts.available){
+    try{
+      $gitaSpeak=Post-Json "/api/gita/speak" @{chapter=2;verse=47;language="or";depth="brief";explain=$false}
+      if($gitaSpeak.sanskrit_audio_verified){
+        Add-Check "Sanskrit shloka invocation" "PASS" "Dedicated local Sanskrit worker produced a verified Gita 2.47 audio receipt" $gitaSpeak.audio_segments
+      }else{
+        Add-Check "Sanskrit shloka invocation" "FAIL" "Sanskrit worker claims available but Gita 2.47 audio was not verified" $gitaSpeak
+      }
+    }catch{
+      Add-Check "Sanskrit shloka invocation" "FAIL" $_.Exception.Message $voice.sanskrit_tts
+    }
+  }else{
+    Add-Check "Sanskrit shloka invocation" "WARN" "Dedicated Sanskrit worker boundary is installed but no local Sanskrit model command is configured yet" $voice.sanskrit_tts
+  }
+
   $voiceReady=($voice.stt.available -and $voice.tts.available -and $voice.wake.available)
   Add-Check "Native Odia/Hindi voice + wake" ($(if($voiceReady){"PASS"}else{"WARN"})) ($(if($voiceReady){"Indic STT/TTS and Krishna wake runtime ready"}else{"Voice boundaries installed; Hindi/Odia model workers and/or wake assets still require runtime configuration"})) $voice
 
