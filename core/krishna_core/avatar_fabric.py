@@ -10,6 +10,29 @@ class AvatarFabric:
     """
 
     VERSION="character-bible-v1"
+    def __init__(self):
+        self.state="FLUTE"
+
+    def set_state(self,state,**params):
+        state=str(state or "").strip().upper()
+        if state not in self.STATES:
+            raise ValueError("unsupported avatar state")
+        self.state=state
+        profile=dict(self.STATES[state])
+        return {
+            "state":state,
+            "performance":profile,
+            "params":dict(params),
+            "requires_rigged_glb":state not in {"IDLE"},
+            "requires_morph_targets":state in {
+                "LISTENING","THINKING","SPEAKING","WISDOM","PLAYFUL",
+                "PROTECTION","FLUTE","DHYAN","SLEEPING","WAKING","WORKING",
+            },
+            "visible_animation_verified":False,
+            "character_bible":self.VERSION,
+            "profile_version":self.PROFILE_VERSION,
+        }
+
     PROFILE_VERSION="partha-scripture-profile-v1"
     BODY=("anigen","poseforge","motius")
     FACE=("musetalk","liveportrait","echomimic_v3","wan_animate_2","liveavatar")
@@ -213,6 +236,7 @@ class AvatarFabric:
             "body_providers":list(self.BODY),
             "face_providers":list(self.FACE),
             "mode":"provider_adapter",
+            "state":self.state,
             "character_bible":self.VERSION,
             "profile_version":self.PROFILE_VERSION,
             "states":list(self.STATES),
