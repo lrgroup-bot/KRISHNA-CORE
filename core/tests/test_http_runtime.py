@@ -74,14 +74,25 @@ class HTTPRuntimeTests(unittest.TestCase):
 
     @classmethod
     def call(cls, path, data=None, headers=None):
-        request = urllib.request.Request(f"http://127.0.0.1:{cls.port}"+path,
-            data=None if data is None else json.dumps(data).encode(),
-            headers={"Content-Type":"application/json", **(headers or {})})
-        try: response = urllib.request.urlopen(request, timeout=10)
-        except urllib.error.HTTPError as error: response = error
-        with response:
-            body = response.read()
-            return response.status, json.loads(body) if "json" in response.headers.get("Content-Type", "") else body
+        method = "GET" if data is None else "POST"
+        attempts = 2 if data is None else 1
+        for attempt in range(attempts):
+            request = urllib.request.Request(f"http://127.0.0.1:{cls.port}"+path,
+                data=None if data is None else json.dumps(data).encode(),
+                headers={"Content-Type":"application/json", **(headers or {})})
+            try:
+                response = urllib.request.urlopen(request, timeout=10)
+            except urllib.error.HTTPError as error:
+                response = error
+            except TimeoutError as exc:
+                if attempt + 1 < attempts:
+                    time.sleep(0.25)
+                    continue
+                raise TimeoutError(f"{method} {path} timed out after 10s (attempts={attempts})") from exc
+            with response:
+                body = response.read()
+                return response.status, json.loads(body) if "json" in response.headers.get("Content-Type", "") else body
+        raise AssertionError(f"unreachable HTTP call state: {method} {path}")
 
     def test_read_endpoints(self):
         for path in ("/health", "/api/status", "/api/dashboard", "/api/capabilities",
