@@ -17,6 +17,9 @@ class ModelRouter:
     providers.
     """
 
+    DEFAULT_LOCAL_MODEL="qwen3.5:4b"
+    DEFAULT_LOCAL_FALLBACKS=("qwen2.5:3b","qwen2.5vl:7b")
+
     PROVIDERS={
       "openai":{"key":"OPENAI_API_KEY","url":"https://api.openai.com/v1/chat/completions","model":"OPENAI_MODEL","default":"gpt-4o-mini"},
       "anthropic":{"key":"ANTHROPIC_API_KEY","url":"https://api.anthropic.com/v1/messages","model":"ANTHROPIC_MODEL","default":"claude-3-5-sonnet-latest"},
@@ -59,11 +62,53 @@ class ModelRouter:
         with urllib.request.urlopen(req,timeout=timeout) as r:data=json.loads(r.read().decode())
         return data["choices"][0]["message"]["content"]
 
-    def local(self,prompt,model=None):
-        model=model or os.getenv("KRISHNA_LOCAL_MODEL","qwen2.5:3b")
+    @classmethod
+    def local_model_candidates(cls):
+        primary=str(os.getenv("KRISHNA_LOCAL_MODEL",cls.DEFAULT_LOCAL_MODEL) or cls.DEFAULT_LOCAL_MODEL).strip()
+        raw=str(os.getenv("KRISHNA_LOCAL_FALLBACK_MODELS",",".join(cls.DEFAULT_LOCAL_FALLBACKS)) or "")
+        out=[]
+        for model in [primary,*raw.split(",")]:
+            model=str(model or "").strip()
+            if model and model not in out:out.append(model)
+        return out
+
+    @staticmethod
+    def _ollama_model_names(data):
+        return {
+            str(x.get("name") or x.get("model") or "").strip().lower()
+            for x in ((data or {}).get("models") or [])
+            if str(x.get("name") or x.get("model") or "").strip()
+        }
+
+    def local_model_status(self):
+        ok,data=self._probe_json(settings.ollama_url.rstrip("/")+"/api/tags")
+        candidates=self.local_model_candidates()
+        installed=self._ollama_model_names(data) if ok else set()
+        selected=next((m for m in candidates if m.lower() in installed or (m.lower()+":latest") in installed),None)
+        return {
+            "provider":"ollama",
+            "available":bool(ok and selected),
+            "service_available":bool(ok),
+            "primary_model":candidates[0] if candidates else self.DEFAULT_LOCAL_MODEL,
+            "fallback_models":candidates[1:],
+            "selected_model":selected,
+            "installed_candidates":[m for m in candidates if m.lower() in installed or (m.lower()+":latest") in installed],
+            "error":None if ok else (data or {}).get("error"),
+        }
+
+    def _ollama_generate(self,model,prompt):
         body=json.dumps({"model":model,"prompt":prompt,"stream":False}).encode()
         req=urllib.request.Request(settings.ollama_url.rstrip("/")+"/api/generate",data=body,headers={"Content-Type":"application/json"})
         with urllib.request.urlopen(req,timeout=90) as r:return json.loads(r.read().decode()).get("response","")
+
+    def local(self,prompt,model=None):
+        if model:
+            return self._ollama_generate(str(model).strip(),prompt)
+        status=self.local_model_status()
+        selected=status.get("selected_model")
+        if not selected:
+            raise RuntimeError("no preferred KRISHNA Ollama model is installed: "+json.dumps(status))
+        return self._ollama_generate(selected,prompt)
 
     def gpt4all(self,prompt,model=None):
         model=model or os.getenv("KRISHNA_GPT4ALL_MODEL","")
@@ -87,15 +132,19 @@ class ModelRouter:
         ollama_ok,ollama_data=self._probe_json(settings.ollama_url.rstrip("/")+"/api/tags")
         gpt_base=os.getenv("KRISHNA_GPT4ALL_URL","http://127.0.0.1:4891/v1").rstrip("/")
         gpt_ok,gpt_data=self._probe_json(gpt_base+"/models")
+        candidates=self.local_model_candidates()
+        installed=self._ollama_model_names(ollama_data) if ollama_ok else set()
+        selected=next((m for m in candidates if m.lower() in installed or (m.lower()+":latest") in installed),None)
         out=[
-          {"provider":"ollama","available":ollama_ok,"local":True,"model":os.getenv("KRISHNA_LOCAL_MODEL","qwen2.5:3b"),"credential_source":"none","error":None if ollama_ok else ollama_data.get("error")},
+          {"provider":"ollama","available":bool(ollama_ok and selected),"local":True,
+           "model":selected or (candidates[0] if candidates else self.DEFAULT_LOCAL_MODEL),
+           "primary_model":candidates[0] if candidates else self.DEFAULT_LOCAL_MODEL,
+           "fallback_models":candidates[1:],
+           "installed_candidates":[m for m in candidates if m.lower() in installed or (m.lower()+":latest") in installed],
+           "credential_source":"none","error":None if ollama_ok else ollama_data.get("error")},
           {"provider":"gpt4all","available":gpt_ok,"local":True,"model":os.getenv("KRISHNA_GPT4ALL_MODEL","auto"),"credential_source":"none","error":None if gpt_ok else gpt_data.get("error")},
         ]
         if self.model_scout and ollama_ok:
-            installed={
-                str(x.get("name") or x.get("model") or "").strip().lower()
-                for x in (ollama_data.get("models") or [])
-            }
             for row in self.model_scout.routing_candidates("general",limit=20):
                 model=str(row.get("model_id") or "").strip()
                 if not model:continue
@@ -172,7 +221,7 @@ class ModelRouter:
         return data["choices"][0]["message"]["content"]
 
     def ask(self,provider,prompt):
-        if provider=="ollama":return self.local(prompt,os.getenv("KRISHNA_LOCAL_MODEL","qwen2.5:3b"))
+        if provider=="ollama":return self.local(prompt)
         if provider.startswith("ollama-model:"):
             model=provider.split(":",1)[1].strip()
             if not model:raise ValueError("Ollama candidate model is required")
