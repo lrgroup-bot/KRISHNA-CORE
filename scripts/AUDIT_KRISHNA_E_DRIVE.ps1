@@ -328,6 +328,10 @@ $components=[ordered]@{
   source_mobile_v3=Get-FileProbe (Join-Path $SourceRoot "mobile_v3\index.html")
   mobile_companion_server=Get-FileProbe (Join-Path $RuntimeRoot "mobile\companion\server.py")
   codebase_memory_exe=Get-FileProbe "E:\AI-Tools\codebase-memory-mcp\codebase-memory-mcp.exe"
+  openmontage_python=Get-FileProbe "E:\AI-Tools\OpenMontage\.venv\Scripts\python.exe"
+  openmontage_repo=Get-FileProbe "E:\AI-Tools\OpenMontage\.git\HEAD"
+  browser_fabric_source=Get-FileProbe (Join-Path $SourceRoot "core\krishna_core\browser_fabric.py")
+  playwright_python=Get-FileProbe (Join-Path $RuntimeRoot ".venv\Lib\site-packages\playwright\__init__.py")
   graft_ai_tools=Get-FileProbe "E:\AI-Tools\Graft\graft.exe"
   graft_cbm_runtime=Get-FileProbe "E:\CBM-Runtime\graft.exe"
   qwen25vl_manifest=Get-FileProbe (Join-Path $RuntimeRoot "ollama-models\manifests\registry.ollama.ai\library\qwen2.5vl\7b")
@@ -335,6 +339,19 @@ $components=[ordered]@{
 $preservedBackup=Get-FolderSummary (Join-Path $RuntimeRoot "backups\PRE-CANONICAL-SYNC-20260923-213620")
 
 $findings=New-Object System.Collections.Generic.List[object]
+if(!$components.openmontage_python.exists){
+  [void]$findings.Add([ordered]@{status="WARN";code="OPENMONTAGE_RUNTIME_MISSING";detail=$components.openmontage_python.path})
+}elseif($env:OPENMONTAGE_CMD){
+  [void]$findings.Add([ordered]@{status="PASS";code="OPENMONTAGE_BRIDGE_READY";detail="OpenMontage source + Python runtime detected and OPENMONTAGE_CMD is configured."})
+}else{
+  [void]$findings.Add([ordered]@{status="PASS";code="OPENMONTAGE_INSTALLED";detail="OpenMontage source + Python runtime detected; command bridge is not configured in this audit process."})
+}
+if(!$components.playwright_python.exists){
+  [void]$findings.Add([ordered]@{status="WARN";code="PLAYWRIGHT_RUNTIME_MISSING";detail=$components.playwright_python.path})
+}
+if(!$components.browser_fabric_source.exists){
+  [void]$findings.Add([ordered]@{status="WARN";code="BROWSER_FABRIC_SOURCE_MISSING";detail=$components.browser_fabric_source.path})
+}
 if(!$sourceHead){[void]$findings.Add([ordered]@{status="BLOCKED";code="CANONICAL_SOURCE_HEAD_UNREADABLE";detail=$SourceRoot})}
 if($runtimeManifest -and $sourceHead -and [string]$runtimeManifest.commit -ne $sourceHead){
   [void]$findings.Add([ordered]@{status="WARN";code="SOURCE_RUNTIME_COMMIT_MISMATCH";detail=("source="+$sourceHead+" runtime="+[string]$runtimeManifest.commit)})
