@@ -37,7 +37,7 @@ public final class HawkeyeBackgroundSync {
     out.put("cellular_large_upload",false);
     out.put("delete_after_verified_default",false);
 
-    if(!KrishnaPrivateCore.unmeteredTrustedNetwork(c)){
+    if(!KrishnaPrivateCore.trustedLanReady(c)){
       out.put("status","WAITING_FOR_TRUSTED_LAN");
       out.put("retained_local",true);
       return out;
