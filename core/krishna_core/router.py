@@ -17,8 +17,9 @@ class ModelRouter:
     providers.
     """
 
-    DEFAULT_LOCAL_MODEL="qwen3.5:4b"
-    DEFAULT_LOCAL_FALLBACKS=("qwen2.5:3b","qwen2.5vl:7b")
+    DEFAULT_LOCAL_MODEL="gemma3:4b"
+    DEFAULT_LOCAL_FALLBACKS=("granite3.3:2b","smollm2:1.7b","llama3.2:1b","deepseek-r1:1.5b")
+    DISABLED_LOCAL_MODEL_PREFIXES=()
 
     PROVIDERS={
       "openai":{"key":"OPENAI_API_KEY","url":"https://api.openai.com/v1/chat/completions","model":"OPENAI_MODEL","default":"gpt-4o-mini"},
@@ -63,13 +64,23 @@ class ModelRouter:
         return data["choices"][0]["message"]["content"]
 
     @classmethod
+    def local_model_allowed(cls,model):
+        normalized=str(model or "").strip().lower().replace("\\","/")
+        if not normalized:return False
+        basename=normalized.rsplit("/",1)[-1]
+        return not any(
+            normalized.startswith(prefix) or basename.startswith(prefix)
+            for prefix in cls.DISABLED_LOCAL_MODEL_PREFIXES
+        )
+
+    @classmethod
     def local_model_candidates(cls):
         primary=str(os.getenv("KRISHNA_LOCAL_MODEL",cls.DEFAULT_LOCAL_MODEL) or cls.DEFAULT_LOCAL_MODEL).strip()
         raw=str(os.getenv("KRISHNA_LOCAL_FALLBACK_MODELS",",".join(cls.DEFAULT_LOCAL_FALLBACKS)) or "")
         out=[]
-        for model in [primary,*raw.split(",")]:
+        for model in [primary,*raw.split(","),cls.DEFAULT_LOCAL_MODEL,*cls.DEFAULT_LOCAL_FALLBACKS]:
             model=str(model or "").strip()
-            if model and model not in out:out.append(model)
+            if model and cls.local_model_allowed(model) and model not in out:out.append(model)
         return out
 
     @staticmethod
@@ -103,7 +114,10 @@ class ModelRouter:
 
     def local(self,prompt,model=None):
         if model:
-            return self._ollama_generate(str(model).strip(),prompt)
+            model=str(model).strip()
+            if not self.local_model_allowed(model):
+                raise RuntimeError("local model disabled by owner policy: "+model)
+            return self._ollama_generate(model,prompt)
         status=self.local_model_status()
         ordered=[status.get("selected_model"),*self.local_model_candidates()]
         candidates=[]
@@ -159,7 +173,7 @@ class ModelRouter:
         if self.model_scout and ollama_ok:
             for row in self.model_scout.routing_candidates("general",limit=20):
                 model=str(row.get("model_id") or "").strip()
-                if not model:continue
+                if not model or not self.local_model_allowed(model):continue
                 model_key=model.lower()
                 installed_now=model_key in installed or (model_key+":latest") in installed
                 row_task=str(row.get("task") or "general").strip().lower()
@@ -306,7 +320,7 @@ class ModelRouter:
         if self.model_scout:
             for row in self.model_scout.routing_candidates(task,limit=5):
                 model=str(row.get("model_id") or "").strip()
-                if not model:continue
+                if not model or not self.local_model_allowed(model):continue
                 row_task=str(row.get("task") or "general").strip().lower()
                 if str(task or "general").strip().lower() in {"","general"} and row_task=="local_mobile_reasoner":
                     continue
