@@ -135,4 +135,6 @@ class AvatarRuntime:
             "actions":sorted(self.ALLOWED),
             "asset_policy":"commands may exist before the final asset, but body/facial animation is not VERIFIED until the GLB inspector passes",
             "character_bible":AvatarFabric.VERSION,
+            "current_performance":dict(self.current_performance) if self.current_performance else None,
+            "gita_family_states":dict(self.GITA_FAMILY_STATE),
         }
