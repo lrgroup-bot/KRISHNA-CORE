@@ -334,31 +334,56 @@ class ModelRouter:
             x for x in self.available()
             if x["available"] and x.get("pc_routing_eligible",True)
         ]
+        cloud_allowed=privacy not in {"local_only","restricted"}
         if privacy in {"local_only","restricted"}:
             available=[x for x in available if x["local"]]
-        else:
-            if free_only or not self.paid_cloud_enabled():
-                # Automatic zero-cost planning trusts only local inference, the
-                # live-catalog verified OpenRouter fabric, and native direct adapters
-                # that perform their own live zero-billing preflight. A profile merely
-                # labelled free_only (Gemini/Groq/etc.) is not a billing guarantee.
-                available=[x for x in available if x["local"] or x["provider"]=="openrouter-free"
-                           or x["provider"]=="direct-free:cloudflare-workers-ai"]
-        # Local models remain first. Free cloud can provide an independent reviewer
-        # when available, while paid providers are opt-in only.
-        def rank(row):
-            if row.get("local"):
-                return 0 if row["provider"]=="ollama" else 1
-            if row["provider"]=="openrouter-free":
-                return 2
-            if row["provider"]=="direct-free:cloudflare-workers-ai":
-                return 3
-            if row.get("free_only"):
-                return 4
-            return 20
-        available.sort(key=rank)
-        roles=["implementation","architecture_review","bug_test_review","security_review"]
-        return [{"role":role,"provider":available[i%len(available)]["provider"],"model":available[i%len(available)]["model"]} for i,role in enumerate(roles)] if available else []
+        elif free_only or not self.paid_cloud_enabled():
+            available=[
+                x for x in available
+                if x["local"] or x["provider"]=="openrouter-free"
+                or x["provider"]=="direct-free:cloudflare-workers-ai"
+            ]
+
+        def local_role(status,role):
+            model=str((status or {}).get("selected_model") or "").strip()
+            if not model:return None
+            return {
+                "role":role,"provider":"ollama-model:"+model,"model":model,
+                "local":True,"free_only":True,
+            }
+
+        def provider_role(provider,role):
+            row=next((x for x in available if x.get("provider")==provider and x.get("available")),None)
+            if not row:return None
+            return {
+                "role":role,"provider":provider,"model":row.get("model"),
+                "local":bool(row.get("local",False)),"free_only":bool(row.get("free_only",False)),
+            }
+
+        general=local_role(self.local_model_status("general"),"architecture_review")
+        coding=local_role(self.local_model_status("coding"),"implementation")
+        if coding is None:
+            coding=local_role(self.local_model_status("general"),"implementation")
+        if general is None:
+            first_local=next((x for x in available if x.get("local")),None)
+            if first_local:
+                general={
+                    "role":"architecture_review","provider":first_local["provider"],
+                    "model":first_local.get("model"),"local":True,
+                    "free_only":bool(first_local.get("free_only",True)),
+                }
+        if coding is None and general is not None:
+            coding={**general,"role":"implementation"}
+
+        openrouter=provider_role("openrouter-free","bug_test_review") if cloud_allowed else None
+        cloudflare=provider_role("direct-free:cloudflare-workers-ai","security_review") if cloud_allowed else None
+        bug=openrouter or ({**coding,"role":"bug_test_review"} if coding else None)
+        security=cloudflare or (
+            {**openrouter,"role":"security_review"} if openrouter
+            else ({**general,"role":"security_review"} if general else None)
+        )
+        plan=[x for x in (coding,general,bug,security) if x]
+        return plan
 
     def route(self,prompt,privacy="approved_cloud",free_only=False,project="KRISHNA",actor="model-router",task="general"):
         local_errors={}
