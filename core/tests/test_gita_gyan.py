@@ -7,6 +7,10 @@ from datetime import date
 from pathlib import Path
 
 from krishna_core.gita_gyan import GitaGyan
+from krishna_core.gita_performance import GitaPerformanceEngine
+from krishna_core.krishna_shloka import KrishnaShlokaOrchestrator
+from krishna_core.character_persona import KrishnaCharacterPersona
+from krishna_core.native_voice import KrishnaVoiceStack
 
 
 class GitaGyanTests(unittest.TestCase):
@@ -119,6 +123,59 @@ class GitaGyanTests(unittest.TestCase):
         self.assertEqual(payload["verse_count"], 700)
 
 
+class GitaConversationSessionTests(unittest.TestCase):
+    def _runtime(self, root):
+        gita=GitaGyan(Path(root))
+        perf=GitaPerformanceEngine(gita)
+        return KrishnaShlokaOrchestrator(gita,perf,Path(root)/"conversation.json")
+
+    def test_one_verse_at_a_time_never_auto_advances(self):
+        with tempfile.TemporaryDirectory() as td:
+            runtime=self._runtime(td)
+            first=runtime.verse(2,47,language="or",explain=None)
+            self.assertEqual(first["reference"],"Bhagavad Gita 2.47")
+            self.assertTrue(first["one_verse_at_a_time"])
+            self.assertFalse(first["auto_advance"])
+            self.assertTrue(first["awaiting_owner_control"])
+            self.assertEqual(runtime.session_status()["current_reference"],"2.47")
+
+    def test_repeat_next_previous_controls_are_persistent(self):
+        with tempfile.TemporaryDirectory() as td:
+            runtime=self._runtime(td)
+            runtime.verse(2,47,language="or",explain=None)
+            repeated=runtime.control("repeat",explain=None)
+            self.assertEqual(repeated["reference"],"Bhagavad Gita 2.47")
+            nxt=runtime.control("next",explain=None)
+            self.assertEqual(nxt["reference"],"Bhagavad Gita 2.48")
+            prev=runtime.control("previous",explain=None)
+            self.assertEqual(prev["reference"],"Bhagavad Gita 2.47")
+
+    def test_short_odia_controls_work_without_repeating_gita(self):
+        with tempfile.TemporaryDirectory() as td:
+            runtime=self._runtime(td)
+            runtime.parse_request("Krishna Gita 2.47 kuha",explain=None)
+            nxt=runtime.parse_request("ଆଗକୁ",explain=None)
+            self.assertEqual(nxt["reference"],"Bhagavad Gita 2.48")
+            again=runtime.parse_request("ପୁଣି କୁହ",explain=None)
+            self.assertEqual(again["reference"],"Bhagavad Gita 2.48")
+            paused=runtime.parse_request("ଥାଅ",explain=None)
+            self.assertTrue(paused["session"]["paused"])
+            resumed=runtime.parse_request("ଚାଲୁ କର",explain=None)
+            self.assertFalse(resumed["session"]["paused"])
+
+    def test_global_owner_conversation_defaults_to_odia(self):
+        status=KrishnaCharacterPersona.status()
+        self.assertEqual(status["global_conversation_language"],"or")
+        self.assertIn("all ordinary KRISHNA conversation",KrishnaCharacterPersona.prompt_contract())
+        self.assertIn("Odia",KrishnaCharacterPersona.prompt_contract())
+
+    def test_voice_stack_exposes_dedicated_sanskrit_boundary(self):
+        status=KrishnaVoiceStack().status()
+        self.assertEqual(status["global_conversation_language"],"or")
+        self.assertIn("sanskrit_tts",status)
+        self.assertEqual(status["sanskrit_tts"]["language"],"sa")
+
+
 class GitaWiringContractTests(unittest.TestCase):
     def test_orchestrator_wires_gita_runtime(self):
         text = (Path(__file__).resolve().parents[1] / "krishna_core" / "orchestrator.py").read_text(encoding="utf-8-sig")
@@ -129,8 +186,11 @@ class GitaWiringContractTests(unittest.TestCase):
     def test_server_exposes_gita_routes(self):
         text = (Path(__file__).resolve().parents[1] / "krishna_core" / "server.py").read_text(encoding="utf-8-sig")
         self.assertIn('"/api/gita/status"', text)
+        self.assertIn('"/api/gita/session"', text)
+        self.assertIn('"/api/gita/session/control"', text)
         self.assertIn('"/api/gita/today"', text)
         self.assertIn('"/api/gita/revise"', text)
+        self.assertIn('"/api/gita/speak"', text)
 
     def test_mobile_policy_allows_gita_learning_routes(self):
         text = (Path(__file__).resolve().parents[1] / "krishna_core" / "remote_access.py").read_text(encoding="utf-8-sig")

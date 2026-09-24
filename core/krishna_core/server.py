@@ -905,7 +905,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/character":
             return self._json(200,orch.agi.character.status())
         if path == "/api/gita/status":
-            return self._json(200,orch.gita_gyan.status())
+            return self._json(200,{**orch.gita_gyan.status(),"session":orch.gita_shloka.session_status()})
+        if path == "/api/gita/session":
+            return self._json(200,orch.gita_shloka.session_status())
         if path == "/api/gita/performance/qc":
             return self._json(200,orch.gita_performance_qc())
         if path.startswith("/api/gita/verse/"):
@@ -2314,7 +2316,12 @@ class Handler(BaseHTTPRequestHandler):
                 gita_request_tokens=("gita","geeta","गीता","ଗୀତା","shloka","sloka","श्लोक","ଶ୍ଲୋକ","vishvarupa","viśvarūpa","विश्वरूप","ବିଶ୍ୱରୂପ")
                 gita_daily_markers=("today","daily","aaj","आज","ଆଜି","today's","todays")
                 gita_revision_markers=("revise","revision","review","yesterday","पुनरावृत्ति","ପୁନରାବୃତ୍ତି")
-                gita_followup_markers=("this verse","this shloka","this sloka","next verse","previous verse","explain deeply","what are you teaching me here","ଏହି ଶ୍ଲୋକ","ଏହାର ଅର୍ଥ","इस श्लोक","इसका अर्थ")
+                gita_followup_markers=(
+                    "this verse","this shloka","this sloka","next verse","previous verse","explain deeply",
+                    "what are you teaching me here","repeat","again","forward","continue","pause","resume",
+                    "ଏହି ଶ୍ଲୋକ","ଏହାର ଅର୍ଥ","ପୁଣି","ଆଉଥରେ","ଆଗକୁ","ପରବର୍ତ୍ତୀ","ପଛକୁ","ପୂର୍ବ","ଥାଅ","ଚାଲୁ କର","ବୁଝାଅ",
+                    "इस श्लोक","इसका अर्थ","फिर से","दोबारा","अगला","पिछला","रुको","शुरू करो"
+                )
                 gita_situation_markers=("i am confused","i'm confused","mu bahut confuse","ମୁଁ ବହୁତ confuse","मैं उलझ","i am afraid","i'm afraid")
                 is_gita_request=any(token in normalized_msg for token in gita_request_tokens)
                 if not is_gita_request and orch.gita_shloka.last_reference() and any(token in normalized_msg for token in gita_followup_markers):
@@ -2548,6 +2555,25 @@ class Handler(BaseHTTPRequestHandler):
             lesson=orch.gita_daily_lesson(language,depth,mark_complete)
             return self._json(200,lesson)
 
+        if post_path == "/api/gita/session/control":
+            action=str(data.get("action") or "").strip().lower()
+            language=str(data.get("language") or "").strip().lower() or None
+            depth=str(data.get("depth") or "deep").strip().lower()
+            if depth not in {"brief","deep"}:
+                return self._json(400,{"error":"depth must be brief or deep"})
+            try:
+                payload=orch.gita_shloka.control(
+                    action,
+                    language=language,
+                    depth=depth,
+                    explain=orch._gita_explain,
+                )
+                if isinstance(payload,dict) and isinstance(payload.get("performance"),dict):
+                    orch._apply_gita_performance(payload)
+                return self._json(200,payload)
+            except (ValueError,KeyError) as exc:
+                return self._json(400,{"error":str(exc)})
+
         if post_path == "/api/gita/search":
             query_text=str(data.get("query") or "").strip()
             if not query_text:return self._json(400,{"error":"query is required"})
@@ -2584,23 +2610,34 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError,KeyError) as exc:
                 return self._json(404,{"error":str(exc)})
             configured=set(_voice.tts.status().get("languages") or [])
+            sanskrit_available=bool(_voice.sanskrit_tts.status().get("available"))
             out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
             audio_segments=[]
             for segment in payload.get("speech_segments") or []:
                 text_value=str(segment.get("text") or "").strip()
                 seg_lang=str(segment.get("language") or language).strip().lower()
                 if not text_value:continue
-                if seg_lang not in configured:
-                    audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"unavailable","reason":"local voice model not configured"})
-                    continue
                 audio_id=str(uuid.uuid4());out_path=out_dir/(audio_id+".wav")
                 try:
-                    resolved=_voice.tts.speak(text_value,out_path,language=seg_lang)
+                    if seg_lang=="sa":
+                        if not sanskrit_available:
+                            audio_segments.append({"kind":segment.get("kind"),"language":"sa","status":"unavailable","reason":"dedicated local Sanskrit recitation worker not configured"})
+                            continue
+                        resolved=_voice.sanskrit_tts.speak(text_value,out_path)
+                    else:
+                        if seg_lang not in configured:
+                            audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"unavailable","reason":"local voice model not configured"})
+                            continue
+                        resolved=_voice.tts.speak(text_value,out_path,language=seg_lang)
                     audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"ready","output_path":resolved,"audio_id":audio_id,"audio_url":"/api/voice/audio?id="+audio_id})
                 except (RuntimeError,ValueError) as exc:
                     audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"failed","error":str(exc)})
             payload["audio_segments"]=audio_segments
             payload["sanskrit_audio_verified"]=any(x.get("kind")=="shloka" and x.get("status")=="ready" for x in audio_segments)
+            payload["conversation_audio_verified"]=any(x.get("kind") in {"explanation","partha"} and x.get("status")=="ready" for x in audio_segments)
+            payload["session"]=orch.gita_shloka.session_status()
+            payload["one_verse_at_a_time"]=True
+            payload["auto_advance"]=False
             return self._json(200,payload)
 
         if post_path == "/api/gita/corpus/import":

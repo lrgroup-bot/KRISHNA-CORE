@@ -1394,6 +1394,27 @@ function toggleKrishnaPopup(force){
 }
 function minimizeKrishnaPopup(){const p=$('krishnaPopup');if(!p)return;p.classList.toggle('minimized')}
 function fillKrishnaPopup(text){toggleKrishnaPopup(true);const i=$('krishnaPopupInput');if(i){i.value=text;i.focus()}}
+async function gitaSessionControl(action,target='messages'){
+ try{
+  const d=await req('/api/gita/session/control',{action,language:'or',depth:'deep'});
+  const text=d.text||d.generated_explanation||d.partha_line||d.reference||('Gita control: '+action);
+  if(target==='popup'){popupMessage('assistant',text);renderGitaSessionControls('popup')}
+  else{addMsg('assistant',text);renderGitaSessionControls('messages')}
+  if(d.performance)avatarState((d.avatar&&d.avatar.state)||'WISDOM');
+ }catch(e){if(target==='popup')popupMessage('assistant','ERROR: '+e.message);else addMsg('assistant','ERROR: '+e.message)}
+}
+function renderGitaSessionControls(target='messages'){
+ const box=target==='popup'?$('krishnaPopupBody'):$('messages');if(!box)return;
+ box.querySelectorAll('.gitaSessionControls').forEach(x=>x.remove());
+ const row=document.createElement('div');row.className='gitaSessionControls';
+ const controls=[
+  ['repeat','↻ ପୁଣି କୁହ'],['previous','← ପଛକୁ'],['next','ଆଗକୁ →'],
+  ['pause','Ⅱ ଥାଅ'],['resume','▶ ଚାଲୁ କର'],['explain','ଅର୍ଥ ବୁଝାଅ']
+ ];
+ controls.forEach(([action,label])=>{const b=document.createElement('button');b.type='button';b.className='ghost';b.textContent=label;b.onclick=()=>gitaSessionControl(action,target);row.appendChild(b)});
+ box.appendChild(row);box.scrollTop=box.scrollHeight;
+}
+
 function popupMessage(role,text){
  const box=$('krishnaPopupBody');if(!box)return;
  const quick=box.querySelector('.popupQuick');if(quick)quick.remove();
@@ -1455,7 +1476,7 @@ async function sendKrishnaPopup(){
  try{
   const id=await ensureKrishnaPopupChat(),project=$('project')?.value||'KRISHNA';
   const d=await req('/api/core/chat',{message:text,project,chat_id:id,source:'web-popup',mode:'chat',attachment_ids:[]});
-  const reply=d.reply||d.text||JSON.stringify(d);popupMessage('assistant',reply);await loadGeneralChats();
+  const reply=d.reply||d.text||JSON.stringify(d);popupMessage('assistant',reply);if(d.capability==='gita-gyan')renderGitaSessionControls('popup');await loadGeneralChats();
   if(krishnaVoiceConversation)await speakKrishnaReply(reply);else avatarState('IDLE');
  }catch(e){popupMessage('assistant','ERROR: '+e.message);avatarState('IDLE')}
  finally{krishnaPopupSending=false;if(sendBtn)sendBtn.disabled=false}
@@ -1618,7 +1639,7 @@ function escapeHtml(s){const d=document.createElement('div');d.textContent=s;ret
 function addMsg(role,text){const w=$('welcome');if(w)w.remove();const d=document.createElement('div');d.className='msg '+(role==='user'?'you':'');const a=document.createElement('div');a.className='avatar';a.textContent=role==='user'?'Y':'K';const b=document.createElement('div');const who=document.createElement('div');who.className='who';who.textContent=role==='user'?'YOU':'KRISHNA';const body=document.createElement('div');body.className='bubble';body.textContent=text;b.append(who,body);d.append(a,b);$('messages').appendChild(d);$('messages').scrollTop=$('messages').scrollHeight}
 async function createChatForProject(project,title){const p=project||'KRISHNA';return actionReq('chat.create',{project:p,title:title||'New Sudarshan chat'},{project:p})}
 async function newChat(){try{showView('sudarshan');const p=$('project').value||'KRISHNA',c=await createChatForProject(p,'New Sudarshan chat');chatId=c.chat_id;$('messages').innerHTML='<div id="welcome" class="welcome"><div class="orb">☸</div><h1>New conversation</h1><p>Start a task, ask a question, or work on '+escapeHtml(p)+'.</p></div>';await loadChats();await loadGeneralChats();await openChat(chatId)}catch(e){log(e.message)}}
-async function send(){const t=$('input').value.trim();if(!t)return;if(sending)return;if(!chatId)await newChat();if(!chatId)return;sending=true;document.querySelector('.send').disabled=true;$('input').value='';showView('sudarshan');addMsg('user',t);$('sudarshanState').textContent='KRISHNA WORKING';try{const d=await req('/api/core/chat',{message:t,project:$('project').value||'general',chat_id:chatId,source:'web',mode:'chat',attachment_ids:pendingAttachmentIds.slice(0,3)});pendingAttachmentIds=[];addMsg('assistant',d.reply||d.text||JSON.stringify(d));$('sudarshanState').textContent=d.task_id?'TASK '+String(d.task_id).slice(0,8):'RESPONSE RECEIVED';log(d);await loadChats()}catch(e){$('sudarshanState').textContent='ERROR';addMsg('assistant','ERROR: '+e.message);log(e.message)}finally{sending=false;document.querySelector('.send').disabled=false}}
+async function send(){const t=$('input').value.trim();if(!t)return;if(sending)return;if(!chatId)await newChat();if(!chatId)return;sending=true;document.querySelector('.send').disabled=true;$('input').value='';showView('sudarshan');addMsg('user',t);$('sudarshanState').textContent='KRISHNA WORKING';try{const d=await req('/api/core/chat',{message:t,project:$('project').value||'general',chat_id:chatId,source:'web',mode:'chat',attachment_ids:pendingAttachmentIds.slice(0,3)});pendingAttachmentIds=[];addMsg('assistant',d.reply||d.text||JSON.stringify(d));if(d.capability==='gita-gyan')renderGitaSessionControls('messages');$('sudarshanState').textContent=d.task_id?'TASK '+String(d.task_id).slice(0,8):'RESPONSE RECEIVED';log(d);await loadChats()}catch(e){$('sudarshanState').textContent='ERROR';addMsg('assistant','ERROR: '+e.message);log(e.message)}finally{sending=false;document.querySelector('.send').disabled=false}}
 async function loadPlugins(){
  try{
   const d=await req('/api/plugins'),box=$('pluginsGrid');box.innerHTML='';

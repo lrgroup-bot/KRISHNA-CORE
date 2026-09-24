@@ -15,6 +15,8 @@ class PrivateRemotePolicy:
         "/api/chats/create",
         "/api/chat/history",
         "/api/gita/status",
+        "/api/gita/session",
+        "/api/gita/session/control",
         "/api/gita/today",
         "/api/gita/revise",
         "/api/gita/search",
