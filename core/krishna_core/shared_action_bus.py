@@ -306,7 +306,10 @@ class SharedActionBus:
         try:
             result=handler(dict(payload or {}),context)
         except Exception as exc:
-            row={**envelope,"status":"failed","error":f"{type(exc).__name__}: {exc}","spec":spec.as_dict()}
+            # The original exception still propagates to the live caller for handling,
+            # but durable/audit receipts retain only the exception class. Provider,
+            # plugin or library errors can contain credentials in their message text.
+            row={**envelope,"status":"failed","error":type(exc).__name__,"spec":spec.as_dict()}
             if idempotency_key and self._idempotency_store is not None:
                 self._idempotency_store.finish(str(idempotency_key),fingerprint,"failed",row)
             self._record(row);self._publish("action.failed",row)
