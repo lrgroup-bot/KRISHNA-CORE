@@ -473,7 +473,30 @@ public class MainActivity extends Activity {
         metadata.put("raw_cloud_upload",false);
         metadata.put("privacy","user-requested local capture; no automatic cloud upload");
 
+        // Keep a separate encrypted app-private sync record. Gallery storage is
+        // user-visible; the sync copy is what can safely resume/verify later.
+        JSONObject syncSensors=new JSONObject(metadata.toString());
+        syncSensors.put("user_requested_capture",true);
+        syncSensors.put("gallery_copy",true);
+        syncSensors.put("sync_policy","same-lan-unmetered-resumable");
+        JSONObject syncMeta=HawkeyeEdgeMemory.rememberMedia(
+          MainActivity.this,
+          "gallery-capture",
+          base,
+          bytes,
+          type,
+          image?"image":"video",
+          syncSensors,
+          1.0,
+          "OBSERVED",
+          "user-requested Hawkeye capture queued for verified PC sync"
+        );
+        HawkeyeEdgeMemory.enforceBudget(MainActivity.this,128L*1024L*1024L,48,24L*60L*60L*1000L);
+
         JSONObject out=new JSONObject();
+        out.put("sync_observation_id",syncMeta.optString("observation_id"));
+        out.put("sync_state","WAITING_FOR_TRUSTED_LAN");
+        out.put("cellular_large_upload",false);
         if(Build.VERSION.SDK_INT>=29){
           android.content.ContentResolver resolver=getContentResolver();
           ContentValues cv=new ContentValues();
