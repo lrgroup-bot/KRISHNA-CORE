@@ -11,7 +11,7 @@ $bundleRoot=Join-Path $voiceRoot "models\edge-sanskrit-tts"
 $worker=Join-Path $RuntimeRoot "scripts\voice\sanskrit_tts_worker.py"
 $setup=Join-Path $RuntimeRoot "scripts\SETUP_KRISHNA_VOICE.ps1"
 $managedPy=Join-Path $RuntimeRoot "python-managed\cpython-3.10.11-windows-x86_64-none\python.exe"
-$pinnedRepoCommit="e83f20d7b87b5ac48439e21366dbf45c2be53023"
+$pinnedBundleCommit="7d5b0b162477e1c2489c72da3ab2e3052c9a59bd"
 $indicF5Commit="13f7c4d627cc10111aea8fe9c0039462cacacdc7"
 
 if(!(Test-Path -LiteralPath $managedPy)){throw "Managed Python 3.10.11 missing: $managedPy"}
@@ -48,12 +48,12 @@ try{
   if($LASTEXITCODE -ne 0){throw "EdgeSanskrit bundle is not a Git checkout"}
   # Pin source revision; model files remain local under E:. If this historical
   # revision is unavailable in a preexisting shallow clone, do not rewrite it.
-  & git cat-file -e ($pinnedRepoCommit+"^{commit}") 2>$null
+  & git cat-file -e ($pinnedBundleCommit+"^{commit}") 2>$null
   if($LASTEXITCODE -eq 0){
-    & git checkout --detach $pinnedRepoCommit
+    & git checkout --detach $pinnedBundleCommit
     if($LASTEXITCODE -ne 0){throw "Could not checkout pinned EdgeSanskrit source revision"}
   }else{
-    Write-Warning "Pinned EdgeSanskrit commit is unavailable in this local checkout; leaving the existing local source untouched."
+    Write-Warning "Pinned EdgeSanskrit bundle commit is unavailable in this local checkout; leaving the existing local bundle untouched."
   }
   & git lfs pull
   if($LASTEXITCODE -ne 0){throw "EdgeSanskrit LFS model materialization failed"}
