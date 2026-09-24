@@ -12,7 +12,11 @@ class DevStep:
 
 class DevelopmentOperator:
     """Bounded local coding loop. Natural language is never executed as shell."""
-    def __init__(self,browser): self.browser=browser
+    def __init__(self,browser,staging_root=None):
+        self.browser=browser
+        self.staging_root=Path(staging_root).resolve() if staging_root else None
+        if self.staging_root is not None:
+            self.staging_root.mkdir(parents=True,exist_ok=True)
 
     @staticmethod
     def _run(args,cwd,timeout=180):
@@ -42,8 +46,11 @@ class DevelopmentOperator:
     def stage(self,root,files):
         source=Path(root).resolve()
         if not source.is_dir():raise ValueError("project root does not exist")
-        parent=source.parent/".krishna_state"/"dev-candidates";parent.mkdir(parents=True,exist_ok=True)
-        candidate=Path(tempfile.mkdtemp(prefix="candidate-",dir=str(parent)))
+        parent=self.staging_root or (source.parent/".krishna_state"/"dev-candidates").resolve()
+        parent.mkdir(parents=True,exist_ok=True)
+        candidate=Path(tempfile.mkdtemp(prefix="candidate-",dir=str(parent))).resolve()
+        try:candidate.relative_to(parent)
+        except ValueError as exc:raise RuntimeError("candidate staging escaped configured root") from exc
         shutil.copytree(source,candidate,dirs_exist_ok=True,ignore=shutil.ignore_patterns(".git","node_modules",".venv","__pycache__","dist","build"))
         changed=[]
         for item in files:
