@@ -51,5 +51,10 @@ class VoiceIsolationContractTests(unittest.TestCase):
         self.assertIn("score>=args.threshold",text)
 
 
+    def test_voice_setup_preserves_sanskrit_worker_command(self):
+        text=(ROOT/"scripts"/"SETUP_KRISHNA_VOICE.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("SanskritTtsCommand",text)
+        self.assertIn("KRISHNA_SANSKRIT_TTS_CMD",text)
+
 if __name__=="__main__":
     unittest.main()
