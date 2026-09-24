@@ -52,12 +52,31 @@ class KrishnaShlokaOrchestrator:
 
     def _state(self) -> dict:
         if not self.state_path.is_file():
-            return {"last_reference": None}
+            return {
+                "last_reference": None,
+                "active": False,
+                "paused": False,
+                "preferred_language": "or",
+                "auto_advance": False,
+            }
         try:
             data = json.loads(self.state_path.read_text(encoding="utf-8"))
-            return data if isinstance(data, dict) else {"last_reference": None}
+            if not isinstance(data, dict):
+                data = {}
+            data.setdefault("last_reference", None)
+            data.setdefault("active", False)
+            data.setdefault("paused", False)
+            data.setdefault("preferred_language", "or")
+            data.setdefault("auto_advance", False)
+            return data
         except (OSError, json.JSONDecodeError):
-            return {"last_reference": None}
+            return {
+                "last_reference": None,
+                "active": False,
+                "paused": False,
+                "preferred_language": "or",
+                "auto_advance": False,
+            }
 
     def _save_state(self, **changes) -> None:
         state = self._state()
@@ -65,6 +84,95 @@ class KrishnaShlokaOrchestrator:
         tmp = self.state_path.with_suffix(".tmp")
         tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
         os.replace(tmp, self.state_path)
+
+    CONTROLS = (
+        "repeat", "next", "previous", "pause", "resume", "explain", "status"
+    )
+
+    def session_status(self) -> dict:
+        state = self._state()
+        return {
+            "active": bool(state.get("active")),
+            "paused": bool(state.get("paused")),
+            "current_reference": state.get("last_reference"),
+            "preferred_language": str(state.get("preferred_language") or "or"),
+            "auto_advance": False,
+            "one_verse_at_a_time": True,
+            "awaiting_owner_control": bool(state.get("active")) and not bool(state.get("paused")),
+            "controls": list(self.CONTROLS),
+            "odia_controls": {
+                "repeat": "ପୁଣି କୁହ",
+                "next": "ଆଗକୁ / ପରବର୍ତ୍ତୀ ଶ୍ଲୋକ",
+                "previous": "ପଛକୁ / ପୂର୍ବ ଶ୍ଲୋକ",
+                "pause": "ଥାଅ",
+                "resume": "ଚାଲୁ କର",
+                "explain": "ଅର୍ଥ ବୁଝାଅ",
+            },
+        }
+
+    def _decorate_session(self, payload: dict) -> dict:
+        out = dict(payload)
+        out["session"] = self.session_status()
+        out["auto_advance"] = False
+        out["one_verse_at_a_time"] = True
+        out["awaiting_owner_control"] = True
+        out["available_controls"] = list(self.CONTROLS)
+        return out
+
+    def control(self, action: str, *, language: str | None = None,
+                depth: str = "deep", explain: Callable[[str], str] | None = None) -> dict:
+        action = str(action or "").strip().lower()
+        aliases = {
+            "forward": "next", "continue": "next", "again": "repeat",
+            "back": "previous", "prev": "previous",
+        }
+        action = aliases.get(action, action)
+        if action not in self.CONTROLS:
+            raise ValueError("action must be one of: " + ", ".join(self.CONTROLS))
+        state = self._state()
+        lang = str(language or state.get("preferred_language") or "or").strip().lower()
+        if lang not in {"or", "hi", "en"}:
+            raise ValueError("language must be one of: or, hi, en")
+
+        if action == "status":
+            return {"session": self.session_status()}
+        if action == "pause":
+            self._save_state(active=True, paused=True, preferred_language=lang, auto_advance=False)
+            return {
+                "control": "pause",
+                "text": "ପାର୍ଥ, ଏଠି ଥାଉ। ତୁମେ କହିଲେ ପୁଣି ଆରମ୍ଭ କରିବା।",
+                "session": self.session_status(),
+            }
+        if action == "resume":
+            self._save_state(active=True, paused=False, preferred_language=lang, auto_advance=False)
+            last = self.last_reference()
+            if not last:
+                return {
+                    "control": "resume",
+                    "text": "ପାର୍ଥ, ଚାଲୁ କରିବା। କେଉଁ ଶ୍ଲୋକରୁ ଆରମ୍ଭ କରିବା କୁହ।",
+                    "session": self.session_status(),
+                }
+            out = self.verse(*last, language=lang, depth=depth, explain=explain)
+            out["control"] = "resume"
+            return out
+        last = self.last_reference()
+        if not last:
+            raise ValueError("no active Gita verse session")
+        if action == "repeat":
+            out = self.verse(*last, language=lang, depth=depth, explain=explain)
+            out["control"] = "repeat"
+            return out
+        if action == "next":
+            out = self.adjacent(1, language=lang, depth=depth, explain=explain)
+            out["control"] = "next"
+            return out
+        if action == "previous":
+            out = self.adjacent(-1, language=lang, depth=depth, explain=explain)
+            out["control"] = "previous"
+            return out
+        out = self.verse(*last, language=lang, depth=depth, explain=explain)
+        out["control"] = "explain"
+        return out
 
     def last_reference(self) -> tuple[int, int] | None:
         raw = str(self._state().get("last_reference") or "").strip()
@@ -108,13 +216,19 @@ class KrishnaShlokaOrchestrator:
         performance = self.performance.record(chapter, verse)
         explanation = self._explain(row, language, depth, explain)
         ref = f"{int(chapter)}.{int(verse)}"
-        self._save_state(last_reference=ref)
+        self._save_state(
+            last_reference=ref,
+            active=True,
+            paused=False,
+            preferred_language=language,
+            auto_advance=False,
+        )
         partha_line = {
             "or": "ପାର୍ଥ, ଏବେ ଏହାର ଅର୍ଥକୁ ଶାନ୍ତ ଭାବରେ ଦେଖିବା।",
             "hi": "पार्थ, अब इसका अर्थ शांत मन से समझते हैं।",
             "en": "Partha, now consider its meaning calmly.",
         }[language]
-        return {
+        return self._decorate_session({
             "reference": f"Bhagavad Gita {ref}",
             "chapter": int(chapter),
             "verse": int(verse),
@@ -150,7 +264,7 @@ class KrishnaShlokaOrchestrator:
             ],
             "canonical_sanskrit_unchanged": True,
             "generated_commentary_separate": True,
-        }
+        })
 
     def vishvarupa_passage(self, start: int = 8, end: int = 51) -> dict:
         start = max(8, int(start))
@@ -286,6 +400,37 @@ class KrishnaShlokaOrchestrator:
         depth = self._depth(raw)
 
         last = self.last_reference()
+
+        # Once a Gita session is active, short control utterances remain in that
+        # session without requiring the words "Gita" or "shloka".
+        control_phrases = {
+            "repeat": (
+                "repeat", "again", "say again", "repeat verse",
+                "ପୁଣି", "ପୁଣି କୁହ", "ଆଉଥରେ", "ଆଉ ଥରେ",
+                "फिर से", "दोबारा",
+            ),
+            "next": (
+                "next", "next verse", "next shloka", "forward", "continue",
+                "ଆଗକୁ", "ପରବର୍ତ୍ତୀ", "ପରବର୍ତ୍ତୀ ଶ୍ଲୋକ", "ଚାଲ ଆଗକୁ",
+                "अगला", "आगे",
+            ),
+            "previous": (
+                "previous", "previous verse", "previous shloka", "back",
+                "ପଛକୁ", "ପୂର୍ବ", "ପୂର୍ବ ଶ୍ଲୋକ",
+                "पिछला", "पीछे",
+            ),
+            "pause": ("pause", "stop here", "ଥାଅ", "ଏଠି ଥାଅ", "रुको"),
+            "resume": ("resume", "start again", "ଚାଲୁ କର", "ପୁଣି ଆରମ୍ଭ", "शुरू करो"),
+            "explain": (
+                "explain", "meaning", "explain this", "ଅର୍ଥ", "ଅର୍ଥ ବୁଝାଅ",
+                "ବୁଝାଅ", "अर्थ", "समझाओ",
+            ),
+        }
+        if last or self._state().get("active"):
+            for action, phrases in control_phrases.items():
+                if any(text == phrase or phrase in text for phrase in phrases):
+                    return self.control(action, language=language, depth=depth, explain=explain)
+
         followup_markers = (
             "this verse", "this shloka", "this sloka", "explain deeply",
             "what are you teaching me here", "ଏହି ଶ୍ଲୋକ", "ଏହାର ଅର୍ଥ",
