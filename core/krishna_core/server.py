@@ -1219,6 +1219,12 @@ class Handler(BaseHTTPRequestHandler):
             model=str((query.get("model") or ["spark-x2.5-4b"])[0]).strip() or "spark-x2.5-4b"
             try:return self._json(200,orch.spark_x25.install_plan(model))
             except KeyError:return self._json(404,{"error":"unknown Spark-X2.5 model key"})
+        if path == "/api/amcc/status":
+            project=str((query.get("project") or [""])[0]).strip() or None
+            limit_raw=(query.get("limit") or ["50"])[0]
+            try:limit=max(1,min(int(limit_raw),500))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,orch.amcc_status(project=project,limit=limit))
         if path == "/api/runtime/integrity":
             return self._json(200, _integrity.status())
         if path == "/api/lab/status":
@@ -3320,6 +3326,36 @@ class Handler(BaseHTTPRequestHandler):
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,OSError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
+        if post_path == "/api/amcc/evaluate":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            goal=str(data.get("goal") or "").strip()
+            if not goal:return self._json(400,{"error":"goal is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "cognition.amcc.evaluate",
+                    {"project":project,"goal":goal,"signals":data.get("signals") or {},"action":data.get("action")},
+                    project=project,source="pc",actor="amcc-http",permissions=("runtime.read",),
+                )
+                return self._json(200,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+
+        if post_path == "/api/amcc/outcome":
+            project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
+            goal=str(data.get("goal") or "").strip()
+            if not goal:return self._json(400,{"error":"goal is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "cognition.amcc.outcome",
+                    {
+                        "project":project,"goal":goal,"status":data.get("status") or "unknown",
+                        "progress":data.get("progress"),"error":data.get("error"),
+                        "metadata":data.get("metadata") or {},
+                    },
+                    project=project,source="pc",actor="amcc-http",permissions=("memory.write",),
+                )
+                return self._json(200,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+
         if post_path == "/api/work/run":
             project = str(data.get("project", "")).strip()
             goal = str(data.get("goal", "")).strip()
@@ -3332,6 +3368,7 @@ class Handler(BaseHTTPRequestHandler):
                     action_name=action,
                     components=data.get("components") or [],
                     approved=bool(data.get("approved", False)),
+                    amcc_signals=data.get("amcc") or {},
                 )
                 return self._json(200, out)
             except KeyError as exc:
