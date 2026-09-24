@@ -50,6 +50,14 @@ class FreeCloudDefaultTests(unittest.TestCase):
             {"provider":"gateway:declared-free","available":True,"local":False,"model":"declared","free_only":True},
             {"provider":"openai","available":True,"local":False,"model":"paid","free_only":False},
         ]
+        # Keep this unit test independent of any real Ollama service/models present
+        # on the machine running the suite. coding_plan() is intentionally allowed
+        # to inspect live local role status in production, so the test must stub it.
+        router.local_model_status=lambda task="general":{
+            "task":task,
+            "available":False,
+            "selected_model":None,
+        }
         with patch.dict(os.environ,{"KRISHNA_ALLOW_PAID_CLOUD":"0"},clear=False):
             plan=router.coding_plan("approved_cloud")
         providers={x["provider"] for x in plan}
