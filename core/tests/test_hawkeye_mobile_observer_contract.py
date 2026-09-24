@@ -91,6 +91,23 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("free_cloud:freeCloud",self.index)
         self.assertIn('"mobile_qwen": false',runtime)
 
+    def test_private_remote_bootstrap_and_unmetered_resumable_sync(self):
+        resolver=(self.mobile/"KrishnaPrivateCore.java").read_text(encoding="utf-8")
+        sync=(self.mobile/"HawkeyeBackgroundSync.java").read_text(encoding="utf-8")
+        edge=(self.mobile/"HawkeyeEdgeMemory.java").read_text(encoding="utf-8")
+        self.assertIn("bootstrapConnection",self.activity)
+        self.assertIn("KrishnaPrivateCore.bootstrap",self.activity)
+        self.assertIn("KRISHNA_DISCOVER_V1",resolver)
+        self.assertIn("private_remote_url",resolver)
+        self.assertIn("NETWORK_TYPE_UNMETERED",sync)
+        self.assertIn("WAITING_FOR_TRUSTED_LAN",sync)
+        self.assertIn("/api/hawkeye/media-sync/start",sync)
+        self.assertIn("/api/hawkeye/media-sync/chunk",sync)
+        self.assertIn("/api/hawkeye/media-sync/complete",sync)
+        self.assertIn("CHUNK_BYTES=512*1024",sync)
+        self.assertIn("markSynced",edge)
+        self.assertIn("delete_after_verified",sync)
+
     def test_google_lens_is_not_required_for_hawkeye_capture(self):
         runtime=(self.mobile/"CANONICAL_RUNTIME.json").read_text(encoding="utf-8")
         self.assertIn('"google_lens_required": false',runtime)
