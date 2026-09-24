@@ -119,6 +119,33 @@ class HawkeyeFreeCloudFabricTests(unittest.TestCase):
         self.assertTrue(out["attempts"])
         self.assertEqual(len(self.gemini.calls),1)
 
+    def test_recorded_pc_finding_skips_duplicate_local_vision(self):
+        row=HawkeyeFreeCloudFabric.recorded_pc_finding({
+            "free_cloud":{
+                "analysis":"Observed pump housing.",
+                "provider":"openrouter",
+                "model":"vision/free",
+                "role":"hawkeye_vision",
+                "pc_recorded":True,
+                "pc_observation_id":"obs-1",
+                "pc_session_id":"pc-1",
+            }
+        })
+        self.assertIsNotNone(row)
+        self.assertEqual(row["pc_observation_id"],"obs-1")
+        self.assertEqual(row["provider"],"openrouter")
+
+    def test_force_pc_vision_overrides_recorded_cloud_finding(self):
+        row=HawkeyeFreeCloudFabric.recorded_pc_finding({
+            "force_pc_vision":True,
+            "free_cloud":{
+                "analysis":"Observed pump housing.",
+                "pc_recorded":True,
+                "pc_observation_id":"obs-1",
+            }
+        })
+        self.assertIsNone(row)
+
     def test_provider_pin_does_not_cross_to_other_vision_provider(self):
         fabric=self.make(FakeOpenRouter(fail=True))
         with self.assertRaises(RuntimeError):
