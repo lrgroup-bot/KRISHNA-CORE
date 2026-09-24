@@ -7,6 +7,7 @@
   "ui_role": "conversation-first mobile KRISHNA",
   "canonical_files": [
     "MainActivity.java",
+    "KrishnaPrivateCore.java",
     "MobileEdgeBot.java",
     "HawkeyeEvidenceCuratorBot.java",
     "HawkeyeEdgeMemory.java",
@@ -92,7 +93,16 @@
     "hawkeye_cloud_reviews_text_only": true,
     "hawkeye_cloud_findings_synced_to_pc": true,
     "pc_duplicate_vision_skip": true,
-    "pc_heavy_escalation": "explicit_or_missing-cloud-finding"
+    "pc_heavy_escalation": "explicit_or_missing-cloud-finding",
+    "automatic_private_core_bootstrap": true,
+    "zero_code_pairing_request": true,
+    "private_overlay_endpoint_hardcoded": false,
+    "large_media_sync_unmetered_only": true,
+    "cellular_large_media_upload": false,
+    "large_media_resumable": true,
+    "large_media_sha256_verified": true,
+    "mobile_retains_verified_copy_default": true,
+    "delete_after_verified_default": false
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
@@ -108,7 +118,9 @@
     "mobile_qwen": "disabled; no Qwen model is hosted on the phone. PC Qwen remains available to KRISHNA as an explicit opt-in local model.",
     "pc_offload": "HAWKEYE cloud inference is preferred for approved non-sensitive selected frames so PC local inference is reserved for explicit heavy escalation.",
     "pc_finding_sync": "Distilled HAWKEYE cloud findings are written to the PC live-session ledger and Learning Observer with provider/model/reviewer provenance; raw keyframes are not required for this finding handoff.",
-    "pc_compute_relief": "When a cloud finding is already recorded, curated evidence sync stores the bounded evidence but skips duplicate PC vision/BRAHMA intake unless explicit heavy escalation is requested."
+    "pc_compute_relief": "When a cloud finding is already recorded, curated evidence sync stores the bounded evidence but skips duplicate PC vision/BRAHMA intake unless explicit heavy escalation is requested.",
+    "private_transport": "First enrollment uses authenticated LAN discovery; after approval the paired phone learns the current private-overlay Core URL. Raw media sync requires unmetered private transport.",
+    "large_media_sync": "Resumable 512 KiB chunks to the E-drive Hawkeye inbox; PC SHA-256 verification and atomic promotion are required before mobile sync state advances."
   },
   "model_policy": {
     "pc_qwen_allowed": true,
