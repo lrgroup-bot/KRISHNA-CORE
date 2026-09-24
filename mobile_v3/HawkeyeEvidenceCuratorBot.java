@@ -101,8 +101,12 @@ public final class HawkeyeEvidenceCuratorBot {
     if(response.has("error")){out.put("status","pc_rejected");out.put("retained_local",true);out.put("error",response.optString("error"));return out;}
     boolean retained=response.optJSONObject("pc_evidence")!=null&&response.optJSONObject("pc_evidence").optBoolean("retained_pc",false);
     if(!retained){out.put("status","pc_not_retained");out.put("retained_local",true);return out;}
-    boolean deleted=HawkeyeEdgeMemory.acknowledge(context,meta.optString("observation_id"));
-    response.put("pc_acknowledged",true);response.put("mobile_deleted_after_ack",deleted);
+    boolean delete=context.getSharedPreferences("hawkeye_sync",0).getBoolean("delete_after_verified",false);
+    boolean localUpdated=delete
+      ?HawkeyeEdgeMemory.acknowledge(context,meta.optString("observation_id"))
+      :HawkeyeEdgeMemory.markSynced(context,meta.optString("observation_id"),response.optJSONObject("pc_evidence").optString("evidence_id",""));
+    response.put("pc_acknowledged",true);response.put("mobile_deleted_after_ack",delete&&localUpdated);
+    response.put("mobile_retained_after_ack",!delete&&localUpdated);response.put("delete_after_verified",delete);
     response.put("mobile_observation_id",meta.optString("observation_id"));response.put("mobile_storage",HawkeyeEdgeMemory.stats(context));
     return response;
   }
@@ -113,7 +117,8 @@ public final class HawkeyeEvidenceCuratorBot {
     out.put("pending_ttl_ms",MOBILE_MAX_AGE_MS);out.put("keep_interval_ms",KEEP_INTERVAL_MS);
     out.put("audio_keep_interval_ms",AUDIO_KEEP_INTERVAL_MS);out.put("video_keep_interval_ms",VIDEO_KEEP_INTERVAL_MS);
     out.put("sync_interval_ms",SYNC_INTERVAL_MS);out.put("low_power_sync_interval_ms",LOW_POWER_SYNC_INTERVAL_MS);
-    out.put("heavy_model_on_phone",false);out.put("max_sync_items_per_tick",1);return out;
+    out.put("heavy_model_on_phone",false);out.put("max_sync_items_per_tick",1);
+    out.put("delete_after_verified_default",false);out.put("cellular_large_upload",false);return out;
   }
 
   private boolean lowPower(){
