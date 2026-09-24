@@ -60,6 +60,36 @@ class FullAuditHardeningTests(unittest.TestCase):
             )
         self.assertEqual(len(calls), 1)
 
+    def test_idempotency_receipt_survives_restart_and_failed_execution_is_not_replayed(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "core.db"
+            calls = []
+            bus1 = SharedActionBus(AutomationBus(), PolicyKernel(root / "policy1"), idempotency_db_path=db)
+            bus1.register("audit.once", lambda payload, ctx: calls.append("first") or {"ok": True})
+            first = bus1.dispatch("audit.once", {"x": 1}, idempotency_key="persist-key")
+            bus1.close()
+
+            bus2 = SharedActionBus(AutomationBus(), PolicyKernel(root / "policy2"), idempotency_db_path=db)
+            bus2.register("audit.once", lambda payload, ctx: calls.append("second") or {"ok": True})
+            replay = bus2.dispatch("audit.once", {"x": 1}, idempotency_key="persist-key")
+            self.assertTrue(replay["idempotent_replay"])
+            self.assertEqual(replay["action_id"], first["action_id"])
+            self.assertEqual(calls, ["first"])
+
+            bus2.register("audit.fail", lambda payload, ctx: (_ for _ in ()).throw(RuntimeError("boom")))
+            with self.assertRaises(RuntimeError):
+                bus2.dispatch("audit.fail", {"x": 2}, idempotency_key="failed-key")
+            bus2.close()
+
+            retry_calls = []
+            bus3 = SharedActionBus(AutomationBus(), PolicyKernel(root / "policy3"), idempotency_db_path=db)
+            bus3.register("audit.fail", lambda payload, ctx: retry_calls.append("rerun") or {"ok": True})
+            with self.assertRaises(RuntimeError):
+                bus3.dispatch("audit.fail", {"x": 2}, idempotency_key="failed-key")
+            self.assertEqual(retry_calls, [])
+            bus3.close()
+
     def test_sensitive_action_fields_are_redacted_without_hiding_safe_token_metrics(self):
         bus = self._bus()
         bus.register("audit.echo", lambda payload, ctx: {"ok": True})
