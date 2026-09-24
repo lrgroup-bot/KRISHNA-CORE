@@ -35,7 +35,8 @@ class HawkeyeMediaSyncStore:
     @staticmethod
     def _safe(value: str, default="evidence"):
         text="".join(ch for ch in str(value or "") if ch.isalnum() or ch in "-_.")
-        return (text[:160] or default).strip(".")
+        clean=(text[:160] or default).strip(".")
+        return clean or default
 
     @staticmethod
     def _digest(value: str):
@@ -74,6 +75,9 @@ class HawkeyeMediaSyncStore:
         observation=self._safe(observation_id,"observation")
         session=self._safe(session_id,"mobile-evidence")
         name=self._safe(filename or f"{observation}.bin",f"{observation}.bin")
+        media_modality=self._safe(modality,"unknown").lower()
+        if media_modality not in {"image","audio","video"}:
+            raise ValueError("modality must be image, audio, or video")
         free=shutil.disk_usage(self.root).free
         if free < max(self.MIN_FREE_BYTES,size*2):
             raise RuntimeError("insufficient E-drive free space for verified media sync")
@@ -103,7 +107,7 @@ class HawkeyeMediaSyncStore:
                     "observation_id":observation,"session_id":session,"filename":name,
                     "size_bytes":size,"sha256":digest,
                     "content_type":str(content_type or "application/octet-stream")[:160],
-                    "modality":self._safe(modality,"unknown"),
+                    "modality":media_modality,
                     "metadata":dict(metadata or {}),"status":"WAITING_FOR_TRUSTED_LAN",
                     "created_at":time.time(),"updated_at":time.time(),
                     "final_path":str(final_path),
