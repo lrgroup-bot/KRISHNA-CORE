@@ -122,5 +122,30 @@ class FreeCloudDefaultTests(unittest.TestCase):
 
 
 
+class QwenStopPolicyTests(unittest.TestCase):
+    def test_qwen_is_not_a_default_or_fallback_candidate(self):
+        with patch.dict(os.environ,{
+            "KRISHNA_LOCAL_MODEL":"qwen3.5:4b",
+            "KRISHNA_LOCAL_FALLBACK_MODELS":"qwen2.5:3b,qwen2.5vl:7b,gemma3:4b",
+        },clear=False):
+            candidates=ModelRouter.local_model_candidates()
+        self.assertTrue(candidates)
+        self.assertEqual(candidates[0],"gemma3:4b")
+        self.assertFalse(any(x.lower().startswith("qwen") for x in candidates))
+
+    def test_explicit_qwen_request_is_blocked_before_ollama(self):
+        router=ModelRouter()
+        router._ollama_generate=lambda *args,**kwargs: (_ for _ in ()).throw(
+            AssertionError("disabled Qwen must never reach Ollama")
+        )
+        with self.assertRaisesRegex(RuntimeError,"disabled by owner policy"):
+            router.local("hello","qwen3.5:4b")
+
+    def test_qwen_family_is_blocked_even_with_registry_prefix(self):
+        self.assertFalse(ModelRouter.local_model_allowed("qwen3.5:4b"))
+        self.assertFalse(ModelRouter.local_model_allowed("library/qwen2.5vl:7b"))
+        self.assertTrue(ModelRouter.local_model_allowed("gemma3:4b"))
+
+
 if __name__=="__main__":
     unittest.main()
