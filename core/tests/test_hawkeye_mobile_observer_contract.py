@@ -100,6 +100,8 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("KRISHNA_DISCOVER_V1",resolver)
         self.assertIn("private_remote_url",resolver)
         self.assertIn("NETWORK_TYPE_UNMETERED",sync)
+        self.assertIn("trustedLanReady",sync)
+        self.assertIn("discoverLan",resolver)
         self.assertIn("WAITING_FOR_TRUSTED_LAN",sync)
         self.assertIn("/api/hawkeye/media-sync/start",sync)
         self.assertIn("/api/hawkeye/media-sync/chunk",sync)
