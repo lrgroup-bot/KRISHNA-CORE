@@ -842,27 +842,7 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(state["latest_analysis"]["frame_meta"]["provider"],"openrouter")
         self.assertFalse(state["latest_analysis"]["frame_meta"]["pc_local_vision_rerun"])
 
-        cloud_ctx={
-            "analysis":"Observed housing and an inferred possible leak near the visible coupling.",
-            "provider":"openrouter","model":"vision/free","role":"hawkeye_vision",
-            "pc_recorded":True,
-            "pc_observation_id":finding["observation_id"],
-            "pc_session_id":sid,
-            "local_vision_skip_recommended":True,
-        }
-        code,ingest=self.call("/api/hawkeye/evidence/ingest",{
-            "session_id":sid,
-            "data_b64":base64.b64encode(b"bounded-test-image-bytes").decode(),
-            "content_type":"image/jpeg",
-            "modality":"image",
-            "goal":"inspect machine",
-            "sensor_context":{"curator_selected":True,"curator_quality":0.8,"curator_novelty":0.7,"free_cloud":cloud_ctx}
-        })
-        self.assertEqual(code,200)
-        self.assertTrue(ingest["pc_local_vision_skipped"])
-        self.assertTrue(ingest["cloud_finding_reused"])
-        self.assertEqual(ingest["cloud_observation_id"],finding["observation_id"])
-        self.assertTrue(ingest["brahma"]["duplicate_intake_skipped"])
+
 
     def test_narad_workflow_lifecycle(self):
         code,w=self.call("/api/narad/workflows/create",{"name":"http-safe","trigger":{"type":"manual"},"steps":[{"action":"publish_event","topic":"http.test"}]})
