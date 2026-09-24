@@ -46,6 +46,7 @@ from .neural_action_graph import NeuralActionGraph
 from .browser_operator import BrowserOperator
 from .github_research import GitHubResearchAgent
 from .goal_evaluator import GoalEvaluator
+from .amcc_controller import AMCCController
 from .skill_runtime import SkillRegistry
 from .content_guard import assess_untrusted_content
 from .task_ledger import TaskLedger
@@ -135,6 +136,7 @@ class Orchestrator:
 
         self.projects = ProjectRegistry()
         self.governor = ResourceGovernor()
+        self.amcc = AMCCController(runtime_state / "amcc")
         self.actions = ActionRegistry()
         self.indexer = RepositoryIndexer()
         self.shadow = ShadowWorkspaceManager()
@@ -350,6 +352,30 @@ class Orchestrator:
                 str(payload.get("action_name") or "").strip() or None,
                 payload.get("components") or [],
                 approved=bool(context.get("approved",False)),
+                amcc_signals=payload.get("amcc") or {},
+            )
+
+        def amcc_evaluate_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            goal=str(payload.get("goal") or "").strip()
+            if not goal:raise ValueError("goal is required")
+            return self.amcc_evaluate(
+                project,goal,payload.get("signals") or {},
+                action=str(payload.get("action") or "").strip() or None,
+            )
+
+        def amcc_status_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip() or None
+            return self.amcc_status(project=project,limit=int(payload.get("limit") or 50))
+
+        def amcc_outcome_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            goal=str(payload.get("goal") or "").strip()
+            if not goal:raise ValueError("goal is required")
+            return self.amcc_record_outcome(
+                project,goal,str(payload.get("status") or "unknown"),
+                progress=payload.get("progress"),error=payload.get("error"),
+                metadata=payload.get("metadata") or {},
             )
 
         def repair_shadow(payload,context):
@@ -2214,6 +2240,24 @@ class Orchestrator:
             sources=("pc","system"),
         )
         self.action_bus.register(
+            "cognition.amcc.evaluate",amcc_evaluate_action,
+            description="Evaluate expected control value, effort intensity and adaptive persistence strategy",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "cognition.amcc.status",amcc_status_action,
+            description="Read KRISHNA aMCC controller state and recent goal-control modes",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "cognition.amcc.outcome",amcc_outcome_action,
+            description="Record a bounded task outcome for adaptive persistence learning",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
             "repair.shadow",repair_shadow,
             description="Run a bounded repair in KRISHNA shadow workspace",
             permissions=("candidate.write","tests.run"),
@@ -3069,6 +3113,34 @@ class Orchestrator:
             permissions=permissions,idempotency_key=idempotency_key,
         )
 
+    def _amcc_runtime_signals(self):
+        snapshot=self.governor.snapshot()
+        active=float(snapshot.get("active_jobs") or 0)
+        maximum=max(1.0,float(snapshot.get("max_concurrent_jobs") or 1))
+        pressure=max(0.0,min(1.0,active/maximum))
+        return {
+            "resource_pressure":pressure,
+            "compute_cost":max(0.15,min(1.0,0.15+0.65*pressure)),
+            "owner_priority":0.85,
+        }
+
+    def amcc_evaluate(self,project,goal,signals=None,action=None):
+        merged=self._amcc_runtime_signals()
+        if isinstance(signals,dict):merged.update(signals)
+        result=self.amcc.evaluate(project,goal,merged,action=action)
+        self.memory.audit("amcc",result["mode"],f"{project}:{goal[:120]}")
+        return result
+
+    def amcc_status(self,project=None,limit=50):
+        return self.amcc.status(project=project,limit=limit)
+
+    def amcc_record_outcome(self,project,goal,status,progress=None,error=None,metadata=None):
+        result=self.amcc.record_outcome(
+            project,goal,status,progress=progress,error=error,metadata=metadata or {},
+        )
+        self.memory.audit("amcc_outcome",str(status),f"{project}:{goal[:120]}")
+        return result
+
     def action_bus_status(self):
         return self.action_bus.status()
 
@@ -3194,21 +3266,17 @@ class Orchestrator:
         self.memory.audit("project_unregister", "completed", f"{name}:moved_chats={moved}")
         return {"name": name, "removed": True, "moved_chats_to_global": moved}
 
-    def _run_managed_goal_impl(self, project, goal, action_name=None, components=None, approved=False):
-        """Run a bounded managed-work transaction.
+    def _run_managed_goal_impl(self, project, goal, action_name=None, components=None, approved=False, amcc_signals=None):
+        """Run a bounded managed-work transaction with aMCC effort control.
 
-        Investigation is always allowed for a registered project. Mutation requires:
-        1) a pre-registered project action,
-        2) the action to be allowed by project policy,
-        3) global KRISHNA_ALLOW_ACTIONS=1,
-        4) explicit approval for this transaction,
-        5) successful verification in a disposable shadow workspace.
-
-        This method never promotes shadow files into the live project. Promotion is a
-        separate boundary so a verified candidate cannot silently overwrite live work.
+        Investigation is always allowed for a registered project. Mutation still
+        requires the existing action registry, project policy, global mutation
+        switch, explicit approval, shadow execution and independent verification.
+        The aMCC layer cannot grant permissions or promote live changes.
         """
         task = self.task_ledger.create(project, goal)
         task_id = task["task_id"]
+        control = None
         try:
             policy = self.projects.get(project)
             if not policy:
@@ -3230,70 +3298,107 @@ class Orchestrator:
                 })
                 raise KeyError(f"{project}:{action_name}")
 
-            self.task_ledger.update(task_id, "running", "investigate")
+            control_signals = self._amcc_runtime_signals()
+            if isinstance(amcc_signals, dict):
+                control_signals.update(amcc_signals)
+            control = self.amcc.evaluate(project, goal, control_signals, action=action_name)
+            self.memory.audit("amcc", control["mode"], f"{project}:{goal[:120]}")
+
+            if not control.get("execute", True):
+                self.amcc.record_outcome(project, goal, "blocked", error="aMCC explicit high-risk abort")
+                return self.task_ledger.update(task_id, "rejected", "amcc_gate", {
+                    "action": action_name,
+                    "mutation_performed": False,
+                    "amcc": control,
+                    "reason": "aMCC high-risk stop; permissions and safety policy remain authoritative",
+                })
+
+            self.task_ledger.update(task_id, "running", "investigate", {"amcc": control})
             investigation = self.investigate(goal, project, components or [])
 
             if not action_name:
+                self.amcc.record_outcome(project, goal, "waiting", metadata={"phase": "action_selection"})
                 return self.task_ledger.update(task_id, "waiting_approval", "action_selection", {
                     "investigation": investigation,
                     "allowed_actions": list(policy.allowed_actions),
                     "mutation_performed": False,
+                    "amcc": control,
                     "reason": "registered action must be selected before mutation",
                 })
 
             if registered[action_name].get("mutating"):
-                self.projects.assert_mutable(project,action_name)
+                self.projects.assert_mutable(project, action_name)
                 if not settings.allow_actions:
+                    self.amcc.record_outcome(project, goal, "waiting", metadata={"phase": "mutation_disabled"})
                     return self.task_ledger.update(task_id, "waiting_approval", "mutation_disabled", {
                         "action": action_name, "investigation": investigation,
                         "mutation_performed": False,
+                        "amcc": control,
                         "reason": "KRISHNA_ALLOW_ACTIONS is disabled",
                     })
                 if not approved:
+                    self.amcc.record_outcome(project, goal, "waiting", metadata={"phase": "approval"})
                     return self.task_ledger.update(task_id, "waiting_approval", "approval", {
                         "action": action_name, "investigation": investigation,
                         "mutation_performed": False,
+                        "amcc": control,
                         "reason": "explicit approval required for this mutating transaction",
                     })
 
             self.task_ledger.update(task_id, "running", "shadow_repair", {
-                "action": action_name, "mutation_scope": "shadow_only",
+                "action": action_name,
+                "mutation_scope": "shadow_only",
+                "amcc": control,
             })
-            result = self._run_shadow_repair_impl(project, goal, action_name, components or [])
+            result = self._run_shadow_repair_impl(project, goal, action_name, components or [], control=control)
             if result.get("promotable"):
+                self.amcc.record_outcome(project, goal, "verified", progress=1.0, metadata={"phase": "promotion_ready"})
                 self.project_brain.learn_verified(project, goal, result)
-                candidate_root=result.get("candidate_root")
-                promotion=self._prepare_promotion_impl(project,candidate_root,task_id=task_id) if candidate_root else None
+                candidate_root = result.get("candidate_root")
+                promotion = self._prepare_promotion_impl(project, candidate_root, task_id=task_id) if candidate_root else None
                 return self.task_ledger.update(task_id, "verified", "promotion_ready", {
                     "repair": result,
                     "promotion": promotion,
                     "mutation_performed": True,
                     "live_project_modified": False,
                     "promotion_ready": bool(promotion),
+                    "amcc": control,
                 })
+
+            self.amcc.record_outcome(project, goal, "rejected", metadata={"phase": "verification"})
             return self.task_ledger.update(task_id, "rejected", "verification", {
                 "repair": result,
                 "mutation_performed": True,
                 "live_project_modified": False,
                 "promotion_ready": False,
+                "amcc": control,
             })
         except Exception as exc:
+            if control is not None:
+                self.amcc.record_outcome(project, goal, "failed", error=f"{type(exc).__name__}: {exc}")
             current = self.task_ledger.get(task_id)
             if not current or current.get("status") != "failed":
                 self.task_ledger.update(task_id, "failed", "error", {
                     "error": f"{type(exc).__name__}: {exc}",
                     "live_project_modified": False,
+                    "amcc": control,
                 })
             raise
 
-
-    def run_managed_goal(self, project, goal, action_name=None, components=None, approved=False):
-        receipt=self.dispatch_action(
+    def run_managed_goal(self, project, goal, action_name=None, components=None, approved=False, amcc_signals=None):
+        receipt = self.dispatch_action(
             "work.managed.run",
-            {"project":project,"goal":goal,"action_name":action_name,"components":components or []},
-            project=project,source="pc",actor="work-console",approved=approved,
+            {
+                "project": project,
+                "goal": goal,
+                "action_name": action_name,
+                "components": components or [],
+                "amcc": amcc_signals or {},
+            },
+            project=project, source="pc", actor="work-console", approved=approved,
         )
         return receipt["result"]
+
 
     def _prepare_promotion_impl(self, project, candidate_root, task_id=None):
         policy=self.projects.get(project)
@@ -4221,7 +4326,7 @@ Evidence:
         self.memory.audit("repository_index", "complete", f"{project}:{result['file_count']}")
         return result
 
-    def _run_shadow_repair_impl(self, project, symptom, action_name, components=None):
+    def _run_shadow_repair_impl(self, project, symptom, action_name, components=None, control=None):
         item = self.projects.get(project)
         if not item:
             raise KeyError(project)
@@ -4230,10 +4335,13 @@ Evidence:
             raise PermissionError(f"action not allowed for project: {action_name}")
 
         def patcher(workspace: Path, investigation: dict):
+            bounded_investigation = dict(investigation or {})
+            if control:
+                bounded_investigation["amcc_control"] = control
             return self.actions.execute(
                 project,
                 action_name,
-                {"workspace": str(workspace), "investigation": investigation},
+                {"workspace": str(workspace), "investigation": bounded_investigation},
                 allow_mutation=True,
             )
 
@@ -4261,6 +4369,8 @@ Evidence:
             primary_provider="",
             reviewer_provider="",
         )
+        if control:
+            result["amcc_control"] = control
         return result
 
     def run_shadow_repair(self, project, symptom, action_name, components=None):
