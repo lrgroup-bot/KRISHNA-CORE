@@ -47,8 +47,9 @@ class HawkeyeMediaSyncTests(unittest.TestCase):
             payload=b"abc123"
             digest=hashlib.sha256(b"different").hexdigest()
             start=store.start(
-                observation_id="obs-2",session_id="field",filename="x.bin",
+                observation_id="obs-2",session_id="field",filename="x.jpg",
                 size_bytes=len(payload),sha256=digest,
+                content_type="image/jpeg",modality="image",
             )
             mismatch=store.append(start["upload_id"],3,base64.b64encode(payload).decode())
             self.assertEqual(mismatch["status"],"RESUME_REQUIRED")
