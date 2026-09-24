@@ -25,7 +25,7 @@ class BrahmaProcessQC:
         self.path=self.root/"process-qc.json";self.event_bus=event_bus;self.memory=memory
         self.lock=RLock();self.retry_dispatch=None;self.investigate=None;self.consult_krishna=None;self.repair_known=None
         self._attached=False;self._handling=set();self._retried=set();now=time.time()
-        self.state={"version":self.VERSION,"latest_state":"idle","notifications":[],"gods":{
+        self.state={"version":self.VERSION,"latest_state":"idle","notifications":[],"open_errors":{},"gods":{
             k:{"id":k,"name":n,"logo":logo,"state":"idle","color":"red","detail":"Idle","updated_at":now}
             for k,n,logo in self.GODS
         }}
@@ -43,7 +43,7 @@ class BrahmaProcessQC:
         try:
             raw=json.loads(self.path.read_text(encoding="utf-8"))
             if isinstance(raw,dict):self.state.update(raw)
-            self.state.setdefault("notifications",[]);g=self.state.setdefault("gods",{})
+            self.state.setdefault("notifications",[]);self.state.setdefault("open_errors",{});g=self.state.setdefault("gods",{})
             for k,n,logo in self.GODS:
                 g.setdefault(k,{"id":k,"name":n,"logo":logo,"state":"idle","color":"red","detail":"Idle","updated_at":time.time()})
         except Exception as exc:self.load_error=f"{type(exc).__name__}: {exc}"
@@ -140,14 +140,21 @@ class BrahmaProcessQC:
         self._handling.add(key)
         try:
             error=str(p.get("error") or p.get("last_error") or topic)
+            with self.lock:
+                self.state.setdefault("open_errors",{})[key]={"component":comp,"project":project,"topic":topic,"error":self.compact(error,800),"created_at":time.time()}
+                self._save()
             self.notify("error",f"{name} error detected",error,component=comp,topic=topic,project=project)
             self.notify("handling","BRAHMA handling error",f"{name}: {error}",component="brahma",topic=topic,project=project)
             discussion=self._consult(event,error);retry=self._retry(event)
             if retry and retry.get("fixed"):
+                with self.lock:
+                    self.state.setdefault("open_errors",{}).pop(key,None);self._save()
                 self.notify("done",f"{name} fixed",topic,component=comp,topic=topic,project=project,metadata={"recovery":retry})
                 return self.notify("done","BRAHMA QC done",discussion or "Safe retry verified",component="brahma",topic=topic,project=project)
             repair=self._known_repair(event,error)
             if isinstance(repair,dict) and repair.get("fixed"):
+                with self.lock:
+                    self.state.setdefault("open_errors",{}).pop(key,None);self._save()
                 self.notify("done",f"{name} fixed",topic,component=comp,topic=topic,project=project,metadata={"repair":repair})
                 return self.notify("done","BRAHMA repair verified",discussion or "Verified recovery completed",component="brahma",topic=topic,project=project)
             if isinstance(repair,dict) and repair.get("candidate_ready"):
@@ -163,8 +170,15 @@ class BrahmaProcessQC:
     def status(self):
         with self.lock:
             notes=list(self.state.get("notifications") or []);gods=[dict(self.state["gods"][k]) for k,_,_ in self.GODS];latest=str(self.state.get("latest_state") or "idle")
+            open_errors=dict(self.state.get("open_errors") or {})
+        open_components={str(v.get("component") or "") for v in open_errors.values() if isinstance(v,dict)}
+        for god in gods:
+            if god.get("id") in open_components and god.get("state") not in {"working","handling"}:
+                god["state"]="error";god["color"]="red"
+        overall=("yellow" if latest in {"working","handling"} else ("red" if open_errors else self.color(latest)))
         return {"agent":"BRAHMA","version":self.VERSION,"role":"global KRISHNA process QC + safe automatic recovery",
-                "attached":self._attached,"latest_state":latest,"latest_color":self.color(latest),
+                "attached":self._attached,"latest_state":latest,"latest_color":overall,
                 "color_contract":{"red":"idle or error","yellow":"working or handling","green":"completed or healthy"},
-                "gods":gods,"notifications":notes[-100:],"unresolved_recent":[x for x in notes if x.get("state")=="error"][-20:],
+                "gods":gods,"notifications":notes[-100:],"open_error_count":len(open_errors),"open_errors":list(open_errors.values())[-20:],
+                "unresolved_recent":[x for x in notes if x.get("state")=="error"][-20:],
                 "krishna_discussion":callable(self.consult_krishna),"ready":self.load_error is None,"load_error":self.load_error}
