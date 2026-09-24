@@ -22,6 +22,20 @@ class ArchitectureTruthClassificationTests(unittest.TestCase):
             self.assertNotIn("__init__.py",names)
             self.assertFalse(any("__pycache__" in p for row in report["identical_content"] for p in row["paths"]))
 
+    def test_duplicate_content_detection_survives_size_prefilter(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            (root/"core"/"krishna_core").mkdir(parents=True)
+            (root/"core"/"tests").mkdir(parents=True)
+            (root/"core"/"requirements").mkdir(parents=True)
+            (root/"core"/"krishna_core"/"a.py").write_text("VALUE=1\n",encoding="utf-8")
+            (root/"core"/"tests"/"b.py").write_text("VALUE=1\n",encoding="utf-8")
+            report=ArchitectureTruthAudit(root)._duplicate_inventory()
+            self.assertTrue(any(
+                set(row["paths"])=={"core/krishna_core/a.py","core/tests/b.py"}
+                for row in report["identical_content"]
+            ))
+
     def test_known_compatibility_module_is_classified_not_orphan(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td)
