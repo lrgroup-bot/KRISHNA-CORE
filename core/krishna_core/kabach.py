@@ -145,9 +145,10 @@ class KabachAgent:
         if dangerous:evidence.append("high_risk_operation")
         if tool not in perms and "*" not in perms:evidence.append("tool_not_permitted")
         if dangerous and not approved:evidence.append("explicit_approval_required")
-        blocked=bool(evidence)
+        blocked=any(x in evidence for x in ("tool_not_permitted","explicit_approval_required"))
         data={"kind":"tool","tool":tool,"operation":operation,"evidence":evidence}
-        return KabachVerdict(not blocked,"allow" if not blocked else "block","policy satisfied" if not blocked else "tool policy violation","low" if not blocked else "high",tuple(evidence),self._receipt(data)).as_dict()
+        risk="high" if dangerous or blocked else "low"
+        return KabachVerdict(not blocked,"allow" if not blocked else "block","policy satisfied" if not blocked else "tool policy violation",risk,tuple(evidence),self._receipt(data)).as_dict()
 
     def research_security(self, project, question, garuda, limit=10):
         question=str(question or "").strip()
