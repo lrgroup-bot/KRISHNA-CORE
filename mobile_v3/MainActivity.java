@@ -573,13 +573,8 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
     @JavascriptInterface public String hawkeyeSyncEvidence(){
-      try{
-        JSONObject out=hawkeyeCurator.syncOne((meta,jpeg)->{
-          JSONObject sensors=meta.optJSONObject("sensor_context");if(sensors==null)sensors=new JSONObject();
-          return uploadCuratedEvidence(meta,jpeg,meta.optString("content_type","image/jpeg"),sensors.optString("curator_goal",""));
-        });
-        return out.toString();
-      }catch(Exception e){return error(e);}
+      try{return HawkeyeBackgroundSync.syncOne(MainActivity.this).toString();}
+      catch(Exception e){return error(e);}
     }
     @JavascriptInterface public String hawkeyeEvidenceStatus(){
       try{return hawkeyeCurator.status().toString();}catch(Exception e){return error(e);}
@@ -591,6 +586,12 @@ public class MainActivity extends Activity {
     }
 
     JSONObject uploadCuratedEvidence(JSONObject meta,byte[] payload,String contentType,String fallbackGoal)throws Exception{
+      if(!KrishnaPrivateCore.unmeteredTrustedNetwork(MainActivity.this)){
+        JSONObject held=new JSONObject();
+        held.put("status","WAITING_FOR_TRUSTED_LAN");held.put("retained_local",true);
+        held.put("cellular_large_upload",false);held.put("raw_cloud_upload",false);
+        return held;
+      }
       JSONObject sensors=meta.optJSONObject("sensor_context");if(sensors==null)sensors=new JSONObject();sensors=new JSONObject(sensors.toString());
       sensors.put("mobile_observation_id",meta.optString("observation_id"));sensors.put("mobile_payload_sha256",meta.optString("payload_sha256"));sensors.put("curator_selected",true);
       String localSession=meta.optString("session_id","field"),goal=sensors.optString("curator_goal",fallbackGoal==null?"":fallbackGoal),pcSession=resolvePcHawkeyeSession(localSession,goal);
