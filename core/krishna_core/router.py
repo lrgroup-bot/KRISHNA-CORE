@@ -17,8 +17,10 @@ class ModelRouter:
     providers.
     """
 
-    DEFAULT_LOCAL_MODEL="gemma3:4b"
-    DEFAULT_LOCAL_FALLBACKS=("granite3.3:2b","smollm2:1.7b","llama3.2:1b","deepseek-r1:1.5b")
+    DEFAULT_LOCAL_MODEL="qwen3.5:4b"
+    DEFAULT_LOCAL_FALLBACKS=("gemma3:4b","granite3.3:2b","smollm2:1.7b","llama3.2:1b","deepseek-r1:1.5b","qwen2.5:3b")
+    DEFAULT_CODING_MODEL="qwen2.5-coder:7b"
+    DEFAULT_CODING_FALLBACKS=("qwen3.5:4b","gemma3:4b","granite3.3:2b")
     DISABLED_LOCAL_MODEL_PREFIXES=()
 
     PROVIDERS={
@@ -73,12 +75,30 @@ class ModelRouter:
             for prefix in cls.DISABLED_LOCAL_MODEL_PREFIXES
         )
 
+    @staticmethod
+    def normalize_task(task):
+        value=str(task or "general").strip().lower().replace("-","_")
+        if value in {"coding","code","implementation","implement","debug","debugging","repair","software_repair","bugfix","bug_fix"}:
+            return "coding"
+        if value in {"reasoning","analysis","architecture","architecture_review","security_review","review"}:
+            return "reasoning"
+        return "general"
+
     @classmethod
-    def local_model_candidates(cls):
-        primary=str(os.getenv("KRISHNA_LOCAL_MODEL",cls.DEFAULT_LOCAL_MODEL) or cls.DEFAULT_LOCAL_MODEL).strip()
-        raw=str(os.getenv("KRISHNA_LOCAL_FALLBACK_MODELS",",".join(cls.DEFAULT_LOCAL_FALLBACKS)) or "")
+    def local_model_candidates(cls,task="general"):
+        task=cls.normalize_task(task)
+        if task=="coding":
+            default_model=cls.DEFAULT_CODING_MODEL
+            default_fallbacks=cls.DEFAULT_CODING_FALLBACKS
+            primary=str(os.getenv("KRISHNA_CODING_MODEL",default_model) or default_model).strip()
+            raw=str(os.getenv("KRISHNA_CODING_FALLBACK_MODELS",",".join(default_fallbacks)) or "")
+        else:
+            default_model=cls.DEFAULT_LOCAL_MODEL
+            default_fallbacks=cls.DEFAULT_LOCAL_FALLBACKS
+            primary=str(os.getenv("KRISHNA_LOCAL_MODEL",default_model) or default_model).strip()
+            raw=str(os.getenv("KRISHNA_LOCAL_FALLBACK_MODELS",",".join(default_fallbacks)) or "")
         out=[]
-        for model in [primary,*raw.split(","),cls.DEFAULT_LOCAL_MODEL,*cls.DEFAULT_LOCAL_FALLBACKS]:
+        for model in [primary,*raw.split(","),default_model,*default_fallbacks]:
             model=str(model or "").strip()
             if model and cls.local_model_allowed(model) and model not in out:out.append(model)
         return out
@@ -91,20 +111,45 @@ class ModelRouter:
             if str(x.get("name") or x.get("model") or "").strip()
         }
 
-    def local_model_status(self):
+    def local_model_status(self,task="general"):
+        task=self.normalize_task(task)
         ok,data=self._probe_json(settings.ollama_url.rstrip("/")+"/api/tags")
-        candidates=self.local_model_candidates()
+        candidates=self.local_model_candidates(task)
         installed=self._ollama_model_names(data) if ok else set()
         selected=next((m for m in candidates if m.lower() in installed or (m.lower()+":latest") in installed),None)
+        default_model=self.DEFAULT_CODING_MODEL if task=="coding" else self.DEFAULT_LOCAL_MODEL
         return {
             "provider":"ollama",
+            "task":task,
             "available":bool(ok and selected),
             "service_available":bool(ok),
-            "primary_model":candidates[0] if candidates else self.DEFAULT_LOCAL_MODEL,
+            "primary_model":candidates[0] if candidates else default_model,
             "fallback_models":candidates[1:],
             "selected_model":selected,
             "installed_candidates":[m for m in candidates if m.lower() in installed or (m.lower()+":latest") in installed],
             "error":None if ok else (data or {}).get("error"),
+        }
+
+    def role_status(self):
+        return {
+            "authority":"KRISHNA_PC",
+            "pc":{
+                "general":self.local_model_status("general"),
+                "coding":self.local_model_status("coding"),
+            },
+            "cloud":{
+                "automatic_paid_fallback":False,
+                "general":["openrouter-free:general","direct-free:cloudflare-workers-ai"],
+                "coding":["openrouter-free:coding","direct-free:cloudflare-workers-ai"],
+                "reasoning":["openrouter-free:reasoning","direct-free:cloudflare-workers-ai"],
+                "policy":"cloud only after local failure and only for approved non-sensitive work; automatic paid fallback remains disabled",
+            },
+            "mobile":{
+                "qwen_runtime":False,
+                "local_perception":"ML Kit + MediaPipe",
+                "heavy_private_inference":"KRISHNA PC",
+                "approved_cloud":"HAWKEYE Free Cloud Fabric",
+            },
         }
 
     def _ollama_generate(self,model,prompt):
@@ -112,14 +157,14 @@ class ModelRouter:
         req=urllib.request.Request(settings.ollama_url.rstrip("/")+"/api/generate",data=body,headers={"Content-Type":"application/json"})
         with urllib.request.urlopen(req,timeout=90) as r:return json.loads(r.read().decode()).get("response","")
 
-    def local(self,prompt,model=None):
+    def local(self,prompt,model=None,task="general"):
         if model:
             model=str(model).strip()
             if not self.local_model_allowed(model):
                 raise RuntimeError("local model disabled by owner policy: "+model)
             return self._ollama_generate(model,prompt)
-        status=self.local_model_status()
-        ordered=[status.get("selected_model"),*self.local_model_candidates()]
+        status=self.local_model_status(task)
+        ordered=[status.get("selected_model"),*self.local_model_candidates(task)]
         candidates=[]
         for candidate in ordered:
             candidate=str(candidate or "").strip()
@@ -289,34 +334,60 @@ class ModelRouter:
             x for x in self.available()
             if x["available"] and x.get("pc_routing_eligible",True)
         ]
+        cloud_allowed=privacy not in {"local_only","restricted"}
         if privacy in {"local_only","restricted"}:
             available=[x for x in available if x["local"]]
-        else:
-            if free_only or not self.paid_cloud_enabled():
-                # Automatic zero-cost planning trusts only local inference, the
-                # live-catalog verified OpenRouter fabric, and native direct adapters
-                # that perform their own live zero-billing preflight. A profile merely
-                # labelled free_only (Gemini/Groq/etc.) is not a billing guarantee.
-                available=[x for x in available if x["local"] or x["provider"]=="openrouter-free"
-                           or x["provider"]=="direct-free:cloudflare-workers-ai"]
-        # Local models remain first. Free cloud can provide an independent reviewer
-        # when available, while paid providers are opt-in only.
-        def rank(row):
-            if row.get("local"):
-                return 0 if row["provider"]=="ollama" else 1
-            if row["provider"]=="openrouter-free":
-                return 2
-            if row["provider"]=="direct-free:cloudflare-workers-ai":
-                return 3
-            if row.get("free_only"):
-                return 4
-            return 20
-        available.sort(key=rank)
-        roles=["implementation","architecture_review","bug_test_review","security_review"]
-        return [{"role":role,"provider":available[i%len(available)]["provider"],"model":available[i%len(available)]["model"]} for i,role in enumerate(roles)] if available else []
+        elif free_only or not self.paid_cloud_enabled():
+            available=[
+                x for x in available
+                if x["local"] or x["provider"]=="openrouter-free"
+                or x["provider"]=="direct-free:cloudflare-workers-ai"
+            ]
+
+        def local_role(status,role):
+            model=str((status or {}).get("selected_model") or "").strip()
+            if not model:return None
+            return {
+                "role":role,"provider":"ollama-model:"+model,"model":model,
+                "local":True,"free_only":True,
+            }
+
+        def provider_role(provider,role):
+            row=next((x for x in available if x.get("provider")==provider and x.get("available")),None)
+            if not row:return None
+            return {
+                "role":role,"provider":provider,"model":row.get("model"),
+                "local":bool(row.get("local",False)),"free_only":bool(row.get("free_only",False)),
+            }
+
+        general=local_role(self.local_model_status("general"),"architecture_review")
+        coding=local_role(self.local_model_status("coding"),"implementation")
+        if coding is None:
+            coding=local_role(self.local_model_status("general"),"implementation")
+        if general is None:
+            first_local=next((x for x in available if x.get("local")),None)
+            if first_local:
+                general={
+                    "role":"architecture_review","provider":first_local["provider"],
+                    "model":first_local.get("model"),"local":True,
+                    "free_only":bool(first_local.get("free_only",True)),
+                }
+        if coding is None and general is not None:
+            coding={**general,"role":"implementation"}
+
+        openrouter=provider_role("openrouter-free","bug_test_review") if cloud_allowed else None
+        cloudflare=provider_role("direct-free:cloudflare-workers-ai","security_review") if cloud_allowed else None
+        bug=openrouter or ({**coding,"role":"bug_test_review"} if coding else None)
+        security=cloudflare or (
+            {**openrouter,"role":"security_review"} if openrouter
+            else ({**general,"role":"security_review"} if general else None)
+        )
+        plan=[x for x in (coding,general,bug,security) if x]
+        return plan
 
     def route(self,prompt,privacy="approved_cloud",free_only=False,project="KRISHNA",actor="model-router",task="general"):
         local_errors={}
+        task_name=self.normalize_task(task)
         if self.model_scout:
             for row in self.model_scout.routing_candidates(task,limit=5):
                 model=str(row.get("model_id") or "").strip()
@@ -334,6 +405,16 @@ class ModelRouter:
                         }
                 except Exception as exc:
                     local_errors[provider]=f"{type(exc).__name__}: {exc}"
+        if task_name=="coding":
+            for model in self.local_model_candidates("coding"):
+                provider="ollama-model:"+model
+                if provider in local_errors:continue
+                try:
+                    out=self._governed_ask(provider,prompt,privacy,free_only,project,actor)
+                    if str(out).strip():
+                        return {"provider":provider,"model":model,"text":out,"task":"coding"}
+                except Exception as exc:
+                    local_errors[provider]=f"{type(exc).__name__}: {exc}"
         for name in ("ollama","gpt4all"):
             try:
                 out=self._governed_ask(name,prompt,privacy,free_only,project,actor)
@@ -347,7 +428,8 @@ class ModelRouter:
         # fabric. It refuses a request if pricing is no longer zero.
         if self.openrouter_free and self.openrouter_free.configured():
             try:
-                provider="openrouter-free:general"
+                cloud_role="coding" if task_name=="coding" else ("reasoning" if task_name=="reasoning" else "general")
+                provider="openrouter-free:"+cloud_role
                 text=self._governed_ask(provider,prompt,privacy,True,project,actor)
                 if str(text).strip():return {"provider":provider,"text":text,"free_only":True,"zero_cost_verified":True}
             except Exception:

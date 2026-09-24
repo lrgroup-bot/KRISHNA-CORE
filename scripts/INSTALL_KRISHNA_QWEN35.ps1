@@ -7,17 +7,17 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Owner policy:
-# - Qwen is permitted on the KRISHNA PC as an explicit local opt-in model.
+# - Qwen is role-assigned on the KRISHNA PC by owner policy.
 # - Qwen is not a KRISHNA Mobile inference dependency.
-# - Canonical deployment never pulls, starts, stops or deletes Qwen automatically.
+# - Canonical deployment never downloads or deletes models automatically; this helper pulls only when explicitly requested.
 $cmd = Get-Command $OllamaExe -ErrorAction SilentlyContinue
 if (-not $cmd) {
     throw "Ollama CLI not found. PC Qwen cannot be inspected or installed."
 }
 
 if (-not $Pull) {
-    Write-Host "PC-only Qwen is permitted. No download was requested; leaving Ollama models unchanged."
-    Write-Host "To explicitly install a PC model, rerun with -Pull [-Model <ollama-model>]."
+    Write-Host "KRISHNA PC Qwen role policy is enabled. No download was requested; leaving Ollama models unchanged."
+    Write-Host "To install a missing PC Qwen model, rerun with -Pull [-Model <ollama-model>]."
     exit 0
 }
 

@@ -116,8 +116,8 @@
     "learning_verification": "Distilled HAWKEYE candidates can run through Rishi Live -> Garuda -> Gautama -> Gyan proposal gate without raw-media transfer; automatic model escalation remains local-only",
     "openrouter": "KRISHNA PC brokers credentials; HAWKEYE selected non-sensitive keyframes use a live zero-cost vision model chosen by role preference or dynamic ranking.",
     "free_cloud_reviews": "Sanitized HAWKEYE text summaries may be reviewed by verified Cloudflare Workers AI and configured free_only text gateways such as Groq/Mistral; raw camera frames are not sent to text-only providers.",
-    "mobile_qwen": "disabled; no Qwen model is hosted on the phone. PC Qwen remains available to KRISHNA as an explicit opt-in local model.",
-    "pc_offload": "HAWKEYE cloud inference is preferred for approved non-sensitive selected frames so PC local inference is reserved for explicit heavy escalation.",
+    "mobile_qwen": "disabled; no Qwen model is hosted on the phone. KRISHNA PC assigns Qwen by role: qwen3.5:4b general/fast vision, qwen2.5-coder:7b coding, qwen2.5vl:7b detailed HAWKEYE vision.",
+    "pc_offload": "Private/heavy HAWKEYE inference stays on KRISHNA PC; approved non-sensitive selected frames may use verified-free cloud to reduce PC load.",
     "pc_finding_sync": "Distilled HAWKEYE cloud findings are written to the PC live-session ledger and Learning Observer with provider/model/reviewer provenance; raw keyframes are not required for this finding handoff.",
     "pc_compute_relief": "When a cloud finding is already recorded, curated evidence sync stores the bounded evidence but skips duplicate PC vision/BRAHMA intake unless explicit heavy escalation is requested.",
     "private_transport": "First enrollment uses authenticated LAN discovery; after approval the paired phone learns the current private-overlay Core URL. Raw media sync requires unmetered transport plus fresh same-LAN discovery proof.",
@@ -128,6 +128,60 @@
     "mobile_qwen_allowed": false,
     "mobile_qwen_dependency": false,
     "mobile_cloud_mode": "verified-free-only",
-    "mobile_cloud_credentials": "PC-owned or short-lived device token only"
+    "mobile_cloud_credentials": "PC-owned or short-lived device token only",
+    "pc_qwen_default_role_assigned": true,
+    "pc_roles": {
+      "general": "qwen3.5:4b",
+      "coding": "qwen2.5-coder:7b",
+      "hawkeye_detailed": "qwen2.5vl:7b",
+      "hawkeye_fast": "qwen3.5:4b"
+    },
+    "pc_fallbacks": {
+      "general": [
+        "gemma3:4b",
+        "granite3.3:2b",
+        "smollm2:1.7b",
+        "llama3.2:1b",
+        "deepseek-r1:1.5b",
+        "qwen2.5:3b"
+      ],
+      "coding": [
+        "qwen3.5:4b",
+        "gemma3:4b",
+        "granite3.3:2b"
+      ],
+      "hawkeye_detailed": [
+        "qwen3.5:4b",
+        "gemma3:4b"
+      ],
+      "hawkeye_fast": [
+        "gemma3:4b",
+        "qwen2.5vl:7b"
+      ]
+    },
+    "cloud_roles": {
+      "general": [
+        "openrouter-free:general",
+        "direct-free:cloudflare-workers-ai"
+      ],
+      "coding": [
+        "openrouter-free:coding",
+        "direct-free:cloudflare-workers-ai"
+      ],
+      "reasoning": [
+        "openrouter-free:reasoning",
+        "direct-free:cloudflare-workers-ai"
+      ],
+      "hawkeye_vision": [
+        "openrouter-free:vision",
+        "google-gemini selected non-sensitive keyframe"
+      ],
+      "review": [
+        "cloudflare verified-free",
+        "configured free_only gateways"
+      ]
+    },
+    "private_heavy_hawkeye": "KRISHNA_PC_ONLY",
+    "automatic_paid_fallback": false
   }
 }

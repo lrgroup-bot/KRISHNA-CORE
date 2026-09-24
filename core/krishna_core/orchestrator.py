@@ -4040,7 +4040,8 @@ Project: {payload.get('project')}
     def model_pool(self, project="KRISHNA"):
         policy=self.projects.get(project) if project!="KRISHNA" else None
         privacy=policy.privacy if policy else "approved_cloud"
-        return {"providers":self.router.available(),"coding_plan":self.router.coding_plan(privacy),
+        return {"providers":self.router.available(),"roles":self.router.role_status(),
+                "coding_plan":self.router.coding_plan(privacy),
                 "free_only_plan":self.router.coding_plan(privacy,free_only=True),"privacy":privacy,
                 "paid_cloud_enabled":self.router.paid_cloud_enabled(),
                 "openrouter_free":self.openrouter_free.status(refresh=False),
