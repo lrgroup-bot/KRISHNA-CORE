@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 from typing import Callable
 
+from .lip_sync import KrishnaLipSyncPlanner
+
 
 class KrishnaShlokaOrchestrator:
     """Canonical Gita conversation coordinator.
@@ -247,6 +249,9 @@ class KrishnaShlokaOrchestrator:
                     "language": "sa",
                     "text": row["sanskrit"],
                     "timing_profile": performance["recitation_profile"],
+                    "lip_sync": KrishnaLipSyncPlanner.plan(
+                        row["sanskrit"], "sa", "SHLOKA_RECITATION"
+                    ),
                 },
                 {
                     "kind": "explanation",
@@ -254,12 +259,18 @@ class KrishnaShlokaOrchestrator:
                     "language": language,
                     "text": explanation,
                     "timing_profile": performance["pause_profile"],
+                    "lip_sync": KrishnaLipSyncPlanner.plan(
+                        explanation or "", language, "GITA_EXPLANATION"
+                    ),
                 },
                 {
                     "kind": "partha",
                     "mode": "KRISHNA_TO_PARTHA",
                     "language": language,
                     "text": partha_line,
+                    "lip_sync": KrishnaLipSyncPlanner.plan(
+                        partha_line, language, "KRISHNA_TO_PARTHA"
+                    ),
                 },
             ],
             "canonical_sanskrit_unchanged": True,
