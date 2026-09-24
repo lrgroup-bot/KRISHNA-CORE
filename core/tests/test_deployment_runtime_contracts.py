@@ -200,6 +200,16 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertNotIn("AnyRemoteAddress",script)
         self.assertIn("CONFIGURE_KRISHNA_PRIVATE_REMOTE_FIREWALL.ps1",deploy)
 
+    def test_zero_code_mobile_approval_helper_refuses_ambiguous_pairing(self):
+        root=repository_root()
+        approve=(root/"scripts"/"APPROVE_KRISHNA_MOBILE.ps1").read_text(encoding="utf-8")
+        self.assertIn("/api/mobile/pair/pending",approve)
+        self.assertIn("/api/mobile/pair/approve",approve)
+        self.assertIn("credential_proposed",approve)
+        self.assertIn("Refusing to guess",approve)
+        self.assertIn("client-hash-zero-code",approve)
+        self.assertNotIn("pairing code",approve.lower().replace("no pairing code",""))
+
     def test_orchestrator_architecture_truth_honors_authoritative_source_root(self):
         root=repository_root()
         orchestrator=(root/"core"/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
