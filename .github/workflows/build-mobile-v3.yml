@@ -19,7 +19,9 @@ on:
       - 'core/krishna_core/project_perfection_execution.py'
       - 'core/tests/test_project_perfection_execution.py'
       - 'core/krishna_core/spark_x25.py'
+      - 'core/krishna_core/remote_access.py'
       - 'core/tests/test_spark_x25.py'
+      - 'core/tests/test_full_audit_hardening.py'
       - '.github/workflows/build-mobile-v3.yml'
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
