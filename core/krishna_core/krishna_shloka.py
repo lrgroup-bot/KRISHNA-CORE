@@ -60,6 +60,7 @@ class KrishnaShlokaOrchestrator:
                 "paused": False,
                 "preferred_language": "or",
                 "auto_advance": False,
+                "current_completed": False,
             }
         try:
             data = json.loads(self.state_path.read_text(encoding="utf-8"))
@@ -70,6 +71,7 @@ class KrishnaShlokaOrchestrator:
             data.setdefault("paused", False)
             data.setdefault("preferred_language", "or")
             data.setdefault("auto_advance", False)
+            data.setdefault("current_completed", False)
             return data
         except (OSError, json.JSONDecodeError):
             return {
@@ -78,6 +80,7 @@ class KrishnaShlokaOrchestrator:
                 "paused": False,
                 "preferred_language": "or",
                 "auto_advance": False,
+                "current_completed": False,
             }
 
     def _save_state(self, **changes) -> None:
@@ -100,6 +103,8 @@ class KrishnaShlokaOrchestrator:
             "preferred_language": str(state.get("preferred_language") or "or"),
             "auto_advance": False,
             "one_verse_at_a_time": True,
+            "current_completed": bool(state.get("current_completed")),
+            "progression_rule": "advance only when Partha explicitly chooses next/forward; repeat never advances",
             "awaiting_owner_control": bool(state.get("active")) and not bool(state.get("paused")),
             "controls": list(self.CONTROLS),
             "odia_controls": {
@@ -161,12 +166,18 @@ class KrishnaShlokaOrchestrator:
         if not last:
             raise ValueError("no active Gita verse session")
         if action == "repeat":
+            was_completed=bool(state.get("current_completed"))
             out = self.verse(*last, language=lang, depth=depth, explain=explain)
+            self._save_state(current_completed=was_completed)
             out["control"] = "repeat"
+            out["session"] = self.session_status()
             return out
         if action == "next":
+            completion=self.gita.mark_completed(*last, language=lang)
+            self._save_state(current_completed=True)
             out = self.adjacent(1, language=lang, depth=depth, explain=explain)
             out["control"] = "next"
+            out["completed_previous"] = completion
             return out
         if action == "previous":
             out = self.adjacent(-1, language=lang, depth=depth, explain=explain)
@@ -224,13 +235,24 @@ class KrishnaShlokaOrchestrator:
             paused=False,
             preferred_language=language,
             auto_advance=False,
+            current_completed=self.gita.is_completed(int(chapter), int(verse)),
         )
         partha_line = {
             "or": "ପାର୍ଥ, ଏବେ ଏହାର ଅର୍ଥକୁ ଶାନ୍ତ ଭାବରେ ଦେଖିବା।",
             "hi": "पार्थ, अब इसका अर्थ शांत मन से समझते हैं।",
             "en": "Partha, now consider its meaning calmly.",
         }[language]
+        owner_text = "\n\n".join(
+            part for part in (
+                f"ଭଗବଦ୍ ଗୀତା {ref}",
+                row["sanskrit"],
+                explanation or "ପାର୍ଥ, ବ୍ୟାଖ୍ୟା ପାଇଁ କହ; ମୁଁ ଏହି ଶ୍ଲୋକଟିକୁ ଓଡ଼ିଆରେ ଖୋଲି ବୁଝେଇବି।",
+                partha_line,
+                "ତୁମେ କହିପାର: ‘ପୁଣି କୁହ’, ‘ଆଗକୁ’, ‘ପଛକୁ’, କିମ୍ବା ‘ଅର୍ଥ ବୁଝାଅ’।",
+            ) if part
+        )
         return self._decorate_session({
+            "text": owner_text,
             "reference": f"Bhagavad Gita {ref}",
             "chapter": int(chapter),
             "verse": int(verse),
@@ -403,6 +425,29 @@ class KrishnaShlokaOrchestrator:
             index = 0
         target = refs[max(0, min(len(refs) - 1, index + int(delta)))]
         return self.verse(*target, language=language, depth=depth, explain=explain)
+
+    def matches_request(self, message: str) -> bool:
+        raw=str(message or "").strip()
+        text=" ".join(raw.lower().split())
+        if not text:
+            return False
+        explicit=(
+            "gita","geeta","shloka","sloka","ଭଗବଦ","ଗୀତା","ଶ୍ଲୋକ","गीता","श्लोक",
+            "vishvarupa","viśvarūpa","ବିଶ୍ୱରୂପ","विश्वरूप",
+        )
+        if any(token in text for token in explicit):
+            return True
+        if re.search(r"(?<!\d)(1[0-8]|[1-9])\s*[\.:/-]\s*(\d{1,3})(?!\d)", text):
+            return True
+        if not (self.last_reference() or self._state().get("active")):
+            return False
+        session_phrases=(
+            "repeat","again","next","forward","continue","previous","back","pause","resume","meaning","explain",
+            "ପୁଣି","ଆଉଥରେ","ଆଗକୁ","ପରବର୍ତ୍ତୀ","ପଛକୁ","ପୂର୍ବ","ଥାଅ","ଚାଲୁ କର","ଅର୍ଥ","ବୁଝାଅ",
+            "फिर से","दोबारा","अगला","आगे","पिछला","पीछे","रुको","शुरू करो","अर्थ","समझाओ",
+            "this verse","this shloka","ଏହି ଶ୍ଲୋକ","ଏହାର ଅର୍ଥ","इस श्लोक","इसका अर्थ",
+        )
+        return any(phrase in text for phrase in session_phrases)
 
     def parse_request(self, message: str, *, explain: Callable[[str], str] | None = None) -> dict:
         raw = str(message or "").strip()
