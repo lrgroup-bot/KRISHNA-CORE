@@ -43,6 +43,7 @@ core\krishna_core\benchmark_lab.py
 core\krishna_core\bhumiputra.py
 core\krishna_core\brahma_bot.py
 core\krishna_core\brahma_memory_intelligence.py
+core\krishna_core\brahma_process_qc.py
 core\krishna_core\brahmagyan.py
 core\krishna_core\browser_fabric.py
 core\krishna_core\browser_operator.py

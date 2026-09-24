@@ -251,11 +251,12 @@ class ArchitectureTruthAudit:
             if line.strip()
         }
         recorded_core = {x for x in recorded if x.lower().startswith("core\\krishna_core\\")}
+        recorded_modules = {x for x in recorded_core if x.lower().endswith(".py")}
         return {
             "artifact": "KRISHNA_SOURCE_TREE.txt",
             "present": True,
-            "missing_current_modules": sorted(actual - recorded_core),
-            "stale_entries": sorted(recorded_core - actual),
+            "missing_current_modules": sorted(actual - recorded_modules),
+            "stale_entries": sorted(recorded_modules - actual),
             "canonical": False,
             "policy": "generated/source-tree snapshots are advisory; requirements + current source + runtime acceptance are authoritative",
         }
