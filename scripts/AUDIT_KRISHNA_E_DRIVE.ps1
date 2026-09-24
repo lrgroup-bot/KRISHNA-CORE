@@ -19,19 +19,41 @@ function Normalize-Root([string]$Path){
     return $Path.TrimEnd("\\")
   }
 }
+function Get-HashProbe([string]$Path){
+  $exists=Test-Path -LiteralPath $Path -PathType Leaf
+  if(!$exists){return [ordered]@{exists=$false;sha256=$null;hash_status="missing";error=$null}}
+  try{
+    $hash=(Get-FileHash -Algorithm SHA256 -LiteralPath $Path -ErrorAction Stop).Hash.ToLowerInvariant()
+    return [ordered]@{exists=$true;sha256=$hash;hash_status="ok";error=$null}
+  }catch{
+    $message=[string]$_.Exception.Message
+    $status=if($message -match '(?i)used by another process|cannot access the file|being used'){"locked_or_in_use"}else{"unreadable"}
+    return [ordered]@{exists=$true;sha256=$null;hash_status=$status;error=$message}
+  }
+}
 function Get-HashSafe([string]$Path){
-  if(!(Test-Path -LiteralPath $Path -PathType Leaf)){return $null}
-  try{return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()}catch{return $null}
+  return (Get-HashProbe $Path).sha256
 }
 function Get-FileProbe([string]$Path){
-  $exists=Test-Path -LiteralPath $Path -PathType Leaf
+  $probe=Get-HashProbe $Path
   $size=$null
-  if($exists){try{$size=(Get-Item -LiteralPath $Path).Length}catch{}}
-  return [ordered]@{path=$Path;exists=$exists;size=$size;sha256=(Get-HashSafe $Path)}
+  if($probe.exists){try{$size=(Get-Item -LiteralPath $Path -ErrorAction Stop).Length}catch{}}
+  return [ordered]@{path=$Path;exists=$probe.exists;size=$size;sha256=$probe.sha256;hash_status=$probe.hash_status;hash_error=$probe.error}
 }
 function Compare-File([string]$Candidate,[string]$Canonical,[string]$Policy="compare"){
-  $a=Get-HashSafe $Candidate;$b=Get-HashSafe $Canonical
-  return [ordered]@{candidate=$Candidate;canonical=$Canonical;candidate_exists=[bool]$a;canonical_exists=[bool]$b;same=([bool]($a -and $b -and $a -eq $b));candidate_sha256=$a;canonical_sha256=$b;policy=$Policy}
+  $a=Get-HashProbe $Candidate;$b=Get-HashProbe $Canonical
+  return [ordered]@{
+    candidate=$Candidate
+    canonical=$Canonical
+    candidate_exists=$a.exists
+    canonical_exists=$b.exists
+    same=([bool]($a.sha256 -and $b.sha256 -and $a.sha256 -eq $b.sha256))
+    candidate_sha256=$a.sha256
+    canonical_sha256=$b.sha256
+    candidate_hash_status=$a.hash_status
+    canonical_hash_status=$b.hash_status
+    policy=$Policy
+  }
 }
 function Get-GitHead([string]$Root){
   if(!(Test-Path -LiteralPath (Join-Path $Root ".git"))){return $null}
@@ -123,6 +145,45 @@ function Get-ProcessInventory([string[]]$Roots){
   }catch{}
   return @($rows|ForEach-Object{$_})
 }
+function Get-CoreServerInstances([object[]]$Processes){
+  $cores=@($Processes|Where-Object{$_.core_server})
+  $byPid=@{}
+  foreach($p in $cores){$byPid[[string]$p.pid]=$p}
+  $groups=@{}
+  foreach($p in $cores){
+    $root=$p
+    $guard=0
+    while($guard -lt 16){
+      $guard++
+      $parent=$byPid[[string]$root.parent_pid]
+      if(!$parent){break}
+      $sameRoot=([string]$parent.owning_root -ieq [string]$root.owning_root)
+      $sameCommand=([string]$parent.command_line -eq [string]$root.command_line)
+      if(!$sameRoot -or !$sameCommand){break}
+      $root=$parent
+    }
+    $key=[string]$root.pid
+    if(!$groups.ContainsKey($key)){
+      $groups[$key]=New-Object System.Collections.Generic.List[object]
+    }
+    [void]$groups[$key].Add($p)
+  }
+  $rows=New-Object System.Collections.Generic.List[object]
+  foreach($key in $groups.Keys){
+    $members=@($groups[$key]|Sort-Object pid)
+    $root=$byPid[$key]
+    [void]$rows.Add([ordered]@{
+      instance_root_pid=[int]$root.pid
+      process_count=$members.Count
+      pids=@($members|ForEach-Object{[int]$_.pid})
+      owning_root=$root.owning_root
+      command_line=$root.command_line
+      classification=if($members.Count -gt 1){"launcher_child_chain"}else{"single_process"}
+    })
+  }
+  return @($rows|Sort-Object instance_root_pid)
+}
+
 function Get-ListenerInventory([object[]]$Processes){
   $byPid=@{}
   foreach($p in $Processes){$byPid[[string]$p.pid]=$p}
@@ -283,6 +344,7 @@ try{
 $candidateRoots=@(($explicitRoots+$discoveredRoots)|ForEach-Object{Normalize-Root $_}|Where-Object{$_}|Sort-Object -Unique)
 
 $processRows=Get-ProcessInventory $candidateRoots
+$coreServerInstances=Get-CoreServerInstances $processRows
 $listenerRows=Get-ListenerInventory $processRows
 $guardian=Get-GuardianState $RuntimeRoot $processRows
 
@@ -410,10 +472,15 @@ foreach($row in $rootRows){
 }
 $guardianCount=@($processRows|Where-Object{$_.guardian}).Count
 $coreCount=@($processRows|Where-Object{$_.core_server}).Count
+$coreInstanceCount=@($coreServerInstances).Count
 $startCount=@($processRows|Where-Object{$_.start_krishna}).Count
 if($guardianCount -gt 1){[void]$findings.Add([ordered]@{status="DUPLICATE";code="MULTIPLE_GUARDIANS";detail=("count="+$guardianCount)})}
 if($startCount -gt 1){[void]$findings.Add([ordered]@{status="DUPLICATE";code="MULTIPLE_START_KRISHNA";detail=("count="+$startCount)})}
-if($coreCount -gt 1){[void]$findings.Add([ordered]@{status="DUPLICATE";code="MULTIPLE_CORE_SERVERS";detail=("count="+$coreCount)})}
+if($coreInstanceCount -gt 1){
+  [void]$findings.Add([ordered]@{status="DUPLICATE";code="MULTIPLE_CORE_SERVER_INSTANCES";detail=("instances="+$coreInstanceCount+" raw_processes="+$coreCount);instances=$coreServerInstances})
+}elseif($coreCount -gt 1 -and $coreInstanceCount -eq 1){
+  [void]$findings.Add([ordered]@{status="PASS";code="CORE_SERVER_LAUNCHER_CHILD_CHAIN";detail=("one runtime instance uses "+$coreCount+" linked Windows Python processes; no duplicate runtime inferred");instances=$coreServerInstances})
+}
 if($guardian.guardian_pid -gt 0 -and !$guardian.guardian_pid_valid){[void]$findings.Add([ordered]@{status="STALE";code="STALE_GUARDIAN_PID";detail=[string]$guardian.guardian_pid})}
 if($guardian.core_pid -gt 0 -and !$guardian.core_pid_valid){[void]$findings.Add([ordered]@{status="STALE";code="STALE_CORE_PID";detail=[string]$guardian.core_pid})}
 
@@ -451,6 +518,7 @@ $report=[ordered]@{
   candidate_roots=$rootOutput
   source_runtime=$sourceRuntime
   guardian=$guardian
+  core_server_instances=$coreServerInstances
   processes=$processRows
   listeners=$listenerRows
   components=$components
@@ -469,6 +537,19 @@ foreach($row in $rootRows){
     Write-Host ("[{0}] {1}" -f $row.classification,$row.path)
     Write-Host ("  files={0} size_bytes={1} protected={2} processes={3} delete_candidate={4}" -f $row.file_count,$row.size_bytes,$row.protected_data.count,@($row.owning_processes).Count,$row.delete_candidate)
   }
+}
+Write-Host ""
+Write-Host "=== KRISHNA PROCESS OWNERSHIP ===" -ForegroundColor Cyan
+@($processRows | Where-Object { $_.guardian -or $_.start_krishna -or $_.core_server }) | ForEach-Object {
+  Write-Host ("PID={0} PPID={1} name={2} root={3} guardian={4} start={5} core={6}" -f $_.pid,$_.parent_pid,$_.name,$_.owning_root,$_.guardian,$_.start_krishna,$_.core_server)
+  Write-Host ("  exe: "+$_.executable)
+  Write-Host ("  cmd: "+$_.command_line)
+}
+Write-Host ""
+Write-Host "=== KRISHNA LISTENERS ===" -ForegroundColor Cyan
+$listenerRows | Sort-Object local_port,pid | ForEach-Object {
+  Write-Host ("port={0} addr={1} pid={2} process={3} root={4}" -f $_.local_port,$_.local_address,$_.pid,$_.process_name,$_.owning_root)
+  if($_.command_line){Write-Host ("  cmd: "+$_.command_line)}
 }
 Write-Host ""
 $findings|ForEach-Object{Write-Host ("[{0}] {1} - {2}" -f $_.status,$_.code,$_.detail)}
