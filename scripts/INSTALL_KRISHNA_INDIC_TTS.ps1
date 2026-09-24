@@ -82,7 +82,7 @@ foreach($lang in $requested){
 }
 if($missing.Count){throw ("Indic-TTS model installation incomplete: "+($missing -join "; "))}
 
-$cmd='\"'+$ttsPy+'\" \"'+$worker+'\" --text \"{text}\" --output \"{output}\" --language \"{language}\" --model-root \"'+$modelRoot+'\"'
+$cmd='"'+$ttsPy+'" "'+$worker+'" --text "{text}" --output "{output}" --language "{language}" --model-root "'+$modelRoot+'"'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $setup -RuntimeRoot $RuntimeRoot -IndicTtsCommand $cmd -IndicTtsLanguages "hi,or"
 if($LASTEXITCODE -ne 0){throw "KRISHNA Indic-TTS configuration failed"}
 
