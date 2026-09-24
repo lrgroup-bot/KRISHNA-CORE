@@ -142,8 +142,9 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn("ParentProcessId",deploy)
         self.assertIn("ExecutablePath",deploy)
         self.assertIn('Join-Path $runtime ".venv"',deploy)
-        self.assertIn("Verified orphaned KRISHNA Core listener PID",deploy)
-        self.assertIn("taskkill.exe /PID $rootPid /T /F",deploy)
+        self.assertIn("RECOVERED_FOR_HANDOFF",deploy)
+        self.assertIn("Recovered verified KRISHNA Core ancestry for listener PID",deploy)
+        self.assertIn("Stop-ExistingKrishnaGuardian $Runtime",deploy)
         self.assertIn("Refusing to kill an unverified listener",deploy)
 
     def test_verified_deploy_takes_over_previous_guardian_generation_safely(self):
