@@ -228,7 +228,7 @@ class BhumiputraAgent:
 
     def live_prompt(self, *, scene_hint="auto", user_goal="", sensor_context=None):
         hint = str(scene_hint or "auto").strip().lower()
-        sensors = dict(sensor_context or {})
+        sensors = FieldPerceptionPolicy.redact_sensitive_value(dict(sensor_context or {}))
         return (
             "You are Bhumiputra, KRISHNA's live field perception, geo-engineering and inspection specialist. "
             "Analyze ONLY what can be supported by this camera frame and supplied sensor context. "
@@ -304,8 +304,8 @@ class BhumiputraAgent:
             "at": now,
             "analysis": FieldPerceptionPolicy.redact_sensitive_text(analysis).strip(),
             "model": str(model or ""),
-            "sensor_context": dict(sensor_context or {}),
-            "frame_meta": dict(frame_meta or {}),
+            "sensor_context": FieldPerceptionPolicy.redact_sensitive_value(dict(sensor_context or {})),
+            "frame_meta": FieldPerceptionPolicy.redact_sensitive_value(dict(frame_meta or {})),
         }
         if not item["analysis"]:
             raise ValueError("live analysis is empty")
@@ -375,7 +375,7 @@ class BhumiputraAgent:
             "content_type": kind,
             "modality": modality,
             "source": "hawkeye-mobile-curator",
-            "sensor_context": dict(sensor_context or {}),
+            "sensor_context": FieldPerceptionPolicy.redact_sensitive_value(dict(sensor_context or {})),
             "received_at": time.time(),
             "retained_pc": True,
             "raw_cloud_upload": False,
