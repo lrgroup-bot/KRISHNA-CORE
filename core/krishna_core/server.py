@@ -876,6 +876,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,orch.agi.avatar_age.status())
         if path == "/api/character":
             return self._json(200,orch.agi.character.status())
+        if path == "/api/gita/status":
+            return self._json(200,orch.gita_gyan.status())
+        if path == "/api/gita/revise":
+            raw=(query.get("limit") or ["7"])[0]
+            try:limit=int(raw)
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            return self._json(200,orch.gita_revision(limit))
         if path == "/api/avatar/video/status":
             return self._json(200,_video_avatar.status())
         if path == "/api/avatar/video/recommend":
@@ -2447,6 +2454,25 @@ class Handler(BaseHTTPRequestHandler):
             model=str(data.get("model") or "").strip()
             try:return self._json(200,_model_memory.unload(model) if model else _model_memory.unload_all())
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gita/today":
+            language=str(data.get("language") or "or").strip().lower()
+            depth=str(data.get("depth") or "deep").strip().lower()
+            mark_complete=bool(data.get("mark_complete",True))
+            if language not in {"or","hi","en"}:
+                return self._json(400,{"error":"language must be one of: or, hi, en"})
+            if depth not in {"brief","deep"}:
+                return self._json(400,{"error":"depth must be brief or deep"})
+            lesson=orch.gita_daily_lesson(language,depth,mark_complete)
+            return self._json(200,lesson)
+
+        if post_path == "/api/gita/corpus/import":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"Gita corpus import must run on KRISHNA PC"})
+            records=data.get("records")
+            if not isinstance(records,list):
+                return self._json(400,{"error":"records must be an array"})
+            return self._json(200,orch.gita_gyan.import_corpus(records))
 
         if post_path == "/api/avatar/age/configure":
             if self.client_address[0] not in ("127.0.0.1","::1"):
