@@ -563,6 +563,81 @@ class HTTPRuntimeTests(unittest.TestCase):
         headers={"X-Krishna-Device":"zero-code-phone","Authorization":"Device "+token}
         self.assertEqual(self.call("/api/mobile/resume",headers=headers)[0],200)
 
+    def test_paired_mobile_bootstrap_and_resumable_media_sync(self):
+        import hashlib
+        token="http-media-sync-credential"
+        digest=hashlib.sha256(token.encode()).hexdigest()
+        code,pending=self.call("/api/mobile/pair/request",{
+            "device_id":"media-sync-phone","name":"Media Sync Phone","credential_sha256":digest
+        })
+        self.assertEqual(code,200)
+        code,approved=self.call("/api/mobile/pair/approve",{"request_id":pending["request_id"]})
+        self.assertEqual(code,200)
+        headers={"X-Krishna-Device":"media-sync-phone","Authorization":"Device "+token}
+
+        code,boot=self.call("/api/mobile/bootstrap",headers=headers)
+        self.assertEqual(code,200)
+        self.assertTrue(boot["ok"])
+        self.assertFalse(boot["large_media_policy"]["cellular_large_upload"])
+        self.assertTrue(boot["large_media_policy"]["resumable"])
+        self.assertTrue(boot["large_media_policy"]["sha256_required"])
+        self.assertFalse(boot["large_media_policy"]["delete_after_verified_default"])
+
+        payload=(b"hawkeye-media-sync-"*7000)[:100000]
+        payload_digest=hashlib.sha256(payload).hexdigest()
+        code,start=self.call("/api/hawkeye/media-sync/start",{
+            "observation_id":"http-media-observation",
+            "session_id":"http-media-session",
+            "filename":"field-video.mp4",
+            "size_bytes":len(payload),
+            "sha256":payload_digest,
+            "content_type":"video/mp4",
+            "modality":"video",
+            "metadata":{"test":True},
+        },headers)
+        self.assertEqual(code,200)
+        self.assertEqual(start["next_offset"],0)
+        upload_id=start["upload_id"]
+
+        first=payload[:40000]
+        code,chunk=self.call("/api/hawkeye/media-sync/chunk",{
+            "upload_id":upload_id,"offset":0,
+            "data_b64":base64.b64encode(first).decode(),
+        },headers)
+        self.assertEqual(code,200)
+        self.assertEqual(chunk["next_offset"],len(first))
+
+        code,resume=self.call("/api/hawkeye/media-sync/start",{
+            "observation_id":"http-media-observation",
+            "session_id":"http-media-session",
+            "filename":"field-video.mp4",
+            "size_bytes":len(payload),
+            "sha256":payload_digest,
+            "content_type":"video/mp4",
+            "modality":"video",
+            "metadata":{"test":True},
+        },headers)
+        self.assertEqual(code,200)
+        self.assertEqual(resume["next_offset"],len(first))
+
+        code,chunk=self.call("/api/hawkeye/media-sync/chunk",{
+            "upload_id":upload_id,"offset":len(first),
+            "data_b64":base64.b64encode(payload[len(first):]).decode(),
+        },headers)
+        self.assertEqual(code,200)
+        self.assertEqual(chunk["status"],"VERIFYING")
+
+        code,done=self.call("/api/hawkeye/media-sync/complete",{"upload_id":upload_id},headers)
+        self.assertEqual(code,200)
+        self.assertTrue(done["verified"])
+        self.assertTrue(done["retained_pc"])
+        self.assertEqual(done["sha256"],payload_digest)
+
+        code,status=self.call("/api/hawkeye/media-sync/status?id="+upload_id,headers=headers)
+        self.assertEqual(code,200)
+        self.assertEqual(status["status"],"SYNCED")
+        self.assertEqual(status["next_offset"],len(payload))
+
     def test_specialist_team_plan_keeps_krishna_authority(self):
         code,d=self.call("/api/specialist-teams/plan",{"project":"KRISHNA","task":"Fix frontend UI and verify responsive layout"})
         self.assertEqual(code,200)
