@@ -225,6 +225,14 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn("=== KRISHNA PROCESS OWNERSHIP ===",text)
         self.assertIn("=== KRISHNA LISTENERS ===",text)
 
+    def test_e_drive_audit_collapses_windows_venv_launcher_chain(self):
+        text=(ROOT/"scripts"/"AUDIT_KRISHNA_E_DRIVE.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("Get-CoreServerInstances",text)
+        self.assertIn("launcher_child_chain",text)
+        self.assertIn("CORE_SERVER_LAUNCHER_CHILD_CHAIN",text)
+        self.assertIn("MULTIPLE_CORE_SERVER_INSTANCES",text)
+        self.assertIn("core_server_instances=$coreServerInstances",text)
+
     def test_start_output_uses_ascii_separators(self):
         text=(ROOT/"scripts"/"START_KRISHNA.ps1").read_text(encoding="utf-8-sig")
         self.assertIn('| discovery ON | pairing required',text)
