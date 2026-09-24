@@ -68,19 +68,26 @@ class MissionEngine:
             self.db.commit()
 
     @staticmethod
-    def _j(v,default):
-        try:return json.loads(v) if v is not None else default
-        except Exception:return default
+    def _j(v,default,field,expected_type):
+        if v is None:
+            parsed=default
+        else:
+            try:parsed=json.loads(v)
+            except Exception as exc:
+                raise RuntimeError(f"mission {field} state is unreadable") from exc
+        if not isinstance(parsed,expected_type):
+            raise RuntimeError(f"mission {field} state has invalid type")
+        return parsed
 
     @classmethod
     def _row(cls,row):
         if not row:return None
         d=dict(row)
-        for key,default in (
-            ("assigned_agents",[]),("required_tools",[]),("resource_budget",{}),
-            ("checkpoints",[]),("artifacts",[]),("evidence",[]),("errors",[]),("metadata",{}),
+        for key,default,expected in (
+            ("assigned_agents",[],list),("required_tools",[],list),("resource_budget",{},dict),
+            ("checkpoints",[],list),("artifacts",[],list),("evidence",[],list),("errors",[],list),("metadata",{},dict),
         ):
-            d[key]=cls._j(d.get(key),default)
+            d[key]=cls._j(d.get(key),default,key,expected)
         d["progress"]=float(d.get("progress") or 0)
         return d
 
@@ -200,7 +207,7 @@ class MissionEngine:
     def checkpoint_get(self,checkpoint_id):
         with self.lock:r=self.db.execute("SELECT * FROM mission_checkpoints WHERE checkpoint_id=?",(str(checkpoint_id),)).fetchone()
         if not r:return None
-        d=dict(r);d["state"]=self._j(d["state"],{});d["trusted"]=bool(d["trusted"]);return d
+        d=dict(r);d["state"]=self._j(d["state"],{},"checkpoint.state",dict);d["trusted"]=bool(d["trusted"]);return d
 
     def checkpoints(self,mission_id,limit=100):
         with self.lock:rows=self.db.execute("SELECT * FROM mission_checkpoints WHERE mission_id=? ORDER BY seq DESC LIMIT ?",
