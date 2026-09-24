@@ -125,6 +125,7 @@ class AvatarRuntime:
             "requires_rigged_glb":True,"requires_morph_targets":True,
             "required_channels":"Oculus visemes or provider-equivalent verified viseme mapping",
             "character_bible":AvatarFabric.VERSION,
+            "current_performance":dict(self.current_performance) if self.current_performance else None,
         }
 
     def status(self):
