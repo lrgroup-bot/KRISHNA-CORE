@@ -78,6 +78,29 @@ class HawkeyeFreeCloudFabric:
             pass
         return rows
 
+    @staticmethod
+    def recorded_pc_finding(sensor_context):
+        sensor_context=dict(sensor_context or {})
+        row=sensor_context.get("free_cloud") or {}
+        if not isinstance(row,dict):
+            return None
+        analysis=str(row.get("analysis") or "").strip()
+        if (
+            not bool(row.get("pc_recorded"))
+            or not str(row.get("pc_observation_id") or "").strip()
+            or not analysis
+            or bool(sensor_context.get("force_pc_vision",False))
+        ):
+            return None
+        return {
+            "analysis":analysis[:8000],
+            "provider":str(row.get("provider") or "free-cloud")[:120],
+            "model":str(row.get("model") or "")[:240],
+            "role":str(row.get("role") or "hawkeye_vision")[:120],
+            "pc_observation_id":str(row.get("pc_observation_id") or "")[:240],
+            "pc_session_id":str(row.get("pc_session_id") or "")[:240],
+        }
+
     def status(self, refresh=False):
         declared=self._declared_free_text_profiles()
         return {
