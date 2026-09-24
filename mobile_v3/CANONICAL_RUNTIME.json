@@ -102,7 +102,8 @@
     "large_media_resumable": true,
     "large_media_sha256_verified": true,
     "mobile_retains_verified_copy_default": true,
-    "delete_after_verified_default": false
+    "delete_after_verified_default": false,
+    "large_media_same_lan_required": true
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
@@ -119,7 +120,7 @@
     "pc_offload": "HAWKEYE cloud inference is preferred for approved non-sensitive selected frames so PC local inference is reserved for explicit heavy escalation.",
     "pc_finding_sync": "Distilled HAWKEYE cloud findings are written to the PC live-session ledger and Learning Observer with provider/model/reviewer provenance; raw keyframes are not required for this finding handoff.",
     "pc_compute_relief": "When a cloud finding is already recorded, curated evidence sync stores the bounded evidence but skips duplicate PC vision/BRAHMA intake unless explicit heavy escalation is requested.",
-    "private_transport": "First enrollment uses authenticated LAN discovery; after approval the paired phone learns the current private-overlay Core URL. Raw media sync requires unmetered private transport.",
+    "private_transport": "First enrollment uses authenticated LAN discovery; after approval the paired phone learns the current private-overlay Core URL. Raw media sync requires unmetered transport plus fresh same-LAN discovery proof.",
     "large_media_sync": "Resumable 512 KiB chunks to the E-drive Hawkeye inbox; PC SHA-256 verification and atomic promotion are required before mobile sync state advances."
   },
   "model_policy": {
