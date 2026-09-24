@@ -203,11 +203,13 @@ class NaradRuntime:
         },source="narad")
         return w.as_dict()
 
-    def promote(self,workflow_id,state,verified=False):
+    def promote(self,workflow_id,state,verified=False,approved=False):
         self._healthy()
         with self._lock:
             w=self.workflows[workflow_id]
             target=WorkflowState(state)
+            if target in (WorkflowState.VERIFIED,WorkflowState.STABLE) and not approved:
+                raise PermissionError("verified/stable workflow promotion requires explicit owner approval")
             if target in (WorkflowState.VERIFIED,WorkflowState.STABLE) and not verified:
                 raise PermissionError("verified evidence required for promotion")
             allowed={
