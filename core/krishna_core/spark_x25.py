@@ -109,7 +109,13 @@ class SparkX25Manager:
         try:
             data=json.loads(self.lifecycle_path.read_text(encoding="utf-8"))
             if not isinstance(data,dict):raise ValueError("lifecycle root must be an object")
-            data.setdefault("schema",1);data.setdefault("version",self.VERSION);data.setdefault("models",{})
+            schema=data.get("schema",1)
+            version=data.get("version",self.VERSION)
+            if schema!=1:raise ValueError(f"unsupported lifecycle schema: {schema!r}")
+            if version!=self.VERSION:raise ValueError(f"unsupported lifecycle version: {version!r}")
+            models=data.get("models",{})
+            if not isinstance(models,dict):raise ValueError("lifecycle models must be an object")
+            data["schema"]=1;data["version"]=self.VERSION;data["models"]=models
             for key in self.SPECS:
                 state=data["models"].setdefault(key,self._default_state())
                 for field,value in self._default_state().items():state.setdefault(field,value)
