@@ -145,6 +145,9 @@ class NaradRuntime:
             return
         try:
             raw=json.loads(self.state_path.read_text(encoding="utf-8-sig"))
+            if not isinstance(raw,dict):raise ValueError("Narad state root must be an object")
+            schema=raw.get("schema",3)
+            if schema!=3:raise ValueError(f"unsupported Narad state schema: {schema!r}")
             self.workflows={x["id"]:Workflow(**x) for x in raw.get("workflows",[]) if x.get("id")}
             self.history=list(raw.get("history",[]))[-500:]
             self.dead_letters=list(raw.get("dead_letters",[]))[-200:]
