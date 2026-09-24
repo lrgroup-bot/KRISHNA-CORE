@@ -64,6 +64,7 @@ jobs:
             --collect-all webview `
             --add-data "core/web_validation.html;." `
             --add-data "core/requirements;requirements" `
+            --add-data "core/krishna_core/data;krishna_core/data" `
             --add-data "core/design_studio.html;." `
             --add-data "core/visual_editor.html;." `
             --add-data "avatar/krishna_child_360.webp.b64;avatar" `
@@ -79,6 +80,7 @@ jobs:
             --collect-all playwright `
             --add-data "core/web_validation.html;." `
             --add-data "core/requirements;requirements" `
+            --add-data "core/krishna_core/data;krishna_core/data" `
             --add-data "core/design_studio.html;." `
             --add-data "core/visual_editor.html;." `
             --add-data "avatar/krishna_child_360.webp.b64;avatar" `
