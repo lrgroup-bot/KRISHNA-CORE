@@ -89,7 +89,10 @@
     "openrouter_role_preferences": true,
     "free_cloud_credentials_pc_only": true,
     "pc_heavy_inference_default": false,
-    "hawkeye_cloud_reviews_text_only": true
+    "hawkeye_cloud_reviews_text_only": true,
+    "hawkeye_cloud_findings_synced_to_pc": true,
+    "pc_duplicate_vision_skip": true,
+    "pc_heavy_escalation": "explicit_or_missing-cloud-finding"
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
@@ -103,6 +106,8 @@
     "openrouter": "KRISHNA PC brokers credentials; HAWKEYE selected non-sensitive keyframes use a live zero-cost vision model chosen by role preference or dynamic ranking.",
     "free_cloud_reviews": "Sanitized HAWKEYE text summaries may be reviewed by verified Cloudflare Workers AI and configured free_only text gateways such as Groq/Mistral; raw camera frames are not sent to text-only providers.",
     "mobile_qwen": "disabled; no Qwen model is hosted on the phone. PC Qwen remains available to KRISHNA.",
-    "pc_offload": "HAWKEYE cloud inference is preferred for approved non-sensitive selected frames so PC local inference is reserved for explicit heavy escalation."
+    "pc_offload": "HAWKEYE cloud inference is preferred for approved non-sensitive selected frames so PC local inference is reserved for explicit heavy escalation.",
+    "pc_finding_sync": "Distilled HAWKEYE cloud findings are written to the PC live-session ledger and Learning Observer with provider/model/reviewer provenance; raw keyframes are not required for this finding handoff.",
+    "pc_compute_relief": "When a cloud finding is already recorded, curated evidence sync stores the bounded evidence but skips duplicate PC vision/BRAHMA intake unless explicit heavy escalation is requested."
   }
 }
