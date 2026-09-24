@@ -213,6 +213,16 @@ jobs:
           grep -q "AndroidKeyStore" app/src/main/java/com/krishna/mobile/HawkeyeCrypto.java
           grep -q "setPeriodic(15L\*60L\*1000L)" app/src/main/java/com/krishna/mobile/HawkeyeBackgroundSync.java
           grep -q "setRequiresBatteryNotLow(true)" app/src/main/java/com/krishna/mobile/HawkeyeBackgroundSync.java
+          grep -q "NETWORK_TYPE_UNMETERED" app/src/main/java/com/krishna/mobile/HawkeyeBackgroundSync.java
+          grep -q "WAITING_FOR_TRUSTED_LAN" app/src/main/java/com/krishna/mobile/HawkeyeBackgroundSync.java
+          grep -q "/api/hawkeye/media-sync/chunk" app/src/main/java/com/krishna/mobile/HawkeyeBackgroundSync.java
+          grep -q "delete_after_verified_default" app/src/main/java/com/krishna/mobile/HawkeyeBackgroundSync.java
+          grep -q "KrishnaPrivateCore.bootstrap" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "private_remote_url" app/src/main/java/com/krishna/mobile/KrishnaPrivateCore.java
+          grep -q "KRISHNA_DISCOVER_V1" app/src/main/java/com/krishna/mobile/KrishnaPrivateCore.java
+          grep -q '"large_media_sync_unmetered_only": true' app/src/main/assets/canonical-runtime.json
+          grep -q '"cellular_large_media_upload": false' app/src/main/assets/canonical-runtime.json
+          grep -q '"delete_after_verified_default": false' app/src/main/assets/canonical-runtime.json
           grep -q "HawkeyeSyncJobService" app/src/main/AndroidManifest.xml
           grep -q 'android:exported="false"' app/src/main/AndroidManifest.xml
           grep -q "recordBoundedMedia" app/src/main/assets/index.html
