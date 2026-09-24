@@ -9,7 +9,6 @@ class PrivateRemotePolicy:
         "/api/status",
         "/api/mobile/connection",
         "/api/mobile/resume",
-        "/api/mobile/control",
         "/api/core/event",
         "/api/core/state",
         "/api/core/chat",
@@ -19,6 +18,14 @@ class PrivateRemotePolicy:
         "/api/bhumiputra/live/start",
         "/api/bhumiputra/live/frame",
         "/api/bhumiputra/live/state",
+        "/api/hawkeye/evidence/ingest",
+        "/api/hawkeye/gemini/analyze",
+        "/api/hawkeye/gemini/live/token",
+        "/api/hawkeye/gemini/status",
+        "/api/hawkeye/learn/capture",
+        "/api/hawkeye/learn/research",
+        "/api/hawkeye/live/start",
+        "/api/hawkeye/reference/item",
         "/api/mobile-log",
     })
     """Network boundary for KRISHNA Mobile/remote clients.

@@ -63,7 +63,9 @@ class HawkeyeLearningObserver:
     def _public_clues(values):
         out = []
         for value in values or []:
-            text = re.sub(r"\s+", " ", str(value or "").strip())
+            text = FieldPerceptionPolicy.redact_sensitive_text(
+                re.sub(r"\s+", " ", str(value or "").strip())
+            )
             if text and text not in out:
                 out.append(text[:240])
         return out[:20]
@@ -153,7 +155,7 @@ class HawkeyeLearningObserver:
         utterance = FieldPerceptionPolicy.redact_sensitive_text(self._text(utterance, 4000))
         subject = FieldPerceptionPolicy.redact_sensitive_text(self._text(subject, 1000))
         analysis = FieldPerceptionPolicy.redact_sensitive_text(self._text(analysis, 8000))
-        source_ref = self._text(source_ref, 2000)
+        source_ref = FieldPerceptionPolicy.redact_sensitive_text(self._text(source_ref, 2000))
         confidence = self._clamp(confidence)
         observation_id = str(uuid.uuid4())
         source_hash = self._source_hash(source_type, source_ref, subject)

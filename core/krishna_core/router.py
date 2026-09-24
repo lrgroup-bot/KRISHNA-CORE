@@ -191,9 +191,9 @@ class ModelRouter:
         if provider in self.PROVIDERS:return self._chat_compatible(provider,prompt)
         raise KeyError(provider)
 
-    def _governed_ask(self,provider,prompt,privacy="approved_cloud",free_only=False,project="KRISHNA",actor="model-router"):
+    def _governed_complete(self,provider,prompt,privacy="approved_cloud",free_only=False,project="KRISHNA",actor="model-router"):
         if not self.control_plane:
-            return self.ask(provider,prompt)
+            return {"provider":provider,"text":self.ask(provider,prompt)}
         receipt=self.control_plane.action(
             "model.complete",
             {"provider":provider,"prompt":prompt,"privacy":privacy,"free_only":bool(free_only)},
@@ -201,6 +201,12 @@ class ModelRouter:
             permissions=("model.use",),
         )
         result=receipt.get("result") or {}
+        if not isinstance(result,dict):
+            raise RuntimeError("governed model completion returned an invalid result")
+        return result
+
+    def _governed_ask(self,provider,prompt,privacy="approved_cloud",free_only=False,project="KRISHNA",actor="model-router"):
+        result=self._governed_complete(provider,prompt,privacy,free_only,project,actor)
         return str(result.get("text") or "")
 
     def coding_plan(self,privacy="approved_cloud",free_only=False):
@@ -277,10 +283,11 @@ class ModelRouter:
         # performs a fresh Billing Read subscription preflight before every call.
         if self.direct_free and self.direct_free.configured():
             try:
-                result=self.direct_free.complete(prompt,privacy=privacy)
+                provider="direct-free:cloudflare-workers-ai"
+                result=self._governed_complete(provider,prompt,privacy,True,project,actor)
                 text=str(result.get("text") or "")
                 if text.strip():
-                    return {"provider":result.get("provider_id") or "direct-free:cloudflare-workers-ai",
+                    return {"provider":result.get("provider") or provider,
                             "text":text,"free_only":True,"zero_cost_verified":True,
                             "zero_cost_proof":result.get("zero_cost_proof")}
             except Exception:

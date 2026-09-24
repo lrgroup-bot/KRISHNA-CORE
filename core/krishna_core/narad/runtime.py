@@ -145,6 +145,9 @@ class NaradRuntime:
             return
         try:
             raw=json.loads(self.state_path.read_text(encoding="utf-8-sig"))
+            if not isinstance(raw,dict):raise ValueError("Narad state root must be an object")
+            schema=raw.get("schema",3)
+            if schema!=3:raise ValueError(f"unsupported Narad state schema: {schema!r}")
             self.workflows={x["id"]:Workflow(**x) for x in raw.get("workflows",[]) if x.get("id")}
             self.history=list(raw.get("history",[]))[-500:]
             self.dead_letters=list(raw.get("dead_letters",[]))[-200:]
@@ -200,11 +203,13 @@ class NaradRuntime:
         },source="narad")
         return w.as_dict()
 
-    def promote(self,workflow_id,state,verified=False):
+    def promote(self,workflow_id,state,verified=False,approved=False):
         self._healthy()
         with self._lock:
             w=self.workflows[workflow_id]
             target=WorkflowState(state)
+            if target in (WorkflowState.VERIFIED,WorkflowState.STABLE) and not approved:
+                raise PermissionError("verified/stable workflow promotion requires explicit owner approval")
             if target in (WorkflowState.VERIFIED,WorkflowState.STABLE) and not verified:
                 raise PermissionError("verified evidence required for promotion")
             allowed={

@@ -143,7 +143,8 @@ class Orchestrator:
         self.reviewer = VerificationReviewer()
         self.neural = NeuralActionGraph()
         self.browser = BrowserOperator()
-        self.development = DevelopmentOperator(self.browser)
+        self.promotion_candidate_root = (runtime_state / "promotion-candidates").resolve()
+        self.development = DevelopmentOperator(self.browser,staging_root=self.promotion_candidate_root)
         self.project_perfection = ProjectPerfectionRuntime(self.browser, self.development, state_root=runtime_state / "project-perfection")
         self.research = GitHubResearchAgent()
         self.garuda = GarudaAgent(self.research, self.memory)
@@ -208,6 +209,7 @@ class Orchestrator:
         self.action_bus = SharedActionBus(
             self.lifecycle_bus,self.agi.policy,audit=self.memory.audit,
             permission_resolver=self.permissions.authorize,
+            idempotency_db_path=self.db_path,
         )
         self.agent_runtime = AgentRuntime(self.action_bus)
         self.jobs = JobRuntime(
@@ -948,10 +950,17 @@ class Orchestrator:
             )
 
         def narad_workflow_promote(payload,context):
+            target=str(payload.get("state") or "").strip().lower()
+            if target in {"verified","stable"}:
+                if str(context.get("source") or "") not in {"pc","system"}:
+                    raise PermissionError("verified/stable Narad promotion is restricted to owner/runtime authority")
+                if not bool(context.get("approved",False)):
+                    raise PermissionError("verified/stable Narad promotion requires explicit owner approval")
             return self.agi.narad.promote(
                 str(payload.get("workflow_id") or "").strip(),
-                str(payload.get("state") or "").strip(),
+                target,
                 verified=bool(payload.get("verified",False)),
+                approved=bool(context.get("approved",False)),
             )
 
         def narad_workflow_execute(payload,context):
@@ -3122,7 +3131,7 @@ class Orchestrator:
     def close(self):
         """Release every database owned by this runtime, including durable mission state."""
         for obj in (
-            self.resource_locks,self.queue,self.mission_budgets,self.missions,self.lifecycle_bus,
+            self.action_bus,self.resource_locks,self.queue,self.mission_budgets,self.missions,self.lifecycle_bus,
             self.commitments,self.task_ledger,self.memory,
         ):
             try:obj.close()
@@ -3292,7 +3301,7 @@ class Orchestrator:
         self.projects.assert_mutable(project,"prepare_promotion")
         if not candidate_root: raise ValueError("verified candidate_root is required")
         candidate=Path(candidate_root).resolve()
-        controlled=(Path(self.db_path).resolve().parent/".krishna_state"/"promotion-candidates").resolve()
+        controlled=self.promotion_candidate_root
         try:
             candidate.relative_to(controlled)
         except ValueError as exc:

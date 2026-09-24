@@ -51,10 +51,10 @@ class MissedAdditionsTests(unittest.TestCase):
 
     def test_remote_paired_route_allowlist_is_conversation_only(self):
         p=PrivateRemotePolicy("100.64.0.0/10")
-        for path in ("/api/core/chat","/api/chats/create","/api/attachments","/api/mobile/resume","/api/mobile/control"):
+        for path in ("/api/core/chat","/api/chats/create","/api/attachments","/api/mobile/resume"):
             with self.subTest(path=path):
                 self.assertTrue(p.mobile_route_allowed(path))
-        for path in ("/api/projects/unregister","/api/plugins/add","/api/development/git/push",
+        for path in ("/api/mobile/control","/api/projects/unregister","/api/plugins/add","/api/development/git/push",
                      "/api/narad/connections/register-secret","/api/resilience/models/unload"):
             with self.subTest(path=path):
                 self.assertFalse(p.mobile_route_allowed(path))
@@ -117,7 +117,7 @@ class MissedAdditionsTests(unittest.TestCase):
         n.promote(w["id"],"sandbox")
         with self.assertRaises(PermissionError):n.execute(w["id"],approved=False)
         with self.assertRaises(PermissionError):n.execute(w["id"],approved=True)
-        n.promote(w["id"],"verified",verified=True);n.promote(w["id"],"stable",verified=True)
+        n.promote(w["id"],"verified",verified=True,approved=True);n.promote(w["id"],"stable",verified=True,approved=True)
         with self.assertRaises(PermissionError):n.execute(w["id"],approved=False)
         out=n.execute(w["id"],approved=True)
         self.assertEqual(out["results"][0]["provider"],"slack")

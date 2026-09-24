@@ -174,6 +174,25 @@ class FieldPerceptionPolicy:
         return value
 
     @classmethod
+    def redact_sensitive_value(cls,value,key=""):
+        """Recursively redact secret-bearing metadata before it reaches ledgers."""
+        raw_key=str(key or "").strip().lower()
+        compact="".join(ch for ch in raw_key if ch.isalnum())
+        sensitive={
+            "password","passwd","pwd","pin","otp","secret","token","apikey",
+            "accesstoken","refreshtoken","sessiontoken","authorization","credential","credentials",
+        }
+        if compact in sensitive or compact.endswith(("password","secret","token","apikey","credential","credentials")):
+            return "[SECRET REDACTED]"
+        if isinstance(value,dict):
+            return {str(k):cls.redact_sensitive_value(v,k) for k,v in value.items()}
+        if isinstance(value,(list,tuple,set)):
+            return [cls.redact_sensitive_value(v,key) for v in value]
+        if isinstance(value,str):
+            return cls.redact_sensitive_text(value)
+        return value
+
+    @classmethod
     def status(cls):
         return {
             "owner":"KRISHNA HAWKEYE/BHOOMIPUTRA",
