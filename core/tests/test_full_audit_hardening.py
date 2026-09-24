@@ -128,6 +128,7 @@ class FullAuditHardeningTests(unittest.TestCase):
                 "client-secret": "bbb",
                 "authorization_header": "Bearer ccc",
                 "nested": {"refreshToken": "ddd", "token_count": 123},
+                "promotion_token": "candidate-transaction-id",
             },
         )
         payload = out["payload"]
@@ -136,6 +137,7 @@ class FullAuditHardeningTests(unittest.TestCase):
         self.assertEqual(payload["authorization_header"], "[REDACTED]")
         self.assertEqual(payload["nested"]["refreshToken"], "[REDACTED]")
         self.assertEqual(payload["nested"]["token_count"], 123)
+        self.assertEqual(payload["promotion_token"], "candidate-transaction-id")
 
     def test_kabach_high_risk_tool_requires_approval_but_can_run_when_approved(self):
         kabach = object.__new__(KabachAgent)
