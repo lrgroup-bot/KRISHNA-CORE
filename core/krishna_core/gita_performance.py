@@ -61,6 +61,13 @@ class GitaPerformanceEngine:
         "RETURN_TO_HUMAN_FORM",
     )
 
+    HIGH_PRIORITY = {
+        (2, 7), (2, 10), (2, 13), (2, 14), (2, 20), (2, 47), (2, 48),
+        (3, 19), (4, 7), (4, 8), (4, 34), (6, 5), (6, 6), (6, 26),
+        (7, 7), (8, 5), (9, 22), (9, 26), (10, 8), (10, 20), (10, 41),
+        (11, 32), (15, 7), (18, 61), (18, 63), (18, 65), (18, 66),
+    }
+
     REQUIRED_FIELDS = (
         "chapter", "verse", "verse_id", "sanskrit", "transliteration",
         "meaning_or", "meaning_hi", "meaning_en", "theme", "secondary_themes",
@@ -124,8 +131,19 @@ class GitaPerformanceEngine:
     def _id(chapter: int, verse: int) -> str:
         return f"{int(chapter)}.{int(verse)}"
 
+    @classmethod
+    def _high_priority(cls, chapter: int, verse: int) -> bool:
+        c, v = int(chapter), int(verse)
+        return (
+            (c, v) in cls.HIGH_PRIORITY
+            or (c == 2 and 55 <= v <= 72)
+            or (c == 11 and v >= 8)
+            or (c == 12 and 13 <= v <= 20)
+        )
+
     def _family(self, chapter: int, verse: int) -> tuple[str, bool]:
         c, v = int(chapter), int(verse)
+        manual = self._high_priority(c, v)
         if (c, v) == (2, 10):
             return "SMILING_TEACHER", True
         if (c, v) in {(2, 47), (2, 48), (3, 19)}:
@@ -134,16 +152,18 @@ class GitaPerformanceEngine:
             return "SILENT_WISDOM", True
         if (c, v) in {(6, 5), (6, 6), (6, 26)}:
             return "DHYANA_KRISHNA", True
-        if c == 11 and 8 <= v <= 49:
+        if c == 11 and v == 8:
+            return "VISHVARUPA_TRANSITION", True
+        if c == 11 and 9 <= v <= 49:
             return "VISHVARUPA", True
-        if c == 11 and v in {50, 51}:
+        if c == 11 and 50 <= v <= 55:
             return "REASSURING_PERSONAL_FORM", True
         if c == 12 and 13 <= v <= 20:
             return "LOVING_COUNSEL", True
         if (c, v) in {(18, 61), (18, 63), (18, 65), (18, 66)}:
             return "CLOSING_COUNSEL", True
         arc = self.CHAPTER_ARCS[c]
-        return arc[1], False
+        return arc[1], manual
 
     def _theme(self, chapter: int, verse: int) -> tuple[str, list[str]]:
         c, v = int(chapter), int(verse)
@@ -287,7 +307,7 @@ class GitaPerformanceEngine:
         if not str(record.get("sanskrit") or "").strip():
             errors.append("missing_sanskrit")
         c, v = int(record.get("chapter") or 0), int(record.get("verse") or 0)
-        if family == "VISHVARUPA" and not (c == 11 and 8 <= v <= 49):
+        if family == "VISHVARUPA" and not (c == 11 and 9 <= v <= 49):
             errors.append("vishvarupa_outside_supported_passage")
         if c == 11 and v in {50, 51} and family != "REASSURING_PERSONAL_FORM":
             errors.append("missing_post_vishvarupa_return")
