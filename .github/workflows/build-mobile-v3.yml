@@ -221,6 +221,8 @@ jobs:
           grep -q "private_remote_url" app/src/main/java/com/krishna/mobile/KrishnaPrivateCore.java
           grep -q "KRISHNA_DISCOVER_V1" app/src/main/java/com/krishna/mobile/KrishnaPrivateCore.java
           grep -q '"large_media_sync_unmetered_only": true' app/src/main/assets/canonical-runtime.json
+          grep -q '"large_media_same_lan_required": true' app/src/main/assets/canonical-runtime.json
+          grep -q "trustedLanReady" app/src/main/java/com/krishna/mobile/HawkeyeBackgroundSync.java
           grep -q '"cellular_large_media_upload": false' app/src/main/assets/canonical-runtime.json
           grep -q '"delete_after_verified_default": false' app/src/main/assets/canonical-runtime.json
           grep -q "HawkeyeSyncJobService" app/src/main/AndroidManifest.xml
