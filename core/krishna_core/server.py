@@ -36,6 +36,7 @@ from .brahma_memory_intelligence import BrahmaConsolidationScheduler
 from .windows_desktop_fabric import WindowsDesktopFabric
 from .android_test_fabric import AndroidTestFabric
 from .http_server_runtime import KrishnaThreadingHTTPServer
+from .hawkeye_media_sync import HawkeyeMediaSyncStore
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -188,6 +189,7 @@ _worker_resilience = WorkerResilienceSupervisor(
                                              project="system",payload=event),
 )
 _worker_resilience.start()
+_hawkeye_media_sync = HawkeyeMediaSyncStore(RUNTIME_ROOT)
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
 _requirements = RequirementsLedger()
@@ -1415,6 +1417,31 @@ class Handler(BaseHTTPRequestHandler):
             })
         if path == "/api/mobile/connection":
             return self._json(200, {**mobile_link_state(),"remote_policy":_remote_policy.status()})
+        if path == "/api/mobile/bootstrap":
+            device, token = self._device_auth()
+            if not _pairing.verify(device, token):
+                return self._json(401, {"error":"pairing required"})
+            overlay=str(os.getenv("KRISHNA_PRIVATE_REMOTE_URL") or "").strip()
+            return self._json(200,{
+                "ok":True,
+                "device_id":device,
+                "private_remote_url":overlay,
+                "private_remote_available":bool(overlay),
+                "control_port":settings.port,
+                "pairing":"device-credential",
+                "large_media_policy":{
+                    "unmetered_only":True,
+                    "cellular_large_upload":False,
+                    "resumable":True,
+                    "sha256_required":True,
+                    "delete_after_verified_default":False,
+                },
+            })
+        if path == "/api/hawkeye/media-sync/status":
+            upload_id=str((query.get("id") or [""])[0]).strip()
+            if not upload_id:return self._json(400,{"error":"id is required"})
+            try:return self._json(200,_hawkeye_media_sync.status(upload_id))
+            except KeyError:return self._json(404,{"error":"media sync session not found"})
         if path == "/api/mobile/pair/pending":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"pairing approvals are visible only on KRISHNA PC"})
@@ -3172,6 +3199,39 @@ class Handler(BaseHTTPRequestHandler):
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
             except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/media-sync/start":
+            try:
+                out=_hawkeye_media_sync.start(
+                    observation_id=str(data.get("observation_id") or ""),
+                    session_id=str(data.get("session_id") or "mobile-evidence"),
+                    filename=str(data.get("filename") or "evidence.bin"),
+                    size_bytes=int(data.get("size_bytes") or 0),
+                    sha256=str(data.get("sha256") or ""),
+                    content_type=str(data.get("content_type") or "application/octet-stream"),
+                    modality=str(data.get("modality") or "unknown"),
+                    metadata=data.get("metadata") if isinstance(data.get("metadata"),dict) else {},
+                )
+                return self._json(200,out)
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(507,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/media-sync/chunk":
+            upload_id=str(data.get("upload_id") or "").strip()
+            if not upload_id:return self._json(400,{"error":"upload_id is required"})
+            try:
+                return self._json(200,_hawkeye_media_sync.append(
+                    upload_id,int(data.get("offset") or 0),str(data.get("data_b64") or "")
+                ))
+            except KeyError:return self._json(404,{"error":"media sync session not found"})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/media-sync/complete":
+            upload_id=str(data.get("upload_id") or "").strip()
+            if not upload_id:return self._json(400,{"error":"upload_id is required"})
+            try:return self._json(200,_hawkeye_media_sync.complete(upload_id))
+            except KeyError:return self._json(404,{"error":"media sync session not found"})
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/hawkeye/evidence/ingest":
             mobile_session_id=str(data.get("session_id") or "").strip() or "mobile-evidence"
