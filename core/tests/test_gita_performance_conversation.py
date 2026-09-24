@@ -143,6 +143,20 @@ class KrishnaShlokaConversationTests(unittest.TestCase):
         prev = self.shloka.parse_request("previous verse")
         self.assertEqual(prev["reference"], "Bhagavad Gita 2.47")
 
+    def test_repeat_forward_and_odia_back_controls_are_completion_independent(self):
+        first = self.shloka.parse_request("Gita 2.47")
+        self.assertFalse(first["navigation"]["completion_required_for_next"])
+        self.assertTrue(first["navigation"]["owner_controls_progression"])
+        repeated = self.shloka.parse_request("ପୁଣି କୁହ")
+        self.assertEqual(repeated["reference"], "Bhagavad Gita 2.47")
+        self.assertEqual(repeated["navigation_action"], "repeat")
+        forward = self.shloka.parse_request("ଆଗକୁ")
+        self.assertEqual(forward["reference"], "Bhagavad Gita 2.48")
+        self.assertEqual(forward["navigation_action"], "next")
+        back = self.shloka.parse_request("ପଛକୁ")
+        self.assertEqual(back["reference"], "Bhagavad Gita 2.47")
+        self.assertEqual(back["navigation_action"], "previous")
+
     def test_follow_up_explain_this_verse_reuses_last_reference(self):
         self.shloka.parse_request("Gita 2.47")
         out = self.shloka.parse_request("explain this verse in Hindi")
@@ -191,6 +205,7 @@ class GitaApiContractTests(unittest.TestCase):
             '"/api/gita/search"',
             '"/api/gita/explain"',
             '"/api/gita/speak"',
+            '"sanskrit_tts"',
             '"/api/gita/performance/"',
             '"/api/gita/performance/apply"',
             '"/api/gita/performance/qc"',
