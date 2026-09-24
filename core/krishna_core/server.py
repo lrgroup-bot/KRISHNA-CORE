@@ -2072,7 +2072,7 @@ class Handler(BaseHTTPRequestHandler):
         if post_path == "/api/narad/workflows/promote":
             wid=str(data.get("workflow_id") or "").strip(); state=str(data.get("state") or "").strip()
             if not wid or not state:return self._json(400,{"error":"workflow_id and state are required"})
-            receipt=orch.dispatch_action("narad.workflow.promote",{"workflow_id":wid,"state":state,"verified":bool(data.get("verified",False))},source="pc",actor="legacy-http")
+            receipt=orch.dispatch_action("narad.workflow.promote",{"workflow_id":wid,"state":state,"verified":bool(data.get("verified",False))},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
             return self._json(200,receipt["result"])
 
         if post_path == "/api/narad/workflows/execute":
