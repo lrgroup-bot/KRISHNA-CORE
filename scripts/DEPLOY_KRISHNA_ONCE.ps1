@@ -476,6 +476,15 @@ if(Test-Path $audit){
 
 if(!$SkipStart){
   $env:KRISHNA_ALLOW_ACTIONS="1"
+  if($PrivateRemote){
+    $firewall=Join-Path $Runtime "scripts\CONFIGURE_KRISHNA_PRIVATE_REMOTE_FIREWALL.ps1"
+    if(Test-Path $firewall){
+      & powershell -NoProfile -ExecutionPolicy Bypass -File $firewall -CorePort 8766 -DiscoveryPort 8767 -TailscaleCIDR "100.64.0.0/10" | Out-Host
+      if($LASTEXITCODE -ne 0){Write-Warning "KRISHNA private-remote firewall helper returned exit code $LASTEXITCODE; Core application policy still rejects public clients."}
+    }else{
+      Write-Warning "KRISHNA private-remote firewall helper is missing; application-layer private remote policy remains active."
+    }
+  }
   $guardian=Join-Path $Runtime "scripts\KRISHNA_GUARDIAN.ps1"
   if(!(Test-Path $guardian)){throw "KRISHNA Guardian missing: $guardian"}
   $guardianStateDir=Join-Path $Runtime "state\guardian"
