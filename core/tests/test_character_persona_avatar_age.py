@@ -52,5 +52,25 @@ class AvatarAgeProfileTests(unittest.TestCase):
             self.assertTrue(out["daily_progression"])
 
 
+class WiringContractTests(unittest.TestCase):
+    def test_avatar_fabric_exposes_partha_and_scripture_style(self):
+        text=(Path(__file__).resolve().parents[1]/"krishna_core"/"avatar_fabric.py").read_text(encoding="utf-8-sig")
+        self.assertIn('OWNER_ADDRESS="Partha"',text)
+        self.assertIn("SCRIPTURE_GROUNDED_STYLE",text)
+        self.assertIn("bhagavad_gita_18_63",text)
+
+    def test_orchestrator_injects_character_contract(self):
+        text=(Path(__file__).resolve().parents[1]/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8-sig")
+        self.assertIn("self.agi.character.prompt_contract()",text)
+        self.assertIn("self.agi.character.address_rule()",text)
+
+    def test_http_runtime_exposes_character_age_and_wake_reply(self):
+        text=(Path(__file__).resolve().parents[1]/"krishna_core"/"server.py").read_text(encoding="utf-8-sig")
+        self.assertIn('"/api/character"',text)
+        self.assertIn('"/api/avatar/age"',text)
+        self.assertIn('"/api/avatar/age/configure"',text)
+        self.assertIn('payload["reply_text"]=orch.agi.character.ODIA_WAKE',text)
+
+
 if __name__=="__main__":
     unittest.main()
