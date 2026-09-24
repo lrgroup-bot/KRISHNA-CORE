@@ -899,13 +899,29 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/avatar/asset-audit":
             return self._json(200,avatar_asset_status())
         if path == "/api/avatar/performance":
-            return self._json(200,orch.agi.avatar.performance_bible())
+            return self._json(200,{"bible":orch.agi.avatar.performance_bible(),"runtime":orch.agi.avatar.status()})
         if path == "/api/avatar/age":
             return self._json(200,orch.agi.avatar_age.status())
         if path == "/api/character":
             return self._json(200,orch.agi.character.status())
         if path == "/api/gita/status":
             return self._json(200,orch.gita_gyan.status())
+        if path == "/api/gita/performance/qc":
+            return self._json(200,orch.gita_performance_qc())
+        if path.startswith("/api/gita/verse/"):
+            parts=path[len("/api/gita/verse/"):].strip("/").split("/")
+            if len(parts)!=2:return self._json(400,{"error":"expected /api/gita/verse/{chapter}/{verse}"})
+            try:return self._json(200,orch.gita_verse(int(parts[0]),int(parts[1]),explain=False))
+            except (ValueError,KeyError) as exc:return self._json(404,{"error":str(exc)})
+        if path.startswith("/api/gita/chapter/"):
+            raw=path[len("/api/gita/chapter/"):].strip("/")
+            try:return self._json(200,orch.gita_chapter(int(raw),include_performance=True))
+            except (ValueError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+        if path.startswith("/api/gita/performance/"):
+            parts=path[len("/api/gita/performance/"):].strip("/").split("/")
+            if len(parts)!=2:return self._json(400,{"error":"expected /api/gita/performance/{chapter}/{verse}"})
+            try:return self._json(200,orch.gita_performance_record(int(parts[0]),int(parts[1])))
+            except (ValueError,KeyError) as exc:return self._json(404,{"error":str(exc)})
         if path == "/api/gita/revise":
             raw=(query.get("limit") or ["7"])[0]
             try:limit=int(raw)
@@ -2306,13 +2322,23 @@ class Handler(BaseHTTPRequestHandler):
                     any(token in normalized_msg for token in gita_daily_markers)
                     or normalized_msg.strip() in gita_request_tokens
                 ):
-                    language="hi" if any(x in normalized_msg for x in ("hindi","हिंदी","हिन्दी")) else "or"
+                    language="hi" if any(x in normalized_msg for x in ("hindi","हिंदी","हिन्दी")) else ("en" if "english" in normalized_msg else "or")
                     depth="brief" if any(x in normalized_msg for x in ("brief","short","संक्षेप","ଛୋଟ")) else "deep"
                     lesson=orch.gita_daily_lesson(language,depth,True)
                     text_parts=[lesson["reference"],lesson["sanskrit"]]
                     if lesson.get("explanation"):text_parts.append(lesson["explanation"])
                     elif lesson.get("trusted_summary_en"):text_parts.append(lesson["trusted_summary_en"])
                     out={**lesson,"text":"\n\n".join(text_parts),"capability":"gita-gyan","task_id":str(uuid.uuid4())}
+                elif is_gita_request:
+                    out=orch.gita_request(msg)
+                    if out.get("sanskrit"):
+                        text_parts=[out.get("reference","Bhagavad Gita"),out["sanskrit"]]
+                        if out.get("generated_explanation"):text_parts.append(out["generated_explanation"])
+                        if out.get("partha_line"):text_parts.append(out["partha_line"])
+                        out.setdefault("text","\n\n".join(x for x in text_parts if x))
+                    elif out.get("items") is not None:
+                        out.setdefault("text",f"Bhagavad Gita chapter/search ready: {len(out.get('items') or [])} verified verse(s).")
+                    out.setdefault("task_id",str(uuid.uuid4()))
                 elif orch._looks_like_work_request(msg):
                     out = orch.handle_managed_request(msg, project, data.get("source", "pc"), data.get("chat_id"), vision_text)
                 else:
@@ -2515,6 +2541,61 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400,{"error":"depth must be brief or deep"})
             lesson=orch.gita_daily_lesson(language,depth,mark_complete)
             return self._json(200,lesson)
+
+        if post_path == "/api/gita/search":
+            query_text=str(data.get("query") or "").strip()
+            if not query_text:return self._json(400,{"error":"query is required"})
+            try:return self._json(200,orch.gita_search(query_text,int(data.get("limit") or 10)))
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gita/explain":
+            try:
+                chapter=int(data.get("chapter"));verse=int(data.get("verse"))
+            except (TypeError,ValueError):
+                return self._json(400,{"error":"chapter and verse are required integers"})
+            language=str(data.get("language") or "or").strip().lower()
+            depth=str(data.get("depth") or "deep").strip().lower()
+            if language not in {"or","hi","en"}:return self._json(400,{"error":"language must be one of: or, hi, en"})
+            if depth not in {"brief","deep"}:return self._json(400,{"error":"depth must be brief or deep"})
+            try:return self._json(200,orch.gita_verse(chapter,verse,language,depth,True))
+            except (ValueError,KeyError) as exc:return self._json(404,{"error":str(exc)})
+
+        if post_path == "/api/gita/performance/apply":
+            try:
+                return self._json(200,orch.gita_apply_performance(int(data.get("chapter")),int(data.get("verse"))))
+            except (TypeError,ValueError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/gita/speak":
+            try:
+                chapter=int(data.get("chapter"));verse=int(data.get("verse"))
+            except (TypeError,ValueError):
+                return self._json(400,{"error":"chapter and verse are required integers"})
+            language=str(data.get("language") or "or").strip().lower()
+            depth=str(data.get("depth") or "deep").strip().lower()
+            if language not in {"or","hi","en"}:return self._json(400,{"error":"language must be one of: or, hi, en"})
+            try:
+                payload=orch.gita_verse(chapter,verse,language,depth,bool(data.get("explain",True)))
+            except (ValueError,KeyError) as exc:
+                return self._json(404,{"error":str(exc)})
+            configured=set(_voice.tts.status().get("languages") or [])
+            out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
+            audio_segments=[]
+            for segment in payload.get("speech_segments") or []:
+                text_value=str(segment.get("text") or "").strip()
+                seg_lang=str(segment.get("language") or language).strip().lower()
+                if not text_value:continue
+                if seg_lang not in configured:
+                    audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"unavailable","reason":"local voice model not configured"})
+                    continue
+                audio_id=str(uuid.uuid4());out_path=out_dir/(audio_id+".wav")
+                try:
+                    resolved=_voice.tts.speak(text_value,out_path,language=seg_lang)
+                    audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"ready","output_path":resolved,"audio_id":audio_id,"audio_url":"/api/voice/audio?id="+audio_id})
+                except (RuntimeError,ValueError) as exc:
+                    audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"failed","error":str(exc)})
+            payload["audio_segments"]=audio_segments
+            payload["sanskrit_audio_verified"]=any(x.get("kind")=="shloka" and x.get("status")=="ready" for x in audio_segments)
+            return self._json(200,payload)
 
         if post_path == "/api/gita/corpus/import":
             if self.client_address[0] not in ("127.0.0.1","::1"):
