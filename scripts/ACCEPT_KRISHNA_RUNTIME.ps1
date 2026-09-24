@@ -774,7 +774,10 @@ try{
   Add-Check "Acceptance harness" "FAIL" $_.Exception.Message $null
 } finally {
   if($proc -and !$proc.HasExited){
-    Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+    # The acceptance Core can own Playwright driver/Chromium descendants.
+    # Kill the verified acceptance process tree, not only python.exe, so a
+    # browser cold-start cannot be orphaned into the next deployment/test pass.
+    & taskkill.exe /PID $proc.Id /T /F | Out-Null
     try{[void]$proc.WaitForExit(5000)}catch{}
   }
   if(Test-Path $acceptanceState){Remove-Item -Recurse -Force $acceptanceState -ErrorAction SilentlyContinue}
