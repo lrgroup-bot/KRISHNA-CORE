@@ -37,8 +37,17 @@ class ModelRouter:
     """Prefer local providers; fail closed instead of silently sending data to cloud."""
     def __init__(self):
         self.control_plane=None
+        ollama_url=os.getenv("KRISHNA_OLLAMA_OPENAI_URL","http://127.0.0.1:11434/v1")
+        primary=str(os.getenv("KRISHNA_OLLAMA_MODEL") or "qwen3.5:4b").strip()
+        raw=str(os.getenv("KRISHNA_OLLAMA_FALLBACK_MODELS") or "qwen2.5:3b,qwen2.5vl:7b")
+        models=[]
+        for model in [primary,*raw.split(",")]:
+            model=str(model or "").strip()
+            if model and model not in models:models.append(model)
         self.providers=[
-            OpenAICompatibleLocalProvider("ollama",os.getenv("KRISHNA_OLLAMA_OPENAI_URL","http://127.0.0.1:11434/v1"),os.getenv("KRISHNA_OLLAMA_MODEL") or None),
+            OpenAICompatibleLocalProvider("ollama" if i==0 else "ollama-model:"+model,ollama_url,model)
+            for i,model in enumerate(models)
+        ]+[
             OpenAICompatibleLocalProvider("gpt4all",os.getenv("KRISHNA_GPT4ALL_URL","http://127.0.0.1:4891/v1"),os.getenv("KRISHNA_GPT4ALL_MODEL") or None),
         ]
     def bind_sudarshan(self,control_plane):
