@@ -14,14 +14,15 @@ IMAGE_TYPES={"image/jpeg","image/png","image/webp"}
 class VisionAdapter:
     """Local-first dual-profile image reasoning through Ollama multimodal chat.
 
-    Qwen is disabled by owner policy. Images remain local and cloud fallback is
-    never performed by this adapter.
+    Detailed PC evidence prefers Qwen2.5-VL; fast/live PC frames prefer Qwen3.5.
+    The phone never hosts Qwen. Images handled here remain local and this adapter
+    never performs cloud fallback.
     """
 
-    DEFAULT_MODEL="gemma3:4b"
-    DEFAULT_FALLBACKS=()
-    DEFAULT_FAST_MODEL="gemma3:4b"
-    DEFAULT_FAST_FALLBACKS=()
+    DEFAULT_MODEL="qwen2.5vl:7b"
+    DEFAULT_FALLBACKS=("qwen3.5:4b","gemma3:4b")
+    DEFAULT_FAST_MODEL="qwen3.5:4b"
+    DEFAULT_FAST_FALLBACKS=("gemma3:4b","qwen2.5vl:7b")
     DISABLED_MODEL_PREFIXES=()
 
     @classmethod
