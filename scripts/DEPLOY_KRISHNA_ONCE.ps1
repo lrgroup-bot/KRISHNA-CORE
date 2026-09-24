@@ -223,10 +223,14 @@ New-Item -ItemType Directory -Force $sourceTestRuntime|Out-Null
 $previousRuntimeRoot=$env:KRISHNA_RUNTIME_ROOT
 $previousDb=$env:KRISHNA_DB
 $previousSourceRoot=$env:KRISHNA_SOURCE_ROOT
+$previousTemp=$env:TEMP
+$previousTmp=$env:TMP
 try{
   $env:KRISHNA_RUNTIME_ROOT=$sourceTestRuntime
   $env:KRISHNA_DB=Join-Path $sourceTestRuntime "krishna_core.db"
   $env:KRISHNA_SOURCE_ROOT=$Source
+  $env:TEMP=$sourceTestRuntime
+  $env:TMP=$sourceTestRuntime
   Invoke-KrishnaTests $Source $Source
   & $Py (Join-Path $Source "scripts\AUDIT_KRISHNA_ARCHITECTURE.py")
   if($LASTEXITCODE -ne 0){throw "KRISHNA ARCHITECTURE TRUTH AUDIT FAILED"}
@@ -234,6 +238,8 @@ try{
   if($null -eq $previousRuntimeRoot){Remove-Item Env:KRISHNA_RUNTIME_ROOT -ErrorAction SilentlyContinue}else{$env:KRISHNA_RUNTIME_ROOT=$previousRuntimeRoot}
   if($null -eq $previousDb){Remove-Item Env:KRISHNA_DB -ErrorAction SilentlyContinue}else{$env:KRISHNA_DB=$previousDb}
   if($null -eq $previousSourceRoot){Remove-Item Env:KRISHNA_SOURCE_ROOT -ErrorAction SilentlyContinue}else{$env:KRISHNA_SOURCE_ROOT=$previousSourceRoot}
+  if($null -eq $previousTemp){Remove-Item Env:TEMP -ErrorAction SilentlyContinue}else{$env:TEMP=$previousTemp}
+  if($null -eq $previousTmp){Remove-Item Env:TMP -ErrorAction SilentlyContinue}else{$env:TMP=$previousTmp}
   Remove-Item -Recurse -Force $sourceTestRuntime -ErrorAction SilentlyContinue
 }
 if((git status --porcelain)){
@@ -376,10 +382,14 @@ New-Item -ItemType Directory -Force $deployedTestRuntime|Out-Null
 $previousRuntimeRoot=$env:KRISHNA_RUNTIME_ROOT
 $previousDb=$env:KRISHNA_DB
 $previousSourceRoot=$env:KRISHNA_SOURCE_ROOT
+$previousTemp=$env:TEMP
+$previousTmp=$env:TMP
 try{
   $env:KRISHNA_RUNTIME_ROOT=$deployedTestRuntime
   $env:KRISHNA_DB=Join-Path $deployedTestRuntime "krishna_core.db"
   $env:KRISHNA_SOURCE_ROOT=$Source
+  $env:TEMP=$deployedTestRuntime
+  $env:TMP=$deployedTestRuntime
   $env:PYTHONPATH="$Runtime\core"
   & $Py -m compileall -q "$Runtime\core\krishna_core"
   if($LASTEXITCODE -ne 0){throw "DEPLOYED CORE COMPILE FAILED"}
@@ -398,6 +408,8 @@ finally{
   if($null -eq $previousRuntimeRoot){Remove-Item Env:KRISHNA_RUNTIME_ROOT -ErrorAction SilentlyContinue}else{$env:KRISHNA_RUNTIME_ROOT=$previousRuntimeRoot}
   if($null -eq $previousDb){Remove-Item Env:KRISHNA_DB -ErrorAction SilentlyContinue}else{$env:KRISHNA_DB=$previousDb}
   if($null -eq $previousSourceRoot){Remove-Item Env:KRISHNA_SOURCE_ROOT -ErrorAction SilentlyContinue}else{$env:KRISHNA_SOURCE_ROOT=$previousSourceRoot}
+  if($null -eq $previousTemp){Remove-Item Env:TEMP -ErrorAction SilentlyContinue}else{$env:TEMP=$previousTemp}
+  if($null -eq $previousTmp){Remove-Item Env:TMP -ErrorAction SilentlyContinue}else{$env:TMP=$previousTmp}
   Remove-Item -Recurse -Force $deployedTestRuntime -ErrorAction SilentlyContinue
 }
 
