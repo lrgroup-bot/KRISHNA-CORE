@@ -16,7 +16,8 @@ class SanskritParlerContractTests(unittest.TestCase):
     def test_installer_is_isolated_e_drive_and_fail_closed_on_gated_access(self):
         text=(ROOT/"scripts"/"INSTALL_KRISHNA_SANSKRIT_TTS.ps1").read_text(encoding="utf-8-sig")
         self.assertIn(r'voice\envs\sanskrit-tts',text)
-        self.assertIn(r'voice\models\sanskrit-parler',text)
+        self.assertIn('$voiceRoot=Join-Path $RuntimeRoot "voice"',text)
+        self.assertIn(r'models\sanskrit-parler',text)
         self.assertIn("HF_HOME",text)
         self.assertIn("exit 7",text)
         self.assertIn("SanskritTtsCommand",text)
