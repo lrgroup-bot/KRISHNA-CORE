@@ -184,7 +184,7 @@
         "Conversation-only secure voice/text interface; no dashboard, health-panel, project-list or raw-shell UI.",
         "Use the same KRISHNA Core conversation/task state as PC and notify after meaningful verified completed work.",
         "Persist device identity/credential locally; sensitive actions use device authorization rather than voice alone.",
-        "Support file/photo attachment and Odia/English conversation.",
+        "Support file/photo attachment and Odia/Hindi/English conversation.",
         "Owner voice gate may filter wake/listen flow locally but is not strong biometric security.",
         "Remote-away usage requires secure transport and must not expose raw host shell/filesystem APIs.",
         "Phone image/file attachments can be passed into the same KRISHNA conversation; supported images use local multimodal reasoning and evidence linkage.",
