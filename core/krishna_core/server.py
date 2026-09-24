@@ -674,6 +674,81 @@ _gita_daily_scheduler = GitaDailyScheduler(
 _gita_daily_scheduler.start()
 
 
+def _gita_message_requested(text):
+    raw=str(text or "")
+    low=raw.lower()
+    terms=("gita","geeta","bhagavad","shloka","sloka","gita gyan","gita-gyan")
+    return any(x in low for x in terms) or "ଗୀତା" in raw or "ଶ୍ଲୋକ" in raw or "गीता" in raw or "श्लोक" in raw
+
+
+def _gita_followup_question(text):
+    raw=str(text or "")
+    low=raw.lower()
+    question_terms=("why","how","what","meaning","apply","business","life","explain","understand","deep")
+    local_terms=("କାହିଁକି","କେମିତି","ଅର୍ଥ","ବୁଝ","ଜୀବନ","କାମ","क्यों","कैसे","अर्थ","समझ","जीवन","काम")
+    explicit_new=("today","daily","next","revise","revision","chapter","adhyay","आज","अध्याय","ଆଜି","ଅଧ୍ୟାୟ")
+    return (
+        ("?" in raw or any(x in low for x in question_terms) or any(x in raw for x in local_terms))
+        and not any(x in low or x in raw for x in explicit_new)
+    )
+
+
+def _gita_lesson_reply(lesson):
+    explanation=dict(lesson.get("explanation") or {})
+    parts=[f"Bhagavad Gita {lesson.get('chapter')}.{lesson.get('verse')}",str(lesson.get("sanskrit") or "").strip()]
+    if explanation:
+        for key in ("literal_meaning","context","deep_explanation","practical_application","reflection_question"):
+            value=str(explanation.get(key) or "").strip()
+            if value:parts.append(value)
+    elif lesson.get("public_domain_english"):
+        parts.append(str(lesson.get("public_domain_english")))
+    return "\n\n".join(x for x in parts if x)
+
+
+def _gita_chat_response(message,project,source,chat_id):
+    task_id=str(uuid.uuid4())
+    if chat_id:
+        chat=orch.memory.chat(chat_id)
+        if not chat:raise KeyError(f"chat not found: {chat_id}")
+        if chat["project"]!=project:raise ValueError("chat does not belong to selected project")
+        orch.memory.add_chat_message(chat_id,"user",message,{"task_id":task_id,"source":source,"capability":"gita-gyan"})
+    parsed=_gita.interpret_command(message)
+    last_id=_gita.progress().get("last_id")
+    if last_id and _gita_followup_question(message):
+        qa=_gita.ask_question(last_id,message,parsed.get("language"))
+        reply=qa["answer"]
+        audio={"avatar_state":"WISDOM","segments":[{"kind":"explanation",**_gita_audio_segment(reply,qa["language"])}]}
+        detail={"kind":"question","qa":qa}
+    elif parsed.get("intent")=="revision":
+        revision=_gita.revision(parsed["language"],7,parsed["deep"])
+        rows=revision.get("lessons") or []
+        reply="Revision\n\n"+"\n\n".join(
+            f"{x.get('id')}\n{x.get('sanskrit')}\n{x.get('public_domain_english')}" for x in rows
+        )
+        audio=None
+        detail={"kind":"revision","revision":revision}
+    else:
+        if parsed.get("intent")=="verse":
+            lesson=_gita.verse(parsed["chapter"],parsed["verse"],parsed["language"],True)
+        else:
+            lesson=_gita.daily_lesson(parsed["language"],True)
+        reply=_gita_lesson_reply(lesson)
+        audio=_gita_speak_lesson(lesson)
+        detail={"kind":"lesson","lesson":lesson}
+    if chat_id:
+        orch.memory.add_chat_message(
+            chat_id,"assistant",reply,
+            {"task_id":task_id,"provider":"gita-gyan/local","capability":"gita-gyan"},
+        )
+    orch.memory.remember(project,"gita_gyan",message,{"task_id":task_id,"chat_id":chat_id,"kind":detail["kind"]})
+    orch.memory.audit(task_id,"gita_gyan_answered",detail["kind"])
+    return {
+        "task_id":task_id,"chat_id":chat_id,"text":reply,"reply":reply,
+        "provider":"gita-gyan/local","capability":"gita-gyan","avatar_state":"WISDOM",
+        "gita":detail,"gita_audio":audio,
+    }
+
+
 def _science_frontier_tick():
     snap=pc_observer.snapshot()
     return orch.brahmagyan_science_background_tick(
@@ -2361,7 +2436,9 @@ class Handler(BaseHTTPRequestHandler):
                 vision_text="\n".join("- "+x.get("analysis",x.get("error","")) for x in vision_evidence) if vision_evidence else None
                 # KRISHNA selects internal capabilities automatically. Clients never
                 # need to choose Sudarshan/Karma/Vishwakarma manually.
-                if orch._looks_like_work_request(msg):
+                if _gita_message_requested(msg):
+                    out = _gita_chat_response(msg,project,data.get("source","pc"),data.get("chat_id"))
+                elif orch._looks_like_work_request(msg):
                     out = orch.handle_managed_request(msg, project, data.get("source", "pc"), data.get("chat_id"), vision_text)
                 else:
                     out = orch.handle(msg, project, data.get("source", "pc"), data.get("chat_id"), vision_text)
