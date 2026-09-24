@@ -5,6 +5,8 @@ import unittest
 from pathlib import Path
 
 from krishna_core.automation_bus import AutomationBus
+from krishna_core.bhumiputra import BhumiputraAgent
+from krishna_core.field_perception import FieldPerceptionPolicy
 from krishna_core.kabach import KabachAgent
 from krishna_core.development_operator import DevelopmentOperator
 from krishna_core.durable_queue import DurableQueue
@@ -161,6 +163,32 @@ class FullAuditHardeningTests(unittest.TestCase):
             server,
         )
         self.assertEqual(leaking, [], "generic HTTP 500 handlers must not echo internal exception messages")
+
+    def test_hawkeye_metadata_secret_redaction_is_recursive_and_persisted(self):
+        cleaned = FieldPerceptionPolicy.redact_sensitive_value({
+            "password": "dont-store-me",
+            "nested": {"refreshToken": "token-value", "note": "api_key=abcd1234"},
+            "items": [{"authorization": "Bearer xyz"}, "otp=998877"],
+        })
+        raw = json.dumps(cleaned)
+        self.assertNotIn("dont-store-me", raw)
+        self.assertNotIn("token-value", raw)
+        self.assertNotIn("abcd1234", raw)
+        self.assertNotIn("998877", raw)
+
+        with tempfile.TemporaryDirectory() as td:
+            agent = BhumiputraAgent(Path(td))
+            receipt = agent.store_mobile_evidence("session-1", b"fake-image", "image/jpeg", {
+                "password": "mobile-secret", "heading": 123,
+                "nested": {"access_token": "private-token"},
+            })
+            meta_path = agent.evidence_dir / (receipt["evidence_id"] + ".json")
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            encoded = json.dumps(meta)
+            self.assertNotIn("mobile-secret", encoded)
+            self.assertNotIn("private-token", encoded)
+            self.assertEqual(meta["sensor_context"]["password"], "[SECRET REDACTED]")
+            self.assertEqual(meta["sensor_context"]["heading"], 123)
 
     def test_model_gateway_persisted_state_and_runtime_url_validation_fail_closed(self):
         with tempfile.TemporaryDirectory() as td:
