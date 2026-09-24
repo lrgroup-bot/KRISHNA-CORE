@@ -2311,10 +2311,16 @@ class Handler(BaseHTTPRequestHandler):
                 # requests out of generic project-work routing so the canonical verse,
                 # learning progress and WISDOM avatar state remain authoritative.
                 normalized_msg=" ".join(msg.lower().split())
-                gita_request_tokens=("gita","geeta","गीता","ଗୀତା","shloka","sloka","श्लोक","ଶ୍ଲୋକ")
+                gita_request_tokens=("gita","geeta","गीता","ଗୀତା","shloka","sloka","श्लोक","ଶ୍ଲୋକ","vishvarupa","viśvarūpa","विश्वरूप","ବିଶ୍ୱରୂପ")
                 gita_daily_markers=("today","daily","aaj","आज","ଆଜି","today's","todays")
                 gita_revision_markers=("revise","revision","review","yesterday","पुनरावृत्ति","ପୁନରାବୃତ୍ତି")
+                gita_followup_markers=("this verse","this shloka","this sloka","next verse","previous verse","explain deeply","what are you teaching me here","ଏହି ଶ୍ଲୋକ","ଏହାର ଅର୍ଥ","इस श्लोक","इसका अर्थ")
+                gita_situation_markers=("i am confused","i'm confused","mu bahut confuse","ମୁଁ ବହୁତ confuse","मैं उलझ","i am afraid","i'm afraid")
                 is_gita_request=any(token in normalized_msg for token in gita_request_tokens)
+                if not is_gita_request and orch.gita_shloka.last_reference() and any(token in normalized_msg for token in gita_followup_markers):
+                    is_gita_request=True
+                if not is_gita_request and any(token in normalized_msg for token in gita_situation_markers):
+                    is_gita_request=True
                 if is_gita_request and any(token in normalized_msg for token in gita_revision_markers):
                     out=orch.gita_revision(int(data.get("limit") or 7))
                     out.update({"text":"GITA-GYAN revision ready.","capability":"gita-gyan","task_id":str(uuid.uuid4())})
