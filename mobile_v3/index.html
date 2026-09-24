@@ -35,15 +35,17 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
 <section id="stage" class="stage">
   <div class="halo"></div><div id="rotateHint" class="rotateHint">SWIPE TO ROTATE · 360°</div>
   <div id="avatarViewport" class="avatarViewport"><img id="avatarSprite" class="sprite" src="krishna_child_360.webp" alt="KRISHNA child avatar"><div id="viewLabel" class="viewLabel">FRONT</div></div>
-  <div id="bubble" class="bubble">Radhe Radhe. I am ready.</div>
+  <div id="bubble" class="bubble">କୁହ ପାର୍ଥ, କଣ ସହାୟତା ଦରକାର?</div>
   <section id="gitaCard" class="gitaCard" aria-live="polite">
     <div id="gitaRef" class="gitaRef">BHAGAVAD GITA</div>
     <div id="gitaSanskrit" class="gitaSanskrit"></div>
     <div id="gitaMeaning" class="gitaMeaning"></div>
     <div class="gitaControls">
+      <button onclick="gitaNavigate('previous')">◀ ପଛକୁ</button>
       <button id="gitaPlay" onclick="toggleGitaRecitation()">▶ / ❚❚</button>
-      <button onclick="repeatGita()">↻ REPEAT</button>
-      <button onclick="speakGitaExplanation()">EXPLAIN</button>
+      <button onclick="repeatGita()">↻ ପୁଣି</button>
+      <button onclick="gitaNavigate('next')">ଆଗକୁ ▶</button>
+      <button onclick="speakGitaExplanation()">ବୁଝାଅ</button>
     </div>
   </section>
   <div id="cameraLayer" class="cameraLayer">
@@ -71,14 +73,14 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
   </div>
 </section>
 <footer class="bottom">
- <div id="reply" class="reply">Talk to KRISHNA.</div>
+ <div id="reply" class="reply">କୃଷ୍ଣଙ୍କ ସହ କଥା ହୁଅନ୍ତୁ।</div>
  <div class="composer">
    <button onclick="startFieldScan()" aria-label="Hawkeye live camera scan">◉</button>
    <button onclick="document.getElementById('attach').click()" aria-label="Attach photo or file">＋</button>
    <input id="attach" type="file" accept="image/*,.pdf,.txt,.md,.json" capture="environment" hidden onchange="attachFile(this)">
    <button onclick="listen()" aria-label="Talk to KRISHNA">🎙</button>
    <select id="voiceLang" aria-label="Conversation language"><option value="or-IN">ଓଡ଼ିଆ</option><option value="hi-IN">हिन्दी</option><option value="en-IN">EN</option></select>
-   <input id="msg" type="text" placeholder="Talk to KRISHNA…" onkeydown="if(event.key==='Enter')send()">
+   <input id="msg" type="text" placeholder="କୃଷ୍ଣଙ୍କୁ କହନ୍ତୁ…" onkeydown="if(event.key==='Enter')send()">
    <button class="send" onclick="send()" aria-label="Send">➤</button>
  </div>
  <div class="security">Conversation only · owner voice gate is local · sensitive actions still require device authorization</div>
@@ -87,7 +89,7 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
 <script src="realtime-client.js"></script>
 <script>
 const labels=['FRONT','FRONT-RIGHT','RIGHT','BACK-RIGHT','BACK','BACK-LEFT','LEFT','FRONT-LEFT'];
-let view=0,drag=false,startX=0,startView=0,mode='FLUTE',lastManual=0,autoTimer=null,busy=false,pendingAttachmentIds=[],pairingRequestedAt=0,lastGita=null;
+let view=0,drag=false,startX=0,startView=0,mode='FLUTE',lastManual=0,autoTimer=null,busy=false,pendingAttachmentIds=[],pairingRequestedAt=0,lastGita=null,gitaAudio=null;
 let fieldStream=null,fieldTimer=null,fieldSession='',fieldBusy=false,fieldFrames=0,fieldGoal='automatic live field scan',fieldAudio=false,fieldProbe=null,fieldVideoClipTimer=null,fieldAudioClipTimer=null,fieldMediaBusy=false,fieldReference=null,fieldReferencePending=null;
 function hawkeyeSensors(){try{const x=JSON.parse(Krishna.hawkeyeSensorSnapshot());return x&&typeof x==='object'?x:{available:false};}catch(_){return {available:false,evidence_state:'UNKNOWN'};}}
 const stage=document.getElementById('stage'),sprite=document.getElementById('avatarSprite'),label=document.getElementById('viewLabel'),vp=document.getElementById('avatarViewport');
@@ -111,12 +113,30 @@ function renderGita(d){
  document.getElementById('gitaMeaning').textContent=trusted||generated||'Trusted translation is not bundled for this verse; ask KRISHNA for an explanation.';
  card.classList.add('active');
 }
-function toggleGitaRecitation(){if(!lastGita?.sanskrit)return;try{if(speechSynthesis.speaking){speechSynthesis.cancel();return}reply('Device speech fallback is playing the Sanskrit text; pronunciation is not marked verified until the local Sanskrit recitation worker passes.','warn');const u=new SpeechSynthesisUtterance(lastGita.sanskrit);u.lang='hi-IN';u.rate=.78;speechSynthesis.speak(u)}catch(e){}}
-function repeatGita(){try{speechSynthesis.cancel()}catch(e){};toggleGitaRecitation()}
+function gitaLanguage(){const v=document.getElementById('voiceLang')?.value||'or-IN';return v.startsWith('hi')?'hi':v.startsWith('en')?'en':'or'}
+function gitaNavigate(action){const i=document.getElementById('msg');if(!i||busy)return;i.value=action==='previous'?'ପଛକୁ':action==='repeat'?'ପୁଣି କୁହ':'ଆଗକୁ';send()}
+function toggleGitaRecitation(){
+ if(!lastGita?.sanskrit)return;
+ try{
+  if(gitaAudio&&!gitaAudio.paused){gitaAudio.pause();return}
+  const raw=Krishna.gitaSpeak(Number(lastGita.chapter),Number(lastGita.verse),gitaLanguage());
+  const d=JSON.parse(raw);if(d.error)throw new Error(d.error);
+  const seg=(d.audio_segments||[]).find(x=>x.kind==='shloka'&&x.language==='sa'&&x.status==='ready');
+  if(seg&&seg.audio_id){
+    const dataUrl=Krishna.voiceAudioDataUrl(seg.audio_id);
+    if(String(dataUrl).startsWith('{')){const e=JSON.parse(dataUrl);if(e.error)throw new Error(e.error)}
+    gitaAudio=new Audio(dataUrl);gitaAudio.play();
+    reply('ସଂସ୍କୃତ ଶ୍ଲୋକ ସ୍ଥାନୀୟ ଭାବେ ପଢ଼ାଯାଉଛି।','good');return;
+  }
+  reply('ସ୍ଥାନୀୟ ସଂସ୍କୃତ ଧ୍ୱନି ଏଯାବତ୍ ସଜ୍ଜ ନୁହେଁ; ଡିଭାଇସ୍ ଧ୍ୱନି କେବଳ ଅଯାଞ୍ଚିତ fallback।','warn');
+  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(lastGita.sanskrit);u.lang='hi-IN';u.rate=.78;speechSynthesis.speak(u);
+ }catch(e){reply('ଗୀତା ଧ୍ୱନି: '+e.message,'bad')}
+}
+function repeatGita(){gitaNavigate('repeat')}
 function speakGitaExplanation(){if(!lastGita)return;const t=lastGita.generated_explanation||lastGita.explanation||lastGita.trusted_summary_en||'';if(t)speak(t)}
-window.toggleGitaRecitation=toggleGitaRecitation;window.repeatGita=repeatGita;window.speakGitaExplanation=speakGitaExplanation;
+window.gitaNavigate=gitaNavigate;window.toggleGitaRecitation=toggleGitaRecitation;window.repeatGita=repeatGita;window.speakGitaExplanation=speakGitaExplanation;
 
-window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','KRISHNA is working…');reply('KRISHNA is thinking…');setTimeout(()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const d=JSON.parse(Krishna.chatWithAttachments(q,JSON.stringify(pendingAttachmentIds.slice(0,3))));if(d.error)throw new Error(d.error);pendingAttachmentIds=[];renderGita(d);const text=d.reply||d.text||'Done';reply(text);setMode(d.avatar_state||'TALKING',text);if(d.capability!=='gita-gyan')speak(text)}catch(e){reply(e.message,'bad');setMode('CHAT','Connection error')}finally{busy=false}},20)}
+window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','କୃଷ୍ଣ କାମ କରୁଛନ୍ତି…');reply('କୃଷ୍ଣ ଭାବୁଛନ୍ତି…');setTimeout(()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const d=JSON.parse(Krishna.chatWithAttachments(q,JSON.stringify(pendingAttachmentIds.slice(0,3))));if(d.error)throw new Error(d.error);pendingAttachmentIds=[];renderGita(d);const text=d.reply||d.text||'ସମ୍ପୂର୍ଣ୍ଣ';reply(text);setMode(d.avatar_state||'TALKING',text);if(d.capability!=='gita-gyan')speak(text)}catch(e){reply(e.message,'bad');setMode('CHAT','ସଂଯୋଗ ତ୍ରୁଟି')}finally{busy=false}},20)}
 
 window.listen=()=>{if(busy)return;if(!Krishna.voiceEnrolled()){reply('Say a natural sentence for a few seconds to create your local owner voice gate.','warn');setTimeout(()=>{const d=JSON.parse(Krishna.enrollVoice());if(d.error){reply(d.error,'bad');return}reply('Owner voice gate enrolled locally. Tap the microphone again and say “Krishna” before your request.','good')},80);return}
  reply('Say “Krishna” to verify the local owner voice gate…','warn');setMode('LISTENING','OWNER CHECK');
