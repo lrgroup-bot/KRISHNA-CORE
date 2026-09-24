@@ -14,31 +14,46 @@ IMAGE_TYPES={"image/jpeg","image/png","image/webp"}
 class VisionAdapter:
     """Local-first dual-profile image reasoning through Ollama multimodal chat.
 
-    Detailed evidence uses the larger Qwen2.5-VL model first. Fast/live frames use
-    the lighter Qwen3.5 model first. Images remain local and cloud fallback is never
-    performed by this adapter.
+    Qwen is disabled by owner policy. Images remain local and cloud fallback is
+    never performed by this adapter.
     """
 
-    DEFAULT_MODEL="qwen2.5vl:7b"
-    DEFAULT_FALLBACKS=("qwen3.5:4b",)
-    DEFAULT_FAST_MODEL="qwen3.5:4b"
-    DEFAULT_FAST_FALLBACKS=("qwen2.5vl:7b",)
+    DEFAULT_MODEL="gemma3:4b"
+    DEFAULT_FALLBACKS=()
+    DEFAULT_FAST_MODEL="gemma3:4b"
+    DEFAULT_FAST_FALLBACKS=()
+    DISABLED_MODEL_PREFIXES=()
 
-    @staticmethod
-    def _fallbacks(env_name, defaults, primary):
+    @classmethod
+    def model_allowed(cls,model):
+        normalized=str(model or "").strip().lower().replace("\\","/")
+        if not normalized:return False
+        basename=normalized.rsplit("/",1)[-1]
+        return not any(
+            normalized.startswith(prefix) or basename.startswith(prefix)
+            for prefix in cls.DISABLED_MODEL_PREFIXES
+        )
+
+    @classmethod
+    def _primary(cls,value,default):
+        model=str(value or default).strip()
+        return model if cls.model_allowed(model) else default
+
+    @classmethod
+    def _fallbacks(cls,env_name,defaults,primary):
         raw=str(os.getenv(env_name,",".join(defaults)) or "")
         out=[]
-        for item in raw.split(","):
+        for item in [*raw.split(","),*defaults]:
             item=item.strip()
-            if item and item!=primary and item not in out:out.append(item)
+            if item and cls.model_allowed(item) and item!=primary and item not in out:out.append(item)
         return out
 
     def __init__(self,model=None,base_url=None,timeout=120):
-        self.model=model or os.getenv("KRISHNA_VISION_MODEL",self.DEFAULT_MODEL)
+        self.model=self._primary(model or os.getenv("KRISHNA_VISION_MODEL"),self.DEFAULT_MODEL)
         self.fallback_models=self._fallbacks(
             "KRISHNA_VISION_FALLBACK_MODELS",self.DEFAULT_FALLBACKS,self.model
         )
-        self.fast_model=os.getenv("KRISHNA_FAST_VISION_MODEL",self.DEFAULT_FAST_MODEL)
+        self.fast_model=self._primary(os.getenv("KRISHNA_FAST_VISION_MODEL"),self.DEFAULT_FAST_MODEL)
         self.fast_fallback_models=self._fallbacks(
             "KRISHNA_FAST_VISION_FALLBACK_MODELS",self.DEFAULT_FAST_FALLBACKS,self.fast_model
         )
