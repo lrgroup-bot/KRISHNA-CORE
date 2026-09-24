@@ -118,6 +118,7 @@ core\krishna_core\krishna_protocol.py
 core\krishna_core\krishna_shloka.py
 core\krishna_core\lab_bot.py
 core\krishna_core\lan_discovery.py
+core\krishna_core\lip_sync.py
 core\krishna_core\long_context.py
 core\krishna_core\mcp_transport.py
 core\krishna_core\media_adapter.py
@@ -318,6 +319,7 @@ core\tests\test_intelligence_narad.py
 core\tests\test_kabach_soc_wiring.py
 core\tests\test_lab_bot.py
 core\tests\test_lan_discovery_and_safety.py
+core\tests\test_lip_sync.py
 core\tests\test_long_context.py
 core\tests\test_mcp_transport.py
 core\tests\test_missed_additions.py
