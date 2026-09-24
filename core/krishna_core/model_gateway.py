@@ -67,6 +67,28 @@ class ModelGatewayRegistry:
             raise ValueError("non-local cloud gateway must use https")
         return value
 
+    @staticmethod
+    def _validate_stored_url(value:str)->str:
+        """Validate persisted gateway structure without requiring DNS at startup."""
+        value=str(value or "").strip().rstrip("/")
+        p=urlparse(value)
+        if p.scheme not in ("http","https") or not p.netloc or not p.hostname:
+            raise ValueError("gateway base_url must be http:// or https://")
+        if p.username or p.password or p.fragment:
+            raise ValueError("gateway base_url must not embed credentials or fragments")
+        host=(p.hostname or "").strip().lower()
+        if host in {"metadata.google.internal","metadata","instance-data","instance-data.ec2.internal"}:
+            raise PermissionError("cloud metadata gateway target is blocked")
+        literal=None
+        try:literal=ipaddress.ip_address(host.strip("[]"))
+        except ValueError:pass
+        if literal is not None and (literal.is_link_local or literal.is_unspecified or literal.is_multicast or literal.is_reserved):
+            raise PermissionError("link-local/reserved gateway target is blocked")
+        local=host=="localhost" or bool(literal and literal.is_loopback)
+        if p.scheme!="https" and not local:
+            raise ValueError("non-local cloud gateway must use https")
+        return value
+
     def _healthy(self):
         if self.load_error:
             raise RuntimeError("model gateway registry is unreadable; refusing to overwrite it: "+self.load_error)
@@ -85,7 +107,7 @@ class ModelGatewayRegistry:
                 if not isinstance(item,dict) or not item.get("id"):
                     raise ValueError("model gateway profile entry is invalid")
                 row=GatewayProfile(**item)
-                row.base_url=self._validate_url(row.base_url)
+                row.base_url=self._validate_stored_url(row.base_url)
                 loaded[row.id]=row
             self.profiles=loaded
             self.load_error=None
