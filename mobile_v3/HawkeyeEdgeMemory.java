@@ -83,6 +83,20 @@ public final class HawkeyeEdgeMemory {
 
   public static byte[] imageBytes(Context c,JSONObject meta)throws Exception{return payloadBytes(c,meta);}
 
+  public static boolean markSynced(Context c,String observationId,String pcReceiptId)throws Exception{
+    String target=observationId==null?"":observationId.trim();if(target.isEmpty())return false;
+    for(File f:metaFiles(c)){
+      JSONObject j;
+      try{j=readMeta(f);}catch(Exception ignored){continue;}
+      if(!target.equals(j.optString("observation_id")))continue;
+      j.put("sync_state","synced");j.put("pc_verified",true);j.put("pc_receipt_id",pcReceiptId==null?"":pcReceiptId);
+      j.put("synced_at_ms",System.currentTimeMillis());
+      HawkeyeCrypto.encryptToFile(j.toString().getBytes("UTF-8"),f);
+      return true;
+    }
+    return false;
+  }
+
   public static boolean acknowledge(Context c,String observationId)throws Exception{
     String target=observationId==null?"":observationId.trim();if(target.isEmpty())return false;
     for(File f:metaFiles(c)){
@@ -114,16 +128,17 @@ public final class HawkeyeEdgeMemory {
   }
 
   public static JSONObject stats(Context c)throws Exception{
-    ArrayList<File> files=metaFiles(c);int pending=0;long bytes=0;
+    ArrayList<File> files=metaFiles(c);int pending=0,synced=0;long bytes=0;
     for(File f:files){
       bytes+=f.length();
       try{
         JSONObject j=readMeta(f);
         if("pending".equals(j.optString("sync_state")))pending++;
+        if("synced".equals(j.optString("sync_state")))synced++;
         File payload=payloadFile(c,j);if(payload.isFile())bytes+=payload.length();
       }catch(Exception ignored){}
     }
-    JSONObject out=new JSONObject();out.put("items",files.size());out.put("pending",pending);out.put("bytes",bytes);
+    JSONObject out=new JSONObject();out.put("items",files.size());out.put("pending",pending);out.put("synced",synced);out.put("bytes",bytes);
     out.put("encrypted_at_rest",true);out.put("cipher","AES-256-GCM");out.put("key_store","AndroidKeyStore");
     out.put("root","internal-app-storage/hawkeye-memory");return out;
   }
