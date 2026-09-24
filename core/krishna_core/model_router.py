@@ -35,28 +35,15 @@ class OpenAICompatibleLocalProvider:
 
 class ModelRouter:
     """Prefer local providers; fail closed instead of silently sending data to cloud."""
-    DEFAULT_MODELS=("gemma3:4b","granite3.3:2b","smollm2:1.7b","llama3.2:1b","deepseek-r1:1.5b")
-    DISABLED_MODEL_PREFIXES=("qwen",)
-
-    @classmethod
-    def model_allowed(cls,model):
-        normalized=str(model or "").strip().lower().replace("\\","/")
-        if not normalized:return False
-        basename=normalized.rsplit("/",1)[-1]
-        return not any(
-            normalized.startswith(prefix) or basename.startswith(prefix)
-            for prefix in cls.DISABLED_MODEL_PREFIXES
-        )
-
     def __init__(self):
         self.control_plane=None
         ollama_url=os.getenv("KRISHNA_OLLAMA_OPENAI_URL","http://127.0.0.1:11434/v1")
-        primary=str(os.getenv("KRISHNA_OLLAMA_MODEL") or self.DEFAULT_MODELS[0]).strip()
-        raw=str(os.getenv("KRISHNA_OLLAMA_FALLBACK_MODELS") or ",".join(self.DEFAULT_MODELS[1:]))
+        primary=str(os.getenv("KRISHNA_OLLAMA_MODEL") or "qwen3.5:4b").strip()
+        raw=str(os.getenv("KRISHNA_OLLAMA_FALLBACK_MODELS") or "qwen2.5:3b,qwen2.5vl:7b")
         models=[]
-        for model in [primary,*raw.split(","),*self.DEFAULT_MODELS]:
+        for model in [primary,*raw.split(",")]:
             model=str(model or "").strip()
-            if model and self.model_allowed(model) and model not in models:models.append(model)
+            if model and model not in models:models.append(model)
         self.providers=[
             OpenAICompatibleLocalProvider("ollama" if i==0 else "ollama-model:"+model,ollama_url,model)
             for i,model in enumerate(models)
