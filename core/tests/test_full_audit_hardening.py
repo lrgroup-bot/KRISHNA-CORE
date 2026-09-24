@@ -7,9 +7,12 @@ from pathlib import Path
 from krishna_core.automation_bus import AutomationBus
 from krishna_core.kabach import KabachAgent
 from krishna_core.development_operator import DevelopmentOperator
+from krishna_core.durable_queue import DurableQueue
 from krishna_core.model_scout import ModelCandidate, ModelScout
 from krishna_core.mission_budget import MissionBudgetManager
+from krishna_core.mission_engine import MissionEngine
 from krishna_core.narad import NaradRuntime
+from krishna_core.narad.credentials import NaradCredentialVault
 from krishna_core.policy_kernel import PolicyKernel
 from krishna_core.remote_access import PrivateRemotePolicy
 from krishna_core.shared_action_bus import SharedActionBus
@@ -156,6 +159,38 @@ class FullAuditHardeningTests(unittest.TestCase):
             server,
         )
         self.assertEqual(leaking, [], "generic HTTP 500 handlers must not echo internal exception messages")
+
+    def test_durable_queue_and_mission_corruption_fail_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "core.db"
+            queue = DurableQueue(db)
+            row = queue.enqueue("mission.create", {"goal": "safe"}, permissions=("mission.write",))
+            with queue.lock:
+                queue.db.execute("UPDATE durable_queue SET payload=? WHERE queue_id=?", ("{bad-json", row["queue_id"]))
+                queue.db.commit()
+            with self.assertRaises(RuntimeError):
+                queue.get(row["queue_id"])
+            queue.close()
+
+            missions = MissionEngine(db)
+            mission = missions.create("safe", resource_budget={"max_tool_calls": 2})
+            with missions.lock:
+                missions.db.execute("UPDATE missions SET resource_budget=? WHERE mission_id=?", ("[]", mission["mission_id"]))
+                missions.db.commit()
+            with self.assertRaises(RuntimeError):
+                missions.get(mission["mission_id"])
+            missions.close()
+
+    def test_narad_credential_metadata_schema_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "credentials.json"
+            original = json.dumps({"schema": 99, "credentials": []})
+            path.write_text(original, encoding="utf-8")
+            vault = NaradCredentialVault(path)
+            self.assertTrue(vault.load_error)
+            with self.assertRaises(RuntimeError):
+                vault.register("x", "provider", "KRISHNA_TEST_SECRET")
+            self.assertEqual(path.read_text(encoding="utf-8"), original)
 
     def test_narad_state_schema_and_high_assurance_promotion_fail_closed(self):
         with tempfile.TemporaryDirectory() as td:
