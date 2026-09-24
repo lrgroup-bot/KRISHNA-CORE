@@ -4,11 +4,19 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from threading import RLock
 from typing import Callable
+import hashlib
 import json
 import uuid
 
 
-_SENSITIVE_KEYS={"password","secret","token","api_key","apikey","authorization","credential","credentials"}
+_SENSITIVE_KEYS={
+    "password","secret","token","api_key","apikey","authorization","credential","credentials",
+    "access_token","refresh_token","client_secret","bearer_token","auth_token","session_token",
+}
+_SENSITIVE_COMPACT_KEYS={
+    "password","secret","token","apikey","authorization","credential","credentials",
+    "accesstoken","refreshtoken","clientsecret","bearertoken","authtoken","sessiontoken",
+}
 
 
 @dataclass(frozen=True)
@@ -53,9 +61,22 @@ class SharedActionBus:
         return datetime.now(timezone.utc).isoformat()
 
     @staticmethod
-    def _safe_payload(payload):
+    def _is_sensitive_key(key):
+        raw=str(key or "").strip().lower()
+        if raw in _SENSITIVE_KEYS:
+            return True
+        compact="".join(ch for ch in raw if ch.isalnum())
+        if compact in _SENSITIVE_COMPACT_KEYS:
+            return True
+        normalized=raw.replace("-","_").replace(" ","_")
+        return normalized.startswith("authorization_") or normalized.endswith(
+            ("_password","_secret","_token","_api_key","_apikey","_credential","_credentials")
+        )
+
+    @classmethod
+    def _safe_payload(cls,payload):
         def clean(value,key=""):
-            if key.lower() in _SENSITIVE_KEYS:
+            if cls._is_sensitive_key(key):
                 return "[REDACTED]"
             if isinstance(value,dict):
                 return {str(k):clean(v,str(k)) for k,v in value.items()}
@@ -68,6 +89,14 @@ class SharedActionBus:
                 return text[:4000]+"..."
             return text
         return clean(dict(payload or {}))
+
+    @staticmethod
+    def _idempotency_fingerprint(action,project,source,actor,payload):
+        raw=json.dumps({
+            "action":str(action),"project":str(project),"source":str(source),"actor":str(actor),
+            "payload":payload or {},
+        },sort_keys=True,separators=(",",":"),ensure_ascii=False,default=str)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def register(self,name,handler,*,description="",mutating=False,requires_approval=False,
                  permissions=(),sources=("pc","mobile","system","agent","job","mcp","a2a"),rollback_action=None)->dict:
@@ -122,10 +151,6 @@ class SharedActionBus:
         actor=str(actor or "owner").strip() or "owner"
         with self._lock:
             pair=self._handlers.get(name)
-            if idempotency_key and str(idempotency_key) in self._idempotent:
-                cached=dict(self._idempotent[str(idempotency_key)])
-                cached["idempotent_replay"]=True
-                return cached
         if not pair:
             raise KeyError(f"shared action not registered: {name}")
         spec,handler=pair
@@ -154,6 +179,17 @@ class SharedActionBus:
             row={**envelope,"status":"blocked","reason":decision.reason,"policy":decision.as_dict(),"spec":spec.as_dict()}
             self._record(row);self._publish("action.blocked",row)
             raise PermissionError(decision.reason)
+        if idempotency_key:
+            cache_key=str(idempotency_key)
+            fingerprint=self._idempotency_fingerprint(name,project,source,actor,payload)
+            with self._lock:
+                cached=self._idempotent.get(cache_key)
+            if cached is not None:
+                if cached.get("_idempotency_fingerprint")!=fingerprint:
+                    raise ValueError("idempotency key already used for a different action context or payload")
+                replay={k:v for k,v in cached.items() if not str(k).startswith("_idempotency_")}
+                replay["idempotent_replay"]=True
+                return replay
         self._publish("action.requested",{**envelope,"spec":spec.as_dict()})
         try:
             result=handler(dict(payload or {}),context)
@@ -168,7 +204,9 @@ class SharedActionBus:
         }
         self._record(row);self._publish("action.completed",row)
         if idempotency_key:
-            with self._lock:self._idempotent[str(idempotency_key)]=dict(row)
+            cached=dict(row)
+            cached["_idempotency_fingerprint"]=self._idempotency_fingerprint(name,project,source,actor,payload)
+            with self._lock:self._idempotent[str(idempotency_key)]=cached
         return row
 
     def rollback(self,action_id,*,source="pc",actor="owner",approved=False)->dict:
