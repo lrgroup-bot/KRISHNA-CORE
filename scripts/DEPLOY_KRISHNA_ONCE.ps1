@@ -56,35 +56,20 @@ function Get-KrishnaListenerOwnership([int]$ProcessId,[string]$RuntimeRoot){
   })
   if(!$runtimeEvidence.Count){return $null}
 
-  $serverEvidence=@($chain | Where-Object {
-    ([string]$_.command_line) -match "(?i)krishna_core\.server|START_KRISHNA\.ps1|KRISHNA_GUARDIAN\.ps1" -or
-    ([string]$_.executable_path).StartsWith((Join-Path $runtime ".venv"),[StringComparison]::OrdinalIgnoreCase)
-  })
-  if(!$serverEvidence.Count){return $null}
-
-  # Prefer the highest verified supervisor/wrapper so its full child tree exits.
-  $root=$null
+  $startProc=$null
+  $guardianProc=$null
   foreach($row in $chain){
-    if(([string]$row.command_line) -match "(?i)KRISHNA_GUARDIAN\.ps1"){$root=$row}
+    if(([string]$row.command_line) -match "(?i)START_KRISHNA\.ps1"){$startProc=$row}
+    if(([string]$row.command_line) -match "(?i)KRISHNA_GUARDIAN\.ps1"){$guardianProc=$row}
   }
-  if(!$root){
-    foreach($row in $chain){
-      if(([string]$row.command_line) -match "(?i)START_KRISHNA\.ps1"){$root=$row}
-    }
-  }
-  if(!$root){
-    foreach($row in $chain){
-      if(([string]$row.executable_path).StartsWith((Join-Path $runtime ".venv"),[StringComparison]::OrdinalIgnoreCase)){$root=$row}
-    }
-  }
-  if(!$root){return $null}
+  if(!$startProc){return $null}
 
   return [pscustomobject]@{
     listener_pid=$ProcessId
-    verified_root_pid=[int]$root.pid
-    verified_root_name=[string]$root.name
-    verified_root_command_line=[string]$root.command_line
-    verified_root_executable=[string]$root.executable_path
+    start_pid=[int]$startProc.pid
+    guardian_pid=if($guardianProc){[int]$guardianProc.pid}else{0}
+    start_command_line=[string]$startProc.command_line
+    start_executable=[string]$startProc.executable_path
     evidence=$chain
   }
 }
@@ -442,14 +427,37 @@ if(!$SkipStart){
   if(Test-Path $stopMarker){Remove-Item -Force $stopMarker -ErrorAction SilentlyContinue}
 
   # The old verified Core tree must release 8766 before a new generation is launched.
-  # Never kill an unknown listener here; fail closed with PID evidence instead.
+  # If stale PID metadata missed an orphaned Core, reconstruct only verified
+  # START_KRISHNA/Guardian ownership from the listener ancestry and reuse the
+  # existing generation-handoff authority. Unknown listeners remain untouched.
   $staleListener=Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
   if($staleListener){
     $listenerPid=[int]$staleListener.OwningProcess
-    $listenerRow=$null
-    try{$listenerRow=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$listenerPid) -ErrorAction Stop}catch{}
-    $listenerCmd=if($listenerRow){[string]$listenerRow.CommandLine}else{""}
-    throw ("Port 8766 remains occupied after KRISHNA generation handoff. Refusing to kill an unverified listener. PID={0}; command={1}" -f $listenerPid,$listenerCmd)
+    $ownership=Get-KrishnaListenerOwnership $listenerPid $Runtime
+    if($ownership){
+      $recoveredState=Join-Path $guardianStateDir "core-guardian.json"
+      @{
+        status="RECOVERED_FOR_HANDOFF"
+        guardian_pid=[int]$ownership.guardian_pid
+        core_pid=[int]$ownership.start_pid
+        recovered_listener_pid=$listenerPid
+        updated=(Get-Date).ToUniversalTime().ToString("o")
+      }|ConvertTo-Json -Depth 4|Set-Content -Encoding UTF8 $recoveredState
+      if([int]$ownership.guardian_pid -gt 0){
+        [string]$ownership.guardian_pid|Set-Content -Encoding ASCII (Join-Path $guardianStateDir "guardian.pid")
+      }
+      Write-Host ("Recovered verified KRISHNA Core ancestry for listener PID {0}; START_KRISHNA PID {1}; Guardian PID {2}." -f $listenerPid,$ownership.start_pid,$ownership.guardian_pid) -ForegroundColor Yellow
+      Stop-ExistingKrishnaGuardian $Runtime
+      $staleListener=Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    }
+    if($staleListener){
+      $listenerPid=[int]$staleListener.OwningProcess
+      $listenerRow=$null
+      try{$listenerRow=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$listenerPid) -ErrorAction Stop}catch{}
+      $listenerCmd=if($listenerRow){[string]$listenerRow.CommandLine}else{""}
+      $listenerExe=if($listenerRow){[string]$listenerRow.ExecutablePath}else{""}
+      throw ("Port 8766 remains occupied after KRISHNA generation handoff. Refusing to kill an unverified listener. PID={0}; executable={1}; command={2}" -f $listenerPid,$listenerExe,$listenerCmd)
+    }
   }
 
   $runtimeGeneration=[guid]::NewGuid().ToString("N")
