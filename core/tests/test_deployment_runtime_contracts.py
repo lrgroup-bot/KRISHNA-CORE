@@ -188,6 +188,18 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn('-PrivateRemote',deploy)
         self.assertIn('-TailscaleExe "',deploy)
 
+    def test_private_remote_firewall_is_bounded_to_lan_and_tailscale(self):
+        root=repository_root()
+        script=(root/"scripts"/"CONFIGURE_KRISHNA_PRIVATE_REMOTE_FIREWALL.ps1").read_text(encoding="utf-8")
+        deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
+        self.assertIn('"100.64.0.0/10"',script)
+        self.assertIn('"LocalSubnet"',script)
+        self.assertIn('"KRISHNA Core Private Remote TCP"',script)
+        self.assertIn('"KRISHNA Mobile LAN Discovery UDP"',script)
+        self.assertIn("-EdgeTraversalPolicy Block",script)
+        self.assertNotIn("AnyRemoteAddress",script)
+        self.assertIn("CONFIGURE_KRISHNA_PRIVATE_REMOTE_FIREWALL.ps1",deploy)
+
     def test_orchestrator_architecture_truth_honors_authoritative_source_root(self):
         root=repository_root()
         orchestrator=(root/"core"/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
