@@ -16,12 +16,18 @@ import urllib.request
 class HTTPRuntimeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.temp = tempfile.TemporaryDirectory()
+        # Keep all runtime/test state inside KRISHNA's configured runtime root
+        # when the deployment harness provides one. This prevents tests from
+        # escaping to C:\\Users\\...\\AppData\\Local\\Temp on Windows.
+        parent = Path(os.environ.get("KRISHNA_RUNTIME_ROOT") or tempfile.gettempdir())
+        parent.mkdir(parents=True, exist_ok=True)
+        cls.temp = tempfile.TemporaryDirectory(prefix="http-runtime-", dir=str(parent))
         cls.root = Path(cls.temp.name)
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
             cls.port = sock.getsockname()[1]
         env = dict(os.environ, KRISHNA_DB=str(cls.root / "core.db"),
+                   KRISHNA_RUNTIME_ROOT=str(cls.root),
                    KRISHNA_HOST="127.0.0.1", KRISHNA_PORT=str(cls.port),
                    KRISHNA_ALLOW_ACTIONS="0")
         cls.log = (cls.root / "server.log").open("w")
@@ -42,10 +48,29 @@ class HTTPRuntimeTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.proc.terminate()
-        cls.proc.wait(timeout=10)
+        if cls.proc.poll() is None:
+            cls.proc.terminate()
+            try:
+                cls.proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                cls.proc.kill()
+                cls.proc.wait(timeout=10)
         cls.log.close()
-        cls.temp.cleanup()
+
+        # Windows can release SQLite/file handles a few milliseconds after the
+        # server process exits. Retry only the disposable test-directory cleanup;
+        # never weaken or skip the test assertions themselves.
+        last_error = None
+        for attempt in range(20):
+            try:
+                cls.temp.cleanup()
+                last_error = None
+                break
+            except PermissionError as exc:
+                last_error = exc
+                time.sleep(min(0.05 * (attempt + 1), 0.5))
+        if last_error is not None:
+            raise last_error
 
     @classmethod
     def call(cls, path, data=None, headers=None):
