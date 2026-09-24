@@ -8,6 +8,7 @@ class PrivateRemotePolicy:
     MOBILE_ROUTES=frozenset({
         "/api/status",
         "/api/mobile/connection",
+        "/api/mobile/bootstrap",
         "/api/mobile/resume",
         "/api/core/event",
         "/api/core/state",
@@ -29,6 +30,10 @@ class PrivateRemotePolicy:
         "/api/bhumiputra/live/frame",
         "/api/bhumiputra/live/state",
         "/api/hawkeye/evidence/ingest",
+        "/api/hawkeye/media-sync/start",
+        "/api/hawkeye/media-sync/chunk",
+        "/api/hawkeye/media-sync/complete",
+        "/api/hawkeye/media-sync/status",
         "/api/hawkeye/gemini/analyze",
         "/api/hawkeye/gemini/live/token",
         "/api/hawkeye/gemini/status",
