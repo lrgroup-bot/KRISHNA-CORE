@@ -1146,20 +1146,25 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
     <div class="popupHeadActions"><button type="button" onclick="minimizeKrishnaPopup()" aria-label="Minimize">—</button><button type="button" onclick="toggleKrishnaPopup(false)" aria-label="Close">×</button></div>
   </div>
   <div id="krishnaPopupBody" class="krishnaPopupBody">
-    <div class="popupMsg assistant"><b>KRISHNA</b><span>Namaste. Ask, explore, analyze, create, or give me a task.</span></div>
+    <div class="popupMsg assistant"><b>KRISHNA</b><span>କୁହ ପାର୍ଥ, କଣ ସହାୟତା ଦରକାର?</span></div>
     <div class="popupQuick">
-      <button type="button" onclick="fillKrishnaPopup('What can you do?')">✦ What can you do?</button>
-      <button type="button" onclick="fillKrishnaPopup('Help me with my current project')">◇ Help with my project</button>
-      <button type="button" onclick="fillKrishnaPopup('Explain this topic clearly')">◎ Explain a complex topic</button>
+      <button type="button" onclick="fillKrishnaPopup('ତୁମେ କଣ କରିପାରିବ?')">✦ କଣ କରିପାରିବ?</button>
+      <button type="button" onclick="fillKrishnaPopup('ମୋ ବର୍ତ୍ତମାନ ପ୍ରୋଜେକ୍ଟରେ ସାହାଯ୍ୟ କର')">◇ ପ୍ରୋଜେକ୍ଟ ସାହାଯ୍ୟ</button>
+      <button type="button" onclick="fillKrishnaPopup('ଏହି ବିଷୟଟି ସହଜରେ ବୁଝାଅ')">◎ ସହଜରେ ବୁଝାଅ</button>
+    </div>
+    <div id="krishnaGitaControls" class="popupQuick" hidden>
+      <button type="button" onclick="krishnaGitaControl('previous')">◀ ପଛକୁ</button>
+      <button type="button" onclick="krishnaGitaControl('repeat')">↻ ପୁଣି</button>
+      <button type="button" onclick="krishnaGitaControl('next')">ଆଗକୁ ▶</button>
     </div>
   </div>
   <div class="krishnaVoiceDeck">
     <div class="voiceWave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <button id="krishnaMic" class="krishnaMic" type="button" onclick="toggleKrishnaVoice()" aria-label="Talk to KRISHNA">🎙</button>
-    <div class="voiceLanguage"><select id="krishnaVoiceLang" aria-label="Voice language"><option value="">AUTO</option><option value="en-IN">ENGLISH</option><option value="hi-IN">हिन्दी</option><option value="or-IN">ଓଡ଼ିଆ</option></select><small id="krishnaVoiceState">Tap the microphone to speak</small></div>
+    <div class="voiceLanguage"><select id="krishnaVoiceLang" aria-label="Voice language"><option value="or-IN" selected>ଓଡ଼ିଆ</option><option value="hi-IN">हिन्दी</option><option value="en-IN">ENGLISH</option><option value="">AUTO</option></select><small id="krishnaVoiceState">କହିବା ପାଇଁ ମାଇକ୍ ଦବାନ୍ତୁ</small></div>
   </div>
   <div class="krishnaPopupComposer">
-    <textarea id="krishnaPopupInput" rows="2" placeholder="Message KRISHNA…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendKrishnaPopup()}"></textarea>
+    <textarea id="krishnaPopupInput" rows="2" placeholder="କୃଷ୍ଣଙ୍କୁ କହନ୍ତୁ…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendKrishnaPopup()}"></textarea>
     <button id="krishnaPopupSend" type="button" onclick="sendKrishnaPopup()" aria-label="Send">➤</button>
   </div>
 </section>
@@ -1456,10 +1461,33 @@ async function sendKrishnaPopup(){
   const id=await ensureKrishnaPopupChat(),project=$('project')?.value||'KRISHNA';
   const d=await req('/api/core/chat',{message:text,project,chat_id:id,source:'web-popup',mode:'chat',attachment_ids:[]});
   const reply=d.reply||d.text||JSON.stringify(d);popupMessage('assistant',reply);await loadGeneralChats();
-  if(krishnaVoiceConversation)await speakKrishnaReply(reply);else avatarState('IDLE');
+  const gc=$('krishnaGitaControls');if(gc)gc.hidden=d.capability!=='gita-gyan';
+  if(krishnaVoiceConversation&&d.capability==='gita-gyan'&&d.chapter&&d.verse)await speakKrishnaGita(d);
+  else if(krishnaVoiceConversation)await speakKrishnaReply(reply);else avatarState('IDLE');
  }catch(e){popupMessage('assistant','ERROR: '+e.message);avatarState('IDLE')}
  finally{krishnaPopupSending=false;if(sendBtn)sendBtn.disabled=false}
 }
+function krishnaGitaControl(action){
+ const input=$('krishnaPopupInput');if(!input||krishnaPopupSending)return;
+ input.value=action==='repeat'?'ପୁଣି କୁହ':action==='previous'?'ପଛକୁ':'ଆଗକୁ';
+ sendKrishnaPopup();
+}
+async function speakKrishnaGita(d){
+ const state=$('krishnaVoiceState');avatarState('SPEAKING');
+ try{
+  const language=krishnaVoiceLanguage('').short||'or';
+  const audio=await req('/api/gita/speak',{chapter:Number(d.chapter),verse:Number(d.verse),language,depth:'deep',explain:true,meter:'anushtubh'});
+  const ready=(audio.audio_segments||[]).filter(x=>x.status==='ready'&&x.audio_url);
+  if(!ready.length)throw new Error('ସ୍ଥାନୀୟ ଗୀତା ଧ୍ୱନି ଏଯାବତ୍ ସଜ୍ଜ ନୁହେଁ');
+  for(const seg of ready){
+   await new Promise((resolve,reject)=>{const a=new Audio(seg.audio_url);a.onended=resolve;a.onerror=()=>reject(new Error('audio playback failed'));a.play().catch(reject)});
+  }
+  avatarState('LISTENING');if(state)state.textContent='ଓଡ଼ିଆ · ଶୁଣିବାକୁ ପ୍ରସ୍ତୁତ';
+ }catch(e){
+  avatarState('IDLE');if(state)state.textContent='ଗୀତା ଧ୍ୱନି: '+e.message;
+ }
+}
+
 function toggleKrishnaVoice(){
  const mic=$('krishnaMic'),state=$('krishnaVoiceState');const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!Recognition){if(state)state.textContent='Speech recognition is unavailable in this browser';return}
