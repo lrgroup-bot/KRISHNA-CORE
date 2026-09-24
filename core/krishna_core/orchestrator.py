@@ -81,6 +81,7 @@ from .rishi_live_research import RishiLiveResearchExecutor
 from .science_atlas import ScienceAtlas
 from .rishi_learning import RishiLearningLedger, CouncilCollaborationEngine
 from .brahma_bot import BrahmaBot
+from .brahma_process_qc import BrahmaProcessQC
 from .grand_challenges import GrandChallengeRegistry
 from .durable_event_bus import DurableEventBus
 from .mission_engine import MissionEngine
@@ -246,6 +247,16 @@ class Orchestrator:
             self.gyan_bhandar,
             self.memory,
         )
+        self.brahma_process_qc = BrahmaProcessQC(
+            runtime_state / "brahma" / "process-qc",
+            self.lifecycle_bus,
+            self.memory,
+        ).bind_runtime(
+            retry_dispatch=self._brahma_qc_retry,
+            investigate=self._brahma_qc_investigate,
+            consult_krishna=self._brahma_qc_consult,
+        )
+        self.brahma_process_qc.attach()
         self.hawkeye_observer = HawkeyeLearningObserver(
             runtime_state / "hawkeye" / "learning-observer",
             universal_learning=self.universal_learning,
@@ -3096,7 +3107,7 @@ class Orchestrator:
         )
 
         self.agent_runtime.register(
-            "brahma","learning governor and Gyan-Bhandar QC head",
+            "brahma","learning governor + Gyan-Bhandar QC + KRISHNA process QC head",
             permissions=("runtime.read","memory.write","evidence.write"),
             actions=("brahma.*",),
         )
@@ -3114,6 +3125,44 @@ class Orchestrator:
             action,payload,project=project,source=source,actor=actor,approved=approved,
             permissions=permissions,idempotency_key=idempotency_key,
         )
+
+    def _brahma_qc_retry(self,envelope):
+        action=str(envelope.get("action") or "").strip()
+        if not action:raise ValueError("BRAHMA retry action is required")
+        return self.sudarshan.action(
+            action,envelope.get("payload") or {},
+            project=str(envelope.get("project") or "KRISHNA"),
+            source="system",actor="brahma-qc",approved=False,
+            permissions=tuple(envelope.get("permissions") or ()),
+            idempotency_key="brahma-qc:"+str(envelope.get("action_id") or uuid.uuid4()),
+        )
+
+    def _brahma_qc_investigate(self,project,error):
+        target=str(project or "KRISHNA")
+        if target!="KRISHNA" and not self.projects.get(target):
+            target="KRISHNA"
+        return self.investigate(
+            "BRAHMA QC failure investigation: "+str(error or "")[:1200],
+            target,[],
+        )
+
+    def _brahma_qc_consult(self,packet):
+        payload=packet.get("payload") if isinstance(packet.get("payload"),dict) else {}
+        prompt=f"""BRAHMA is KRISHNA's process QC head.
+A KRISHNA runtime process failed. Discuss the failure with BRAHMA and give a short,
+conservative diagnosis plus the safest next recovery step.
+Do not claim a fix happened unless evidence proves it. Do not bypass approval,
+permissions, verification, shadow testing, or promotion gates.
+Topic: {packet.get('topic')}
+Failure: {packet.get('failure')}
+Action: {payload.get('action')}
+Project: {payload.get('project')}
+"""
+        result=self._route_model(prompt,privacy="local_only",project="KRISHNA",actor="brahma-qc-consult")
+        return str((result or {}).get("text") or "").strip()
+
+    def brahma_process_status(self):
+        return self.brahma_process_qc.status()
 
     def _amcc_runtime_signals(self):
         snapshot=self.governor.snapshot()
