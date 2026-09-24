@@ -443,6 +443,8 @@ scripts\PATCH_KRISHNA_V3.ps1
 scripts\PREPARE_KRISHNA_AVATAR.ps1
 scripts\SETUP_GYAN_SECURITY.ps1
 scripts\SETUP_KRISHNA_VOICE.ps1
+scripts\voice\krishna_wake_worker.py
+scripts\INSTALL_KRISHNA_WAKE_RUNTIME.ps1
 scripts\SETUP_MUSETALK_GTX1050TI.ps1
 scripts\SETUP_PROJECT_PERFECTION.ps1
 scripts\START_KRISHNA.ps1
@@ -459,5 +461,6 @@ tests\test_musetalk_setup_contract.py
 tests\test_phase1_runtime_acceptance_contract.py
 tests\test_privacy_guardian_contract.py
 tests\test_video_avatar_preflight_contract.py
+tests\test_voice_isolation_contract.py
 tests\test_web_integrity.py
 tools\INSTALL_AGENCY_SPECIALISTS.ps1
