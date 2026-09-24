@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from krishna_core.architecture_truth import ArchitectureTruthAudit
 
@@ -58,6 +59,36 @@ class ArchitectureTruthAuditTests(unittest.TestCase):
             )
             self.assertTrue(any(x["module"]=="orphan" for x in report["orphan_candidates"]))
             self.assertFalse(any(x["module"]=="alpha" for x in report["orphan_candidates"]))
+
+    def test_scan_reuses_recent_report_without_rescanning(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            (root/"core"/"krishna_core").mkdir(parents=True)
+            (root/"core"/"tests").mkdir(parents=True)
+            (root/"core"/"requirements").mkdir(parents=True)
+            (root/"core"/"krishna_core"/"alpha.py").write_text("VALUE=1\n",encoding="utf-8")
+            audit=ArchitectureTruthAudit(root)
+            first=audit.scan()
+            with patch.object(audit,"_duplicate_inventory",side_effect=AssertionError("unexpected rescan")):
+                second=audit.scan()
+            self.assertIs(first,second)
+
+    def test_generated_directories_are_pruned_from_inventory(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            (root/"core"/"krishna_core").mkdir(parents=True)
+            (root/"core"/"tests").mkdir(parents=True)
+            (root/"core"/"requirements").mkdir(parents=True)
+            (root/"mobile_v3"/"src").mkdir(parents=True)
+            (root/"mobile_v3"/"node_modules"/"pkg").mkdir(parents=True)
+            (root/"mobile_v3"/"build"/"generated").mkdir(parents=True)
+            (root/"mobile_v3"/"src"/"keep.txt").write_text("same",encoding="utf-8")
+            (root/"mobile_v3"/"node_modules"/"pkg"/"skip.txt").write_text("same",encoding="utf-8")
+            (root/"mobile_v3"/"build"/"generated"/"skip2.txt").write_text("same",encoding="utf-8")
+            audit=ArchitectureTruthAudit(root)
+            paths={audit._relative(p) for p in audit._files("mobile_v3")}
+            self.assertIn("mobile_v3/src/keep.txt",paths)
+            self.assertFalse(any("node_modules" in p or "/build/" in p for p in paths))
 
     def test_status_vocabulary_contains_product_truth_states(self):
         self.assertTrue({

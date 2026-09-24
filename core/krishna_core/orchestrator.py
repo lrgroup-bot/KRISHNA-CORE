@@ -1886,7 +1886,7 @@ class Orchestrator:
             )
 
         def architecture_truth_scan(payload,context):
-            return self.architecture_truth.scan()
+            return self.architecture_truth.scan(force=bool(payload.get("force",False)))
 
         def hawkeye_status_action(payload,context):
             return self.hawkeye.status()

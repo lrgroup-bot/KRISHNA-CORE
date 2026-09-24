@@ -14,6 +14,8 @@ from pathlib import Path
 import ast
 import hashlib
 import json
+import os
+import threading
 import time
 
 
@@ -61,8 +63,33 @@ class ArchitectureTruthAudit:
         "HARDWARE_UNVERIFIED",
     }
 
+    GENERATED_DIR_NAMES = frozenset({
+        ".git",
+        ".gradle",
+        ".idea",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".tox",
+        ".venv",
+        "__pycache__",
+        "build",
+        "coverage",
+        "dist",
+        "htmlcov",
+        "logs",
+        "node_modules",
+        "state",
+        "tmp",
+        "venv",
+    })
+    SCAN_CACHE_SECONDS = 60.0
+
     def __init__(self, repo_root: str | Path):
         self.root = Path(repo_root).resolve()
+        self._scan_lock = threading.RLock()
+        self._scan_cache = None
+        self._scan_cached_at = 0.0
 
     @staticmethod
     def _sha(path: Path):
@@ -77,16 +104,19 @@ class ArchitectureTruthAudit:
         if not root.exists():
             return []
         rows = []
-        for path in root.rglob("*"):
-            if not path.is_file():
-                continue
-            if "__pycache__" in path.parts or ".pytest_cache" in path.parts:
-                continue
-            if path.suffix.lower() in {".pyc", ".pyo"}:
-                continue
-            if suffix and path.suffix.lower() != suffix:
-                continue
-            rows.append(path)
+        for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+            dirnames[:] = sorted(
+                d for d in dirnames
+                if d.lower() not in self.GENERATED_DIR_NAMES
+            )
+            base = Path(dirpath)
+            for filename in sorted(filenames):
+                path = base / filename
+                if path.suffix.lower() in {".pyc", ".pyo"}:
+                    continue
+                if suffix and path.suffix.lower() != suffix:
+                    continue
+                rows.append(path)
         return rows
 
     def _relative(self, path: Path):
@@ -130,15 +160,26 @@ class ArchitectureTruthAudit:
         for rel in self.CANONICAL_ROOTS + self.LEGACY_ROOTS:
             paths.extend(self._files(rel))
         by_name = defaultdict(list)
+        by_size = defaultdict(list)
         by_hash = defaultdict(list)
         for path in paths:
             rel = self._relative(path)
             if path.name.lower() != "__init__.py":
                 by_name[path.name.lower()].append(rel)
             try:
-                by_hash[self._sha(path)].append(rel)
+                by_size[path.stat().st_size].append((path, rel))
             except OSError:
                 pass
+        # Identical files must have the same size. Hash only size-collision groups
+        # instead of every source file; this matters on Windows and slower E: drives.
+        for rows in by_size.values():
+            if len(rows) < 2:
+                continue
+            for path, rel in rows:
+                try:
+                    by_hash[self._sha(path)].append(rel)
+                except OSError:
+                    pass
         duplicate_names = [
             {"name": name, "paths": sorted(rows)}
             for name, rows in by_name.items()
@@ -270,52 +311,65 @@ class ArchitectureTruthAudit:
             rows.append(
                 {
                     "root": rel,
-                    "files": sum(1 for p in root.rglob("*") if p.is_file()),
+                    "files": len(self._files(rel)),
                     "classification": "SUPERSEDED_OR_COMPATIBILITY_REVIEW",
                     "canonical": False,
                 }
             )
         return rows
 
-    def scan(self):
-        requirements = self._requirements()
-        duplicates = self._duplicate_inventory()
-        source_tree = self._source_tree_drift()
-        orphans = self._orphan_candidates()
-        report = {
-            "component": "KRISHNA Architecture Truth Audit",
-            "version": self.VERSION,
-            "repo_root": str(self.root),
-            "generated_at": time.time(),
-            "canonical_roots": list(self.CANONICAL_ROOTS),
-            "legacy_roots": self._legacy(),
-            "requirements": requirements,
-            "duplicates": duplicates,
-            "orphan_candidates": orphans,
-            "classified_non_entry_modules": self._classified_non_entry_modules(),
-            "source_tree_drift": source_tree,
-            "summary": {
-                "requirements_indexed": len(requirements.get("implementation_index") or []),
-                "requirements_missing_evidence": len(requirements.get("evidence_missing") or []),
-                "legacy_roots_present": len(self._legacy()),
-                "duplicate_basenames": len(duplicates["same_basename"]),
-                "identical_content_groups": len(duplicates["identical_content"]),
-                "orphan_candidates": len(orphans),
-                "classified_non_entry_modules": len(self._classified_non_entry_modules()),
-                "source_tree_missing_current_modules": len(source_tree.get("missing_current_modules") or []),
-            },
-            "authority": [
-                "core/requirements/krishna_chat_requirements.json",
-                "current canonical source",
-                "current tests/CI",
-                "runtime acceptance evidence",
-                "deployment integrity manifest",
-            ],
-            "non_authority": [
-                "old snapshot folders",
-                "stale source-tree listings",
-                "historical reports",
-                "unmerged/divergent feature branches",
-            ],
-        }
-        return report
+    def scan(self, force=False):
+        now = time.monotonic()
+        with self._scan_lock:
+            if (
+                not force
+                and self._scan_cache is not None
+                and now - self._scan_cached_at < self.SCAN_CACHE_SECONDS
+            ):
+                return self._scan_cache
+
+            requirements = self._requirements()
+            duplicates = self._duplicate_inventory()
+            source_tree = self._source_tree_drift()
+            orphans = self._orphan_candidates()
+            legacy = self._legacy()
+            classified = self._classified_non_entry_modules()
+            report = {
+                "component": "KRISHNA Architecture Truth Audit",
+                "version": self.VERSION,
+                "repo_root": str(self.root),
+                "generated_at": time.time(),
+                "canonical_roots": list(self.CANONICAL_ROOTS),
+                "legacy_roots": legacy,
+                "requirements": requirements,
+                "duplicates": duplicates,
+                "orphan_candidates": orphans,
+                "classified_non_entry_modules": classified,
+                "source_tree_drift": source_tree,
+                "summary": {
+                    "requirements_indexed": len(requirements.get("implementation_index") or []),
+                    "requirements_missing_evidence": len(requirements.get("evidence_missing") or []),
+                    "legacy_roots_present": len(legacy),
+                    "duplicate_basenames": len(duplicates["same_basename"]),
+                    "identical_content_groups": len(duplicates["identical_content"]),
+                    "orphan_candidates": len(orphans),
+                    "classified_non_entry_modules": len(classified),
+                    "source_tree_missing_current_modules": len(source_tree.get("missing_current_modules") or []),
+                },
+                "authority": [
+                    "core/requirements/krishna_chat_requirements.json",
+                    "current canonical source",
+                    "current tests/CI",
+                    "runtime acceptance evidence",
+                    "deployment integrity manifest",
+                ],
+                "non_authority": [
+                    "old snapshot folders",
+                    "stale source-tree listings",
+                    "historical reports",
+                    "unmerged/divergent feature branches",
+                ],
+            }
+            self._scan_cache = report
+            self._scan_cached_at = time.monotonic()
+            return report
