@@ -215,6 +215,16 @@ class RepositoryErrorAudit(unittest.TestCase):
         for destructive in ('Remove-Item','Stop-Process','taskkill.exe','rd /s','rmdir /s'):
             self.assertNotIn(destructive,text)
 
+    def test_e_drive_audit_handles_live_locked_files_without_false_missing(self):
+        text=(ROOT/"scripts"/"AUDIT_KRISHNA_E_DRIVE.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("Get-HashProbe",text)
+        self.assertIn("Get-FileHash -Algorithm SHA256 -LiteralPath $Path -ErrorAction Stop",text)
+        self.assertIn('hash_status="locked_or_in_use"',text)
+        self.assertIn("candidate_exists=$a.exists",text)
+        self.assertIn("canonical_exists=$b.exists",text)
+        self.assertIn("=== KRISHNA PROCESS OWNERSHIP ===",text)
+        self.assertIn("=== KRISHNA LISTENERS ===",text)
+
     def test_start_output_uses_ascii_separators(self):
         text=(ROOT/"scripts"/"START_KRISHNA.ps1").read_text(encoding="utf-8-sig")
         self.assertIn('| discovery ON | pairing required',text)
