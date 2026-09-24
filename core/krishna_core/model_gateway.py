@@ -75,7 +75,19 @@ class ModelGatewayRegistry:
         if not self.path.exists():return
         try:
             raw=json.loads(self.path.read_text(encoding="utf-8-sig"))
-            self.profiles={x["id"]:GatewayProfile(**x) for x in raw.get("profiles",[]) if x.get("id")}
+            if not isinstance(raw,dict):raise ValueError("model gateway registry root must be an object")
+            schema=raw.get("schema",1)
+            if schema!=1:raise ValueError(f"unsupported model gateway schema: {schema!r}")
+            profiles=raw.get("profiles",[])
+            if not isinstance(profiles,list):raise ValueError("model gateway profiles must be a list")
+            loaded={}
+            for item in profiles:
+                if not isinstance(item,dict) or not item.get("id"):
+                    raise ValueError("model gateway profile entry is invalid")
+                row=GatewayProfile(**item)
+                row.base_url=self._validate_url(row.base_url)
+                loaded[row.id]=row
+            self.profiles=loaded
             self.load_error=None
         except Exception as exc:
             self.profiles={}
@@ -135,8 +147,10 @@ class ModelGatewayRegistry:
         already-validated gateway base URL. This intentionally does not accept an
         arbitrary URL or return the credential.
         """
+        self._healthy()
         row=self.profiles.get(str(profile_id))
         if not row or not row.enabled:raise RuntimeError("model gateway profile is unavailable")
+        row.base_url=self._validate_url(row.base_url)
         relative=str(path or "").strip()
         if not relative.startswith("/") or "://" in relative or "\\" in relative or ".." in relative:
             raise ValueError("gateway request path must be a safe relative API path")
@@ -160,8 +174,10 @@ class ModelGatewayRegistry:
         except Exception as exc:raise RuntimeError("model gateway returned invalid JSON") from exc
 
     def complete(self,profile_id,prompt,system="You are a worker model for KRISHNA.",max_tokens=2048):
+        self._healthy()
         row=self.profiles.get(str(profile_id))
         if not row or not row.enabled:raise RuntimeError("model gateway profile is unavailable")
+        row.base_url=self._validate_url(row.base_url)
         key=self.vault.resolve(row.secret_id)
         body=json.dumps({"model":row.model,"messages":[{"role":"system","content":system},{"role":"user","content":str(prompt)}],
                          "max_tokens":int(max_tokens),"temperature":0.2}).encode()
