@@ -47,9 +47,14 @@ class ModelScout:
             return
         try:
             raw=json.loads(self.path.read_text(encoding="utf-8-sig"))
+            if not isinstance(raw,dict):
+                raise ValueError("model scout state root must be an object")
             if raw.get("version")!=self.VERSION:
-                return
-            self.rows=dict(raw.get("models") or {})
+                raise ValueError(f"unsupported model scout version: {raw.get('version')!r}")
+            models=raw.get("models") or {}
+            if not isinstance(models,dict):
+                raise ValueError("model scout models must be an object")
+            self.rows=dict(models)
         except Exception as exc:
             self.rows={}
             self.load_error=f"{type(exc).__name__}: {exc}"
