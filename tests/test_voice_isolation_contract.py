@@ -43,7 +43,7 @@ class VoiceIsolationContractTests(unittest.TestCase):
         self.assertIn("class SanskritChantTTS",core)
         self.assertIn("KRISHNA_SANSKRIT_TTS_CMD",core)
         self.assertIn("KRISHNA_SANSKRIT_TTS_CMD",setup)
-        self.assertIn("envs\\\\sanskrit-tts",installer)
+        self.assertIn("envs\\sanskrit-tts",installer)
         self.assertIn("Hari7718/EdgeSanskrit-TTS",installer)
         self.assertIn("7d5b0b162477e1c2489c72da3ab2e3052c9a59bd",installer)
         self.assertIn("Production Core venv unchanged",installer)
