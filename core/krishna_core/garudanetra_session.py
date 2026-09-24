@@ -467,6 +467,19 @@ class GarudanetraSessionManager:
             bind(page)
             with self._lock:session.state="NAVIGATING";session.updated_at=time.time()
             page.goto(session.requested_url,wait_until="domcontentloaded",timeout=self.timeout_ms)
+            # Seed a real rendered frame before starting CDP screencast. Static
+            # pages do not always emit a screencast frame promptly on Windows,
+            # which previously left LIVE sessions reporting frame_available=false.
+            try:
+                initial_frame=page.screenshot(type="png")
+                with self._lock:
+                    session.frame=initial_frame
+                    session.frame_mime="image/png"
+                    session.frame_seq+=1
+                    session.stream_mode="screenshot_bootstrap"
+                    session.updated_at=time.time()
+            except Exception as exc:
+                self._warn(session,"initial_frame_error",exc)
             stream_cdp=self._start_screencast(context,page,session)
             try:self._semantic_capture(page,session)
             except Exception as exc:self._warn(session,"semantic_snapshot_error",exc)
