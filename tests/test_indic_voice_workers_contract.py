@@ -14,8 +14,9 @@ class IndicVoiceWorkerContractTests(unittest.TestCase):
 
     def test_tts_installer_is_e_drive_isolated_and_pinned(self):
         text=(ROOT/"scripts"/"INSTALL_KRISHNA_INDIC_TTS.ps1").read_text(encoding="utf-8-sig")
-        self.assertIn('voice\\envs\\indic-tts',text)
-        self.assertIn('voice\\models\\indic-tts',text)
+        self.assertIn('$voiceRoot=Join-Path $RuntimeRoot "voice"',text)
+        self.assertIn('envs\\indic-tts',text)
+        self.assertIn('models\\indic-tts',text)
         self.assertIn("8efcb8adaaf55563538c12e325d073eaf110065d",text)
         self.assertIn("v1-checkpoints-release/$lang.zip",text)
         self.assertIn("-IndicTtsCommand $cmd",text)
@@ -31,7 +32,8 @@ class IndicVoiceWorkerContractTests(unittest.TestCase):
     def test_stt_installer_fails_closed_for_gated_model(self):
         text=(ROOT/"scripts"/"INSTALL_KRISHNA_INDIC_STT.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("ai4bharat/indic-conformer-600m-multilingual",text)
-        self.assertIn('voice\\envs\\indic-stt',text)
+        self.assertIn('$voiceRoot=Join-Path $RuntimeRoot "voice"',text)
+        self.assertIn('envs\\indic-stt',text)
         self.assertIn("KRISHNA_HF_ACCESS_BLOCKED",text)
         self.assertIn("No STT command was activated",text)
         self.assertIn("-IndicSttCommand $cmd",text)
