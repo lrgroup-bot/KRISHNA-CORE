@@ -117,8 +117,8 @@ class NaradGraphRuntimeTests(unittest.TestCase):
              "retry":{"max_attempts":3,"delay_ms":0}},
         ])
         self.narad.promote(w["id"],"sandbox")
-        self.narad.promote(w["id"],"verified",verified=True)
-        self.narad.promote(w["id"],"stable",verified=True)
+        self.narad.promote(w["id"],"verified",verified=True,approved=True)
+        self.narad.promote(w["id"],"stable",verified=True,approved=True)
         with self.assertRaises(RuntimeError):
             self.narad.execute(w["id"],approved=True)
         self.assertEqual(len(calls),1)
