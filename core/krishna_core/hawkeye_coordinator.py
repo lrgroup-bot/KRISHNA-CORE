@@ -15,6 +15,8 @@ import hashlib
 import json
 import time
 
+from .field_perception import FieldPerceptionPolicy
+
 
 class HawkeyeCoordinator:
     VERSION = "hawkeye-coordinator-v1"
@@ -200,7 +202,9 @@ class HawkeyeCoordinator:
         if evidence_state not in self.EVIDENCE_STATES:
             raise ValueError(f"invalid evidence state: {evidence_state}")
         state=self._ensure_state(session_id)
-        payload=dict(payload or {}) if isinstance(payload,dict) else {"text":str(payload or "")[:8000]}
+        payload=FieldPerceptionPolicy.redact_sensitive_value(
+            dict(payload or {}) if isinstance(payload,dict) else {"text":str(payload or "")[:8000]}
+        )
 
         if lane=="physio":
             if evidence_state=="MEASURED" and not any(
@@ -213,7 +217,10 @@ class HawkeyeCoordinator:
         if lane=="diagnostic":
             payload["verification_limit"]="fault hypotheses require measurement/retest before verified status"
 
-        refs=sorted({str(x) for x in (source_refs or []) if str(x).strip()})[:100]
+        refs=sorted({
+            FieldPerceptionPolicy.redact_sensitive_text(str(x))[:500]
+            for x in (source_refs or []) if str(x).strip()
+        })[:100]
         row={
             "lane":lane,
             "at":time.time(),
@@ -223,7 +230,7 @@ class HawkeyeCoordinator:
             "independent_source_count":len(refs),
             "payload":payload,
             "limitations":[str(x)[:1000] for x in (limitations or [])][:30],
-            "provenance":dict(provenance or {}),
+            "provenance":FieldPerceptionPolicy.redact_sensitive_value(dict(provenance or {})),
         }
         row["fingerprint"]=self._fingerprint({
             "lane":lane,"state":evidence_state,"payload":payload,"source_refs":refs
