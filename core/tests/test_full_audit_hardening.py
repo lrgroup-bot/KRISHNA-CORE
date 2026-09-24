@@ -98,6 +98,26 @@ class FullAuditHardeningTests(unittest.TestCase):
             self.assertEqual(retry_calls, [])
             bus3.close()
 
+    def test_failed_action_receipts_do_not_persist_exception_message_secrets(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            bus = SharedActionBus(
+                AutomationBus(), PolicyKernel(root / "policy"),
+                idempotency_db_path=root / "core.db",
+            )
+            bus.register(
+                "audit.secret-fail",
+                lambda payload, ctx: (_ for _ in ()).throw(RuntimeError("provider leaked api_key=TOPSECRET123")),
+            )
+            with self.assertRaises(RuntimeError):
+                bus.dispatch("audit.secret-fail", {"x": 1}, idempotency_key="secret-fail")
+            receipt = bus.recent(1)[0]
+            self.assertEqual(receipt["error"], "RuntimeError")
+            self.assertNotIn("TOPSECRET123", json.dumps(receipt))
+            durable = bus._idempotency_store.get("secret-fail")
+            self.assertNotIn("TOPSECRET123", json.dumps(durable))
+            bus.close()
+
     def test_sensitive_action_fields_are_redacted_without_hiding_safe_token_metrics(self):
         bus = self._bus()
         bus.register("audit.echo", lambda payload, ctx: {"ok": True})
