@@ -84,12 +84,37 @@ vp.addEventListener('pointerdown',e=>{drag=true;startX=e.clientX;startView=view;
 vp.addEventListener('pointermove',e=>{if(!drag)return;showAvatarView(startView+Math.round(-(e.clientX-startX)/34),true)});
 vp.addEventListener('pointerup',()=>drag=false);vp.addEventListener('pointercancel',()=>drag=false);
 function startAuto(){clearInterval(autoTimer);autoTimer=setInterval(()=>{if(mode==='FLUTE'&&Date.now()-lastManual>4500&&!drag)step(1,false)},2600)}
-function setMode(m,text){mode=m||'FLUTE';document.getElementById('state').textContent=mode;stage.classList.toggle('working',mode==='WORKING'||mode==='SEARCH'||mode==='DHYAN');stage.classList.toggle('chat',mode==='CHAT'||mode==='TALKING'||mode==='LISTENING');if(text)document.getElementById('bubble').textContent=text;if(mode==='CHAT'||mode==='TALKING'||mode==='LISTENING')showAvatarView(0,false);else if(mode==='WORKING')showAvatarView(1,false);else if(mode==='SEARCH'||mode==='DHYAN')showAvatarView(2,false)}
+function setMode(m,text){mode=m||'FLUTE';document.getElementById('state').textContent=mode;stage.classList.toggle('working',mode==='WORKING'||mode==='SEARCH'||mode==='DHYAN');stage.classList.toggle('chat',mode==='CHAT'||mode==='TALKING'||mode==='LISTENING'||mode==='WISDOM');if(text)document.getElementById('bubble').textContent=text;if(mode==='CHAT'||mode==='TALKING'||mode==='LISTENING'||mode==='WISDOM')showAvatarView(0,false);else if(mode==='WORKING')showAvatarView(1,false);else if(mode==='SEARCH'||mode==='DHYAN')showAvatarView(2,false)}
 function reply(text,cls=''){const e=document.getElementById('reply');e.className='reply '+cls;e.textContent=text}
 function speechLocale(text=''){const value=String(text||'');if(/[\u0B00-\u0B7F]/.test(value))return'or-IN';if(/[\u0900-\u097F]/.test(value))return'hi-IN';return document.getElementById('voiceLang')?.value||'en-IN'}
 function speak(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang=speechLocale(t);speechSynthesis.speak(u)}catch(e){}}
+function gitaLessonText(lesson){
+ if(!lesson||typeof lesson!=='object')return'';
+ const e=lesson.explanation||{},parts=['Bhagavad Gita '+(lesson.chapter||'')+'.'+(lesson.verse||''),lesson.sanskrit||''];
+ for(const k of ['literal_meaning','context','deep_explanation','practical_application','reflection_question'])if(e[k])parts.push(e[k]);
+ if(!lesson.explanation&&lesson.public_domain_english)parts.push(lesson.public_domain_english);
+ return parts.filter(Boolean).join('\n\n');
+}
+async function playGitaAudio(bundle,fallbackText=''){
+ const segments=(bundle&&bundle.segments)||[];let played=0;
+ setMode('WISDOM','GITA-GYAN');
+ for(const seg of segments){
+  if(!seg||!seg.available||!seg.audio_url)continue;
+  try{
+   const data=String(Krishna.voiceAudioData(seg.audio_url)||'');
+   if(!data.startsWith('data:audio/'))continue;
+   await new Promise(resolve=>{
+    const a=new Audio(data);a.onended=resolve;a.onerror=resolve;
+    const p=a.play();if(p&&p.catch)p.catch(()=>resolve());
+   });
+   played++;
+  }catch(_){}
+ }
+ if(!played&&fallbackText)speak(fallbackText);
+ return played;
+}
 
-window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','KRISHNA is working…');reply('KRISHNA is thinking…');setTimeout(()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const d=JSON.parse(Krishna.chatWithAttachments(q,JSON.stringify(pendingAttachmentIds.slice(0,3))));if(d.error)throw new Error(d.error);pendingAttachmentIds=[];const text=d.reply||d.text||'Done';reply(text);setMode(d.avatar_state||'TALKING',text);speak(text)}catch(e){reply(e.message,'bad');setMode('CHAT','Connection error')}finally{busy=false}},20)}
+window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','KRISHNA is working…');reply('KRISHNA is thinking…');setTimeout(()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const d=JSON.parse(Krishna.chatWithAttachments(q,JSON.stringify(pendingAttachmentIds.slice(0,3))));if(d.error)throw new Error(d.error);pendingAttachmentIds=[];const text=d.reply||d.text||'Done';reply(text);setMode(d.avatar_state||'TALKING',text);if(d.gita_audio)playGitaAudio(d.gita_audio,text);else speak(text)}catch(e){reply(e.message,'bad');setMode('CHAT','Connection error')}finally{busy=false}},20)}
 
 window.listen=()=>{if(busy)return;if(!Krishna.voiceEnrolled()){reply('Say a natural sentence for a few seconds to create your local owner voice gate.','warn');setTimeout(()=>{const d=JSON.parse(Krishna.enrollVoice());if(d.error){reply(d.error,'bad');return}reply('Owner voice gate enrolled locally. Tap the microphone again and say “Krishna” before your request.','good')},80);return}
  reply('Say “Krishna” to verify the local owner voice gate…','warn');setMode('LISTENING','OWNER CHECK');
@@ -287,7 +312,7 @@ function configurePc(){
 function poll(){try{const link=JSON.parse(Krishna.connection());if(link.error||!link.connected){if(Date.now()-pairingRequestedAt>15000){pairingRequestedAt=Date.now();try{const p=JSON.parse(Krishna.pairingRequest());if(!p.error){document.getElementById('state').textContent='WAITING FOR PC APPROVAL';document.getElementById('state').className='state warn';reply('Pairing request sent securely. Approve this phone once in KRISHNA PC System. No code is required.','warn');return}}catch(_){}}throw new Error(link.error||'Backend link not confirmed')}const d=JSON.parse(Krishna.state());if(d.error)throw new Error(d.error);setMode(d.operator?.avatar_state||'FLUTE',d.operator?.current?.task||'Radhe Radhe. I am ready.');document.getElementById('state').className='state good'}catch(e){if(document.getElementById('state').textContent!=='WAITING FOR PC APPROVAL')document.getElementById('state').textContent='PC OFFLINE';document.getElementById('state').className=document.getElementById('state').textContent==='WAITING FOR PC APPROVAL'?'state warn':'state bad'}}
 showAvatarView(0);startAuto();poll();setInterval(poll,5000);
 const realtime=new KrishnaRealtime(Krishna);
-realtime.onEvent=e=>{const p=e.payload||{};if(e.type==='task.completed'){reply(p.summary||'KRISHNA completed the task','good');setMode('CHAT','WORK COMPLETED');return}if(e.type==='action.sync'){const status=String(p.status||'').toUpperCase(),action=String(p.action||'KRISHNA action');if(status==='COMPLETED')setMode('CHAT',action+' · SYNCED');else if(status==='FAILED'||status==='BLOCKED')setMode('CHAT',action+' · '+status);else setMode('WORKING',action)}};
+realtime.onEvent=e=>{const p=e.payload||{};if(e.type==='task.completed'){reply(p.summary||'KRISHNA completed the task','good');setMode('CHAT','WORK COMPLETED');return}if(e.type==='gita.daily'){const lesson=p.lesson||{},text=gitaLessonText(lesson);reply(text||('Today’s Gita · '+(lesson.id||'')),'good');setMode('WISDOM','GITA-GYAN · '+(lesson.id||''));playGitaAudio(p.audio,text);return}if(e.type==='action.sync'){const status=String(p.status||'').toUpperCase(),action=String(p.action||'KRISHNA action');if(status==='COMPLETED')setMode('CHAT',action+' · SYNCED');else if(status==='FAILED'||status==='BLOCKED')setMode('CHAT',action+' · '+status);else setMode('WORKING',action)}};
 realtime.onState=s=>{if(s==='reconnecting')document.getElementById('state').textContent='RECONNECTING'};
 realtime.start();window.onerror=(m,s,l)=>{try{Krishna.log('JS '+m+' '+s+':'+l)}catch(e){}};
 </script><script src="hawkeye-observer-ui.js"></script></body></html>
