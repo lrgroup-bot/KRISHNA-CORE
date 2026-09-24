@@ -950,9 +950,15 @@ class Orchestrator:
             )
 
         def narad_workflow_promote(payload,context):
+            target=str(payload.get("state") or "").strip().lower()
+            if target in {"verified","stable"}:
+                if str(context.get("source") or "") not in {"pc","system"}:
+                    raise PermissionError("verified/stable Narad promotion is restricted to owner/runtime authority")
+                if not bool(context.get("approved",False)):
+                    raise PermissionError("verified/stable Narad promotion requires explicit owner approval")
             return self.agi.narad.promote(
                 str(payload.get("workflow_id") or "").strip(),
-                str(payload.get("state") or "").strip(),
+                target,
                 verified=bool(payload.get("verified",False)),
             )
 
