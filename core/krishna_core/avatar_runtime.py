@@ -29,8 +29,31 @@ class AvatarRuntime:
     BODY_ACTIONS={"walk","wave","flute","dhyan","sleep","wake","work","wisdom","playful","protection","idle","listen","think","talk"}
     FACE_ACTIONS={"smile","talk","listen","think","wisdom","playful","protection","flute","dhyan","sleep","wake","work","idle"}
 
+    GITA_FAMILY_STATE={
+        "BATTLEFIELD_CHARIOTEER":"LISTENING",
+        "SMILING_TEACHER":"WISDOM",
+        "COMPASSIONATE_GUIDE":"WISDOM",
+        "DHARMA_TEACHER":"WISDOM",
+        "KARMA_YOGA_TEACHER":"WISDOM",
+        "DHYANA_KRISHNA":"DHYAN",
+        "BHAKTI_KRISHNA":"WISDOM",
+        "DIVINE_REVEALER":"WISDOM",
+        "ROYAL_KRISHNA":"WISDOM",
+        "PROTECTOR_KRISHNA":"PROTECTION",
+        "VISHVARUPA_TRANSITION":"WISDOM",
+        "VISHVARUPA":"WISDOM",
+        "REASSURING_PERSONAL_FORM":"WISDOM",
+        "VRINDAVAN_KRISHNA":"FLUTE",
+        "FLUTE_KRISHNA":"FLUTE",
+        "SILENT_WISDOM":"WISDOM",
+        "FIRM_COUNSEL":"WISDOM",
+        "LOVING_COUNSEL":"WISDOM",
+        "CLOSING_COUNSEL":"WISDOM",
+    }
+
     def __init__(self):
         self.state="FLUTE"
+        self.current_performance=None
 
     def command(self,action,**params):
         action=str(action or "").strip().lower()
@@ -44,6 +67,7 @@ class AvatarRuntime:
             "requires_rigged_glb":action in self.BODY_ACTIONS,
             "requires_morph_targets":action in self.FACE_ACTIONS,
             "character_bible":AvatarFabric.VERSION,
+            "current_performance":dict(self.current_performance) if self.current_performance else None,
         }
 
     def set_state(self,state,**params):
@@ -54,6 +78,45 @@ class AvatarRuntime:
 
     def for_activity(self,activity,**params):
         return self.set_state(AvatarFabric.state_for_activity(activity),**params)
+
+    def apply_performance(self,performance):
+        if not isinstance(performance,dict):
+            raise ValueError("performance must be an object")
+        family=str(performance.get("avatar_family") or "").strip().upper()
+        if family not in self.GITA_FAMILY_STATE:
+            raise ValueError("unsupported Gita avatar family")
+        previous_family=(self.current_performance or {}).get("avatar_family")
+        self.current_performance=dict(performance)
+        base_state=self.GITA_FAMILY_STATE[family]
+        command=self.set_state(
+            base_state,
+            source="gita-performance",
+            performance_family=family,
+            face_expression=performance.get("face_expression"),
+            eye_expression=performance.get("eye_expression"),
+            brow_expression=performance.get("brow_expression"),
+            smile_level=performance.get("smile_level"),
+            head_pose=performance.get("head_pose"),
+            body_pose=performance.get("body_pose"),
+            left_hand_gesture=performance.get("left_hand_gesture"),
+            right_hand_gesture=performance.get("right_hand_gesture"),
+            movement_intensity=performance.get("movement_intensity"),
+            camera_profile=performance.get("camera_profile"),
+            lighting_profile=performance.get("lighting_profile"),
+            background_profile=performance.get("background_profile"),
+            aura_profile=performance.get("aura_profile"),
+            prop_profile=performance.get("prop_profile"),
+        )
+        command.update({
+            "performance_family":family,
+            "verse_id":performance.get("verse_id"),
+            "renderer_mode":"cosmic_vishvarupa" if family=="VISHVARUPA" else "personal_krishna",
+            "requires_cosmic_layer":family=="VISHVARUPA",
+            "transition_from":previous_family,
+            "transition_to":family,
+            "performance":dict(performance),
+        })
+        return command
 
     def lip_sync(self,phonemes):
         self.state="SPEAKING"
