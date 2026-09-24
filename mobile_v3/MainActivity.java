@@ -147,13 +147,36 @@ public class MainActivity extends Activity {
     if(bridge==null)return;
     new Thread(()->bridge.event(kind,detail)).start();
   }
-  @Override protected void onResume(){super.onResume();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");startWakeIfReady();if(bridge!=null)new Thread(()->bridge.hawkeyeSyncEvidence()).start();}
+  @Override protected void onResume(){super.onResume();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");startWakeIfReady();if(bridge!=null)new Thread(()->{bridge.autoBootstrap();bridge.hawkeyeSyncEvidence();},"krishna-mobile-resume").start();}
   @Override protected void onPause(){emitAsync("mobile_background","KRISHNA Mobile entered background");super.onPause();}
   @Override protected void onDestroy(){try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}try{if(hawkeyeSensors!=null)hawkeyeSensors.close();}catch(Exception ignored){}super.onDestroy();}
 
   public class Bridge {
     final HawkeyeEvidenceCuratorBot hawkeyeCurator;
-    Bridge(){ensureCredential();deviceId();hawkeyeCurator=new HawkeyeEvidenceCuratorBot(MainActivity.this);}
+    Bridge(){ensureCredential();deviceId();hawkeyeCurator=new HawkeyeEvidenceCuratorBot(MainActivity.this);new Thread(this::autoBootstrap,"krishna-auto-bootstrap").start();}
+    void autoBootstrap(){
+      try{
+        JSONObject boot=KrishnaPrivateCore.bootstrap(MainActivity.this,deviceId(),token());
+        int code=boot.optInt("http_status",0);
+        if(code==401){
+          JSONObject requested=new JSONObject(pairingRequest());
+          if(!requested.has("error"))getSharedPreferences("k",0).edit().putString("pair_request_id",requested.optString("request_id","")).apply();
+        }else if(code==200){
+          getSharedPreferences("k",0).edit().putBoolean("paired_ready",true).remove("pair_request_id").apply();
+        }
+      }catch(Exception ignored){}
+    }
+    @JavascriptInterface public String bootstrapConnection(){
+      try{
+        JSONObject boot=KrishnaPrivateCore.bootstrap(MainActivity.this,deviceId(),token());
+        if(boot.optInt("http_status",0)==401){
+          JSONObject requested=new JSONObject(pairingRequest());
+          boot.put("pairing_requested",!requested.has("error"));
+          if(requested.has("request_id"))boot.put("request_id",requested.optString("request_id"));
+        }
+        return boot.toString();
+      }catch(Exception e){return error(e);}
+    }
     String token(){return getSharedPreferences("k",0).getString("device_credential","");}
     String credentialHash()throws Exception{
       byte[] digest=java.security.MessageDigest.getInstance("SHA-256").digest(token().getBytes("UTF-8"));
@@ -731,52 +754,9 @@ public class MainActivity extends Activity {
     }
     @JavascriptInterface public String cloudUrl(){return getSharedPreferences("k",0).getString("cloud_url","");}
 
-    boolean privateCoreUrl(String value){
-      try{
-        URI u=new URI(value);String scheme=u.getScheme(),host=u.getHost();
-        if(host==null||(!"http".equalsIgnoreCase(scheme)&&!"https".equalsIgnoreCase(scheme)))return false;
-        String h=host.toLowerCase(java.util.Locale.US);
-        if("localhost".equals(h)||h.endsWith(".ts.net"))return true;
-        InetAddress ip=InetAddress.getByName(host);
-        if(ip.isLoopbackAddress()||ip.isSiteLocalAddress()||ip.isLinkLocalAddress())return true;
-        byte[] b=ip.getAddress();
-        if(b.length==4){
-          int a=b[0]&255,d=b[1]&255;
-          if(a==100&&d>=64&&d<=127)return true; // Tailscale/CGNAT overlay range
-        }else if(b.length==16){
-          int a=b[0]&255;
-          if((a&0xfe)==0xfc)return true; // IPv6 ULA
-        }
-      }catch(Exception ignored){}
-      return false;
-    }
-    String discoverLanCore(){
-      DatagramSocket s=null;
-      try{
-        s=new DatagramSocket();s.setBroadcast(true);s.setSoTimeout(1200);
-        byte[] q="KRISHNA_DISCOVER_V1".getBytes("UTF-8");
-        s.send(new DatagramPacket(q,q.length,InetAddress.getByName("255.255.255.255"),8767));
-        byte[] buf=new byte[1024];DatagramPacket p=new DatagramPacket(buf,buf.length);s.receive(p);
-        JSONObject d=new JSONObject(new String(p.getData(),0,p.getLength(),"UTF-8"));
-        if(!"KRISHNA_CORE".equals(d.optString("service")))return "";
-        int port=d.optInt("port",8766);
-        String host=p.getAddress().getHostAddress();
-        String candidate="http://"+host+":"+port;
-        if(!privateCoreUrl(candidate))return "";
-        getSharedPreferences("k",0).edit().putString("core_url",candidate).apply();
-        return candidate;
-      }catch(Exception ignored){return "";}
-      finally{if(s!=null)s.close();}
-    }
-    String coreBase()throws Exception{
-      String base=getSharedPreferences("k",0).getString("core_url","").trim();
-      if(base.isEmpty())base=discoverLanCore();
-      if(base.isEmpty())
-        throw new IllegalStateException("KRISHNA Core is unreachable. Use LAN or an approved private overlay such as Tailscale.");
-      if(!privateCoreUrl(base))
-        throw new SecurityException("Core URL is outside KRISHNA private-network policy");
-      return base.replaceAll("/+$","");
-    }
+    boolean privateCoreUrl(String value){return KrishnaPrivateCore.privateCoreUrl(value);}
+    String discoverLanCore(){return KrishnaPrivateCore.discoverLan(MainActivity.this);}
+    String coreBase()throws Exception{return KrishnaPrivateCore.resolve(MainActivity.this);}
     @JavascriptInterface public String configureCoreUrl(String value){
       try{
         value=value==null?"":value.trim();
