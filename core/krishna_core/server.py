@@ -14,6 +14,7 @@ from .plugin_executor import PluginExecutor
 from .attachments import AttachmentStore
 from .vision_adapter import VisionAdapter
 from .gemini_hawkeye import GeminiHawkeyeBridge
+from .hawkeye_free_cloud import HawkeyeFreeCloudFabric
 from .native_voice import KrishnaVoiceStack
 from .remote_access import PrivateRemotePolicy
 from .worker_fabric import WorkerResilienceSupervisor
@@ -141,6 +142,9 @@ def _cleanup_deleted_chat_attachments(event):
 orch.lifecycle_bus.subscribe("action.completed",_cleanup_deleted_chat_attachments)
 _vision = VisionAdapter()
 _gemini_hawkeye = GeminiHawkeyeBridge(orch.model_gateway)
+_hawkeye_free_cloud = HawkeyeFreeCloudFabric(
+    orch.openrouter_free, orch.direct_free, orch.model_gateway, _gemini_hawkeye
+)
 
 def _on_local_krishna_wake(event):
     payload=dict(event or {})
@@ -958,6 +962,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,_vision.status())
         if path == "/api/hawkeye/gemini/status":
             return self._json(200,_gemini_hawkeye.status())
+        if path == "/api/hawkeye/free-cloud/status":
+            refresh=str((query.get("refresh") or ["0"])[0]).lower() in {"1","true","yes"}
+            if refresh and self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"free-cloud provider refresh must run on KRISHNA PC"})
+            return self._json(200,_hawkeye_free_cloud.status(refresh=refresh))
         if path in ("/api/hawkeye/status", "/api/bhumiputra/status"):
             status=orch.hawkeye.status()
             status["agent"]="hawkeye"
@@ -2952,6 +2961,40 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, orch.index_project(project))
             except KeyError:
                 return self._json(404, {"error": "project not registered"})
+
+        if post_path == "/api/hawkeye/free-cloud/analyze":
+            raw_b64=str(data.get("data_b64") or "").strip()
+            if not raw_b64:return self._json(400,{"error":"data_b64 is required"})
+            try:raw=base64.b64decode(raw_b64,validate=True)
+            except Exception:return self._json(400,{"error":"invalid base64 HAWKEYE keyframe"})
+            metadata=data.get("metadata") or {}
+            if not isinstance(metadata,dict):return self._json(400,{"error":"metadata must be an object"})
+            try:
+                out=_hawkeye_free_cloud.analyze_image(
+                    raw,
+                    str(data.get("content_type") or "image/jpeg"),
+                    str(data.get("prompt") or ""),
+                    metadata,
+                    provider=str(data.get("provider") or "auto"),
+                    openrouter_role=str(data.get("openrouter_role") or "hawkeye_vision"),
+                    preferred_model=(str(data.get("preferred_model") or "").strip() or None),
+                    include_reviews=bool(data.get("include_reviews",True)),
+                )
+                return self._json(200,out)
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/openrouter/free/role-preference":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"OpenRouter role preferences must be changed on KRISHNA PC"})
+            try:
+                out=orch.openrouter_free.set_role_preference(
+                    str(data.get("role") or "general"),
+                    str(data.get("model") or ""),
+                )
+                return self._json(200,out)
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/hawkeye/gemini/analyze":
             raw_b64=str(data.get("data_b64") or "").strip()
