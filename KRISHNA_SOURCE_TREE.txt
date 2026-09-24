@@ -450,6 +450,7 @@ scripts\FINISH_KRISHNA_PROJECT.ps1
 scripts\INSTALL_AVATAR_ENGINE.ps1
 scripts\INSTALL_KRISHNA_INDIC_STT.ps1
 scripts\INSTALL_KRISHNA_INDIC_TTS.ps1
+scripts\INSTALL_KRISHNA_SANSKRIT_TTS.ps1
 scripts\INSTALL_KRISHNA_WAKE_RUNTIME.ps1
 scripts\INSTALL_VIDEO_AVATAR_ENGINES.ps1
 scripts\KRISHNA_GUARDIAN.ps1
@@ -464,6 +465,7 @@ scripts\VERIFY_KRISHNA_APK.py
 scripts\voice\indic_tts_worker.py
 scripts\voice\indicconformer_worker.py
 scripts\voice\krishna_wake_worker.py
+scripts\voice\sanskrit_parler_worker.py
 TEST_KRISHNA_AGI.ps1
 tests\test_architecture_contracts.py
 tests\test_completion_safety.py
@@ -477,6 +479,7 @@ tests\test_indic_voice_workers_contract.py
 tests\test_musetalk_setup_contract.py
 tests\test_phase1_runtime_acceptance_contract.py
 tests\test_privacy_guardian_contract.py
+tests\test_sanskrit_parler_contract.py
 tests\test_video_avatar_preflight_contract.py
 tests\test_voice_isolation_contract.py
 tests\test_web_integrity.py
