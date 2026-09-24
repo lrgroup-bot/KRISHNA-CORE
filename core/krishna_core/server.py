@@ -15,6 +15,7 @@ from .attachments import AttachmentStore
 from .vision_adapter import VisionAdapter
 from .gemini_hawkeye import GeminiHawkeyeBridge
 from .native_voice import KrishnaVoiceStack
+from .gita_lipsync import GitaLipSyncPlanner
 from .remote_access import PrivateRemotePolicy
 from .worker_fabric import WorkerResilienceSupervisor
 from .model_memory_governor import ModelMemoryGovernor
@@ -1004,7 +1005,7 @@ class Handler(BaseHTTPRequestHandler):
             if not audio_path.is_file():return self._json(404,{"error":"voice audio not found"})
             return self._binary_nostore(200,audio_path.read_bytes(),"audio/wav")
         if path == "/api/voice/status":
-            return self._json(200,{**_voice.status(),"character":orch.agi.character.status()})
+            return self._json(200,{**_voice.status(),"gita_lipsync":GitaLipSyncPlanner.status(),"character":orch.agi.character.status()})
         if path == "/api/garuda/status":
             return self._json(200, orch.garuda_status())
         if path == "/api/brahmagyan/status":
@@ -2583,24 +2584,52 @@ class Handler(BaseHTTPRequestHandler):
                 payload=orch.gita_verse(chapter,verse,language,depth,bool(data.get("explain",True)))
             except (ValueError,KeyError) as exc:
                 return self._json(404,{"error":str(exc)})
-            configured=set(_voice.tts.status().get("languages") or [])
+            prose_configured=set(_voice.tts.status().get("languages") or [])
+            sanskrit_available=bool(_voice.sanskrit.status().get("available"))
             out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
             audio_segments=[]
             for segment in payload.get("speech_segments") or []:
                 text_value=str(segment.get("text") or "").strip()
                 seg_lang=str(segment.get("language") or language).strip().lower()
                 if not text_value:continue
-                if seg_lang not in configured:
-                    audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"unavailable","reason":"local voice model not configured"})
-                    continue
                 audio_id=str(uuid.uuid4());out_path=out_dir/(audio_id+".wav")
+                if seg_lang=="sa" and not sanskrit_available:
+                    audio_segments.append({
+                        "kind":segment.get("kind"),"language":"sa","status":"unavailable",
+                        "reason":"local Sanskrit recitation worker not configured",
+                        "lip_sync":GitaLipSyncPlanner.plan(text_value,"sa"),
+                    })
+                    continue
+                if seg_lang!="sa" and seg_lang not in prose_configured:
+                    audio_segments.append({
+                        "kind":segment.get("kind"),"language":seg_lang,"status":"unavailable",
+                        "reason":"local prose voice model not configured",
+                        "lip_sync":GitaLipSyncPlanner.plan(text_value,seg_lang),
+                    })
+                    continue
                 try:
-                    resolved=_voice.tts.speak(text_value,out_path,language=seg_lang)
-                    audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"ready","output_path":resolved,"audio_id":audio_id,"audio_url":"/api/voice/audio?id="+audio_id})
+                    if seg_lang=="sa":
+                        resolved=_voice.sanskrit.speak(text_value,out_path,language="sa")
+                        provider="edge-sanskrit-tts"
+                    else:
+                        resolved=_voice.tts.speak(text_value,out_path,language=seg_lang)
+                        provider="ai4bharat-indic-tts"
+                    audio_segments.append({
+                        "kind":segment.get("kind"),"language":seg_lang,"status":"ready",
+                        "provider":provider,"output_path":resolved,"audio_id":audio_id,
+                        "audio_url":"/api/voice/audio?id="+audio_id,
+                        "lip_sync":GitaLipSyncPlanner.plan(text_value,seg_lang,resolved),
+                    })
                 except (RuntimeError,ValueError) as exc:
-                    audio_segments.append({"kind":segment.get("kind"),"language":seg_lang,"status":"failed","error":str(exc)})
+                    audio_segments.append({
+                        "kind":segment.get("kind"),"language":seg_lang,"status":"failed","error":str(exc),
+                        "lip_sync":GitaLipSyncPlanner.plan(text_value,seg_lang),
+                    })
             payload["audio_segments"]=audio_segments
-            payload["sanskrit_audio_verified"]=any(x.get("kind")=="shloka" and x.get("status")=="ready" for x in audio_segments)
+            payload["sanskrit_audio_generated"]=any(x.get("kind")=="shloka" and x.get("status")=="ready" for x in audio_segments)
+            payload["sanskrit_audio_verified"]=False
+            payload["sanskrit_pronunciation_verified"]=False
+            payload["lip_sync_verified"]=False
             return self._json(200,payload)
 
         if post_path == "/api/gita/corpus/import":
@@ -2640,17 +2669,28 @@ class Handler(BaseHTTPRequestHandler):
             text_value=str(data.get("text") or "").strip()
             language=str(data.get("language") or "or").strip().lower()
             if not text_value:return self._json(400,{"error":"text is required"})
-            if language not in {"en","hi","or"}:return self._json(400,{"error":"language must be one of: en, hi, or"})
-            configured=set(_voice.tts.status().get("languages") or [])
-            if language not in configured:
-                fallback="browser/OS local speech" if language=="en" else "configured local voice worker"
-                return self._json(503,{"error":f"local TTS language is not configured: {language}; fallback={fallback}","configured_languages":sorted(configured)})
+            if language not in {"sa","en","hi","or"}:return self._json(400,{"error":"language must be one of: sa, en, hi, or"})
+            if language=="sa":
+                if not _voice.sanskrit.status().get("available"):
+                    return self._json(503,{"error":"local Sanskrit recitation worker is not configured","status":_voice.sanskrit.status()})
+            else:
+                configured=set(_voice.tts.status().get("languages") or [])
+                if language not in configured:
+                    fallback="browser/OS local speech" if language=="en" else "configured local voice worker"
+                    return self._json(503,{"error":f"local TTS language is not configured: {language}; fallback={fallback}","configured_languages":sorted(configured)})
             out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
             audio_id=str(uuid.uuid4());out_path=out_dir/(audio_id+".wav")
             try:
-                resolved=_voice.tts.speak(text_value,out_path,language=language)
-                return self._json(200,{"output_path":resolved,"audio_id":audio_id,"audio_url":"/api/voice/audio?id="+audio_id,
-                                       "language":language,"provider":"ai4bharat-indic-tts"})
+                if language=="sa":
+                    resolved=_voice.sanskrit.speak(text_value,out_path,language="sa");provider="edge-sanskrit-tts"
+                else:
+                    resolved=_voice.tts.speak(text_value,out_path,language=language);provider="ai4bharat-indic-tts"
+                return self._json(200,{
+                    "output_path":resolved,"audio_id":audio_id,"audio_url":"/api/voice/audio?id="+audio_id,
+                    "language":language,"provider":provider,
+                    "lip_sync":GitaLipSyncPlanner.plan(text_value,language,resolved),
+                    "pronunciation_verified":False if language=="sa" else None,
+                })
             except (RuntimeError,ValueError) as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/voice/stt":
