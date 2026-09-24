@@ -81,6 +81,41 @@ class IndicTTS:
         return str(output)
 
 
+class SanskritTTS:
+    """Isolated local Sanskrit recitation boundary.
+
+    Production Core never imports the Sanskrit model stack. Configure
+    KRISHNA_SANSKRIT_TTS_CMD with {text} and {output}; the supported worker
+    executes from an isolated E:-drive environment.
+    """
+    def __init__(self,command=None):
+        self.command=CommandTemplate(command or os.getenv("KRISHNA_SANSKRIT_TTS_CMD"))
+
+    def status(self):
+        return {
+            "provider":"edge-sanskrit-tts",
+            "language":"sanskrit",
+            "languages":["sa"],
+            "local":True,
+            "offline_execution":True,
+            "available":self.command.available(),
+            "config":"KRISHNA_SANSKRIT_TTS_CMD",
+            "verified_pronunciation":False,
+            "voice_identity":"third-party Sanskrit reference recitation",
+            "note":"A generated WAV proves runtime synthesis only. Pronunciation and avatar lip-sync remain unverified until acceptance testing passes.",
+        }
+
+    def speak(self,text,output_path=None,language="sa"):
+        text=str(text or "").strip()
+        if not text:raise ValueError("text is required")
+        lang=str(language or "sa").strip().lower()
+        if lang!="sa":raise ValueError("Sanskrit worker language must be sa")
+        output=Path(output_path or "krishna-sa.wav").resolve()
+        self.command.run({"text":text,"output":str(output),"language":"sa"},timeout=180)
+        if not output.is_file():raise RuntimeError("local Sanskrit TTS command did not create output audio")
+        return str(output)
+
+
 class ExternalWakeWordService:
     """Run wake-word detection in an isolated local worker process.
 
@@ -260,8 +295,10 @@ class KrishnaVoiceStack:
     def __init__(self,on_wake=None):
         self.stt=IndicConformerSTT()
         self.tts=IndicTTS()
+        self.sanskrit=SanskritTTS()
         wake_command=os.getenv("KRISHNA_WAKEWORD_CMD")
         self.wake=ExternalWakeWordService(wake_command,on_wake=on_wake) if wake_command else WakeWordService(on_wake=on_wake)
     def status(self):
-        return {"stt":self.stt.status(),"tts":self.tts.status(),"wake":self.wake.status(),
-                "language":"or-IN","mode":"local-first","authentication":"device/policy gate remains authoritative"}
+        return {"stt":self.stt.status(),"tts":self.tts.status(),"sanskrit_tts":self.sanskrit.status(),"wake":self.wake.status(),
+                "language":"or-IN","mode":"local-first","authentication":"device/policy gate remains authoritative",
+                "paid_fallback":False}
