@@ -17,10 +17,29 @@ OCULUS_VISEMES = (
     "nn", "RR", "aa", "E", "ih", "oh", "ou",
 )
 
+OCULUS_MORPH_TARGETS = {
+    "sil": "viseme_sil",
+    "PP": "viseme_PP",
+    "FF": "viseme_FF",
+    "TH": "viseme_TH",
+    "DD": "viseme_DD",
+    "kk": "viseme_kk",
+    "CH": "viseme_CH",
+    "SS": "viseme_SS",
+    "nn": "viseme_nn",
+    "RR": "viseme_RR",
+    "aa": "viseme_aa",
+    "E": "viseme_E",
+    "ih": "viseme_I",
+    "oh": "viseme_O",
+    "ou": "viseme_U",
+}
+
 
 @dataclass(frozen=True)
 class VisemeEvent:
     viseme: str
+    morph_target: str
     start_ms: int
     end_ms: int
     token: str
@@ -70,6 +89,7 @@ class KrishnaLipSyncPlanner:
             "version": cls.VERSION,
             "languages": dict(cls.LANGUAGES),
             "visemes": list(OCULUS_VISEMES),
+            "morph_targets": dict(OCULUS_MORPH_TARGETS),
             "timing": "deterministic_estimate",
             "acoustic_alignment_verified": False,
             "requires_audio_alignment_for_production": True,
@@ -163,13 +183,13 @@ class KrishnaLipSyncPlanner:
         for token in cls._tokens(value, language):
             viseme = cls._viseme_for(token, language)
             duration = 115 if viseme == "sil" else cls._duration(viseme, mode)
-            event = VisemeEvent(viseme, cursor, cursor + duration, token)
+            event = VisemeEvent(viseme, OCULUS_MORPH_TARGETS[viseme], cursor, cursor + duration, token)
             events.append(asdict(event))
             cursor += duration
 
         # End in a neutral mouth state so consecutive speech segments can
         # transition cleanly.
-        events.append(asdict(VisemeEvent("sil", cursor, cursor + 90, "")))
+        events.append(asdict(VisemeEvent("sil", OCULUS_MORPH_TARGETS["sil"], cursor, cursor + 90, "")))
         cursor += 90
         return {
             **cls.status(),
