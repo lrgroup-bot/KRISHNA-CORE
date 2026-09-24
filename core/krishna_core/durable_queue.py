@@ -48,17 +48,24 @@ class DurableQueue:
             self.db.commit()
 
     @staticmethod
-    def _loads(value,default):
-        try:return json.loads(value) if value is not None else default
-        except Exception:return default
+    def _loads(value,default,field,expected_type=None):
+        if value is None:
+            parsed=default
+        else:
+            try:parsed=json.loads(value)
+            except Exception as exc:
+                raise RuntimeError(f"durable queue {field} state is unreadable") from exc
+        if expected_type is not None and not isinstance(parsed,expected_type):
+            raise RuntimeError(f"durable queue {field} state has invalid type")
+        return parsed
 
     @classmethod
     def _row(cls,row):
         if not row:return None
         d=dict(row)
-        d["payload"]=cls._loads(d.get("payload"),{})
-        d["permissions"]=cls._loads(d.get("permissions"),[])
-        d["result"]=cls._loads(d.get("result"),None)
+        d["payload"]=cls._loads(d.get("payload"),{},"payload",dict)
+        d["permissions"]=cls._loads(d.get("permissions"),[],"permissions",list)
+        d["result"]=cls._loads(d.get("result"),None,"result")
         d["approved"]=bool(d.get("approved"))
         return d
 
