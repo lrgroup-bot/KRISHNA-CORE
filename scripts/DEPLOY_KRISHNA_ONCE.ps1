@@ -19,6 +19,87 @@ function Get-KrishnaProcess([int]$ProcessId,[string]$ScriptName){
   }catch{return $null}
 }
 
+function Get-KrishnaListenerOwnership([int]$ProcessId,[string]$RuntimeRoot,[int]$RecordedCorePid=0,[int]$RecordedGuardianPid=0){
+  if($ProcessId -le 0){return $null}
+  $runtime=[IO.Path]::GetFullPath($RuntimeRoot).TrimEnd("\\")
+  $chain=@()
+  $current=$ProcessId
+  $seen=@{}
+  for($depth=0;$depth -lt 10 -and $current -gt 0;$depth++){
+    if($seen.ContainsKey([string]$current)){break}
+    $seen[[string]$current]=$true
+    $row=$null
+    try{$row=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$current) -ErrorAction Stop}catch{}
+    if(!$row){break}
+    $cmd=[string]$row.CommandLine
+    $exe=[string]$row.ExecutablePath
+    if(!$exe){
+      try{$exe=[string](Get-Process -Id $current -ErrorAction Stop).Path}catch{$exe=""}
+    }
+    $chain+=@([pscustomobject]@{
+      pid=[int]$row.ProcessId
+      parent_pid=[int]$row.ParentProcessId
+      name=[string]$row.Name
+      command_line=$cmd
+      executable_path=$exe
+    })
+    $current=[int]$row.ParentProcessId
+  }
+
+  if(!$chain.Count){return $null}
+  $listener=$chain[0]
+  if(([string]$listener.name) -notmatch "(?i)^python(?:\.exe)?$"){return $null}
+
+  # Primary proof: command/executable evidence explicitly points at this runtime.
+  $runtimeEvidence=@($chain | Where-Object {
+    ([string]$_.executable_path).StartsWith($runtime,[StringComparison]::OrdinalIgnoreCase) -or
+    ([string]$_.command_line).IndexOf($runtime,[StringComparison]::OrdinalIgnoreCase) -ge 0
+  })
+  $startProc=$null
+  $guardianProc=$null
+  foreach($row in $chain){
+    if(([string]$row.command_line) -match "(?i)START_KRISHNA\.ps1"){$startProc=$row}
+    if(([string]$row.command_line) -match "(?i)KRISHNA_GUARDIAN\.ps1"){$guardianProc=$row}
+  }
+  if($runtimeEvidence.Count -and $startProc){
+    return [pscustomobject]@{
+      proof="command_line"
+      listener_pid=$ProcessId
+      start_pid=[int]$startProc.pid
+      guardian_pid=if($guardianProc){[int]$guardianProc.pid}else{0}
+      evidence=$chain
+    }
+  }
+
+  # Windows can redact CommandLine/ExecutablePath. In that case accept only an
+  # exact match between the live listener ancestry and KRISHNA's own recorded
+  # guardian state. This cannot authorize an arbitrary PID: the recorded Core PID
+  # must be an ancestor of the actual 8766 Python listener, and the recorded
+  # Guardian PID (when present) must also be in that same ancestry.
+  if($RecordedCorePid -gt 0){
+    $recordedCore=@($chain | Where-Object {
+      [int]$_.pid -eq $RecordedCorePid -and ([string]$_.name) -match "(?i)^powershell(?:\.exe)?$"
+    } | Select-Object -First 1)
+    $recordedGuardian=@()
+    if($RecordedGuardianPid -gt 0){
+      $recordedGuardian=@($chain | Where-Object {
+        [int]$_.pid -eq $RecordedGuardianPid -and ([string]$_.name) -match "(?i)^powershell(?:\.exe)?$"
+      } | Select-Object -First 1)
+    }
+    if($recordedCore.Count -and ($RecordedGuardianPid -le 0 -or $recordedGuardian.Count)){
+      return [pscustomobject]@{
+        proof="recorded_pid_ancestry"
+        listener_pid=$ProcessId
+        start_pid=$RecordedCorePid
+        guardian_pid=$RecordedGuardianPid
+        evidence=$chain
+      }
+    }
+  }
+
+  return $null
+}
+
 function Stop-ExistingKrishnaGuardian([string]$RuntimeRoot){
   $stateDir=Join-Path $RuntimeRoot "state\guardian"
   New-Item -ItemType Directory -Force $stateDir|Out-Null
@@ -36,6 +117,23 @@ function Stop-ExistingKrishnaGuardian([string]$RuntimeRoot){
 
   $guardianProc=Get-KrishnaProcess $oldGuardianPid "KRISHNA_GUARDIAN.ps1"
   $coreProc=Get-KrishnaProcess $oldCorePid "START_KRISHNA.ps1"
+
+  # WMI may redact command lines on an otherwise valid KRISHNA process chain.
+  # Recover ownership only when the recorded Core/Guardian PIDs appear in the
+  # ancestry of the actual 8766 Python listener.
+  if(!$coreProc -and $oldCorePid -gt 0){
+    $live8766=Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    if($live8766){
+      $ownership=Get-KrishnaListenerOwnership ([int]$live8766.OwningProcess) $RuntimeRoot $oldCorePid $oldGuardianPid
+      if($ownership -and $ownership.proof -eq "recorded_pid_ancestry"){
+        try{$coreProc=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$oldCorePid) -ErrorAction Stop}catch{$coreProc=$null}
+        if($oldGuardianPid -gt 0 -and !$guardianProc){
+          try{$guardianProc=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$oldGuardianPid) -ErrorAction Stop}catch{$guardianProc=$null}
+        }
+        Write-Host ("Verified KRISHNA ownership by recorded PID ancestry: listener={0} core={1} guardian={2}" -f $ownership.listener_pid,$oldCorePid,$oldGuardianPid) -ForegroundColor Yellow
+      }
+    }
+  }
 
   if($guardianProc){
     "DEPLOY_GENERATION_HANDOFF"|Set-Content -Encoding ASCII $stopPath
@@ -372,14 +470,47 @@ if(!$SkipStart){
   if(Test-Path $stopMarker){Remove-Item -Force $stopMarker -ErrorAction SilentlyContinue}
 
   # The old verified Core tree must release 8766 before a new generation is launched.
-  # Never kill an unknown listener here; fail closed with PID evidence instead.
+  # If stale PID metadata missed an orphaned Core, reconstruct only verified
+  # START_KRISHNA/Guardian ownership from the listener ancestry and reuse the
+  # existing generation-handoff authority. Unknown listeners remain untouched.
   $staleListener=Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
   if($staleListener){
     $listenerPid=[int]$staleListener.OwningProcess
-    $listenerRow=$null
-    try{$listenerRow=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$listenerPid) -ErrorAction Stop}catch{}
-    $listenerCmd=if($listenerRow){[string]$listenerRow.CommandLine}else{""}
-    throw ("Port 8766 remains occupied after KRISHNA generation handoff. Refusing to kill an unverified listener. PID={0}; command={1}" -f $listenerPid,$listenerCmd)
+    $stateForRecovery=Join-Path $guardianStateDir "core-guardian.json"
+    $recordedCorePid=0
+    $recordedGuardianPid=0
+    if(Test-Path $stateForRecovery){
+      try{
+        $recordedState=Get-Content -Raw $stateForRecovery|ConvertFrom-Json
+        $recordedCorePid=[int]$recordedState.core_pid
+        $recordedGuardianPid=[int]$recordedState.guardian_pid
+      }catch{}
+    }
+    $ownership=Get-KrishnaListenerOwnership $listenerPid $Runtime $recordedCorePid $recordedGuardianPid
+    if($ownership){
+      $recoveredState=Join-Path $guardianStateDir "core-guardian.json"
+      @{
+        status="RECOVERED_FOR_HANDOFF"
+        guardian_pid=[int]$ownership.guardian_pid
+        core_pid=[int]$ownership.start_pid
+        recovered_listener_pid=$listenerPid
+        updated=(Get-Date).ToUniversalTime().ToString("o")
+      }|ConvertTo-Json -Depth 4|Set-Content -Encoding UTF8 $recoveredState
+      if([int]$ownership.guardian_pid -gt 0){
+        [string]$ownership.guardian_pid|Set-Content -Encoding ASCII (Join-Path $guardianStateDir "guardian.pid")
+      }
+      Write-Host ("Recovered verified KRISHNA Core ancestry for listener PID {0}; START_KRISHNA PID {1}; Guardian PID {2}." -f $listenerPid,$ownership.start_pid,$ownership.guardian_pid) -ForegroundColor Yellow
+      Stop-ExistingKrishnaGuardian $Runtime
+      $staleListener=Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    }
+    if($staleListener){
+      $listenerPid=[int]$staleListener.OwningProcess
+      $listenerRow=$null
+      try{$listenerRow=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$listenerPid) -ErrorAction Stop}catch{}
+      $listenerCmd=if($listenerRow){[string]$listenerRow.CommandLine}else{""}
+      $listenerExe=if($listenerRow){[string]$listenerRow.ExecutablePath}else{""}
+      throw ("Port 8766 remains occupied after KRISHNA generation handoff. Refusing to kill an unverified listener. PID={0}; executable={1}; command={2}" -f $listenerPid,$listenerExe,$listenerCmd)
+    }
   }
 
   $runtimeGeneration=[guid]::NewGuid().ToString("N")

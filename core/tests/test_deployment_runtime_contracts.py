@@ -135,6 +135,20 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn("Port 8766 remains occupied after KRISHNA generation handoff",deploy)
         self.assertIn("Refusing to kill an unverified listener",deploy)
 
+    def test_generation_handoff_can_verify_orphaned_listener_from_process_ancestry(self):
+        root=repository_root()
+        deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
+        self.assertIn("Get-KrishnaListenerOwnership",deploy)
+        self.assertIn("ParentProcessId",deploy)
+        self.assertIn("ExecutablePath",deploy)
+        self.assertIn("recorded_pid_ancestry",deploy)
+        self.assertIn("Verified KRISHNA ownership by recorded PID ancestry",deploy)
+        self.assertIn("RECOVERED_FOR_HANDOFF",deploy)
+        self.assertIn("Recovered verified KRISHNA Core ancestry for listener PID",deploy)
+        self.assertIn("Stop-ExistingKrishnaGuardian $Runtime",deploy)
+        self.assertIn("Refusing to kill an unverified listener",deploy)
+
+
     def test_verified_deploy_takes_over_previous_guardian_generation_safely(self):
         root=repository_root()
         deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
