@@ -143,7 +143,8 @@ class Orchestrator:
         self.reviewer = VerificationReviewer()
         self.neural = NeuralActionGraph()
         self.browser = BrowserOperator()
-        self.development = DevelopmentOperator(self.browser)
+        self.promotion_candidate_root = (runtime_state / "promotion-candidates").resolve()
+        self.development = DevelopmentOperator(self.browser,staging_root=self.promotion_candidate_root)
         self.project_perfection = ProjectPerfectionRuntime(self.browser, self.development, state_root=runtime_state / "project-perfection")
         self.research = GitHubResearchAgent()
         self.garuda = GarudaAgent(self.research, self.memory)
@@ -3292,7 +3293,7 @@ class Orchestrator:
         self.projects.assert_mutable(project,"prepare_promotion")
         if not candidate_root: raise ValueError("verified candidate_root is required")
         candidate=Path(candidate_root).resolve()
-        controlled=(Path(self.db_path).resolve().parent/".krishna_state"/"promotion-candidates").resolve()
+        controlled=self.promotion_candidate_root
         try:
             candidate.relative_to(controlled)
         except ValueError as exc:
