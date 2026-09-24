@@ -101,6 +101,15 @@ class FullAuditHardeningTests(unittest.TestCase):
         missing = sorted(path for path in paths if path not in public and not policy.mobile_route_allowed(path))
         self.assertEqual(missing, [], "mobile API path missing from paired-device allowlist: " + ", ".join(missing))
 
+    def test_server_generic_exception_handlers_do_not_echo_exception_messages(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        server = (repo_root / "core" / "krishna_core" / "server.py").read_text(encoding="utf-8")
+        leaking = re.findall(
+            r'except Exception as exc:\\s*\\n(?:\\s+.*\\n){0,4}?\\s*return self\\._json\\(500, \\{"error": ?str\\(exc\\)\\}\\)',
+            server,
+        )
+        self.assertEqual(leaking, [], "generic HTTP 500 handlers must not echo internal exception messages")
+
     def test_model_scout_incompatible_version_fails_closed_and_preserves_file(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "model-scout.json"
