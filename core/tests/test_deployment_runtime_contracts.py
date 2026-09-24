@@ -175,6 +175,19 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn('runtime_generation=$RuntimeGeneration',guardian)
         self.assertIn('"runtime_generation": os.environ.get("KRISHNA_RUNTIME_GENERATION", "")',server)
 
+    def test_private_remote_startup_advertises_overlay_and_persists_through_guardian(self):
+        root=repository_root()
+        start=(root/"scripts"/"START_KRISHNA.ps1").read_text(encoding="utf-8")
+        guardian=(root/"scripts"/"KRISHNA_GUARDIAN.ps1").read_text(encoding="utf-8")
+        deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
+        self.assertIn('KRISHNA_PRIVATE_REMOTE_URL',start)
+        self.assertIn('$env:KRISHNA_LAN_DISCOVERY="1"',start)
+        self.assertIn('100.64.0.0/10',start)
+        self.assertIn('-PrivateRemote',guardian)
+        self.assertIn('-TailscaleExe "',guardian)
+        self.assertIn('-PrivateRemote',deploy)
+        self.assertIn('-TailscaleExe "',deploy)
+
     def test_orchestrator_architecture_truth_honors_authoritative_source_root(self):
         root=repository_root()
         orchestrator=(root/"core"/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
