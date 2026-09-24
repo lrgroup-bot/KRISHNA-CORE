@@ -118,6 +118,14 @@ public final class KrishnaPrivateCore {
     }catch(Exception e){return false;}
   }
 
+  public static boolean trustedLanReady(Context c){
+    if(!unmeteredTrustedNetwork(c))return false;
+    // Same-LAN proof requires KRISHNA's UDP responder to be reachable on the
+    // current broadcast domain. This prevents bulk media sync from starting
+    // merely because the phone is on unrelated unmetered Wi-Fi.
+    return !discoverLan(c).isEmpty();
+  }
+
   public static boolean batteryReady(Context c){
     try{
       BatteryManager bm=(BatteryManager)c.getSystemService(Context.BATTERY_SERVICE);
