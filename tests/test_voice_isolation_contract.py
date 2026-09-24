@@ -35,6 +35,21 @@ class VoiceIsolationContractTests(unittest.TestCase):
         self.assertIn('$values.Keys | Sort-Object',text)
         self.assertNotIn('. $envFile',text)
 
+    def test_sanskrit_tts_is_separate_local_provider(self):
+        core=(ROOT/"core"/"krishna_core"/"native_voice.py").read_text(encoding="utf-8-sig")
+        setup=(ROOT/"scripts"/"SETUP_KRISHNA_VOICE.ps1").read_text(encoding="utf-8-sig")
+        installer=(ROOT/"scripts"/"INSTALL_KRISHNA_SANSKRIT_TTS.ps1").read_text(encoding="utf-8-sig")
+        worker=(ROOT/"scripts"/"voice"/"sanskrit_tts_worker.py").read_text(encoding="utf-8-sig")
+        self.assertIn("class SanskritChantTTS",core)
+        self.assertIn("KRISHNA_SANSKRIT_TTS_CMD",core)
+        self.assertIn("KRISHNA_SANSKRIT_TTS_CMD",setup)
+        self.assertIn("envs\\\\sanskrit-tts",installer)
+        self.assertIn("Hari7718/EdgeSanskrit-TTS",installer)
+        self.assertIn("7d5b0b162477e1c2489c72da3ab2e3052c9a59bd",installer)
+        self.assertIn("Production Core venv",installer)
+        self.assertIn("shell=False",worker)
+        self.assertIn("generate_sanskrit_v2.py",worker)
+
     def test_isolated_wake_installer_targets_runtime_voice_env(self):
         text=(ROOT/"scripts"/"INSTALL_KRISHNA_WAKE_RUNTIME.ps1").read_text(encoding="utf-8-sig")
         self.assertIn('voice',text)
