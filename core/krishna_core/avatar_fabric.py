@@ -9,7 +9,8 @@ class AvatarFabric:
     future Glass never invent separate personalities.
     """
 
-    VERSION="character-bible-v2-partha-scripture"
+    VERSION="character-bible-v1"
+    PROFILE_VERSION="partha-scripture-profile-v1"
     BODY=("anigen","poseforge","motius")
     FACE=("musetalk","liveportrait","echomimic_v3","wan_animate_2","liveavatar")
 
@@ -197,6 +198,7 @@ class AvatarFabric:
     def performance_bible(cls):
         return {
             "version":cls.VERSION,
+            "profile_version":cls.PROFILE_VERSION,
             "visual_identity":dict(cls.VISUAL_IDENTITY),
             "character_blend":dict(cls.CHARACTER_BLEND),
             "performance_channels":list(cls.PERFORMANCE_CHANNELS),
@@ -212,6 +214,7 @@ class AvatarFabric:
             "face_providers":list(self.FACE),
             "mode":"provider_adapter",
             "character_bible":self.VERSION,
+            "profile_version":self.PROFILE_VERSION,
             "states":list(self.STATES),
             "identity_priority":self.VISUAL_IDENTITY["priority"],
             "surface_contract":dict(self.SURFACE_CONTRACT),
