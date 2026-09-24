@@ -313,6 +313,13 @@ New-Item -ItemType Directory -Force "$Runtime\scripts"|Out-Null
 & robocopy "$Source\scripts" "$Runtime\scripts" /E /R:1 /W:1 /XF "*.pyc"
 if($LASTEXITCODE -ge 8){throw "SCRIPT COPY FAILED: robocopy=$LASTEXITCODE"}
 
+# Owner policy: Qwen must not remain active after a canonical deployment.
+# This unloads running Qwen instances only; model files are intentionally preserved.
+$qwenStopScript=Join-Path $Runtime "scripts\STOP_KRISHNA_QWEN.ps1"
+if(!(Test-Path $qwenStopScript)){throw "QWEN STOP SCRIPT MISSING: $qwenStopScript"}
+& powershell -NoProfile -ExecutionPolicy Bypass -File $qwenStopScript
+if($LASTEXITCODE -ne 0){throw "QWEN STOP POLICY FAILED"}
+
 # Deploy only the repository-owned 360 preview asset required by /api/avatar360.
 # Private runtime avatar assets (for example dashboard\assets\avatar\krishna.glb)
 # remain runtime-owned and are never overwritten by this deploy.
