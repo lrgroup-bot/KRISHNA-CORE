@@ -54,6 +54,30 @@ class _RepairRouter:
         return []
 
 
+class _FallbackRepairRouter:
+    def __init__(self):
+        self.calls = []
+
+    def local_model_status(self, task="general"):
+        return {
+            "selected_model": "qwen3.5:4b",
+            "primary_model": "qwen3.5:4b",
+            "installed_candidates": ["qwen3.5:4b", "gemma3:1b"],
+            "service_available": True,
+            "available": True,
+        }
+
+    def local(self, prompt, model=None, task="general", keep_alive=None):
+        self.calls.append({
+            "model": model,
+            "task": task,
+            "keep_alive": keep_alive,
+        })
+        if model == "qwen3.5:4b":
+            raise RuntimeError("model requires more memory")
+        return "fallback diagnosis"
+
+
 class _CloudReviewRouter:
     def __init__(self):
         self.prompts = []
@@ -143,6 +167,18 @@ class SelfHealTests(unittest.TestCase):
             self.assertEqual(router.calls[1]["model"], "qwen2.5-coder:7b")
             self.assertEqual(router.calls[1]["task"], "coding")
             self.assertEqual(router.calls[1]["keep_alive"], 0)
+
+    def test_direct_local_falls_back_to_next_installed_model(self):
+        router = _FallbackRepairRouter()
+        runtime = KrishnaSelfHealRuntime(router, Mock(), Mock())
+        result = runtime._direct_local("diagnose", "reasoning")
+        self.assertEqual(result["model"], "gemma3:1b")
+        self.assertEqual(result["text"], "fallback diagnosis")
+        self.assertEqual(
+            [call["model"] for call in router.calls],
+            ["qwen3.5:4b", "gemma3:1b"],
+        )
+        self.assertTrue(all(call["keep_alive"] == 0 for call in router.calls))
 
     def test_failed_narrow_repair_discards_candidate_and_preserves_live_tree(self):
         with tempfile.TemporaryDirectory() as td:
