@@ -131,6 +131,7 @@ class Orchestrator:
         self.security = DefensiveSecurityScanner()
         self.skills = SkillRegistry([Path(__file__).resolve().parents[1] / "skills"])
         repo_root = Path(os.getenv("KRISHNA_SOURCE_ROOT") or Path(__file__).resolve().parents[2]).resolve()
+        self.source_root = repo_root
         self.architecture_truth = ArchitectureTruthAudit(repo_root)
         self.mobile_runtime_manifest = MobileRuntimeManifest(runtime_root=Path(self.db_path).resolve().parent)
         specialist_root = repo_root / "external" / "agency-agents"
@@ -492,6 +493,7 @@ class Orchestrator:
                 "registered_project": None if not policy else {
                     "name": policy.name,
                     "root": policy.root,
+                    "effective_root": str(self._effective_project_root(project,policy)),
                     "privacy": policy.privacy,
                     "role": policy.role,
                     "verification_checks": list(policy.verification_checks or []),
@@ -505,9 +507,10 @@ class Orchestrator:
             self.projects.assert_mutable(project,"self_heal")
             checks=list(payload.get("checks") or policy.verification_checks or [])
             if not checks:raise ValueError("self-heal requires at least one registered verification check")
+            effective_root=self._effective_project_root(project,policy)
             result=self.self_heal.run(
                 project=project,
-                project_root=policy.root,
+                project_root=str(effective_root),
                 checks=checks,
                 frontend_url=str(payload.get("frontend_url") or "").strip() or None,
                 privacy=policy.privacy,
@@ -554,14 +557,14 @@ class Orchestrator:
             if live.get("promoted"):
                 if frontend_url:
                     post=self.project_perfection.post_apply_verify(
-                        project,policy.root,frontend_url,checks,
+                        project,str(self._effective_project_root(project,policy)),frontend_url,checks,
                         axe_required=bool(payload.get("axe_required",True)),
                         performance_required=bool(payload.get("performance_required",True)),
                         performance_limits=dict(payload.get("performance_limits") or {}),
                         hawkeye_required=bool(payload.get("hawkeye_ui_required",False)),
                     )
                 else:
-                    dev=self.development.verify(policy.root,checks)
+                    dev=self.development.verify(str(self._effective_project_root(project,policy)),checks)
                     post={
                         "passed":bool(dev.get("verified")),
                         "development":dev,
@@ -569,7 +572,7 @@ class Orchestrator:
                         "reason":"backend-only post-apply verification; no frontend_url supplied",
                     }
                 if not post.get("passed"):
-                    self.promotions.rollback(policy.root,live["backup"],live["diff"])
+                    self.promotions.rollback(str(self._effective_project_root(project,policy)),live["backup"],live["diff"])
                     live.update({
                         "status":"rolled_back_post_apply",
                         "promoted":False,
@@ -3427,6 +3430,17 @@ Project: {payload.get('project')}
             try:obj.close()
             except Exception:pass
 
+    def _effective_project_root(self, project, policy=None):
+        project=str(project or "").strip()
+        policy=policy or self.projects.get(project)
+        if not policy:
+            raise KeyError(project)
+        if project=="KRISHNA":
+            source=Path(os.getenv("KRISHNA_SOURCE_ROOT") or self.source_root).resolve()
+            if source.is_dir() and (source/".git").exists():
+                return source
+        return Path(policy.root).resolve()
+
     def _restore_projects(self):
         for item in self.memory.projects():
             try:
@@ -3641,9 +3655,13 @@ Project: {payload.get('project')}
                 file_count+=1; total_bytes+=p.stat().st_size
                 if file_count>10000 or total_bytes>512*1024*1024:
                     raise ValueError("promotion candidate exceeds safety limits")
-        delta=self.promotions.diff(policy.root,candidate)
+        target_root=self._effective_project_root(project,policy)
+        delta=self.promotions.diff(target_root,candidate)
         token=str(uuid.uuid4())
-        self._promotion_candidates[token]={"project":project,"candidate_root":str(candidate),"task_id":task_id,"diff":delta}
+        self._promotion_candidates[token]={
+            "project":project,"candidate_root":str(candidate),"task_id":task_id,
+            "diff":delta,"target_root":str(target_root),
+        }
         self.memory.audit(token,"promotion_prepared",f"{project}:{delta['file_count']}")
         return {"promotion_token":token,"project":project,"diff":delta,"approved":False,"live_project_modified":False}
 
@@ -3680,7 +3698,8 @@ Project: {payload.get('project')}
                     "source":"DevelopmentOperator",
                 }
             return {"verified":False,"checks":[],"passed":0,"failed":0,"reason":"no verification checks registered"}
-        result=self.promotions.promote(project,policy.root,item["candidate_root"],verify)
+        target_root=Path(item.get("target_root") or self._effective_project_root(project,policy)).resolve()
+        result=self.promotions.promote(project,target_root,item["candidate_root"],verify)
         self.memory.audit(token,result["status"],project)
         if item.get("task_id"):
             phase="complete" if result.get("promoted") else "rollback"

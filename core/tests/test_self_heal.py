@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import threading
 import unittest
@@ -248,6 +249,26 @@ class SelfHealTests(unittest.TestCase):
         self.assertEqual(rows[0]["provider"], "reviewer-discovery")
         self.assertFalse(rows[0]["ok"])
         self.assertIn("RecursionError", rows[0]["error"])
+
+    def test_stage_inside_project_krishna_state_does_not_recurse(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "project"
+            root.mkdir()
+            (root / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+            state = root / ".krishna_state"
+            state.mkdir()
+            (state / "runtime.json").write_text('{"secret":"transient"}', encoding="utf-8")
+            staging = state / "promotion-candidates"
+
+            development = DevelopmentOperator(Mock(), staging_root=staging)
+            staged = development.stage(root, [])
+
+            candidate = Path(staged["candidate_root"])
+            self.assertTrue((candidate / "app.py").is_file())
+            self.assertFalse((candidate / ".krishna_state").exists())
+            staged_candidates=list(staging.glob("candidate-*"))
+            self.assertEqual(len(staged_candidates),1)
+            self.assertTrue(os.path.samefile(staged_candidates[0],candidate))
 
     def test_cloud_review_receives_sanitized_verification_only(self):
         router = _CloudReviewRouter()
