@@ -71,6 +71,9 @@ class MrityunjaySelfHealBot:
         event_bus=None,
         default_frontend_url: str | None = None,
         cooldown_seconds: int = 300,
+        development=None,
+        source_root: str | Path | None = None,
+        canonical_branch: str = "fix/krishna-ui-runtime-verification",
     ):
         self.root = Path(state_root).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
@@ -80,6 +83,11 @@ class MrityunjaySelfHealBot:
         self.event_bus = event_bus
         self.default_frontend_url = str(default_frontend_url or "").strip() or None
         self.cooldown_seconds = max(60, int(cooldown_seconds or 300))
+        self.development = development
+        self.source_root = Path(source_root).resolve() if source_root else None
+        self.canonical_branch = str(canonical_branch or "").strip()
+        self.handoff_file = self.root / "deploy-handoff.json"
+        self._restart_callback: Callable[[dict[str, Any]], dict[str, Any]] | None = None
         self._queue: Queue[dict[str, Any]] = Queue(maxsize=100)
         self._stop = Event()
         self._thread: Thread | None = None
@@ -172,6 +180,187 @@ class MrityunjaySelfHealBot:
             "reasons": reasons,
             "policy": "verified low-risk source-only patch; no deletion/control-plane/dependency/deployment/mobile auto-apply",
         }
+
+    def bind_restart(self, callback: Callable[[dict[str, Any]], dict[str, Any]] | None):
+        self._restart_callback = callback
+        return {"bound": callable(callback)}
+
+    def _write_handoff(self, payload: dict[str, Any]) -> None:
+        tmp = self.handoff_file.with_suffix(".tmp")
+        tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+        tmp.replace(self.handoff_file)
+
+    def _krishna_source_ready(self) -> dict[str, Any]:
+        if self.development is None or self.source_root is None:
+            return {"ok": False, "reason": "KRISHNA Git/development handoff is not configured"}
+        snap = self.development.git_snapshot(self.source_root)
+        if not snap.get("ok"):
+            return {"ok": False, "reason": "KRISHNA source Git snapshot failed", "snapshot": snap}
+        if not snap.get("clean"):
+            return {"ok": False, "reason": "KRISHNA source working tree is not clean", "snapshot": snap}
+        if self.canonical_branch and snap.get("branch") != self.canonical_branch:
+            return {
+                "ok": False,
+                "reason": "KRISHNA source is not on the canonical branch",
+                "snapshot": snap,
+                "canonical_branch": self.canonical_branch,
+            }
+        if not callable(self._restart_callback):
+            return {"ok": False, "reason": "Guardian restart handoff is not bound", "snapshot": snap}
+        return {"ok": True, "snapshot": snap}
+
+    def _rollback_source_head(self, previous_head: str, expected_current_head: str | None = None) -> dict[str, Any]:
+        if self.development is None or self.source_root is None:
+            return {"ok": False, "reason": "development/source root unavailable"}
+        return self.development.reset_verified_head(
+            self.source_root,
+            previous_head,
+            expected_current_head=expected_current_head,
+        )
+
+    def _upgrade_krishna(
+        self,
+        *,
+        token: str,
+        checks: list[str],
+        eligibility: dict[str, Any],
+        base: dict[str, Any],
+    ) -> dict[str, Any]:
+        ready = self._krishna_source_ready()
+        if not ready.get("ok"):
+            return self._record({
+                **base,
+                "status": "quarantined",
+                "reason": ready.get("reason"),
+                "auto_apply": eligibility,
+                "live_project_modified": False,
+            })
+
+        before = dict(ready["snapshot"])
+        previous_head = str(before.get("head") or "").strip()
+        if project == "KRISHNA":
+            return self._upgrade_krishna(
+                token=token,
+                checks=checks,
+                eligibility=eligibility,
+                base=base,
+            )
+
+        apply_receipt = self.dispatcher(
+            "self_heal.apply",
+            {
+                "promotion_token": token,
+                # The candidate already passed frontend verification against its
+                # isolated preview. Do not falsely verify new source against the
+                # still-old live 8766 runtime before Guardian redeploys it.
+                "frontend_url": None,
+                "checks": checks,
+                "autonomous_policy": {
+                    "name": self.VERSION,
+                    "scope": "verified low-risk KRISHNA source upgrade",
+                    "eligibility": eligibility,
+                },
+            },
+            project="KRISHNA",
+            source="system",
+            actor="mrityunjay",
+            approved=True,
+            permissions=("live.write", "tests.run", "browser.test"),
+            idempotency_key="mrityunjay-source-apply:" + token,
+        )
+        applied = dict(apply_receipt.get("result") or {})
+        if not applied.get("verified"):
+            return self._record({
+                **base,
+                "status": "rolled_back" if applied.get("rolled_back") else "apply_failed",
+                "verified": False,
+                "rolled_back": bool(applied.get("rolled_back")),
+                "auto_apply": eligibility,
+                "promotion": applied.get("promotion"),
+                "post_apply_verification": applied.get("post_apply_verification"),
+            })
+
+        files = list(eligibility.get("files") or [])
+        commit = self.development.commit_local(
+            self.source_root,
+            "MRITYUNJAY: verified autonomous self-heal",
+            files,
+        )
+        if not commit.get("ok"):
+            rollback = self._rollback_source_head(previous_head, expected_current_head=previous_head)
+            return self._record({
+                **base,
+                "status": "rolled_back",
+                "verified": False,
+                "rolled_back": True,
+                "reason": "verified source promotion could not be committed cleanly",
+                "git_commit": commit,
+                "git_rollback": rollback,
+                "auto_apply": eligibility,
+            })
+
+        after = dict(commit.get("snapshot") or {})
+        new_head = str(after.get("head") or "").strip()
+        if not new_head or new_head == previous_head or not after.get("clean"):
+            rollback = self._rollback_source_head(previous_head, expected_current_head=new_head or None)
+            return self._record({
+                **base,
+                "status": "rolled_back",
+                "verified": False,
+                "rolled_back": True,
+                "reason": "autonomous commit did not produce a clean new HEAD",
+                "git_commit": commit,
+                "git_rollback": rollback,
+                "auto_apply": eligibility,
+            })
+
+        handoff = {
+            "schema": 1,
+            "owner": "MRITYUNJAY",
+            "status": "restart_requested",
+            "project": "KRISHNA",
+            "branch": str(after.get("branch") or before.get("branch") or ""),
+            "previous_commit": previous_head,
+            "new_commit": new_head,
+            "files": files,
+            "created_at": time.time(),
+            "policy": "deploy and runtime acceptance must pass before remote push; otherwise reset to previous commit",
+        }
+        try:
+            self._write_handoff(handoff)
+            restart = self._restart_callback(dict(handoff))
+            if not (restart or {}).get("scheduled"):
+                raise RuntimeError("Guardian restart handoff was not scheduled")
+        except Exception as exc:
+            rollback = self._rollback_source_head(previous_head, expected_current_head=new_head)
+            try:
+                if self.handoff_file.exists():
+                    self.handoff_file.unlink()
+            except OSError:
+                pass
+            return self._record({
+                **base,
+                "status": "rolled_back",
+                "verified": False,
+                "rolled_back": True,
+                "reason": f"restart handoff failed: {type(exc).__name__}: {exc}",
+                "git_rollback": rollback,
+                "auto_apply": eligibility,
+            })
+
+        return self._record({
+            **base,
+            "status": "upgrade_restart_scheduled",
+            "verified": True,
+            "rolled_back": False,
+            "source_committed": True,
+            "source_previous_commit": previous_head,
+            "source_new_commit": new_head,
+            "runtime_restart_scheduled": True,
+            "live_project_modified": False,
+            "auto_apply": eligibility,
+            "handoff": str(self.handoff_file),
+        })
 
     def trigger(
         self,
@@ -275,7 +464,7 @@ class MrityunjaySelfHealBot:
                 "live_project_modified": False,
             })
 
-        url = str(frontend_url or self.default_frontend_url or "").strip() or None
+        url = str(frontend_url or (self.default_frontend_url if project == "KRISHNA" else "") or "").strip() or None
         run_receipt = self.dispatcher(
             "self_heal.run",
             {
@@ -392,7 +581,9 @@ class MrityunjaySelfHealBot:
                 "cooldown_seconds": self.cooldown_seconds,
                 "failure_topics": list(self.FAILURE_TOPICS),
                 "automatic_low_risk_apply": True,
+                "automatic_krishna_upgrade": bool(self.development is not None and self.source_root is not None and callable(self._restart_callback)),
                 "transactional_rollback_required": True,
-                "human_intervention": "not required for eligible low-risk verified repairs; high-risk/control-plane/dependency/deployment/mobile changes remain quarantined",
+                "deployment_handoff": str(self.handoff_file),
+                "human_intervention": "not required for eligible low-risk verified repairs; KRISHNA source upgrades use clean Git + Guardian verified deploy handoff; high-risk/control-plane/dependency/deployment/mobile changes remain quarantined",
                 "state": dict(self._state),
             }
