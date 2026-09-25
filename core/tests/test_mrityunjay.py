@@ -238,6 +238,39 @@ class MrityunjayTests(unittest.TestCase):
         self.assertEqual(development.head, "old-head")
         self.assertEqual(development.resets, [("new-head", "old-head")])
 
+    def test_action_failed_wakes_mrityunjay_but_self_heal_failure_does_not_loop(self):
+        bus = _EventBus()
+        dispatcher = _Dispatcher({"status": "healthy", "verified": True})
+        with tempfile.TemporaryDirectory() as td:
+            bot = MrityunjaySelfHealBot(td, dispatcher, _Projects(), event_bus=bus)
+            self.assertIn("action.failed", bus.handlers)
+            queued = bus.handlers["action.failed"][0]({
+                "event_id": "a1",
+                "topic": "action.failed",
+                "source": "shared-action-bus",
+                "payload": {"project": "KRISHNA", "action": "project.audit.run", "actor": "worker"},
+            })
+            self.assertTrue(queued["queued"])
+            before = bot.status()["queue_depth"]
+            ignored = bus.handlers["action.failed"][0]({
+                "event_id": "a2",
+                "topic": "action.failed",
+                "source": "shared-action-bus",
+                "payload": {"project": "KRISHNA", "action": "self_heal.run", "actor": "mrityunjay"},
+            })
+            self.assertIsNone(ignored)
+            self.assertEqual(bot.status()["queue_depth"], before)
+
+    def test_new_files_are_quarantined_for_clean_rollback(self):
+        result = MrityunjaySelfHealBot.auto_apply_eligibility({
+            "added": ["core/krishna_core/new_worker.py"],
+            "changed": [],
+            "removed": [],
+            "file_count": 1,
+        })
+        self.assertFalse(result["eligible"])
+        self.assertIn("automatic new file creation is forbidden", result["reasons"])
+
     def test_status_declares_bounded_autonomous_repair_policy(self):
         with tempfile.TemporaryDirectory() as td:
             bot = MrityunjaySelfHealBot(td, _Dispatcher({"status": "healthy"}), _Projects())
@@ -270,6 +303,8 @@ class MrityunjayWiringContractTests(unittest.TestCase):
         self.assertIn("Restore-MrityunjayPreviousSource", start)
         self.assertIn("push origin $branch", start)
         self.assertIn("verified deployment/acceptance failed", start)
+        self.assertIn("ls-remote origin", start)
+        self.assertIn("retaining handoff for retry rather than guessing rollback", start)
 
 
 if __name__ == "__main__":
