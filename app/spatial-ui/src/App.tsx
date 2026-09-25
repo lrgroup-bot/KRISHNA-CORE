@@ -29,6 +29,7 @@ type RuViewStatus = {
         signal_quality?: number | null;
         rssi?: number | null;
         persons?: unknown[];
+        pose_keypoints?: number[][];
       };
     } | null;
   };
@@ -106,7 +107,20 @@ function HawkeyeRfPanel() {
     0,
     Number(latest?.person_count ?? ((latest?.presence === true) ? 1 : 0)) || 0,
   );
-  const silhouettes = Math.min(inferredCount, 8);
+  const posePoints = (latest?.pose_keypoints ?? [])
+    .filter((point): point is number[] => Array.isArray(point) && point.length >= 2)
+    .slice(0, 17)
+    .map((point) => ({
+      x: Math.max(0, Math.min(100, Number(point[0]) * 100)),
+      y: Math.max(0, Math.min(100, Number(point[1]) * 100)),
+      confidence: point.length >= 4 ? Number(point[3]) : 1,
+    }));
+  const poseEdges: Array<[number, number]> = [
+    [0, 1], [0, 2], [1, 3], [2, 4],
+    [5, 6], [5, 7], [7, 9], [6, 8], [8, 10],
+    [5, 11], [6, 12], [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+  ];
+  const hasPose = posePoints.length >= 5;
   const modeLabel = status?.mode === 'csi'
     ? 'CSI sensing'
     : status?.mode === 'rssi_only'
@@ -151,7 +165,19 @@ function HawkeyeRfPanel() {
           <div className="rf-stage__title"><Activity size={16} /> RF Scene</div>
           {status?.mode === 'csi' ? (
             <div className="rf-people">
-              {silhouettes > 0
+              {hasPose ? (
+                <svg className="rf-pose" viewBox="0 0 100 100" role="img" aria-label="RuView inferred RF pose">
+                  {poseEdges.map(([a, b]) => {
+                    const p1 = posePoints[a];
+                    const p2 = posePoints[b];
+                    if (!p1 || !p2 || p1.confidence < 0.1 || p2.confidence < 0.1) return null;
+                    return <line key={`${a}-${b}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} />;
+                  })}
+                  {posePoints.map((point, index) => point.confidence >= 0.1
+                    ? <circle key={index} cx={point.x} cy={point.y} r="1.7" />
+                    : null)}
+                </svg>
+              ) : silhouettes > 0
                 ? Array.from({ length: silhouettes }, (_, index) => <div key={index} className="rf-person" aria-label="inferred person" />)
                 : <span className="muted">No presence inferred in the latest RuView frame.</span>}
             </div>
