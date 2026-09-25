@@ -146,7 +146,7 @@ try{
   try{
     $actionBus=Get-Json "/api/action-bus"
     $actionNames=@($actionBus.actions|ForEach-Object{$_.name})
-    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","project.rename","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","worker.ephemeral.execute","browser.inspect","browser.testing_lead","project.design.research","project.design.implement","project.visual_edit.implement","project.perfection.finish","development.git.status","development.git.commit","development.git.push","development.sync","development.stage","development.verify","work.managed.run","repair.shadow","promotion.prepare","promotion.apply","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment","brahmagyan.mission.create","brahmagyan.questions.add","brahmagyan.deep.discover","brahmagyan.claim.record","brahmagyan.evidence.add","brahmagyan.contradiction.resolve","brahmagyan.claim.advance","brahmagyan.claim.compile","brahmagyan.claim.promote","brahmagyan.curiosity.add","brahmagyan.gaps.generate","brahmagyan.council.propose","brahmagyan.background.check","brahmagyan.shishya.plan","brahmagyan.shishya.execute","architecture.truth.scan","hawkeye.status","hawkeye.reason","hawkeye.lane.record","mobile.runtime.manifest","hawkeye.diagnostic.adapters.status","hawkeye.diagnostic.electronics.measure","hawkeye.diagnostic.vehicle.read","hawkeye.diagnostic.acoustic.analyze")
+    $needed=@("chat.create","chat.move","chat.rename","chat.delete","project.register","project.unregister","project.rename","model.complete","narad.publish_event","narad.adapter_webhook","narad.provider_send","narad.workflow.create","narad.workflow.promote","narad.workflow.execute","narad.checkpoint.resume","narad.dead_letter.retry","worker.ephemeral.execute","browser.inspect","browser.testing_lead","project.design.research","project.design.implement","project.visual_edit.implement","project.perfection.finish","development.git.status","development.git.commit","development.git.push","development.sync","development.stage","development.verify","work.managed.run","repair.shadow","promotion.prepare","promotion.apply","self_heal.status","self_heal.run","self_heal.apply","mrityunjay.status","mrityunjay.heal","garuda.scout","garudanetra.start","garudanetra.control","garudanetra.upload_attachment","brahmagyan.mission.create","brahmagyan.questions.add","brahmagyan.deep.discover","brahmagyan.claim.record","brahmagyan.evidence.add","brahmagyan.contradiction.resolve","brahmagyan.claim.advance","brahmagyan.claim.compile","brahmagyan.claim.promote","brahmagyan.curiosity.add","brahmagyan.gaps.generate","brahmagyan.council.propose","brahmagyan.background.check","brahmagyan.shishya.plan","brahmagyan.shishya.execute","architecture.truth.scan","hawkeye.status","hawkeye.reason","hawkeye.lane.record","mobile.runtime.manifest","hawkeye.diagnostic.adapters.status","hawkeye.diagnostic.electronics.measure","hawkeye.diagnostic.vehicle.read","hawkeye.diagnostic.acoustic.analyze")
     $missing=@($needed|Where-Object{$_ -notin $actionNames})
     if($actionBus.owner -eq "KRISHNA Shared Action Bus" -and $missing.Count -eq 0){
       Add-Check "Shared Action Bus" "PASS" ("registered="+$actionBus.registered_actions+"; Projects/Chats wired") $actionBus
@@ -171,9 +171,18 @@ try{
     if($sudarshan.owner -eq "Sudarshan Control Plane" -and $sudarshan.exit -eq "IndependentCriticVerifier"){
       Add-Check "Sudarshan control plane" "PASS" "Permissioned Action/Job entry with independent verifier exit" $sudarshan
     }else{Add-Check "Sudarshan control plane" "FAIL" "Sudarshan authority/verification boundary mismatch" $sudarshan}
-    if($agents.owner -eq "KRISHNA Agent Runtime" -and @($agents.agents).Count -ge 5 -and $agents.authority -eq "Sudarshan Control Plane"){
-      Add-Check "Agent Runtime" "PASS" ("agents="+$agents.count+"; Sudarshan authority") $agents
-    }else{Add-Check "Agent Runtime" "FAIL" "Agent Runtime manifest registry is incomplete" $agents}
+    $mrityunjayAgent=@($agents.agents|Where-Object{$_.agent_id -eq "mrityunjay"})
+    if($agents.owner -eq "KRISHNA Agent Runtime" -and @($agents.agents).Count -ge 5 -and $agents.authority -eq "Sudarshan Control Plane" -and $mrityunjayAgent.Count -eq 1){
+      Add-Check "Agent Runtime" "PASS" ("agents="+$agents.count+"; Sudarshan authority; MRITYUNJAY registered") $agents
+    }else{Add-Check "Agent Runtime" "FAIL" "Agent Runtime manifest registry is incomplete or MRITYUNJAY is missing" $agents}
+    try{
+      $mrityunjay=Post-Json "/api/action-bus/dispatch" @{action="mrityunjay.status";project="KRISHNA";actor="acceptance";permissions=@("runtime.read");payload=@{project="KRISHNA"}}
+      if($mrityunjay.status -eq "completed" -and $mrityunjay.result.name -eq "MRITYUNJAY" -and $mrityunjay.result.bound -and $mrityunjay.result.attached){
+        Add-Check "MRITYUNJAY self-heal supervisor" "PASS" ("enabled="+$mrityunjay.result.enabled+"; bound+attached; triggers="+(@($mrityunjay.result.triggers)-join ",")) $mrityunjay
+      }else{
+        Add-Check "MRITYUNJAY self-heal supervisor" "FAIL" "MRITYUNJAY is not bound/attached to runtime failure events" $mrityunjay
+      }
+    }catch{Add-Check "MRITYUNJAY self-heal supervisor" "FAIL" $_.Exception.Message $null}
     $jobRuntimeReady=(
       $jobs.owner -eq "KRISHNA Job Runtime" -and
       $jobs.mode -eq "durable-queue-inline-worker" -and
