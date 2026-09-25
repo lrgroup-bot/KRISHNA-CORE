@@ -86,6 +86,9 @@ h2 { margin: 10px 0 8px; font-size: 28px; }
   content: ""; display: block; width: 26px; height: 26px; margin: -18px auto 0; border-radius: 50%;
   border: 1px solid rgba(214,211,255,.72); background: rgba(126,116,255,.18);
 }
+.rf-pose { width: min(280px, 72%); height: 150px; overflow: visible; }
+.rf-pose line { stroke: currentColor; stroke-width: 1.15; opacity: .78; }
+.rf-pose circle { fill: currentColor; opacity: .92; }
 .rf-rssi { position: relative; z-index: 1; min-height: 138px; display: grid; place-items: center; align-content: center; gap: 8px; text-align: center; }
 .rf-rssi__value { font-size: 44px; font-weight: 800; letter-spacing: -.04em; }
 .rf-stage .status-strip { position: relative; z-index: 1; margin-bottom: 0; }
