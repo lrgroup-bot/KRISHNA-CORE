@@ -238,14 +238,6 @@ class MrityunjaySelfHealBot:
 
         before = dict(ready["snapshot"])
         previous_head = str(before.get("head") or "").strip()
-        if project == "KRISHNA":
-            return self._upgrade_krishna(
-                token=token,
-                checks=checks,
-                eligibility=eligibility,
-                base=base,
-            )
-
         apply_receipt = self.dispatcher(
             "self_heal.apply",
             {
@@ -518,6 +510,14 @@ class MrityunjaySelfHealBot:
                 "auto_apply": eligibility,
                 "candidate_root": result.get("candidate_root"),
             })
+
+        if project == "KRISHNA":
+            return self._upgrade_krishna(
+                token=token,
+                checks=checks,
+                eligibility=eligibility,
+                base=base,
+            )
 
         apply_receipt = self.dispatcher(
             "self_heal.apply",
