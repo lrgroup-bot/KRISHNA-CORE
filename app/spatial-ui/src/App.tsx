@@ -248,13 +248,11 @@ export default function App() {
           components={components}
           onReady={(event) => {
             dockApi.current = event.api;
+            // Owner-visible workspace stays intentionally minimal. Internal KRISHNA
+            // capabilities remain registered as components but are not opened as
+            // owner-facing tabs unless KRISHNA invokes them for a specific task.
             event.api.addPanel({ id: 'krishna-home', component: 'krishna', title: 'KRISHNA' });
             event.api.addPanel({ id: 'sudarshan-work', component: 'sudarshan', title: 'Sudarshan' });
-            event.api.addPanel({ id: 'action-graph', component: 'graph', title: 'Action Graph' });
-            event.api.addPanel({ id: 'narad', component: 'narad', title: 'Automations' });
-            event.api.addPanel({ id: 'design-intelligence', component: 'design', title: 'Design Intelligence' });
-            event.api.addPanel({ id: 'avatar-stage', component: 'avatar', title: 'Avatar / Spatial' });
-            event.api.addPanel({ id: 'terminal', component: 'terminal', title: 'Terminal' });
             event.api.addPanel({ id: 'plugins', component: 'plugins', title: 'Plugins' });
           }}
         />
