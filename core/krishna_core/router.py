@@ -152,17 +152,19 @@ class ModelRouter:
             },
         }
 
-    def _ollama_generate(self,model,prompt):
-        body=json.dumps({"model":model,"prompt":prompt,"stream":False}).encode()
+    def _ollama_generate(self,model,prompt,keep_alive=None):
+        payload={"model":model,"prompt":prompt,"stream":False}
+        if keep_alive is not None:payload["keep_alive"]=keep_alive
+        body=json.dumps(payload).encode()
         req=urllib.request.Request(settings.ollama_url.rstrip("/")+"/api/generate",data=body,headers={"Content-Type":"application/json"})
         with urllib.request.urlopen(req,timeout=90) as r:return json.loads(r.read().decode()).get("response","")
 
-    def local(self,prompt,model=None,task="general"):
+    def local(self,prompt,model=None,task="general",keep_alive=None):
         if model:
             model=str(model).strip()
             if not self.local_model_allowed(model):
                 raise RuntimeError("local model disabled by owner policy: "+model)
-            return self._ollama_generate(model,prompt)
+            return self._ollama_generate(model,prompt,keep_alive=keep_alive)
         status=self.local_model_status(task)
         ordered=[status.get("selected_model"),*self.local_model_candidates(task)]
         candidates=[]
@@ -172,7 +174,7 @@ class ModelRouter:
         errors={}
         for candidate in candidates:
             try:
-                out=self._ollama_generate(candidate,prompt)
+                out=self._ollama_generate(candidate,prompt,keep_alive=keep_alive)
                 if str(out).strip():return out
                 errors[candidate]="empty response"
             except Exception as exc:
