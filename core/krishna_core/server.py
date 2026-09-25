@@ -386,6 +386,8 @@ _narad_scheduler = NaradScheduler(orch.agi.narad)
 _narad_scheduler.start()
 _autonomy = AutonomySupervisor(orch)
 _autonomy.start()
+_mrityunjay = orch.mrityunjay
+_mrityunjay.start()
 _team_planner = SpecialistTeamPlanner(_specialists)
 try:
     if _specialists.source_root.exists():
@@ -680,6 +682,7 @@ def shutdown_runtime_services():
     failures=[]
     services=(
         ("autonomy", _autonomy.stop),
+        ("mrityunjay", _mrityunjay.stop),
         ("narad_scheduler", _narad_scheduler.stop),
         ("science_frontier_scheduler", _science_frontier_scheduler.stop),
         ("brahma_consolidation_scheduler", _brahma_consolidation_scheduler.stop),
