@@ -72,6 +72,27 @@ class HawkeyeRuViewTests(unittest.TestCase):
         self.assertIsNone(out["physio"])
         self.assertFalse(out["vitals_collected"])
 
+    def test_current_ruview_sensing_update_schema_maps_presence_count_and_csi(self):
+        event={
+            "type":"sensing_update",
+            "source":"esp32",
+            "nodes":[{"node_id":3,"rssi_dbm":-51.0,"subcarrier_count":56,"amplitude":[0.1,0.2]}],
+            "features":{"mean_rssi":-51.0,"motion_band_power":0.42},
+            "classification":{"presence":True,"confidence":0.88,"motion_level":"active"},
+            "estimated_persons":2,
+            "signal_quality_score":0.91,
+            "pose_keypoints":[[0.5,0.4,0.0,0.9]],
+        }
+        normalized=self.bridge.normalize_ruview_event(event)
+        self.assertTrue(normalized["csi"])
+        self.assertEqual(normalized["payload"]["modality"],"wifi_csi")
+        self.assertTrue(normalized["payload"]["presence"])
+        self.assertEqual(normalized["payload"]["person_count"],2)
+        self.assertEqual(normalized["payload"]["motion"],0.42)
+        self.assertEqual(normalized["payload"]["motion_level"],"active")
+        self.assertEqual(normalized["payload"]["rssi"],-51.0)
+        self.assertEqual(normalized["payload"]["signal_quality"],0.91)
+
     def test_vitals_are_off_by_default_even_if_ruview_emits_them(self):
         event={
             "type":"edge_vitals",
