@@ -151,13 +151,17 @@ class SelfHealTests(unittest.TestCase):
                 project="KRISHNA",
                 project_root=str(project),
                 checks=["pytest"],
-                frontend_url=None,
+                frontend_url="http://127.0.0.1:8766",
                 privacy="local_only",
                 components=["app"],
                 max_rounds=1,
             )
 
             self.assertEqual(result["status"], "verified_candidate")
+            calls=runtime.verify_parallel.call_args_list
+            self.assertEqual(calls[0].args[2],"http://127.0.0.1:8766")
+            self.assertIsNone(calls[1].args[2])
+            self.assertIsNone(calls[2].args[2])
             self.assertTrue(result["verified"])
             candidate = Path(result["candidate_root"])
             self.assertEqual((candidate / "app.py").read_text(encoding="utf-8"), "VALUE = 2\n")
