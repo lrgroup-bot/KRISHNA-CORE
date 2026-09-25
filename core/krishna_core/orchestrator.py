@@ -98,6 +98,7 @@ from .gita_gyan import GitaGyan
 from .gita_performance import GitaPerformanceEngine
 from .krishna_shloka import KrishnaShlokaOrchestrator
 from .self_heal import KrishnaSelfHealRuntime
+from .mrityunjay import MrityunjayRuntime
 
 
 class Orchestrator:
@@ -233,6 +234,12 @@ class Orchestrator:
         )
         self.permissions = PermissionRuntime()
         self.lifecycle_bus = DurableEventBus(self.db_path,compatibility_bus=self.agi.bus)
+        self.mrityunjay = MrityunjayRuntime(
+            runtime_state / "mrityunjay",
+            self.lifecycle_bus,
+            self.memory,
+            enabled=bool(settings.allow_actions),
+        )
         self.missions = MissionEngine(self.db_path,event_bus=self.lifecycle_bus)
         self.queue = DurableQueue(self.db_path,event_bus=self.lifecycle_bus)
         self.resource_locks = ResourceLockManager(self.db_path,event_bus=self.lifecycle_bus)
@@ -331,6 +338,8 @@ class Orchestrator:
         self._restore_projects()
         self._register_shared_actions()
         self._register_agent_runtime()
+        self.mrityunjay.bind(self._mrityunjay_heal_event)
+        self.mrityunjay.attach()
         self._register_builtin_probes()
         self.startup_recovery = self.jobs.recover_startup()
 
@@ -610,6 +619,62 @@ class Orchestrator:
                 "verified":bool(live.get("promoted") and (post or {}).get("passed")),
                 "rolled_back":bool(live.get("rolled_back")),
             }
+
+        def mrityunjay_status_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            return {
+                **self.mrityunjay.status(),
+                "project":project,
+                "self_heal":self.self_heal.status(),
+                "models":self.router.role_status(),
+            }
+
+        def mrityunjay_heal_action(payload,context):
+            if not settings.allow_actions:
+                raise PermissionError("KRISHNA_ALLOW_ACTIONS is disabled")
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            requested={
+                **dict(payload or {}),
+                "project":project,
+                "max_rounds":max(1,min(int(payload.get("max_rounds") or 2),3)),
+            }
+            result=self_heal_run_action(requested,context)
+            wrapped={
+                "agent":"MRITYUNJAY",
+                "project":project,
+                "reason":str(payload.get("reason") or "autonomous repair"),
+                "self_heal":result,
+                "auto_apply":bool(payload.get("auto_apply",True)),
+                "verified":bool(result.get("verified")),
+                "live_project_modified":False,
+                "rolled_back":bool(result.get("rolled_back")),
+            }
+            promotion=(result.get("promotion") or {}) if isinstance(result,dict) else {}
+            token=str(promotion.get("promotion_token") or "").strip()
+            if result.get("status")=="healthy":
+                wrapped["status"]="healthy"
+                wrapped["verified"]=True
+                return wrapped
+            if not token or not bool(payload.get("auto_apply",True)):
+                wrapped["status"]=result.get("status") or "incomplete"
+                return wrapped
+
+            apply_payload={
+                "promotion_token":token,
+                "checks":requested.get("checks") or [],
+                "frontend_url":str(payload.get("frontend_url") or "").strip(),
+                "axe_required":bool(payload.get("axe_required",True)),
+                "performance_required":bool(payload.get("performance_required",True)),
+                "performance_limits":dict(payload.get("performance_limits") or {}),
+                "hawkeye_ui_required":bool(payload.get("hawkeye_ui_required",False)),
+            }
+            applied=self_heal_apply_action(apply_payload,{**context,"approved":True})
+            wrapped["apply"]=applied
+            wrapped["verified"]=bool(applied.get("verified"))
+            wrapped["live_project_modified"]=bool((applied.get("promotion") or {}).get("promoted"))
+            wrapped["rolled_back"]=bool(applied.get("rolled_back"))
+            wrapped["status"]="healed" if wrapped["verified"] else ("rolled_back" if wrapped["rolled_back"] else "apply_failed")
+            return wrapped
 
         def project_perfection_finish_action(payload,context):
             project=str(payload.get("project") or context.get("project") or "").strip()
@@ -2555,6 +2620,20 @@ class Orchestrator:
         )
 
         self.action_bus.register(
+            "mrityunjay.status",mrityunjay_status_action,
+            description="Read MRITYUNJAY autonomous self-heal supervisor status",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "mrityunjay.heal",mrityunjay_heal_action,
+            description="Automatically diagnose, repair in an isolated candidate, verify, transactionally apply, post-verify and rollback on failure",
+            mutating=True,
+            permissions=("candidate.write","tests.run","browser.test","model.use","live.write"),
+            sources=("pc","system","agent","job"),
+        )
+
+        self.action_bus.register(
             "project.perfection.finish",project_perfection_finish_action,
             description="Run full project discovery, adversarial QA, artifact retest and evidence certification",
             mutating=True,permissions=("candidate.write","tests.run","browser.test"),
@@ -3311,6 +3390,12 @@ class Orchestrator:
         )
 
         self.agent_runtime.register(
+            "mrityunjay","autonomous bounded self-heal, recovery, regression verification and rollback guardian",
+            permissions=("runtime.read","candidate.write","tests.run","browser.test","model.use","live.write"),
+            actions=("mrityunjay.*","self_heal.status"),
+        )
+
+        self.agent_runtime.register(
             "lab-bot","Rishi experiment planner, simulator and approved laboratory adapter coordinator",
             permissions=("lab.plan","lab.simulate","lab.record","lab.quantum","lab.nano","evidence.write","runtime.read"),
             actions=("lab.*",),
@@ -3328,6 +3413,26 @@ class Orchestrator:
                 permissions=("web.read","browser.research","evidence.read","evidence.write","memory.write","worker.execute","lab.plan","lab.simulate","lab.quantum","lab.nano","model.use"),
                 actions=("brahmagyan.*","garuda.scout","garudanetra.research.*","lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate","lab.quantum.*","lab.nano.*","lab.quantum-nano.bridge","openrouter.free.complete","direct.free.complete"),
             )
+
+    def _mrityunjay_heal_event(self, project="KRISHNA", reason="runtime failure", evidence=None, **kwargs):
+        frontend_url=f"http://127.0.0.1:{settings.port}"
+        receipt=self.dispatch_action(
+            "mrityunjay.heal",
+            {
+                "project":project,
+                "reason":reason,
+                "evidence":dict(evidence or {}),
+                "frontend_url":frontend_url,
+                "auto_apply":True,
+                "max_rounds":2,
+            },
+            project=project,
+            source="system",
+            actor="mrityunjay",
+            approved=True,
+            permissions=("runtime.read","candidate.write","tests.run","browser.test","model.use","live.write"),
+        )
+        return receipt.get("result") or receipt
 
     def dispatch_action(self,action,payload=None,project="KRISHNA",source="pc",actor="owner",
                         approved=False,permissions=(),idempotency_key=None):
