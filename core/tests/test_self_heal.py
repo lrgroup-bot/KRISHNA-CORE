@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import threading
 import unittest
@@ -265,7 +266,9 @@ class SelfHealTests(unittest.TestCase):
             candidate = Path(staged["candidate_root"])
             self.assertTrue((candidate / "app.py").is_file())
             self.assertFalse((candidate / ".krishna_state").exists())
-            self.assertEqual(list(staging.glob("candidate-*")), [candidate])
+            staged_candidates=list(staging.glob("candidate-*"))
+            self.assertEqual(len(staged_candidates),1)
+            self.assertTrue(os.path.samefile(staged_candidates[0],candidate))
 
     def test_cloud_review_receives_sanitized_verification_only(self):
         router = _CloudReviewRouter()
