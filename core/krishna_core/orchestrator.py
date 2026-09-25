@@ -513,6 +513,55 @@ class Orchestrator:
                 result["status"]="verified_promotion_ready"
             return result
 
+        def self_heal_apply_action(payload,context):
+            token=str(payload.get("promotion_token") or "").strip()
+            item=self._promotion_candidates.get(token)
+            if not item:raise KeyError(token)
+            project=str(item.get("project") or "KRISHNA")
+            policy=self.projects.get(project)
+            if not policy:raise KeyError(project)
+            if not bool(context.get("approved",False)):
+                raise PermissionError("self-heal live apply requires explicit owner approval")
+            checks=list(payload.get("checks") or policy.verification_checks or [])
+            live=self._promote_candidate_impl(token,approved=True)
+            post=None
+            frontend_url=str(payload.get("frontend_url") or "").strip()
+            if live.get("promoted"):
+                if frontend_url:
+                    post=self.project_perfection.post_apply_verify(
+                        project,policy.root,frontend_url,checks,
+                        axe_required=bool(payload.get("axe_required",True)),
+                        performance_required=bool(payload.get("performance_required",True)),
+                        performance_limits=dict(payload.get("performance_limits") or {}),
+                        hawkeye_required=bool(payload.get("hawkeye_ui_required",False)),
+                    )
+                else:
+                    dev=self.development.verify(policy.root,checks)
+                    post={
+                        "passed":bool(dev.get("verified")),
+                        "development":dev,
+                        "frontend_skipped":True,
+                        "reason":"backend-only post-apply verification; no frontend_url supplied",
+                    }
+                if not post.get("passed"):
+                    self.promotions.rollback(policy.root,live["backup"],live["diff"])
+                    live.update({
+                        "status":"rolled_back_post_apply",
+                        "promoted":False,
+                        "rolled_back":True,
+                        "reason":"self-heal post-apply verification failed",
+                    })
+                    self.memory.audit("self_heal_apply","rolled_back",project)
+                else:
+                    self.memory.audit("self_heal_apply","verified",project)
+            return {
+                "project":project,
+                "promotion":live,
+                "post_apply_verification":post,
+                "verified":bool(live.get("promoted") and (post or {}).get("passed")),
+                "rolled_back":bool(live.get("rolled_back")),
+            }
+
         def project_perfection_finish_action(payload,context):
             project=str(payload.get("project") or context.get("project") or "").strip()
             url=str(payload.get("url") or "").strip()
@@ -2419,6 +2468,14 @@ class Orchestrator:
             mutating=True,
             permissions=("candidate.write","tests.run","browser.test","model.use"),
             sources=("pc","system","agent","job"),
+        )
+
+        self.action_bus.register(
+            "self_heal.apply",self_heal_apply_action,
+            description="Apply a verified self-heal candidate, run live post-apply runtime/UI verification, and rollback transactionally on regression",
+            mutating=True,requires_approval=True,
+            permissions=("live.write","tests.run","browser.test"),
+            sources=("pc","system"),
         )
 
         self.action_bus.register(
