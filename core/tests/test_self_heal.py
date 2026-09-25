@@ -70,6 +70,11 @@ class _CloudReviewRouter:
         return '{"verdict":"reviewed","concerns":[],"suggested_check":"none"}'
 
 
+class _ReviewerDiscoveryFailRouter:
+    def available(self):
+        raise RecursionError("maximum recursion depth exceeded")
+
+
 class SelfHealTests(unittest.TestCase):
     def test_frontend_and_backend_verification_start_in_parallel(self):
         barrier = threading.Barrier(2)
@@ -204,6 +209,45 @@ class SelfHealTests(unittest.TestCase):
         self.assertFalse(result["live_project_modified"])
         self.assertEqual(result["initial_verification"]["verification_errors"][0]["lane"], "backend")
         self.assertEqual(result["initial_verification"]["verification_errors"][0]["type"], "RecursionError")
+
+    def test_candidate_stage_recursion_returns_phase_safe_error(self):
+        class _RecursiveStageDevelopment:
+            staging_root = None
+            def stage(self, root, files):
+                raise RecursionError("maximum recursion depth exceeded")
+
+        runtime = KrishnaSelfHealRuntime(_NoopRouter(), _RecursiveStageDevelopment(), Mock())
+        runtime.verify_parallel = Mock(return_value={
+            "parallel": True,
+            "passed": False,
+            "verification_errors": [],
+            "backend": {"verified": False, "steps": [{"name": "python-tests", "ok": False}]},
+            "frontend": {"available": False, "passed": True},
+        })
+        result = runtime.run(
+            project="KRISHNA",
+            project_root=".",
+            checks=["python-tests"],
+            frontend_url=None,
+            privacy="local_only",
+            max_rounds=1,
+        )
+        self.assertEqual(result["status"], "self_heal_error")
+        self.assertEqual(result["phase"], "candidate_stage")
+        self.assertEqual(result["error"]["type"], "RecursionError")
+        self.assertFalse(result["live_project_modified"])
+
+    def test_reviewer_discovery_recursion_is_advisory_only(self):
+        runtime = KrishnaSelfHealRuntime(_ReviewerDiscoveryFailRouter(), Mock(), Mock())
+        rows = runtime.model_review("KRISHNA", "local_only", {
+            "parallel": True,
+            "passed": True,
+            "backend": {"verified": True, "steps": []},
+            "frontend": {"available": False, "passed": True},
+        })
+        self.assertEqual(rows[0]["provider"], "reviewer-discovery")
+        self.assertFalse(rows[0]["ok"])
+        self.assertIn("RecursionError", rows[0]["error"])
 
     def test_cloud_review_receives_sanitized_verification_only(self):
         router = _CloudReviewRouter()

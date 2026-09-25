@@ -484,9 +484,18 @@ class Orchestrator:
             )
 
         def self_heal_status_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            policy=self.projects.get(project)
             return {
                 **self.self_heal.status(),
                 "models": self.router.role_status(),
+                "registered_project": None if not policy else {
+                    "name": policy.name,
+                    "root": policy.root,
+                    "privacy": policy.privacy,
+                    "role": policy.role,
+                    "verification_checks": list(policy.verification_checks or []),
+                },
             }
 
         def self_heal_run_action(payload,context):
@@ -507,10 +516,26 @@ class Orchestrator:
                 apply_verified=False,
             )
             if result.get("verified") and result.get("candidate_root"):
-                result["promotion"]=self._prepare_promotion_impl(
-                    project,result["candidate_root"],payload.get("task_id")
-                )
-                result["status"]="verified_promotion_ready"
+                try:
+                    result["promotion"]=self._prepare_promotion_impl(
+                        project,result["candidate_root"],payload.get("task_id")
+                    )
+                    result["status"]="verified_promotion_ready"
+                    result["phase"]="promotion_ready"
+                except Exception as exc:
+                    result.update({
+                        "status":"promotion_prepare_error",
+                        "phase":"promotion_prepare",
+                        "candidate_verified":True,
+                        "verified":False,
+                        "promotion":None,
+                        "error":{
+                            "type":type(exc).__name__,
+                            "message":str(exc)[:2000],
+                        },
+                    })
+                    try:self.memory.audit("self_heal","promotion_prepare_error",f"{project}:{type(exc).__name__}")
+                    except Exception:pass
             return result
 
         def self_heal_apply_action(payload,context):

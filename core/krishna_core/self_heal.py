@@ -221,7 +221,16 @@ class KrishnaSelfHealRuntime:
             + json.dumps(evidence, sort_keys=True)
         )
         rows = []
-        for provider in self._reviewers(privacy):
+        try:
+            providers = self._reviewers(privacy)
+        except Exception as exc:
+            return [{
+                "provider": "reviewer-discovery",
+                "ok": False,
+                "error": f"{type(exc).__name__}: {str(exc)[:2000]}",
+                "traceback": "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-12000:],
+            }]
+        for provider in providers:
             try:
                 if provider == "ollama":
                     local = self._direct_local(prompt, "reasoning")
@@ -261,41 +270,72 @@ class KrishnaSelfHealRuntime:
         promote: Callable[[str], dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         max_rounds = max(1, min(int(max_rounds or 1), 3))
-        initial = self.verify_parallel(project_root, checks, frontend_url, full=True)
-        if initial.get("verification_errors"):
+        phase = "initial_verification"
+        initial = None
+        current = None
+        candidate_root = None
+        rounds = []
+
+        def infrastructure_error(status: str, error: dict[str, Any]) -> dict[str, Any]:
             result = {
                 "version": self.VERSION,
                 "project": project,
-                "status": "verification_error",
+                "status": status,
+                "phase": phase,
                 "initial_verification": initial,
-                "repair_rounds": [],
+                "repair_rounds": rounds,
                 "model_reviews": [],
                 "verified": False,
-                "rolled_back": False,
-                "rollback": "not required; no candidate was created and live tree was not modified",
+                "rolled_back": bool(candidate_root),
+                "rollback": (
+                    "candidate discarded; live tree unchanged"
+                    if candidate_root
+                    else "not required; live tree was not modified"
+                ),
                 "live_project_modified": False,
+                "error": error,
             }
             if self.memory:
-                self.memory.audit("self_heal", "verification_error", project)
+                try:
+                    self.memory.audit("self_heal", status, f"{project}:{phase}:{error.get('type')}")
+                except Exception:
+                    pass
             return result
-        if initial.get("passed"):
-            return {
-                "version": self.VERSION,
-                "project": project,
-                "status": "healthy",
-                "initial_verification": initial,
-                "repair_rounds": [],
-                "model_reviews": self.model_review(project, privacy, initial),
-                "verified": True,
-                "live_project_modified": False,
-            }
 
-        candidate = self.development.stage(project_root, [])
-        candidate_root = str(candidate["candidate_root"])
-        rounds = []
-        current = initial
         try:
+            initial = self.verify_parallel(project_root, checks, frontend_url, full=True)
+            current = initial
+            if initial.get("verification_errors"):
+                return infrastructure_error(
+                    "verification_error",
+                    {
+                        "type": "VerificationLaneError",
+                        "message": "one or more initial verification lanes failed to execute",
+                        "lanes": list(initial.get("verification_errors") or []),
+                    },
+                )
+
+            if initial.get("passed"):
+                phase = "model_review"
+                reviews = self.model_review(project, privacy, initial)
+                return {
+                    "version": self.VERSION,
+                    "project": project,
+                    "status": "healthy",
+                    "phase": "complete",
+                    "initial_verification": initial,
+                    "repair_rounds": [],
+                    "model_reviews": reviews,
+                    "verified": True,
+                    "live_project_modified": False,
+                }
+
+            phase = "candidate_stage"
+            candidate = self.development.stage(project_root, [])
+            candidate_root = str(candidate["candidate_root"])
+
             for round_no in range(1, max_rounds + 1):
+                phase = f"round_{round_no}_diagnosis"
                 failure_summary = self._sanitized_evidence(current)
                 diagnosis_prompt = (
                     "Diagnose this KRISHNA verification failure. Focus on root cause, smallest safe repair, "
@@ -305,11 +345,13 @@ class KrishnaSelfHealRuntime:
                 )
                 diagnosis = self._direct_local(diagnosis_prompt, "reasoning")
 
+                phase = f"round_{round_no}_context"
                 hints = list(components or []) + self._failed_steps(current)
                 context = CandidateRepairGuard.collect_context(candidate_root, hints)
                 if not context.get("files"):
                     raise RuntimeError("no repairable source context found")
 
+                phase = f"round_{round_no}_repair"
                 evidence = [{
                     "lane": "parallel-verification",
                     "report": self._sanitized_evidence(current),
@@ -321,6 +363,7 @@ class KrishnaSelfHealRuntime:
                 files = CandidateRepairGuard.validate_patch(candidate_root, obj.get("files") or [])
                 changed = CandidateRepairGuard.apply(candidate_root, files)
 
+                phase = f"round_{round_no}_narrow_verification"
                 narrow_checks = self._failed_steps(current) or list(checks[:1])
                 narrow = self.verify_parallel(candidate_root, narrow_checks, frontend_url, full=False)
                 row = {
@@ -332,19 +375,45 @@ class KrishnaSelfHealRuntime:
                     "narrow_verification": narrow,
                 }
                 rounds.append(row)
+                if narrow.get("verification_errors"):
+                    self._discard_candidate(candidate_root)
+                    candidate_root = None
+                    current = narrow
+                    return infrastructure_error(
+                        "verification_error",
+                        {
+                            "type": "VerificationLaneError",
+                            "message": "one or more narrow verification lanes failed to execute",
+                            "lanes": list(narrow.get("verification_errors") or []),
+                        },
+                    )
                 if not narrow.get("passed"):
                     current = narrow
                     continue
 
+                phase = f"round_{round_no}_full_verification"
                 full = self.verify_parallel(candidate_root, checks, frontend_url, full=True)
                 row["full_regression_runtime_ui"] = full
                 current = full
+                if full.get("verification_errors"):
+                    self._discard_candidate(candidate_root)
+                    candidate_root = None
+                    return infrastructure_error(
+                        "verification_error",
+                        {
+                            "type": "VerificationLaneError",
+                            "message": "one or more full verification lanes failed to execute",
+                            "lanes": list(full.get("verification_errors") or []),
+                        },
+                    )
                 if full.get("passed"):
+                    phase = f"round_{round_no}_model_review"
                     reviews = self.model_review(project, privacy, full)
                     result = {
                         "version": self.VERSION,
                         "project": project,
                         "status": "verified_candidate",
+                        "phase": "candidate_verified",
                         "initial_verification": initial,
                         "repair_rounds": rounds,
                         "candidate_root": candidate_root,
@@ -353,6 +422,7 @@ class KrishnaSelfHealRuntime:
                         "live_project_modified": False,
                     }
                     if apply_verified:
+                        phase = "promotion"
                         if promote is None:
                             raise RuntimeError("promotion callback is required for apply_verified")
                         promotion = promote(candidate_root)
@@ -368,11 +438,14 @@ class KrishnaSelfHealRuntime:
                         self.memory.audit("self_heal", result["status"], project)
                     return result
 
+            phase = "rejected_review"
             self._discard_candidate(candidate_root)
+            candidate_root = None
             result = {
                 "version": self.VERSION,
                 "project": project,
                 "status": "rejected",
+                "phase": "complete",
                 "initial_verification": initial,
                 "repair_rounds": rounds,
                 "model_reviews": self.model_review(project, privacy, current),
@@ -384,6 +457,15 @@ class KrishnaSelfHealRuntime:
             if self.memory:
                 self.memory.audit("self_heal", "rejected", project)
             return result
-        except Exception:
-            self._discard_candidate(candidate_root)
-            raise
+        except Exception as exc:
+            if candidate_root:
+                try:
+                    self._discard_candidate(candidate_root)
+                except Exception:
+                    pass
+            error = {
+                "type": type(exc).__name__,
+                "message": str(exc)[:2000],
+                "traceback": "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-12000:],
+            }
+            return infrastructure_error("self_heal_error", error)
