@@ -18,6 +18,14 @@ class SpatialDeployContractTests(unittest.TestCase):
         self.assertIn("SPATIAL UI BUILD DIRTY THE SOURCE REPOSITORY",text)
         self.assertIn("git -C $Source status --porcelain",text)
 
+    def test_owner_visible_spatial_panels_are_only_krishna_sudarshan_plugins(self):
+        app=(self.repo/"app"/"spatial-ui"/"src"/"App.tsx").read_text(encoding="utf-8")
+        self.assertIn("id: 'krishna-home'",app)
+        self.assertIn("id: 'sudarshan-work'",app)
+        self.assertIn("id: 'plugins'",app)
+        for hidden_id in ("action-graph","narad","design-intelligence","avatar-stage","terminal"):
+            self.assertNotIn(f"addPanel({{ id: '{hidden_id}'",app)
+
     def test_spatial_runtime_has_version_marker_and_subpath_base(self):
         index=(self.repo/"app"/"spatial-ui"/"index.html").read_text(encoding="utf-8")
         vite=(self.repo/"app"/"spatial-ui"/"vite.config.ts").read_text(encoding="utf-8")
