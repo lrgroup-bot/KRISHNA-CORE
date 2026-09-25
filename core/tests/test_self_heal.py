@@ -174,6 +174,37 @@ class SelfHealTests(unittest.TestCase):
             self.assertEqual(live.read_text(encoding="utf-8"), "VALUE = 1\n")
             self.assertEqual(list(staging.glob("candidate-*")), [])
 
+    def test_verification_lane_recursion_is_reported_without_repair_or_live_mutation(self):
+        class _RecursiveDevelopment:
+            staging_root = None
+            def verify(self, root, checks):
+                raise RecursionError("maximum recursion depth exceeded")
+
+        class _HealthyFrontend:
+            def browser_audit(self, url, viewports=None):
+                return {"ok": True, "viewports": [], "geometry_ok": True}
+            def accessibility_verify(self, url):
+                return {"passed": True}
+            def performance_verify(self, report, required=False):
+                return {"passed": True}
+            def browser_chaos_verify(self, url):
+                return {"passed": True}
+
+        runtime = KrishnaSelfHealRuntime(_NoopRouter(), _RecursiveDevelopment(), _HealthyFrontend())
+        result = runtime.run(
+            project="KRISHNA",
+            project_root=".",
+            checks=["python-tests"],
+            frontend_url="http://127.0.0.1:8766",
+            privacy="local_only",
+            max_rounds=1,
+        )
+        self.assertEqual(result["status"], "verification_error")
+        self.assertFalse(result["verified"])
+        self.assertFalse(result["live_project_modified"])
+        self.assertEqual(result["initial_verification"]["verification_errors"][0]["lane"], "backend")
+        self.assertEqual(result["initial_verification"]["verification_errors"][0]["type"], "RecursionError")
+
     def test_cloud_review_receives_sanitized_verification_only(self):
         router = _CloudReviewRouter()
         runtime = KrishnaSelfHealRuntime(router, Mock(), Mock())

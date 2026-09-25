@@ -167,20 +167,29 @@ class SharedActionBus:
 
     @classmethod
     def _safe_payload(cls,payload):
-        def clean(value,key=""):
+        def clean(value,key="",depth=0,active=None):
             if cls._is_sensitive_key(key):
                 return "[REDACTED]"
-            if isinstance(value,dict):
-                return {str(k):clean(v,str(k)) for k,v in value.items()}
-            if isinstance(value,list):
-                return [clean(v,key) for v in value[:100]]
-            if isinstance(value,tuple):
-                return [clean(v,key) for v in value[:100]]
+            if depth>64:
+                return "[MAX_DEPTH]"
+            active=set() if active is None else active
+            if isinstance(value,(dict,list,tuple)):
+                marker=id(value)
+                if marker in active:
+                    return "[CIRCULAR]"
+                active.add(marker)
+                try:
+                    if isinstance(value,dict):
+                        return {str(k):clean(v,str(k),depth+1,active) for k,v in value.items()}
+                    return [clean(v,key,depth+1,active) for v in value[:100]]
+                finally:
+                    active.discard(marker)
             text=str(value) if not isinstance(value,(str,int,float,bool,type(None))) else value
             if isinstance(text,str) and len(text)>4000:
                 return text[:4000]+"..."
             return text
-        return clean(dict(payload or {}))
+        root=payload if isinstance(payload,dict) else dict(payload or {})
+        return clean(root)
 
     @staticmethod
     def _idempotency_fingerprint(action,project,source,actor,payload):
