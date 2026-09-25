@@ -188,7 +188,8 @@ class SharedActionBus:
             if isinstance(text,str) and len(text)>4000:
                 return text[:4000]+"..."
             return text
-        return clean(dict(payload or {}))
+        root=payload if isinstance(payload,dict) else dict(payload or {})
+        return clean(root)
 
     @staticmethod
     def _idempotency_fingerprint(action,project,source,actor,payload):
