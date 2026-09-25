@@ -63,6 +63,27 @@ Step "REPOSITORY CONTRACTS" {
   try{& $py -m unittest discover -s tests -v}finally{Pop-Location}
 }
 
+Step "SPATIAL FRONTEND BUILD" {
+  $ui=Join-Path $SourceRoot "app\spatial-ui"
+  if(!(Test-Path (Join-Path $ui "package.json"))){throw "spatial UI package.json missing"}
+  $npm=(Get-Command npm -ErrorAction SilentlyContinue)
+  if(!$npm){throw "npm is required for the spatial frontend build audit"}
+  Push-Location $ui
+  try{
+    & npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+    if($LASTEXITCODE -ne 0){throw "npm install failed"}
+    & npm run build
+    if($LASTEXITCODE -ne 0){throw "spatial frontend build failed"}
+  }finally{Pop-Location}
+}
+
+Step "SELF-HEAL CONTRACT PREFLIGHT" {
+  Push-Location (Join-Path $SourceRoot "core")
+  try{
+    & $py -m unittest -v tests.test_self_heal tests.test_shared_action_bus tests.test_promotion_runtime
+  }finally{Pop-Location}
+}
+
 Step "POWERSHELL PARSE" {
   $failed=@()
   Get-ChildItem (Join-Path $SourceRoot "scripts") -Filter "*.ps1" -File -Recurse | ForEach-Object {
