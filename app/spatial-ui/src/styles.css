@@ -59,6 +59,7 @@ h2 { margin: 10px 0 8px; font-size: 28px; }
   margin-top: 28px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.08);
 }
 .rf-console__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.rf-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .rf-bento { margin-top: 18px; }
 .rf-bento .card { min-height: 128px; }
 .rf-layout { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(280px,.75fr); gap: 14px; margin-top: 14px; }
