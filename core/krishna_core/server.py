@@ -975,6 +975,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,_hawkeye_free_cloud.status(refresh=refresh))
         if path in ("/api/hawkeye/status", "/api/bhumiputra/status"):
             status=orch.hawkeye.status()
+            status["ruview"]=orch.hawkeye_ruview.status(refresh=False)
             status["agent"]="hawkeye"
             status["legacy_api_alias"]="/api/bhumiputra/status"
             return self._json(200,status)
