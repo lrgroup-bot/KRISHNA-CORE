@@ -188,6 +188,30 @@ class KrishnaSelfHealRuntime:
             "elapsed_ms": int((time.perf_counter() - started) * 1000),
         }
 
+    @staticmethod
+    def _candidate_changes_frontend(paths: list[str]) -> bool:
+        frontend_prefixes = (
+            "app/", "frontend/", "web/", "ui/", "dashboard/",
+        )
+        frontend_exact = {
+            "core/web_validation.html",
+            "core/design_studio.html",
+            "core/visual_editor.html",
+        }
+        frontend_suffixes = (".html", ".htm", ".css", ".scss", ".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte")
+        for raw in paths or []:
+            path = str(raw or "").replace("\\", "/").strip("/").lower()
+            if not path:
+                continue
+            if path in frontend_exact or path.startswith(frontend_prefixes) or path.endswith(frontend_suffixes):
+                return True
+        return False
+
+    def _candidate_frontend_target(self, changed: list[str], live_frontend_url: str | None) -> tuple[str | None, str]:
+        if self._candidate_changes_frontend(changed):
+            return None, "candidate_static_preview"
+        return live_frontend_url, "registered_runtime_url" if live_frontend_url else "candidate_static_preview"
+
     def _direct_local(self, prompt: str, task: str) -> dict[str, Any]:
         status = self.router.local_model_status(task)
         installed = [
@@ -412,13 +436,15 @@ class KrishnaSelfHealRuntime:
 
                 phase = f"round_{round_no}_narrow_verification"
                 narrow_checks = self._failed_steps(current) or list(checks[:1])
-                narrow = self.verify_parallel(candidate_root, narrow_checks, frontend_url, full=False)
+                candidate_frontend_url, frontend_target = self._candidate_frontend_target(changed, frontend_url)
+                narrow = self.verify_parallel(candidate_root, narrow_checks, candidate_frontend_url, full=False)
                 row = {
                     "round": round_no,
                     "diagnosis_provider": diagnosis["provider"],
                     "repair_provider": repair["provider"],
                     "summary": str(obj.get("summary") or "")[:3000],
                     "files": changed,
+                    "frontend_verification_target": frontend_target,
                     "narrow_verification": narrow,
                 }
                 rounds.append(row)
@@ -439,7 +465,7 @@ class KrishnaSelfHealRuntime:
                     continue
 
                 phase = f"round_{round_no}_full_verification"
-                full = self.verify_parallel(candidate_root, checks, frontend_url, full=True)
+                full = self.verify_parallel(candidate_root, checks, candidate_frontend_url, full=True)
                 row["full_regression_runtime_ui"] = full
                 current = full
                 if full.get("verification_errors"):
