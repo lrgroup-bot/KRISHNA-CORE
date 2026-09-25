@@ -33,7 +33,7 @@ class AuditFinding:
 
 class KrishnaProjectAudit:
     WORKERS=(
-        "source","repository","ui","core","desktop","avatar","voice","mobile","security","deployment","requirements"
+        "source","repository","ui","core","self_heal","desktop","avatar","voice","mobile","security","deployment","requirements"
     )
 
     def __init__(self,source_root: str|Path,runtime_root: str|Path):
@@ -200,6 +200,19 @@ class KrishnaProjectAudit:
                  "all $() DOM references resolve" if not missing_ids else "missing DOM IDs",
                  missing=missing_ids)
 
+        spatial_path=self.source/"app"/"spatial-ui"/"src"/"App.tsx"
+        if spatial_path.is_file():
+            spatial=spatial_path.read_text(encoding="utf-8")
+            visible=("krishna-home","sudarshan-work","plugins")
+            hidden=("action-graph","narad","design-intelligence","avatar-stage","terminal")
+            visible_ok=all(f"addPanel({{ id: '{x}'" in spatial for x in visible)
+            exposed=[x for x in hidden if f"addPanel({{ id: '{x}'" in spatial]
+            self.add("ui","Spatial UI minimal owner surface","PASS" if visible_ok and not exposed else "FAIL",
+                     "Spatial UI opens only KRISHNA / Sudarshan / Plugins by default" if visible_ok and not exposed else "Spatial UI exposes internal panels by default",
+                     visible=list(visible),exposed_internal=exposed)
+        else:
+            self.add("ui","Spatial UI minimal owner surface","FAIL","Spatial UI source is missing",path=str(spatial_path))
+
     def audit_core(self):
         required=(
             "durable_event_bus.py","durable_queue.py","mission_engine.py","mission_budget.py",
@@ -217,6 +230,34 @@ class KrishnaProjectAudit:
         self.add("core","durable runtime surfaces","PASS" if not absent else "FAIL",
                  "durable runtime status surfaces are exposed" if not absent else "durable status routes missing",
                  missing=absent)
+
+    def audit_self_heal(self):
+        module=self.source/"core"/"krishna_core"/"mrityunjay.py"
+        orchestrator=self._read("core/krishna_core/orchestrator.py")
+        server=self._read("core/krishna_core/server.py")
+        self_heal=self._read("core/krishna_core/self_heal.py")
+        required_tokens=(
+            "MrityunjaySelfHealBot",
+            '"mrityunjay.status"',
+            '"mrityunjay.trigger"',
+            '"mrityunjay.heal"',
+        )
+        missing=[x for x in required_tokens if x not in orchestrator]
+        runtime_ok=("_mrityunjay.start()" in server and '("mrityunjay", _mrityunjay.stop)' in server)
+        candidate_ok=("_candidate_frontend_target" in self_heal and "candidate_static_preview" in self_heal)
+        module_ok=module.is_file()
+        passed=bool(module_ok and not missing and runtime_ok and candidate_ok)
+        self.add("self_heal","Mrityunjay autonomous recovery wiring","PASS" if passed else "FAIL",
+                 "permanent bounded Mrityunjay supervisor reuses verified self-heal/promotion/rollback" if passed else "Mrityunjay/self-heal integration is incomplete",
+                 module=module_ok,missing_actions=missing,runtime_lifecycle=runtime_ok,candidate_frontend_isolation=candidate_ok)
+        if module_ok:
+            text=module.read_text(encoding="utf-8")
+            safety=all(token in text for token in (
+                "CONTROL_PLANE_BLOCKLIST","automatic deletion is forbidden",
+                "self_heal.run","self_heal.apply","transactional_rollback_required",
+            ))
+            self.add("self_heal","autonomous repair safety boundary","PASS" if safety else "FAIL",
+                     "low-risk verified source repairs may auto-apply; higher-risk changes are quarantined" if safety else "autonomous repair safety boundary is incomplete")
 
     def audit_desktop(self):
         from .windows_desktop_fabric import WindowsDesktopFabric
@@ -265,6 +306,18 @@ class KrishnaProjectAudit:
         self.add("avatar","local avatar engines","PASS" if not missing else "WARN",
                  "all local avatar engines installed" if not missing else "avatar engine assets still need runtime installation",
                  missing=missing)
+
+        performance=self._read("core/krishna_core/gita_performance.py")
+        avatar_runtime=self._read("core/krishna_core/avatar_runtime.py")
+        requested=(
+            "head_tilt","neck_motion","torso_state","breathing_profile","scene_profile","interpretation_type",
+        )
+        absent=[x for x in requested if f'"{x}"' not in performance]
+        forwarded=[x for x in requested[:-1] if f'{x}=performance.get("{x}")' not in avatar_runtime]
+        contract_ok=not absent and not forwarded
+        self.add("avatar","complete verse-performance direction contract","PASS" if contract_ok else "FAIL",
+                 "latest Krishna/Partha per-verse performance channels are represented in canonical source" if contract_ok else "latest avatar direction fields are missing from canonical runtime",
+                 missing_fields=absent,not_forwarded=forwarded)
 
     def audit_voice(self):
         status=KrishnaVoiceStack().status()
