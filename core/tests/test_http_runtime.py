@@ -99,7 +99,7 @@ class HTTPRuntimeTests(unittest.TestCase):
                      "/api/projects", "/api/plugins", "/api/specialists", "/api/specialist-teams", "/api/resources",
                      "/api/tasks", "/api/missions", "/api/missions/status", "/api/queue", "/api/queue/status",
                      "/api/resource-locks", "/api/events", "/api/protocol", "/api/models/providers",
-                     "/api/core/state", "/api/core/neural-state", "/api/hawkeye/free-cloud/status",
+                     "/api/core/state", "/api/core/neural-state", "/api/hawkeye/free-cloud/status", "/api/hawkeye/ruview/status",
                      "/api/project-graph", "/api/recovery/ladder", "/api/incidents",
                      "/api/garuda/status", "/api/commitments", "/api/autonomy/status", "/api/gyan-bhandar",
                      "/api/gyan-bhandar/pending", "/api/gyan-bhandar/inventory?project=KRISHNA", "/api/software-factory/workers/status",
@@ -199,6 +199,29 @@ class HTTPRuntimeTests(unittest.TestCase):
         })
         self.assertEqual(hawkeye["authority"],"KRISHNA")
         self.assertEqual(hawkeye["verification"],"SUDARSHAN")
+        self.assertIn("ruview",hawkeye)
+        self.assertFalse(hawkeye["ruview"]["credentials"]["mobile_entry_allowed"])
+
+        code,ruview=self.call("/api/hawkeye/ruview/status")
+        self.assertEqual(code,200)
+        self.assertEqual(ruview["version"],"hawkeye-ruview-v1")
+        self.assertEqual(ruview["credentials"]["entry_surface"],"KRISHNA PC only")
+        self.assertFalse(ruview["credentials"]["mobile_entry_allowed"])
+        self.assertFalse(ruview["credentials"]["plaintext_returned"])
+
+        code,bus=self.call("/api/action-bus")
+        self.assertEqual(code,200)
+        specs={x["name"]:x for x in bus["actions"]}
+        self.assertIn("hawkeye.ruview.wifi.connect",specs)
+        self.assertEqual(set(specs["hawkeye.ruview.wifi.connect"]["sources"]),{"pc","system"})
+        self.assertTrue(specs["hawkeye.ruview.wifi.connect"]["requires_approval"])
+        self.assertNotIn("mobile",specs["hawkeye.ruview.sample"]["sources"])
+
+        code,blocked=self.call("/api/hawkeye/ruview/wifi/connect",{
+            "ssid":"test-net","password":"never-log-this","approved":False
+        })
+        self.assertEqual(code,403)
+        self.assertNotIn("never-log-this",str(blocked))
 
         code,observer=self.call("/api/hawkeye/observer/status")
         self.assertEqual(code,200)
