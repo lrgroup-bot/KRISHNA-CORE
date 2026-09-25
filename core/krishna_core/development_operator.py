@@ -46,12 +46,21 @@ class DevelopmentOperator:
     def stage(self,root,files):
         source=Path(root).resolve()
         if not source.is_dir():raise ValueError("project root does not exist")
-        parent=self.staging_root or (source.parent/".krishna_state"/"dev-candidates").resolve()
+        parent=(self.staging_root or (source.parent/".krishna_state"/"dev-candidates")).resolve()
+        try:
+            rel=parent.relative_to(source)
+            if rel.parts and rel.parts[0]!=".krishna_state":
+                raise RuntimeError("candidate staging root cannot be nested inside the project source tree")
+        except ValueError:
+            pass
         parent.mkdir(parents=True,exist_ok=True)
         candidate=Path(tempfile.mkdtemp(prefix="candidate-",dir=str(parent))).resolve()
         try:candidate.relative_to(parent)
         except ValueError as exc:raise RuntimeError("candidate staging escaped configured root") from exc
-        shutil.copytree(source,candidate,dirs_exist_ok=True,ignore=shutil.ignore_patterns(".git","node_modules",".venv","__pycache__","dist","build"))
+        shutil.copytree(
+            source,candidate,dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns(".git",".krishna_state","node_modules",".venv","__pycache__","dist","build"),
+        )
         changed=[]
         for item in files:
             rel=str(item.get("path","")).replace("\\","/").strip("/")
