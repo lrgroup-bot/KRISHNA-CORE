@@ -66,7 +66,10 @@ Step "REPOSITORY CONTRACTS" {
 Step "MRITYUNJAY + SELF HEAL CONTRACT" {
   Push-Location (Join-Path $SourceRoot "core")
   try{
-    & $py -m unittest tests.test_self_heal tests.test_mrityunjay -v
+    & $py -m unittest discover -s tests -p "test_self_heal.py" -v
+    if($LASTEXITCODE -ne 0){throw "self-heal contract tests failed"}
+    & $py -m unittest discover -s tests -p "test_mrityunjay.py" -v
+    if($LASTEXITCODE -ne 0){throw "Mrityunjay contract tests failed"}
   }finally{Pop-Location}
 }
 
