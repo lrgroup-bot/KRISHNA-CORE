@@ -18,6 +18,89 @@ $logDir=Join-Path $KrishnaRoot "logs"
 if(!(Test-Path $py)){throw "KRISHNA venv Python not found: $py"}
 if(!(Test-Path $logDir)){New-Item -ItemType Directory -Force $logDir|Out-Null}
 
+$mrityunjayHandoffPath=Join-Path $KrishnaRoot ".krishna_state\mrityunjay\deploy-handoff.json"
+$mrityunjayLastHandoffPath=Join-Path $KrishnaRoot ".krishna_state\mrityunjay\last-deploy-handoff.json"
+
+function Get-MrityunjayHandoff {
+    if(!(Test-Path $mrityunjayHandoffPath)){return $null}
+    try{
+        $row=Get-Content -Raw $mrityunjayHandoffPath|ConvertFrom-Json
+        if([string]$row.owner -ne "MRITYUNJAY"){return $null}
+        if([string]$row.status -ne "restart_requested"){return $null}
+        return $row
+    }catch{
+        Write-Warning ("MRITYUNJAY handoff is unreadable: "+$_.Exception.Message)
+        return $null
+    }
+}
+
+function Save-MrityunjayHandoffResult($Handoff,[string]$Status,[string]$Detail){
+    $row=[ordered]@{}
+    foreach($p in $Handoff.PSObject.Properties){$row[$p.Name]=$p.Value}
+    $row.status=$Status
+    $row.completed_at=(Get-Date).ToUniversalTime().ToString("o")
+    $row.detail=$Detail
+    $dir=Split-Path -Parent $mrityunjayLastHandoffPath
+    New-Item -ItemType Directory -Force $dir|Out-Null
+    $row|ConvertTo-Json -Depth 8|Set-Content -Encoding UTF8 $mrityunjayLastHandoffPath
+    Remove-Item -Force $mrityunjayHandoffPath -ErrorAction SilentlyContinue
+}
+
+function Restore-MrityunjayPreviousSource($Handoff,[string]$Reason){
+    if(!$authoritative -or !(Test-Path "$authoritative\.git")){throw "MRITYUNJAY rollback requires authoritative Git source"}
+    $current=(git -C $authoritative rev-parse HEAD).Trim()
+    $expected=[string]$Handoff.new_commit
+    if($current -ne $expected){
+        throw ("MRITYUNJAY rollback refused because current HEAD changed. expected="+$expected+" current="+$current)
+    }
+    $previous=[string]$Handoff.previous_commit
+    if(!$previous){throw "MRITYUNJAY rollback has no previous commit"}
+    & git -C $authoritative reset --hard $previous
+    if($LASTEXITCODE -ne 0){throw "MRITYUNJAY could not reset source to previous commit"}
+    $deploy=Join-Path $authoritative "scripts\DEPLOY_KRISHNA_ONCE.ps1"
+    $branch=[string]$Handoff.branch
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $deploy -Branch $branch -SkipStart
+    if($LASTEXITCODE -ne 0){throw "MRITYUNJAY rollback deployment failed"}
+    Save-MrityunjayHandoffResult $Handoff "rolled_back" $Reason
+    Write-Warning ("MRITYUNJAY autonomous upgrade rolled back: "+$Reason)
+}
+
+function Complete-MrityunjayHandoff($Handoff){
+    if(!$authoritative -or !(Test-Path "$authoritative\.git")){throw "MRITYUNJAY handoff requires authoritative Git source"}
+    $head=(git -C $authoritative rev-parse HEAD).Trim()
+    $newCommit=[string]$Handoff.new_commit
+    if($head -ne $newCommit){return $false}
+    $manifestPath=Join-Path $KrishnaRoot "state\deployment\DEPLOYED_COMMIT.json"
+    if(!(Test-Path $manifestPath)){throw "MRITYUNJAY handoff cannot find verified deployment manifest"}
+    $manifest=Get-Content -Raw $manifestPath|ConvertFrom-Json
+    if([string]$manifest.commit -ne $newCommit){
+        throw "MRITYUNJAY refuses remote push before verified runtime deployment matches the new commit"
+    }
+    $branch=(git -C $authoritative branch --show-current).Trim()
+    if(!$branch -or $branch -ne [string]$Handoff.branch){
+        Restore-MrityunjayPreviousSource $Handoff "canonical branch changed before remote push"
+        return $true
+    }
+    & git -C $authoritative push origin $branch
+    if($LASTEXITCODE -ne 0){
+        Restore-MrityunjayPreviousSource $Handoff "remote push failed after verified deployment"
+        return $true
+    }
+    & git -C $authoritative fetch --quiet origin
+    if($LASTEXITCODE -ne 0){
+        Restore-MrityunjayPreviousSource $Handoff "remote verification fetch failed after push"
+        return $true
+    }
+    $remote=(git -C $authoritative rev-parse ("origin/"+$branch)).Trim()
+    if($remote -ne $newCommit){
+        Restore-MrityunjayPreviousSource $Handoff "remote branch did not verify the autonomous commit"
+        return $true
+    }
+    Save-MrityunjayHandoffResult $Handoff "completed" "verified deployment accepted and canonical remote push verified"
+    Write-Host ("MRITYUNJAY AUTONOMOUS UPGRADE VERIFIED: "+$newCommit) -ForegroundColor Green
+    return $true
+}
+
 # Keep runtime automatically synchronized to the authoritative Git source.
 if($authoritative -and (Test-Path "$authoritative\.git")){
     $env:KRISHNA_SOURCE_ROOT=$authoritative
@@ -32,7 +115,21 @@ if($authoritative -and (Test-Path "$authoritative\.git")){
         $deploy=Join-Path $authoritative "scripts\DEPLOY_KRISHNA_ONCE.ps1"
         if(!(Test-Path $deploy)){throw "Verified deploy script missing: $deploy"}
         & powershell -NoProfile -ExecutionPolicy Bypass -File $deploy -SkipStart
-        if($LASTEXITCODE -ne 0){throw "Automatic verified deployment failed"}
+        if($LASTEXITCODE -ne 0){
+            $handoff=Get-MrityunjayHandoff
+            if($handoff -and [string]$handoff.new_commit -eq $sourceHead){
+                Restore-MrityunjayPreviousSource $handoff "verified deployment/acceptance failed"
+                $sourceHead=(git -C $authoritative rev-parse HEAD).Trim()
+            }else{
+                throw "Automatic verified deployment failed"
+            }
+        }else{
+            $handoff=Get-MrityunjayHandoff
+            if($handoff -and [string]$handoff.new_commit -eq $sourceHead){
+                [void](Complete-MrityunjayHandoff $handoff)
+                $sourceHead=(git -C $authoritative rev-parse HEAD).Trim()
+            }
+        }
     }
 }
 
