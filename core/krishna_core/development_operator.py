@@ -97,6 +97,21 @@ class DevelopmentOperator:
         commit=self._run(["git","commit","-m",str(message)[:200]],rootp)
         return {"ok":commit.ok,"steps":[asdict(add),asdict(commit)],"snapshot":self.git_snapshot(root)}
 
+    def reset_verified_head(self, root, target_head, expected_current_head=None):
+        rootp=Path(root).resolve()
+        snap=self.git_snapshot(rootp)
+        if not snap.get("ok"):
+            return {"ok":False,"blocked":True,"detail":"project is not a git working tree"}
+        current=str(snap.get("head") or "").strip()
+        target=str(target_head or "").strip()
+        expected=str(expected_current_head or "").strip()
+        if not target:
+            return {"ok":False,"blocked":True,"detail":"target head is required"}
+        if expected and current != expected:
+            return {"ok":False,"blocked":True,"detail":"current HEAD changed; refusing rollback"}
+        reset=self._run(["git","reset","--hard",target],rootp)
+        return {"ok":reset.ok,"steps":[asdict(reset)],"snapshot":self.git_snapshot(rootp)}
+
     def push_current(self, root):
         rootp=Path(root).resolve(); snap=self.git_snapshot(root)
         if not snap.get("ok"):return snap
