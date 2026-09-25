@@ -62,6 +62,12 @@ class MrityunjaySelfHealBot:
         "app/spatial-ui/",
         "core/requirements/",
     )
+    RISKY_NAME_MARKERS = (
+        "security", "privacy", "kabach", "permission", "policy", "auth",
+        "credential", "secret", "vault", "remote", "gateway", "plugin",
+        "billing", "payment", "device_pairing", "runtime_integrity",
+        "model_gateway", "openrouter", "direct_free",
+    )
     MAX_AUTO_FILES = 6
 
     def __init__(
@@ -176,6 +182,10 @@ class MrityunjaySelfHealBot:
                 continue
             if any(low.startswith(prefix) for prefix in cls.BLOCKED_PREFIXES):
                 reasons.append(f"high-risk path blocked: {path}")
+                continue
+            basename=low.rsplit("/",1)[-1]
+            if any(marker in basename for marker in cls.RISKY_NAME_MARKERS):
+                reasons.append(f"sensitive subsystem file blocked: {path}")
                 continue
             if not (low in cls.SAFE_EXACT or low.startswith(cls.SAFE_PREFIXES)):
                 reasons.append(f"path outside autonomous repair scope: {path}")
