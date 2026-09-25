@@ -160,6 +160,13 @@ class QwenPcRolePolicyTests(unittest.TestCase):
         self.assertTrue(ModelRouter.local_model_allowed("library/qwen2.5vl:7b"))
         self.assertTrue(ModelRouter.local_model_allowed("gemma3:4b"))
 
+    def test_one_shot_local_model_passes_keep_alive_to_ollama(self):
+        router=ModelRouter()
+        calls=[]
+        router._ollama_generate=lambda model,prompt,keep_alive=None: calls.append((model,prompt,keep_alive)) or "ok"
+        self.assertEqual(router.local("repair","qwen2.5-coder:7b",task="coding",keep_alive=0),"ok")
+        self.assertEqual(calls,[("qwen2.5-coder:7b","repair",0)])
+
 
 if __name__=="__main__":
     unittest.main()
