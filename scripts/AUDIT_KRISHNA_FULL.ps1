@@ -63,6 +63,31 @@ Step "REPOSITORY CONTRACTS" {
   try{& $py -m unittest discover -s tests -v}finally{Pop-Location}
 }
 
+Step "MRITYUNJAY + SELF HEAL CONTRACT" {
+  Push-Location (Join-Path $SourceRoot "core")
+  try{
+    & $py -m unittest tests.test_self_heal tests.test_mrityunjay -v
+  }finally{Pop-Location}
+}
+
+Step "SPATIAL UI BUILD" {
+  $spatialRoot=Join-Path $SourceRoot "app\spatial-ui"
+  if(!(Test-Path (Join-Path $spatialRoot "package.json"))){throw "Spatial UI package is missing"}
+  $npmCmd=Get-Command npm.cmd -ErrorAction SilentlyContinue
+  if(!$npmCmd){$npmCmd=Get-Command npm -ErrorAction SilentlyContinue}
+  if(!$npmCmd){throw "Spatial UI audit requires Node/npm"}
+  Push-Location $spatialRoot
+  try{
+    & $npmCmd.Source install --no-audit --no-fund --package-lock=false
+    if($LASTEXITCODE -ne 0){throw "Spatial UI npm install failed"}
+    & $npmCmd.Source run build
+    if($LASTEXITCODE -ne 0){throw "Spatial UI build failed"}
+  }finally{Pop-Location}
+  if(!(Test-Path (Join-Path $spatialRoot "dist\index.html"))){throw "Spatial UI dist/index.html missing after build"}
+  $dirty=(git -C $SourceRoot status --porcelain)
+  if($dirty){throw ("Spatial UI audit dirtied source checkout: "+($dirty -join " | "))}
+}
+
 Step "POWERSHELL PARSE" {
   $failed=@()
   Get-ChildItem (Join-Path $SourceRoot "scripts") -Filter "*.ps1" -File -Recurse | ForEach-Object {
