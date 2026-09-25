@@ -205,7 +205,9 @@ class KrishnaProjectAudit:
             self.add("ui","React spatial UI source contract","FAIL","spatial UI App.tsx is missing")
         else:
             spatial_text=spatial.read_text(encoding="utf-8")
-            nav_labels=re.findall(r'<span>(KRISHNA|Sudarshan|Plugins)</span>',spatial_text)
+            nav_match=re.search(r'(?s)<nav aria-label="Main Menu">(.*?)</nav>',spatial_text)
+            nav_block=nav_match.group(1) if nav_match else ""
+            nav_labels=re.findall(r'<span>(KRISHNA|Sudarshan|Plugins)</span>',nav_block)
             hidden_internal=all(
                 token not in re.sub(r'event\.api\.addPanel\([\s\S]*?\);',"",spatial_text)
                 for token in ("KABACH","Garuda","Garudanetra","BRAHMAGYAN","Gyan-Bhandar")
