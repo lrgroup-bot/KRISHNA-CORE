@@ -73,12 +73,13 @@ class GitaPerformanceEngine:
         "meaning_or", "meaning_hi", "meaning_en", "theme", "secondary_themes",
         "emotional_context", "krishna_form", "avatar_family", "face_expression",
         "eye_expression", "brow_expression", "smile_level", "head_pose",
-        "body_pose", "left_hand_gesture", "right_hand_gesture",
-        "movement_intensity", "camera_profile", "lighting_profile",
+        "head_tilt", "neck_motion", "body_pose", "torso_state",
+        "left_hand_gesture", "right_hand_gesture", "movement_intensity",
+        "breathing_profile", "camera_profile", "scene_profile", "lighting_profile",
         "background_profile", "aura_profile", "prop_profile", "voice_profile",
         "recitation_profile", "pause_profile", "explanation_profile",
-        "partha_dialogue_profile", "scriptural_evidence", "confidence",
-        "manual_override",
+        "partha_dialogue_profile", "scriptural_evidence", "interpretation_type",
+        "confidence", "manual_override",
     )
 
     CHAPTER_ARCS = {
@@ -230,6 +231,16 @@ class GitaPerformanceEngine:
         c, v = int(row["chapter"]), int(row["verse"])
         family, manual = self._family(c, v)
         profile = deepcopy(self.FAMILY_PROFILE[family])
+        profile.setdefault("head_tilt", profile.get("head_pose") or "restrained_contextual")
+        profile.setdefault("neck_motion", "minimal_controlled")
+        profile.setdefault("torso_state", profile.get("body_pose") or "composed")
+        profile.setdefault(
+            "breathing_profile",
+            "near_still" if family in {"DHYANA_KRISHNA", "SILENT_WISDOM"} else
+            "slow_controlled" if family in {"VISHVARUPA", "VISHVARUPA_TRANSITION"} else
+            "calm_natural",
+        )
+        profile.setdefault("scene_profile", profile.get("background_profile") or "NEUTRAL_CONVERSATION")
         theme, secondary = self._theme(c, v)
         arc = self.CHAPTER_ARCS[c][0]
         krishna_form = "vishvarupa_cosmic" if family == "VISHVARUPA" else (
@@ -280,6 +291,7 @@ class GitaPerformanceEngine:
             "explanation_profile": explanation,
             "partha_dialogue_profile": partha,
             "scriptural_evidence": self._evidence(c, v, row.get("source"), family),
+            "interpretation_type": "scripture_grounded_behavioral_design_mapping",
             "confidence": {
                 "scripture_identity": "high",
                 "chapter_arc": "high",
