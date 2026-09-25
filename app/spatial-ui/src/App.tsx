@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { DockviewReact, themeDark } from 'dockview-react';
 import { Background, Controls, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import { Canvas } from '@react-three/fiber';
@@ -72,7 +72,7 @@ function HawkeyeRfPanel() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const connectWifi = async (event: React.FormEvent) => {
+  const connectWifi = async (event: FormEvent) => {
     event.preventDefault();
     if (!localCredentialSurface || !ssid.trim() || !password) return;
     setConnecting(true);
