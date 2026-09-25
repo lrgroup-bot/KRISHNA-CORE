@@ -168,6 +168,22 @@ class SelfHealTests(unittest.TestCase):
             self.assertEqual(router.calls[1]["task"], "coding")
             self.assertEqual(router.calls[1]["keep_alive"], 0)
 
+    def test_frontend_repair_candidate_uses_isolated_preview_not_live_url(self):
+        runtime = KrishnaSelfHealRuntime(_NoopRouter(), Mock(), Mock())
+        url, target = runtime._candidate_frontend_target(
+            ["core/web_validation.html"],
+            "http://127.0.0.1:8766",
+        )
+        self.assertIsNone(url)
+        self.assertEqual(target, "candidate_static_preview")
+
+        backend_url, backend_target = runtime._candidate_frontend_target(
+            ["core/krishna_core/router.py"],
+            "http://127.0.0.1:8766",
+        )
+        self.assertEqual(backend_url, "http://127.0.0.1:8766")
+        self.assertEqual(backend_target, "registered_runtime_url")
+
     def test_direct_local_falls_back_to_next_installed_model(self):
         router = _FallbackRepairRouter()
         runtime = KrishnaSelfHealRuntime(router, Mock(), Mock())
