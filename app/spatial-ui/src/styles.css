@@ -53,3 +53,54 @@ h2 { margin: 10px 0 8px; font-size: 28px; }
   .nav-item { justify-content: center; }
   .bento { grid-template-columns: 1fr; }
 }
+
+
+.rf-console {
+  margin-top: 28px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.08);
+}
+.rf-console__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.rf-bento { margin-top: 18px; }
+.rf-bento .card { min-height: 128px; }
+.rf-layout { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(280px,.75fr); gap: 14px; margin-top: 14px; }
+.rf-stage, .rf-connect-card {
+  min-height: 250px; padding: 18px; border: 1px solid rgba(255,255,255,.08); border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+}
+.rf-stage {
+  position: relative; overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 65%, rgba(118,109,255,.16), transparent 34%),
+    linear-gradient(145deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+}
+.rf-stage::before {
+  content: ""; position: absolute; inset: 42px 18px 58px; opacity: .42; pointer-events: none;
+  background: repeating-radial-gradient(circle at 50% 70%, transparent 0 20px, rgba(151,144,255,.22) 21px 22px, transparent 23px 38px);
+}
+.rf-stage__title { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; font-weight: 750; }
+.rf-people { position: relative; z-index: 1; min-height: 138px; display: flex; align-items: flex-end; justify-content: center; gap: 18px; padding: 22px; }
+.rf-person {
+  width: 34px; height: 88px; border: 1px solid rgba(214,211,255,.72); border-radius: 18px 18px 10px 10px;
+  background: rgba(126,116,255,.16); box-shadow: 0 0 28px rgba(116,104,255,.22);
+}
+.rf-person::before {
+  content: ""; display: block; width: 26px; height: 26px; margin: -18px auto 0; border-radius: 50%;
+  border: 1px solid rgba(214,211,255,.72); background: rgba(126,116,255,.18);
+}
+.rf-rssi { position: relative; z-index: 1; min-height: 138px; display: grid; place-items: center; align-content: center; gap: 8px; text-align: center; }
+.rf-rssi__value { font-size: 44px; font-weight: 800; letter-spacing: -.04em; }
+.rf-stage .status-strip { position: relative; z-index: 1; margin-bottom: 0; }
+.rf-form { display: grid; gap: 12px; margin-top: 14px; }
+.rf-form label { display: grid; gap: 6px; color: #aeb6cc; font-size: 13px; }
+.rf-form input, .rf-form select {
+  width: 100%; border: 1px solid rgba(255,255,255,.11); border-radius: 11px; padding: 10px 11px;
+  background: rgba(4,6,10,.72); color: #eef2ff; outline: none;
+}
+.rf-form input:focus, .rf-form select:focus { border-color: rgba(157,167,255,.65); }
+.rf-check { grid-template-columns: 18px 1fr !important; align-items: center; }
+.rf-check input { width: 16px; height: 16px; }
+.rf-error { color: #ffb6b6; }
+.rf-limit { margin-top: 12px; font-size: 12px; }
+@media (max-width: 980px) {
+  .rf-layout { grid-template-columns: 1fr; }
+  .rf-console__header { flex-direction: column; }
+}
