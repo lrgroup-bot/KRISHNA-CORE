@@ -5,6 +5,7 @@ from pathlib import Path
 import json
 import shutil
 import time
+import traceback
 from typing import Any, Callable
 
 from .candidate_repair import CandidateRepairGuard
@@ -138,6 +139,15 @@ class KrishnaSelfHealRuntime:
                 }
             return run(url, preview)
 
+    @staticmethod
+    def _verification_exception(lane: str, exc: Exception) -> dict[str, Any]:
+        return {
+            "lane": lane,
+            "type": type(exc).__name__,
+            "message": str(exc)[:2000],
+            "traceback": "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-12000:],
+        }
+
     def verify_parallel(
         self,
         candidate_root: str | Path,
@@ -146,18 +156,34 @@ class KrishnaSelfHealRuntime:
         full: bool = False,
     ) -> dict[str, Any]:
         started = time.perf_counter()
+        errors = []
         with ThreadPoolExecutor(max_workers=2, thread_name_prefix="krishna-verify") as pool:
             backend_future = pool.submit(self.development.verify, candidate_root, list(checks or []))
             frontend_future = pool.submit(self._frontend_verify, candidate_root, frontend_url, full)
-            backend = backend_future.result()
-            frontend = frontend_future.result()
+            try:
+                backend = backend_future.result()
+            except Exception as exc:
+                error = self._verification_exception("backend", exc)
+                errors.append(error)
+                backend = {"verified": False, "steps": [], "exception": error}
+            try:
+                frontend = frontend_future.result()
+            except Exception as exc:
+                error = self._verification_exception("frontend", exc)
+                errors.append(error)
+                frontend = {
+                    "available": bool(frontend_url),
+                    "passed": False,
+                    "exception": error,
+                }
         backend_passed = bool(backend.get("verified")) if checks else True
-        passed = bool(backend_passed and frontend.get("passed", True))
+        passed = bool(not errors and backend_passed and frontend.get("passed", True))
         return {
             "parallel": True,
             "mode": "full" if full else "narrow",
             "backend": backend,
             "frontend": frontend,
+            "verification_errors": errors,
             "passed": passed,
             "elapsed_ms": int((time.perf_counter() - started) * 1000),
         }
@@ -236,6 +262,22 @@ class KrishnaSelfHealRuntime:
     ) -> dict[str, Any]:
         max_rounds = max(1, min(int(max_rounds or 1), 3))
         initial = self.verify_parallel(project_root, checks, frontend_url, full=True)
+        if initial.get("verification_errors"):
+            result = {
+                "version": self.VERSION,
+                "project": project,
+                "status": "verification_error",
+                "initial_verification": initial,
+                "repair_rounds": [],
+                "model_reviews": [],
+                "verified": False,
+                "rolled_back": False,
+                "rollback": "not required; no candidate was created and live tree was not modified",
+                "live_project_modified": False,
+            }
+            if self.memory:
+                self.memory.audit("self_heal", "verification_error", project)
+            return result
         if initial.get("passed"):
             return {
                 "version": self.VERSION,
