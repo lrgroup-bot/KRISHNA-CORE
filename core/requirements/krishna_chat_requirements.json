@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "version": "2026-09-23-master-product-truth-v9",
+  "version": "2026-09-25-master-product-truth-v10",
   "source": "Canonical KRISHNA product requirements consolidated from project conversations, merged repository decisions, runtime acceptance and current architecture",
   "non_negotiables": [
     "KRISHNA is the only public identity and final decision authority.",
@@ -29,7 +29,8 @@
         "Maintain active versus protected/archive project distinction and do not mutate backups as live projects.",
         "Continue safe routine work without babysitting and surface meaningful verified completion notifications.",
         "Crash loops use heartbeat/supervision, exponential restart backoff and quarantine instead of endless restart storms.",
-        "Critical RAM pressure may unload resident local models without deleting model files."
+        "Critical RAM pressure may unload resident local models without deleting model files.",
+        "MRITYUNJAY is KRISHNA's permanent self-heal supervisor: objective action/mission/tool failures trigger bounded diagnosis; repairs occur only in isolated candidates; deterministic tests/runtime/UI evidence remains authoritative; low-risk edits to existing non-sensitive files may autonomously commit and hand off to Guardian for verified deploy/acceptance, while add/delete/control-plane/security/privacy/auth/credential/dependency/deployment/mobile changes remain quarantined."
       ]
     },
     {
@@ -788,6 +789,22 @@
         "core/tests/test_hawkeye_mobile_observer_contract.py"
       ],
       "next": "real Android acceptance: object tracking IDs/boxes -> supported-camera auto-zoom -> Custom Tab research -> PHOTO+DATA -> REC+DATA -> gallery/sidecar verification"
+    },
+    {
+      "id": "mrityunjay_autonomous_self_heal",
+      "status": "IMPLEMENTED_NOT_VERIFIED",
+      "owner": "KRISHNA / MRITYUNJAY / Guardian",
+      "evidence": [
+        "core/krishna_core/mrityunjay.py",
+        "core/krishna_core/self_heal.py",
+        "core/krishna_core/development_operator.py",
+        "core/krishna_core/orchestrator.py",
+        "core/krishna_core/server.py",
+        "scripts/START_KRISHNA.ps1",
+        "core/tests/test_mrityunjay.py",
+        "core/tests/test_self_heal.py"
+      ],
+      "next": "merge CI, deploy to E: runtime, then force a controlled low-risk failure and verify candidate repair -> clean Git commit -> Guardian restart -> verified deployment/acceptance -> remote sync; higher-risk changes must remain quarantined"
     }
   ]
 }
