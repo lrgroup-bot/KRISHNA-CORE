@@ -164,6 +164,8 @@ class ModelRouter:
             model=str(model).strip()
             if not self.local_model_allowed(model):
                 raise RuntimeError("local model disabled by owner policy: "+model)
+            if keep_alive is None:
+                return self._ollama_generate(model,prompt)
             return self._ollama_generate(model,prompt,keep_alive=keep_alive)
         status=self.local_model_status(task)
         ordered=[status.get("selected_model"),*self.local_model_candidates(task)]
@@ -174,7 +176,8 @@ class ModelRouter:
         errors={}
         for candidate in candidates:
             try:
-                out=self._ollama_generate(candidate,prompt,keep_alive=keep_alive)
+                out=(self._ollama_generate(candidate,prompt) if keep_alive is None
+                     else self._ollama_generate(candidate,prompt,keep_alive=keep_alive))
                 if str(out).strip():return out
                 errors[candidate]="empty response"
             except Exception as exc:
