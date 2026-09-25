@@ -36,6 +36,15 @@ class GitaPerformanceTests(unittest.TestCase):
         self.assertTrue(record["sanskrit"].strip())
         self.assertTrue(record["scriptural_evidence"])
 
+    def test_latest_avatar_performance_contract_fields_exist(self):
+        record = self.performance.record(2, 47)
+        for field in (
+            "head_tilt", "neck_motion", "torso_state", "breathing_profile",
+            "scene_profile", "interpretation_type",
+        ):
+            self.assertIn(field, record)
+            self.assertTrue(record[field])
+
     def test_gita_2_10_is_restrained_smiling_teacher(self):
         record = self.performance.record(2, 10)
         self.assertEqual(record["avatar_family"], "SMILING_TEACHER")
@@ -180,6 +189,21 @@ class AvatarGitaPerformanceTests(unittest.TestCase):
             self.assertEqual(returned["transition_from"], "VISHVARUPA")
             self.assertEqual(returned["transition_to"], "REASSURING_PERSONAL_FORM")
             self.assertIn("not VERIFIED", avatar.status()["asset_policy"])
+
+
+    def test_avatar_runtime_forwards_complete_performance_channels(self):
+        with tempfile.TemporaryDirectory() as td:
+            gita = GitaGyan(Path(td) / "gita")
+            performance = GitaPerformanceEngine(gita)
+            avatar = AvatarRuntime()
+            command = avatar.apply_performance(performance.record(2, 47))
+            params = command["params"]
+            for field in (
+                "head_tilt", "neck_motion", "torso_state", "breathing_profile",
+                "scene_profile",
+            ):
+                self.assertIn(field, params)
+                self.assertTrue(params[field])
 
 
 class GitaApiContractTests(unittest.TestCase):
