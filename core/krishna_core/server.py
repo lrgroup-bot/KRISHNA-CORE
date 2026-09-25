@@ -39,6 +39,20 @@ from .http_server_runtime import KrishnaThreadingHTTPServer
 from .hawkeye_media_sync import HawkeyeMediaSyncStore
 
 orch = Orchestrator()
+_mrityunjay_restart_event = threading.Event()
+_mrityunjay_restart_payload = {}
+
+def _schedule_mrityunjay_restart(payload):
+    global _mrityunjay_restart_payload
+    _mrityunjay_restart_payload = dict(payload or {})
+    _mrityunjay_restart_event.set()
+    return {
+        "scheduled": True,
+        "reason": "verified Mrityunjay source upgrade; Guardian will restart and START_KRISHNA will run verified deployment",
+        "new_commit": _mrityunjay_restart_payload.get("new_commit"),
+    }
+
+orch.mrityunjay.bind_restart(_schedule_mrityunjay_restart)
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _sessions = RealtimeSessionStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _plugins = PluginRegistry(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -4029,6 +4043,22 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = KrishnaThreadingHTTPServer((settings.host, settings.port), Handler)
+
+    def _mrityunjay_restart_monitor():
+        _mrityunjay_restart_event.wait()
+        # Give the action response a brief opportunity to flush before graceful
+        # Core shutdown. Guardian owns the subsequent restart/deploy lifecycle.
+        time.sleep(2)
+        try:
+            server.shutdown()
+        except Exception as exc:
+            print(f"[KRISHNA] Mrityunjay restart shutdown warning: {type(exc).__name__}: {exc}", file=sys.stderr)
+
+    threading.Thread(
+        target=_mrityunjay_restart_monitor,
+        name="krishna-mrityunjay-restart",
+        daemon=True,
+    ).start()
     if os.getenv("KRISHNA_LAN_DISCOVERY","0") == "1":
         _lan_discovery = LanDiscoveryService(settings.port)
         _lan_discovery.start()
