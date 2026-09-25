@@ -261,6 +261,16 @@ class MrityunjayTests(unittest.TestCase):
             self.assertIsNone(ignored)
             self.assertEqual(bot.status()["queue_depth"], before)
 
+    def test_sensitive_subsystem_change_is_quarantined(self):
+        result = MrityunjaySelfHealBot.auto_apply_eligibility({
+            "added": [],
+            "changed": ["core/krishna_core/security_soc.py"],
+            "removed": [],
+            "file_count": 1,
+        })
+        self.assertFalse(result["eligible"])
+        self.assertTrue(any("sensitive subsystem" in reason for reason in result["reasons"]))
+
     def test_new_files_are_quarantined_for_clean_rollback(self):
         result = MrityunjaySelfHealBot.auto_apply_eligibility({
             "added": ["core/krishna_core/new_worker.py"],
