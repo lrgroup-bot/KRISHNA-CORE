@@ -34,7 +34,8 @@ from xml.sax.saxutils import escape
 
 class HawkeyeRuViewBridge:
     VERSION = "hawkeye-ruview-v1"
-    DEFAULT_BASE_URL = "http://127.0.0.1:3000"
+    DEFAULT_BASE_URL = "http://127.0.0.1:8080"
+    FALLBACK_BASE_URLS = ("http://127.0.0.1:3000",)
     CSI_HINTS = {
         "csi", "wifi_csi", "channel_state_information", "pose_data",
         "edge_vitals", "densepose", "rf_pose",
@@ -377,28 +378,40 @@ class HawkeyeRuViewBridge:
             "mobile_credential_entry": False,
         }
 
+    def _candidate_base_urls(self):
+        out = []
+        for value in (self.base_url, *self.FALLBACK_BASE_URLS):
+            value = str(value or "").rstrip("/")
+            if value and value not in out:
+                out.append(value)
+        return out
+
     def probe_ruview(self):
-        endpoint = self.base_url + "/api/v1/sensing/latest"
         headers = {"Accept": "application/json"}
         token = str(os.getenv("RUVIEW_API_TOKEN") or "").strip()
         if token:
             headers["Authorization"] = "Bearer " + token
-        try:
-            with urlopen(Request(endpoint, headers=headers), timeout=0.8) as response:
-                raw = response.read(1024 * 1024)
-                payload = json.loads(raw.decode("utf-8"))
-                if not isinstance(payload, dict):
-                    raise ValueError("RuView latest endpoint did not return an object")
-                return {
-                    "reachable": True,
-                    "http_status": int(getattr(response, "status", 200)),
-                    "latest": payload,
-                }
-        except Exception as exc:
-            return {
-                "reachable": False,
-                "error": type(exc).__name__,
-            }
+        errors = {}
+        for base_url in self._candidate_base_urls():
+            endpoint = base_url + "/api/v1/sensing/latest"
+            try:
+                with urlopen(Request(endpoint, headers=headers), timeout=0.6) as response:
+                    raw = response.read(1024 * 1024)
+                    payload = json.loads(raw.decode("utf-8"))
+                    if not isinstance(payload, dict):
+                        raise ValueError("RuView latest endpoint did not return an object")
+                    return {
+                        "reachable": True,
+                        "http_status": int(getattr(response, "status", 200)),
+                        "base_url": base_url,
+                        "latest": payload,
+                    }
+            except Exception as exc:
+                errors[self._safe_url(base_url)] = type(exc).__name__
+        return {
+            "reachable": False,
+            "errors": errors,
+        }
 
     @classmethod
     def _payload_has_csi(cls, payload):
@@ -605,7 +618,8 @@ class HawkeyeRuViewBridge:
             "wifi": wifi,
             "ruview": {
                 "python_client_installed": self._package_available(),
-                "server_url": self._safe_url(self.base_url),
+                "server_url": self._safe_url(probe.get("base_url") or self.base_url),
+                "candidate_urls": [self._safe_url(x) for x in self._candidate_base_urls()],
                 "reachable": bool(probe.get("reachable")),
                 "csi_detected": csi,
                 "latest": self.normalize_ruview_event(latest) if latest else None,
