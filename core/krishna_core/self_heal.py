@@ -412,7 +412,9 @@ class KrishnaSelfHealRuntime:
 
                 phase = f"round_{round_no}_narrow_verification"
                 narrow_checks = self._failed_steps(current) or list(checks[:1])
-                narrow = self.verify_parallel(candidate_root, narrow_checks, frontend_url, full=False)
+                # Candidate UI verification must inspect the isolated candidate, not the live runtime.
+                # Passing the live frontend URL here would re-test the old UI and could falsely approve a patch.
+                narrow = self.verify_parallel(candidate_root, narrow_checks, None, full=False)
                 row = {
                     "round": round_no,
                     "diagnosis_provider": diagnosis["provider"],
@@ -439,7 +441,9 @@ class KrishnaSelfHealRuntime:
                     continue
 
                 phase = f"round_{round_no}_full_verification"
-                full = self.verify_parallel(candidate_root, checks, frontend_url, full=True)
+                # Full candidate regression also uses the isolated preview. Live URL verification
+                # belongs to initial health evidence and the post-apply gate only.
+                full = self.verify_parallel(candidate_root, checks, None, full=True)
                 row["full_regression_runtime_ui"] = full
                 current = full
                 if full.get("verification_errors"):

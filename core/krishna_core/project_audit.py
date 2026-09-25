@@ -33,7 +33,7 @@ class AuditFinding:
 
 class KrishnaProjectAudit:
     WORKERS=(
-        "source","repository","ui","core","desktop","avatar","voice","mobile","security","deployment","requirements"
+        "source","repository","ui","core","self_heal","desktop","avatar","voice","mobile","security","deployment","requirements"
     )
 
     def __init__(self,source_root: str|Path,runtime_root: str|Path):
@@ -200,6 +200,27 @@ class KrishnaProjectAudit:
                  "all $() DOM references resolve" if not missing_ids else "missing DOM IDs",
                  missing=missing_ids)
 
+        spatial=self.source/"app"/"spatial-ui"/"src"/"App.tsx"
+        if not spatial.is_file():
+            self.add("ui","React spatial UI source contract","FAIL","spatial UI App.tsx is missing")
+        else:
+            spatial_text=spatial.read_text(encoding="utf-8")
+            nav_match=re.search(r'(?s)<nav aria-label="Main Menu">(.*?)</nav>',spatial_text)
+            nav_block=nav_match.group(1) if nav_match else ""
+            nav_labels=re.findall(r'<span>(KRISHNA|Sudarshan|Plugins)</span>',nav_block)
+            hidden_internal=all(
+                token not in re.sub(r'event\.api\.addPanel\([\s\S]*?\);',"",spatial_text)
+                for token in ("KABACH","Garuda","Garudanetra","BRAHMAGYAN","Gyan-Bhandar")
+            )
+            spatial_endpoints=set(re.findall(r"fetch\(\s*['\"](/api/[^'\"?]+)",spatial_text))
+            missing_spatial_api=[x for x in sorted(spatial_endpoints) if x not in server]
+            spatial_ok=(nav_labels.count("KRISHNA")==1 and nav_labels.count("Sudarshan")==1
+                        and nav_labels.count("Plugins")==1 and hidden_internal and not missing_spatial_api)
+            self.add("ui","React spatial UI source contract","PASS" if spatial_ok else "FAIL",
+                     "spatial UI keeps only KRISHNA/Sudarshan/Plugins owner navigation and resolves runtime APIs"
+                     if spatial_ok else "spatial UI navigation/API contract mismatch",
+                     nav_labels=nav_labels,hidden_internal=hidden_internal,missing_api=missing_spatial_api)
+
     def audit_core(self):
         required=(
             "durable_event_bus.py","durable_queue.py","mission_engine.py","mission_budget.py",
@@ -217,6 +238,29 @@ class KrishnaProjectAudit:
         self.add("core","durable runtime surfaces","PASS" if not absent else "FAIL",
                  "durable runtime status surfaces are exposed" if not absent else "durable status routes missing",
                  missing=absent)
+
+    def audit_self_heal(self):
+        orchestrator=self._read("core/krishna_core/orchestrator.py")
+        self_heal=self._read("core/krishna_core/self_heal.py")
+        guard=self._read("core/krishna_core/candidate_repair.py")
+        mrityunjay=self.source/"core"/"krishna_core"/"mrityunjay.py"
+        checks={
+            "mrityunjay_module":mrityunjay.is_file(),
+            "mrityunjay_status_action":'"mrityunjay.status"' in orchestrator,
+            "mrityunjay_heal_action":'"mrityunjay.heal"' in orchestrator,
+            "mrityunjay_agent":'"mrityunjay","autonomous bounded self-heal' in orchestrator,
+            "event_attach":"self.mrityunjay.attach()" in orchestrator,
+            "candidate_preview_narrow":"self.verify_parallel(candidate_root, narrow_checks, None, full=False)" in self_heal,
+            "candidate_preview_full":"self.verify_parallel(candidate_root, checks, None, full=True)" in self_heal,
+            "candidate_guard_secrets":'"credentials.json"' in guard and '".github"' in guard and '"package.json"' in guard,
+            "transactional_apply":"self_heal_apply_action" in orchestrator and "rolled_back_post_apply" in orchestrator,
+        }
+        missing=[k for k,v in checks.items() if not v]
+        self.add("self_heal","MRITYUNJAY autonomous healing contract","PASS" if not missing else "FAIL",
+                 "event-driven bounded repair + isolated candidate + deterministic regression + transactional rollback are wired"
+                 if not missing else "MRITYUNJAY/self-heal architecture is incomplete",
+                 checks=checks,missing=missing,
+                 policy="automatic healing may repair only bounded source; secrets/dependencies/workflows/security/external side effects remain blocked")
 
     def audit_desktop(self):
         from .windows_desktop_fabric import WindowsDesktopFabric
@@ -265,6 +309,45 @@ class KrishnaProjectAudit:
         self.add("avatar","local avatar engines","PASS" if not missing else "WARN",
                  "all local avatar engines installed" if not missing else "avatar engine assets still need runtime installation",
                  missing=missing)
+
+        bible=self.source/"docs"/"KRISHNA_CHARACTER_PERFORMANCE_BIBLE.md"
+        avatar_runtime=self.source/"core"/"krishna_core"/"avatar_runtime.py"
+        production=self.source/"core"/"krishna_core"/"avatar_production.py"
+        required_identity=(
+            "one peacock feather","beautiful long natural hair","yellow/pitambara",
+            "subtle child-scale jewellery","flute","clean tilak","graceful posture",
+            "Bala Krishna warmth","Venugopala grace","Gita Krishna calm intelligence",
+            "Partha-only conversation relationship",
+        )
+        required_channels=(
+            "face","eyes","smile","brows","hands","posture","walk","listening","thinking","speaking",
+            "wisdom","playfulness","protection","flute","dhyan","sleeping","waking",
+        )
+        required_states=(
+            "IDLE","LISTENING","THINKING","SPEAKING","WISDOM","PLAYFUL","PROTECTION",
+            "FLUTE","DHYAN","SLEEPING","WAKING","WORKING",
+        )
+        if not bible.is_file() or not avatar_runtime.is_file() or not production.is_file():
+            self.add("avatar","owner avatar direction contract","FAIL","avatar performance/production source is incomplete")
+        else:
+            bible_text=bible.read_text(encoding="utf-8")
+            runtime_text=avatar_runtime.read_text(encoding="utf-8")
+            production_text=production.read_text(encoding="utf-8")
+            missing_identity=[x for x in required_identity if x.lower() not in bible_text.lower()]
+            missing_channels=[x for x in required_channels if x.lower() not in bible_text.lower()]
+            missing_states=[x for x in required_states if f'"{x}"' not in runtime_text]
+            clip_map={
+                "IDLE":"idle","LISTENING":"listen","THINKING":"think","SPEAKING":"talk",
+                "WISDOM":"wisdom","PLAYFUL":"playful","PROTECTION":"protection","FLUTE":"flute",
+                "DHYAN":"dhyan","SLEEPING":"sleep","WAKING":"wake","WORKING":"work",
+            }
+            missing_clips=[clip for clip in clip_map.values() if f'"{clip}"' not in production_text]
+            direction_ok=not (missing_identity or missing_channels or missing_states or missing_clips)
+            self.add("avatar","owner avatar direction contract","PASS" if direction_ok else "FAIL",
+                     "Bala Krishna identity, Partha relationship, performance hierarchy/states and production clips are codified"
+                     if direction_ok else "one or more owner avatar directions are missing from canonical source",
+                     missing_identity=missing_identity,missing_channels=missing_channels,
+                     missing_states=missing_states,missing_clips=missing_clips)
 
     def audit_voice(self):
         status=KrishnaVoiceStack().status()
