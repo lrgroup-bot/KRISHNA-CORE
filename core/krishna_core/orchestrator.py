@@ -245,6 +245,9 @@ class Orchestrator:
             projects=self.projects,
             event_bus=self.lifecycle_bus,
             default_frontend_url=f"http://127.0.0.1:{settings.port}",
+            development=self.development,
+            source_root=self.source_root,
+            canonical_branch=os.getenv("KRISHNA_CANONICAL_BRANCH","fix/krishna-ui-runtime-verification"),
         )
         self.kabach.bind_privacy_runtime(browser=self.browser,event_bus=self.lifecycle_bus,gyan_bhandar=self.gyan_bhandar)
         self.long_context_scheduler.start()
