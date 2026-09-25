@@ -82,19 +82,34 @@ function Complete-MrityunjayHandoff($Handoff){
         return $true
     }
     & git -C $authoritative push origin $branch
-    if($LASTEXITCODE -ne 0){
-        Restore-MrityunjayPreviousSource $Handoff "remote push failed after verified deployment"
-        return $true
+    $pushExit=$LASTEXITCODE
+
+    # A network disconnect can make push return non-zero even after the remote
+    # accepted the commit. Check the actual remote head before deciding rollback.
+    $remoteProbe=& git -C $authoritative ls-remote origin ("refs/heads/"+$branch) 2>$null
+    $remoteProbeExit=$LASTEXITCODE
+    $remoteActual=""
+    if($remoteProbeExit -eq 0 -and $remoteProbe){
+        $remoteActual=([string]($remoteProbe|Select-Object -First 1)).Split([char]9)[0].Trim()
     }
+    if($remoteActual -eq $newCommit){
+        # Push is verified, regardless of the client's original exit code.
+    }elseif($pushExit -ne 0 -and $remoteActual -eq [string]$Handoff.previous_commit){
+        Restore-MrityunjayPreviousSource $Handoff "remote push was rejected and remote remained on the previous commit"
+        return $true
+    }elseif(!$remoteActual){
+        throw "MRITYUNJAY cannot determine remote state after push; retaining handoff for retry rather than guessing rollback"
+    }else{
+        throw ("MRITYUNJAY remote branch changed unexpectedly. remote="+$remoteActual+" expected="+$newCommit)
+    }
+
     & git -C $authoritative fetch --quiet origin
     if($LASTEXITCODE -ne 0){
-        Restore-MrityunjayPreviousSource $Handoff "remote verification fetch failed after push"
-        return $true
+        throw "MRITYUNJAY remote push is verified but tracking-ref refresh failed; retaining handoff for retry"
     }
     $remote=(git -C $authoritative rev-parse ("origin/"+$branch)).Trim()
     if($remote -ne $newCommit){
-        Restore-MrityunjayPreviousSource $Handoff "remote branch did not verify the autonomous commit"
-        return $true
+        throw "MRITYUNJAY remote tracking ref does not match the verified autonomous commit"
     }
     Save-MrityunjayHandoffResult $Handoff "completed" "verified deployment accepted and canonical remote push verified"
     Write-Host ("MRITYUNJAY AUTONOMOUS UPGRADE VERIFIED: "+$newCommit) -ForegroundColor Green
@@ -129,6 +144,17 @@ if($authoritative -and (Test-Path "$authoritative\.git")){
                 [void](Complete-MrityunjayHandoff $handoff)
                 $sourceHead=(git -C $authoritative rev-parse HEAD).Trim()
             }
+        }
+    }
+
+    # A previous restart may already have deployed the local autonomous commit
+    # but still be waiting to verify/push the remote branch. Complete that durable
+    # handoff before runtime-integrity checks.
+    $handoff=Get-MrityunjayHandoff
+    if($handoff){
+        $currentHead=(git -C $authoritative rev-parse HEAD).Trim()
+        if([string]$handoff.new_commit -eq $currentHead){
+            [void](Complete-MrityunjayHandoff $handoff)
         }
     }
 }
