@@ -190,11 +190,58 @@ class KrishnaSelfHealRuntime:
 
     def _direct_local(self, prompt: str, task: str) -> dict[str, Any]:
         status = self.router.local_model_status(task)
-        model = str(status.get("selected_model") or status.get("primary_model") or "").strip()
-        if not model:
-            raise RuntimeError("no approved local Ollama model is available for " + task)
-        text = self.router.local(prompt, model=model, task=task, keep_alive=0)
-        return {"provider": "ollama-model:" + model, "model": model, "text": str(text or "")}
+        installed = [
+            str(model or "").strip()
+            for model in (status.get("installed_candidates") or [])
+            if str(model or "").strip()
+        ]
+        candidates = []
+        selected = str(status.get("selected_model") or "").strip()
+        if selected:
+            candidates.append(selected)
+        for model in installed:
+            if model not in candidates:
+                candidates.append(model)
+
+        # Compatibility for test/dummy routers that predate installed_candidates.
+        if not candidates and "installed_candidates" not in status:
+            model = str(status.get("primary_model") or "").strip()
+            if model:
+                candidates.append(model)
+
+        if not candidates:
+            raise RuntimeError(
+                "no installed approved local Ollama model is available for "
+                + task
+                + ": "
+                + json.dumps(status, sort_keys=True)
+            )
+
+        errors = {}
+        for model in candidates:
+            try:
+                text = self.router.local(prompt, model=model, task=task, keep_alive=0)
+                if str(text or "").strip():
+                    return {
+                        "provider": "ollama-model:" + model,
+                        "model": model,
+                        "text": str(text or ""),
+                        "attempted_models": list(candidates[: candidates.index(model) + 1]),
+                    }
+                errors[model] = "empty response"
+            except Exception as exc:
+                errors[model] = f"{type(exc).__name__}: {exc}"
+
+        raise RuntimeError(
+            "all installed approved local Ollama models failed for "
+            + task
+            + ": "
+            + json.dumps({
+                "attempted_models": candidates,
+                "attempt_errors": errors,
+                "status": status,
+            }, sort_keys=True)
+        )
 
     def _reviewers(self, privacy: str) -> list[str]:
         providers = []
