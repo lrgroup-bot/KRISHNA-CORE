@@ -17,6 +17,14 @@ class FullAuditContractTests(unittest.TestCase):
         self.assertIn("return", step)
         self.assertNotIn("\n    throw\n", step)
 
+    def test_master_audit_includes_frontend_and_self_heal_gates(self):
+        text = (ROOT / "scripts" / "AUDIT_KRISHNA_FULL.ps1").read_text(encoding="utf-8")
+        self.assertIn('Step "MRITYUNJAY + SELF HEAL CONTRACT"', text)
+        self.assertIn('tests.test_self_heal tests.test_mrityunjay', text)
+        self.assertIn('Step "SPATIAL UI BUILD"', text)
+        self.assertIn('run build', text)
+        self.assertIn('package-lock=false', text)
+
     def test_master_audit_still_fails_release_after_collecting_results(self):
         text = (ROOT / "scripts" / "AUDIT_KRISHNA_FULL.ps1").read_text(encoding="utf-8")
         self.assertIn('fail=@($rows|Where-Object{$_.status -eq "FAIL"}).Count', text)
