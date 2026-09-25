@@ -1,5 +1,5 @@
 from http.server import BaseHTTPRequestHandler
-import json, time, threading, base64, sys, uuid, os, mimetypes
+import json, time, threading, base64, sys, uuid, os, mimetypes, traceback
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
@@ -2829,6 +2829,14 @@ class Handler(BaseHTTPRequestHandler):
                     idempotency_key=str(data.get("idempotency_key") or "").strip() or None,
                 )
                 return self._json(200,out)
+            except RecursionError as exc:
+                return self._json(500,{
+                    "error":"maximum recursion depth exceeded",
+                    "type":"RecursionError",
+                    "phase":"action_bus_dispatch",
+                    "action":action,
+                    "traceback":"".join(traceback.format_exception(type(exc),exc,exc.__traceback__))[-12000:],
+                })
             except KeyError as exc:return self._json(404,{"error":str(exc)})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
