@@ -97,6 +97,7 @@ from .gita_gyan import GitaGyan
 from .gita_performance import GitaPerformanceEngine
 from .krishna_shloka import KrishnaShlokaOrchestrator
 from .self_heal import KrishnaSelfHealRuntime
+from .mrityunjay import MrityunjaySelfHealBot
 
 
 class Orchestrator:
@@ -238,6 +239,13 @@ class Orchestrator:
         self.protocols.bind_sudarshan(self.sudarshan)
         self.dispatcher.bind_sudarshan(self.sudarshan)
         self.agi.narad.bind_sudarshan(self.sudarshan)
+        self.mrityunjay = MrityunjaySelfHealBot(
+            runtime_state / "mrityunjay",
+            dispatcher=self.dispatch_action,
+            projects=self.projects,
+            event_bus=self.lifecycle_bus,
+            default_frontend_url=f"http://127.0.0.1:{settings.port}",
+        )
         self.kabach.bind_privacy_runtime(browser=self.browser,event_bus=self.lifecycle_bus,gyan_bhandar=self.gyan_bhandar)
         self.long_context_scheduler.start()
         if hasattr(self.ephemeral_workers,"bind_sudarshan"):
@@ -589,6 +597,29 @@ class Orchestrator:
                 "verified":bool(live.get("promoted") and (post or {}).get("passed")),
                 "rolled_back":bool(live.get("rolled_back")),
             }
+
+        def mrityunjay_status_action(payload,context):
+            return self.mrityunjay.status()
+
+        def mrityunjay_trigger_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            return self.mrityunjay.trigger(
+                project,
+                reason=str(payload.get("reason") or "explicit KRISHNA failure signal"),
+                evidence=dict(payload.get("evidence") or {}),
+                frontend_url=str(payload.get("frontend_url") or "").strip() or None,
+                force=bool(payload.get("force",False)),
+            )
+
+        def mrityunjay_heal_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            return self.mrityunjay.heal_now(
+                project,
+                reason=str(payload.get("reason") or "owner/runtime requested governed self-heal"),
+                evidence=dict(payload.get("evidence") or {}),
+                frontend_url=str(payload.get("frontend_url") or "").strip() or None,
+                force=bool(payload.get("force",False)),
+            )
 
         def project_perfection_finish_action(payload,context):
             project=str(payload.get("project") or context.get("project") or "").strip()
@@ -2507,6 +2538,27 @@ class Orchestrator:
         )
 
         self.action_bus.register(
+            "mrityunjay.status",mrityunjay_status_action,
+            description="Read permanent KRISHNA Mrityunjay self-heal supervisor status",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "mrityunjay.trigger",mrityunjay_trigger_action,
+            description="Queue a governed KRISHNA self-heal investigation from an objective failure signal",
+            mutating=True,
+            permissions=("candidate.write","tests.run","browser.test","model.use"),
+            sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "mrityunjay.heal",mrityunjay_heal_action,
+            description="Run Mrityunjay now; auto-apply only verified low-risk reversible repairs and quarantine higher-risk candidates",
+            mutating=True,
+            permissions=("candidate.write","tests.run","browser.test","model.use","live.write"),
+            sources=("pc","system"),
+        )
+
+        self.action_bus.register(
             "project.perfection.finish",project_perfection_finish_action,
             description="Run full project discovery, adversarial QA, artifact retest and evidence certification",
             mutating=True,permissions=("candidate.write","tests.run","browser.test"),
@@ -3229,6 +3281,11 @@ class Orchestrator:
             "developer","bounded project implementation and verification",
             permissions=("code.read","candidate.write","git.push","tests.run","browser.read","browser.test","worker.execute","model.use","media.create"),
             actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead","repair.shadow","openrouter.free.*","direct.free.*"),
+        )
+        self.agent_runtime.register(
+            "mrityunjay","permanent KRISHNA self-heal and recovery supervisor",
+            permissions=("runtime.read","candidate.write","tests.run","browser.test","model.use","live.write"),
+            actions=("mrityunjay.*","self_heal.*"),
         )
         self.agent_runtime.register(
             "narad","durable automation and provider workflow runtime",
