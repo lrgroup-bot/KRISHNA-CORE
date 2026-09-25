@@ -415,7 +415,28 @@ class HawkeyeRuViewBridge:
 
     @classmethod
     def _payload_has_csi(cls, payload):
-        text = json.dumps(payload or {}, sort_keys=True, default=str).lower()
+        payload = dict(payload or {}) if isinstance(payload, dict) else {}
+        window = payload.get("window")
+        if isinstance(window, dict) and (
+            isinstance(window.get("amplitudes"), list)
+            or isinstance(window.get("phases"), list)
+        ):
+            return True
+        nodes = payload.get("nodes")
+        if isinstance(nodes, list) and any(
+            isinstance(node, dict)
+            and (
+                node.get("subcarrier_count") is not None
+                or isinstance(node.get("amplitude"), list)
+            )
+            for node in nodes
+        ):
+            return True
+        if payload.get("schema_version") and (
+            "captured_at" in payload or "features" in payload
+        ):
+            return True
+        text = json.dumps(payload, sort_keys=True, default=str).lower()
         return any(hint in text for hint in cls.CSI_HINTS)
 
     @staticmethod
@@ -427,30 +448,85 @@ class HawkeyeRuViewBridge:
 
     def normalize_ruview_event(self, event):
         event = dict(event or {})
-        kind = str(event.get("type") or event.get("kind") or "sensing").strip().lower()
-        node_id = str(event.get("node_id") or event.get("node") or "ruview").strip()
-        confidence = self._clamp(event.get("confidence", event.get("presence_score", 0.7)))
+        kind = str(
+            event.get("type")
+            or event.get("kind")
+            or ("sensing_update" if "classification" in event else "sensing")
+        ).strip().lower()
+        classification = event.get("classification")
+        classification = classification if isinstance(classification, dict) else {}
+        features = event.get("features")
+        features = features if isinstance(features, dict) else {}
+
+        nodes = event.get("nodes")
+        nodes = nodes if isinstance(nodes, list) else []
+        first_node = next((x for x in nodes if isinstance(x, dict)), {})
+        node_id = str(
+            event.get("node_id")
+            or event.get("node")
+            or first_node.get("node_id")
+            or "ruview"
+        ).strip()
+
+        confidence = self._clamp(
+            event.get(
+                "confidence",
+                classification.get(
+                    "confidence",
+                    event.get("presence_score", event.get("signal_quality_score", 0.7)),
+                ),
+            )
+        )
+
         persons = event.get("persons")
         if not isinstance(persons, list):
             persons = []
+
+        count_source = (
+            event.get("estimated_persons")
+            if event.get("estimated_persons") is not None
+            else event.get("n_persons")
+        )
         try:
-            person_count = int(event.get("n_persons")) if event.get("n_persons") is not None else len(persons)
+            person_count = int(count_source) if count_source is not None else len(persons)
         except (TypeError, ValueError):
             person_count = len(persons)
 
+        presence_value = event.get("presence")
+        if presence_value is None:
+            presence_value = classification.get("presence")
+
+        motion_value = event.get("motion")
+        if motion_value is None:
+            motion_value = features.get("motion_band_power")
+        motion_level = classification.get("motion_level")
+
+        rssi_value = event.get("rssi")
+        if rssi_value is None:
+            rssi_value = first_node.get("rssi_dbm", features.get("mean_rssi"))
+
+        pose_keypoints = event.get("pose_keypoints")
+        if not isinstance(pose_keypoints, list):
+            pose_keypoints = []
+
+        csi = self._payload_has_csi(event)
         payload = {
-            "modality": "wifi_csi" if self._payload_has_csi(event) else "rf",
+            "modality": "wifi_csi" if csi else "rf",
             "provider": "RuView",
             "event_type": kind,
             "node_id": node_id,
-            "presence": bool(event.get("presence")) if "presence" in event else None,
-            "motion": event.get("motion"),
+            "presence": bool(presence_value) if presence_value is not None else None,
+            "motion": motion_value,
+            "motion_level": motion_level,
             "motion_energy": event.get("motion_energy"),
             "person_count": max(0, person_count),
             "presence_score": event.get("presence_score"),
-            "rssi": event.get("rssi"),
+            "rssi": rssi_value,
             "persons": persons[:20],
-            "signal_quality": event.get("signal_quality"),
+            "pose_keypoints": pose_keypoints[:68],
+            "signal_quality": event.get("signal_quality_score", event.get("signal_quality")),
+            "quality_verdict": event.get("quality_verdict"),
+            "source": event.get("source"),
             "limitation": (
                 "RuView scene outputs are RF-model inferences, not camera observations. "
                 "Accuracy depends on CSI hardware, calibration, room geometry and the deployed model."
@@ -462,7 +538,7 @@ class HawkeyeRuViewBridge:
             "confidence": confidence,
             "payload": payload,
             "fingerprint": self._event_fingerprint(event),
-            "csi": self._payload_has_csi(event),
+            "csi": csi,
         }
 
     def ingest_event(self, session_id, event):
