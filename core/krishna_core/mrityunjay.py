@@ -370,7 +370,7 @@ class MrityunjaySelfHealBot:
             "project": project,
             "reason": str(reason or "runtime failure signal")[:4000],
             "evidence": dict(evidence or {}),
-            "frontend_url": str(frontend_url or self.default_frontend_url or "").strip() or None,
+            "frontend_url": str(frontend_url or (self.default_frontend_url if project == "KRISHNA" else "") or "").strip() or None,
             "force": bool(force),
             "queued_at": time.time(),
         }
