@@ -22,6 +22,41 @@ class _Projects:
         return self.policy if name == "KRISHNA" else None
 
 
+class _Development:
+    def __init__(self):
+        self.head = "old-head"
+        self.branch = "fix/krishna-ui-runtime-verification"
+        self.clean = True
+        self.resets = []
+
+    def git_snapshot(self, root):
+        return {
+            "ok": True,
+            "branch": self.branch,
+            "head": self.head,
+            "clean": self.clean,
+            "status": "",
+        }
+
+    def commit_local(self, root, message, files):
+        self.head = "new-head"
+        self.clean = True
+        return {
+            "ok": True,
+            "snapshot": self.git_snapshot(root),
+            "files": list(files),
+            "message": message,
+        }
+
+    def reset_verified_head(self, root, target_head, expected_current_head=None):
+        if expected_current_head and self.head != expected_current_head:
+            return {"ok": False, "blocked": True}
+        self.resets.append((self.head, target_head))
+        self.head = target_head
+        self.clean = True
+        return {"ok": True, "snapshot": self.git_snapshot(root)}
+
+
 class _EventBus:
     def __init__(self):
         self.handlers = {}
@@ -46,7 +81,7 @@ class _Dispatcher:
 
 
 class MrityunjayTests(unittest.TestCase):
-    def test_safe_verified_source_patch_can_auto_apply(self):
+    def test_safe_verified_krishna_patch_commits_then_schedules_guardian_restart(self):
         run = {
             "status": "verified_promotion_ready",
             "phase": "promotion_ready",
@@ -61,21 +96,37 @@ class MrityunjayTests(unittest.TestCase):
             "verified": True,
             "rolled_back": False,
             "promotion": {"promoted": True, "rolled_back": False},
-            "post_apply_verification": {"passed": True},
+            "post_apply_verification": {"passed": True, "frontend_skipped": True},
         }
         dispatcher = _Dispatcher(run, apply)
+        development = _Development()
+        restarts = []
         with tempfile.TemporaryDirectory() as td:
-            bot = MrityunjaySelfHealBot(td, dispatcher, _Projects())
+            source = Path(td) / "source"
+            source.mkdir()
+            bot = MrityunjaySelfHealBot(
+                Path(td) / "state",
+                dispatcher,
+                _Projects(),
+                development=development,
+                source_root=source,
+            )
+            bot.bind_restart(lambda handoff: restarts.append(dict(handoff)) or {"scheduled": True})
             result = bot.heal_now("KRISHNA", force=True)
+            handoff = Path(result["handoff"])
+            self.assertTrue(handoff.is_file())
 
-        self.assertEqual(result["status"], "healed")
+        self.assertEqual(result["status"], "upgrade_restart_scheduled")
         self.assertTrue(result["verified"])
-        self.assertTrue(result["live_project_modified"])
+        self.assertFalse(result["live_project_modified"])
+        self.assertTrue(result["source_committed"])
+        self.assertEqual(result["source_previous_commit"], "old-head")
+        self.assertEqual(result["source_new_commit"], "new-head")
         self.assertEqual([x["action"] for x in dispatcher.calls], ["self_heal.run", "self_heal.apply"])
-        apply_call = dispatcher.calls[1]
-        self.assertTrue(apply_call["context"]["approved"])
-        self.assertEqual(apply_call["context"]["source"], "system")
-        self.assertEqual(apply_call["context"]["actor"], "mrityunjay")
+        self.assertIsNone(dispatcher.calls[1]["payload"]["frontend_url"])
+        self.assertEqual(len(restarts), 1)
+        self.assertEqual(restarts[0]["previous_commit"], "old-head")
+        self.assertEqual(restarts[0]["new_commit"], "new-head")
 
     def test_control_plane_change_is_quarantined_not_auto_applied(self):
         run = {
@@ -139,6 +190,54 @@ class MrityunjayTests(unittest.TestCase):
             self.assertTrue(out["queued"])
             self.assertEqual(bot.status()["queue_depth"], 1)
 
+    def test_krishna_upgrade_without_clean_git_restart_handoff_is_quarantined(self):
+        run = {
+            "status": "verified_promotion_ready",
+            "phase": "promotion_ready",
+            "verified": True,
+            "promotion": {
+                "promotion_token": "token-2",
+                "diff": {"added": [], "changed": ["core/krishna_core/foo.py"], "removed": [], "file_count": 1},
+            },
+        }
+        dispatcher = _Dispatcher(run)
+        with tempfile.TemporaryDirectory() as td:
+            bot = MrityunjaySelfHealBot(td, dispatcher, _Projects())
+            result = bot.heal_now("KRISHNA", force=True)
+        self.assertEqual(result["status"], "quarantined")
+        self.assertIn("Git/development handoff", result["reason"])
+        self.assertEqual([x["action"] for x in dispatcher.calls], ["self_heal.run"])
+
+    def test_restart_handoff_failure_resets_autonomous_commit(self):
+        run = {
+            "status": "verified_promotion_ready",
+            "phase": "promotion_ready",
+            "verified": True,
+            "promotion": {
+                "promotion_token": "token-3",
+                "diff": {"added": [], "changed": ["core/krishna_core/foo.py"], "removed": [], "file_count": 1},
+            },
+        }
+        apply = {"verified": True, "rolled_back": False, "promotion": {"promoted": True}}
+        dispatcher = _Dispatcher(run, apply)
+        development = _Development()
+        with tempfile.TemporaryDirectory() as td:
+            source = Path(td) / "source"
+            source.mkdir()
+            bot = MrityunjaySelfHealBot(
+                Path(td) / "state",
+                dispatcher,
+                _Projects(),
+                development=development,
+                source_root=source,
+            )
+            bot.bind_restart(lambda handoff: {"scheduled": False})
+            result = bot.heal_now("KRISHNA", force=True)
+        self.assertEqual(result["status"], "rolled_back")
+        self.assertTrue(result["rolled_back"])
+        self.assertEqual(development.head, "old-head")
+        self.assertEqual(development.resets, [("new-head", "old-head")])
+
     def test_status_declares_bounded_autonomous_repair_policy(self):
         with tempfile.TemporaryDirectory() as td:
             bot = MrityunjaySelfHealBot(td, _Dispatcher({"status": "healthy"}), _Projects())
@@ -165,6 +264,12 @@ class MrityunjayWiringContractTests(unittest.TestCase):
         self.assertIn("_mrityunjay = orch.mrityunjay", server)
         self.assertIn("_mrityunjay.start()", server)
         self.assertIn('("mrityunjay", _mrityunjay.stop)', server)
+        self.assertIn("orch.mrityunjay.bind_restart(_schedule_mrityunjay_restart)", server)
+        start=(root/"scripts"/"START_KRISHNA.ps1").read_text(encoding="utf-8")
+        self.assertIn("Complete-MrityunjayHandoff", start)
+        self.assertIn("Restore-MrityunjayPreviousSource", start)
+        self.assertIn("push origin $branch", start)
+        self.assertIn("verified deployment/acceptance failed", start)
 
 
 if __name__ == "__main__":
