@@ -159,6 +159,8 @@ class MrityunjaySelfHealBot:
             reasons.append("no changed files")
         if len(normalized) > cls.MAX_AUTO_FILES:
             reasons.append(f"file_count exceeds {cls.MAX_AUTO_FILES}")
+        if diff.get("added"):
+            reasons.append("automatic new file creation is forbidden")
         if diff.get("removed"):
             reasons.append("automatic deletion is forbidden")
         for path in normalized:
@@ -178,7 +180,7 @@ class MrityunjaySelfHealBot:
             "eligible": not reasons,
             "files": normalized,
             "reasons": reasons,
-            "policy": "verified low-risk source-only patch; no deletion/control-plane/dependency/deployment/mobile auto-apply",
+            "policy": "verified low-risk edits to existing source files only; no add/delete/control-plane/dependency/deployment/mobile auto-apply",
         }
 
     def bind_restart(self, callback: Callable[[dict[str, Any]], dict[str, Any]] | None):
