@@ -1,0 +1,2521 @@
+KRISHNA MASTER PROJECT CONTEXT
+Source-grounded AI handoff file
+Generated from GitHub canonical source on 2026-09-26
+Repository: lrgroup-bot/KRISHNA-CORE
+Canonical/default branch: fix/krishna-ui-runtime-verification
+Canonical head at generation time: d3c79ed60afd2c27339c224808f548b37d00d5a9
+Repository snapshot size at generation time: 517 files
+
+PURPOSE
+=======
+This file is a durable onboarding document for another AI, developer, auditor or future KRISHNA session.
+
+Use this file to understand:
+- what KRISHNA is;
+- what is canonical;
+- which subsystem owns what;
+- what has been implemented;
+- what is verified vs only implemented;
+- what must never be bypassed;
+- what remains dependent on a real Windows runtime, mobile device, hardware, model asset, voice asset or avatar asset.
+
+IMPORTANT:
+This TXT is a source-grounded snapshot, not permanent truth.
+Before modifying KRISHNA, always check:
+1. current canonical branch/head;
+2. core/requirements/krishna_chat_requirements.json;
+3. docs/KRISHNA_COMPLETION_MATRIX.md;
+4. docs/KRISHNA_COMPONENT_MAP.md;
+5. docs/KRISHNA_PHASED_AUDIT_MEMORY.md;
+6. runtime acceptance and deployment manifest.
+
+Do not declare a feature VERIFIED only because code exists or CI passes.
+KRISHNA's canonical definition of done requires runtime/device/evidence verification where applicable.
+
+======================================================================
+1. KRISHNA IDENTITY
+======================================================================
+
+KRISHNA is the one public identity and final orchestration authority.
+
+KRISHNA is NOT:
+- a module inside KUBER;
+- a module inside Vicky;
+- a module inside LRS Motors;
+- a second copy of NARAD, Garuda, Garudanetra, BRAHMAGYAN, HAWKEYE or another specialist;
+- a model name;
+- a UI shell;
+- an Ollama model.
+
+KRISHNA IS:
+- owner-facing autonomous supervisor;
+- system-level software intelligence;
+- project supervisor;
+- evidence/research coordinator;
+- model router;
+- action/job orchestrator;
+- recovery and repair supervisor;
+- product/runtime truth owner.
+
+Canonical high-level operating cycle from core/README.md:
+
+Observe
+-> Understand
+-> Investigate
+-> Research
+-> Plan
+-> Act
+-> Shadow Test
+-> Verify
+-> Review
+-> Learn
+
+One public identity:
+KRISHNA
+
+Execution authority:
+SUDARSHAN
+
+Independent completion authority:
+Independent Critic / Verifier + deterministic evidence
+
+======================================================================
+2. CANONICAL SOURCE / RUNTIME TRUTH
+======================================================================
+
+Authoritative source tree:
+E:\KRISHNA-SOURCE
+
+Runtime/state/models/assets:
+E:\Krishna-The GOD
+
+GitHub:
+lrgroup-bot/KRISHNA-CORE
+
+Canonical source rule:
+- GitHub + E:\KRISHNA-SOURCE are source authority.
+- E:\Krishna-The GOD is runtime/state/assets.
+- Runtime is not the canonical development tree.
+- Deployment must preserve runtime-owned state, models, logs, backups and private assets.
+- DEPLOYED_COMMIT.json identifies accepted deployed source.
+- Runtime integrity must detect source/runtime drift.
+- A runtime must not report misleading "healthy/current" state when source and deployment truth disagree.
+
+Canonical scripts:
+- scripts/DEPLOY_KRISHNA_ONCE.ps1
+- scripts/ACCEPT_KRISHNA_RUNTIME.ps1
+- scripts/AUDIT_KRISHNA_FULL.ps1
+- scripts/AUDIT_KRISHNA_E_DRIVE.ps1
+- scripts/AUDIT_KRISHNA_ARCHITECTURE.ps1
+- scripts/START_KRISHNA.ps1
+- scripts/KRISHNA_GUARDIAN.ps1
+
+Default Core config:
+- host: 127.0.0.1
+- port: 8766
+- Ollama URL: http://127.0.0.1:11434
+
+======================================================================
+3. NON-NEGOTIABLE PRODUCT RULES
+======================================================================
+
+The canonical requirements ledger states these rules:
+
+1. KRISHNA is the only public identity and final decision authority.
+2. KRISHNA is standalone and independent.
+3. Internal engines/specialists/adapters never replace KRISHNA authority.
+4. Mutating/destructive/credential/external-message/high-impact actions remain behind Policy/approval boundaries and audit.
+5. An agent never self-declares success.
+6. Independent verification is required before promotion.
+7. Unfinished commitments must never silently disappear.
+8. Runtime/UI must report observed state honestly.
+9. Unavailable optional providers fail closed.
+10. Final Windows packaging requires Windows/runtime/browser/UI/mobile/recovery/deployment acceptance.
+11. KRISHNA Mobile must not expose raw shell, arbitrary filesystem access, credentials or trading authority.
+12. Remote-away access is private-network-only.
+13. Protected/archive project roles are read-only to autonomous mutation/promotion.
+14. Garuda = research/evidence discovery.
+15. Garudanetra = browser/computer fabric.
+16. Every operational dashboard control must resolve to a real runtime contract.
+17. Consequential delegated capability must enter through Sudarshan Action/Job permissions and leave through independent verification.
+18. PC navigation stays minimal:
+    - KRISHNA
+    - Sudarshan
+    - Plugins
+19. Internal systems must remain internal capabilities, not main-menu clutter:
+    - KABACH
+    - Garuda
+    - Garudanetra
+    - BRAHMAGYAN
+    - Gyan-Bhandar
+    - NARAD
+    - Specialists
+    - Developer
+    - UI Guardian
+    - Work Progress
+    - Activity
+    - System
+
+======================================================================
+4. TOP-LEVEL ARCHITECTURE
+======================================================================
+
+Authority graph:
+
+USER
+  |
+KRISHNA
+  |
+SUDARSHAN -------------------------------- execution / permission / verification
+  |
+  +-- MRITYUNJAY -------------------------- autonomous bounded self-heal/recovery
+  |
+  +-- GARUDANETRA ------------------------- browser/computer + browser research fabric
+  |
+  +-- GARUDA ------------------------------ broad public research/evidence scout
+  |
+  +-- BRAHMAGYAN -------------------------- deep knowledge / Rishi / Shishya research
+  |     |
+  |     +-- BRAHMA BOT -------------------- learning governor / QC
+  |     |
+  |     +-- COGNITIVE BRAIN --------------- associative concept graph / gaps / hypotheses
+  |     |
+  |     +-- GYAN-BHANDAR ------------------ trusted knowledge store
+  |
+  +-- HAWKEYE ----------------------------- live evidence fusion
+  |     |
+  |     +-- BHOOMIPUTRA ------------------- field/geospatial/structure
+  |     |
+  |     +-- DIAGNOSTIC -------------------- electronics/vehicle/acoustic evidence
+  |
+  +-- LAB BOT ----------------------------- practical experiment bridge
+  |     |
+  |     +-- QUANTUM LAB
+  |     +-- NANO LAB
+  |
+  +-- KABACH ------------------------------ security/privacy/SOC boundary
+  |
+  +-- NARAD ------------------------------- workflows/connectors/messages
+  |
+  +-- DEVELOPER / PROJECT PERFECTION ------ software create/repair/verify
+  |     |
+  |     +-- UI GUARDIAN
+  |     +-- VISHVAKARMA DESIGN SYSTEM
+  |
+  +-- MODEL ROUTER / MODEL GATEWAY -------- local/free-cloud inference
+  |
+  +-- MOBILE EDGE ------------------------- secure conversation/evidence edge
+
+No subordinate system may silently become a second KRISHNA.
+
+======================================================================
+5. CORE EXECUTION SPINE
+======================================================================
+
+Canonical action/runtime architecture:
+
+Shared Action Bus
+-> Permission Runtime / Policy
+-> Agent Runtime OR Job Runtime
+-> Sudarshan Control Plane
+-> worker/specialist
+-> deterministic evidence
+-> independent verification
+-> promotion/rollback if needed
+
+Key files:
+- core/krishna_core/shared_action_bus.py
+- core/krishna_core/permission_runtime.py
+- core/krishna_core/agent_runtime.py
+- core/krishna_core/job_runtime.py
+- core/krishna_core/mission_engine.py
+- core/krishna_core/durable_queue.py
+- core/krishna_core/durable_event_bus.py
+- core/krishna_core/dispatch_runtime.py
+- core/krishna_core/protocol_gateway.py
+- core/krishna_core/sudarshan_control.py
+- core/krishna_core/critic_verifier.py
+- core/krishna_core/policy_kernel.py
+- core/krishna_core/resource_governor.py
+- core/krishna_core/resource_locks.py
+- core/krishna_core/mission_budget.py
+
+Shared Action Bus properties:
+- named actions only;
+- action ID;
+- project;
+- source;
+- actor;
+- permission set;
+- approval state;
+- sanitized payload/result;
+- audit receipts;
+- event publication;
+- idempotency;
+- durable idempotency support;
+- no raw shell primitive.
+
+Current canonical source contains 174 Shared Action registrations.
+
+======================================================================
+6. SUDARSHAN
+======================================================================
+
+Role:
+Permissioned execution/control plane.
+
+Sudarshan owns the transition from:
+"I think/recommend"
+to:
+"execute/modify/send/control"
+
+Responsibilities:
+- action dispatch;
+- job dispatch;
+- permission enforcement;
+- independent verification boundary;
+- project/chat operations;
+- developer execution;
+- browser execution;
+- NARAD workflow execution;
+- research execution;
+- model execution;
+- promotion/rollback coordination.
+
+Project/chat workspace:
+- GPT-style persistent project chats;
+- file attachments;
+- chat rename;
+- pin/share/move/delete contracts;
+- separate Projects and global Chats;
+- project deletion preserves chats by moving them into global chat space according to product contract.
+
+Project Brain:
+- runtime-owned structured governance layers;
+- PROJECT;
+- ARCHITECTURE;
+- RULES;
+- PHASES;
+- DESIGN;
+- AGENTS;
+- MEMORY;
+- survives restart;
+- source-tree mutation is explicitly false.
+
+Key files:
+- core/krishna_core/sudarshan_control.py
+- core/krishna_core/sudarshan_project_orchestrator.py
+- core/krishna_core/project_brain.py
+- core/krishna_core/project_registry.py
+- core/krishna_core/task_ledger.py
+- core/krishna_core/commitment_ledger.py
+
+======================================================================
+7. MRITYUNJAY - AUTONOMOUS SELF-HEAL BOT
+======================================================================
+
+Canonical module:
+core/krishna_core/mrityunjay.py
+
+Role:
+Internal autonomous bounded self-heal, recovery, regression verification and rollback guardian.
+
+Canonical actions:
+- mrityunjay.status
+- mrityunjay.heal
+
+Event triggers:
+- action.failed
+- TEST_FAILED
+- BUILD_FAILED
+- VERIFICATION_FAILED
+
+Loop prevention:
+- ignores actor=mrityunjay;
+- ignores mrityunjay.*;
+- ignores self_heal.*;
+- ignores promotion.*;
+- one heal at a time;
+- per-project cooldown.
+
+Automatic chain:
+1. observe failure event;
+2. schedule bounded heal;
+3. run initial backend/frontend verification;
+4. create isolated candidate;
+5. diagnose with approved local model;
+6. produce bounded code repair;
+7. validate with CandidateRepairGuard;
+8. narrow verification;
+9. full candidate regression;
+10. optional advisory model review;
+11. prepare promotion;
+12. transactionally apply;
+13. post-apply verify;
+14. rollback if regression occurs.
+
+Activation:
+Automatic mutation is enabled only when KRISHNA_ALLOW_ACTIONS=1.
+
+Blocked automatic scope:
+- credentials;
+- secrets;
+- .env;
+- credentials.json;
+- secrets.json;
+- private keys;
+- package.json;
+- dependency lock files;
+- requirements.txt;
+- pyproject.toml;
+- .github workflows;
+- security-policy bypass;
+- external side effects;
+- hardware control.
+
+Important self-heal implementation:
+- core/krishna_core/self_heal.py
+- core/krishna_core/candidate_repair.py
+- core/krishna_core/development_operator.py
+- core/krishna_core/promotion_manager.py
+- core/krishna_core/repair_agent.py
+- core/krishna_core/recovery.py
+
+Important fixed architectural rules:
+- canonical source is healed, not the active runtime tree;
+- candidate staging must never recursively copy .krishna_state into itself;
+- action results are cycle-safe/depth-bounded;
+- failed Ollama model may fall back to another installed approved model;
+- candidate UI narrow/full verification uses isolated candidate preview;
+- live URL is for initial health and post-apply verification, not candidate UI approval;
+- failed post-apply verification rolls back transactionally.
+
+======================================================================
+8. DEVELOPER + PROJECT PERFECTION
+======================================================================
+
+Role:
+Bounded software implementation, repair, QA and verification.
+
+Key files:
+- core/krishna_core/development_operator.py
+- core/krishna_core/project_perfection.py
+- core/krishna_core/project_perfection_runtime.py
+- core/krishna_core/project_perfection_execution.py
+- core/krishna_core/project_perfection_adapters.py
+- core/krishna_core/design_implementation.py
+- core/krishna_core/candidate_repair.py
+- core/krishna_core/promotion_manager.py
+
+Project Perfection capabilities:
+- deadline-aware worker sizing;
+- recursive route/state discovery;
+- browser crawl;
+- X/Y geometry verification;
+- deterministic permanent regressions;
+- accessibility checks;
+- optional/strict axe-core;
+- visual golden baselines;
+- pixel diff;
+- HAWKEYE UI perceptual review;
+- explicit performance thresholds;
+- API property/fuzz testing via Schemathesis adapter;
+- reversible mutation testing in candidates;
+- browser chaos;
+- bounded candidate auto-repair;
+- independent critic/QA review;
+- Definition-of-Done certificate;
+- Windows EXE retest;
+- Android APK retest;
+- iOS simulator boundary;
+- design web research;
+- rendered A/B/C/D preview workflow;
+- Submit -> implement -> verify -> apply;
+- point/drag/speak visual editor;
+- one-command Finish Project;
+- transactional rollback.
+
+A successful code edit is NOT completion.
+Completion requires evidence.
+
+======================================================================
+9. UI GUARDIAN
+======================================================================
+
+Role:
+Objective UI verification.
+
+Checks:
+- viewport matrix;
+- rendered behavior;
+- interactive controls;
+- visual/semantic usability;
+- geometry/overflow;
+- browser evidence;
+- regression state.
+
+Key files:
+- core/krishna_core/ui_guardian.py
+- core/tests/test_ui_guardian.py
+
+======================================================================
+10. VISHVAKARMA DESIGN INTELLIGENCE
+======================================================================
+
+Permanent Rishi:
+Rishi Vishvakarma
+
+Role:
+Design, UI/UX and software-craft knowledge specialist.
+
+Capabilities:
+- design systems;
+- UI;
+- UX;
+- frontend architecture;
+- typography;
+- spacing;
+- responsive design;
+- accessibility;
+- component architecture;
+- visual regression;
+- design drift;
+- image-to-code reasoning;
+- browser testing;
+- UI repair.
+
+Design pipeline:
+verified Vishvakarma knowledge
+-> design plan
+-> candidate options
+-> rendered preview
+-> design drift check
+-> functional/visual/responsive/accessibility/security gates
+-> bounded repair/retest
+-> acceptance
+
+Key files:
+- core/krishna_core/sudarshan_design_engine.py
+- core/krishna_core/sudarshan_design_policy.py
+- core/krishna_core/sudarshan_ui_pipeline.py
+- core/krishna_core/design_adapters.py
+- core/krishna_core/vishvakarma_rishi.py
+- core/krishna_core/vishvakarma_learning.py
+- core/krishna_core/vishvakarma_curriculum.py
+
+Knowledge-bound UI work must block if no task-relevant verified Vishvakarma finding is available.
+
+======================================================================
+11. GARUDANETRA - BROWSER/COMPUTER FABRIC
+======================================================================
+
+Canonical engine:
+Playwright / Chromium
+
+Canonical browser authority:
+Garudanetra Browser Fabric
+
+Key files:
+- core/krishna_core/browser_fabric.py
+- core/krishna_core/browser_operator.py
+- core/krishna_core/garudanetra_session.py
+- core/krishna_core/garudanetra_recovery.py
+- core/krishna_core/garudanetra_research.py
+- docs/GARUDANETRA_BROWSER_FABRIC.md
+
+Capabilities:
+- private browser sessions;
+- task-memory sessions;
+- approval-gated persistent workspaces;
+- CDP screencast/live frames;
+- screenshot fallback;
+- semantic element observer;
+- e1/e2 style semantic refs;
+- point-to-element mapping;
+- console evidence;
+- network evidence;
+- download evidence;
+- visible text evidence;
+- action recording;
+- bounded workflow replay;
+- approval gate for consequential replay;
+- deterministic locator recovery;
+- browser research missions;
+- browser skill candidates;
+- task memory;
+- owner takeover;
+- tabs;
+- click;
+- drag;
+- scroll;
+- typing;
+- keypress;
+- upload.
+
+Private mode destroys state.
+Task Memory preserves bounded evidence.
+Persistent Workspace is project-specific and approval-gated.
+
+Legacy:
+core/krishna_core/garudanetra.py is compatibility/legacy, not active authority.
+
+Optional adapters may be discovered but do not replace Playwright:
+- Browser Harness
+- browser-use
+- agent-browser
+- BrowserCode
+- OpenDevBrowser
+- Rustwright
+- Lucarne
+- Promptwright
+- Skyvern
+- rrweb
+- Cereon
+
+======================================================================
+12. GARUDANETRA RESEARCH FABRIC V2
+======================================================================
+
+Specialist scouts:
+- paper-scout
+- github-scout
+- patent-scout
+- dataset-scout
+- standards-scout
+- contradiction-scout
+
+Built-in research skills:
+- research.paper.search
+- research.github.inspect
+- research.patent.search
+- research.dataset.find
+- research.standard.find
+- research.claim.verify
+- research.contradiction.find
+- research.lab.handoff
+
+Flow:
+research mission
+-> live scout task-memory sessions
+-> sourced evidence
+-> provenance/stance/quality
+-> contradiction preservation
+-> Rishi/Shishya/LAB BOT/Gyan candidate handoff
+
+External websites remain subject to normal availability/authentication.
+
+======================================================================
+13. GARUDA - RESEARCH / EVIDENCE SCOUT
+======================================================================
+
+Role:
+Broad public research/evidence discovery outside a live browser-control session.
+
+Garuda discovers.
+Garudanetra interacts with browser pages and captures browser evidence.
+
+Key files:
+- core/krishna_core/garuda.py
+- core/krishna_core/github_research.py
+
+Garuda does not own Chromium sessions.
+
+======================================================================
+14. BRAHMAGYAN
+======================================================================
+
+Role:
+Deep learning/research intelligence under KRISHNA.
+
+It is NOT a second authority.
+
+Responsibilities:
+- deep knowledge missions;
+- Rishi selection;
+- temporary Shishya research trees;
+- evidence collection;
+- contradiction analysis;
+- debate;
+- claim maturity;
+- compilation;
+- knowledge promotion;
+- frontier research;
+- dual-track modern/classical discipline.
+
+Canonical maturity model:
+L0 -> L8
+
+Modern-science and classical/Vedic tracks remain separately sourced.
+Symbolic/classical material is not silently converted into empirical scientific proof.
+
+Key files:
+- core/krishna_core/brahmagyan.py
+- core/krishna_core/rishi_council.py
+- core/krishna_core/rishi_learning.py
+- core/krishna_core/rishi_live_research.py
+- docs/BRAHMAGYAN_ARCHITECTURE.md
+
+======================================================================
+15. PERMANENT RISHI / ACHARYA COUNCIL
+======================================================================
+
+Canonical council currently contains 29 profiles:
+
+1. Veda Vyasa
+2. Maharshi Vashistha
+3. Maharshi Vishwamitra
+4. Rishi Vishvakarma
+5. Sushruta
+6. Kashyapa
+7. Maharshi Atri
+8. Gautama Maharishi
+9. Jamadagni
+10. Bharadvaja
+11. Maharshi Kanada
+12. Maharshi Kapila
+13. Maharshi Patanjali
+14. Maharshi Yajnavalkya
+15. Maharshi Agastya
+16. Acharya Charaka
+17. Acharya Panini
+18. Acharya Aryabhata
+19. Acharya Brahmagupta
+20. Acharya Bhaskaracharya
+21. Acharya Madhava
+22. Acharya Varahamihira
+23. Acharya Dhanvantari
+24. Acharya Nagarjuna
+25. Acharya Chanakya
+26. Acharya Baudhayana
+27. Acharya Pingala
+28. Acharya Shalihotra
+29. Maharshi Parashara
+
+Selected canonical specialization examples:
+- Veda Vyasa: chief knowledge architecture/synthesis
+- Vashistha: ethics/governance
+- Vishwamitra: frontier science/AI/robotics/quantum
+- Vishvakarma: design/UI/UX/software craft
+- Sushruta: medical/biomedical
+- Kashyapa: life sciences/genetics
+- Atri: astronomy/observation
+- Gautama: logic/statistics/causality/evidence grading
+- Jamadagni: defensive security/resilience
+- Bharadvaja: scientific method/testing
+- Kanada: physics/chemistry/materials/nanoscience
+- Kapila: systems/cognition
+- Patanjali: attention/human performance
+- Yajnavalkya: epistemology/debate
+- Agastya: applied/environment/cultural knowledge
+- Charaka: internal/preventive medicine
+- Panini: linguistics/NLP
+- Aryabhata/Brahmagupta/Bhaskaracharya/Madhava: mathematics/scientific computation
+- Varahamihira: earth/atmospheric sciences
+- Dhanvantari: therapeutics/drug research
+- Nagarjuna: chemistry/process/materials
+- Chanakya: operations/economics/strategy
+- Baudhayana: geometry/civil/structural engineering
+
+These are KRISHNA software specialist roles inspired by historical/traditional associations.
+Modern factual claims still require modern evidence.
+
+======================================================================
+16. SHISHYA LIFECYCLE
+======================================================================
+
+Temporary Shishya workers may be created for bounded research.
+
+Rules:
+- temporary;
+- capped;
+- mission-scoped;
+- approval/policy bounded;
+- no permanent uncontrolled worker fleet;
+- before retirement, useful verified output must be retained;
+- failures/strategies/provenance/evaluation should be preserved as appropriate;
+- trusted knowledge still goes through BRAHMA/Gyan gates.
+
+======================================================================
+17. BRAHMA BOT
+======================================================================
+
+Role:
+Learning governor + Gyan-Bhandar QC + KRISHNA process-QC head.
+
+Key files:
+- core/krishna_core/brahma_bot.py
+- core/krishna_core/brahma_process_qc.py
+- core/krishna_core/brahma_memory_intelligence.py
+
+Responsibilities:
+- choose relevant Rishi team;
+- inspect existing Rishi knowledge before more research;
+- grade candidate evidence/provenance;
+- track contradictions;
+- decide whether more learning is warranted;
+- gate candidate promotion to Gyan;
+- process-QC integration.
+
+Raw evidence is not automatically trusted knowledge.
+
+======================================================================
+18. COGNITIVE BRAIN
+======================================================================
+
+Owner:
+BRAHMA
+
+Role:
+Associative concept graph / knowledge relationship layer.
+
+Stages:
+C0 capture
+C1 recall
+C2 association
+C3 gap-aware
+C4 cross-domain
+C5 metacognitive
+C6 synthesis/analogy/controlled consolidation
+C7 falsifiable hypothesis generation
+
+C6/C7 outputs are candidate reasoning, not trusted facts.
+
+Key files:
+- core/krishna_core/cognitive_brain.py
+- docs/KRISHNA_COGNITIVE_BRAIN.md
+
+======================================================================
+19. GYAN-BHANDAR
+======================================================================
+
+Role:
+Canonical trusted knowledge/memory API.
+
+Memory concepts:
+- working;
+- episodic;
+- semantic;
+- graph;
+- skill;
+- evidence.
+
+Capabilities:
+- candidate vs verified;
+- provenance;
+- confidence;
+- approval;
+- supersession/version history;
+- encrypted storage;
+- retrieval/context compilation;
+- point-in-time/temporal history;
+- source-family independence controls.
+
+Direct semantic/skill/graph truth writes are blocked from bypassing Rishi/BRAHMA QC.
+
+Key files:
+- core/krishna_core/gyan_bhandar.py
+- core/krishna_core/gyan_security.py
+- core/krishna_core/memory.py
+- core/krishna_core/memory_fabric.py
+
+Optional memory bridges:
+- Codebase-Memory
+- Graft
+
+Optional bridges are context/query helpers, not trust authorities.
+
+======================================================================
+20. HAWKEYE
+======================================================================
+
+Role:
+Coordinated live-world evidence/perception/reasoning runtime.
+
+HAWKEYE is not an alias for BHOOMIPUTRA.
+
+Canonical lanes:
+- PERCEPTION
+- PHYSIO
+- BEHAVIOR
+- TEMPORAL
+- DIAGNOSTIC
+- REASONER
+
+Key files:
+- core/krishna_core/hawkeye_coordinator.py
+- core/krishna_core/hawkeye_learning.py
+- core/krishna_core/hawkeye_learning_observer.py
+- core/krishna_core/hawkeye_diagnostic.py
+- core/krishna_core/hawkeye_field_platform.py
+- core/krishna_core/hawkeye_geo_engine.py
+- core/krishna_core/hawkeye_reference.py
+- core/krishna_core/hawkeye_media_sync.py
+- core/krishna_core/hawkeye_free_cloud.py
+
+Consequential conclusions/actions remain under Sudarshan verification.
+
+======================================================================
+21. HAWKEYE LEARNING OBSERVER
+======================================================================
+
+Purpose:
+Learn useful information from owner-selected live observations.
+
+Supported source concepts:
+- object;
+- book/page;
+- video;
+- machinery;
+- vehicle;
+- plant;
+- animal;
+- building;
+- screen/document;
+- audio;
+- other observed scenes.
+
+Flow:
+mobile/PC observation
+-> distilled finding
+-> provenance
+-> Universal Learning
+-> BRAHMA
+-> selected Rishi team
+-> cross-check
+-> candidate Gyan proposal
+
+Raw media is never trusted knowledge by itself.
+
+Privacy boundary:
+- unknown face identity stays UNKNOWN;
+- unknown-face biometric data cannot be used as a public/social identity search key;
+- user-browser Custom Tab research has no KRISHNA JavaScript bridge into third-party content;
+- sensitive raw scenes are not automatically uploaded to cloud.
+
+======================================================================
+22. HAWKEYE MOBILE OBJECT OVERLAY / CAPTURE
+======================================================================
+
+Canonical Android components include:
+- HawkeyeMobileVision.java
+- HawkeyeOfflinePerception.java
+- HawkeyeSensorFusion.java
+- HawkeyeHandGesture.java
+- HawkeyeEvidenceCuratorBot.java
+- hawkeye-observer-ui.js
+
+Intended capabilities:
+- local object tracking;
+- tracking IDs/boxes;
+- supported-camera auto-zoom;
+- local OCR;
+- Devanagari OCR;
+- barcode scanning;
+- face-presence tracking;
+- pose landmarks;
+- subject segmentation;
+- target lock;
+- low-light guidance;
+- best-frame selection;
+- photo/video capture with metadata sidecar;
+- unknown-face blur for saved photo mode;
+- browser research seeded by OCR/barcode;
+- local translation;
+- on-device gesture recognition;
+- IMU metadata;
+- curated encrypted evidence sync.
+
+Auto-zoom must only be claimed if the camera track exposes zoom capability.
+
+======================================================================
+23. BHOOMIPUTRA / FIELD / GEO
+======================================================================
+
+Role:
+Terrain, site, structure and field measurement specialist.
+
+Scope:
+- quarry/terrain;
+- buildings/towers/bridges;
+- roads;
+- machinery;
+- utilities;
+- vehicles;
+- people/PPE observable evidence;
+- electronics/devices;
+- documents/screens;
+- hazards;
+- temporal change.
+
+Field/geospatial capabilities:
+- GNSS ingest;
+- RTK boundary;
+- depth ingest;
+- photogrammetry boundary;
+- field survey metrics;
+- coordinate polygon containment;
+- volume estimates;
+- route planning;
+- survey recording;
+- KML/KMZ style export boundary;
+- field scene/AR representation.
+
+Key files:
+- core/krishna_core/bhumiputra.py
+- core/krishna_core/field_perception.py
+- core/krishna_core/field_scene.py
+- core/krishna_core/field_survey.py
+- core/krishna_core/field_measurement_adapters.py
+- core/krishna_core/hawkeye_geo_engine.py
+- docs/HAWKEYE_GEO_STACK.md
+
+Hardware truth:
+- missing physical RTK/depth/photogrammetry evidence must not be upgraded into verified measurements;
+- phone IMU is not survey-grade SLAM/depth by itself.
+
+======================================================================
+24. HAWKEYE DIAGNOSTICS
+======================================================================
+
+Domains:
+1. Electronics
+2. Vehicle
+3. Acoustic/vibration
+
+Electronics:
+- read-only supplied multimeter/oscilloscope/test-point evidence;
+- schematic/boardview/netlist/reference alignment;
+- diagnosis does not imply hardware control.
+
+Vehicle:
+- receive/read-only OBD-II;
+- CAN;
+- CAN-FD;
+- J1939 normalization;
+- no transmit/program/control by default.
+
+Acoustic:
+- RMS;
+- peak;
+- crest factor;
+- zero-crossing rate;
+- dominant-frequency extraction;
+- bounded local evidence;
+- no false claim of physical sensor verification without device evidence.
+
+Key files:
+- core/krishna_core/diagnostic_adapters.py
+- core/krishna_core/diagnostic_transport.py
+- core/krishna_core/hawkeye_diagnostic.py
+
+======================================================================
+25. HAWKEYE RUVIEW / WIFI-SENSING BOUNDARY
+======================================================================
+
+Key file:
+core/krishna_core/hawkeye_ruview.py
+
+Registered concept:
+- Wi-Fi connect boundary;
+- RSSI fallback;
+- CSI ingest when supported;
+- presence/motion/pose only when hardware/provider supports it.
+
+Do not claim full CSI/RF sensing when hardware is not connected/verified.
+
+======================================================================
+26. LAB BOT
+======================================================================
+
+Role:
+Bounded bridge from Rishi hypothesis to practical experiment.
+
+Flow:
+Rishi
+-> LAB BOT
+-> experiment protocol
+-> simulation/dry-run
+-> review
+-> registered adapter
+-> measurement
+-> replication
+-> BRAHMA/Gyan
+
+Modes:
+- simulation;
+- measurement;
+- fabrication;
+- wet lab.
+
+Physical execution requires registered adapters and policy/review.
+
+Key files:
+- core/krishna_core/lab_bot.py
+- docs/KRISHNA_LAB_BOT.md
+
+======================================================================
+27. QUANTUM LAB + NANO LAB
+======================================================================
+
+Owner:
+LAB BOT
+
+Quantum:
+- bounded local state-vector simulation;
+- quantum experiment/research planning;
+- classical baseline requirement;
+- optional Qiskit/PennyLane provider detection;
+- quantum sensing/QML/chemistry planning.
+
+Nano:
+- nanoscale geometry;
+- surface-to-volume analysis;
+- nanomaterials;
+- nanoelectronics;
+- nanophotonics;
+- optional pymatgen/ASE provider detection.
+
+Joint bridge:
+- quantum materials;
+- quantum dots;
+- spin defects;
+- nanophotonics;
+- nanoscale quantum sensing;
+- mesoscopic devices;
+- molecular/material simulation.
+
+Real QPU/nanofabrication is not considered available until connected and verified.
+
+======================================================================
+28. KABACH
+======================================================================
+
+Role:
+Defensive security/privacy guardian.
+
+Key files:
+- core/krishna_core/kabach.py
+- core/krishna_core/security_soc.py
+- core/krishna_core/threat_intel.py
+- core/krishna_core/dependency_audit.py
+- core/krishna_core/ops_monitor.py
+- core/krishna_core/privacy_guardian/*
+
+Capabilities:
+- project protection registry;
+- privacy policy;
+- defensive security scanning;
+- SOC/remediation flow;
+- sensitive input redaction;
+- dependency/security audit;
+- protected-project mutation gate;
+- private remote boundary;
+- privacy browser tests;
+- release gate.
+
+Secrets are not learning material.
+
+======================================================================
+29. NARAD
+======================================================================
+
+Role:
+Durable workflow/automation/provider runtime.
+
+NARAD does not become a second execution authority.
+Sudarshan remains authority.
+
+Native concepts:
+- typed DAG workflows;
+- triggers;
+- safe mapping;
+- scheduler;
+- bounded retry;
+- history;
+- dead letters;
+- checkpoints/resume;
+- resource/concurrency gate;
+- connector/provider registry;
+- message center;
+- n8n external bridge patterns.
+
+Lifecycle:
+Draft
+-> Candidate
+-> Sandbox
+-> Verified
+-> Stable
+or Rejected
+
+Key files:
+- core/krishna_core/narad/*
+- docs/NARAD_N8N_INTEGRATION.md
+- docs/N8N_PATTERN_INTEGRATION.md
+
+No full embedded n8n runtime is required for KRISHNA Core.
+
+======================================================================
+30. MODEL ROUTER / MODEL GATEWAY
+======================================================================
+
+Core files:
+- core/krishna_core/router.py
+- core/krishna_core/model_router.py
+- core/krishna_core/model_gateway.py
+- core/krishna_core/model_scout.py
+- core/krishna_core/model_memory_governor.py
+- core/krishna_core/openrouter_free.py
+- core/krishna_core/direct_free.py
+- core/krishna_core/provider_contract.py
+
+Principles:
+- local-first;
+- privacy-aware;
+- free-only automatic cloud fallback;
+- no silent paid fallback;
+- models are workers, not authority;
+- credentials live in secure local vault;
+- cloud output is evidence, not trusted truth.
+
+Privacy profiles:
+- local_only
+- restricted
+- approved_cloud
+
+Cloud is blocked for local_only/restricted project context.
+
+======================================================================
+31. LOCAL MODEL ROLE POLICY
+======================================================================
+
+Canonical mobile runtime model policy says PC Qwen is allowed.
+
+PC role assignment:
+- general: qwen3.5:4b
+- coding: qwen2.5-coder:7b
+- hawkeye_detailed: qwen2.5vl:7b
+- hawkeye_fast: qwen3.5:4b
+
+General fallback candidates:
+- gemma3:4b
+- granite3.3:2b
+- smollm2:1.7b
+- llama3.2:1b
+- deepseek-r1:1.5b
+- qwen2.5:3b
+
+Coding fallback:
+- qwen3.5:4b
+- gemma3:4b
+- granite3.3:2b
+
+HAWKEYE detailed fallback:
+- qwen3.5:4b
+- gemma3:4b
+
+HAWKEYE fast fallback:
+- gemma3:4b
+- qwen2.5vl:7b
+
+Mobile-local Qwen:
+DISABLED by canonical policy.
+
+======================================================================
+32. OPENROUTER ZERO-COST FABRIC
+======================================================================
+
+Automatic hierarchy:
+1. local/Ollama
+2. live-zero-price OpenRouter
+3. native direct provider only when non-billable account state can be machine-verified
+4. remaining local fallback or STOP
+
+OpenRouter rules:
+- reuse encrypted gateway credential;
+- live catalog check before inference;
+- numeric relevant pricing must be exactly zero;
+- expired/unavailable/opaque/non-zero-price model is rejected;
+- approved-cloud only;
+- secret-looking prompt is rejected;
+- no provider fallback relaxation;
+- data_collection deny / zero-data-retention constraints where supported.
+
+Explicit paid cloud remains disabled by default.
+
+Key doc:
+docs/OPENROUTER_ZERO_COST_FABRIC.md
+
+======================================================================
+33. VERIFIED DIRECT-FREE FABRIC
+======================================================================
+
+Current first direct-free implementation:
+Cloudflare Workers AI
+
+Conditions:
+- free_only profile;
+- Workers AI access;
+- Billing Read;
+- account preflight must show non-paid/non-billable state;
+- paid/ambiguous state fails closed.
+
+Other free providers can be configured/researched, but automatic production routing requires machine-verifiable zero-cost and privacy policy.
+
+======================================================================
+34. MODEL SCOUT
+======================================================================
+
+Role:
+Advisory model candidate discovery/evaluation.
+
+Rules:
+- candidate discovery != install;
+- install != routing promotion;
+- benchmark evidence required;
+- duplicate checks required;
+- resource scoring required;
+- cloud "free" label is not enough to prove zero-cost;
+- Model Scout has no independent billing/routing authority.
+
+Key files:
+- core/krishna_core/model_scout.py
+- core/krishna_core/benchmark_lab.py
+- core/krishna_core/spark_x25.py
+
+======================================================================
+35. KRISHNA MOBILE
+======================================================================
+
+Canonical Android source:
+mobile_v3
+
+Package:
+com.krishna.mobile
+
+Canonical product:
+KRISHNA Mobile
+
+Role:
+Conversation-first secure mobile edge.
+
+Mobile must NOT expose:
+- dashboard UI;
+- project admin UI;
+- raw shell;
+- arbitrary filesystem control;
+- credentials.
+
+Canonical files include:
+- MainActivity.java
+- KrishnaPrivateCore.java
+- MobileEdgeBot.java
+- HawkeyeEvidenceCuratorBot.java
+- HawkeyeEdgeMemory.java
+- HawkeyeCrypto.java
+- HawkeyeBackgroundSync.java
+- HawkeyeSyncJobService.java
+- HawkeyeDeviceProfiler.java
+- HawkeyeSensorFusion.java
+- HawkeyeMobileVision.java
+- HawkeyeOfflinePerception.java
+- HawkeyeLanguage.java
+- HawkeyeHandGesture.java
+- KrishnaWakeService.java
+- index.html
+- realtime-client.js
+- hawkeye-observer-ui.js
+
+Build workflow:
+.github/workflows/build-mobile-v3.yml
+
+Artifact:
+KRISHNA-v3.8-HAWKEYE-Observer-APK
+
+======================================================================
+36. MOBILE PAIRING / PRIVATE TRANSPORT
+======================================================================
+
+Requirements:
+- authenticated pairing;
+- device credential;
+- private transport only;
+- LAN/private-overlay use;
+- remote-away mode remains private-network-only;
+- public Internet Core control is rejected.
+
+Zero-code pairing request exists as product boundary.
+
+PC compatibility companion:
+mobile/companion
+
+Status:
+compatibility/pairing support only.
+It is NOT canonical Android UI.
+It must not be auto-deleted.
+Retirement requires real-device canonical APK acceptance.
+
+======================================================================
+37. MOBILE EDGE / EVIDENCE SYNC
+======================================================================
+
+Features:
+- mobile-side preprocessing;
+- encrypted HAWKEYE evidence;
+- evidence curator;
+- PC acknowledgement before optional mobile deletion;
+- background sync;
+- resumable large-media sync;
+- SHA-256 verification;
+- atomic PC promotion;
+- unmetered/same-LAN policy for large media;
+- cellular large-media upload disabled by default;
+- mobile retains verified copy by default;
+- delete-after-verified disabled by default.
+
+Private/heavy HAWKEYE work:
+KRISHNA PC only unless an approved non-sensitive free-cloud path is explicitly allowed.
+
+======================================================================
+38. MOBILE CLOUD / VISION POLICY
+======================================================================
+
+Mobile Qwen:
+false
+
+Free cloud:
+verified-free-only
+
+Credentials:
+PC-owned or short-lived device token only.
+
+Gemini:
+- selected non-sensitive keyframe mode;
+- permanent key kept on PC;
+- Gemini Live uses one-use/short-lived token boundary;
+- continuous raw camera cloud upload is false.
+
+HAWKEYE cloud review:
+- selected non-sensitive keyframes may use approved vision providers;
+- text-only free providers receive sanitized text, not raw camera frames.
+
+Unknown face social identity search:
+false
+
+======================================================================
+39. VOICE
+======================================================================
+
+Key files:
+- core/krishna_core/native_voice.py
+- core/krishna_core/voice_runtime.py
+- core/krishna_core/voice_providers.py
+- scripts/SETUP_KRISHNA_VOICE.ps1
+- scripts/INSTALL_KRISHNA_INDIC_STT.ps1
+- scripts/INSTALL_KRISHNA_INDIC_TTS.ps1
+- scripts/INSTALL_KRISHNA_WAKE_RUNTIME.ps1
+
+Goals:
+- English/Hindi/Odia;
+- Jarvis-like conversation;
+- explicit listening state;
+- wake word "Krishna";
+- local-first voice workers.
+
+Owner voice verification:
+implemented as a gate/UX boundary, NOT sole high-security authentication.
+Sensitive actions still rely on authoritative device/policy controls.
+
+Mobile wake:
+on-device SpeechRecognizer boundary when available.
+Wake is activation, not authentication.
+
+======================================================================
+40. GITA GYAN
+======================================================================
+
+Canonical data:
+core/krishna_core/data/bhagavad_gita_700.json
+
+Key files:
+- core/krishna_core/gita_gyan.py
+- core/krishna_core/gita_performance.py
+- core/krishna_core/krishna_shloka.py
+
+Design:
+- Sanskrit verse;
+- Odia/Hindi explanation;
+- practical-life connection;
+- owner follow-up;
+- learning progress;
+- no forced sequential learning;
+- repeat/next/previous/pause/resume/explain controls;
+- avatar performance state linked to verse/context.
+
+Conversation relationship:
+Owner is addressed as Partha.
+
+======================================================================
+41. KRISHNA AVATAR
+======================================================================
+
+Canonical character direction:
+Bala Krishna warmth
++ Venugopala grace
++ Gita Krishna calm intelligence
++ Odissi-derived abhinaya discipline
+
+Canonical identity signals:
+- one peacock feather;
+- beautiful long natural hair;
+- yellow/pitambara garment;
+- subtle child-scale jewellery;
+- flute;
+- clean tilak;
+- graceful posture.
+
+Performance priority:
+1. face
+2. eyes
+3. smile
+4. brows
+5. hands
+6. posture
+7. whole body
+
+State vocabulary:
+- IDLE
+- LISTENING
+- THINKING
+- SPEAKING
+- WISDOM
+- PLAYFUL
+- PROTECTION
+- FLUTE
+- DHYAN
+- SLEEPING
+- WAKING
+- WORKING
+
+Behavior rules:
+- no work -> FLUTE
+- deep research/search -> DHYAN
+- active work -> WORKING
+- listening != thinking
+- thinking != dhyan
+- protection != anger
+- speaking uses restrained meaningful gestures
+- no perpetual dancing/bouncing/waving
+
+Owner address:
+Partha only.
+
+Canonical performance doc:
+docs/KRISHNA_CHARACTER_PERFORMANCE_BIBLE.md
+
+======================================================================
+42. AVATAR PRODUCTION PIPELINE
+======================================================================
+
+Key files:
+- core/krishna_core/avatar_fabric.py
+- core/krishna_core/avatar_runtime.py
+- core/krishna_core/avatar_asset_pipeline.py
+- core/krishna_core/avatar_production.py
+- core/krishna_core/video_avatar.py
+- core/krishna_core/lip_sync.py
+- core/krishna_core/avatar_age_profile.py
+
+Private source asset:
+runtime-owned and not overwritten by deployment/tooling.
+
+Candidate production requirements:
+- GLB 2.0;
+- skinned humanoid armature;
+- TalkingHead/Mixamo-compatible body/hand/finger bones;
+- ARKit 52 facial blend shapes;
+- Oculus 15 viseme blend shapes;
+- required animation clips.
+
+Required clip set includes:
+- idle
+- listen
+- think
+- talk
+- walk
+- wave
+- smile
+- flute
+- dhyan
+- sleep
+- wake
+- work
+- wisdom
+- playful
+- protection
+
+Local browser animation stack:
+TalkingHead
+-> MotionEngine
+-> HeadAudio
+-> Character Performance Bible
+
+Production truth:
+A body-only rig is NOT a finished avatar.
+A missing facial/viseme rig is NOT production-ready.
+
+======================================================================
+43. UI ARCHITECTURE
+======================================================================
+
+Visual direction:
+- polished;
+- dark navy/gold/teal;
+- Liquid Glass selectively;
+- Bento selectively;
+- Spatial UI selectively;
+- not every style at once.
+
+Operational desktop UI:
+core/web_validation.html
+
+Spatial React UI:
+app/spatial-ui
+
+Stack:
+- React 19
+- Vite
+- TypeScript
+- Dockview
+- React Flow / xyflow
+- xterm read-only surface
+- React Three Fiber
+
+Spatial workspace concepts:
+- KRISHNA
+- Sudarshan
+- Action Graph
+- Automations
+- Avatar/Spatial
+- Terminal
+- Plugins
+
+Main Menu remains:
+- KRISHNA
+- Sudarshan
+- Plugins
+
+Spatial UI status:
+Implemented foundation / runtime verification required.
+Verified operational legacy/current UI remains default until full project/chat/NARAD parity and rendered Windows acceptance passes.
+
+======================================================================
+44. CONTROL ROOM / AVATAR UI STATE INTENT
+======================================================================
+
+Owner intent:
+- little Krishna character;
+- search/deep reflection -> Dhyan;
+- no work -> Flute;
+- work -> Work animation;
+- conversation via popup/voice;
+- internal status should not clutter owner UI.
+
+Internal systems remain reachable to KRISHNA without becoming visible navigation items.
+
+======================================================================
+45. LONG-CONTEXT / RAG
+======================================================================
+
+Key file:
+core/krishna_core/long_context.py
+
+Concepts:
+- Hybrid RAG;
+- recursive context engine;
+- recursive budget;
+- long-context lab;
+- weekly long-context scheduler;
+- context compaction/testing;
+- needle/context-rot style regression infrastructure.
+
+Workflow:
+.github/workflows/long-context-regression.yml
+
+======================================================================
+46. AMCC ADAPTIVE EFFORT CONTROLLER
+======================================================================
+
+Key files:
+- core/krishna_core/amcc_controller.py
+- docs/AMCC_ADAPTIVE_EFFORT_CONTROLLER.md
+
+Purpose:
+Adaptive effort/resource control inspired by anterior mid-cingulate concepts.
+
+It is a software control strategy, not a claim of literal biological consciousness.
+
+======================================================================
+47. REMOTE / NODE / MULTI-MACHINE
+======================================================================
+
+Key files:
+- core/krishna_core/remote_access.py
+- core/krishna_core/remote_runtime.py
+- core/krishna_core/node_bootstrap.py
+- core/krishna_core/node_registry.py
+- core/krishna_core/node_provisioner.py
+- core/krishna_core/node_transfer.py
+- core/krishna_core/windows_remote_manager.py
+
+Rules:
+- private overlay only;
+- no public unauthenticated Core control;
+- remote nodes remain governed by KRISHNA/Sudarshan;
+- migration/bootstrap must preserve source/runtime truth.
+
+======================================================================
+48. KRISHNA GLASS / WEARABLE BRIDGE
+======================================================================
+
+Key file:
+core/krishna_core/wearable_bridge.py
+
+Roadmap/capabilities:
+- camera/vision;
+- audio;
+- IMU/head tracking;
+- gestures;
+- optional wrist/ring input;
+- AR display.
+
+Every vendor/hardware capability remains unverified until real physical evidence proves it.
+
+======================================================================
+49. CREATOR / MEDIA / REVENUE BOUNDARY
+======================================================================
+
+Creator provider concepts:
+- ComfyUI
+- Wan
+- LTX
+- SkyReels
+
+These are optional provider/worker layers.
+
+OpenMontage:
+installation/source may be detected, but cloned source alone is not executable authority.
+A dedicated configured worker/command bridge is required.
+
+Revenue/CRM/publishing:
+business capability layers only.
+They never become KRISHNA authority.
+
+======================================================================
+50. SECURITY MODEL
+======================================================================
+
+Natural language is never directly turned into arbitrary shell.
+
+Mutating recovery:
+- registered action only;
+- policy-controlled;
+- audited.
+
+Cloud:
+blocked for local_only/restricted.
+
+Secrets:
+outside Git in environment/local protected config/secure vault.
+
+Protected projects:
+autonomous mutation/promotion forbidden unless product policy explicitly allows.
+
+High-risk tools:
+require explicit approval.
+
+======================================================================
+51. RESOURCE / RECOVERY MODEL
+======================================================================
+
+Capabilities:
+- ResourceGovernor;
+- PCObserver;
+- worker backoff;
+- crash-loop quarantine;
+- Guardian restart loop;
+- critical-RAM Ollama unload without deleting model files;
+- rollback;
+- recovery ladder.
+
+Recovery ladder includes:
+- observe
+- retry
+- restart component
+- restore config
+- known repair
+- investigate
+- generate patch
+- shadow test
+- deploy
+- rollback
+
+Mutating recovery remains policy-gated.
+
+======================================================================
+52. AUTONOMY SUPERVISOR
+======================================================================
+
+Key file:
+core/krishna_core/autonomy_supervisor.py
+
+Current safe unattended operations:
+- investigate
+- research
+- index
+
+Rules:
+- explicit opt-in;
+- non-mutating only;
+- resource-governed;
+- waiting-approval/completed/cancelled/superseded work is not auto-run;
+- mutation/promotion/external side effects retain normal gates.
+
+Mrityunjay separately handles bounded verified self-heal when actions are enabled.
+
+======================================================================
+53. COMMITMENT / TASK CONTINUITY
+======================================================================
+
+KRISHNA must not silently forget unfinished work.
+
+Key files:
+- core/krishna_core/commitment_ledger.py
+- core/krishna_core/task_ledger.py
+- core/krishna_core/mission_engine.py
+- core/krishna_core/durable_queue.py
+
+Work should be:
+- resumed;
+- explicitly superseded;
+- cancelled;
+- or completed with evidence.
+
+======================================================================
+54. PLUGIN / SKILL / SPECIALIST SYSTEM
+======================================================================
+
+Key files:
+- core/krishna_core/plugin_runtime.py
+- core/krishna_core/plugin_executor.py
+- core/krishna_core/skill_runtime.py
+- core/krishna_core/skill_compiler.py
+- core/krishna_core/specialist_library.py
+- core/krishna_core/specialist_registry.py
+- core/krishna_core/specialist_team.py
+
+Specialists remain bounded role workers.
+
+Built-in skills:
+- autonomous-operator
+- defensive-ai-security
+- graph-intelligence
+- intelligence-gateway
+- remote-node
+- root-cause-investigation
+- secure-mobile-gateway
+- verification-gate
+
+======================================================================
+55. AGENT RUNTIME - EXPLICIT INTERNAL AGENTS
+======================================================================
+
+Canonical explicit agent manifests include:
+
+1. kabach
+   defensive security and privacy guardian
+
+2. garuda
+   research and evidence scout
+
+3. garudanetra
+   browser/computer execution, research and verification
+
+4. ui-guardian
+   objective UI verification
+
+5. developer
+   bounded project implementation and verification
+
+6. narad
+   durable automation and provider workflow runtime
+
+7. mrityunjay
+   autonomous bounded self-heal, recovery, regression verification and rollback guardian
+
+8. lab-bot
+   Rishi experiment planner, simulator and approved laboratory adapter coordinator
+
+9. brahma
+   learning governor + Gyan-Bhandar QC + KRISHNA process-QC head
+
+Garudanetra specialist scout agents are also registered dynamically.
+Rishi agents are also registered dynamically from the permanent council.
+
+======================================================================
+56. CI / WORKFLOW LAYOUT
+======================================================================
+
+Canonical GitHub workflows:
+- .github/workflows/test-core.yml
+- .github/workflows/build-console.yml
+- .github/workflows/build-mobile-v3.yml
+- .github/workflows/long-context-regression.yml
+- .github/workflows/spatial-ui.yml
+
+Expected release confidence comes from:
+- Python compile;
+- PowerShell parse;
+- unit tests;
+- isolated HTTP integration;
+- repository contracts;
+- architecture truth audit;
+- browser E2E;
+- privacy/KABACH E2E;
+- spatial Node build;
+- Windows application build;
+- live bundled-Core smoke;
+- clean EXE restart;
+- mobile build/emulator/device gates where applicable.
+
+======================================================================
+57. FULL AUDIT SYSTEM
+======================================================================
+
+Master audit:
+scripts/AUDIT_KRISHNA_FULL.ps1
+
+It covers:
+- static/source audit;
+- Python compile;
+- core tests;
+- repository contracts;
+- spatial frontend build;
+- self-heal contract preflight;
+- PowerShell parse;
+- runtime acceptance;
+- E-drive reconciliation.
+
+Project source audit:
+core/krishna_core/project_audit.py
+
+It explicitly audits:
+- source;
+- repository;
+- UI;
+- core;
+- self-heal;
+- desktop;
+- avatar;
+- voice;
+- mobile;
+- security;
+- deployment;
+- requirements.
+
+======================================================================
+58. RUNTIME ACCEPTANCE
+======================================================================
+
+Canonical runtime acceptance:
+scripts/ACCEPT_KRISHNA_RUNTIME.ps1
+
+Acceptance covers major contracts including:
+- Shared Action Bus;
+- Agent Runtime;
+- Sudarshan;
+- Job Runtime;
+- Permission Runtime;
+- protocol/dispatch;
+- NARAD;
+- Gyan;
+- BRAHMAGYAN;
+- KABACH;
+- Garudanetra;
+- UI;
+- mobile runtime;
+- architecture truth;
+- MRITYUNJAY status/binding;
+- deployment/runtime integrity.
+
+MRITYUNJAY acceptance requires:
+- registered mrityunjay agent;
+- mrityunjay.status;
+- mrityunjay.heal;
+- bound=true;
+- attached=true.
+
+======================================================================
+59. CANONICAL IMPLEMENTATION INDEX SNAPSHOT
+======================================================================
+
+The requirements ledger currently classifies these major capabilities as IMPLEMENTED_NOT_VERIFIED unless separately noted by more specific completion-matrix evidence:
+
+- canonical_product_truth
+  Owner: requirements + architecture audit
+  Next: deployed architecture truth acceptance
+
+- hawkeye_live_coordinator
+  Owner: HAWKEYE
+  Next: mobile/live session acceptance
+
+- bhumiputra_expanded_perception
+  Owner: BHOOMIPUTRA
+  Next: real mobile camera/field acceptance
+
+- hawkeye_diagnostic
+  Owner: HAWKEYE DIAGNOSTIC
+  Next: real device/instrument adapter acceptance
+
+- deep_hardware_diagnostics
+  Owner: HAWKEYE DIAGNOSTIC
+  Next: real read-only multimeter/oscilloscope/OBD/CAN/J1939/acoustic acceptance
+
+- mobile_edge_pipeline
+  Owner: KRISHNA Mobile
+  Next: real-device offline capture/change-probe/encrypted-sync acceptance
+
+- canonical_mobile_runtime
+  Owner: KRISHNA Mobile
+  Next: real-device APK acceptance before legacy companion retirement
+
+- brahma_rishi_gyan
+  Owner: BRAHMA/Rishis/Gyan
+  Next: post-deploy BRAHMA QC -> approval -> verified recall
+
+- kabach_soc_security_ops
+  Owner: KABACH/SOC
+  Next: runtime remediation/retest acceptance
+
+- production_child_avatar
+  Owner: Avatar
+  Next: private GLB rig/ARKit/Oculus/animation inspection
+
+- always_listening_mobile_voice
+  Owner: Voice
+  Next: real Android recognition/mic/voice-gate lifecycle acceptance
+
+- field_geo_3d_ar
+  Owner: BHOOMIPUTRA/HAWKEYE GEO
+  Next: RTK/depth/photogrammetry/device acceptance
+
+- final_react_spatial_ui
+  Owner: KRISHNA UI
+  Next: project/chat/NARAD operational parity + Windows rendered acceptance
+
+- krishna_glass
+  Owner: WearableBridge
+  Next: physical glasses/wrist hardware verification
+
+- lab_bot
+  Owner: LAB BOT/Rishis/Sudarshan
+  Next: runtime Rishi -> simulation -> adapter flow acceptance
+
+- quantum_nano_lab
+  Owner: LAB BOT/Kanada/Vishwamitra
+  Next: runtime and optional provider/hardware acceptance
+
+- garudanetra_research_fabric_v2
+  Owner: Garudanetra/Garuda/Rishis/Sudarshan
+  Next: live mission -> scout -> evidence -> contradiction -> Rishi/LAB handoff
+
+- openrouter_zero_cost_fabric
+  Owner: Model Router/Sudarshan/KABACH
+  Next: live credential zero-cost catalog/inference/image acceptance
+
+- verified_direct_free_fabric
+  Owner: Model Router/Sudarshan/KABACH
+  Next: live verified Cloudflare Workers Free account acceptance
+
+- optional_memory_bridges
+  Owner: Gyan/MemoryFabric
+  Next: runtime-discover optional Codebase-Memory/Graft binaries
+
+- mcp_jsonrpc_adapter
+  Owner: Protocol Gateway/Sudarshan
+  Next: authenticated local/private live transport acceptance
+
+- narad_message_center
+  Owner: NARAD/Sudarshan
+  Next: live provider receipts/inbox/outbox acceptance
+
+- mobile_real_device_acceptance
+  Owner: KRISHNA Mobile
+  Next: record all real-device gates
+
+- sudarshan_design_vishvakarma
+  Owner: Sudarshan/Vishvakarma/Design Studio
+  Next: post-deploy verified design knowledge -> plan -> rendered acceptance
+
+- model_scout_admission
+  Owner: Model Router/Benchmark Lab
+  Next: benchmark real installed candidates
+
+- structured_project_brain
+  Owner: Sudarshan Project Brain
+  Next: restart/persistence acceptance
+
+- hawkeye_learning_observer
+  Owner: HAWKEYE/BRAHMA/Rishis
+  Next: real show-object/book/video -> distilled learning -> cross-check
+
+- hawkeye_mobile_object_overlay_capture
+  Owner: HAWKEYE Mobile
+  Next: real Android overlay/auto-zoom/research/photo/video acceptance
+
+NOTE:
+Source may contain newer capabilities not yet added to implementation_index.
+Always inspect current source and completion matrix.
+
+======================================================================
+60. KNOWN "DO NOT FALSELY MARK COMPLETE" AREAS
+======================================================================
+
+The following require real environment/device/asset proof:
+
+1. Private production KRISHNA avatar
+   - actual rig
+   - body/finger bones
+   - ARKit 52
+   - Oculus 15
+   - required animation clips
+
+2. Odia/Hindi local voice
+   - STT model assets
+   - TTS model assets
+   - Windows runtime commands
+   - mic/speaker acceptance
+
+3. Sanskrit shloka TTS
+   - configured local worker/model
+
+4. Mobile
+   - real-device pairing
+   - conversation
+   - wake
+   - camera
+   - audio
+   - background notifications
+   - offline sync
+   - large-media sync
+   - private remote use
+
+5. HAWKEYE physical sensing
+   - camera behavior
+   - depth
+   - RTK
+   - photogrammetry
+   - diagnostic instruments
+   - OBD/CAN/J1939 interface
+   - microphones/vibration sensors
+
+6. KRISHNA Glass
+   - real hardware
+
+7. Optional local adapters
+   - Codebase-Memory
+   - Graft
+   - OpenMontage worker
+   - optional model/provider runtimes
+
+8. Spatial React UI
+   - final operational parity
+   - rendered Windows acceptance
+   - explicit switch to default
+
+9. MRITYUNJAY
+   - source is implemented;
+   - deployment must include latest canonical source;
+   - runtime acceptance must show bound+attached;
+   - KRISHNA_ALLOW_ACTIONS=1 is required for automatic mutation;
+   - rollback behavior should be accepted on the real PC.
+
+======================================================================
+61. RELEASE / DEFINITION-OF-DONE RULES
+======================================================================
+
+Canonical definition of done requires:
+
+- requirement exists in canonical ledger;
+- canonical implementation owner is known;
+- implementation is reachable from production runtime;
+- unit tests;
+- integration tests;
+- persistence/restart test where applicable;
+- permissions/audit for consequential actions;
+- independent verification;
+- rendered runtime UI verification for UI;
+- device/hardware evidence for physical features;
+- no "verified" status from PR merge alone.
+
+Never use "percent complete" to override failed evidence.
+
+======================================================================
+62. IMPORTANT PROJECT FILES FOR A NEW AI
+======================================================================
+
+Read first:
+
+1. core/requirements/krishna_chat_requirements.json
+   Machine-readable master product truth.
+
+2. docs/KRISHNA_COMPLETION_MATRIX.md
+   Human implementation ledger.
+
+3. docs/KRISHNA_COMPONENT_MAP.md
+   Ownership map.
+
+4. KRISHNA_AGI_V1_ARCHITECTURE.md
+   Core architecture.
+
+5. docs/KRISHNA_PHASED_AUDIT_MEMORY.md
+   Audit phase history.
+
+6. docs/FINAL_E2E_ACCEPTANCE.md
+   Acceptance expectations.
+
+7. core/krishna_core/orchestrator.py
+   Runtime composition and Shared Action registrations.
+
+8. core/krishna_core/server.py
+   HTTP/API surface.
+
+9. core/krishna_core/shared_action_bus.py
+   Canonical action boundary.
+
+10. core/krishna_core/sudarshan_control.py
+    Execution control plane.
+
+11. core/krishna_core/mrityunjay.py
+    Autonomous self-heal supervisor.
+
+12. core/krishna_core/self_heal.py
+    Isolated model-assisted repair runtime.
+
+13. core/krishna_core/project_perfection_runtime.py
+    Full project verification.
+
+14. mobile_v3/CANONICAL_RUNTIME.json
+    Mobile product/runtime truth.
+
+15. docs/KRISHNA_CHARACTER_PERFORMANCE_BIBLE.md
+    Avatar identity and behavior.
+
+16. docs/BRAHMAGYAN_ARCHITECTURE.md
+    Deep learning/research architecture.
+
+17. docs/HAWKEYE_LEARNING_OBSERVER.md
+    Camera/video/book/object learning.
+
+18. docs/HAWKEYE_GEO_STACK.md
+    Field/geospatial architecture.
+
+19. docs/KABACH_PRIVACY_GUARDIAN.md
+    Privacy/security design.
+
+20. docs/NARAD_N8N_INTEGRATION.md
+    Workflow integration.
+
+21. docs/PROJECT_PERFECTION_LOOP.md
+    Software completion/repair loop.
+
+22. docs/SUDARSHAN_END_TO_END_CONTRACT.md
+    Delegated work boundary.
+
+23. docs/OPENROUTER_ZERO_COST_FABRIC.md
+    Free-cloud policy.
+
+======================================================================
+63. SHARED ACTION BUS - REGISTERED ACTIONS
+======================================================================
+
+Current canonical source registers 174 Shared Actions:
+
+design.plan
+design.drift
+design.acceptance
+design.ui.next
+vishvakarma.retrieve
+vishvakarma.learn
+vishvakarma.verify
+model.scout.evaluate
+model.scout.recommend
+model.spark.status
+model.spark.discover
+model.spark.install_plan
+model.spark.benchmark
+model.spark.review
+model.spark.verify
+model.spark.enable_routing
+model.spark.mobile_plan
+gyan.acl.grant
+gyan.acl.revoke
+gyan.session.capture
+gyan.replica.snapshot
+gyan.encrypted.put
+mission.create
+mission.transition
+mission.checkpoint
+resource.lock.acquire
+resource.lock.release
+chat.create
+chat.move
+chat.rename
+chat.delete
+project.register
+project.unregister
+project.rename
+project.brain.provision
+project.brain.status
+project.brain.record
+work.managed.run
+cognition.amcc.evaluate
+cognition.amcc.status
+cognition.amcc.outcome
+repair.shadow
+promotion.prepare
+promotion.apply
+development.git.status
+development.git.commit
+development.git.push
+development.sync
+development.stage
+development.verify
+worker.ephemeral.execute
+browser.inspect
+browser.testing_lead
+project.design.research
+project.design.implement
+project.visual_edit.implement
+self_heal.status
+self_heal.run
+self_heal.apply
+mrityunjay.status
+mrityunjay.heal
+project.perfection.finish
+model.complete
+openrouter.free.complete
+openrouter.free.image
+direct.free.complete
+narad.publish_event
+narad.adapter_webhook
+narad.provider_send
+narad.workflow.create
+narad.workflow.promote
+narad.workflow.execute
+narad.checkpoint.resume
+narad.dead_letter.retry
+brahma.status
+brahma.retrieve
+brahma.intake
+brahma.gyan.qc
+brahma.cognitive.status
+brahma.cognitive.query
+brahma.cognitive.ingest
+brahma.cognitive.study
+brahma.cognitive.analogies
+brahma.cognitive.curiosity
+brahma.cognitive.consolidate
+brahma.cognitive.forget
+brahma.cognitive.hypotheses
+brahma.temporal.query
+brahma.contradiction.record
+brahma.contradiction.resolve
+brahma.consolidate
+brahma.memory.evaluate
+brahma.rishi.graph
+brahma.teachback.create
+brahma.teachback.submit
+brahma.decay.scan
+brahmagyan.mission.create
+brahmagyan.questions.add
+brahmagyan.phase.advance
+brahmagyan.perspectives.plan
+brahmagyan.evidence.audit
+brahmagyan.citation.review
+brahmagyan.debate.policy
+brahmagyan.debate.open
+brahmagyan.debate.turn
+brahmagyan.debate.close
+brahmagyan.dossier
+brahmagyan.live.run
+brahmagyan.live.status
+brahmagyan.deep.discover
+brahmagyan.claim.record
+brahmagyan.evidence.add
+brahmagyan.contradiction.resolve
+brahmagyan.claim.advance
+brahmagyan.claim.compile
+brahmagyan.claim.promote
+brahmagyan.curiosity.add
+brahmagyan.gaps.generate
+brahmagyan.council.propose
+brahmagyan.rishi.topics
+brahmagyan.rishi.learning
+brahmagyan.rishi.collaboration
+brahmagyan.projects.status
+brahmagyan.projects.add
+brahmagyan.science.status
+brahmagyan.science.sync
+brahmagyan.science.route
+brahmagyan.science.frontier.seed
+brahmagyan.science.frontier.run
+brahmagyan.science.background.tick
+brahmagyan.background.check
+brahmagyan.shishya.plan
+brahmagyan.shishya.execute
+kabach.privacy.audit
+kabach.privacy.clean_url
+kabach.privacy.baseline.save
+kabach.privacy.baseline.compare
+kabach.privacy.release_gate
+mobile.runtime.manifest
+hawkeye.diagnostic.adapters.status
+hawkeye.diagnostic.electronics.measure
+hawkeye.diagnostic.vehicle.read
+hawkeye.diagnostic.acoustic.analyze
+hawkeye.ruview.status
+hawkeye.ruview.wifi.connect
+hawkeye.ruview.sample
+hawkeye.ruview.ingest
+hawkeye.field.measurements.status
+hawkeye.field.gnss.ingest
+hawkeye.field.depth.ingest
+hawkeye.field.photogrammetry.status
+hawkeye.field.photogrammetry.run
+hawkeye.field.survey.metrics
+hawkeye.field.survey.contains
+hawkeye.field.survey.volume
+hawkeye.field.survey.route
+hawkeye.field.survey.export
+hawkeye.field.survey.record
+lab.quantum.plan
+lab.quantum.simulate
+lab.nano.plan
+lab.nano.geometry
+lab.quantum-nano.bridge
+lab.experiment.request
+lab.experiment.protocol
+lab.experiment.simulate
+lab.experiment.review
+lab.experiment.execute
+lab.experiment.record
+architecture.truth.scan
+hawkeye.status
+hawkeye.reason
+hawkeye.lane.record
+garuda.scout
+
+======================================================================
+64. ANOTHER AI - OPERATING INSTRUCTIONS
+======================================================================
+
+If you are another AI continuing KRISHNA:
+
+A. FIRST
+- fetch current canonical branch;
+- read this file;
+- read canonical requirements ledger;
+- read completion matrix;
+- inspect current Git diff/status before changing code;
+- inspect current workflow/CI state.
+
+B. NEVER
+- create a second KRISHNA authority;
+- create a second browser authority;
+- bypass Sudarshan for consequential delegated actions;
+- bypass Policy/Permission;
+- bypass independent verification;
+- auto-promote unverified model output;
+- send private raw source/credentials/HAWKEYE evidence to cloud;
+- use paid cloud silently;
+- mark hardware/device capability verified without device evidence;
+- delete unknown/legacy data automatically;
+- treat a UI label as implementation;
+- claim avatar rigging complete without inspector evidence;
+- claim self-heal complete because model generated a patch;
+- claim research as trusted knowledge without provenance/QC.
+
+C. WHEN FIXING SOFTWARE
+Use:
+failure evidence
+-> root-cause investigation
+-> isolated candidate
+-> minimal repair
+-> narrow test
+-> full regression
+-> browser/UI/runtime verification
+-> independent review
+-> transactional promotion
+-> post-apply verification
+-> rollback on regression
+
+D. WHEN LEARNING
+Use:
+observation/research
+-> provenance
+-> relevant Rishi
+-> contradiction/source-independence checks
+-> BRAHMA QC
+-> Gyan candidate
+-> approval/verification
+-> trusted recall
+
+E. WHEN USING MODELS
+Models are inference workers.
+They are not system authority.
+
+F. WHEN USING CLOUD
+Use only approved non-sensitive/free-verified paths.
+Fail closed if billing/privacy cannot be verified.
+
+G. WHEN REPORTING STATUS
+Separate:
+- VERIFIED
+- IMPLEMENTED_NOT_VERIFIED
+- PARTIAL
+- MISSING
+- ROADMAP
+- SUPERSEDED
+
+Never collapse these states.
+
+======================================================================
+65. FINAL SOURCE SNAPSHOT
+======================================================================
+
+At generation time:
+- repository: lrgroup-bot/KRISHNA-CORE
+- default/canonical branch: fix/krishna-ui-runtime-verification
+- canonical head: d3c79ed60afd2c27339c224808f548b37d00d5a9
+- source file count: 517
+- Shared Action registrations: 174
+- permanent Rishi/Acharya profiles: 29
+- canonical Android source: mobile_v3
+- canonical Windows/Core authority: core/krishna_core + Orchestrator/Sudarshan
+- canonical browser engine: Playwright/Chromium
+- canonical trusted memory: Gyan-Bhandar
+- canonical security/privacy guardian: KABACH
+- canonical workflow runtime: NARAD
+- canonical autonomous self-heal supervisor: MRITYUNJAY
+- canonical live perception coordinator: HAWKEYE
+- canonical field/geospatial specialist: BHOOMIPUTRA
+- canonical research scout: Garuda
+- canonical browser/computer authority: Garudanetra
+- canonical deep research system: BRAHMAGYAN
+- canonical learning/QC governor: BRAHMA BOT
+- canonical experiment bridge: LAB BOT
+- canonical developer completion loop: Project Perfection
+- canonical UI verification: UI Guardian
+- canonical design knowledge specialist: Rishi Vishvakarma
+
+END OF KRISHNA MASTER PROJECT CONTEXT
