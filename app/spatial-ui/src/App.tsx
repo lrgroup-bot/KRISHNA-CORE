@@ -157,6 +157,7 @@ function HawkeyeRfPanel() {
     0,
     Number(latest?.person_count ?? ((latest?.presence === true) ? 1 : 0)) || 0,
   );
+  const silhouettes = Math.min(inferredCount, 8);
   const posePoints = (latest?.pose_keypoints ?? [])
     .filter((point): point is number[] => Array.isArray(point) && point.length >= 2)
     .slice(0, 17)
