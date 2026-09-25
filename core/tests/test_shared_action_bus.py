@@ -74,6 +74,15 @@ class SharedActionBusTests(unittest.TestCase):
         self.assertEqual(out["payload"]["nested"]["password"],"[REDACTED]")
         self.assertEqual(out["payload"]["text"],"hello")
 
+    def test_recursive_result_is_safely_sanitized(self):
+        bus=self.make_bus()
+        result={"ok":True}
+        result["self"]=result
+        bus.register("safe.recursive",lambda payload,ctx:result)
+        out=bus.dispatch("safe.recursive",{})
+        self.assertEqual(out["status"],"completed")
+        self.assertEqual(out["result"]["self"],"[CIRCULAR]")
+
 
 if __name__=="__main__":
     unittest.main()
