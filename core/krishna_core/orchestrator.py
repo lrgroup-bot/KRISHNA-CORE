@@ -66,6 +66,7 @@ from .diagnostic_adapters import DiagnosticAdapterRegistry
 from .hawkeye_reference import HawkeyeReferenceRegistry
 from .universal_learning import UniversalLearningRuntime
 from .hawkeye_field_platform import HawkeyeFieldPlatform
+from .hawkeye_ruview import HawkeyeRuViewBridge
 from .krishna_observability import KrishnaObservability
 from .hawkeye_geo_engine import HawkeyeGeoEngine
 from .field_survey import FieldSurveyEngine
@@ -183,6 +184,26 @@ class Orchestrator:
             geo=self.hawkeye_geo,
             memory=self.memory,
         )
+        self.hawkeye_ruview = HawkeyeRuViewBridge(
+            runtime_state / "hawkeye" / "ruview",
+            secure_vault=self.secure_vault,
+            hawkeye=self.hawkeye,
+            field=self.hawkeye_field,
+        )
+        try:
+            self.hawkeye_field.register_device(
+                "krishna-pc-rf",
+                "ruview-adapter",
+                sensors=("WIFI_RSSI","WIFI_CSI","RF_FIELD"),
+                capabilities=(
+                    "pc-only-wifi-credential-entry",
+                    "rssi-fallback",
+                    "ruview-csi-ingest",
+                    "presence-motion-pose-when-supported",
+                ),
+            )
+        except Exception as exc:
+            self.memory.audit("hawkeye_ruview","field_registration_failed",type(exc).__name__)
         self.observability = KrishnaObservability(runtime_state / "observability")
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
         self.hawkeye_diagnostic.bind_worker_runtime(self.ephemeral_workers,self.governor)
@@ -1885,6 +1906,31 @@ class Orchestrator:
             )
             return evidence
 
+        def hawkeye_ruview_status(payload,context):
+            return self.hawkeye_ruview.status(refresh=bool(payload.get("refresh",False)))
+
+        def hawkeye_ruview_connect_wifi(payload,context):
+            return self.hawkeye_ruview.connect_wifi(
+                ssid=str(payload.get("ssid") or ""),
+                password=payload.get("password"),
+                secret_id=payload.get("secret_id"),
+                remember=bool(payload.get("remember",True)),
+                auth=str(payload.get("auth") or "WPA2PSK"),
+                cipher=str(payload.get("cipher") or "AES"),
+                wait_seconds=int(payload.get("wait_seconds") or 15),
+            )
+
+        def hawkeye_ruview_sample(payload,context):
+            session_id=str(payload.get("session_id") or "").strip() or None
+            return self.hawkeye_ruview.sample(session_id=session_id)
+
+        def hawkeye_ruview_ingest(payload,context):
+            session_id=str(payload.get("session_id") or "").strip()
+            if not session_id:raise ValueError("session_id is required")
+            event=payload.get("event")
+            if not isinstance(event,dict):raise ValueError("event must be an object")
+            return self.hawkeye_ruview.ingest_event(session_id,event)
+
         def hawkeye_field_measurement_status(payload,context):
             return self.field_measurements.status()
 
@@ -1998,7 +2044,9 @@ class Orchestrator:
             return self.architecture_truth.scan(force=bool(payload.get("force",False)))
 
         def hawkeye_status_action(payload,context):
-            return self.hawkeye.status()
+            status=self.hawkeye.status()
+            status["ruview"]=self.hawkeye_ruview.status(refresh=False)
+            return status
 
         def hawkeye_reason_action(payload,context):
             return self.hawkeye.reason(str(payload.get("session_id") or ""))
@@ -3017,6 +3065,32 @@ class Orchestrator:
             description="Extract bounded acoustic/vibration measurement features without retaining raw samples",
             mutating=True,permissions=("evidence.write",),
             sources=("pc","mobile","system","agent","job"),
+        )
+
+        self.action_bus.register(
+            "hawkeye.ruview.status",hawkeye_ruview_status,
+            description="Inspect PC-local RuView/Wi-Fi sensing readiness without exposing credentials",
+            permissions=("runtime.read",),
+            sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "hawkeye.ruview.wifi.connect",hawkeye_ruview_connect_wifi,
+            description="Create/connect a Windows Wi-Fi profile for HAWKEYE RuView using PC-only credential entry",
+            mutating=True,requires_approval=True,
+            permissions=("network.configure","secret.write"),
+            sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "hawkeye.ruview.sample",hawkeye_ruview_sample,
+            description="Read local RuView sensing output or an honest Windows RSSI-only fallback",
+            mutating=True,permissions=("evidence.write",),
+            sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "hawkeye.ruview.ingest",hawkeye_ruview_ingest,
+            description="Ingest a local RuView RF sensing event into HAWKEYE evidence lanes",
+            mutating=True,permissions=("evidence.write",),
+            sources=("pc","system"),
         )
 
         self.action_bus.register(

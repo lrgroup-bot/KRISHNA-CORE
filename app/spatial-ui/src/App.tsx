@@ -1,9 +1,312 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { DockviewReact, themeDark } from 'dockview-react';
 import { Background, Controls, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import { Canvas } from '@react-three/fiber';
 import { Terminal } from '@xterm/xterm';
-import { Bot, Boxes, PlugZap, ShieldCheck, Workflow } from 'lucide-react';
+import { Activity, Bot, Boxes, PlugZap, Radio, ShieldCheck, Wifi, Workflow } from 'lucide-react';
+
+type RuViewStatus = {
+  mode?: 'csi' | 'rssi_only' | 'unconfigured' | string;
+  wifi?: {
+    available?: boolean;
+    connected?: boolean;
+    ssid?: string | null;
+    signal_percent?: number | null;
+    channel?: string | null;
+    radio_type?: string | null;
+  };
+  ruview?: {
+    python_client_installed?: boolean;
+    reachable?: boolean;
+    csi_detected?: boolean;
+    latest?: {
+      payload?: {
+        presence?: boolean | null;
+        motion?: number | null;
+        motion_energy?: number | null;
+        person_count?: number;
+        presence_score?: number | null;
+        signal_quality?: number | null;
+        rssi?: number | null;
+        persons?: unknown[];
+        pose_keypoints?: number[][];
+      };
+    } | null;
+  };
+  credentials?: {
+    entry_surface?: string;
+    mobile_entry_allowed?: boolean;
+    storage?: string;
+  };
+  capability_limit?: string;
+};
+
+function HawkeyeRfPanel() {
+  const [status, setStatus] = useState<RuViewStatus | null>(null);
+  const [error, setError] = useState('');
+  const [ssid, setSsid] = useState('');
+  const [password, setPassword] = useState('');
+  const [auth, setAuth] = useState('WPA2PSK');
+  const [remember, setRemember] = useState(true);
+  const [connecting, setConnecting] = useState(false);
+  const [rfSessionId, setRfSessionId] = useState('');
+  const [sampling, setSampling] = useState(false);
+
+  const localCredentialSurface = useMemo(() => {
+    const host = window.location.hostname.toLowerCase();
+    return host === '127.0.0.1' || host === 'localhost' || host === '::1';
+  }, []);
+
+  const refresh = async () => {
+    try {
+      const response = await fetch('/api/hawkeye/ruview/status?refresh=1', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json() as RuViewStatus;
+      setStatus(data);
+      setError('');
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 2500);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!rfSessionId || !localCredentialSurface) return;
+    let cancelled = false;
+    const capture = async () => {
+      if (cancelled) return;
+      try {
+        await fetch('/api/hawkeye/ruview/sample', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: rfSessionId }),
+        });
+      } catch {
+        // Status refresh surfaces connectivity failures; keep capture loop bounded.
+      }
+    };
+    void capture();
+    const timer = window.setInterval(() => void capture(), 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [rfSessionId, localCredentialSurface]);
+
+  const startRfCapture = async () => {
+    if (!localCredentialSurface || sampling || rfSessionId) return;
+    setSampling(true);
+    setError('');
+    try {
+      const response = await fetch('/api/hawkeye/live/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project: 'KRISHNA',
+          purpose: 'RuView Wi-Fi RF sensing',
+          scene_hint: 'wifi-rf',
+          coordinates: {},
+        }),
+      });
+      const data = await response.json() as { session_id?: string; error?: string };
+      if (!response.ok || !data.session_id) throw new Error(data.error || `HTTP ${response.status}`);
+      setRfSessionId(data.session_id);
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setSampling(false);
+    }
+  };
+
+  const connectWifi = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!localCredentialSurface || !ssid.trim() || !password) return;
+    setConnecting(true);
+    setError('');
+    try {
+      const response = await fetch('/api/hawkeye/ruview/wifi/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ssid: ssid.trim(),
+          password,
+          auth,
+          cipher: 'AES',
+          remember,
+          approved: true,
+        }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      setPassword('');
+      await refresh();
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const latest = status?.ruview?.latest?.payload;
+  const inferredCount = Math.max(
+    0,
+    Number(latest?.person_count ?? ((latest?.presence === true) ? 1 : 0)) || 0,
+  );
+  const silhouettes = Math.min(inferredCount, 8);
+  const posePoints = (latest?.pose_keypoints ?? [])
+    .filter((point): point is number[] => Array.isArray(point) && point.length >= 2)
+    .slice(0, 17)
+    .map((point) => ({
+      x: Math.max(0, Math.min(100, Number(point[0]) * 100)),
+      y: Math.max(0, Math.min(100, Number(point[1]) * 100)),
+      confidence: point.length >= 4 ? Number(point[3]) : 1,
+    }));
+  const poseEdges: Array<[number, number]> = [
+    [0, 1], [0, 2], [1, 3], [2, 4],
+    [5, 6], [5, 7], [7, 9], [6, 8], [8, 10],
+    [5, 11], [6, 12], [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+  ];
+  const hasPose = posePoints.length >= 5;
+  const modeLabel = status?.mode === 'csi'
+    ? 'CSI sensing'
+    : status?.mode === 'rssi_only'
+      ? 'RSSI only'
+      : 'Not connected';
+
+  return (
+    <section className="rf-console" aria-label="HAWKEYE RuView Wi-Fi sensing">
+      <div className="rf-console__header">
+        <div>
+          <div className="eyebrow">HAWKEYE · RUVIEW · PC CONTROL</div>
+          <h2>Wi-Fi RF sensing</h2>
+          <p className="muted">
+            Wi-Fi credentials are entered and stored only on the KRISHNA PC. Mobile never receives or submits the password.
+          </p>
+        </div>
+        <div className="rf-actions">
+          {localCredentialSurface ? (
+            <button
+              type="button"
+              className={rfSessionId ? 'kr-button kr-button--ghost' : 'kr-button'}
+              onClick={() => rfSessionId ? setRfSessionId('') : void startRfCapture()}
+              disabled={sampling}
+            >
+              {sampling ? 'Starting…' : rfSessionId ? 'Stop RF capture' : 'Start RF capture'}
+            </button>
+          ) : null}
+          <button type="button" className="kr-button kr-button--ghost" onClick={() => void refresh()}>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div className="bento rf-bento">
+        <article className="card">
+          <Wifi />
+          <strong>{status?.wifi?.connected ? status.wifi.ssid : 'Wi-Fi disconnected'}</strong>
+          <span>Signal: {status?.wifi?.signal_percent ?? '—'}% · Channel: {status?.wifi?.channel ?? '—'}</span>
+        </article>
+        <article className="card">
+          <Radio />
+          <strong>{modeLabel}</strong>
+          <span>RuView local server: {status?.ruview?.reachable ? 'online' : 'not detected'} · CSI: {status?.ruview?.csi_detected ? 'detected' : 'not detected'}</span>
+        </article>
+        <article className="card">
+          <ShieldCheck />
+          <strong>Credential boundary</strong>
+          <span>{status?.credentials?.storage ?? 'Windows DPAPI'} · mobile entry: disabled</span>
+        </article>
+      </div>
+
+      <div className="rf-layout">
+        <div className="rf-stage" aria-label="RF scene">
+          <div className="rf-stage__title"><Activity size={16} /> RF Scene</div>
+          {status?.mode === 'csi' ? (
+            <div className="rf-people">
+              {hasPose ? (
+                <svg className="rf-pose" viewBox="0 0 100 100" role="img" aria-label="RuView inferred RF pose">
+                  {poseEdges.map(([a, b]) => {
+                    const p1 = posePoints[a];
+                    const p2 = posePoints[b];
+                    if (!p1 || !p2 || p1.confidence < 0.1 || p2.confidence < 0.1) return null;
+                    return <line key={`${a}-${b}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} />;
+                  })}
+                  {posePoints.map((point, index) => point.confidence >= 0.1
+                    ? <circle key={index} cx={point.x} cy={point.y} r="1.7" />
+                    : null)}
+                </svg>
+              ) : silhouettes > 0
+                ? Array.from({ length: silhouettes }, (_, index) => <div key={index} className="rf-person" aria-label="inferred person" />)
+                : <span className="muted">No presence inferred in the latest RuView frame.</span>}
+            </div>
+          ) : (
+            <div className="rf-rssi">
+              <span className="rf-rssi__value">{status?.wifi?.signal_percent ?? '—'}%</span>
+              <span className="muted">RSSI radio level only — no body or pose reconstruction.</span>
+            </div>
+          )}
+          <div className="status-strip">
+            <span>Presence: {latest?.presence == null ? '—' : latest.presence ? 'yes' : 'no'}</span>
+            <span>People: {latest?.person_count ?? '—'}</span>
+            <span>Motion: {latest?.motion ?? latest?.motion_energy ?? '—'}</span>
+            <span>Quality: {latest?.signal_quality ?? latest?.presence_score ?? '—'}</span>
+            <span>HAWKEYE capture: {rfSessionId ? 'recording' : 'off'}</span>
+          </div>
+        </div>
+
+        <div className="rf-connect-card">
+          <div className="eyebrow">LOCAL PC WI-FI</div>
+          {localCredentialSurface ? (
+            <form onSubmit={connectWifi} className="rf-form">
+              <label>
+                SSID
+                <input value={ssid} onChange={(event) => setSsid(event.target.value)} autoComplete="off" />
+              </label>
+              <label>
+                Password
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                />
+              </label>
+              <label>
+                Security
+                <select value={auth} onChange={(event) => setAuth(event.target.value)}>
+                  <option value="WPA2PSK">WPA2-Personal</option>
+                  <option value="WPA3SAE">WPA3-Personal</option>
+                  <option value="WPAPSK">WPA-Personal</option>
+                </select>
+              </label>
+              <label className="rf-check">
+                <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />
+                Store encrypted with Windows DPAPI
+              </label>
+              <button className="kr-button" disabled={connecting || !ssid.trim() || !password}>
+                {connecting ? 'Connecting…' : 'Connect on KRISHNA PC'}
+              </button>
+            </form>
+          ) : (
+            <p className="muted">
+              Wi-Fi credential entry is disabled on remote/mobile sessions. Open KRISHNA locally on the PC to connect a network.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {error ? <p className="rf-error">RuView/Wi-Fi: {error}</p> : null}
+      <p className="muted rf-limit">
+        {status?.capability_limit ?? 'Full RuView sensing requires CSI-capable hardware; a normal laptop Wi-Fi adapter is RSSI-only.'}
+      </p>
+    </section>
+  );
+}
 
 function KrishnaHome() {
   return (
@@ -18,6 +321,7 @@ function KrishnaHome() {
         <article className="card"><Workflow /><strong>Action Graph</strong><span>Jobs, agents and tools share one execution spine.</span></article>
         <article className="card"><Boxes /><strong>Local-first</strong><span>Private evidence and credentials remain local by default.</span></article>
       </div>
+      <HawkeyeRfPanel />
     </section>
   );
 }

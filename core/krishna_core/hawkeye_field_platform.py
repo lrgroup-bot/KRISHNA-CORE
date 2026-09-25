@@ -8,7 +8,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 import hashlib, json, time, uuid
 
-SENSOR_STREAMS=("VIDEO","AUDIO","IMU","GNSS","DEPTH","GAZE","GESTURE","THERMAL","MMWAVE","EEG","EMG")
+SENSOR_STREAMS=("VIDEO","AUDIO","IMU","GNSS","DEPTH","GAZE","GESTURE","THERMAL","MMWAVE","WIFI_RSSI","WIFI_CSI","RF_FIELD","EEG","EMG")
 EVIDENCE_STATES=("MEASURED","OBSERVED","INFERRED","PREDICTED","UNKNOWN")
 
 MAP_PROVIDERS={

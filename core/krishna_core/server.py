@@ -963,6 +963,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"attachments":_attachments.list(chat_id)})
         if path == "/api/vision/status":
             return self._json(200,_vision.status())
+        if path == "/api/hawkeye/ruview/status":
+            refresh=str((query.get("refresh") or ["0"])[0]).lower() in {"1","true","yes"}
+            return self._json(200,orch.hawkeye_ruview.status(refresh=refresh))
         if path == "/api/hawkeye/gemini/status":
             return self._json(200,_gemini_hawkeye.status())
         if path == "/api/hawkeye/free-cloud/status":
@@ -972,6 +975,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,_hawkeye_free_cloud.status(refresh=refresh))
         if path in ("/api/hawkeye/status", "/api/bhumiputra/status"):
             status=orch.hawkeye.status()
+            status["ruview"]=orch.hawkeye_ruview.status(refresh=False)
             status["agent"]="hawkeye"
             status["legacy_api_alias"]="/api/bhumiputra/status"
             return self._json(200,status)
@@ -1738,6 +1742,59 @@ class Handler(BaseHTTPRequestHandler):
             data = self._body()
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
+
+        if post_path == "/api/hawkeye/ruview/wifi/connect":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"RuView Wi-Fi credentials may be entered only on the KRISHNA PC"})
+            try:
+                receipt=orch.dispatch_action(
+                    "hawkeye.ruview.wifi.connect",
+                    {
+                        "ssid":data.get("ssid"),
+                        "password":data.get("password"),
+                        "secret_id":data.get("secret_id"),
+                        "remember":bool(data.get("remember",True)),
+                        "auth":data.get("auth") or "WPA2PSK",
+                        "cipher":data.get("cipher") or "AES",
+                        "wait_seconds":int(data.get("wait_seconds") or 15),
+                    },
+                    project="KRISHNA",source="pc",actor="hawkeye-ruview-pc",
+                    approved=bool(data.get("approved",False)),
+                    permissions=("network.configure","secret.write"),
+                )
+                return self._json(200,receipt["result"])
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/ruview/sample":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"RuView sensing control is KRISHNA-PC only"})
+            try:
+                receipt=orch.dispatch_action(
+                    "hawkeye.ruview.sample",
+                    {"session_id":data.get("session_id")},
+                    project="KRISHNA",source="pc",actor="hawkeye-ruview-pc",
+                    permissions=("evidence.write",),
+                )
+                return self._json(200,receipt["result"])
+            except (KeyError,ValueError) as exc:return self._json(400,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/ruview/ingest":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"RuView sensor ingest is accepted only from the KRISHNA PC"})
+            try:
+                receipt=orch.dispatch_action(
+                    "hawkeye.ruview.ingest",
+                    {"session_id":data.get("session_id"),"event":data.get("event")},
+                    project="KRISHNA",source="system",actor="hawkeye-ruview-local-bridge",
+                    permissions=("evidence.write",),
+                )
+                return self._json(201,receipt["result"])
+            except (KeyError,ValueError) as exc:return self._json(400,{"error":str(exc)})
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/mobile/testing/run":
             try:
