@@ -42,6 +42,13 @@ class ProjectPerfectionOrchestratorContract(unittest.TestCase):
         self.assertNotIn("script: PYTHONPATH=core python -c 'import json,sys;",workflow)
         self.assertIn("ArtifactExecutor().apk",verifier)
 
+    def test_krishna_self_heal_uses_canonical_source_root(self):
+        source=(Path(__file__).resolve().parents[1]/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
+        self.assertIn("def _effective_project_root",source)
+        self.assertIn('os.getenv("KRISHNA_SOURCE_ROOT")',source)
+        self.assertIn('effective_root=self._effective_project_root(project,policy)',source)
+        self.assertIn('"target_root":str(target_root)',source)
+
     def test_operator_finish_script_requests_apply(self):
         script=(repository_root()/"scripts"/"FINISH_KRISHNA_PROJECT.ps1").read_text(encoding="utf-8")
         self.assertIn("apply_verified=$true",script)
