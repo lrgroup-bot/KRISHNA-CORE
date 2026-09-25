@@ -24,6 +24,7 @@ class MrityunjaySelfHealBot:
 
     VERSION = "mrityunjay-self-heal-v1"
     FAILURE_TOPICS = (
+        "action.failed",
         "TEST_FAILED",
         "BUILD_FAILED",
         "VERIFICATION_FAILED",
@@ -141,6 +142,11 @@ class MrityunjaySelfHealBot:
     def _on_failure_event(self, event: dict[str, Any]):
         source = str(event.get("source") or "").lower()
         if "mrityunjay" in source:
+            return None
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        action = str(payload.get("action") or "").strip().lower()
+        actor = str(payload.get("actor") or "").strip().lower()
+        if actor == "mrityunjay" or action.startswith("self_heal.") or action.startswith("mrityunjay."):
             return None
         project = self._event_project(event)
         policy = self.projects.get(project)
