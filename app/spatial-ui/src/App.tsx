@@ -49,6 +49,8 @@ function HawkeyeRfPanel() {
   const [auth, setAuth] = useState('WPA2PSK');
   const [remember, setRemember] = useState(true);
   const [connecting, setConnecting] = useState(false);
+  const [rfSessionId, setRfSessionId] = useState('');
+  const [sampling, setSampling] = useState(false);
 
   const localCredentialSurface = useMemo(() => {
     const host = window.location.hostname.toLowerCase();
@@ -72,6 +74,54 @@ function HawkeyeRfPanel() {
     const timer = window.setInterval(() => void refresh(), 2500);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!rfSessionId || !localCredentialSurface) return;
+    let cancelled = false;
+    const capture = async () => {
+      if (cancelled) return;
+      try {
+        await fetch('/api/hawkeye/ruview/sample', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: rfSessionId }),
+        });
+      } catch {
+        // Status refresh surfaces connectivity failures; keep capture loop bounded.
+      }
+    };
+    void capture();
+    const timer = window.setInterval(() => void capture(), 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [rfSessionId, localCredentialSurface]);
+
+  const startRfCapture = async () => {
+    if (!localCredentialSurface || sampling || rfSessionId) return;
+    setSampling(true);
+    setError('');
+    try {
+      const response = await fetch('/api/hawkeye/live/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project: 'KRISHNA',
+          purpose: 'RuView Wi-Fi RF sensing',
+          scene_hint: 'wifi-rf',
+          coordinates: {},
+        }),
+      });
+      const data = await response.json() as { session_id?: string; error?: string };
+      if (!response.ok || !data.session_id) throw new Error(data.error || `HTTP ${response.status}`);
+      setRfSessionId(data.session_id);
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setSampling(false);
+    }
+  };
 
   const connectWifi = async (event: FormEvent) => {
     event.preventDefault();
@@ -137,9 +187,21 @@ function HawkeyeRfPanel() {
             Wi-Fi credentials are entered and stored only on the KRISHNA PC. Mobile never receives or submits the password.
           </p>
         </div>
-        <button type="button" className="kr-button kr-button--ghost" onClick={() => void refresh()}>
-          Refresh
-        </button>
+        <div className="rf-actions">
+          {localCredentialSurface ? (
+            <button
+              type="button"
+              className={rfSessionId ? 'kr-button kr-button--ghost' : 'kr-button'}
+              onClick={() => rfSessionId ? setRfSessionId('') : void startRfCapture()}
+              disabled={sampling}
+            >
+              {sampling ? 'Starting…' : rfSessionId ? 'Stop RF capture' : 'Start RF capture'}
+            </button>
+          ) : null}
+          <button type="button" className="kr-button kr-button--ghost" onClick={() => void refresh()}>
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="bento rf-bento">
@@ -192,6 +254,7 @@ function HawkeyeRfPanel() {
             <span>People: {latest?.person_count ?? '—'}</span>
             <span>Motion: {latest?.motion ?? latest?.motion_energy ?? '—'}</span>
             <span>Quality: {latest?.signal_quality ?? latest?.presence_score ?? '—'}</span>
+            <span>HAWKEYE capture: {rfSessionId ? 'recording' : 'off'}</span>
           </div>
         </div>
 
