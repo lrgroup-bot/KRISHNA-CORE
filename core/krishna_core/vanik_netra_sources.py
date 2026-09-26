@@ -199,6 +199,17 @@ class FoursquareOSAdapter:
                 for row in csv.DictReader(fh):
                     row = dict(row)
                     row["source"] = "foursquare_os"
+                    row["phone"] = row.get("phone") or row.get("tel")
+                    labels = row.get("fsq_category_labels")
+                    if labels and not row.get("category"):
+                        try:
+                            parsed = json.loads(labels) if isinstance(labels,str) and labels.strip().startswith("[") else labels
+                        except Exception:
+                            parsed = labels
+                        if isinstance(parsed,list) and parsed:
+                            row["category"] = parsed[0]
+                        elif parsed:
+                            row["category"] = str(parsed).split(",")[0].strip()
                     rows.append(row)
                     if len(rows) >= limit:
                         break
