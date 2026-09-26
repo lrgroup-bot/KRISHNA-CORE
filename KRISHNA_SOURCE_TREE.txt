@@ -516,3 +516,4 @@ tests\test_video_avatar_preflight_contract.py
 tests\test_voice_isolation_contract.py
 tests\test_web_integrity.py
 tools\INSTALL_AGENCY_SPECIALISTS.ps1
+\ncore\\krishna_core\\chandradev_camera.py\ncore\\tests\\test_chandradev_camera.py\ncore\\tests\\test_chandradev_camera_contract.py\ndocs\\CHANDRADEV_OSMO_ACTION.md\nscripts\\INSTALL_CHANDRADEV_RTMP.ps1\nscripts\\INSTALL_CHANDRADEV_VISION.ps1\nscripts\\START_CHANDRADEV_OSMO.ps1\n
