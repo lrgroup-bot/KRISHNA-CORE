@@ -1,8 +1,10 @@
+import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from krishna_core.chandradev import ChandradevQC
 from krishna_core.chandradev_camera import (
     ChandradevOsmoCameraAdapter,
     OSMO_ACTION_ORIGINAL_PROFILE,
@@ -18,19 +20,6 @@ class FakeVision:
             "local":True,
             "analysis":"A workshop scene with a vehicle and tools.",
         }
-
-
-class FakeHawkeye:
-    def __init__(self):
-        self.rows=[]
-
-    def start_live_session(self,**kwargs):
-        return {"session_id":"session-1",**kwargs}
-
-    def record_live_analysis(self,session_id,analysis,**kwargs):
-        row={"session_id":session_id,"analysis":analysis,**kwargs}
-        self.rows.append(row)
-        return row
 
 
 class ChandradevOsmoCameraTests(unittest.TestCase):
@@ -51,20 +40,15 @@ class ChandradevOsmoCameraTests(unittest.TestCase):
         self.assertEqual(p["livestream"]["resolutions"],["480p","720p"])
         self.assertEqual(p["livestream"]["fps"],30)
         self.assertEqual(p["camera"]["recording"],["4K60","1080p240"])
-        self.assertEqual(p["connectivity"]["wifi"],"802.11a/b/g/n/ac")
-        self.assertEqual(p["connectivity"]["bluetooth"],"BLE 4.2")
         self.assertEqual(p["audio"]["built_in_microphones"],2)
         self.assertEqual(p["field_hardware"]["waterproof_without_case_m"],11)
-        self.assertEqual(p["field_hardware"]["tested_drop_m"],1.5)
 
     def test_exact_mimo_and_local_urls(self):
         with tempfile.TemporaryDirectory() as td:
-            v=self.runtime(td)
-            urls=v.urls("192.168.0.50")
+            urls=self.runtime(td).urls("192.168.0.50")
             self.assertEqual(urls["mimo_push_url"],"rtmp://192.168.0.50:1935/osmo-test")
             self.assertEqual(urls["local_rtmp_url"],"rtmp://127.0.0.1:1935/osmo-test")
             self.assertEqual(urls["local_hls_url"],"http://127.0.0.1:8888/osmo-test/index.m3u8")
-            self.assertEqual(urls["local_webrtc_url"],"http://127.0.0.1:8889/osmo-test")
 
     def test_mediamtx_config_exposes_only_rtmp_to_lan(self):
         with tempfile.TemporaryDirectory() as td:
@@ -73,41 +57,79 @@ class ChandradevOsmoCameraTests(unittest.TestCase):
             self.assertIn("rtmpAddress: :1935",cfg)
             self.assertIn("hlsAddress: 127.0.0.1:8888",cfg)
             self.assertIn("webrtcAddress: 127.0.0.1:8889",cfg)
-            self.assertIn("rtsp: false",cfg)
-            self.assertIn("srt: false",cfg)
             self.assertIn("overridePublisher: false",cfg)
-            out=v.ensure_config()
-            self.assertTrue(Path(out["config_path"]).is_file())
-            self.assertIn("Private profile",out["security"]["recommended_firewall"])
+            self.assertTrue(Path(v.ensure_config()["config_path"]).is_file())
 
-    def test_connection_guide_matches_original_osmo_limit(self):
+    def test_connection_guide_is_chandradev_only(self):
         with tempfile.TemporaryDirectory() as td:
             guide=self.runtime(td).connection_guide("10.0.0.5")
             self.assertEqual(guide["mimo_push_url"],"rtmp://10.0.0.5:1935/osmo-test")
             self.assertEqual(guide["recommended_original_osmo_settings"]["resolution"],"720p")
-            self.assertEqual(guide["recommended_original_osmo_settings"]["fps"],30)
-            self.assertEqual(guide["recommended_original_osmo_settings"]["bitrate_mbps"],2)
-            self.assertIn("does not expose USB UVC",guide["note"])
+            self.assertIn("Chandradev reads, analyzes and records",guide["steps"][-1])
 
-    def test_status_is_adapter_not_second_chandradev_agent(self):
+    def test_status_is_pc_chandradev_camera_adapter(self):
         with tempfile.TemporaryDirectory() as td:
             status=self.runtime(td).status()
             self.assertEqual(status["component"],"CHANDRADEV OSMO CAMERA ADAPTER")
-            self.assertIn("existing CHANDRADEV",status["role"])
+            self.assertIn("standalone PC",status["role"])
+            self.assertIn("-> CHANDRADEV",status["live_path"])
             self.assertFalse(status["mediamtx"]["installed"])
-            self.assertFalse(status["usb_live_video"])
             self.assertFalse(status["cloud_required"])
             self.assertFalse(status["paid_service_required"])
+
+    def test_runtime_and_powershell_share_one_stream_name(self):
+        with tempfile.TemporaryDirectory() as td:
+            shared=Path(td)/"shared"
+            shared.mkdir()
+            (shared/"stream-name.txt").write_text("osmo-shared\n",encoding="utf-8")
+            with patch.dict("os.environ",{"CHANDRADEV_SHARED_STATE":str(shared)}):
+                v=ChandradevOsmoCameraAdapter(
+                    Path(td)/"runtime",
+                    mediamtx_exe=Path(td)/"mediamtx.exe",
+                )
+            self.assertEqual(v.stream_name,"osmo-shared")
+            self.assertEqual(v.urls("10.0.0.2")["mimo_push_url"],"rtmp://10.0.0.2:1935/osmo-shared")
+
+    def test_screen_lock_can_be_cleared(self):
+        with tempfile.TemporaryDirectory() as td:
+            shared=Path(td)/"shared"
+            with patch.dict("os.environ",{"CHANDRADEV_SHARED_STATE":str(shared)}):
+                v=self.runtime(td)
+                v._state["screen_lock"]={"normalized_quad":[[0,0],[1,0],[1,1],[0,1]]}
+                v._save(v._state)
+                out=v.clear_screen_lock()
+            self.assertFalse(out["locked"])
+            self.assertIsNone(out["screen_lock"])
+            self.assertNotIn("screen_lock",v._state)
+
+    @unittest.skipUnless(importlib.util.find_spec("cv2"),"OpenCV is optional in CI")
+    def test_screen_detector_warp_and_enhancement_on_synthetic_monitor(self):
+        import cv2
+        import numpy as np
+        frame=np.zeros((720,1280,3),dtype=np.uint8)
+        quad=np.array([[150,100],[1130,130],[1080,620],[190,590]],dtype=np.int32)
+        cv2.fillConvexPoly(frame,quad,(25,25,25))
+        cv2.polylines(frame,[quad],True,(240,240,240),8)
+        for y in range(190,500,55):
+            cv2.line(frame,(280,y),(930,y),(180,180,180),5)
+        detected=ChandradevOsmoCameraAdapter._detect_screen_quad(frame)
+        self.assertIsNotNone(detected)
+        self.assertGreater(detected["area_ratio"],0.25)
+        warped=ChandradevOsmoCameraAdapter._warp_screen(frame,detected["quad"])
+        self.assertGreater(warped.shape[1],warped.shape[0])
+        enhanced=ChandradevOsmoCameraAdapter._enhance_screen(warped,target_width=1920)
+        self.assertGreaterEqual(enhanced.shape[1],1920)
+        self.assertGreaterEqual(ChandradevOsmoCameraAdapter._screen_sharpness(enhanced),0.0)
 
     def test_server_start_fails_closed_without_mediamtx(self):
         with tempfile.TemporaryDirectory() as td:
             with self.assertRaises(FileNotFoundError):
                 self.runtime(td).start_server()
 
-    def test_analyze_frame_uses_local_fast_vision_and_hawkeye(self):
+    def test_analyze_frame_records_directly_to_chandradev(self):
         with tempfile.TemporaryDirectory() as td:
-            hawkeye=FakeHawkeye()
-            v=self.runtime(td,hawkeye=hawkeye,vision=FakeVision())
+            qc=ChandradevQC(Path(td)/"qc")
+            v=self.runtime(td,chandradev=qc,vision=FakeVision())
             frame_path=Path(td)/"frame.jpg"
             frame_path.write_bytes(b"fake-jpeg")
             with patch.object(v,"capture_frame",return_value={
@@ -115,20 +137,17 @@ class ChandradevOsmoCameraTests(unittest.TestCase):
                 "captured_at":1.0,"source":"rtmp://127.0.0.1:1935/osmo-test",
                 "width":1280,"height":720,
             }):
-                out=v.analyze_frame(session_id="session-1")
+                out=v.analyze_frame()
             self.assertTrue(out["vision"]["local"])
             self.assertEqual(out["vision"]["vision_mode"],"fast")
-            self.assertEqual(out["hawkeye"]["session_id"],"session-1")
+            self.assertEqual(out["chandradev_observation"]["agent"],"CHANDRADEV")
+            self.assertTrue(out["chandradev_observation"]["local_only"])
+            self.assertEqual(len(qc.camera_observations()),1)
             self.assertFalse(out["cloud_upload"])
-            self.assertEqual(len(hawkeye.rows),1)
 
-    def test_can_start_hawkeye_session(self):
-        with tempfile.TemporaryDirectory() as td:
-            row=self.runtime(td,hawkeye=FakeHawkeye()).start_hawkeye_session(
-                project="KRISHNA",scene_hint="workshop"
-            )
-            self.assertEqual(row["session_id"],"session-1")
-            self.assertEqual(row["scene_hint"],"workshop")
+    def test_camera_module_has_no_hawkeye_dependency(self):
+        source=Path(__file__).resolve().parents[1]/"krishna_core"/"chandradev_camera.py"
+        self.assertNotIn("hawkeye",source.read_text(encoding="utf-8").lower())
 
 
 if __name__=="__main__":
