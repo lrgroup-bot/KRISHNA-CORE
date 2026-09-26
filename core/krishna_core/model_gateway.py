@@ -148,9 +148,20 @@ class ModelGatewayRegistry:
     def describe(self,profile_id):
         row=self.profiles.get(str(profile_id))
         if not row:raise KeyError("model gateway profile not found")
+        credential_available=False
+        credential_backend="windows-dpapi"
+        credential_error=None
+        try:
+            meta=self.vault.describe(row.secret_id)
+            credential_available=bool(meta.get("available"))
+            credential_backend=str(meta.get("backend") or credential_backend)
+        except Exception as exc:
+            credential_error=f"{type(exc).__name__}: {exc}"
         return {"id":row.id,"name":row.name,"base_url":row.base_url,"model":row.model,
                 "free_only":row.free_only,"enabled":row.enabled,"created_at":row.created_at,
-                "credential_backend":"windows-dpapi","credential_available":self.vault.available}
+                "credential_backend":credential_backend,"credential_available":credential_available,
+                "credential_reference_valid":credential_error is None,
+                "credential_error":credential_error}
 
     def list(self):
         rows=[self.describe(x) for x in self.profiles]
