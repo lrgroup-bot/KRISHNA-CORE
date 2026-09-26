@@ -127,6 +127,7 @@ from .vanik_netra_store import VanikNetraStore
 from .narada_legal import NaradaLegalAdvisor
 from .vanijya_sales import VanijyaSalesHead
 from .commerce_expansion import CommerceExpansionRegistry
+from .commerce_expansion_adapters import CommerceExpansionAdapterRegistry
 
 
 class Orchestrator:
@@ -202,6 +203,7 @@ class Orchestrator:
             crm=self.manibhadra_crm,
         )
         self.commerce_expansion = CommerceExpansionRegistry()
+        self.commerce_expansion_adapters = CommerceExpansionAdapterRegistry()
         self.vanik_netra_sources = FreeMarketSourceRegistry(runtime_state / "vanik-netra")
         self.vanik_netra_store = VanikNetraStore(runtime_state / "vanik-netra" / "market.db")
         self.vanik_netra = VanikNetra(
@@ -907,6 +909,22 @@ class Orchestrator:
 
         def commerce_expansion_status_action(payload,context):
             return self.commerce_expansion.status()
+
+        def commerce_expansion_providers_action(payload,context):
+            return {
+                "providers":list(self.commerce_expansion_adapters.providers()),
+                "network_execution":False,
+                "credentials_stored":False,
+                "zero_spend":True,
+                "policy":"request contracts only; actual provider execution requires a separately connected and authorized official connector",
+            }
+
+        def commerce_expansion_request_plan_action(payload,context):
+            return self.commerce_expansion_adapters.plan(
+                str(payload.get("provider") or ""),
+                str(payload.get("operation") or ""),
+                payload.get("payload") or payload.get("params") or {},
+            )
 
         def commerce_expansion_plan_action(payload,context):
             return self.commerce_expansion.plan(
@@ -3663,6 +3681,16 @@ class Orchestrator:
         self.action_bus.register(
             "manibhadra.expansion.status",commerce_expansion_status_action,
             description="Read zero-spend readiness contracts for ONDC, eBay, Etsy, Google Merchant, Search Console, Pinterest, organic social, dropshipping, RFQ, importer discovery, UCP and Medusa",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.expansion.providers",commerce_expansion_providers_action,
+            description="List concrete official API/protocol request planners for future MANIBHADRA commerce modules; performs no network action",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.expansion.request_plan",commerce_expansion_request_plan_action,
+            description="Build a fail-closed official request contract for ONDC, eBay, Etsy, Google Merchant/Search Console, Pinterest, Medusa or UCP; stores no credentials and performs no network action",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
