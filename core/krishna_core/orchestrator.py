@@ -118,6 +118,7 @@ from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
 from .social_channels import SocialChannelRegistry
 from .affiliate_intent import AffiliateIntentEngine
+from .zero_spend_policy import ZeroSpendPolicy
 
 
 class Orchestrator:
@@ -185,6 +186,7 @@ class Orchestrator:
         self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
         self.social_channels = SocialChannelRegistry()
         self.affiliate_intent = AffiliateIntentEngine()
+        self.zero_spend = ZeroSpendPolicy()
         self.amcc = AMCCController(runtime_state / "amcc")
         self.actions = ActionRegistry()
         self.indexer = RepositoryIndexer()
@@ -555,8 +557,18 @@ class Orchestrator:
             if not isinstance(messages,list):raise ValueError("messages must be a list")
             return {"messages":self.gmail_triage.batch(messages,payload.get("model_verdicts") or {})}
 
+        def zero_spend_status_action(payload,context):
+            return self.zero_spend.status()
+
+        def zero_spend_decide_action(payload,context):
+            return self.zero_spend.decide(
+                str(payload.get("operation") or ""),
+                amount=payload.get("amount"),
+                currency=str(payload.get("currency") or "INR"),
+            )
+
         def manibhadra_status_action(payload,context):
-            return {**self.manibhadra.status(),"affiliate":self.affiliate_intent.status()}
+            return {**self.manibhadra.status(),"affiliate":self.affiliate_intent.status(),"money_policy":self.zero_spend.status()}
 
         def manibhadra_intent_action(payload,context):
             return self.affiliate_intent.intent_summary(payload.get("signals") or [])
@@ -2889,6 +2901,16 @@ class Orchestrator:
         self.action_bus.register(
             "manibhadra.evaluate",manibhadra_evaluate_action,
             description="Score a product opportunity from bounded demand/margin/competition/return signals",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "money.zero_spend.status",zero_spend_status_action,
+            description="Read KRISHNA's non-overridable receive-only money policy",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "money.zero_spend.decide",zero_spend_decide_action,
+            description="Evaluate a proposed money movement; outgoing spend is hard-blocked",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
