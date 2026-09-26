@@ -21,10 +21,13 @@ class ActionRegistry:
         self._actions: Dict[tuple[str, str], tuple[RegisteredAction, Callable[[dict], dict]]] = {}
 
     def register(self, project: str, name: str, fn: Callable[[dict], dict],
-                 mutating: bool = False, description: str = "") -> dict:
+                 mutating: bool = False, description: str = "", replace: bool = False) -> dict:
         item = RegisteredAction(name=name, project=project, mutating=mutating, description=description)
         with self._lock:
-            self._actions[(project, name)] = (item, fn)
+            key=(project,name)
+            if key in self._actions and not replace:
+                raise ValueError(f"action already registered: {project}:{name}")
+            self._actions[key] = (item, fn)
         return asdict(item)
 
     def list(self, project: str | None = None) -> list[dict]:
