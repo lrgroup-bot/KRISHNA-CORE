@@ -55,7 +55,7 @@ Write-Host "========================"
 Write-Host "DJI Mimo RTMP URL:"
 Write-Host $pushUrl
 Write-Host ""
-Write-Host "Original Osmo Action: choose 720p / 30fps / 2 Mbps first."
+Write-Host "Original Osmo Action: choose 720p / 30fps / 4 Mbps for maximum live quality; use 2 Mbps only if unstable."
 Write-Host "Local read: $readUrl"
 Write-Host "Local HLS : $hlsUrl"
 Write-Host ""
