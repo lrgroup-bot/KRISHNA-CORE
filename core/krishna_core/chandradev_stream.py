@@ -41,6 +41,14 @@ OSMO_ACTION_ORIGINAL_PROFILE = {
         "external_microphone": "USB-C via compatible 3.5 mm adapter",
     },
     "storage": {"microSD_max_gb": 256},
+    "field_hardware": {
+        "waterproof_without_case_m": 11,
+        "waterproof_with_case_m": 60,
+        "tested_drop_m": 1.5,
+        "minimum_tested_temperature_c": -10,
+        "front_screen_inches": 1.4,
+        "rear_touchscreen_inches": 2.25,
+    },
     "battery": {
         "capacity_mah": 1300,
         "energy_wh": 5.005,
