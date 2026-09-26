@@ -555,6 +555,24 @@ class Orchestrator:
                 return_risk=float(payload.get("return_risk") or 0),
             )
 
+        def manibhadra_research_action(payload,context):
+            product=str(payload.get("product") or payload.get("category") or "").strip()
+            if not product:raise ValueError("product or category is required")
+            query=(
+                "product opportunity supplier demand competition pricing marketplace trends "
+                "Amazon Flipkart Meesho India "+product
+            )
+            report=self.garuda.scout(
+                str(payload.get("project") or context.get("project") or "KRISHNA"),
+                query,
+                max(3,min(int(payload.get("limit") or 8),12)),
+            )
+            return {
+                "agent":"MANIBHADRA","product":product,
+                "research":report,
+                "next":"evaluate margin/demand/competition then request owner approval before supplier outreach or marketplace mutation",
+            }
+
         def manibhadra_supplier_offer_action(payload,context):
             return self.manibhadra.supplier_offer(
                 str(payload.get("product") or ""),
@@ -2807,6 +2825,11 @@ class Orchestrator:
             "manibhadra.evaluate",manibhadra_evaluate_action,
             description="Score a product opportunity from bounded demand/margin/competition/return signals",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.research",manibhadra_research_action,
+            description="Use Garuda provenance-backed research to scout product/supplier/marketplace opportunities for MANIBHADRA",
+            permissions=("web.read","project.read"),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "manibhadra.supplier_offer",manibhadra_supplier_offer_action,
