@@ -1887,6 +1887,7 @@ async function loadManibhadraCRM(){
     maniStatus('maniHealthState','MRITYUNJAY · NOTIFIED','bad');
    }
   }
+  await loadVanijyaSales();
  }catch(e){
   maniStatus('maniHealthState','CRM HEALTH · ERROR','bad');
   log('MANIBHADRA CRM: '+e.message);
