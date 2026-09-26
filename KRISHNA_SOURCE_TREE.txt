@@ -521,3 +521,5 @@ core\\krishna_core\\commerce_expansion.py
 core\\krishna_core\\vanijya_sales.py
 core\\tests\\test_commerce_expansion.py
 core\\tests\\test_vanijya_sales.py
+docs\\VANIJYA_SALES_AUTOMATION.md
+scripts\\INSTALL_KRISHNA_QR.ps1
