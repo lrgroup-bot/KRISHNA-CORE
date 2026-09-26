@@ -10,6 +10,12 @@ class KrishnaRealtime {
   start(){
     this.stop();
     window.onKrishnaRealtimeResult=(raw)=>this.accept(raw);
+    if(!this._visibilityBound){
+      this._visibilityBound=true;
+      document.addEventListener('visibilitychange',()=>{
+        if(!document.hidden){this.attempt=0;this.sync()}
+      });
+    }
     this.sync();
   }
   stop(){if(this.timer)clearTimeout(this.timer);this.timer=null;this.inflight=false}
@@ -22,7 +28,7 @@ class KrishnaRealtime {
       this.connected=true;this.attempt=0;
       for(const e of (r.events||[])){this.seq=Math.max(this.seq,Number(e.seq||0));this.onEvent?.(e)}
       localStorage.setItem('krishna_seq',String(this.seq));
-      this.schedule(3000);
+      this.schedule(document.hidden?60000:15000);
     }catch(e){
       this.connected=false;
       if(this.attempt>=this.maxAttempts){this.onState?.('disconnected');return}
