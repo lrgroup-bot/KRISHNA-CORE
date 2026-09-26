@@ -54,6 +54,9 @@ class MobileRuntimeManifestTests(unittest.TestCase):
         self.assertTrue(data["boundaries"]["mobile_private_action_chat_pc_required"])
         self.assertTrue(data["boundaries"]["heavy_optional_capabilities_lazy"])
         self.assertEqual(data["boundaries"]["mobile_pc_poll_interval_foreground_seconds"],30)
+        self.assertTrue(data["boundaries"]["mobile_cloud_session_resumption"])
+        self.assertFalse(data["boundaries"]["mobile_cloud_token_persisted"])
+        self.assertFalse(data["boundaries"]["mobile_cloud_token_broker_per_turn"])
 
 
 if __name__=="__main__":
