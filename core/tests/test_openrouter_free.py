@@ -56,8 +56,8 @@ class FakeGateway:
             "credential_backend":"windows-dpapi","credential_available":True,"created_at":10,
         }]}
 
-    def request_json(self, profile_id, path, payload=None, method=None, timeout=120):
-        self.calls.append({"profile_id":profile_id,"path":path,"payload":payload,"method":method})
+    def request_json(self, profile_id, path, payload=None, method=None, timeout=120, zero_credit_proof=None):
+        self.calls.append({"profile_id":profile_id,"path":path,"payload":payload,"method":method,"zero_credit_proof":zero_credit_proof})
         if path=="/models":
             return {"data":self.models}
         if path=="/images/models":
@@ -119,11 +119,13 @@ class OpenRouterFreeFabricTests(unittest.TestCase):
             result=fabric.complete("coding","write a bounded test",privacy="approved_cloud")
             self.assertEqual(result["text"],"ok")
             self.assertTrue(result["preflight_zero_cost"])
+            self.assertEqual(image_call["zero_credit_proof"],"openrouter-live-zero-price")
             chat=next(x for x in gateway.calls if x["path"]=="/chat/completions")
             self.assertEqual(chat["payload"]["provider"]["allow_fallbacks"],False)
             self.assertEqual(chat["payload"]["provider"]["data_collection"],"deny")
             self.assertTrue(chat["payload"]["provider"]["zdr"])
             self.assertTrue(any(x["path"]=="/models" for x in gateway.calls))
+            self.assertEqual(chat["zero_credit_proof"],"openrouter-live-zero-price")
 
     def test_vision_accepts_only_local_data_image_urls(self):
         with tempfile.TemporaryDirectory() as td:
