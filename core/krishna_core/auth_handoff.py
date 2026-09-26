@@ -92,6 +92,10 @@ class AuthenticationHandoffGate:
             "reason": self._clean(reason, 2000),
             "checkpoint_ref": self._clean(checkpoint_ref, 500),
             "status": "OWNER_APPROVAL_REQUIRED",
+            "owner_prompt": (
+                f"{agent.upper()} reached a {method} authentication checkpoint at {origin} "
+                f"for job {job_id}. Approve one-time human authentication handoff?"
+            ),
             "created_at": now,
             "expires_at": now + self.ttl_seconds,
             "resolved_at": None,
