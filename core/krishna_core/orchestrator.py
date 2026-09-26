@@ -646,6 +646,14 @@ class Orchestrator:
                 limit=int(payload.get("limit") or 2000),
             )
 
+        def vanik_netra_white_space_action(payload,context):
+            return self.vanik_netra.white_space(
+                payload.get("bbox") or {},
+                str(payload.get("target_category") or payload.get("category") or ""),
+                min_cell_businesses=int(payload.get("min_cell_businesses") or 3),
+                limit=int(payload.get("limit") or 100),
+            )
+
         def vanik_netra_changes_action(payload,context):
             return self.vanik_netra.change_report(
                 str(payload.get("area_key") or ""),
@@ -3129,6 +3137,11 @@ class Orchestrator:
         self.action_bus.register(
             "vanik_netra.stored",vanik_netra_stored_action,
             description="Read locally cached VANIK-NETRA market records inside a bounding box",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanik_netra.white_space",vanik_netra_white_space_action,
+            description="Estimate geographic white-space using commercial-density and target-category saturation proxies",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
