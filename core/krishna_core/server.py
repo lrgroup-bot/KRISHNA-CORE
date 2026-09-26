@@ -3748,7 +3748,7 @@ class Handler(BaseHTTPRequestHandler):
                     "engineering.staff",
                     {"project":project,"tasks":data.get("tasks") or [],"base_ref":data.get("base_ref") or "HEAD"},
                     project="KRISHNA",source="pc",actor="engineering-http",
-                    permissions=("candidate.write","mission.write","project.read"),
+                    permissions=("candidate.write","mission.write","project.write"),
                 )
                 return self._json(201,receipt["result"])
             except KeyError:return self._json(404,{"error":"project not registered"})
