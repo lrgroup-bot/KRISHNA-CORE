@@ -904,7 +904,10 @@ class Orchestrator:
             )
 
         def suryadev_project_ui_audit_action(payload,context):
-            return {"jobs":self.suryadev.project_ui_audit_jobs(payload.get("projects") or [])}
+            projects=payload.get("projects")
+            if not projects:
+                projects=[{"name":"KRISHNA","target":"http://127.0.0.1:8766"},*self.projects.list()]
+            return {"jobs":self.suryadev.project_ui_audit_jobs(projects)}
 
         def suryadev_ui_research_plan_action(payload,context):
             return self.suryadev.ui_research_plan(
