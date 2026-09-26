@@ -133,7 +133,10 @@
     "mobile_event_resume_interval_foreground_seconds": 15,
     "mobile_event_resume_interval_background_seconds": 60,
     "heavy_optional_capabilities_lazy": true,
-    "free_cloud_permanent_credentials_pc_only": true
+    "free_cloud_permanent_credentials_pc_only": true,
+    "mobile_cloud_session_resumption": true,
+    "mobile_cloud_token_persisted": false,
+    "mobile_cloud_token_broker_per_turn": false
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
@@ -155,7 +158,7 @@
     "assistant_mode": "Android VoiceInteractionService + Assistant role; one-time system consent is required for direct background assistant invocation.",
     "photographer": "Best-frame selection and natural local edit are performed on-device, then the clean photo is saved through Android MediaStore to Pictures/KRISHNA/Photos.",
     "avatar_delivery": "Trusted private PC production GLB is synced to mobile only after the PC avatar inspector reports active_ready. Three.js renders it locally; otherwise the animated 8-view fallback remains visible.",
-    "mobile_chat_cloud": "Eligible general non-sensitive conversation uses a reusable short-lived free-only Gemini Live text session directly from the phone; private/stateful/action/attachment requests and cloud failures escalate to KRISHNA PC.",
+    "mobile_chat_cloud": "Eligible general non-sensitive conversation uses a reusable short-lived free-only Gemini Live session directly from the phone; native audio plus output transcription feed voice/chat, session-resumption handles stay memory-only, and private/stateful/action/attachment requests or cloud failures escalate to KRISHNA PC.",
     "optional_capability_fabric": "OpenJev-style System-One, dots3/dots.mocr/dots.tts, STEMKit and Strix are lazy capability adapters; no heavyweight model or daemon is started automatically."
   },
   "model_policy": {
