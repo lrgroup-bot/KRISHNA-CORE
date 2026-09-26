@@ -1035,6 +1035,11 @@ class Handler(BaseHTTPRequestHandler):
                 "nodes":orch.compute_nodes.status(),
                 "bridge":orch.external_observers.status(),
             })
+        if path == "/api/external-auth/status":
+            return self._json(200,{
+                **orch.external_auth.status(),
+                "pending_requests":orch.external_auth.pending(),
+            })
         if path == "/api/garuda/status":
             return self._json(200, orch.garuda_status())
         if path == "/api/brahmagyan/status":
