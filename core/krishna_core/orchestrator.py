@@ -124,7 +124,6 @@ from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
 from .social_channels import SocialChannelRegistry
-from .narada_legal import NaradaLegalCouncil
 from .affiliate_intent import AffiliateIntentEngine
 from .zero_spend_policy import ZeroSpendPolicy
 from .manibhadra_crm import ManibhadraCRM
@@ -207,7 +206,6 @@ class Orchestrator:
         self.application_security = ApplicationSecurityLoop()
         self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
         self.social_channels = SocialChannelRegistry()
-        self.narada_legal = NaradaLegalCouncil(runtime_state / "narada-legal")
         self.affiliate_intent = AffiliateIntentEngine()
         self.zero_spend = ZeroSpendPolicy()
         self.manibhadra_crm = ManibhadraCRM(runtime_state / "manibhadra-crm.json")
