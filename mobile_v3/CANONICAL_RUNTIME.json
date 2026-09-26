@@ -24,7 +24,8 @@
     "HawkeyeHandGesture.java",
     "hawkeye-observer-ui.js",
     "KrishnaAssistantService.java",
-    "KrishnaAssistantSessionService.java"
+    "KrishnaAssistantSessionService.java",
+    "avatar-renderer.js"
   ],
   "build_workflow": ".github/workflows/build-mobile-v3.yml",
   "artifact_name": "KRISHNA-v3.9-Assistant-Photographer-APK",
@@ -116,7 +117,12 @@
     "photographer_best_frame_local": true,
     "photographer_natural_edit_local": true,
     "photographer_gallery_path": "Pictures/KRISHNA/Photos",
-    "photographer_raw_cloud_upload": false
+    "photographer_raw_cloud_upload": false,
+    "mobile_avatar_trusted_pc_glb_sync": true,
+    "mobile_avatar_threejs_renderer": true,
+    "mobile_avatar_visible_fallback_gate": true,
+    "mobile_avatar_fallback_is_animated_2d": true,
+    "mobile_avatar_production_glb_required_for_true_3d": true
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
@@ -136,7 +142,8 @@
     "private_transport": "First enrollment uses authenticated LAN discovery; after approval the paired phone learns the current private-overlay Core URL. Raw media sync requires unmetered transport plus fresh same-LAN discovery proof.",
     "large_media_sync": "Resumable 512 KiB chunks to the E-drive Hawkeye inbox; PC SHA-256 verification and atomic promotion are required before mobile sync state advances.",
     "assistant_mode": "Android VoiceInteractionService + Assistant role; one-time system consent is required for direct background assistant invocation.",
-    "photographer": "Best-frame selection and natural local edit are performed on-device, then the clean photo is saved through Android MediaStore to Pictures/KRISHNA/Photos."
+    "photographer": "Best-frame selection and natural local edit are performed on-device, then the clean photo is saved through Android MediaStore to Pictures/KRISHNA/Photos.",
+    "avatar_delivery": "Trusted private PC production GLB is synced to mobile only after the PC avatar inspector reports active_ready. Three.js renders it locally; otherwise the animated 8-view fallback remains visible."
   },
   "model_policy": {
     "pc_qwen_allowed": true,
