@@ -153,6 +153,12 @@ class VanijyaSalesHeadTests(unittest.TestCase):
         self.assertEqual(dash["total_leads"],1)
         self.assertEqual(dash["active_deals"],1)
 
+    def test_rich_vanijya_stages_map_to_canonical_crm_stages(self):
+        lead=self.vanijya.save_lead({"name":"Buyer","intent":"Need product","stage":"discovery"})
+        deal=self.vanijya.save_deal({"title":"Deal","value":100,"stage":"closed_won"})
+        self.assertEqual(lead["stage"],"qualified")
+        self.assertEqual(deal["stage"],"won")
+
     def test_payment_request_is_receive_only_and_exact_amount(self):
         row=self.vanijya.payment_request(
             payee_vpa="merchant@upi",
