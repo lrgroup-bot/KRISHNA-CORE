@@ -173,6 +173,24 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("hawkeye-observer-ui.js",self.workflow)
         self.assertIn("KRISHNA-v3.9-Assistant-Photographer-APK",self.workflow)
 
+    def test_mobile_avatar_sync_renderer_and_visible_gate_are_wired(self):
+        renderer=(self.mobile/"avatar-renderer.js").read_text(encoding="utf-8")
+        runtime=(self.mobile/"CANONICAL_RUNTIME.json").read_text(encoding="utf-8")
+        self.assertIn('id="avatar3d"',self.index)
+        self.assertIn('type="module" src="avatar-renderer.js"',self.index)
+        self.assertIn("avatarSync",self.activity)
+        self.assertIn("KRISHNA_UI_READY",self.activity)
+        self.assertIn("krishna.local",self.activity)
+        self.assertIn("GLTFLoader",renderer)
+        self.assertIn("production_ready",renderer)
+        self.assertIn("showKrishnaFallback",self.index)
+        self.assertIn('"mobile_avatar_trusted_pc_glb_sync": true',runtime)
+        self.assertIn('"mobile_avatar_visible_fallback_gate": true',runtime)
+        self.assertIn('"avatar_visible":true',self.workflow)
+        self.assertIn('"hawkeye":true',self.workflow)
+        self.assertIn('"chat":true',self.workflow)
+        self.assertIn('"mic":true',self.workflow)
+
     def test_learning_overlay_has_candidate_status_and_visible_public_clues(self):
         self.assertIn("learningAnalysis",self.ui)
         self.assertIn("publicClues",self.ui)
