@@ -248,6 +248,7 @@ core\krishna_core\task_ledger.py
 core\krishna_core\threat_intel.py
 core\krishna_core\ui_guardian.py
 core\krishna_core\universal_learning.py
+core\krishna_core\vanijya_sales.py
 core\krishna_core\verification.py
 core\krishna_core\video_avatar.py
 core\krishna_core\vishvakarma_curriculum.py
@@ -408,6 +409,7 @@ core\tests\test_superhuman_commerce.py
 core\tests\test_task_ledger.py
 core\tests\test_ui_guardian.py
 core\tests\test_universal_learning.py
+core\tests\test_vanijya_sales.py
 core\tests\test_video_avatar.py
 core\tests\test_vishvakarma_learning.py
 core\tests\test_vishvakarma_rishi.py
@@ -446,6 +448,7 @@ docs\SECURITY_OPS_HARNESS.md
 docs\SUDARSHAN_END_TO_END_CONTRACT.md
 docs\SUDARSHAN_PROJECT_LIFECYCLE.md
 docs\UNIVERSAL_LEARNING.md
+docs\VANIJYA_SALES_AUTOMATION.md
 KRISHNA_AGI_V1_ARCHITECTURE.md
 KRISHNA_SOURCE_TREE.txt
 mobile_v3\avatar-renderer.js
@@ -481,6 +484,7 @@ scripts\FINISH_KRISHNA_PROJECT.ps1
 scripts\INSTALL_AVATAR_ENGINE.ps1
 scripts\INSTALL_KRISHNA_INDIC_STT.ps1
 scripts\INSTALL_KRISHNA_INDIC_TTS.ps1
+scripts\INSTALL_KRISHNA_QR.ps1
 scripts\INSTALL_KRISHNA_SANSKRIT_TTS.ps1
 scripts\INSTALL_KRISHNA_WAKE_RUNTIME.ps1
 scripts\INSTALL_VIDEO_AVATAR_ENGINES.ps1
