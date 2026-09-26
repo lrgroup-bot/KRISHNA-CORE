@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import urlencode
+import base64
+import io
 import json
 import re
 import shutil
@@ -32,6 +34,33 @@ class SalesAgent:
         row = asdict(self)
         row["permissions"] = list(self.permissions)
         return row
+
+
+TRUSTED_PAYMENT_SOURCES = frozenset({
+    "bank_api",
+    "bank_statement_api",
+    "payment_gateway_webhook",
+    "psp_api",
+    "upi_acquirer_webhook",
+    "upi_psp_status_api",
+})
+
+UNTRUSTED_PAYMENT_SOURCES = frozenset({
+    "customer_claim",
+    "customer_message",
+    "screenshot",
+    "image",
+    "browser_redirect",
+    "client_callback",
+    "manual_text",
+})
+
+ALLOWED_CONTACT_BASES = frozenset({
+    "customer_inquiry",
+    "existing_customer",
+    "public_business_contact_for_relevant_b2b",
+    "contractual_service_contact",
+})
 
 
 PERMANENT_TEAM = (
@@ -130,6 +159,7 @@ class VanijyaSalesHead:
         self.product_source = "MANIBHADRA"
         self.crm = crm
         self.message_store = message_store
+        self.worker_runtime = None
         self.path = Path(state_path).resolve() if state_path else None
         self.backup = self.path.with_suffix(self.path.suffix + ".bak") if self.path else None
         self._state = self._load()
@@ -221,6 +251,82 @@ class VanijyaSalesHead:
         except (TypeError, ValueError):
             return 0.0
 
+    def bind_worker_runtime(self, worker_runtime):
+        self.worker_runtime=worker_runtime
+        return self.status()
+
+    def team(self) -> list[dict]:
+        return [agent.as_dict() for agent in PERMANENT_TEAM]
+
+    @staticmethod
+    def _role(role_id: str) -> SalesAgent:
+        key=str(role_id or "").strip().lower()
+        for role in PERMANENT_TEAM:
+            if role.id==key:
+                return role
+        raise KeyError(key)
+
+    def hr_plan(self, requirement: str, *, role_ids=None, requested_count: int = 1) -> dict:
+        task=str(requirement or "").strip()
+        if not task:
+            raise ValueError("requirement is required")
+        selected=list(role_ids or ["lead-researcher"])
+        count=max(1,min(int(requested_count or 1),8))
+        requests=[]
+        for role_id in selected:
+            role=self._role(role_id)
+            requests.append({
+                "status":"approved",
+                "approved_by":"KRISHNA",
+                "requested_count":count,
+                "role":role.id,
+                "role_name":role.name,
+                "manager":"rishi:vanijya",
+                "parent_rishi":"vanijya",
+                "retention_policy":"findings_and_provenance_only",
+                "assignments":[{
+                    "specialty":role.name,
+                    "task":task+"\nRole responsibility: "+role.mission,
+                } for _ in range(count)],
+                "allow_sub_shishyas":False,
+                "max_children_per_worker":0,
+                "retire_after_handover":True,
+                "guardrails":[
+                    "zero_spend","receive_only","public_or_consented_contact_only",
+                    "honor_opt_out","no_deception","no_external_send",
+                ],
+            })
+        return {
+            "head":self.display_name,
+            "hr_action":"create bounded sales workers, preserve findings and retire temporary identities after handover",
+            "requests":requests,
+        }
+
+    def execute_hr_plan(
+        self, project: str, requirement: str, *, role_ids=None,
+        requested_count: int = 1, privacy: str = "local_only",
+    ) -> dict:
+        if self.worker_runtime is None:
+            raise RuntimeError("VANIJYA worker runtime is not bound")
+        plan=self.hr_plan(requirement,role_ids=role_ids,requested_count=requested_count)
+        batches=[]
+        for request in plan["requests"]:
+            batch=self.worker_runtime.execute(
+                str(project or "KRISHNA"),request,
+                "Rishi Vāṇijya sales/marketing mission: "+str(requirement),
+                str(privacy or "local_only"),
+            )
+            if not batch.get("destroyed") or batch.get("live_after_return"):
+                raise RuntimeError("temporary sales Shishya did not retire after handover")
+            batches.append(batch)
+        return {
+            "head":self.display_name,
+            "project":str(project or "KRISHNA"),
+            "requirement":str(requirement),
+            "worker_batches":batches,
+            "all_workers_retire_after_handover":True,
+        }
+
     def health(self) -> dict:
         try:
             data = self._load() if self.path else self._state
@@ -253,7 +359,9 @@ class VanijyaSalesHead:
             "product_source": self.product_source,
             "communications_owner": "NARAD",
             "mission": "market approved products/services, convert legitimate demand into sales, and grow received revenue",
-            "team": [agent.as_dict() for agent in PERMANENT_TEAM],
+            "team": self.team(),
+            "worker_runtime_bound": self.worker_runtime is not None,
+            "worker_provisioning": "KRISHNA bounded Shishya runtime",
             "temporary_workers": list(data["workers"]),
             "counts": {
                 "campaigns": len(data["campaigns"]),
@@ -473,6 +581,94 @@ class VanijyaSalesHead:
             "requires_unsubscribe_or_stop_handling": True,
         }
 
+    def marketing_plan(self, product: dict, *, objective: str = "generate qualified leads", manibhadra_checked: bool = False) -> dict:
+        row=dict(product or {})
+        name=str(row.get("name") or row.get("product") or "").strip()
+        if not name:
+            raise ValueError("product name is required")
+        if not manibhadra_checked:
+            return {
+                "head":self.display_name,
+                "status":"waiting_for_manibhadra",
+                "product":name,
+                "required_action":"vanijya.manibhadra.request",
+                "reason":"VANIJYA consults MANIBHADRA before a new campaign",
+            }
+        return {
+            "head":self.display_name,
+            "product":name,
+            "objective":str(objective or "generate qualified leads"),
+            "paid_media":False,
+            "paid_leads":False,
+            "channels":[
+                "owned website/SEO/content","organic social content",
+                "inbound enquiries","permissioned email",
+                "permissioned/inbound WhatsApp","relevant public B2B prospect research",
+                "partner/referral routes allowed by program rules",
+            ],
+            "sequence":[
+                "confirm MANIBHADRA product truth and selling path",
+                "define ideal customer and problem",
+                "research public/consented lead sources",
+                "create truthful value proposition",
+                "publish organic/owned demand content where authorized",
+                "qualify inbound or permitted B2B leads",
+                "route qualified leads to Account Executive",
+                "measure lead-to-opportunity and opportunity-to-revenue conversion",
+            ],
+            "legal_review":"NARADA Legal for current jurisdiction/channel requirements",
+            "zero_spend":True,
+        }
+
+    def outreach_plan(self, channel: str, contact: dict, *, purpose: str, body: str, subject: str = "") -> dict:
+        channel=str(channel or "").strip().lower()
+        contact=dict(contact or {})
+        lead={
+            **contact,
+            "public_business_contact":bool(
+                contact.get("public_business_contact")
+                or str(contact.get("contact_basis") or "").strip().lower() in ALLOWED_CONTACT_BASES
+            ),
+            "consented":bool(contact.get("consented") or contact.get("opt_in")),
+            "inbound":bool(contact.get("inbound") or contact.get("reply_to_existing_thread")),
+            "existing_customer":bool(contact.get("existing_customer")),
+        }
+        # Promotional WhatsApp is stricter: a public number alone is not enough.
+        if channel=="whatsapp" and not (lead["consented"] or lead["inbound"]):
+            lead["public_business_contact"]=False
+        connector_state=str(contact.get("connector_state") or "WAITING_FOR_CONNECTION")
+        decision=self.outreach_decision(lead,channel=channel,connector_state=connector_state)
+        return {
+            "channel":"gmail" if channel in {"gmail","email"} else channel,
+            "purpose":str(purpose or "").strip(),
+            "subject":str(subject or "").strip(),
+            "body":str(body or "").strip(),
+            "decision":decision,
+            "legal_gate":"NARADA Legal review for current jurisdiction/campaign/channel rules",
+            "provider_policy_gate":True,
+            "opt_out_must_be_honored":True,
+            "can_enter_automatic_send_workflow":bool(decision.get("allowed")),
+            "communications_executor":"NARAD",
+        }
+
+    @staticmethod
+    def pipeline_next(stage: str, *, payment_verified: bool = False) -> dict:
+        stages=("prospect","contacted","qualified","discovery","solution","proposal","negotiation","payment_pending","won","lost")
+        stage=str(stage or "").strip().lower()
+        if stage not in stages:
+            raise ValueError("unsupported VANIJYA pipeline stage")
+        if stage=="payment_pending":
+            return {
+                "stage":"won" if payment_verified else "payment_pending",
+                "next":"relationship-manager" if payment_verified else "verify_payment_from_trusted_source",
+            }
+        if stage=="won":
+            return {"stage":"won","next":"relationship-manager"}
+        if stage=="lost":
+            return {"stage":"lost","next":"archive_and_learn"}
+        idx=stages.index(stage)
+        return {"stage":stage,"next":stages[min(idx+1,len(stages)-1)]}
+
     def qualify_lead(self, lead: dict, signals: dict | None = None) -> dict:
         lead = dict(lead or {})
         signals = dict(signals or {})
@@ -684,7 +880,7 @@ class VanijyaSalesHead:
             raise ValueError("invoice_id is required")
         exact = self._money(amount)
         params = {
-            "pa": vpa, "pn": name, "am": f"{exact:.2f}", "cu": "INR",
+            "pa": vpa, "pn": name, "tr": invoice, "am": f"{exact:.2f}", "cu": "INR",
             "tn": (str(note or "").strip() or f"Invoice {invoice}")[:80],
         }
         uri = "upi://pay?" + urlencode(params)
@@ -697,7 +893,9 @@ class VanijyaSalesHead:
             "amount": float(exact),
             "currency": "INR",
             "upi_uri": uri,
+            "payment_link": uri,
             "qr_payload": uri,
+            "share_text": f"Please pay INR {float(exact):.2f} for {invoice} using the UPI QR/link.",
             "status": "PENDING",
             "receive_only": True,
             "verification_required": True,
@@ -708,10 +906,40 @@ class VanijyaSalesHead:
         self._write(self._state)
         return dict(row)
 
+    @staticmethod
+    def payment_qr_svg(payment_request: dict) -> dict:
+        row=dict(payment_request or {})
+        uri=str(row.get("qr_payload") or row.get("upi_uri") or "").strip()
+        if not uri.startswith("upi://pay?"):
+            raise ValueError("a VANIJYA UPI payment request is required")
+        try:
+            import qrcode
+            from qrcode.image.svg import SvgPathImage
+        except ImportError:
+            return {
+                "available":False,
+                "reason":"local qrcode package is not installed",
+                "install":"run scripts/INSTALL_KRISHNA_QR.ps1",
+                "qr_payload":uri,
+                "payment_proof":False,
+            }
+        image=qrcode.make(uri,image_factory=SvgPathImage)
+        buf=io.BytesIO();image.save(buf);svg_bytes=buf.getvalue()
+        return {
+            "available":True,
+            "mime_type":"image/svg+xml",
+            "filename":str(row.get("invoice_id") or "upi-payment")+".svg",
+            "svg":svg_bytes.decode("utf-8"),
+            "data_uri":"data:image/svg+xml;base64,"+base64.b64encode(svg_bytes).decode("ascii"),
+            "qr_payload":uri,
+            "payment_proof":False,
+        }
+
     def verify_payment(self, request: dict, evidence: dict) -> dict:
         invoice = str(request.get("invoice_id") or "")
         expected = self._money(request.get("amount"))
         provider = str(evidence.get("provider") or "").strip()
+        source = str(evidence.get("source") or provider or "").strip().lower()
         verified = bool(evidence.get("signature_verified") or evidence.get("bank_verified"))
         status = str(evidence.get("status") or "").strip().upper()
         evidence_invoice = str(evidence.get("invoice_id") or "")
@@ -723,6 +951,8 @@ class VanijyaSalesHead:
         reasons = []
         if not provider:
             reasons.append("provider_missing")
+        if source in UNTRUSTED_PAYMENT_SOURCES or source not in TRUSTED_PAYMENT_SOURCES:
+            reasons.append("untrusted_payment_source")
         if not verified:
             reasons.append("unverified_evidence")
         if status not in {"SUCCESS", "CAPTURED", "PAID"}:
@@ -739,6 +969,7 @@ class VanijyaSalesHead:
             "status": "PAID" if paid else "PENDING",
             "paid": paid,
             "provider": provider,
+            "source": source,
             "transaction_id": txid if paid else "",
             "amount": float(expected),
             "reasons": reasons,
@@ -853,6 +1084,32 @@ class VanijyaSalesHead:
             "communications_via":"NARAD",
             "zero_spend":True,
             "created_at":_now(),
+        }
+
+    def automation_blueprint(self) -> dict:
+        return {
+            "owner":self.display_name,
+            "product_loop":[
+                "ask MANIBHADRA for a current product/service opportunity",
+                "build zero-spend marketing plan",
+                "research only public/consented prospect sources",
+                "create and score CRM leads",
+                "qualify contact basis and buyer intent",
+                "contact through connected NARAD providers inside verified workflows",
+                "read inbound replies and route to the correct VANIJYA agent",
+                "run discovery, solution, proposal and negotiation",
+                "generate exact-amount UPI request after customer agreement",
+                "verify payment only from trusted server-side evidence",
+                "mark linked CRM deal won only after verified payment",
+                "hand customer to Customer Relationship Manager",
+            ],
+            "never":[
+                "mass unsolicited spam","paid leads or media under zero-spend mode",
+                "invent product capabilities, price, testimonials or scarcity",
+                "ignore opt-out/suppression","send outgoing money",
+                "mark payment complete from screenshot/customer claim/QR generation",
+                "bypass NARADA Legal, NARAD or provider policy",
+            ],
         }
 
     def sales_cycle(self, *, product: dict | None = None) -> dict:
