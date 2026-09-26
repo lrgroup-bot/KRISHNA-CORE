@@ -257,6 +257,9 @@ COUNCIL=(
 )
 
 
+NARADA_PERMANENT_SHISHYA=("constitution","legal","illegal","vakeel","judge","police")
+
+
 class RishiCouncil:
     def __init__(self):
         self._items={x.id:x for x in COUNCIL}
@@ -264,7 +267,9 @@ class RishiCouncil:
     def get(self,rishi_id):
         item=self._items.get(str(rishi_id or "").strip().lower())
         if not item:raise KeyError(rishi_id)
-        return item.as_dict()
+        row=item.as_dict()
+        if item.id=="narada":row["permanent_shishya"]=list(NARADA_PERMANENT_SHISHYA)
+        return row
 
     def list(self):
         return [x.as_dict() for x in COUNCIL]
@@ -345,5 +350,6 @@ class RishiCouncil:
             "running_processes":0,
             "policy":"profiles are permanent; model workers activate only for missions; historical association is not treated as modern scientific authorship",
             "members":self.list(),
+            "narada_permanent_shishya":list(NARADA_PERMANENT_SHISHYA),
             "medical_engineering_domains":self.medical_engineering_domains(),
         }
