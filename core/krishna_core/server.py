@@ -1213,6 +1213,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,roles)
         if path == "/api/models/gateways":
             return self._json(200,orch.model_gateway.list())
+        if path == "/api/free-cloud/health":
+            refresh=str((query.get("refresh") or ["0"])[0]).lower() in {"1","true","yes"}
+            if refresh and self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"free-cloud health refresh must run on KRISHNA PC"})
+            return self._json(200,orch.free_cloud_health.status(refresh=refresh))
         if path == "/api/openrouter/free/status":
             refresh=str((query.get("refresh") or ["0"])[0]).lower() in {"1","true","yes"}
             if refresh and self.client_address[0] not in ("127.0.0.1","::1"):
