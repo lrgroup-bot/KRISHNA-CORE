@@ -561,6 +561,48 @@ class Orchestrator:
             if not isinstance(messages,list):raise ValueError("messages must be a list")
             return {"messages":self.gmail_triage.batch(messages,payload.get("model_verdicts") or {})}
 
+        def manibhadra_crm_dashboard_action(payload,context):
+            return self.manibhadra_crm.dashboard()
+
+        def manibhadra_crm_records_action(payload,context):
+            return self.manibhadra_crm.records()
+
+        def manibhadra_crm_upsert_lead_action(payload,context):
+            return self.manibhadra_crm.upsert_lead(payload.get("lead") or payload)
+
+        def manibhadra_crm_upsert_deal_action(payload,context):
+            return self.manibhadra_crm.upsert_deal(payload.get("deal") or payload)
+
+        def manibhadra_crm_move_deal_action(payload,context):
+            return self.manibhadra_crm.move_deal(
+                str(payload.get("deal_id") or ""),
+                str(payload.get("stage") or ""),
+            )
+
+        def manibhadra_crm_task_add_action(payload,context):
+            return self.manibhadra_crm.add_task(payload.get("task") or payload)
+
+        def manibhadra_crm_task_complete_action(payload,context):
+            return self.manibhadra_crm.complete_task(str(payload.get("task_id") or ""))
+
+        def manibhadra_crm_entity_upsert_action(payload,context):
+            return self.manibhadra_crm.upsert_entity(
+                str(payload.get("kind") or ""),
+                payload.get("record") or {},
+            )
+
+        def manibhadra_ai_advice_action(payload,context):
+            return self.manibhadra_advisor.advise(
+                str(payload.get("question") or "What should MANIBHADRA prioritize next?"),
+                self.manibhadra_crm.dashboard(),
+            )
+
+        def manibhadra_health_action(payload,context):
+            return {
+                **self.manibhadra_crm.health(),
+                "advisor":self.manibhadra_advisor.status(),
+            }
+
         def zero_spend_status_action(payload,context):
             return self.zero_spend.status()
 
