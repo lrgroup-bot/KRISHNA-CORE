@@ -1,0 +1,77 @@
+name: Build KRISHNA iOS IPA
+
+on:
+  push:
+    branches:
+      - fix/krishna-ui-runtime-verification
+    paths:
+      - 'ios/**'
+      - 'avatar/krishna_child_360.webp.b64'
+      - '.github/workflows/build-ios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Prepare KRISHNA iOS bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/Payload/KRISHNA.app
+          cp ios/KRISHNA/Info.plist build/Payload/KRISHNA.app/Info.plist
+          base64 --decode avatar/krishna_child_360.webp.b64 > build/Payload/KRISHNA.app/krishna_child_360.webp
+          plutil -lint build/Payload/KRISHNA.app/Info.plist
+          test -s build/Payload/KRISHNA.app/krishna_child_360.webp
+
+      - name: Compile native iOS app
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          xcrun --sdk iphoneos swiftc ios/KRISHNA/main.swift             -parse-as-library             -sdk "$SDK"             -target arm64-apple-ios17.0             -o build/Payload/KRISHNA.app/KRISHNA             -framework UIKit             -framework AVFoundation             -framework Photos             -framework Speech             -framework CoreImage
+          chmod +x build/Payload/KRISHNA.app/KRISHNA
+          file build/Payload/KRISHNA.app/KRISHNA
+          test -x build/Payload/KRISHNA.app/KRISHNA
+
+      - name: Ad-hoc sign and package IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          codesign --force --sign - --timestamp=none build/Payload/KRISHNA.app
+          codesign --verify --deep --strict build/Payload/KRISHNA.app
+          (
+            cd build
+            zip -qry KRISHNA-v3.9-iOS-Unsigned.ipa Payload
+          )
+          test -s build/KRISHNA-v3.9-iOS-Unsigned.ipa
+
+      - name: Verify KRISHNA iOS product contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'KRISHNA uses the camera for HAWKEYE visual assistance and photographer mode' ios/KRISHNA/Info.plist
+          grep -q 'Open Hawkeye' ios/KRISHNA/main.swift
+          grep -q 'Talk to KRISHNA' ios/KRISHNA/main.swift
+          grep -q 'naturalEdit' ios/KRISHNA/main.swift
+          grep -q 'PHPhotoLibrary' ios/KRISHNA/main.swift
+          grep -q 'SFSpeechRecognizer' ios/KRISHNA/main.swift
+          grep -q 'dekh' ios/KRISHNA/main.swift
+          grep -q 'ଫଟୋ' ios/KRISHNA/main.swift
+          unzip -l build/KRISHNA-v3.9-iOS-Unsigned.ipa | grep -q 'Payload/KRISHNA.app/KRISHNA'
+          unzip -l build/KRISHNA-v3.9-iOS-Unsigned.ipa | grep -q 'Payload/KRISHNA.app/krishna_child_360.webp'
+          echo KRISHNA_IOS_PRODUCT_CONTRACT_OK
+
+      - name: Upload KRISHNA iOS IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: KRISHNA-v3.9-iOS-IPA
+          path: |
+            build/KRISHNA-v3.9-iOS-Unsigned.ipa
+          retention-days: 90
