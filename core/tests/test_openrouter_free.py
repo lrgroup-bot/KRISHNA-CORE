@@ -119,7 +119,6 @@ class OpenRouterFreeFabricTests(unittest.TestCase):
             result=fabric.complete("coding","write a bounded test",privacy="approved_cloud")
             self.assertEqual(result["text"],"ok")
             self.assertTrue(result["preflight_zero_cost"])
-            self.assertEqual(image_call["zero_credit_proof"],"openrouter-live-zero-price")
             chat=next(x for x in gateway.calls if x["path"]=="/chat/completions")
             self.assertEqual(chat["payload"]["provider"]["allow_fallbacks"],False)
             self.assertEqual(chat["payload"]["provider"]["data_collection"],"deny")
@@ -147,6 +146,7 @@ class OpenRouterFreeFabricTests(unittest.TestCase):
             self.assertNotIn("aspect_ratio",image_call["payload"])
             self.assertEqual(image_call["payload"]["model"],"inclusionai/ming-image-0.1-design")
             self.assertTrue(result["preflight_zero_cost"])
+            self.assertEqual(image_call["zero_credit_proof"],"openrouter-live-zero-price")
 
     def test_image_generation_blocks_when_live_pricing_is_missing(self):
         with tempfile.TemporaryDirectory() as td:
