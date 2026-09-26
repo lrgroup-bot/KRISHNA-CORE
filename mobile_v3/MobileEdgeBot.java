@@ -22,11 +22,13 @@ import java.util.Locale;
  *  - preprocess and retain evidence on the phone first;
  *  - never stream full-resolution camera frames by default;
  *  - deduplicate and rate-limit repeated observations;
- *  - send only a compact frame/evidence packet to the PC when heavier reasoning is needed;
+ *  - keep routine semantic reasoning on verified zero-cost mobile cloud when allowed;
+ *  - send only a compact frame/evidence packet to the PC for private/protected/heavy/failure escalation;
  *  - defer PC traffic under battery, thermal, memory, or network pressure.
  *
- * The PC remains the heavy-analysis worker; the phone is the acquisition,
- * filtering, compression, evidence and traffic-control worker.
+ * The phone is the acquisition/filtering/evidence worker and may use the direct
+ * free-cloud router for non-sensitive reasoning. KRISHNA PC is an escalation
+ * worker and authority boundary, not the default inference destination.
  */
 public final class MobileEdgeBot {
   public static final String BOT_ID="KRISHNA_EDGE_BOT_V1";
@@ -51,9 +53,10 @@ public final class MobileEdgeBot {
     JSONObject policy=policy(profile,network);
     JSONObject out=new JSONObject();
     out.put("bot",BOT_ID);
-    out.put("architecture","mobile-first-selective-offload");
-    out.put("mobile_role","capture-filter-compress-dedupe-retain");
-    out.put("pc_role","heavy-analysis-only-when-needed");
+    out.put("architecture","mobile-local-free-cloud-first-selective-pc");
+    out.put("mobile_role","capture-filter-compress-dedupe-retain-free-cloud");
+    out.put("pc_role","private-protected-heavy-failure-escalation-only");
+    out.put("routine_cloud_role","verified-zero-price-direct-mobile");
     out.put("device",profile);
     out.put("network",network);
     out.put("policy",policy);
@@ -110,7 +113,7 @@ public final class MobileEdgeBot {
     }else if(!pcReachable){
       route="LOCAL_OFFLINE";
     }else{
-      route="PC_COMPACT";
+      route="PC_COMPACT_ESCALATION";
       upload=compact;
       prefs.edit().putLong("last_upload_at",now).apply();
     }
@@ -133,7 +136,7 @@ public final class MobileEdgeBot {
     r.put("network",network);
     r.put("policy",p);
     r.put("analysis",route.startsWith("PC_")
-      ?"Mobile preprocessing complete; compact evidence selected for PC analysis."
+      ?"Mobile preprocessing complete; compact evidence selected for explicit PC escalation."
       :"Mobile preprocessing complete; evidence retained locally without PC transfer.");
     r.put("evidence_state","OBSERVED");
     r.put("confidence",1.0);
