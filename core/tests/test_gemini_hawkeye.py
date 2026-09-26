@@ -15,6 +15,8 @@ class GeminiHawkeyeBridgeTests(unittest.TestCase):
         self.assertTrue(row["configured"])
         self.assertEqual(row["credential_location"],"KRISHNA_PC_ONLY")
         self.assertFalse(row["mobile_permanent_key"])
+        self.assertTrue(row["hard_zero_credit"])
+        self.assertFalse(row["inference_allowed"])
 
     def test_selected_keyframe_requires_explicit_cloud_approval(self):
         with patch.dict(os.environ,{"GEMINI_API_KEY":"test-secret"},clear=False):
@@ -36,36 +38,24 @@ class GeminiHawkeyeBridgeTests(unittest.TestCase):
                     )
                 req.assert_not_called()
 
-    def test_selected_non_sensitive_keyframe_can_use_gemini(self):
-        response={"candidates":[{"content":{"parts":[{"text":"Observed: control panel."}]}}]}
+    def test_selected_non_sensitive_keyframe_is_blocked_without_zero_credit_proof(self):
         with patch.dict(os.environ,{"GEMINI_API_KEY":"test-secret","KRISHNA_GEMINI_MODEL":"gemini-3.8-flash"},clear=False):
             bridge=self.make()
-            with patch.object(bridge,"_request",return_value=response) as req:
-                row=bridge.analyze_image(
-                    b"jpeg","image/jpeg","inspect",
-                    {"selected_keyframe":True,"cloud_approved":True},
-                )
-        self.assertEqual(row["provider"],"google-gemini")
-        self.assertEqual(row["model"],"gemini-3.8-flash")
-        self.assertTrue(row["selected_keyframe_cloud_upload"])
-        self.assertFalse(row["continuous_raw_camera_upload"])
-        self.assertIn("control panel",row["analysis"])
-        self.assertIn(":generateContent",req.call_args.args[0])
+            with patch.object(bridge,"_request") as req:
+                with self.assertRaisesRegex(PermissionError,"hard zero-credit policy"):
+                    bridge.analyze_image(
+                        b"jpeg","image/jpeg","inspect",
+                        {"selected_keyframe":True,"cloud_approved":True},
+                    )
+                req.assert_not_called()
 
-    def test_live_token_is_one_use_and_short_lived(self):
+    def test_live_token_is_blocked_without_zero_credit_proof(self):
         with patch.dict(os.environ,{"GEMINI_API_KEY":"test-secret","KRISHNA_GEMINI_LIVE_MODEL":"gemini-3.8-live"},clear=False):
             bridge=self.make()
-            with patch.object(bridge,"_request",return_value={"name":"ephemeral-token"}) as req:
-                row=bridge.mint_live_token({"cloud_approved":True,"user_explicit":True})
-        self.assertEqual(row["token"],"ephemeral-token")
-        self.assertEqual(row["uses"],1)
-        self.assertEqual(row["live_model"],"gemini-3.8-live")
-        self.assertFalse(row["permanent_key_exposed"])
-        payload=req.call_args.args[2]
-        self.assertEqual(payload["uses"],1)
-        self.assertEqual(payload["liveConnectConstraints"]["model"],"models/gemini-3.8-live")
-        self.assertEqual(payload["liveConnectConstraints"]["config"]["responseModalities"],["AUDIO"])
-        self.assertIn("outputAudioTranscription",payload["liveConnectConstraints"]["config"])
+            with patch.object(bridge,"_request") as req:
+                with self.assertRaisesRegex(PermissionError,"hard zero-credit policy"):
+                    bridge.mint_live_token({"cloud_approved":True,"user_explicit":True})
+                req.assert_not_called()
 
     def test_live_token_blocks_sensitive_scene(self):
         with patch.dict(os.environ,{"GEMINI_API_KEY":"test-secret"},clear=False):
