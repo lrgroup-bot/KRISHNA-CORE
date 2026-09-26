@@ -414,7 +414,10 @@ class OpenRouterFreeFabric:
                 },
             }
             try:
-                data = self.gateway.request_json(profile["id"], "/chat/completions", payload=payload, method="POST", timeout=120)
+                data = self.gateway.request_json(
+                    profile["id"], "/chat/completions", payload=payload, method="POST", timeout=120,
+                    zero_credit_proof="openrouter-live-zero-price",
+                )
                 cost = self._usage_cost(data)
                 if cost is not None and cost != 0:
                     raise ZeroCostPolicyError(f"provider reported non-zero cost for supposedly free model {model['id']}: {cost}")
@@ -485,7 +488,10 @@ class OpenRouterFreeFabric:
         payload = {"model": model, "prompt": prompt}
         if output_format:
             payload["output_format"] = output_format
-        data = self.gateway.request_json(profile["id"], "/images", payload=payload, method="POST", timeout=180)
+        data = self.gateway.request_json(
+            profile["id"], "/images", payload=payload, method="POST", timeout=180,
+            zero_credit_proof="openrouter-live-zero-price",
+        )
         cost = self._usage_cost(data)
         if cost is not None and cost != 0:
             raise ZeroCostPolicyError(f"provider reported non-zero image cost after zero-cost preflight: {cost}")
