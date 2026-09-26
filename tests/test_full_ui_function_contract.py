@@ -123,9 +123,9 @@ class FullUIFunctionContractTests(unittest.TestCase):
             "vanijya.hr.request","vanijya.hr.create","vanijya.hr.retire","vanijya.hr.plan","vanijya.hr.execute",
             "vanijya.product.scout","vanijya.marketing.plan",
             "vanijya.outreach.decide","vanijya.outreach.plan","vanijya.lead.qualify",
-            "vanijya.reply.ingest","vanijya.inbound.reply","vanijya.outbound.plan","vanijya.narad.workflow",
+            "vanijya.reply.ingest","vanijya.inbound.reply","vanijya.inbox.process","vanijya.outbound.plan","vanijya.narad.workflow",
             "vanijya.crm.dashboard","vanijya.crm.upsert_lead","vanijya.crm.upsert_deal",
-            "vanijya.quote.create","vanijya.payment.upi_request","vanijya.payment.qr","vanijya.payment.verify",
+            "vanijya.quote.create","vanijya.payment.request","vanijya.payment.upi_request","vanijya.payment.qr","vanijya.payment.verify",
             "vanijya.pipeline.next","vanijya.automation.blueprint",
             "manibhadra.expansion.status","manibhadra.expansion.plan",
         ):
