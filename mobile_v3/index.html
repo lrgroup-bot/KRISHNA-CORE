@@ -29,13 +29,57 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
 .gitaCard{position:absolute;left:12px;right:12px;bottom:10px;z-index:6;display:none;max-height:37%;overflow:auto;background:#03131dee;border:1px solid #d7b75a99;border-radius:14px;padding:10px 11px;box-shadow:0 10px 28px #0009}
 .gitaCard.active{display:block}.gitaRef{font-size:10px;letter-spacing:1.1px;color:#f2c96f}.gitaSanskrit{font-family:serif;font-size:15px;line-height:1.55;margin-top:6px;color:#fff;white-space:pre-wrap}.gitaMeaning{font-size:11px;line-height:1.4;color:#bfe9f2;margin-top:7px;white-space:pre-wrap}
 .gitaControls{display:flex;gap:7px;margin-top:8px}.gitaControls button{border:1px solid #45869a;background:#062334;color:#dffaff;border-radius:10px;min-height:31px;padding:0 11px;font-size:10px}.gitaControls button:first-child{border-color:#d7b75a;color:#f2c96f}
+
+/* KRISHNA Mobile v3.9 — avatar-first shell */
+header,.security,.rotateHint,.viewLabel{display:none!important}
+.app{position:relative;background:radial-gradient(circle at 50% 40%,#153f69a8,transparent 35%),linear-gradient(#061421,#01060c)}
+.stage{height:100%;flex:1}
+.avatarViewport{height:min(78vh,720px);max-height:calc(100vh - 92px);aspect-ratio:1/3;transform-origin:50% 68%;animation:krishnaBreath 4.8s ease-in-out infinite}
+.avatarViewport[data-state="SPEAKING"]{animation:krishnaSpeak .72s ease-in-out infinite}
+.avatarViewport[data-state="THINKING"],.avatarViewport[data-state="DHYAN"]{animation:krishnaDhyan 5.4s ease-in-out infinite}
+.avatarViewport[data-state="WORKING"]{animation:krishnaWork 1.25s ease-in-out infinite}
+.sprite{filter:saturate(1.08) contrast(1.05) drop-shadow(0 18px 28px #0009)}
+#avatar3d{position:absolute;inset:4% 4% 11%;z-index:3;display:block;pointer-events:none;filter:drop-shadow(0 18px 30px #000a)}
+#avatar3d[hidden]{display:none}
+#avatar3d canvas{width:100%!important;height:100%!important;display:block}
+@keyframes krishnaBreath{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-5px) scale(1.008)}}
+@keyframes krishnaSpeak{0%,100%{transform:translateY(0) rotate(-.4deg)}50%{transform:translateY(-2px) rotate(.5deg)}}
+@keyframes krishnaDhyan{0%,100%{transform:translateY(2px) scale(.995)}50%{transform:translateY(-3px) scale(1.006)}}
+@keyframes krishnaWork{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.halo{width:min(76vw,380px)}
+.bubble{top:18px;right:18px;max-width:72%;opacity:0;transform:translateY(-8px);transition:.2s ease;pointer-events:none}
+.stage.chat .bubble,.stage.working .bubble{opacity:1;transform:translateY(0)}
+.state{display:none!important}
+.quickDock{position:absolute;left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:7;display:flex;gap:10px;padding:7px 9px;border:1px solid #5bdff044;border-radius:28px;background:#03121dcc;backdrop-filter:blur(14px);box-shadow:0 12px 34px #0008}
+.quickBtn{width:42px;height:42px;border-radius:50%;border:1px solid #59d9ea66;background:#082535;color:#dffaff;font-size:17px;display:grid;place-items:center}
+.quickBtn.hawkeye{border-color:#f2c96f88;color:#f2c96f}.quickBtn.mic{border-color:#50f0ac88;color:#50f0ac}
+.chatSheet{position:absolute;left:10px;right:10px;bottom:78px;z-index:7;max-height:42vh;padding:9px;border:1px solid #44cbe066;border-radius:20px;background:#03131ee8;backdrop-filter:blur(16px);box-shadow:0 18px 44px #000a;opacity:0;transform:translateY(18px) scale(.985);pointer-events:none;transition:.2s ease}
+.chatSheet.open{opacity:1;transform:none;pointer-events:auto}
+.reply{min-height:34px;max-height:18vh;padding:4px 7px;font-size:13px;text-align:left}
+.composer{grid-template-columns:38px 60px minmax(0,1fr) 42px;gap:6px;padding:6px;border-radius:16px}
+.composer input[type=text]{padding:9px 6px}.composer select{max-width:60px}
+.cameraLayer.photographer .diagnosticOverlay,.cameraLayer.photographer .cameraAnalysis,.cameraLayer.photographer .cameraTop{display:none!important}
+.cameraTop{top:max(12px,env(safe-area-inset-top))}
+.cameraAnalysis{left:12px;right:12px;bottom:86px;max-height:24%;border-radius:16px}
+.cameraClose{top:max(14px,env(safe-area-inset-top));right:12px}
+.cameraPrimary{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:12;display:flex;align-items:center;gap:12px;padding:7px 10px;border-radius:32px;background:#020b12b8;backdrop-filter:blur(12px)}
+.cameraPrimary button{width:42px;height:42px;border-radius:50%;border:1px solid #65dce988;background:#0a2530dd;color:#fff;font-size:17px}
+.cameraPrimary .shutter{width:58px;height:58px;border:4px solid #fff;background:#ffffff33;box-shadow:0 0 0 2px #0008}
+.cameraActions{position:absolute;left:12px;right:12px;top:auto;bottom:88px;z-index:11;display:none;gap:6px;flex-wrap:wrap;padding:10px;border:1px solid #45d4e855;border-radius:16px;background:#03131eea;backdrop-filter:blur(12px)}
+.cameraActions.open{display:flex}
+.cameraRef{position:static;width:auto;height:34px}
+.cameraAction{height:34px}
+.gitaCard{bottom:80px}
+
 </style></head>
 <body><div class="app">
-<header><div class="brand">KRISHNA</div><div id="state" class="state" title="Tap to configure the private KRISHNA PC link" onclick="configurePc()">CONNECTING</div></header>
+<div id="state" class="state" title="KRISHNA private connection">CONNECTING</div>
 <section id="stage" class="stage">
   <div class="halo"></div><div id="rotateHint" class="rotateHint">SWIPE TO ROTATE · 360°</div>
-  <div id="avatarViewport" class="avatarViewport"><img id="avatarSprite" class="sprite" src="krishna_child_360.webp" alt="KRISHNA child avatar"><div id="viewLabel" class="viewLabel">FRONT</div></div>
+  <div id="avatar3d" aria-label="KRISHNA live 3D avatar" hidden></div>
+  <div id="avatarViewport" class="avatarViewport" data-state="FLUTE"><img id="avatarSprite" class="sprite" src="krishna_child_360.webp" alt="KRISHNA animated avatar fallback"><div id="viewLabel" class="viewLabel">FRONT</div></div>
   <div id="bubble" class="bubble">Radhe Radhe. I am ready.</div>
+
   <section id="gitaCard" class="gitaCard" aria-live="polite">
     <div id="gitaRef" class="gitaRef">BHAGAVAD GITA</div>
     <div id="gitaSanskrit" class="gitaSanskrit"></div>
@@ -46,17 +90,23 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
       <button onclick="speakGitaExplanation()">EXPLAIN</button>
     </div>
   </section>
+
   <div id="cameraLayer" class="cameraLayer">
     <video id="fieldVideo" autoplay playsinline muted></video>
     <canvas id="fieldCanvas" hidden></canvas>
     <canvas id="diagnosticOverlay" class="diagnosticOverlay"></canvas>
     <div class="cameraHud">
       <div class="cameraTop"><span id="cameraMode" class="cameraBadge">HAWKEYE · AUTO SCAN</span><span id="cameraCount" class="cameraBadge">FRAME 0</span></div>
-      <div id="cameraAnalysis" class="cameraAnalysis">Point the camera at a hill, road, tower, building, bridge, or machinery.</div>
+      <div id="cameraAnalysis" class="cameraAnalysis">KRISHNA is looking.</div>
     </div>
-    <button id="cameraClose" class="cameraClose" onclick="stopFieldScan()" aria-label="Stop Hawkeye scan">×</button>
-    <button id="cameraRef" class="cameraRef" onclick="configureReferenceAlignment()" aria-label="Align verified circuit reference">REF</button>
-    <div class="cameraActions">
+    <button id="cameraClose" class="cameraClose" onclick="stopFieldScan()" aria-label="Close camera">×</button>
+    <div class="cameraPrimary">
+      <button onclick="flipCamera()" aria-label="Switch camera">↺</button>
+      <button class="shutter" onclick="HawkeyeObserverUI.photographerPhoto()" aria-label="Take edited photo"></button>
+      <button onclick="toggleCameraAdvanced()" aria-label="More Hawkeye controls">⋯</button>
+    </div>
+    <div id="cameraActions" class="cameraActions">
+      <button id="cameraRef" class="cameraRef" onclick="configureReferenceAlignment()" aria-label="Align verified circuit reference">REF</button>
       <button id="cameraLearn" class="cameraAction" onclick="HawkeyeObserverUI.toggleLearn()" aria-label="Toggle Hawkeye learning observer">LEARN</button>
       <button id="cameraAI" class="cameraAction" onclick="HawkeyeObserverUI.toggleAI()" aria-label="Cycle local, automatic free-cloud, OpenRouter and Gemini selected-frame reasoning">AI:LOCAL</button>
       <button id="cameraGeminiLive" class="cameraAction" onclick="HawkeyeObserverUI.toggleGeminiLive()" aria-label="Toggle Gemini Live with an ephemeral token">G-LIVE</button>
@@ -69,38 +119,84 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
       <button id="cameraRecord" class="cameraAction" onclick="HawkeyeObserverUI.record()" aria-label="Record Hawkeye object with data">REC+DATA</button>
     </div>
   </div>
+
+  <div id="chatSheet" class="chatSheet" aria-label="KRISHNA conversation">
+    <div id="reply" class="reply">Talk to KRISHNA.</div>
+    <div class="composer">
+      <button onclick="document.getElementById('attach').click()" aria-label="Attach photo or file">＋</button>
+      <input id="attach" type="file" accept="image/*,.pdf,.txt,.md,.json" capture="environment" hidden onchange="attachFile(this)">
+      <select id="voiceLang" aria-label="Conversation language"><option value="or-IN">ଓଡ଼ିଆ</option><option value="hi-IN">हिन्दी</option><option value="en-IN">EN</option></select>
+      <input id="msg" type="text" placeholder="Talk to KRISHNA…" onkeydown="if(event.key==='Enter')send()">
+      <button class="send" onclick="send()" aria-label="Send">➤</button>
+    </div>
+    <div class="security">Conversation only · owner voice gate is local · sensitive actions still require device authorization</div>
+  </div>
+
+  <div class="quickDock" aria-label="KRISHNA quick controls">
+    <button id="hawkeyeQuick" class="quickBtn hawkeye" onclick="startFieldScan('automatic live visual check',false)" aria-label="Open Hawkeye">◉</button>
+    <button id="chatQuick" class="quickBtn" onclick="toggleChat()" aria-label="Open chat">⌁</button>
+    <button id="micQuick" class="quickBtn mic" onclick="listen()" aria-label="Talk to KRISHNA">🎙</button>
+  </div>
 </section>
-<footer class="bottom">
- <div id="reply" class="reply">Talk to KRISHNA.</div>
- <div class="composer">
-   <button onclick="startFieldScan()" aria-label="Hawkeye live camera scan">◉</button>
-   <button onclick="document.getElementById('attach').click()" aria-label="Attach photo or file">＋</button>
-   <input id="attach" type="file" accept="image/*,.pdf,.txt,.md,.json" capture="environment" hidden onchange="attachFile(this)">
-   <button onclick="listen()" aria-label="Talk to KRISHNA">🎙</button>
-   <select id="voiceLang" aria-label="Conversation language"><option value="or-IN">ଓଡ଼ିଆ</option><option value="hi-IN">हिन्दी</option><option value="en-IN">EN</option></select>
-   <input id="msg" type="text" placeholder="Talk to KRISHNA…" onkeydown="if(event.key==='Enter')send()">
-   <button class="send" onclick="send()" aria-label="Send">➤</button>
- </div>
- <div class="security">Conversation only · owner voice gate is local · sensitive actions still require device authorization</div>
-</footer>
 </div>
 <script src="realtime-client.js"></script>
 <script>
 const labels=['FRONT','FRONT-RIGHT','RIGHT','BACK-RIGHT','BACK','BACK-LEFT','LEFT','FRONT-LEFT'];
 let view=0,drag=false,startX=0,startView=0,mode='FLUTE',lastManual=0,autoTimer=null,busy=false,pendingAttachmentIds=[],pairingRequestedAt=0,lastGita=null;
-let fieldStream=null,fieldTimer=null,fieldSession='',fieldBusy=false,fieldFrames=0,fieldGoal='automatic live field scan',fieldAudio=false,fieldProbe=null,fieldVideoClipTimer=null,fieldAudioClipTimer=null,fieldMediaBusy=false,fieldReference=null,fieldReferencePending=null;
+let fieldStream=null,fieldTimer=null,fieldSession='',fieldBusy=false,fieldFrames=0,fieldGoal='automatic live field scan',fieldAudio=false,fieldProbe=null,fieldVideoClipTimer=null,fieldAudioClipTimer=null,fieldMediaBusy=false,fieldReference=null,fieldReferencePending=null,fieldFacingMode='environment',fieldPhotographerMode=false;
 function hawkeyeSensors(){try{const x=JSON.parse(Krishna.hawkeyeSensorSnapshot());return x&&typeof x==='object'?x:{available:false};}catch(_){return {available:false,evidence_state:'UNKNOWN'};}}
-const stage=document.getElementById('stage'),sprite=document.getElementById('avatarSprite'),label=document.getElementById('viewLabel'),vp=document.getElementById('avatarViewport');
+const stage=document.getElementById('stage'),sprite=document.getElementById('avatarSprite'),label=document.getElementById('viewLabel'),vp=document.getElementById('avatarViewport'),avatar3d=document.getElementById('avatar3d');
+window.showKrishnaFallback=(reason='')=>{if(avatar3d)avatar3d.hidden=true;if(vp)vp.hidden=false;if(reason)console.warn('KRISHNA avatar fallback:',reason)};
+window.hideKrishnaFallback=()=>{if(vp)vp.hidden=true;if(avatar3d)avatar3d.hidden=false};
+window.reportKrishnaUiReady=(renderer='fallback')=>{
+ try{
+  const r=(vp&&!vp.hidden?vp:avatar3d)?.getBoundingClientRect?.()||{width:0,height:0};
+  const payload={renderer,avatar_visible:r.width>80&&r.height>180,avatar_width:Math.round(r.width||0),avatar_height:Math.round(r.height||0),
+    hawkeye:!!document.getElementById('hawkeyeQuick'),chat:!!document.getElementById('chatQuick'),mic:!!document.getElementById('micQuick')};
+  Krishna.uiReady(JSON.stringify(payload));
+ }catch(_){}
+};
 function showAvatarView(i,manual=false){view=(i%8+8)%8;sprite.style.transform='translateX('+(-view*12.5)+'%)';label.textContent=labels[view];if(manual)lastManual=Date.now()}
 function step(delta,manual=true){showAvatarView(view+delta,manual)}
 vp.addEventListener('pointerdown',e=>{drag=true;startX=e.clientX;startView=view;vp.setPointerCapture(e.pointerId)});
 vp.addEventListener('pointermove',e=>{if(!drag)return;showAvatarView(startView+Math.round(-(e.clientX-startX)/34),true)});
 vp.addEventListener('pointerup',()=>drag=false);vp.addEventListener('pointercancel',()=>drag=false);
 function startAuto(){clearInterval(autoTimer);autoTimer=setInterval(()=>{if(mode==='FLUTE'&&Date.now()-lastManual>4500&&!drag)step(1,false)},2600)}
-function setMode(m,text){mode=m||'FLUTE';document.getElementById('state').textContent=mode;stage.classList.toggle('working',mode==='WORKING'||mode==='SEARCH'||mode==='DHYAN');stage.classList.toggle('chat',mode==='CHAT'||mode==='TALKING'||mode==='LISTENING');if(text)document.getElementById('bubble').textContent=text;if(mode==='CHAT'||mode==='TALKING'||mode==='LISTENING')showAvatarView(0,false);else if(mode==='WORKING')showAvatarView(1,false);else if(mode==='SEARCH'||mode==='DHYAN')showAvatarView(2,false)}
+function setMode(m,text){
+ mode=m||'FLUTE';document.getElementById('state').textContent=mode;
+ stage.classList.toggle('working',mode==='WORKING'||mode==='SEARCH'||mode==='DHYAN');
+ stage.classList.toggle('chat',mode==='CHAT'||mode==='TALKING'||mode==='LISTENING');
+ if(text)document.getElementById('bubble').textContent=text;
+ let avatarState=mode;
+ if(mode==='TALKING'||mode==='CHAT')avatarState=mode==='TALKING'?'SPEAKING':'IDLE';
+ else if(mode==='SEARCH')avatarState='THINKING';
+ else if(mode==='LISTENING')avatarState='LISTENING';
+ if(vp)vp.dataset.state=avatarState;
+ window.setKrishnaAvatarState?.(avatarState);
+ if(mode==='CHAT'||mode==='TALKING'||mode==='LISTENING')showAvatarView(0,false);else if(mode==='WORKING')showAvatarView(1,false);else if(mode==='SEARCH'||mode==='DHYAN')showAvatarView(2,false)
+}
+function toggleChat(force){
+ const sheet=document.getElementById('chatSheet');if(!sheet)return;
+ const open=typeof force==='boolean'?force:!sheet.classList.contains('open');
+ sheet.classList.toggle('open',open);
+ if(open)setTimeout(()=>document.getElementById('msg')?.focus(),120);
+}
+function toggleCameraAdvanced(){
+ const box=document.getElementById('cameraActions');if(box)box.classList.toggle('open');
+}
+function classifyAssistantPhrase(phrase){
+ const s=String(phrase||'').toLowerCase();
+ if(/photo|picture|selfie|capture me|take my|फोटो|तस्वीर|ଫଟୋ|ମୋ ଫଟୋ/.test(s))return'photographer';
+ if(/\bdekh\b|dekho|देख|ଦେଖ|watch|see|look|camera|hawkeye/.test(s))return'hawkeye';
+ return'chat';
+}
+function strippedAssistantText(phrase){
+ return String(phrase||'').replace(/^(hey\s+)?(krishna|कृष्ण|କୃଷ୍ଣ)[\s,.:;-]*/i,'').trim();
+}
+
 function reply(text,cls=''){const e=document.getElementById('reply');e.className='reply '+cls;e.textContent=text}
 function speechLocale(text=''){const value=String(text||'');if(/[\u0B00-\u0B7F]/.test(value))return'or-IN';if(/[\u0900-\u097F]/.test(value))return'hi-IN';return document.getElementById('voiceLang')?.value||'en-IN'}
-function speak(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang=speechLocale(t);speechSynthesis.speak(u)}catch(e){}}
+function speak(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang=speechLocale(t);u.onstart=()=>setMode('TALKING',String(t||'').slice(0,120));u.onend=()=>setMode('FLUTE','Radhe Radhe. I am ready.');u.onerror=()=>setMode('FLUTE','Radhe Radhe. I am ready.');speechSynthesis.speak(u)}catch(e){}}
 function renderGita(d){
  const card=document.getElementById('gitaCard');if(!card)return;
  if(!d||d.capability!=='gita-gyan'||!d.sanskrit){card.classList.remove('active');lastGita=null;return}
@@ -118,7 +214,16 @@ window.toggleGitaRecitation=toggleGitaRecitation;window.repeatGita=repeatGita;wi
 
 window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','KRISHNA is working…');reply('KRISHNA is thinking…');setTimeout(()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const d=JSON.parse(Krishna.chatWithAttachments(q,JSON.stringify(pendingAttachmentIds.slice(0,3))));if(d.error)throw new Error(d.error);pendingAttachmentIds=[];renderGita(d);const text=d.reply||d.text||'Done';reply(text);setMode(d.avatar_state||'TALKING',text);if(d.capability!=='gita-gyan')speak(text)}catch(e){reply(e.message,'bad');setMode('CHAT','Connection error')}finally{busy=false}},20)}
 
-window.listen=()=>{if(busy)return;if(!Krishna.voiceEnrolled()){reply('Say a natural sentence for a few seconds to create your local owner voice gate.','warn');setTimeout(()=>{const d=JSON.parse(Krishna.enrollVoice());if(d.error){reply(d.error,'bad');return}reply('Owner voice gate enrolled locally. Tap the microphone again and say “Krishna” before your request.','good')},80);return}
+window.listen=()=>{if(busy)return;
+ try{
+  const a=Krishna.assistantStatus?JSON.parse(Krishna.assistantStatus()):null;
+  if(a&&a.available&&!a.role_held&&!a.prompted){
+   reply('Enable KRISHNA as your Android assistant once, then tap the microphone again.','warn');
+   Krishna.requestAssistantMode();
+   return;
+  }
+ }catch(_){}
+ if(!Krishna.voiceEnrolled()){reply('Say a natural sentence for a few seconds to create your local owner voice gate.','warn');setTimeout(()=>{const d=JSON.parse(Krishna.enrollVoice());if(d.error){reply(d.error,'bad');return}reply('Owner voice gate enrolled locally. Tap the microphone again and say “Krishna” before your request.','good')},80);return}
  reply('Say “Krishna” to verify the local owner voice gate…','warn');setMode('LISTENING','OWNER CHECK');
  setTimeout(()=>{const v=JSON.parse(Krishna.verifyVoice());if(v.error){reply(v.error,'bad');setMode('CHAT','VOICE ERROR');return}if(!v.matched){reply('Voice gate did not match. Type your request or try again.','bad');setMode('CHAT','VOICE NOT MATCHED');return}
    const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -127,11 +232,29 @@ window.listen=()=>{if(busy)return;if(!Krishna.voiceEnrolled()){reply('Say a natu
  },20)
 }
 
-window.onKrishnaWake=(phrase)=>{
- reply('KRISHNA wake detected locally. Owner voice check is required before the request is accepted.','good');
- setMode('LISTENING','WAKE DETECTED');
- setTimeout(()=>listen(),250);
+window.onAssistantCommand=(requestedMode,phrase)=>{
+ const direct=requestedMode||classifyAssistantPhrase(phrase);
+ if(direct==='hawkeye'){
+   setMode('WORKING','KRISHNA IS LOOKING');
+   startFieldScan('automatic live visual check',false);
+   return;
+ }
+ if(direct==='photographer'){
+   setMode('WORKING','KRISHNA PHOTOGRAPHER');
+   startPhotographerMode(true);
+   return;
+ }
+ const text=strippedAssistantText(phrase);
+ if(text && !/^(hi|hello|hey)$/i.test(text)){
+   toggleChat(true);
+   document.getElementById('msg').value=text;
+   send();
+   return;
+ }
+ setMode('LISTENING','KRISHNA');
+ setTimeout(()=>listen(),180);
 }
+window.onKrishnaWake=(phrase)=>window.onAssistantCommand(classifyAssistantPhrase(phrase),phrase);
 
 function cameraPointFromEvent(e){
  const video=document.getElementById('fieldVideo'),r=video.getBoundingClientRect();if(!video.videoWidth||!video.videoHeight)return null;
@@ -212,30 +335,49 @@ function startBoundedMediaCapture(){
  if(fieldAudio&&hawkeyeSoundGoal()){fieldAudioClipTimer=setInterval(()=>recordBoundedMedia('audio',3000),20000);setTimeout(()=>recordBoundedMedia('audio',3000),12000)}
 }
 
-async function startFieldScan(){
+async function startFieldScan(goalOverride='',photographer=false){
  if(fieldStream||fieldBusy)return;
  try{
    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Live camera is unavailable on this device.');
-   fieldGoal=(prompt('What should Hawkeye inspect?','automatic live field scan')||'automatic live field scan').trim();
+   fieldPhotographerMode=!!photographer;
+   if(fieldPhotographerMode)fieldFacingMode='user';
+   fieldGoal=String(goalOverride||'').trim()||(fieldPhotographerMode?'natural portrait with surrounding scenery':'automatic live visual check');
    let start={}; let offline=false;
    try{start=JSON.parse(Krishna.bhumiputraStart(fieldGoal,'auto'));if(start.error)throw new Error(start.error)}
    catch(_){offline=true;start={session_id:'offline-'+Date.now()}}
    fieldSession=start.session_id||('offline-'+Date.now());
    window.hawkeyeOffline=offline;
-   fieldStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:true});
+   fieldStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:fieldFacingMode}},audio:!fieldPhotographerMode});
    fieldAudio=fieldStream.getAudioTracks().length>0;
    const video=document.getElementById('fieldVideo');video.srcObject=fieldStream;
-   document.getElementById('cameraLayer').classList.add('active');
-   document.getElementById('cameraAnalysis').textContent='Hawkeye live scan started. Hold the camera steady and move around the object for additional viewpoints.';
-   document.getElementById('cameraMode').textContent='HAWKEYE · AUTO SCAN';
+   const layer=document.getElementById('cameraLayer');layer.classList.add('active');layer.classList.toggle('photographer',fieldPhotographerMode);
+   document.getElementById('cameraActions').classList.remove('open');
+   document.getElementById('cameraAnalysis').textContent=fieldPhotographerMode?'KRISHNA photographer is framing the scene.':'KRISHNA is looking. Move naturally for another viewpoint.';
+   document.getElementById('cameraMode').textContent=fieldPhotographerMode?'KRISHNA · PHOTOGRAPHER':'HAWKEYE · AUTO SCAN';
    clearDiagnosticOverlay();
-   fieldFrames=0;fieldProbe=null;setMode('WORKING','HAWKEYE LIVE');
+   fieldFrames=0;fieldProbe=null;setMode('WORKING',fieldPhotographerMode?'PHOTOGRAPHER':'HAWKEYE LIVE');
    clearInterval(fieldTimer);const edgeMs=Math.max(5000,Number(Krishna.edgeSamplingMs?Krishna.edgeSamplingMs():6000)||6000);fieldTimer=setInterval(sampleFieldFrame,edgeMs);
-   startBoundedMediaCapture();setTimeout(sampleFieldFrame,700);
+   if(!fieldPhotographerMode)startBoundedMediaCapture();
+   setTimeout(sampleFieldFrame,700);
  }catch(e){
-   reply('Hawkeye camera: '+e.message,'bad');
+   reply('Camera: '+e.message,'bad');
    stopFieldScan();
  }
+}
+async function startPhotographerMode(autoCapture=false){
+ fieldFacingMode='user';
+ await startFieldScan('natural portrait with surrounding scenery',true);
+ if(autoCapture){
+   setMode('WORKING','3 · 2 · 1');
+   setTimeout(()=>{if(fieldStream&&HawkeyeObserverUI?.photographerPhoto)HawkeyeObserverUI.photographerPhoto()},2600);
+ }
+}
+async function flipCamera(){
+ if(!fieldStream)return;
+ const goal=fieldGoal,photo=fieldPhotographerMode;
+ fieldFacingMode=fieldFacingMode==='user'?'environment':'user';
+ stopFieldScan(true);
+ setTimeout(()=>startFieldScan(goal,photo),180);
 }
 async function sampleFieldFrame(){
  if(!fieldStream||fieldBusy||!fieldSession)return;
@@ -282,18 +424,19 @@ async function sampleFieldFrame(){
    document.getElementById('cameraAnalysis').textContent='Scan warning: '+e.message;
  }finally{fieldBusy=false}
 }
-function stopFieldScan(){
+function stopFieldScan(silent=false){
  try{if(window.HawkeyeObserverUI&&HawkeyeObserverUI.stopGeminiLive)HawkeyeObserverUI.stopGeminiLive()}catch(_){}
  clearInterval(fieldTimer);fieldTimer=null;clearInterval(fieldVideoClipTimer);fieldVideoClipTimer=null;clearInterval(fieldAudioClipTimer);fieldAudioClipTimer=null;
  if(fieldStream){for(const t of fieldStream.getTracks())try{t.stop()}catch(e){}}
  fieldStream=null;fieldBusy=false;fieldAudio=false;fieldProbe=null;fieldMediaBusy=false;fieldReference=null;fieldReferencePending=null;
  clearDiagnosticOverlay();
  document.getElementById('fieldVideo').srcObject=null;
- document.getElementById('cameraLayer').classList.remove('active');
- if(fieldSession){reply('Hawkeye live scan stopped. Session '+fieldSession.slice(0,8)+' preserved locally.','good')}
- fieldSession='';setMode('CHAT','FIELD SCAN SAVED');
+ const layer=document.getElementById('cameraLayer');layer.classList.remove('active','photographer');
+ document.getElementById('cameraActions').classList.remove('open');
+ if(fieldSession&&!silent)reply('Camera session '+fieldSession.slice(0,8)+' saved locally.','good');
+ fieldSession='';fieldPhotographerMode=false;if(!silent)setMode('FLUTE','Radhe Radhe. I am ready.');
 }
-window.startFieldScan=startFieldScan;window.stopFieldScan=stopFieldScan;
+window.startFieldScan=startFieldScan;window.startPhotographerMode=startPhotographerMode;window.flipCamera=flipCamera;window.stopFieldScan=stopFieldScan;window.toggleChat=toggleChat;window.toggleCameraAdvanced=toggleCameraAdvanced;
 
 window.attachFile=input=>{const file=input.files&&input.files[0];if(!file)return;if(file.size>25*1024*1024){reply('Attachment exceeds 25 MB.','bad');input.value='';return}reply('Attaching '+file.name+'…','warn');const reader=new FileReader();reader.onload=()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const b64=String(reader.result).split(',')[1]||'';const d=JSON.parse(Krishna.attach(file.name,file.type||'application/octet-stream',b64));if(d.error)throw new Error(d.error);if(d.attachment_id)pendingAttachmentIds.push(d.attachment_id);reply('Attached '+file.name+'. It will be included in your next KRISHNA request.','good')}catch(e){reply(e.message,'bad')}finally{input.value=''}};reader.readAsDataURL(file)}
 
@@ -312,10 +455,24 @@ function configurePc(){
  }catch(e){reply(e.message,'bad')}
 }
 
-function poll(){try{const link=JSON.parse(Krishna.connection());if(link.error||!link.connected){if(Date.now()-pairingRequestedAt>15000){pairingRequestedAt=Date.now();try{const p=JSON.parse(Krishna.pairingRequest());if(!p.error){document.getElementById('state').textContent='WAITING FOR PC APPROVAL';document.getElementById('state').className='state warn';reply('Pairing request sent securely. Approve this phone once in KRISHNA PC System. No code is required.','warn');return}}catch(_){}}throw new Error(link.error||'Backend link not confirmed')}const d=JSON.parse(Krishna.state());if(d.error)throw new Error(d.error);setMode(d.operator?.avatar_state||'FLUTE',d.operator?.current?.task||'Radhe Radhe. I am ready.');document.getElementById('state').className='state good'}catch(e){if(document.getElementById('state').textContent!=='WAITING FOR PC APPROVAL')document.getElementById('state').textContent='PC OFFLINE';document.getElementById('state').className=document.getElementById('state').textContent==='WAITING FOR PC APPROVAL'?'state warn':'state bad'}}
-showAvatarView(0);startAuto();poll();setInterval(poll,5000);
+function poll(){
+ try{if(Krishna.pollAsync){Krishna.pollAsync();return}}catch(_){}
+ document.getElementById('state').textContent='PC OFFLINE';document.getElementById('state').className='state bad';
+}
+window.onKrishnaPoll=(linkRaw,stateRaw)=>{
+ try{
+  const link=JSON.parse(String(linkRaw||'{}'));
+  if(link.error||!link.connected)throw new Error(link.error||'Backend link not confirmed');
+  const d=JSON.parse(String(stateRaw||'{}'));if(d.error)throw new Error(d.error);
+  setMode(d.operator?.avatar_state||'FLUTE',d.operator?.current?.task||'Radhe Radhe. I am ready.');
+  document.getElementById('state').className='state good';
+ }catch(e){
+  document.getElementById('state').textContent='PC OFFLINE';document.getElementById('state').className='state bad';
+ }
+};
+showAvatarView(0);startAuto();setTimeout(()=>window.reportKrishnaUiReady?.('animated-fallback'),450);setTimeout(poll,1800);setInterval(poll,8000);
 const realtime=new KrishnaRealtime(Krishna);
 realtime.onEvent=e=>{const p=e.payload||{};if(e.type==='task.completed'){reply(p.summary||'KRISHNA completed the task','good');setMode('CHAT','WORK COMPLETED');return}if(e.type==='action.sync'){const status=String(p.status||'').toUpperCase(),action=String(p.action||'KRISHNA action');if(status==='COMPLETED')setMode('CHAT',action+' · SYNCED');else if(status==='FAILED'||status==='BLOCKED')setMode('CHAT',action+' · '+status);else setMode('WORKING',action)}};
 realtime.onState=s=>{if(s==='reconnecting')document.getElementById('state').textContent='RECONNECTING'};
 realtime.start();window.onerror=(m,s,l)=>{try{Krishna.log('JS '+m+' '+s+':'+l)}catch(e){}};
-</script><script src="hawkeye-observer-ui.js"></script></body></html>
+</script><script src="hawkeye-observer-ui.js"></script><script type="module" src="avatar-renderer.js"></script></body></html>

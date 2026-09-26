@@ -1,6 +1,7 @@
 package com.krishna.mobile;
 
 import android.app.*;
+import android.app.role.RoleManager;
 import android.os.*;
 import android.content.*;
 import android.content.pm.PackageManager;
@@ -20,16 +21,22 @@ public class MainActivity extends Activity {
   static final String CORE="/api/core/chat";
   static final String SPEAKER_ENGINE="LOCAL_VOICE_GATE_V3";
   static final int FILE_PICKER=73;
+  static final int ASSISTANT_ROLE_REQUEST=74;
+  public static final String ACTION_ASSIST_COMMAND="com.krishna.mobile.ASSIST_COMMAND";
   WebView web;
   Bridge bridge;
   HawkeyeSensorFusion hawkeyeSensors;
   ValueCallback<Uri[]> fileCallback;
+  boolean webReady=false;
+  String pendingAssistPhrase=null,pendingAssistMode=null;
+  static final String AVATAR_HOST="krishna.local";
+  static final long AVATAR_MAX_BYTES=120L*1024L*1024L;
   BroadcastReceiver wakeReceiver=new BroadcastReceiver(){
     @Override public void onReceive(Context context,Intent intent){
       if(intent==null||!KrishnaWakeService.ACTION_WAKE.equals(intent.getAction()))return;
       String phrase=intent.getStringExtra("phrase");
-      if(web!=null)runOnUiThread(()->web.evaluateJavascript(
-        "window.onKrishnaWake&&window.onKrishnaWake("+JSONObject.quote(phrase==null?"Krishna":phrase)+")",null));
+      String mode=intent.getStringExtra("mode");
+      receiveAssistantCommand(mode,phrase);
     }
   };
 
@@ -52,7 +59,67 @@ public class MainActivity extends Activity {
     ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify((int)(System.currentTimeMillis()&0x7fffffff),b.build());
   }
 
+  boolean assistantRoleHeld(){
+    if(Build.VERSION.SDK_INT<29)return false;
+    try{
+      RoleManager rm=getSystemService(RoleManager.class);
+      return rm!=null&&rm.isRoleAvailable(RoleManager.ROLE_ASSISTANT)&&rm.isRoleHeld(RoleManager.ROLE_ASSISTANT);
+    }catch(Exception ignored){return false;}
+  }
+
+  void requestAssistantRole(boolean rememberPrompt){
+    if(Build.VERSION.SDK_INT<29)return;
+    try{
+      RoleManager rm=getSystemService(RoleManager.class);
+      if(rm==null||!rm.isRoleAvailable(RoleManager.ROLE_ASSISTANT)||rm.isRoleHeld(RoleManager.ROLE_ASSISTANT))return;
+      if(rememberPrompt)getSharedPreferences("k",0).edit().putBoolean("assistant_role_prompted",true).apply();
+      startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_ASSISTANT),ASSISTANT_ROLE_REQUEST);
+    }catch(Exception ignored){}
+  }
+
+  void maybeRequestAssistantRole(){
+    if(getSharedPreferences("k",0).getBoolean("assistant_role_prompted",false))return;
+    requestAssistantRole(true);
+  }
+
+  void receiveAssistantCommand(String mode,String phrase){
+    pendingAssistMode=(mode==null||mode.trim().isEmpty())?"chat":mode.trim().toLowerCase(java.util.Locale.ROOT);
+    pendingAssistPhrase=(phrase==null||phrase.trim().isEmpty())?"Krishna":phrase.trim();
+    dispatchPendingAssistantCommand();
+  }
+
+  void dispatchPendingAssistantCommand(){
+    if(!webReady||web==null||pendingAssistMode==null)return;
+    final String mode=pendingAssistMode,phrase=pendingAssistPhrase==null?"Krishna":pendingAssistPhrase;
+    pendingAssistMode=null;pendingAssistPhrase=null;
+    runOnUiThread(()->web.evaluateJavascript(
+      "window.onAssistantCommand&&window.onAssistantCommand("+JSONObject.quote(mode)+","+JSONObject.quote(phrase)+")",null));
+  }
+
+  void handleAssistIntent(Intent intent){
+    if(intent==null||!ACTION_ASSIST_COMMAND.equals(intent.getAction()))return;
+    receiveAssistantCommand(intent.getStringExtra("mode"),intent.getStringExtra("phrase"));
+  }
+
+  void probeUiReady(){
+    if(web==null||!webReady)return;
+    final String script="(()=>{"+
+      "const f=document.getElementById('avatarViewport'),g=document.getElementById('avatar3d');"+
+      "const a=(g&&!g.hidden?g:f);const r=a&&a.getBoundingClientRect?a.getBoundingClientRect():{width:0,height:0};"+
+      "return [r.width>80&&r.height>180,!!document.getElementById('hawkeyeQuick'),!!document.getElementById('chatQuick'),!!document.getElementById('micQuick')].join(',')"+
+      "})()";
+    web.evaluateJavascript(script,value->{
+      String v=String.valueOf(value);
+      boolean ok=v.contains("true,true,true,true");
+      String payload="{\"renderer\":\"native-webview-probe\",\"avatar_visible\":"+ok+
+        ",\"hawkeye\":"+ok+",\"chat\":"+ok+",\"mic\":"+ok+"}";
+      android.util.Log.i("KRISHNA_UI_READY",payload);
+      getSharedPreferences("k",0).edit().putString("last_ui_ready",payload).putLong("last_ui_ready_at",System.currentTimeMillis()).apply();
+    });
+  }
+
   void startWakeIfReady(){
+    if(assistantRoleHeld()){stopWakeService();return;}
     boolean enrolled=getSharedPreferences("k",0).getString("voiceprint","").startsWith("v3:");
     boolean mic=Build.VERSION.SDK_INT<23||checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED;
     if(!enrolled||!mic)return;
@@ -64,6 +131,32 @@ public class MainActivity extends Activity {
       Intent i=new Intent(this,KrishnaWakeService.class).setAction(KrishnaWakeService.ACTION_STOP);
       startService(i);
     }catch(Exception ignored){stopService(new Intent(this,KrishnaWakeService.class));}
+  }
+
+
+  File avatarCacheFile(){
+    File dir=new File(getFilesDir(),"avatar");
+    if(!dir.exists())dir.mkdirs();
+    return new File(dir,"krishna.production.glb");
+  }
+
+  String sha256File(File file)throws Exception{
+    java.security.MessageDigest d=java.security.MessageDigest.getInstance("SHA-256");
+    try(InputStream in=new FileInputStream(file)){
+      byte[] b=new byte[1024*1024];for(int n;(n=in.read(b))>0;)d.update(b,0,n);
+    }
+    StringBuilder s=new StringBuilder();for(byte b:d.digest())s.append(String.format(java.util.Locale.US,"%02x",b&255));return s.toString();
+  }
+
+  WebResourceResponse localAvatarResponse(){
+    try{
+      File file=avatarCacheFile();if(!file.isFile())return null;
+      Map<String,String> headers=new HashMap<>();
+      headers.put("Access-Control-Allow-Origin","*");
+      headers.put("Cache-Control","no-store");
+      headers.put("Content-Length",String.valueOf(file.length()));
+      return new WebResourceResponse("model/gltf-binary",null,200,"OK",headers,new FileInputStream(file));
+    }catch(Exception e){return null;}
   }
 
   @Override public void onCreate(Bundle b){
@@ -90,6 +183,19 @@ public class MainActivity extends Activity {
     web.removeJavascriptInterface("accessibilityTraversal");
     web.setWebViewClient(new WebViewClient(){
       boolean trusted(Uri u){return u!=null && "file".equalsIgnoreCase(u.getScheme()) && "/android_asset/index.html".equals(u.getPath());}
+      @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){
+        Uri u=request==null?null:request.getUrl();
+        if(u!=null&&"https".equalsIgnoreCase(u.getScheme())&&AVATAR_HOST.equalsIgnoreCase(u.getHost())&&"/avatar/krishna.glb".equals(u.getPath())){
+          WebResourceResponse response=localAvatarResponse();if(response!=null)return response;
+        }
+        return super.shouldInterceptRequest(view,request);
+      }
+      @Override public void onPageFinished(WebView view,String url){
+        super.onPageFinished(view,url);
+        webReady=true;
+        dispatchPendingAssistantCommand();
+        new Handler(Looper.getMainLooper()).postDelayed(MainActivity.this::probeUiReady,1200);
+      }
       @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
         if(request==null || !request.isForMainFrame())return false;
         return !trusted(request.getUrl());
@@ -130,12 +236,14 @@ public class MainActivity extends Activity {
     if(Build.VERSION.SDK_INT>=33)registerReceiver(wakeReceiver,wakeFilter,Context.RECEIVER_NOT_EXPORTED);
     else registerReceiver(wakeReceiver,wakeFilter);
     setContentView(web);
+    handleAssistIntent(getIntent());
     web.loadUrl("file:///android_asset/index.html");
     startWakeIfReady();
   }
 
   @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
     super.onActivityResult(requestCode,resultCode,data);
+    if(requestCode==ASSISTANT_ROLE_REQUEST){startWakeIfReady();return;}
     if(requestCode==FILE_PICKER && fileCallback!=null){
       Uri[] result=WebChromeClient.FileChooserParams.parseResult(resultCode,data);
       fileCallback.onReceiveValue(result);
@@ -147,8 +255,9 @@ public class MainActivity extends Activity {
     if(bridge==null)return;
     new Thread(()->bridge.event(kind,detail)).start();
   }
-  @Override protected void onResume(){super.onResume();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");startWakeIfReady();if(bridge!=null)new Thread(()->{bridge.autoBootstrap();bridge.hawkeyeSyncEvidence();},"krishna-mobile-resume").start();}
-  @Override protected void onPause(){emitAsync("mobile_background","KRISHNA Mobile entered background");super.onPause();}
+  @Override protected void onResume(){super.onResume();getSharedPreferences("k",0).edit().putBoolean("activity_foreground",true).apply();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");startWakeIfReady();if(bridge!=null)new Thread(()->{bridge.autoBootstrap();bridge.hawkeyeSyncEvidence();},"krishna-mobile-resume").start();}
+  @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);handleAssistIntent(intent);}
+  @Override protected void onPause(){getSharedPreferences("k",0).edit().putBoolean("activity_foreground",false).apply();emitAsync("mobile_background","KRISHNA Mobile entered background");super.onPause();}
   @Override protected void onDestroy(){try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}try{if(hawkeyeSensors!=null)hawkeyeSensors.close();}catch(Exception ignored){}super.onDestroy();}
 
   public class Bridge {
@@ -189,6 +298,71 @@ public class MainActivity extends Activity {
       }
     }
     @JavascriptInterface public String status(){return call("/api/status",null);}
+    @JavascriptInterface public String avatarStatus(){
+      try{
+        JSONObject out=new JSONObject(call("/api/avatar/status",null));
+        File local=avatarCacheFile();out.put("mobile_cached",local.isFile());
+        if(local.isFile()){out.put("mobile_bytes",local.length());out.put("mobile_sha256",sha256File(local));}
+        return out.toString();
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String avatarSync(){
+      HttpURLConnection c=null;
+      try{
+        JSONObject status=new JSONObject(call("/api/avatar/status",null));
+        JSONObject pipeline=status.optJSONObject("asset_pipeline");
+        boolean ready=pipeline!=null&&pipeline.optBoolean("active_ready",false);
+        if(!status.optBoolean("glb_available",false)||!ready){
+          JSONObject out=new JSONObject();out.put("available",false);out.put("production_ready",false);
+          out.put("reason","trusted PC production GLB is not ready");out.put("asset_pipeline",pipeline);return out.toString();
+        }
+        File dest=avatarCacheFile(),tmp=new File(dest.getParentFile(),"krishna.production.glb.tmp");
+        c=conn("/api/avatar.glb");c.setRequestProperty("Accept","model/gltf-binary");c.setReadTimeout(120000);
+        int code=c.getResponseCode();if(code!=200)throw new IOException("avatar HTTP "+code);
+        long declared=c.getContentLengthLong();if(declared>AVATAR_MAX_BYTES)throw new IOException("avatar exceeds mobile size limit");
+        long total=0;
+        try(InputStream in=c.getInputStream();FileOutputStream out=new FileOutputStream(tmp)){
+          byte[] b=new byte[1024*1024];for(int n;(n=in.read(b))>0;){total+=n;if(total>AVATAR_MAX_BYTES)throw new IOException("avatar exceeds mobile size limit");out.write(b,0,n);}
+        }
+        try(FileInputStream in=new FileInputStream(tmp)){
+          byte[] h=new byte[4];if(in.read(h)!=4||h[0]!='g'||h[1]!='l'||h[2]!='T'||h[3]!='F')throw new IOException("avatar is not a GLB");
+        }
+        if(dest.exists()&&!dest.delete())throw new IOException("old avatar cache could not be replaced");
+        if(!tmp.renameTo(dest))throw new IOException("avatar cache promotion failed");
+        JSONObject out=new JSONObject();out.put("available",true);out.put("production_ready",true);
+        out.put("bytes",dest.length());out.put("sha256",sha256File(dest));out.put("local_url","https://"+AVATAR_HOST+"/avatar/krishna.glb");
+        return out.toString();
+      }catch(Exception e){return error(e);}
+      finally{if(c!=null)c.disconnect();}
+    }
+    @JavascriptInterface public void avatarSyncAsync(){
+      new Thread(()->{
+        final String result=avatarSync();
+        runOnUiThread(()->{
+          if(web!=null)web.evaluateJavascript(
+            "window.onKrishnaAvatarSync&&window.onKrishnaAvatarSync("+JSONObject.quote(result)+")",null);
+        });
+      },"krishna-avatar-sync").start();
+    }
+    @JavascriptInterface public void pollAsync(){
+      new Thread(()->{
+        String link=connection(),coreState="{}";
+        try{
+          JSONObject l=new JSONObject(link);
+          if(!l.has("error")&&l.optBoolean("connected",false))coreState=state();
+        }catch(Exception ignored){}
+        final String linkResult=link,stateResult=coreState;
+        runOnUiThread(()->{
+          if(web!=null)web.evaluateJavascript(
+            "window.onKrishnaPoll&&window.onKrishnaPoll("+JSONObject.quote(linkResult)+","+JSONObject.quote(stateResult)+")",null);
+        });
+      },"krishna-mobile-poll").start();
+    }
+    @JavascriptInterface public void uiReady(String payload){
+      String safe=payload==null?"{}":payload;
+      android.util.Log.i("KRISHNA_UI_READY",safe);
+      getSharedPreferences("k",0).edit().putString("last_ui_ready",safe).putLong("last_ui_ready_at",System.currentTimeMillis()).apply();
+    }
     @JavascriptInterface public String hawkeyeSensorSnapshot(){
       try{return hawkeyeSensors==null?new JSONObject().put("available",false).toString():hawkeyeSensors.snapshot().toString();}
       catch(Exception e){return error(e);}
@@ -206,6 +380,15 @@ public class MainActivity extends Activity {
         }
       }catch(Exception ignored){}
       return raw;
+    }
+    @JavascriptInterface public void resumeAsync(long after){
+      new Thread(()->{
+        final String result=resume(after);
+        runOnUiThread(()->{
+          if(web!=null)web.evaluateJavascript(
+            "window.onKrishnaRealtimeResult&&window.onKrishnaRealtimeResult("+JSONObject.quote(result)+")",null);
+        });
+      },"krishna-realtime-resume").start();
     }
     @JavascriptInterface public String pairingRequest(){
       try{
@@ -467,8 +650,9 @@ public class MainActivity extends Activity {
         if(bytes.length==0||bytes.length>max)throw new IllegalArgumentException("HAWKEYE capture exceeds bounded size");
 
         String ext="image/png".equals(type)?".png":("image/webp".equals(type)?".webp":("video/mp4".equals(type)?".mp4":("video/webm".equals(type)?".webm":".jpg")));
-        String base="KRISHNA_HAWKEYE_"+System.currentTimeMillis();
         JSONObject metadata=(JSONObject)sanitizeCaptureMetadata("",new JSONObject(metadataJson==null||metadataJson.trim().isEmpty()?"{}":metadataJson));
+        boolean photographer=image&&metadata.optBoolean("photographer_mode",false);
+        String base=(photographer?"KRISHNA_PHOTO_":"KRISHNA_HAWKEYE_")+System.currentTimeMillis();
         metadata.put("saved_at",System.currentTimeMillis());
         metadata.put("raw_cloud_upload",false);
         metadata.put("privacy","user-requested local capture; no automatic cloud upload");
@@ -502,7 +686,7 @@ public class MainActivity extends Activity {
           ContentValues cv=new ContentValues();
           cv.put(MediaStore.MediaColumns.DISPLAY_NAME,base+ext);
           cv.put(MediaStore.MediaColumns.MIME_TYPE,type);
-          cv.put(MediaStore.MediaColumns.RELATIVE_PATH,(image?Environment.DIRECTORY_PICTURES:Environment.DIRECTORY_MOVIES)+"/KRISHNA/HAWKEYE");
+          cv.put(MediaStore.MediaColumns.RELATIVE_PATH,(image?Environment.DIRECTORY_PICTURES:Environment.DIRECTORY_MOVIES)+"/KRISHNA/"+(photographer?"Photos":"HAWKEYE"));
           cv.put(MediaStore.MediaColumns.IS_PENDING,1);
           Uri collection=image?MediaStore.Images.Media.EXTERNAL_CONTENT_URI:MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
           Uri uri=resolver.insert(collection,cv);
@@ -510,16 +694,19 @@ public class MainActivity extends Activity {
           try(OutputStream os=resolver.openOutputStream(uri)){if(os==null)throw new IOException("MediaStore stream unavailable");os.write(bytes);}
           cv.clear();cv.put(MediaStore.MediaColumns.IS_PENDING,0);resolver.update(uri,cv,null,null);
 
-          ContentValues side=new ContentValues();
-          side.put(MediaStore.MediaColumns.DISPLAY_NAME,base+".json");
-          side.put(MediaStore.MediaColumns.MIME_TYPE,"application/json");
-          side.put(MediaStore.MediaColumns.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/KRISHNA/HAWKEYE");
-          Uri metaUri=resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,side);
-          if(metaUri!=null)try(OutputStream os=resolver.openOutputStream(metaUri)){if(os!=null)os.write(metadata.toString(2).getBytes("UTF-8"));}
+          Uri metaUri=null;
+          if(!photographer){
+            ContentValues side=new ContentValues();
+            side.put(MediaStore.MediaColumns.DISPLAY_NAME,base+".json");
+            side.put(MediaStore.MediaColumns.MIME_TYPE,"application/json");
+            side.put(MediaStore.MediaColumns.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/KRISHNA/HAWKEYE");
+            metaUri=resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,side);
+            if(metaUri!=null)try(OutputStream os=resolver.openOutputStream(metaUri)){if(os!=null)os.write(metadata.toString(2).getBytes("UTF-8"));}
+          }
           out.put("uri",uri.toString());out.put("metadata_uri",metaUri==null?JSONObject.NULL:metaUri.toString());
-          out.put("gallery_visible",true);
+          out.put("gallery_visible",true);out.put("photographer_mode",photographer);
         }else{
-          File root=new File(getExternalFilesDir(image?Environment.DIRECTORY_PICTURES:Environment.DIRECTORY_MOVIES),"KRISHNA/HAWKEYE");
+          File root=new File(getExternalFilesDir(image?Environment.DIRECTORY_PICTURES:Environment.DIRECTORY_MOVIES),"KRISHNA/"+(photographer?"Photos":"HAWKEYE"));
           if(!root.exists()&&!root.mkdirs())throw new IOException("capture directory unavailable");
           File media=new File(root,base+ext),meta=new File(root,base+".json");
           try(FileOutputStream os=new FileOutputStream(media)){os.write(bytes);}
@@ -739,7 +926,25 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
     @JavascriptInterface public String wakeStatus(){
-      try{return KrishnaWakeService.capability(MainActivity.this).toString();}catch(Exception e){return error(e);}
+      try{
+        JSONObject out=KrishnaWakeService.capability(MainActivity.this);
+        out.put("assistant_role_held",assistantRoleHeld());
+        out.put("assistant_service","KrishnaAssistantService");
+        out.put("background_direct_launch",assistantRoleHeld());
+        return out.toString();
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String assistantStatus(){
+      try{return new JSONObject()
+        .put("available",Build.VERSION.SDK_INT>=29)
+        .put("role_held",assistantRoleHeld())
+        .put("prompted",getSharedPreferences("k",0).getBoolean("assistant_role_prompted",false))
+        .put("system_consent_required",true).toString();}
+      catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String requestAssistantMode(){
+      requestAssistantRole(true);
+      return assistantStatus();
     }
     @JavascriptInterface public String wakeStart(){
       startWakeIfReady();

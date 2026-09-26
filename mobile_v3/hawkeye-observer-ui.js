@@ -94,6 +94,48 @@
     return best;
   }
 
+
+  function naturalEdit(source,quality){
+    const out=document.createElement("canvas");out.width=source.width;out.height=source.height;
+    const ctx=out.getContext("2d",{alpha:false});
+    const brightness=quality&&quality.brightness<92?1.10:(quality&&quality.brightness>178?0.96:1.04);
+    const contrast=quality&&quality.detail<0.28?1.10:1.06;
+    ctx.filter="brightness("+brightness+") contrast("+contrast+") saturate(1.08)";
+    ctx.drawImage(source,0,0,out.width,out.height);
+    ctx.filter="none";
+    const glow=ctx.createLinearGradient(0,0,0,out.height);
+    glow.addColorStop(0,"rgba(255,226,188,.035)");
+    glow.addColorStop(.62,"rgba(255,255,255,0)");
+    glow.addColorStop(1,"rgba(12,35,46,.035)");
+    ctx.fillStyle=glow;ctx.fillRect(0,0,out.width,out.height);
+    return out;
+  }
+
+  async function photographerPhoto(){
+    if(!cameraActive()||!window.Krishna||!Krishna.saveHawkeyeCapture)return;
+    try{
+      if(typeof reply==="function")reply("KRISHNA photographer · hold naturally…","good");
+      await sleep(550);
+      const best=await captureBestFrame(2048,0.95,9);if(!best)throw new Error("camera frame unavailable");
+      const edited=naturalEdit(best.canvas,best.quality);
+      const meta=metadata();
+      meta.photographer_mode=true;
+      meta.user_requested_portrait=true;
+      meta.capture_quality=best.quality;
+      meta.editor="KRISHNA_LOCAL_NATURAL_V1";
+      meta.edit_operations=["best-frame-selection","exposure-balance","contrast-balance","natural-saturation","subtle-tone"];
+      meta.overlays_baked=false;
+      meta.subject_identity_inferred=false;
+      meta.raw_cloud_upload=false;
+      const b64=edited.toDataURL("image/jpeg",0.94).split(",")[1]||"";
+      const out=JSON.parse(Krishna.saveHawkeyeCapture(b64,"image/jpeg","image",JSON.stringify(meta)));
+      if(out.error)throw new Error(out.error);
+      if(typeof reply==="function")reply(out.gallery_visible?"Photo edited and saved to your KRISHNA gallery.":"Photo saved locally.","good");
+      if(typeof setMode==="function")setMode("CHAT","PHOTO SAVED");
+      return out;
+    }catch(e){if(typeof reply==="function")reply("Photographer: "+e.message,"bad");return null;}
+  }
+
   function ensureObjectCanvas(){
     let c=byId("objectOverlay");
     if(c) return c;
@@ -860,5 +902,5 @@
 
   setInterval(()=>{if(cameraActive())activate();else deactivate();},500);
 
-  window.HawkeyeObserverUI={isLearning,toggleLearn,research,photo,record,detect,richPerception,learningTick,onResearchResult,toggleAI,freeCloudTick,pcOffloadContext,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
+  window.HawkeyeObserverUI={isLearning,toggleLearn,research,photo,photographerPhoto,record,detect,richPerception,learningTick,onResearchResult,toggleAI,freeCloudTick,pcOffloadContext,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
 })();

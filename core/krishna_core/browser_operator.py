@@ -506,8 +506,11 @@ class BrowserOperator:
 
         started=time.perf_counter(); request_urls=[]
         with sync_playwright() as p:
-            try: browser=p.chromium.launch(channel="chrome",headless=self.headless)
-            except Exception: browser=p.chromium.launch(headless=self.headless)
+            # Privacy audits use Playwright's managed Chromium first for deterministic,
+            # isolated startup. Fall back to an installed Chrome channel when the
+            # managed browser asset is unavailable on a real KRISHNA host.
+            try: browser=p.chromium.launch(headless=self.headless)
+            except Exception: browser=p.chromium.launch(channel="chrome",headless=self.headless)
             context=browser.new_context()
             page=context.new_page();page.set_default_timeout(self.timeout_ms)
             page.on("request",lambda req: request_urls.append(req.url) if len(request_urls)<500 else None)

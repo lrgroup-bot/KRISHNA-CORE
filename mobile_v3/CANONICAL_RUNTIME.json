@@ -22,10 +22,13 @@
     "HawkeyeOfflinePerception.java",
     "HawkeyeLanguage.java",
     "HawkeyeHandGesture.java",
-    "hawkeye-observer-ui.js"
+    "hawkeye-observer-ui.js",
+    "KrishnaAssistantService.java",
+    "KrishnaAssistantSessionService.java",
+    "avatar-renderer.js"
   ],
   "build_workflow": ".github/workflows/build-mobile-v3.yml",
-  "artifact_name": "KRISHNA-v3.8-HAWKEYE-Observer-APK",
+  "artifact_name": "KRISHNA-v3.9-Assistant-Photographer-APK",
   "pc_runtime_companion": {
     "path": "mobile/companion",
     "role": "pc-side compatibility/pairing support only",
@@ -103,7 +106,23 @@
     "large_media_sha256_verified": true,
     "mobile_retains_verified_copy_default": true,
     "delete_after_verified_default": false,
-    "large_media_same_lan_required": true
+    "large_media_same_lan_required": true,
+    "main_ui_avatar_only": true,
+    "minimal_controls_hawkeye_chat_mic": true,
+    "advanced_hawkeye_controls_collapsed": true,
+    "assistant_role_voice_interaction_service": true,
+    "direct_voice_hawkeye_phrases": true,
+    "direct_voice_photographer_phrases": true,
+    "photographer_mode": true,
+    "photographer_best_frame_local": true,
+    "photographer_natural_edit_local": true,
+    "photographer_gallery_path": "Pictures/KRISHNA/Photos",
+    "photographer_raw_cloud_upload": false,
+    "mobile_avatar_trusted_pc_glb_sync": true,
+    "mobile_avatar_threejs_renderer": true,
+    "mobile_avatar_visible_fallback_gate": true,
+    "mobile_avatar_fallback_is_animated_2d": true,
+    "mobile_avatar_production_glb_required_for_true_3d": true
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
@@ -121,7 +140,10 @@
     "pc_finding_sync": "Distilled HAWKEYE cloud findings are written to the PC live-session ledger and Learning Observer with provider/model/reviewer provenance; raw keyframes are not required for this finding handoff.",
     "pc_compute_relief": "When a cloud finding is already recorded, curated evidence sync stores the bounded evidence but skips duplicate PC vision/BRAHMA intake unless explicit heavy escalation is requested.",
     "private_transport": "First enrollment uses authenticated LAN discovery; after approval the paired phone learns the current private-overlay Core URL. Raw media sync requires unmetered transport plus fresh same-LAN discovery proof.",
-    "large_media_sync": "Resumable 512 KiB chunks to the E-drive Hawkeye inbox; PC SHA-256 verification and atomic promotion are required before mobile sync state advances."
+    "large_media_sync": "Resumable 512 KiB chunks to the E-drive Hawkeye inbox; PC SHA-256 verification and atomic promotion are required before mobile sync state advances.",
+    "assistant_mode": "Android VoiceInteractionService + Assistant role; one-time system consent is required for direct background assistant invocation.",
+    "photographer": "Best-frame selection and natural local edit are performed on-device, then the clean photo is saved through Android MediaStore to Pictures/KRISHNA/Photos.",
+    "avatar_delivery": "Trusted private PC production GLB is synced to mobile only after the PC avatar inspector reports active_ready. Three.js renders it locally; otherwise the animated 8-view fallback remains visible."
   },
   "model_policy": {
     "pc_qwen_allowed": true,

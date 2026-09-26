@@ -65,10 +65,12 @@ BROWSER_EXPOSURE_JS=r"""async () => {
     x.font='17px Arial'; const m=x.measureText('KRISHNA Ω 😀');
     return {width:m.width,actualBoundingBoxAscent:m.actualBoundingBoxAscent,actualBoundingBoxDescent:m.actualBoundingBoxDescent};
   });
-  const permissions={};
-  for (const name of ['camera','microphone','geolocation','notifications','clipboard-read','clipboard-write','midi','persistent-storage']) {
-    permissions[name]=await bounded(async()=>navigator.permissions ? (await navigator.permissions.query({name})).state : 'unsupported',700,'timeout');
-  }
+  const permissionNames=['camera','microphone','geolocation','notifications','clipboard-read','clipboard-write','midi','persistent-storage'];
+  const permissionRows=await Promise.all(permissionNames.map(async name=>[
+    name,
+    await bounded(async()=>navigator.permissions ? (await navigator.permissions.query({name})).state : 'unsupported',700,'timeout')
+  ]));
+  const permissions=Object.fromEntries(permissionRows);
   const voices=await safe(()=>speechSynthesis.getVoices().map(v=>({lang:v.lang,local:v.localService,name:v.name})).slice(0,100),[]);
   const storage={
     localStorage:await safe(()=>{localStorage.setItem('__krishna_privacy_test','1');localStorage.removeItem('__krishna_privacy_test');return true},false),
