@@ -17,7 +17,6 @@ app\src\main\res\drawable\krishna_hud.png
 app\src\main\res\raw\krishna-ca.cer
 avatar\krishna_child_360.webp.b64
 BUILD_KRISHNA_AGI.ps1
-CHAT_MENU_CODE.txt
 core\.env.example
 core\design_studio.html
 core\krishna_console.py
@@ -418,7 +417,6 @@ docs\SECURITY_OPS_HARNESS.md
 docs\SUDARSHAN_END_TO_END_CONTRACT.md
 docs\SUDARSHAN_PROJECT_LIFECYCLE.md
 docs\UNIVERSAL_LEARNING.md
-KRISHNA_AGI_TEST_REPORT.md
 KRISHNA_AGI_V1_ARCHITECTURE.md
 KRISHNA_SOURCE_TREE.txt
 mobile_v3\CANONICAL_RUNTIME.json
