@@ -24,6 +24,7 @@ No paid streaming service is required.
 - Two built-in microphones; external microphone via USB-C with a compatible 3.5 mm adapter.
 - Wi-Fi 802.11a/b/g/n/ac on 2.4/5.8 GHz and BLE 4.2.
 - microSD up to 256 GB; 1300 mAh battery.
+- Waterproof to 11 m without a case and 60 m with the waterproof case; DJI also documented 1.5 m drop testing and -10 C operation.
 - DJI Mimo RTMP live streaming at 480p or 720p, 30 fps.
 - Original Osmo Action is not in DJI's current UVC webcam support list.
 - DJI states Osmo series has no HDMI/USB-C-to-HDMI output.
@@ -55,6 +56,6 @@ Run scripts\INSTALL_CHANDRADEV_VISION.ps1 for local OpenCV frame extraction in K
 
 Useful now: Wi-Fi RTMP, microSD local evidence, USB-C file transfer/charging/external mic, two built-in microphones, wide-angle lens, camera mounts.
 
-Useful later: compatible 3.5 mm adapter plus directional/lavalier mic; continuous power with thermal monitoring; multiple named camera views; a newer UVC-capable Osmo can become a direct USB lane while this original camera remains the wireless field camera.
+Useful later: compatible 3.5 mm adapter plus directional/lavalier mic; test long-duration USB-power behavior before relying on it for unattended use; multiple named camera views; a newer UVC-capable Osmo can become a direct USB lane while this original camera remains the wireless field camera.
 
 Not useful for this original model: USB-C-to-HDMI and attempts to force a UVC webcam mode.
