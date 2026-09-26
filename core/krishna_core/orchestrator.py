@@ -227,6 +227,22 @@ class Orchestrator:
                 },
                 "owner_requirement","in_progress",
             )
+        vanijya_watch_title = "Rishi Vanijya zero-spend sales planning"
+        if not any(x.get("title")==vanijya_watch_title for x in self.commitments.list("KRISHNA",True,500)):
+            self.commitments.add(
+                "KRISHNA",vanijya_watch_title,
+                {
+                    "goal":"Ask MANIBHADRA what product/service or existing opportunity Rishi Vanijya should market next without external send or spend",
+                    "autonomy":{
+                        "enabled":True,
+                        "operation":"vanijya_plan",
+                        "interval_seconds":21600,
+                        "goal":"Review MANIBHADRA products, CRM pipeline and zero-spend sales opportunities for Rishi Vanijya",
+                    },
+                    "policy":"read-only sales planning; no external message, payment, paid lead, paid ad or other outgoing spend",
+                },
+                "owner_requirement","in_progress",
+            )
         self.amcc = AMCCController(runtime_state / "amcc")
         self.actions = ActionRegistry()
         self.indexer = RepositoryIndexer()
@@ -802,6 +818,9 @@ class Orchestrator:
                 sender=str(payload.get("sender") or ""),
                 metadata=payload.get("metadata") or {},
             )
+
+        def vanijya_inbox_process_action(payload,context):
+            return self.vanijya.process_narad_inbox(limit=int(payload.get("limit") or 100))
 
         def vanijya_outbound_plan_action(payload,context):
             return self.vanijya.plan_outbound(
@@ -3607,6 +3626,11 @@ class Orchestrator:
             mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
+            "vanijya.inbox.process",vanijya_inbox_process_action,
+            description="Process NARAD inbox messages that match VANIJYA sales threads, classify intent and route next sales action without duplicating provider messages",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
             "vanijya.outbound.plan",vanijya_outbound_plan_action,
             description="Create an audited VANIJYA outbound message plan and NARAD outbox record after outreach eligibility checks",
             mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
@@ -3619,6 +3643,11 @@ class Orchestrator:
         self.action_bus.register(
             "vanijya.quote.create",vanijya_quote_action,
             description="Create an exact truthful quote from MANIBHADRA product pricing and approved discount authority",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vanijya.payment.request",vanijya_upi_request_action,
+            description="Compatibility alias for exact receive-only VANIJYA UPI payment request; payment remains pending until trusted verification",
             mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
