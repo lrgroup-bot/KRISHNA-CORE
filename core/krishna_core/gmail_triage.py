@@ -25,12 +25,12 @@ class GmailTriage:
     """
 
     SPAM_PATTERNS=(
-        r"(?i)guaranteeds+income",r"(?i)cryptos+giveaway",r"(?i)claims+yours+prize",
-        r"(?i)urgents+wire",r"(?i)lotterys+winner",r"(?i)buys+followers",
+        r"(?i)guaranteed[ ]+income",r"(?i)crypto[ ]+giveaway",r"(?i)claim[ ]+your[ ]+prize",
+        r"(?i)urgent[ ]+wire",r"(?i)lottery[ ]+winner",r"(?i)buy[ ]+followers",
     )
     PHISH_PATTERNS=(
-        r"(?i)verifys+yours+account",r"(?i)passwords+expires",r"(?i)unusuals+login",
-        r"(?i)confirms+yours+credentials",
+        r"(?i)verify[ ]+your[ ]+account",r"(?i)password[ ]+expires",r"(?i)unusual[ ]+login",
+        r"(?i)confirm[ ]+your[ ]+credentials",
     )
 
     def classify(self,message:dict,model_verdict:dict|None=None)->dict:
