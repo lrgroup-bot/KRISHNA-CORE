@@ -126,6 +126,7 @@ from .vanik_netra_sources import FreeMarketSourceRegistry
 from .vanik_netra_store import VanikNetraStore
 from .narada_legal import NaradaLegalAdvisor
 from .vanijya_sales import VanijyaSalesHead
+from .commerce_expansion import CommerceExpansionRegistry
 
 
 class Orchestrator:
@@ -196,7 +197,11 @@ class Orchestrator:
         self.zero_spend = ZeroSpendPolicy()
         self.manibhadra_crm = ManibhadraCRM(runtime_state / "manibhadra-crm.json")
         self.manibhadra_advisor = ManibhadraCloudAdvisor(self.openrouter_free,self.direct_free)
-        self.vanijya = VanijyaSalesHead()
+        self.vanijya = VanijyaSalesHead(
+            runtime_state / "vanijya-sales.json",
+            crm=self.manibhadra_crm,
+        )
+        self.commerce_expansion = CommerceExpansionRegistry()
         self.vanik_netra_sources = FreeMarketSourceRegistry(runtime_state / "vanik-netra")
         self.vanik_netra_store = VanikNetraStore(runtime_state / "vanik-netra" / "market.db")
         self.vanik_netra = VanikNetra(
@@ -285,6 +290,7 @@ class Orchestrator:
         self.hawkeye_diagnostic.bind_worker_runtime(self.ephemeral_workers,self.governor)
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
+        self.vanijya.message_store = self.agi.narad_messages
         self.spark_x25 = SparkX25Manager(
             runtime_state / "spark-x25",
             self.agi.model_scout,
@@ -701,9 +707,37 @@ class Orchestrator:
         def vanijya_status_action(payload,context):
             return self.vanijya.status()
 
+        def vanijya_dashboard_action(payload,context):
+            return self.vanijya.dashboard()
+
+        def vanijya_health_action(payload,context):
+            return self.vanijya.health()
+
+        def vanijya_health_verify_action(payload,context):
+            health=self.vanijya.health()
+            if not health.get("ok"):
+                raise RuntimeError("VANIJYA health verification failed: "+str(health.get("error") or "unknown"))
+            return {**health,"mrityunjay_watch":"armed"}
+
         def vanijya_manibhadra_request_action(payload,context):
             return self.vanijya.ask_manibhadra(
                 objective=str(payload.get("objective") or "find products or services worth marketing now")
+            )
+
+        def vanijya_product_sync_action(payload,context):
+            return self.vanijya.sync_manibhadra_products()
+
+        def vanijya_sales_cycle_action(payload,context):
+            return self.vanijya.sales_cycle(product=payload.get("product") or None)
+
+        def vanijya_campaign_create_action(payload,context):
+            return self.vanijya.create_campaign(
+                payload.get("product") or {},
+                name=str(payload.get("name") or ""),
+                objective=str(payload.get("objective") or ""),
+                channels=payload.get("channels") or [],
+                audience=str(payload.get("audience") or ""),
+                geography=str(payload.get("geography") or ""),
             )
 
         def vanijya_hr_request_action(payload,context):
@@ -713,11 +747,107 @@ class Orchestrator:
                 temporary=bool(payload.get("temporary",True)),
             )
 
+        def vanijya_hr_create_action(payload,context):
+            return self.vanijya.hr_create_bot(
+                str(payload.get("request_id") or ""),
+                name=str(payload.get("name") or ""),
+                skills=payload.get("skills") or [],
+            )
+
+        def vanijya_hr_retire_action(payload,context):
+            return self.vanijya.hr_retire_bot(
+                str(payload.get("worker_id") or ""),
+                outcome=str(payload.get("outcome") or ""),
+                lessons=payload.get("lessons") or [],
+            )
+
         def vanijya_outreach_decision_action(payload,context):
             return self.vanijya.outreach_decision(
                 payload.get("lead") or {},
                 channel=str(payload.get("channel") or ""),
                 connector_state=str(payload.get("connector_state") or "WAITING_FOR_CONNECTION"),
+            )
+
+        def vanijya_lead_qualify_action(payload,context):
+            return self.vanijya.qualify_lead(
+                payload.get("lead") or {},
+                payload.get("signals") or {},
+            )
+
+        def vanijya_reply_ingest_action(payload,context):
+            return self.vanijya.ingest_reply(
+                lead_id=str(payload.get("lead_id") or ""),
+                provider=str(payload.get("provider") or ""),
+                text=str(payload.get("text") or ""),
+                thread_ref=str(payload.get("thread_ref") or ""),
+                sender=str(payload.get("sender") or ""),
+                metadata=payload.get("metadata") or {},
+            )
+
+        def vanijya_outbound_plan_action(payload,context):
+            return self.vanijya.plan_outbound(
+                lead=payload.get("lead") or {},
+                channel=str(payload.get("channel") or ""),
+                connector_state=str(payload.get("connector_state") or "WAITING_FOR_CONNECTION"),
+                text=str(payload.get("text") or ""),
+                subject=str(payload.get("subject") or ""),
+                thread_ref=str(payload.get("thread_ref") or ""),
+                purpose=str(payload.get("purpose") or "sales"),
+            )
+
+        def vanijya_narad_workflow_action(payload,context):
+            lead=payload.get("lead") or {}
+            outbound=payload.get("outbound") or {}
+            if not (outbound.get("decision") or {}).get("allowed"):
+                return {"status":"BLOCKED","reason":"outreach_decision_not_allowed","outbound":outbound}
+            spec=self.vanijya.provider_payload(outbound,lead)
+            connections=(self.agi.narad_credentials.list() or {}).get("connections") or []
+            credential=next((
+                x for x in connections
+                if str(x.get("provider") or "").lower()==str(spec["provider"]).lower()
+                and bool(x.get("available"))
+            ),None)
+            if not credential:
+                return {
+                    "status":"WAITING_FOR_CONNECTION",
+                    "provider":spec["provider"],
+                    "operation":spec["operation"],
+                    "reason":"No available NARAD credential reference for provider",
+                }
+            provider_payload=dict(spec["payload"])
+            if spec["provider"]=="whatsapp":
+                phone_id=str(payload.get("phone_number_id") or "")
+                if not phone_id:
+                    return {"status":"WAITING_FOR_CONNECTION","provider":"whatsapp","reason":"phone_number_id not configured"}
+                provider_payload["phone_number_id"]=phone_id
+            workflow=self.agi.narad.create_workflow(
+                "VANIJYA sales outreach · "+str(lead.get("name") or lead.get("company") or lead.get("id") or "lead"),
+                {"type":"manual"},
+                [{
+                    "id":"send",
+                    "action":"provider_send",
+                    "provider":spec["provider"],
+                    "operation":spec["operation"],
+                    "credential_ref":credential["id"],
+                    "payload":provider_payload,
+                }],
+                permissions=["send_external"],
+            )
+            return {
+                "status":"DRAFT_WORKFLOW_CREATED",
+                "workflow":workflow,
+                "next":"verify in sandbox and promote through NARAD/Sudarshan before external side effect",
+                "auto_send_ready_after_connection_and_verified_workflow":True,
+            }
+
+        def vanijya_quote_action(payload,context):
+            return self.vanijya.quote(
+                lead_id=str(payload.get("lead_id") or ""),
+                product=payload.get("product") or {},
+                quantity=int(payload.get("quantity") or 1),
+                deal_id=str(payload.get("deal_id") or ""),
+                notes=str(payload.get("notes") or ""),
+                approved_discount_percent=float(payload.get("approved_discount_percent") or 0),
             )
 
         def vanijya_upi_request_action(payload,context):
@@ -727,12 +857,24 @@ class Orchestrator:
                 amount=payload.get("amount"),
                 invoice_id=str(payload.get("invoice_id") or ""),
                 note=str(payload.get("note") or ""),
+                deal_id=str(payload.get("deal_id") or ""),
+                lead_id=str(payload.get("lead_id") or ""),
             )
 
         def vanijya_payment_verify_action(payload,context):
             return self.vanijya.verify_payment(
                 payload.get("request") or {},
                 payload.get("evidence") or {},
+            )
+
+        def commerce_expansion_status_action(payload,context):
+            return self.commerce_expansion.status()
+
+        def commerce_expansion_plan_action(payload,context):
+            return self.commerce_expansion.plan(
+                str(payload.get("module_id") or ""),
+                connected=bool(payload.get("connected",False)),
+                free_verified=bool(payload.get("free_verified",False)),
             )
 
         def manibhadra_crm_dashboard_action(payload,context):
@@ -3226,13 +3368,53 @@ class Orchestrator:
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
+            "vanijya.dashboard",vanijya_dashboard_action,
+            description="Read persistent VANIJYA sales campaigns, conversations, quotes, payments, workers and activity",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanijya.health",vanijya_health_action,
+            description="Read VANIJYA persistent runtime health",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanijya.health.verify",vanijya_health_verify_action,
+            description="Verify VANIJYA state health; failure enters shared action lifecycle watched by MRITYUNJAY",
+            permissions=("runtime.read",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
             "vanijya.manibhadra.request",vanijya_manibhadra_request_action,
             description="Ask MANIBHADRA for approved products/services, target customer profile and commercial facts for sales",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
+            "vanijya.products.sync",vanijya_product_sync_action,
+            description="Sync approved MANIBHADRA product records into VANIJYA marketing assignments",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vanijya.sales_cycle",vanijya_sales_cycle_action,
+            description="Create the next VANIJYA end-to-end sales workflow from an approved product or request one from MANIBHADRA",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanijya.campaign.create",vanijya_campaign_create_action,
+            description="Create a zero-spend sales campaign for an approved product/service",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
             "vanijya.hr.request",vanijya_hr_request_action,
             description="Request a bounded sales/marketing shishya from HR with inherited zero-spend, consent and connector guardrails",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vanijya.hr.create",vanijya_hr_create_action,
+            description="Create a bounded sales bot manifest from an existing VANIJYA HR request",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vanijya.hr.retire",vanijya_hr_retire_action,
+            description="Retire a temporary VANIJYA sales bot while preserving outcomes and lessons",
             mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
@@ -3241,14 +3423,49 @@ class Orchestrator:
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
+            "vanijya.lead.qualify",vanijya_lead_qualify_action,
+            description="Score a sales lead from explicit need, fit, engagement, timing and authority signals",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanijya.reply.ingest",vanijya_reply_ingest_action,
+            description="Record a customer reply, detect opt-out/intent and route the next sales agent/action",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vanijya.outbound.plan",vanijya_outbound_plan_action,
+            description="Create an audited VANIJYA outbound message plan and NARAD outbox record after outreach eligibility checks",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vanijya.narad.workflow",vanijya_narad_workflow_action,
+            description="Create a NARAD provider workflow for eligible VANIJYA Gmail/WhatsApp outreach; external side effects still require NARAD/Sudarshan verification",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vanijya.quote.create",vanijya_quote_action,
+            description="Create an exact truthful quote from MANIBHADRA product pricing and approved discount authority",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
             "vanijya.payment.upi_request",vanijya_upi_request_action,
-            description="Build an exact-amount receive-only UPI intent/QR payload from a configured merchant VPA; payment remains pending",
-            permissions=("runtime.read",),sources=("pc","system","agent","job"),
+            description="Build and persist an exact-amount receive-only UPI intent/QR payload from a configured merchant VPA; payment remains pending",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "vanijya.payment.verify",vanijya_payment_verify_action,
-            description="Mark a Vaanijya invoice paid only from trusted signed PSP/bank evidence with exact amount and transaction reference",
-            permissions=("runtime.read",),sources=("pc","system","agent","job"),
+            description="Mark a VANIJYA invoice paid only from trusted signed PSP/bank evidence with exact amount and transaction reference; verified linked deals move to won",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.expansion.status",commerce_expansion_status_action,
+            description="Read zero-spend readiness contracts for ONDC, eBay, Etsy, Google Merchant, Search Console, Pinterest, organic social, dropshipping, RFQ, importer discovery, UCP and Medusa",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.expansion.plan",commerce_expansion_plan_action,
+            description="Plan one future commerce expansion and fail closed on missing connection, paid route or unverified free eligibility",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
 
         self.action_bus.register(
