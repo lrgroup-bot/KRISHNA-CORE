@@ -72,6 +72,9 @@ core\krishna_core\dispatch_runtime.py
 core\krishna_core\domain_ops.py
 core\krishna_core\durable_event_bus.py
 core\krishna_core\durable_queue.py
+core\krishna_core\engineering_hooks.py
+core\krishna_core\engineering_scheduler.py
+core\krishna_core\engineering_swarm.py
 core\krishna_core\ephemeral_workers.py
 core\krishna_core\evidence_collectors.py
 core\krishna_core\executor_fabric.py
@@ -85,6 +88,7 @@ core\krishna_core\garudanetra_research.py
 core\krishna_core\garudanetra_session.py
 core\krishna_core\garudanetra.py
 core\krishna_core\gemini_hawkeye.py
+core\krishna_core\git_worktrees.py
 core\krishna_core\gita_gyan.py
 core\krishna_core\gita_performance.py
 core\krishna_core\github_research.py
@@ -177,6 +181,7 @@ core\krishna_core\privacy_guardian\web_security.py
 core\krishna_core\project_audit.py
 core\krishna_core\project_bootstrap.py
 core\krishna_core\project_brain.py
+core\krishna_core\project_genesis.py
 core\krishna_core\project_graph.py
 core\krishna_core\project_perfection_adapters.py
 core\krishna_core\project_perfection_execution.py
@@ -288,6 +293,9 @@ core\tests\test_design_runtime_wiring.py
 core\tests\test_diagnostic_adapters.py
 core\tests\test_diagnostic_transport.py
 core\tests\test_direct_free.py
+core\tests\test_engineering_hooks.py
+core\tests\test_engineering_scheduler.py
+core\tests\test_engineering_swarm.py
 core\tests\test_field_measurement_adapters.py
 core\tests\test_field_perception.py
 core\tests\test_field_scene.py
@@ -297,6 +305,7 @@ core\tests\test_garuda_science_sources.py
 core\tests\test_garudanetra_browser_workspace_contract.py
 core\tests\test_garudanetra_research.py
 core\tests\test_garudanetra_session.py
+core\tests\test_git_worktrees.py
 core\tests\test_gita_gyan.py
 core\tests\test_gita_performance_conversation.py
 core\tests\test_gnn_trainer.py
@@ -345,6 +354,8 @@ core\tests\test_privacy_guardian.py
 core\tests\test_project_audit.py
 core\tests\test_project_bootstrap_idea.py
 core\tests\test_project_brain.py
+core\tests\test_project_genesis_integration.py
+core\tests\test_project_genesis.py
 core\tests\test_project_perfection_adapters.py
 core\tests\test_project_perfection_browser_e2e.py
 core\tests\test_project_perfection_execution.py

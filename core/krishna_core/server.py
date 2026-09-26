@@ -1117,6 +1117,25 @@ class Handler(BaseHTTPRequestHandler):
                 x=float((query.get("x") or ["0"])[0]);y=float((query.get("y") or ["0"])[0])
             except ValueError:return self._json(400,{"error":"x and y must be numeric"})
             return self._json(200,_browser_fabric.element_at(sid,x,y,normalized=True))
+        if path == "/api/project-genesis/status":
+            project=(query.get("project") or [""])[0].strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:return self._json(200,orch.project_genesis.status(project))
+            except KeyError:return self._json(404,{"error":"project genesis state not found"})
+            except RuntimeError as exc:return self._json(500,{"error":str(exc)})
+        if path == "/api/engineering/scheduler/status":
+            return self._json(200,orch.engineering_scheduler.status())
+        if path == "/api/engineering/worktree/status":
+            project=(query.get("project") or [""])[0].strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:return self._json(200,orch._engineering_worktree_manager(project).status())
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+        if path == "/api/engineering/swarm/status":
+            project=(query.get("project") or [""])[0].strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:return self._json(200,orch.engineering_swarm.status(project) or {"project":project,"status":"UNSTAFFED"})
+            except RuntimeError as exc:return self._json(500,{"error":str(exc)})
         if path == "/api/project-perfection/status":
             return self._json(200,orch.project_perfection.status())
         if path == "/api/design-studio/session":
@@ -1837,6 +1856,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if post_path == "/api/design-studio/research":
             project=str(data.get("project") or "").strip();goal=str(data.get("goal") or "").strip()
+            if project and not goal:
+                try:goal=str(orch.project_genesis.status(project).get("goal") or "").strip()
+                except KeyError:pass
             if not project or not goal:return self._json(400,{"error":"project and goal are required"})
             try:
                 receipt=orch.dispatch_action(
@@ -1868,6 +1890,15 @@ class Handler(BaseHTTPRequestHandler):
                 selection=orch.project_perfection.design_submit(sid,cid)
                 project=str(selection.get("project") or "").strip()
                 if not project:return self._json(400,{"error":"design session has no project"})
+                try:
+                    selected=selection.get("selected") or {}
+                    orch.project_genesis.record_design_selection(
+                        project,sid,cid,str(selected.get("label") or "").strip() or None,
+                    )
+                except KeyError:
+                    pass
+                except RuntimeError:
+                    pass
                 policy=orch.projects.get(project)
                 if not policy:return self._json(404,{"error":"project not registered"})
                 frontend_url=str(data.get("frontend_url") or (selection.get("metadata") or {}).get("frontend_url") or "").strip() or None
@@ -3616,6 +3647,126 @@ class Handler(BaseHTTPRequestHandler):
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
             except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/start":
+            project=str(data.get("project") or "").strip();goal=str(data.get("goal") or "").strip()
+            if not project or not goal:return self._json(400,{"error":"project and goal are required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.genesis.start",{"project":project,"goal":goal},
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write",),
+                )
+                return self._json(201,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/intake":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            payload={k:data.get(k) for k in (
+                "project","deadline_hours","deadline_at","platforms","core_requirements",
+                "ui_mode","ui_reference","ui_description","owner_notes"
+            ) if k in data}
+            try:
+                receipt=orch.dispatch_action(
+                    "project.genesis.intake",payload,
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write",),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/enhancements":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.genesis.enhancements",
+                    {"project":project,"research":bool(data.get("research",True)),"limit":int(data.get("limit") or 8)},
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write","web.read","model.use"),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/decide":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.genesis.decide_enhancements",
+                    {"project":project,"selected_ids":data.get("selected_ids") or []},
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write",),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/design-selected":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.genesis.design_selected",
+                    {"project":project,"session_id":data.get("session_id"),"candidate_id":data.get("candidate_id"),"label":data.get("label")},
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write",),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/lock":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.genesis.lock_scope",
+                    {"project":project,"acceptance":data.get("acceptance") or [],"constraints":data.get("constraints") or []},
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write","mission.write","memory.write"),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/plan":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "engineering.plan",{"project":project,"tasks":data.get("tasks") or []},
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write","runtime.read"),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/engineering/staff":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "engineering.staff",
+                    {"project":project,"tasks":data.get("tasks") or [],"base_ref":data.get("base_ref") or "HEAD"},
+                    project="KRISHNA",source="pc",actor="engineering-http",
+                    permissions=("candidate.write","mission.write","project.write"),
+                )
+                return self._json(201,receipt["result"])
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except (ValueError,PermissionError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/engineering/worktree/create":
+            project=str(data.get("project") or "").strip();worker_id=str(data.get("worker_id") or "").strip()
+            if not project or not worker_id:return self._json(400,{"error":"project and worker_id are required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "engineering.worktree.create",
+                    {"project":project,"worker_id":worker_id,"base_ref":data.get("base_ref") or "HEAD","mission_id":data.get("mission_id")},
+                    project="KRISHNA",source="pc",actor="engineering-http",
+                    permissions=("candidate.write",),
+                )
+                return self._json(201,receipt["result"])
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except (ValueError,PermissionError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/software-factory/create":
             project=str(data.get("project") or "").strip(); goal=str(data.get("goal") or "").strip()
