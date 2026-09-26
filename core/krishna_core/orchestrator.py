@@ -117,6 +117,7 @@ from .hawkeye_ui_reviewer import HawkeyeUIReviewer
 from .suryadev import SuryadevAgent
 from .chandradev import ChandradevQC
 from .external_observer_bridge import ExternalObserverBridge
+from .auth_handoff import AuthenticationHandoffGate
 from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
@@ -389,6 +390,10 @@ class Orchestrator:
         self.chandradev = ChandradevQC(runtime_state / "chandradev", memory=self.memory)
         self.external_observers = ExternalObserverBridge(
             runtime_state / "external-observers", self.compute_nodes, memory=self.memory
+        )
+        self.external_auth = AuthenticationHandoffGate(
+            runtime_state / "external-observers" / "auth-handoffs",
+            memory=self.memory,
         )
         self.agi.brahmagyan.bind_gyan_qc(self.brahma.qc_for_gyan)
         self.agi.brahmagyan.bind_cognitive_brain(self.brahma.cognitive)
@@ -946,6 +951,47 @@ class Orchestrator:
             return self.external_observers.lan_target(
                 agent=str(payload.get("agent") or ""),
                 node_id=str(payload.get("node_id") or ""),
+            )
+
+        def external_auth_status_action(payload,context):
+            return {
+                **self.external_auth.status(),
+                "pending_requests": self.external_auth.pending(),
+            }
+
+        def external_auth_request_action(payload,context):
+            return self.external_auth.request(
+                agent=str(payload.get("agent") or "suryadev"),
+                job_id=str(payload.get("job_id") or ""),
+                origin=str(payload.get("origin") or ""),
+                method=str(payload.get("method") or "other_auth"),
+                reason=str(payload.get("reason") or ""),
+                checkpoint_ref=str(payload.get("checkpoint_ref") or ""),
+            )
+
+        def external_auth_approve_action(payload,context):
+            if not bool(context.get("approved",False)):
+                raise PermissionError("explicit owner approval required for authentication handoff")
+            return self.external_auth.decide(
+                str(payload.get("request_id") or ""),
+                approved=True,
+                approved_by=str(context.get("actor") or "owner"),
+            )
+
+        def external_auth_deny_action(payload,context):
+            return self.external_auth.decide(
+                str(payload.get("request_id") or ""),
+                approved=False,
+                approved_by=str(context.get("actor") or "owner"),
+            )
+
+        def external_auth_consume_action(payload,context):
+            return self.external_auth.consume(
+                str(payload.get("request_id") or ""),
+                agent=str(payload.get("agent") or ""),
+                job_id=str(payload.get("job_id") or ""),
+                origin=str(payload.get("origin") or ""),
+                method=str(payload.get("method") or ""),
             )
 
         def workflow_record_start_action(payload,context):
@@ -3441,6 +3487,31 @@ class Orchestrator:
             "external.observer.lan-target",external_observer_lan_target_action,
             description="Resolve the trusted LAN endpoint for SURYDEV or CHANDRADEV",
             permissions=("runtime.read",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "external.auth.status",external_auth_status_action,
+            description="Read owner-permission authentication handoff state for external observers",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "external.auth.request",external_auth_request_action,
+            description="Pause an external observer at an authentication checkpoint and request one-time owner permission",
+            mutating=True,permissions=("memory.write",),sources=("pc","system","agent","job","a2a"),
+        )
+        self.action_bus.register(
+            "external.auth.approve",external_auth_approve_action,
+            description="Owner approves one specific human authentication handoff ticket",
+            mutating=True,requires_approval=True,permissions=("runtime.write",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "external.auth.deny",external_auth_deny_action,
+            description="Owner denies one specific external authentication handoff ticket",
+            mutating=True,permissions=("runtime.write",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "external.auth.consume",external_auth_consume_action,
+            description="Consume one approved authentication handoff exactly once within its job/origin/method scope",
+            mutating=True,permissions=("runtime.write",),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "workflow.record.start",workflow_record_start_action,
