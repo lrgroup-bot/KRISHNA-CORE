@@ -1171,6 +1171,14 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 .maniEmpty{padding:26px 12px;text-align:center;color:var(--muted);font-size:12px}
 .maniQuickForm{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:7px;margin-bottom:10px}
 .maniQuickForm .input,.maniQuickForm .select{min-width:0}
+.maniVanijya{margin:0 0 14px;border-color:rgba(229,189,103,.20)}
+.maniVanijyaActions{display:flex;gap:7px;flex-wrap:wrap}
+.maniVanijyaStatus{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:11px;margin-bottom:10px}
+.maniVanijyaStats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.maniVanijyaStats>div{border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;background:rgba(255,255,255,.025)}
+.maniVanijyaStats span{display:block;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.07em}
+.maniVanijyaStats strong{display:block;margin-top:5px;font-size:18px}
+.maniVanijyaFlow{margin:10px 0;padding:10px;border:1px solid rgba(229,189,103,.15);border-radius:11px;color:#d7dce1;font-size:10px;line-height:1.55}
 .maniMarket{margin:0 0 14px}
 .maniMarketControls{display:grid;grid-template-columns:1.1fr repeat(4,minmax(92px,.7fr)) 1fr 1fr auto;gap:7px;align-items:end}
 .maniMarketControls label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:9px;letter-spacing:.06em;text-transform:uppercase}
@@ -1189,7 +1197,7 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 .maniMarketRow .marketActions{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}.maniMarketRow .marketActions button{font-size:9px;padding:5px 8px}
 .maniMarketCategories{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}.maniMarketCategories span{border:1px solid rgba(255,255,255,.07);border-radius:999px;padding:4px 7px;font-size:9px;color:#b8c4ce}
 @media(max-width:1350px){.maniMarketControls{grid-template-columns:repeat(4,1fr)}.maniMarketControls label:first-child{grid-column:span 2}.maniMarketSplit{grid-template-columns:1fr}.maniKpis{grid-template-columns:repeat(3,1fr)}.maniFocus{grid-template-columns:1fr 1.5fr}.maniFocus>.maniPanel:last-child{grid-column:1/-1}.maniRecordGrid,.maniConnections{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:850px){#manibhadra .panelInner{padding:18px 12px 50px}.maniMarketControls{grid-template-columns:1fr 1fr}.maniMarketControls label:first-child{grid-column:1/-1}.maniMarketSummary{grid-template-columns:1fr 1fr}.maniHero{align-items:flex-start;flex-direction:column}.maniHeroActions{justify-content:flex-start}.maniKpis{grid-template-columns:repeat(2,1fr)}.maniFocus,.maniLower{grid-template-columns:1fr}.maniFocus>.maniPanel:last-child{grid-column:auto}.maniRecordGrid,.maniConnections{grid-template-columns:1fr}.maniQuickForm{grid-template-columns:1fr 1fr}.maniPipeline{grid-auto-columns:minmax(210px,75vw)}}
+@media(max-width:850px){.maniVanijyaStats{grid-template-columns:1fr 1fr}.maniVanijyaStats>div:last-child{grid-column:1/-1}#manibhadra .panelInner{padding:18px 12px 50px}.maniMarketControls{grid-template-columns:1fr 1fr}.maniMarketControls label:first-child{grid-column:1/-1}.maniMarketSummary{grid-template-columns:1fr 1fr}.maniHero{align-items:flex-start;flex-direction:column}.maniHeroActions{justify-content:flex-start}.maniKpis{grid-template-columns:repeat(2,1fr)}.maniFocus,.maniLower{grid-template-columns:1fr}.maniFocus>.maniPanel:last-child{grid-column:auto}.maniRecordGrid,.maniConnections{grid-template-columns:1fr}.maniQuickForm{grid-template-columns:1fr 1fr}.maniPipeline{grid-auto-columns:minmax(210px,75vw)}}
 </style>
 <script type="importmap">
 {"imports":{"three":"/assets/avatar-engine/three/build/three.module.js","three/addons/":"/assets/avatar-engine/three/examples/jsm/","talkinghead":"/assets/avatar-engine/talkinghead/talkinghead.mjs"}}
@@ -1292,6 +1300,27 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
  <div class="maniKpi"><span class="label">Close rate</span><strong id="maniKpiConversion">0%</strong><small>won / closed deals</small></div>
  <div class="maniKpi"><span class="label">Open follow-ups</span><strong id="maniKpiTasks">0</strong><small>human attention remaining</small></div>
 </div>
+<section class="maniPanel maniVanijya" aria-label="Rishi Vanijya sales and marketing">
+ <div class="maniPanelHead">
+  <div><strong>RISHI VĀṆIJYA · Sales & Marketing Head</strong><small> · MANIBHADRA product → customer → qualified deal → money received</small></div>
+  <div class="maniVanijyaActions"><button class="ghost" onclick="loadVanijyaSales()">↻ Sales</button><button class="ghost" onclick="vanijyaSyncProducts()">Sync products</button><button class="primary" onclick="vanijyaSalesCycle()">Start sales cycle</button></div>
+ </div>
+ <div class="maniPanelBody">
+  <div class="maniVanijyaStatus">
+   <span id="vanijyaState" class="workChip">CHECKING</span>
+   <span>Independent head · NARAD communications · ₹0 acquisition spend</span>
+  </div>
+  <div class="maniVanijyaStats">
+   <div><span>Campaigns</span><strong id="vanijyaCampaigns">0</strong></div>
+   <div><span>Open conversations</span><strong id="vanijyaConversations">0</strong></div>
+   <div><span>Quotes</span><strong id="vanijyaQuotes">0</strong></div>
+   <div><span>Payments received</span><strong id="vanijyaPayments">0</strong></div>
+   <div><span>Sales workers</span><strong id="vanijyaWorkers">8</strong></div>
+  </div>
+  <div class="maniVanijyaFlow" id="vanijyaFlow">Lead Researcher → SDR / Calling → Lead Qualifier → Account Executive → Solution Consultant → Proposal & Pricing → Negotiator / Deal Closer → Customer Relationship Manager</div>
+  <div id="vanijyaActivity" class="maniActivity"><div class="maniEmpty">No VĀṆIJYA sales activity yet.</div></div>
+ </div>
+</section>
 <section class="maniPanel maniMarket">
  <div class="maniPanelHead"><div><strong>VANIK-NETRA · Market Scanner</strong><small> · open-data intelligence → MANIBHADRA leads</small></div><span id="maniMarketState" class="workChip">READY · ₹0</span></div>
  <div class="maniPanelBody">
@@ -1837,10 +1866,58 @@ async function loadManibhadraCRM(){
     maniStatus('maniHealthState','MRITYUNJAY · NOTIFIED','bad');
    }
   }
+  await loadVanijyaSales();
  }catch(e){
   maniStatus('maniHealthState','CRM HEALTH · ERROR','bad');
   log('MANIBHADRA CRM: '+e.message);
  }
+}
+
+async function loadVanijyaSales(){
+ try{
+  const d=await actionReq('vanijya.dashboard',{}, {project:'KRISHNA'});
+  const status=d?.status||{},counts=status.counts||{};
+  if($('vanijyaState'))$('vanijyaState').textContent=status.health?.ok?'READY · AUTONOMOUS SALES':'ATTENTION';
+  if($('vanijyaCampaigns'))$('vanijyaCampaigns').textContent=String(counts.active_campaigns||0);
+  if($('vanijyaConversations'))$('vanijyaConversations').textContent=String(counts.open_conversations||0);
+  if($('vanijyaQuotes'))$('vanijyaQuotes').textContent=String(counts.quotes||0);
+  if($('vanijyaPayments'))$('vanijyaPayments').textContent=String(counts.paid_payments||0);
+  if($('vanijyaWorkers'))$('vanijyaWorkers').textContent=String(8+(counts.hr_requests?((d.workers||[]).filter(x=>x.status==='READY').length):0));
+  const box=maniClear('vanijyaActivity');
+  (d.activities||[]).slice(0,8).forEach(row=>{
+   const div=document.createElement('div');div.className='maniActivityRow';
+   const b=document.createElement('b');b.textContent=row.title||row.kind||'Sales activity';
+   const span=document.createElement('span');span.textContent=(row.detail?row.detail+' · ':'')+maniFormatDate(row.time);
+   div.append(b,span);box.appendChild(div);
+  });
+  if(!box.childElementCount)maniEmpty(box,'No VĀṆIJYA sales activity yet.');
+  return d;
+ }catch(e){
+  if($('vanijyaState'))$('vanijyaState').textContent='ERROR';
+  log('VĀṆIJYA: '+e.message);return null;
+ }
+}
+
+async function vanijyaSyncProducts(){
+ try{
+  const out=await actionReq('vanijya.products.sync',{}, {project:'KRISHNA',permissions:['project.write']});
+  log('VĀṆIJYA synced '+String(out.synced||0)+' new MANIBHADRA products.');
+  await loadVanijyaSales();
+ }catch(e){log('VĀṆIJYA product sync: '+e.message)}
+}
+
+async function vanijyaSalesCycle(){
+ try{
+  const out=await actionReq('vanijya.sales_cycle',{}, {project:'KRISHNA'});
+  const box=$('maniAI');box.classList.remove('maniAIEmpty');
+  if(out.status==='NEEDS_PRODUCT'){
+   box.textContent='RISHI VĀṆIJYA\n\nNo approved product is ready yet. Asking MANIBHADRA for the next product/service to market.\n\n'+JSON.stringify(out.next,null,2);
+  }else{
+   const flow=(out.workflow||[]).map((x,i)=>(i+1)+'. '+x.agent+' — '+x.action).join('\n');
+   box.textContent='RISHI VĀṆIJYA SALES CYCLE\n\nProduct: '+String(out.product?.name||'')+'\nPrice: '+maniMoney(out.product?.sale_price)+'\n\n'+flow+'\n\nExternal communication routes through NARAD. Paid acquisition remains disabled.';
+  }
+  await loadVanijyaSales();
+ }catch(e){log('VĀṆIJYA sales cycle: '+e.message)}
 }
 
 function renderManibhadraDashboard(d){
