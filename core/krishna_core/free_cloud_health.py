@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import time
 from urllib.parse import urlparse
 
@@ -13,7 +12,7 @@ class FreeCloudHealthGovernor:
     credential health are kept separate from billing safety.
     """
 
-    VERSION = "free-cloud-health-v1"
+    VERSION = "free-cloud-health-v2-hard-zero-credit"
     CACHE_SECONDS = 300
 
     def __init__(self, gateway, openrouter_free=None, direct_free=None):
@@ -52,11 +51,6 @@ class FreeCloudHealthGovernor:
         if family in {"gemini", "groq", "cerebras", "huggingface", "mistral"}:
             return "/models"
         return None
-
-    @staticmethod
-    def _trusted_owner_declared():
-        raw = str(os.getenv("KRISHNA_TRUST_DECLARED_FREE_PROVIDERS") or "")
-        return {x.strip().lower() for x in raw.split(",") if x.strip()}
 
     def _openrouter_status(self, refresh):
         if not self.openrouter_free:
@@ -169,12 +163,11 @@ class FreeCloudHealthGovernor:
                 unattended = False
                 reason = "NVIDIA is optional and not required by KRISHNA's current local/free fabric"
             else:
-                billing = "owner-declared-free-tier"
-                trusted = family in self._trusted_owner_declared()
-                unattended = bool(declared and credential and connectivity.get("healthy") and trusted)
+                billing = "blocked-no-zero-price-proof"
+                unattended = False
                 reason = (
-                    "healthy credential plus owner-declared free tier; unattended use requires explicit "
-                    "KRISHNA_TRUST_DECLARED_FREE_PROVIDERS opt-in because account billing tier is not machine-proven"
+                    "credential/model health is not enough: KRISHNA hard zero-credit mode blocks inference "
+                    "unless the provider has an execution-time zero-price/zero-billing proof path"
                 )
 
         return {
@@ -218,6 +211,9 @@ class FreeCloudHealthGovernor:
             "network_refresh": bool(refresh),
             "background_workers": 0,
             "automatic_paid_fallback": False,
+            "credit_use_allowed": False,
+            "promotional_credit_use_allowed": False,
+            "free_trial_credit_use_allowed": False,
             "profiles": rows,
             "summary": {
                 "configured": len(rows),
@@ -238,7 +234,10 @@ class FreeCloudHealthGovernor:
                 "verified_zero_cost_first": True,
                 "private_or_sensitive_data": "local-only",
                 "generic_provider_probe": "metadata-only /models; no inference tokens",
-                "owner_declared_opt_in_env": "KRISHNA_TRUST_DECLARED_FREE_PROVIDERS",
+                "owner_declared_opt_in_env": None,
+                "hard_zero_credit": True,
+                "credits_are_not_free_for_policy": True,
+                "unknown_billing_state": "blocked",
             },
         }
         self._cache = result
