@@ -101,6 +101,23 @@ public class MainActivity extends Activity {
     receiveAssistantCommand(intent.getStringExtra("mode"),intent.getStringExtra("phrase"));
   }
 
+  void probeUiReady(){
+    if(web==null||!webReady)return;
+    final String script="(()=>{"+
+      "const f=document.getElementById('avatarViewport'),g=document.getElementById('avatar3d');"+
+      "const a=(g&&!g.hidden?g:f);const r=a&&a.getBoundingClientRect?a.getBoundingClientRect():{width:0,height:0};"+
+      "return [r.width>80&&r.height>180,!!document.getElementById('hawkeyeQuick'),!!document.getElementById('chatQuick'),!!document.getElementById('micQuick')].join(',')"+
+      "})()";
+    web.evaluateJavascript(script,value->{
+      String v=String.valueOf(value);
+      boolean ok=v.contains("true,true,true,true");
+      String payload="{\"renderer\":\"native-webview-probe\",\"avatar_visible\":"+ok+
+        ",\"hawkeye\":"+ok+",\"chat\":"+ok+",\"mic\":"+ok+"}";
+      android.util.Log.i("KRISHNA_UI_READY",payload);
+      getSharedPreferences("k",0).edit().putString("last_ui_ready",payload).putLong("last_ui_ready_at",System.currentTimeMillis()).apply();
+    });
+  }
+
   void startWakeIfReady(){
     if(assistantRoleHeld()){stopWakeService();return;}
     boolean enrolled=getSharedPreferences("k",0).getString("voiceprint","").startsWith("v3:");
@@ -177,6 +194,7 @@ public class MainActivity extends Activity {
         super.onPageFinished(view,url);
         webReady=true;
         dispatchPendingAssistantCommand();
+        new Handler(Looper.getMainLooper()).postDelayed(MainActivity.this::probeUiReady,1200);
       }
       @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
         if(request==null || !request.isForMainFrame())return false;
@@ -220,7 +238,6 @@ public class MainActivity extends Activity {
     setContentView(web);
     handleAssistIntent(getIntent());
     web.loadUrl("file:///android_asset/index.html");
-    new Handler(Looper.getMainLooper()).postDelayed(this::maybeRequestAssistantRole,900);
     startWakeIfReady();
   }
 
@@ -886,7 +903,11 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
     @JavascriptInterface public String assistantStatus(){
-      try{return new JSONObject().put("available",Build.VERSION.SDK_INT>=29).put("role_held",assistantRoleHeld()).put("system_consent_required",true).toString();}
+      try{return new JSONObject()
+        .put("available",Build.VERSION.SDK_INT>=29)
+        .put("role_held",assistantRoleHeld())
+        .put("prompted",getSharedPreferences("k",0).getBoolean("assistant_role_prompted",false))
+        .put("system_consent_required",true).toString();}
       catch(Exception e){return error(e);}
     }
     @JavascriptInterface public String requestAssistantMode(){
