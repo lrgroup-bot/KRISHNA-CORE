@@ -6,6 +6,7 @@ from pathlib import Path
 from krishna_core.suryadev import SuryadevAgent
 from krishna_core.chandradev import ChandradevQC
 from krishna_core.external_observer_bridge import ExternalObserverBridge
+from krishna_core.auth_handoff import AuthenticationHandoffGate
 from krishna_core.node_registry import NodeRegistry
 
 
@@ -186,6 +187,90 @@ class SuryadevChandradevTests(unittest.TestCase):
                 approved=True,
             )
             self.assertEqual(node.role, "qc")
+
+    def test_auth_handoff_requires_explicit_owner_permission_and_is_one_time(self):
+        with tempfile.TemporaryDirectory() as td:
+            gate = AuthenticationHandoffGate(Path(td) / "auth", memory=MemoryStub(), ttl_seconds=600)
+            req = gate.request(
+                agent="suryadev",
+                job_id="SURYA-123",
+                origin="https://example.com/login",
+                method="mfa",
+                reason="Site requires owner authentication",
+                checkpoint_ref="login-step-2",
+            )
+            self.assertEqual(req["status"], "OWNER_APPROVAL_REQUIRED")
+            self.assertEqual(gate.status()["pending"], 1)
+
+            with self.assertRaises(PermissionError):
+                gate.consume(
+                    req["request_id"],
+                    agent="suryadev",
+                    job_id="SURYA-123",
+                    origin="https://example.com/login",
+                    method="mfa",
+                )
+
+            approved = gate.decide(req["request_id"], approved=True, approved_by="owner")
+            self.assertEqual(approved["status"], "APPROVED")
+
+            grant = gate.consume(
+                req["request_id"],
+                agent="suryadev",
+                job_id="SURYA-123",
+                origin="https://example.com/login",
+                method="mfa",
+            )
+            self.assertTrue(grant["allowed"])
+            self.assertEqual(grant["action"], "HUMAN_HANDOFF_ALLOWED")
+            self.assertFalse(grant["credential_capture"])
+            self.assertFalse(grant["captcha_solving"])
+            self.assertFalse(grant["liveness_spoofing"])
+
+            with self.assertRaises(PermissionError):
+                gate.consume(
+                    req["request_id"],
+                    agent="suryadev",
+                    job_id="SURYA-123",
+                    origin="https://example.com/login",
+                    method="mfa",
+                )
+
+    def test_auth_handoff_is_scope_bound_and_can_be_denied(self):
+        with tempfile.TemporaryDirectory() as td:
+            gate = AuthenticationHandoffGate(Path(td) / "auth")
+            req = gate.request(
+                agent="chandradev",
+                job_id="CHANDRA-1",
+                origin="https://example.com",
+                method="liveness",
+            )
+            gate.decide(req["request_id"], approved=True)
+            with self.assertRaises(PermissionError):
+                gate.consume(
+                    req["request_id"],
+                    agent="chandradev",
+                    job_id="CHANDRA-1",
+                    origin="https://other.example.com",
+                    method="liveness",
+                )
+
+            req2 = gate.request(
+                agent="suryadev",
+                job_id="SURYA-2",
+                origin="https://example.com",
+                method="captcha",
+            )
+            denied = gate.decide(req2["request_id"], approved=False)
+            self.assertEqual(denied["status"], "DENIED")
+            with self.assertRaises(PermissionError):
+                gate.consume(
+                    req2["request_id"],
+                    agent="suryadev",
+                    job_id="SURYA-2",
+                    origin="https://example.com",
+                    method="captcha",
+                )
 
 
 if __name__ == "__main__":
