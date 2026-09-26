@@ -61,8 +61,9 @@ def probe():
         "policy": {
             "raw_media_stays_local": True,
             "return_distilled_findings_only": True,
-            "authentication_handoff": True,
-            "captcha_liveness": "human_handoff_only",
+            "authentication_handoff": "owner_permission_required_per_checkpoint",
+            "auth_permission_scope": "one_time_job_origin_method",
+            "captcha_liveness": "owner-approved_human_handoff_only",
         },
     }
 
@@ -120,6 +121,10 @@ def process_job(job_path, root):
             "Import distilled finding packet into KRISHNA"
             if status == "COMPLETED"
             else "Install/configure free sidecar capture-analysis adapter in this external workspace"
+        ),
+        "authentication_checkpoint_rule": (
+            "On login/password/MFA/passkey/CAPTCHA/liveness: pause, emit an owner-permission request, "
+            "and continue only after a one-time scoped approval is received. Human performs the authentication step."
         ),
     }
     out = work / "worker-report.json"
