@@ -26,6 +26,15 @@ class GyanAvatarContractTests(unittest.TestCase):
         self.assertIn("avatar.setAttribute('src','/api/avatar.glb')",WEB)
         self.assertNotIn('src="/api/avatar.glb"',WEB)
         self.assertNotIn('ajax.googleapis.com/ajax/libs/model-viewer',WEB)
+    def test_pc_avatar_has_single_frame_animated_fallback(self):
+        self.assertIn('id="avatarFallbackStrip"',WEB)
+        self.assertIn('class="avatarFallbackStage"',WEB)
+        self.assertIn('#avatarFallback .avatarFallbackStrip',WEB)
+        self.assertIn('width:800%!important',WEB)
+        self.assertIn('krishnaFallbackBreath',WEB)
+        self.assertIn("frameMap={IDLE:0",WEB)
+        self.assertIn("applyKrishnaAvatarMotion(next)",WEB)
+
     def test_frozen_exe_uses_private_e_drive_avatar_not_bundle(self):
         self.assertIn('AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"',SERVER)
         self.assertIn('AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"',SERVER)
