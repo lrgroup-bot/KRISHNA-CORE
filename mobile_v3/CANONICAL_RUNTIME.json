@@ -162,7 +162,7 @@
     "pc_qwen_allowed": true,
     "mobile_qwen_allowed": false,
     "mobile_qwen_dependency": false,
-    "mobile_cloud_mode": "short-lived free-only direct session first for eligible general conversation; KRISHNA PC escalation for private, stateful, action, attachment, heavy, or failed-cloud work",
+    "mobile_cloud_mode": "verified-free-only",
     "mobile_cloud_credentials": "permanent credentials remain on KRISHNA PC; mobile receives only short-lived tokens",
     "pc_qwen_default_role_assigned": true,
     "pc_roles": {
@@ -219,6 +219,7 @@
     "private_heavy_hawkeye": "KRISHNA_PC_ONLY",
     "automatic_paid_fallback": false,
     "mobile_general_chat_pc_default": false,
-    "mobile_private_action_pc_required": true
+    "mobile_private_action_pc_required": true,
+    "mobile_cloud_routing": "short-lived direct session first for eligible general conversation; KRISHNA PC escalation for private, stateful, action, attachment, heavy, or failed-cloud work"
   }
 }
