@@ -15,6 +15,7 @@ class EngineeringTask:
     depends_on: tuple[str, ...] = ()
     privacy: str = "local_only"
     mutable: bool = True
+    parallelizable: bool = True
     description: str = ""
 
     def as_dict(self) -> dict[str, Any]:
@@ -54,6 +55,7 @@ class EngineeringScheduler:
                 tuple(str(x).strip() for x in row.get("depends_on") or [] if str(x).strip()),
                 str(row.get("privacy") or "local_only").strip().lower(),
                 bool(row.get("mutable", True)),
+                bool(row.get("parallelizable", True)),
                 str(row.get("description") or "").strip(),
             ))
         if not out:
@@ -120,7 +122,7 @@ class EngineeringScheduler:
         tasks = self._tasks(rows)
         local_slots = max(1, min(int(local_slots), self.max_workers))
         work = [
-            WorkItem(x.id, x.role, x.estimate_minutes, parallelizable=not bool(x.depends_on))
+            WorkItem(x.id, x.role, x.estimate_minutes, parallelizable=x.parallelizable)
             for x in tasks
         ]
         team = self.hr.plan(work, float(deadline_minutes), self.max_workers)
