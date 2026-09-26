@@ -126,6 +126,9 @@ from .vanik_netra import VanikNetra
 from .vanik_netra_sources import FreeMarketSourceRegistry
 from .vanik_netra_store import VanikNetraStore
 from .narada_legal import NaradaLegalAdvisor
+from .system_one import SystemOneDecisionEngine
+from .capability_fabric import build_default_capability_fabric
+from .optional_capabilities import DotsCapabilityRegistry,StemkitAdapter,StrixSandboxAdapter
 
 
 class Orchestrator:
@@ -149,6 +152,11 @@ class Orchestrator:
         self.router = ModelRouter(self.model_gateway)
         self.router.bind_openrouter_free(self.openrouter_free)
         self.router.bind_direct_free(self.direct_free)
+        self.system_one = SystemOneDecisionEngine()
+        self.capability_fabric = build_default_capability_fabric()
+        self.dots_capabilities = DotsCapabilityRegistry()
+        self.stemkit = StemkitAdapter()
+        self.strix_sandbox = StrixSandboxAdapter()
         self.graph = ProjectGraph()
         self.graph_intelligence = GraphIntelligence(self.graph, self.memory)
         self.gnn = OptionalGNNBackend()
@@ -624,6 +632,56 @@ class Orchestrator:
             messages=payload.get("messages") or []
             if not isinstance(messages,list):raise ValueError("messages must be a list")
             return {"messages":self.gmail_triage.batch(messages,payload.get("model_verdicts") or {})}
+
+        def system_one_status_action(payload,context):
+            return self.system_one.status()
+
+        def system_one_decide_action(payload,context):
+            options=payload.get("options") or []
+            if not isinstance(options,list):raise ValueError("options must be a list")
+            return self.system_one.decide(
+                str(payload.get("context") or ""),
+                options,
+                signals=payload.get("signals") or {},
+                decision_class=str(payload.get("decision_class") or "routing"),
+            )
+
+        def capability_fabric_status_action(payload,context):
+            return self.capability_fabric.status()
+
+        def capability_fabric_choose_action(payload,context):
+            return {
+                "selection":self.capability_fabric.choose(
+                    str(payload.get("capability") or ""),
+                    require_free=bool(payload.get("require_free",True)),
+                    prefer_mobile=bool(payload.get("prefer_mobile",False)),
+                    prefer_local=bool(payload.get("prefer_local",False)),
+                )
+            }
+
+        def dots_capabilities_status_action(payload,context):
+            return self.dots_capabilities.status()
+
+        def stemkit_status_action(payload,context):
+            return self.stemkit.status()
+
+        def stemkit_call_action(payload,context):
+            args=payload.get("args") or []
+            if not isinstance(args,list):raise ValueError("args must be a list")
+            return {
+                "provider":"stemkit-core",
+                "function":str(payload.get("function") or ""),
+                "result":self.stemkit.call(str(payload.get("function") or ""),args),
+            }
+
+        def strix_status_action(payload,context):
+            return self.strix_sandbox.status()
+
+        def strix_plan_action(payload,context):
+            return self.strix_sandbox.plan(
+                str(payload.get("target") or ""),
+                candidate_root=(str(payload.get("candidate_root") or "").strip() or None),
+            )
 
         def vanik_netra_status_action(payload,context):
             return self.vanik_netra.status()
@@ -3131,6 +3189,52 @@ class Orchestrator:
             description="Classify Gmail messages into reply/update/promotion/sales/spam/phishing buckets without mutating the mailbox",
             permissions=("provider.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
+        self.action_bus.register(
+            "system_one.status",system_one_status_action,
+            description="Read zero-resident bounded System-One/OpenJev-compatible decision capability",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "system_one.decide",system_one_decide_action,
+            description="Rank bounded options without granting action authority; high-stakes classes escalate",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "capability.fabric.status",capability_fabric_status_action,
+            description="Read lazy KRISHNA provider/capability seams and load policy",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "capability.fabric.choose",capability_fabric_choose_action,
+            description="Choose an enabled free/local/mobile provider by capability metadata without loading it",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "dots.capabilities.status",dots_capabilities_status_action,
+            description="Read dormant dots3-note, dots.mocr and dots.tts provider readiness without downloading models",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "stemkit.status",stemkit_status_action,
+            description="Read lazy deterministic STEMKit science-compute adapter status",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "stemkit.call",stemkit_call_action,
+            description="Run one allowlisted deterministic STEMKit function on demand; no daemon is kept resident",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "strix.status",strix_status_action,
+            description="Read disabled-by-default Strix local candidate sandbox status",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "strix.plan",strix_plan_action,
+            description="Prepare bounded Strix validation for an authorized local candidate/localhost target only",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
         self.action_bus.register(
             "vanik_netra.scan",vanik_netra_scan_action,
             description="Scan a bounded area using a free/open VANIK-NETRA source and persist a local market snapshot",
