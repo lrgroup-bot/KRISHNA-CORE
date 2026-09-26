@@ -9,6 +9,8 @@ class PrivateRemotePolicy:
         "/api/status",
         "/api/mobile/connection",
         "/api/mobile/bootstrap",
+        "/api/mobile/free-cloud/status",
+        "/api/mobile/free-cloud/session",
         "/api/mobile/resume",
         "/api/core/event",
         "/api/core/state",
