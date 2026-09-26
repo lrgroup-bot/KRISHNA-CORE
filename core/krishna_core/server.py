@@ -1023,6 +1023,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._binary_nostore(200,audio_path.read_bytes(),"audio/wav")
         if path == "/api/voice/status":
             return self._json(200,{**_voice.status(),"character":orch.agi.character.status()})
+        if path == "/api/suryadev/status":
+            return self._json(200,{
+                **orch.suryadev.status(),
+                "nodes":orch.compute_nodes.status(),
+                "bridge":orch.external_observers.status(),
+            })
+        if path == "/api/chandradev/status":
+            return self._json(200,{
+                **orch.chandradev.status(),
+                "nodes":orch.compute_nodes.status(),
+                "bridge":orch.external_observers.status(),
+            })
         if path == "/api/garuda/status":
             return self._json(200, orch.garuda_status())
         if path == "/api/brahmagyan/status":
