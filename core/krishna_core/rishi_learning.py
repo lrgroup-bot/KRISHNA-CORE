@@ -224,6 +224,26 @@ RISHI_RESEARCH_CHARTERS = {
             "self/reality/knowledge themes with textual provenance preserved",
         ),
     },
+    "vanijya": {
+        "primary_subjects": (
+            "sales","marketing","lead generation","prospecting","customer discovery",
+            "lead qualification","sales development","account management","solution selling",
+            "proposal strategy","pricing communication","negotiation","deal closing",
+            "customer relationship management","retention","upsell","cross-sell",
+            "referrals","revenue operations","B2B sales","international sales",
+        ),
+        "frontier_focus": (
+            "buyer-intent detection from public or consented signals",
+            "ethical personalized outreach","sales-cycle automation","conversation quality",
+            "solution-to-problem fit","deal velocity","conversion learning",
+            "zero-spend organic distribution","repeat and referral revenue",
+        ),
+        "classical_lens": (
+            "Vāṇijya is a modern KRISHNA functional title for commerce and sales leadership",
+            "historical Indian commerce and trade sources may be studied as historical context only",
+            "modern sales claims, channel rules and commercial practices require current evidence",
+        ),
+    },
     "narada": {
         "primary_subjects": (
             "constitutional law","statutory interpretation","central and state legislation",

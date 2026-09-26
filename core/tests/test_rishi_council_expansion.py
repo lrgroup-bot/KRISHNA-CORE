@@ -17,13 +17,13 @@ class ExpandedRishiCouncilTests(unittest.TestCase):
     def setUp(self):
         self.council=RishiCouncil()
 
-    def test_council_expands_to_thirty_permanent_profiles(self):
+    def test_council_expands_to_thirty_one_permanent_profiles(self):
         ids={x["id"] for x in self.council.list()}
-        self.assertEqual(len(ids),30)
+        self.assertEqual(len(ids),31)
         for rid in (
             "aryabhata","brahmagupta","bhaskaracharya","madhava","varahamihira",
             "dhanvantari","nagarjuna","chanakya","baudhayana","pingala",
-            "shalihotra","parashara","narada",
+            "shalihotra","parashara","narada","vanijya",
         ):
             self.assertIn(rid,ids)
 
@@ -45,6 +45,8 @@ class ExpandedRishiCouncilTests(unittest.TestCase):
         self.assertIn("agriculture",RISHI_RESEARCH_CHARTERS["parashara"]["primary_subjects"])
         self.assertIn("constitutional law",RISHI_RESEARCH_CHARTERS["narada"]["primary_subjects"])
         self.assertIn("judicial precedent",RISHI_RESEARCH_CHARTERS["narada"]["primary_subjects"])
+        self.assertIn("sales",RISHI_RESEARCH_CHARTERS["vanijya"]["primary_subjects"])
+        self.assertIn("negotiation",RISHI_RESEARCH_CHARTERS["vanijya"]["primary_subjects"])
 
     def test_science_atlas_fields_route_to_new_specialists(self):
         self.assertIn("aryabhata",FIELD_RISHI_MAP["mathematics"])

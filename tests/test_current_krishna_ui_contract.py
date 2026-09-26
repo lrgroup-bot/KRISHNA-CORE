@@ -25,6 +25,13 @@ class CurrentKrishnaUIContractTests(unittest.TestCase):
         for hidden in ("kabach","garuda","garudanetra","brahmagyan","gyan","narad","specialists","developer","work","activity","system"):
             self.assertNotIn(f"showView('{hidden}')",menu)
 
+    def test_vanijya_does_not_expand_main_menu(self):
+        m=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',self.html)
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1).count("<button"),4)
+        self.assertNotIn("showView('vanijya')",m.group(1))
+        self.assertIn("RISHI VĀṆIJYA · Sales & Marketing Head",self.html)
+
     def test_sudarshan_is_clean_conversation_workspace(self):
         self.assertIn("SUDARSHAN CLEAN CHAT MODE",self.html)
         self.assertRegex(self.html,r'#sudarshan \.sudarshanBar\{\s*display:none !important;')

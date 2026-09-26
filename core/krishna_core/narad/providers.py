@@ -92,9 +92,17 @@ class NaradProviderHub:
         if op=="send_email":
             to=str(p.get("to") or "").strip();subject=str(p.get("subject") or "").strip();text=str(p.get("text") or "")
             if not to or not subject:raise ValueError("gmail to and subject are required")
-            msg=EmailMessage();msg["To"]=to;msg["Subject"]=subject;msg["From"]=str(p.get("from") or "me");msg.set_content(text)
+            msg=EmailMessage();msg["To"]=to;msg["Subject"]=subject;msg["From"]=str(p.get("from") or "me")
+            in_reply_to=str(p.get("in_reply_to") or "").strip()
+            references=str(p.get("references") or "").strip()
+            if in_reply_to:msg["In-Reply-To"]=in_reply_to
+            if references:msg["References"]=references
+            msg.set_content(text)
             raw=base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii").rstrip("=")
-            return _json_request(base+"/send",body={"raw":raw},headers=auth)
+            body={"raw":raw}
+            thread_id=str(p.get("thread_id") or "").strip()
+            if thread_id:body["threadId"]=thread_id
+            return _json_request(base+"/send",body=body,headers=auth)
         if op=="list_messages":
             params={"maxResults":min(500,max(1,int(p.get("max_results") or 50)))}
             q=str(p.get("q") or "").strip()
