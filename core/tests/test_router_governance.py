@@ -121,6 +121,23 @@ class FreeCloudDefaultTests(unittest.TestCase):
         self.assertTrue(out["zero_cost_verified"])
         self.assertEqual(direct.calls,[("public task","approved_cloud")])
 
+
+    def test_strict_zero_credit_blocks_generic_gateway_even_when_marked_free(self):
+        class Gateway:
+            def complete(self,*args,**kwargs):
+                raise AssertionError("generic gateway should not execute")
+        router=ModelRouter(Gateway())
+        with patch.dict(os.environ,{"KRISHNA_STRICT_ZERO_CREDIT":"1"},clear=False):
+            with self.assertRaisesRegex(PermissionError,"strict zero-credit policy"):
+                router.ask("gateway:declared-free","hello")
+
+    def test_strict_zero_credit_cannot_be_bypassed_by_paid_cloud_flag(self):
+        with patch.dict(os.environ,{
+            "KRISHNA_STRICT_ZERO_CREDIT":"1",
+            "KRISHNA_ALLOW_PAID_CLOUD":"1",
+        },clear=False):
+            self.assertFalse(ModelRouter.paid_cloud_enabled())
+
     def test_paid_cloud_requires_explicit_environment_opt_in(self):
         router=ModelRouter()
         with patch.dict(os.environ,{"KRISHNA_ALLOW_PAID_CLOUD":"0"},clear=False):
