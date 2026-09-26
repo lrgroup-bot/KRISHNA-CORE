@@ -668,9 +668,9 @@ try{
     $ready=$null
     $lastSession=$live
     # First Playwright/Chromium launch on Windows can be materially slower
-    # than subsequent UI Guardian launches. Wait up to 60 seconds for a real
+    # than subsequent UI Guardian launches. Wait up to 120 seconds for a real
     # frame or terminal ERROR rather than failing a healthy cold start at 15s.
-    for($i=0;$i -lt 120;$i++){
+    for($i=0;$i -lt 240;$i++){
       Start-Sleep -Milliseconds 500
       try{
         $s=Get-Json ("/api/garudanetra/session?id="+$sid)
