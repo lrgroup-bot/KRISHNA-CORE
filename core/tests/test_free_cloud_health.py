@@ -1,6 +1,4 @@
-import os
 import unittest
-from unittest.mock import patch
 
 from krishna_core.free_cloud_health import FreeCloudHealthGovernor
 
@@ -85,14 +83,21 @@ class FreeCloudHealthGovernorTests(unittest.TestCase):
         row=next(x for x in out["profiles"] if x["family"]=="gemini")
         self.assertTrue(row["connectivity"]["healthy"])
         self.assertFalse(row["unattended_allowed"])
-        self.assertEqual(row["billing_safety"],"owner-declared-free-tier")
+        self.assertEqual(row["billing_safety"],"blocked-no-zero-price-proof")
 
-    def test_owner_can_explicitly_trust_declared_free_provider(self):
-        with patch.dict(os.environ,{"KRISHNA_TRUST_DECLARED_FREE_PROVIDERS":"gemini"},clear=False):
-            governor=FreeCloudHealthGovernor(self.gateway,FakeOpenRouter(),FakeCloudflare())
-            out=governor.status(refresh=True)
+    def test_owner_declared_free_cannot_override_zero_credit_proof(self):
+        out=self.governor.status(refresh=True,max_age=0)
         row=next(x for x in out["profiles"] if x["family"]=="gemini")
-        self.assertTrue(row["unattended_allowed"])
+        self.assertFalse(row["unattended_allowed"])
+        self.assertIn("zero-credit",row["reason"])
+
+    def test_status_declares_no_credit_use(self):
+        out=self.governor.status(refresh=True,max_age=0)
+        self.assertFalse(out["credit_use_allowed"])
+        self.assertFalse(out["promotional_credit_use_allowed"])
+        self.assertFalse(out["free_trial_credit_use_allowed"])
+        self.assertTrue(out["policy"]["hard_zero_credit"])
+        self.assertTrue(out["policy"]["credits_are_not_free_for_policy"])
 
     def test_refresh_uses_metadata_only_for_generic_provider(self):
         self.governor.status(refresh=True)
