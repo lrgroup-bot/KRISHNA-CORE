@@ -4,6 +4,8 @@ from pathlib import Path
 
 from krishna_core.manibhadra_crm import ManibhadraCRM
 from krishna_core.vanik_netra import VanikNetra
+from krishna_core.vanik_netra_sources import BoundingBox, FoursquareOSAdapter, OSMExtractAdapter
+from krishna_core.vanik_netra_store import VanikNetraStore
 
 
 class VanikNetraTests(unittest.TestCase):
@@ -74,6 +76,86 @@ class VanikNetraTests(unittest.TestCase):
             self.assertIn("vanik-netra",lead["tags"])
             self.assertEqual(lead["next_action"],"Review opportunity before any outreach")
             self.assertEqual(len(crm.records()["leads"]),1)
+
+
+class FakeOverture:
+    def status(self): return {"id":"overture","free":True,"live_scan":True}
+    def scan(self,bbox,**kwargs):
+        return [
+            {"source":"overture","id":"a","name":"Alpha Hardware","category":"hardware","phone":"111","longitude":85.86,"latitude":20.296},
+            {"source":"overture","id":"b","name":"Beta Clinic","category":"clinic","website":"https://beta.test","longitude":85.861,"latitude":20.297},
+        ]
+
+
+class FakeRegistry:
+    def __init__(self):
+        self.overture=FakeOverture()
+        self.foursquare=FoursquareOSAdapter()
+        self.osm=OSMExtractAdapter()
+    def status(self): return {"zero_spend":True,"paid_fallback":False,"sources":{"overture":self.overture.status()}}
+
+
+class VanikNetraPipelineTests(unittest.TestCase):
+    def test_bbox_validation(self):
+        box=BoundingBox.from_value({"west":85.84,"south":20.28,"east":85.88,"north":20.31})
+        self.assertEqual(box.west,85.84)
+        with self.assertRaises(ValueError):
+            BoundingBox(86,20,85,21)
+
+    def test_foursquare_local_csv_adapter(self):
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/"fsq.csv"
+            path.write_text("fsq_place_id,name,latitude,longitude,tel,website\n1,Shop A,20.29,85.86,999,https://a.test\n",encoding="utf-8")
+            rows=FoursquareOSAdapter.load_local(path)
+            self.assertEqual(rows[0]["source"],"foursquare_os")
+            self.assertEqual(rows[0]["name"],"Shop A")
+
+    def test_osm_geojson_adapter(self):
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/"osm.geojson"
+            path.write_text(
+                '{"type":"FeatureCollection","features":[{"type":"Feature","id":"node/1","geometry":{"type":"Point","coordinates":[85.86,20.29]},"properties":{"name":"Repair Shop","shop":"car_repair","contact:phone":"999"}}]}',
+                encoding="utf-8",
+            )
+            rows=OSMExtractAdapter.load_geojson(path)
+            self.assertEqual(rows[0]["category"],"car_repair")
+            self.assertEqual(rows[0]["phone"],"999")
+            self.assertEqual(rows[0]["source"],"openstreetmap_extract")
+
+    def test_store_detects_added_changed_removed(self):
+        with tempfile.TemporaryDirectory() as td:
+            store=VanikNetraStore(Path(td)/"market.db")
+            first=[
+                VanikNetra.normalize_place({"source":"overture","id":"1","name":"One","phone":"1","lat":20.29,"lon":85.86}),
+                VanikNetra.normalize_place({"source":"overture","id":"2","name":"Two","phone":"2","lat":20.30,"lon":85.87}),
+            ]
+            snap1=store.save_snapshot("rasulgarh",first,source="overture",bbox={"west":85.8,"south":20.2,"east":85.9,"north":20.4})
+            self.assertEqual(snap1["changes"]["added"],2)
+            second=[
+                VanikNetra.normalize_place({"source":"overture","id":"1","name":"One","phone":"111","lat":20.29,"lon":85.86}),
+                VanikNetra.normalize_place({"source":"overture","id":"3","name":"Three","phone":"3","lat":20.31,"lon":85.88}),
+            ]
+            snap2=store.save_snapshot("rasulgarh",second,source="overture",bbox={"west":85.8,"south":20.2,"east":85.9,"north":20.4})
+            self.assertEqual(snap2["changes"],{"added":1,"changed":1,"removed":1})
+            changes=store.changes("rasulgarh")
+            self.assertEqual({x["change_type"] for x in changes},{"added","changed","removed"})
+
+    def test_scan_area_persists_and_builds_map_payload(self):
+        with tempfile.TemporaryDirectory() as td:
+            crm=ManibhadraCRM(Path(td)/"crm.json")
+            store=VanikNetraStore(Path(td)/"market.db")
+            agent=VanikNetra(crm,store=store,sources=FakeRegistry())
+            out=agent.scan_area(
+                {"west":85.84,"south":20.28,"east":85.88,"north":20.31},
+                area_key="rasulgarh",source="overture",limit=100,
+            )
+            self.assertEqual(out["record_count"],2)
+            self.assertEqual(out["snapshot"]["changes"]["added"],2)
+            cached=agent.stored_area({"west":85.84,"south":20.28,"east":85.88,"north":20.31})
+            self.assertEqual(cached["summary"]["businesses"],2)
+            points=agent.map_payload(cached["records"])
+            self.assertEqual(len(points["points"]),2)
+            self.assertIsNotNone(points["bounds"])
 
 
 if __name__=="__main__":
