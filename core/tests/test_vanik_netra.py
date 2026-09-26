@@ -158,5 +158,35 @@ class VanikNetraPipelineTests(unittest.TestCase):
             self.assertIsNotNone(points["bounds"])
 
 
+class VanikNetraWhiteSpaceTests(unittest.TestCase):
+    def test_white_space_uses_density_as_proxy_not_guaranteed_demand(self):
+        with tempfile.TemporaryDirectory() as td:
+            store=VanikNetraStore(Path(td)/"market.db")
+            rows=[]
+            for i in range(6):
+                rows.append(VanikNetra.normalize_place({
+                    "source":"overture","id":f"r{i}","name":f"Retail {i}",
+                    "category":"retail","lat":20.2901+i*0.00001,"lon":85.8601+i*0.00001,
+                }))
+            rows.append(VanikNetra.normalize_place({
+                "source":"overture","id":"h1","name":"Hardware One",
+                "category":"hardware","lat":20.3001,"lon":85.8701,
+            }))
+            for i in range(4):
+                rows.append(VanikNetra.normalize_place({
+                    "source":"overture","id":f"x{i}","name":f"Other {i}",
+                    "category":"retail","lat":20.3002+i*0.00001,"lon":85.8702+i*0.00001,
+                }))
+            store.save_snapshot("market",rows)
+            out=store.white_space(
+                {"west":85.85,"south":20.28,"east":85.88,"north":20.31},
+                "hardware",min_cell_businesses=3,
+            )
+            self.assertTrue(out["cells"])
+            self.assertIn("proxy",out["warning"].lower())
+            self.assertEqual(out["target_category"],"hardware")
+
+
+
 if __name__=="__main__":
     unittest.main()
