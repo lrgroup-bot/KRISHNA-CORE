@@ -28,7 +28,7 @@ class KrishnaMobileCloudChat {
       const samples=Math.floor(joined.length/2),ctx=new (window.AudioContext||window.webkitAudioContext)();
       const buffer=ctx.createBuffer(1,samples,rate),channel=buffer.getChannelData(0),view=new DataView(joined.buffer,joined.byteOffset,joined.byteLength);
       for(let i=0;i<samples;i++)channel[i]=view.getInt16(i*2,true)/32768;
-      const src=ctx.createBufferSource();src.buffer=buffer;src.connect(ctx.destination);src.onended=()=>{try{ctx.close()}catch(_){}};src.start();return true;
+      const src=ctx.createBufferSource();src.buffer=buffer;src.connect(ctx.destination);src.onended=()=>{try{ctx.close()}catch(_){};try{window.onKrishnaCloudAudioEnd?.()}catch(_){}};src.start();return true;
     }catch(_){return false}
   }
   close(){
