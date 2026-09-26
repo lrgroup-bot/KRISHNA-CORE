@@ -101,20 +101,165 @@ SHISHYA = (
 )
 
 
-OFFICIAL_SOURCES = {
-    "constitution":{"name":"Legislative Department, Ministry of Law and Justice","url":"https://legislative.gov.in/","domains":("legislative.gov.in","www.legislative.gov.in"),"scope":("constitution","central legislation","amendments"),"priority":100},
-    "india_code":{"name":"India Code","url":"https://www.indiacode.nic.in/","domains":("indiacode.nic.in","www.indiacode.nic.in","upload.indiacode.nic.in"),"scope":("acts","sections","rules","regulations","notifications","orders","ordinances","statutes","circulars"),"priority":100},
-    "egazette":{"name":"eGazette of India","url":"https://egazette.nic.in/","domains":("egazette.nic.in","www.egazette.nic.in"),"scope":("gazette","notifications","rules","commencement","appointments"),"priority":100},
-    "supreme_court":{"name":"Supreme Court of India","url":"https://www.sci.gov.in/","domains":("sci.gov.in","www.sci.gov.in"),"scope":("supreme court judgments","orders","constitutional interpretation"),"priority":100},
-    "ecourts_judgments":{"name":"eCourts Judgments and Orders","url":"https://judgments.ecourts.gov.in/","domains":("judgments.ecourts.gov.in","services.ecourts.gov.in"),"scope":("high court judgments","district court case information","orders"),"priority":95},
-    "mha":{"name":"Ministry of Home Affairs","url":"https://www.mha.gov.in/","domains":("mha.gov.in","www.mha.gov.in"),"scope":("criminal law","BNS","BNSS","BSA","internal security notifications"),"priority":95},
-    "bprd":{"name":"Bureau of Police Research and Development","url":"https://bprd.nic.in/","domains":("bprd.nic.in","www.bprd.nic.in"),"scope":("police manuals","police procedure research"),"priority":90},
-    "nalsa":{"name":"National Legal Services Authority","url":"https://nalsa.gov.in/","domains":("nalsa.gov.in","www.nalsa.gov.in"),"scope":("legal aid","access to justice","lok adalat","legal services"),"priority":90},
-    "rbi":{"name":"Reserve Bank of India","url":"https://www.rbi.org.in/","domains":("rbi.org.in","www.rbi.org.in"),"scope":("payments","banking","financial regulation","payment aggregators"),"priority":95},
-    "meity":{"name":"Ministry of Electronics and Information Technology","url":"https://www.meity.gov.in/","domains":("meity.gov.in","www.meity.gov.in"),"scope":("data protection","information technology","digital rules"),"priority":95},
-    "trai":{"name":"Telecom Regulatory Authority of India","url":"https://www.trai.gov.in/","domains":("trai.gov.in","www.trai.gov.in"),"scope":("telecom","commercial communications","consent","messaging regulation"),"priority":95},
-    "consumer_affairs":{"name":"Department of Consumer Affairs","url":"https://consumeraffairs.nic.in/","domains":("consumeraffairs.nic.in","www.consumeraffairs.nic.in"),"scope":("consumer protection","e-commerce","dark patterns","direct selling"),"priority":95},
+DEFAULT_JURISDICTION={
+    "country":"India",
+    "state":"Odisha",
+    "district":"Khordha",
+    "city":"Bhubaneswar",
 }
+ODISHA_ONLY=True
+
+
+OFFICIAL_SOURCES = {
+    "odisha_law":{
+        "name":"Law Department, Government of Odisha",
+        "url":"https://law.odisha.gov.in/",
+        "domains":("law.odisha.gov.in",),
+        "scope":("Odisha acts","ordinances","rules","regulations","notifications","Odisha Gazette","Extraordinary Gazette"),
+        "priority":100,"jurisdiction":"Odisha",
+    },
+    "orissa_high_court":{
+        "name":"Orissa High Court, Cuttack",
+        "url":"https://www.orissahighcourt.nic.in/",
+        "domains":("orissahighcourt.nic.in","www.orissahighcourt.nic.in"),
+        "scope":("Odisha High Court judgments","orders","notifications","court rules","PIL"),
+        "priority":100,"jurisdiction":"Odisha",
+    },
+    "odisha_revenue":{
+        "name":"Revenue and Disaster Management Department, Government of Odisha",
+        "url":"https://revenue.odisha.gov.in/",
+        "domains":("revenue.odisha.gov.in",),
+        "scope":("land reforms","government land","registration","stamp","survey and settlement","minor minerals","land acquisition"),
+        "priority":100,"jurisdiction":"Odisha",
+    },
+    "odisha_urban":{
+        "name":"Housing & Urban Development Department, Government of Odisha",
+        "url":"https://urban.odisha.gov.in/",
+        "domains":("urban.odisha.gov.in",),
+        "scope":("municipal law","planning","building standards","apartments","urban local bodies","development authorities"),
+        "priority":100,"jurisdiction":"Odisha",
+    },
+    "bmc":{
+        "name":"Bhubaneswar Municipal Corporation",
+        "url":"https://www.bmc.gov.in/",
+        "domains":("bmc.gov.in","www.bmc.gov.in"),
+        "scope":("Bhubaneswar municipal law","trade regulation","solid waste bye-laws","municipal rules","local permissions"),
+        "priority":100,"jurisdiction":"Bhubaneswar",
+    },
+    "bda":{
+        "name":"Bhubaneswar Development Authority",
+        "url":"https://www.bda.gov.in/",
+        "domains":("bda.gov.in","www.bda.gov.in"),
+        "scope":("Bhubaneswar planning","building standards","development authority rules","occupancy","land development"),
+        "priority":100,"jurisdiction":"Bhubaneswar",
+    },
+    "orera":{
+        "name":"Odisha Real Estate Regulatory Authority",
+        "url":"https://rera.odisha.gov.in/",
+        "domains":("rera.odisha.gov.in",),
+        "scope":("real estate projects","promoters","agents","orders","RERA compliance","consumer protection in real estate"),
+        "priority":100,"jurisdiction":"Odisha",
+    },
+    "odisha_police":{
+        "name":"Odisha Police",
+        "url":"https://police.odisha.gov.in/",
+        "domains":("police.odisha.gov.in",),
+        "scope":("police citizen services","FIR","cyber crime","complaints","public services","police notices"),
+        "priority":100,"jurisdiction":"Odisha",
+    },
+    "commissionerate_police":{
+        "name":"Bhubaneswar-Cuttack Police Commissionerate",
+        "url":"https://bhubaneswarcuttackpolice.gov.in/",
+        "domains":("bhubaneswarcuttackpolice.gov.in","www.bhubaneswarcuttackpolice.gov.in"),
+        "scope":("Bhubaneswar police procedure","local FIR services","traffic","permissions","public safety"),
+        "priority":100,"jurisdiction":"Bhubaneswar",
+    },
+    "odisha_labour":{
+        "name":"Labour & ESI Department, Government of Odisha",
+        "url":"https://labour.odisha.gov.in/",
+        "domains":("labour.odisha.gov.in",),
+        "scope":("labour rules","wages","industrial relations","social security","occupational safety","gazette notifications"),
+        "priority":95,"jurisdiction":"Odisha",
+    },
+    "odisha_finance":{
+        "name":"Finance Department, Government of Odisha",
+        "url":"https://finance.odisha.gov.in/",
+        "domains":("finance.odisha.gov.in",),
+        "scope":("Odisha GST","tax notifications","financial rules","state finance circulars"),
+        "priority":95,"jurisdiction":"Odisha",
+    },
+    "odisha_spcb":{
+        "name":"State Pollution Control Board, Odisha",
+        "url":"https://ospcboard.odisha.gov.in/",
+        "domains":("ospcboard.odisha.gov.in",),
+        "scope":("pollution consent","environmental authorisation","waste rules","notices","industrial environmental compliance"),
+        "priority":95,"jurisdiction":"Odisha",
+    },
+    "constitution":{
+        "name":"Legislative Department, Ministry of Law and Justice",
+        "url":"https://legislative.gov.in/",
+        "domains":("legislative.gov.in","www.legislative.gov.in"),
+        "scope":("Constitution of India","central legislation applicable in Odisha","constitutional amendments"),
+        "priority":90,"jurisdiction":"India",
+    },
+    "india_code":{
+        "name":"India Code",
+        "url":"https://www.indiacode.nic.in/",
+        "domains":("indiacode.nic.in","www.indiacode.nic.in","upload.indiacode.nic.in"),
+        "scope":("central acts and subordinate law applicable in Odisha"),
+        "priority":90,"jurisdiction":"India",
+    },
+    "egazette":{
+        "name":"eGazette of India",
+        "url":"https://egazette.nic.in/",
+        "domains":("egazette.nic.in","www.egazette.nic.in"),
+        "scope":("central gazette material applicable in Odisha"),
+        "priority":90,"jurisdiction":"India",
+    },
+    "supreme_court":{
+        "name":"Supreme Court of India",
+        "url":"https://www.sci.gov.in/",
+        "domains":("sci.gov.in","www.sci.gov.in"),
+        "scope":("binding Supreme Court judgments and orders applicable in Odisha"),
+        "priority":95,"jurisdiction":"India",
+    },
+    "ecourts_judgments":{
+        "name":"eCourts Judgments and Orders",
+        "url":"https://judgments.ecourts.gov.in/",
+        "domains":("judgments.ecourts.gov.in","services.ecourts.gov.in"),
+        "scope":("Odisha court judgments/orders and case information"),
+        "priority":95,"jurisdiction":"India/Odisha",
+    },
+    "mha":{
+        "name":"Ministry of Home Affairs",
+        "url":"https://www.mha.gov.in/",
+        "domains":("mha.gov.in","www.mha.gov.in"),
+        "scope":("central criminal law applicable in Odisha","BNS","BNSS","BSA"),
+        "priority":90,"jurisdiction":"India",
+    },
+    "rbi":{
+        "name":"Reserve Bank of India",
+        "url":"https://www.rbi.org.in/",
+        "domains":("rbi.org.in","www.rbi.org.in"),
+        "scope":("banking","payments","financial regulation applicable in Odisha"),
+        "priority":90,"jurisdiction":"India",
+    },
+    "meity":{
+        "name":"Ministry of Electronics and Information Technology",
+        "url":"https://www.meity.gov.in/",
+        "domains":("meity.gov.in","www.meity.gov.in"),
+        "scope":("data protection","information technology","digital rules applicable in Odisha"),
+        "priority":90,"jurisdiction":"India",
+    },
+    "trai":{
+        "name":"Telecom Regulatory Authority of India",
+        "url":"https://www.trai.gov.in/",
+        "domains":("trai.gov.in","www.trai.gov.in"),
+        "scope":("telecom","commercial communications","consent and messaging rules applicable in Odisha"),
+        "priority":90,"jurisdiction":"India",
+    },
+}
+
 
 
 SENSITIVE_EVASION = re.compile(
@@ -172,11 +317,12 @@ class NaradaLegalCouncil:
         idx=self._read_index()
         return {
             "name":"Rishi Narada Legal Council","advisor":"narada","permanent":True,
+            "default_jurisdiction":dict(DEFAULT_JURISDICTION),"odisha_only":ODISHA_ONLY,
             "shishya":self.shishya(),"official_sources":self.sources(),
             "corpus_documents":len(idx.get("documents") or {}),"recorded_updates":len(idx.get("updates") or []),
             "last_sync":idx.get("last_sync"),
             "policy":{
-                "modern_law_authority":"current official Indian law and authentic judgments",
+                "modern_law_authority":"Odisha/Bhubaneswar official law first; Central Indian law only where applicable in Odisha",
                 "classical_texts":"historical jurisprudence only; never current law",
                 "unofficial_sources":"discovery/context only until verified against authoritative material",
                 "high_consequence":"qualified Indian advocate review required when unresolved or consequential",
@@ -203,7 +349,12 @@ class NaradaLegalCouncil:
             "instruction":"Find the lawful path and legal risk using current official sources. If the objective requires concealment, obstruction or evasion, reject that route and propose lawful alternatives.",
         }
 
-    def research_plan(self,question,*,state="",domain=""):
+    def research_plan(self,question,*,state="",district="",city="",domain=""):
+        requested_state=str(state or DEFAULT_JURISDICTION["state"]).strip()
+        if requested_state.lower() not in {"odisha","orissa"}:
+            raise PermissionError("Narada legal scope is currently restricted to Odisha; other-state law is disabled")
+        requested_city=str(city or DEFAULT_JURISDICTION["city"]).strip()
+        requested_district=str(district or DEFAULT_JURISDICTION["district"]).strip()
         routing=self.route(question);profiles={x.id:x for x in SHISHYA};tasks=[]
         outputs={
             "constitution":["governing_sources","current_status","changes","effective_dates","superseded_material"],
@@ -218,13 +369,15 @@ class NaradaLegalCouncil:
             tasks.append({"shishya":sid,"role":p.role,"task":p.mission,"required_output":outputs[sid]})
         return {
             "lead_rishi":"narada","question":str(question).strip(),
-            "jurisdiction":{"country":"India","state":str(state or "").strip() or None},
+            "jurisdiction":{"country":"India","state":"Odisha","district":requested_district or None,"city":requested_city or None},
+            "scope_policy":"Odisha law only for now; Bhubaneswar is the default local context. Central law is consulted only where it applies in Odisha.",
             "domain":str(domain or "").strip() or None,"routing":routing,"tasks":tasks,
             "source_order":[
-                "Legislative Department / India Code / eGazette",
-                "Supreme Court / official eCourts",
-                "issuing regulator or ministry",
-                "State government / State regulator official source",
+                "Odisha Law Department / Odisha Gazette",
+                "Orissa High Court / Odisha eCourts",
+                "relevant Odisha department or regulator",
+                "BMC / BDA / Bhubaneswar-Cuttack Commissionerate when local Bhubaneswar law or procedure applies",
+                "India Code / Central eGazette / Supreme Court only for Central law binding or applicable in Odisha",
                 "secondary commentary only for discovery and cross-checking",
             ],
             "github_policy":"Open-source legal/RAG repositories may inspire retrieval architecture but are never legal authority.",
@@ -274,17 +427,21 @@ class NaradaLegalCouncil:
     def update_watch_plan(self):
         return {
             "owner":"constitution","purpose":"detect new or changed law without silently replacing prior versions",
+            "jurisdiction":dict(DEFAULT_JURISDICTION),
+            "odisha_only":True,
             "recommended_cadence":{
-                "eGazette / India Code / key ministries and regulators":"daily",
-                "Supreme Court / eCourts relevant judgments":"daily",
-                "broader State/local-law source inventory":"weekly and event-driven",
+                "Odisha Law Department / Odisha Gazette":"daily",
+                "Orissa High Court and Odisha-relevant eCourts judgments":"daily",
+                "Revenue / Urban / BMC / BDA / ORERA / Odisha Police / Labour / Finance / SPCB":"daily",
+                "Central sources":"daily only for changes applicable in Odisha",
+                "source coverage audit":"weekly",
             },
             "steps":[
-                "fetch official indexes/feed/pages through approved browser or provider",
+                "fetch Odisha/Bhubaneswar official indexes/feed/pages through approved browser or provider",
                 "compare canonical URL and content hash with Narada corpus",
                 "save new version while preserving the prior version",
                 "classify new/amended/repealed/superseded/commenced",
-                "send material changes through Constitution -> relevant shishya -> Gautama -> Narada",
+                "send material changes through Constitution -> relevant shishya -> Judge/Vakeel where needed -> Gautama -> Narada",
                 "do not claim corpus completeness unless source coverage is machine-verified",
             ],
             "sources":self.sources(),

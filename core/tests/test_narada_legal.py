@@ -48,6 +48,39 @@ class NaradaLegalCouncilTests(unittest.TestCase):
             self.assertEqual(second["supersedes"],first["document_id"])
             self.assertTrue((Path(td)/"corpus"/(first["document_id"]+".json")).exists())
 
+    def test_default_jurisdiction_is_bhubaneswar_odisha(self):
+        with tempfile.TemporaryDirectory() as td:
+            n=NaradaLegalCouncil(td)
+            plan=n.research_plan("What permissions apply to a commercial website business?")
+            self.assertEqual(plan["jurisdiction"]["state"],"Odisha")
+            self.assertEqual(plan["jurisdiction"]["district"],"Khordha")
+            self.assertEqual(plan["jurisdiction"]["city"],"Bhubaneswar")
+            self.assertIn("Odisha law only",plan["scope_policy"])
+
+    def test_other_state_law_is_disabled_for_now(self):
+        with tempfile.TemporaryDirectory() as td:
+            n=NaradaLegalCouncil(td)
+            with self.assertRaises(PermissionError):
+                n.research_plan("property registration rules",state="Karnataka")
+
+    def test_odisha_and_bhubaneswar_sources_are_registered(self):
+        with tempfile.TemporaryDirectory() as td:
+            sources=NaradaLegalCouncil(td).sources()
+            for sid in ("odisha_law","orissa_high_court","odisha_revenue","odisha_urban","bmc","bda","orera","odisha_police","commissionerate_police","odisha_labour","odisha_finance","odisha_spcb"):
+                self.assertIn(sid,sources)
+
+    def test_odisha_official_document_can_enter_authoritative_corpus(self):
+        with tempfile.TemporaryDirectory() as td:
+            n=NaradaLegalCouncil(td)
+            out=n.ingest_official_document(
+                title="Odisha Rule",
+                url="https://law.odisha.gov.in/example-rule",
+                text="Official Odisha legal text",
+                document_type="rule",
+                jurisdiction="Odisha",
+            )
+            self.assertEqual(out["source_id"],"odisha_law")
+
 
 if __name__=="__main__":
     unittest.main()
