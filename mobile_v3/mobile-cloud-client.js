@@ -7,6 +7,7 @@ class KrishnaMobileCloudChat {
   constructor(api){
     this.api=api;this.ws=null;this.ready=null;this.pending=null;this.model='';
     this.provider='google-gemini-live';this.lastError='';this.turn=0;
+    this.ephemeralToken='';this.tokenExpiresAt=0;this.resumeHandle='';
   }
   eligible(text,attachmentCount=0){
     const q=String(text||'').trim();
@@ -17,7 +18,7 @@ class KrishnaMobileCloudChat {
     return !(sensitive.test(q)||action.test(q)||stateful.test(q));
   }
   status(){
-    return {connected:!!(this.ws&&this.ws.readyState===WebSocket.OPEN),model:this.model,provider:this.provider,last_error:this.lastError,pc_per_turn:false,permanent_key_on_device:false};
+    return {connected:!!(this.ws&&this.ws.readyState===WebSocket.OPEN),model:this.model,provider:this.provider,last_error:this.lastError,pc_per_turn:false,permanent_key_on_device:false,resumable:!!this.resumeHandle,token_persisted:false};
   }
   playAudio(parts){
     try{
@@ -31,11 +32,13 @@ class KrishnaMobileCloudChat {
       const src=ctx.createBufferSource();src.buffer=buffer;src.connect(ctx.destination);src.onended=()=>{try{ctx.close()}catch(_){};try{window.onKrishnaCloudAudioEnd?.()}catch(_){}};src.start();return true;
     }catch(_){return false}
   }
-  close(){
+  close(forgetSession=false){
     try{if(this.ws){this.ws.onclose=null;this.ws.close();}}catch(_){}
     this.ws=null;this.ready=null;
+    if(forgetSession){this.ephemeralToken='';this.tokenExpiresAt=0;this.resumeHandle='';}
     if(this.pending){clearTimeout(this.pending.timer);this.pending.reject(new Error('free-cloud session closed'));this.pending=null;}
   }
+  tokenUsable(){return !!(this.ephemeralToken&&this.resumeHandle&&Date.now()+15000<this.tokenExpiresAt)}
   async connect(){
     if(this.ws&&this.ws.readyState===WebSocket.OPEN&&this.ready)return this.ready;
     if(this.ready)return this.ready;
@@ -43,27 +46,36 @@ class KrishnaMobileCloudChat {
       let token;
       try{
         if(!this.api||typeof this.api.mobileFreeCloudSession!=='function')throw new Error('mobile free-cloud bridge unavailable');
-        token=JSON.parse(this.api.mobileFreeCloudSession('chat',JSON.stringify({
-          cloud_approved:true,user_explicit:true,purpose:'chat',
-          contains_credentials:false,contains_biometrics:false,private_document:false
-        })));
-        if(token.error)throw new Error(token.error);
-        if(!token.free_only)throw new Error('provider session is not marked free-only');
-        if(token.permanent_key_exposed)throw new Error('unsafe cloud token response');
-        this.model=String(token.live_model||'');
+        if(this.tokenUsable()){
+          token={token:this.ephemeralToken,live_model:this.model,free_only:true,permanent_key_exposed:false,resumed:true};
+        }else{
+          token=JSON.parse(this.api.mobileFreeCloudSession('chat',JSON.stringify({
+            cloud_approved:true,user_explicit:true,purpose:'chat',
+            contains_credentials:false,contains_biometrics:false,private_document:false
+          })));
+          if(token.error)throw new Error(token.error);
+          if(!token.free_only)throw new Error('provider session is not marked free-only');
+          if(token.permanent_key_exposed)throw new Error('unsafe cloud token response');
+          this.ephemeralToken=String(token.token||'');
+          this.tokenExpiresAt=Date.parse(String(token.expires_at||''))||Date.now()+25*60*1000;
+          if(!token.resumed)this.resumeHandle='';
+        }
+        this.model=String(token.live_model||this.model||'');
         const url='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(token.token);
         const ws=new WebSocket(url);this.ws=ws;
         let settled=false;
         const fail=(message)=>{
           this.lastError=String(message||'cloud session failed');
           if(!settled){settled=true;this.ready=null;reject(new Error(this.lastError));}
-          this.close();
+          this.close(false);
         };
         const startup=setTimeout(()=>fail('free-cloud setup timed out'),12000);
         ws.onopen=()=>{
           ws.send(JSON.stringify({setup:{
             model:'models/'+this.model,
             generationConfig:{responseModalities:['AUDIO'],temperature:0.3},outputAudioTranscription:{},
+            sessionResumption:this.resumeHandle?{handle:this.resumeHandle}:{},
+            contextWindowCompression:{slidingWindow:{}},
             systemInstruction:{parts:[{text:
               'You are KRISHNA Mobile free-cloud conversational helper. Answer general non-sensitive informational questions only. '+
               'You cannot see KRISHNA PC, local files, private memory, credentials, projects, connected accounts or tools. '+
@@ -74,6 +86,8 @@ class KrishnaMobileCloudChat {
         ws.onmessage=e=>{
           try{
             const msg=JSON.parse(String(e.data||'{}'));
+            const resume=msg.sessionResumptionUpdate||{};
+            if(resume.resumable&&resume.newHandle)this.resumeHandle=String(resume.newHandle);
             if(msg.setupComplete&&!settled){clearTimeout(startup);settled=true;resolve(this.status());}
             const sc=msg.serverContent||{};
             if(this.pending){
