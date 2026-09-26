@@ -29,13 +29,45 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
 .gitaCard{position:absolute;left:12px;right:12px;bottom:10px;z-index:6;display:none;max-height:37%;overflow:auto;background:#03131dee;border:1px solid #d7b75a99;border-radius:14px;padding:10px 11px;box-shadow:0 10px 28px #0009}
 .gitaCard.active{display:block}.gitaRef{font-size:10px;letter-spacing:1.1px;color:#f2c96f}.gitaSanskrit{font-family:serif;font-size:15px;line-height:1.55;margin-top:6px;color:#fff;white-space:pre-wrap}.gitaMeaning{font-size:11px;line-height:1.4;color:#bfe9f2;margin-top:7px;white-space:pre-wrap}
 .gitaControls{display:flex;gap:7px;margin-top:8px}.gitaControls button{border:1px solid #45869a;background:#062334;color:#dffaff;border-radius:10px;min-height:31px;padding:0 11px;font-size:10px}.gitaControls button:first-child{border-color:#d7b75a;color:#f2c96f}
+
+/* KRISHNA Mobile v3.9 — avatar-first shell */
+header,.security,.rotateHint,.viewLabel{display:none!important}
+.app{position:relative;background:radial-gradient(circle at 50% 40%,#153f69a8,transparent 35%),linear-gradient(#061421,#01060c)}
+.stage{height:100%;flex:1}
+.avatarViewport{height:min(78vh,720px);max-height:calc(100vh - 92px);aspect-ratio:1/3}
+.halo{width:min(76vw,380px)}
+.bubble{top:18px;right:18px;max-width:72%;opacity:0;transform:translateY(-8px);transition:.2s ease;pointer-events:none}
+.stage.chat .bubble,.stage.working .bubble{opacity:1;transform:translateY(0)}
+.state{display:none!important}
+.quickDock{position:absolute;left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:7;display:flex;gap:10px;padding:7px 9px;border:1px solid #5bdff044;border-radius:28px;background:#03121dcc;backdrop-filter:blur(14px);box-shadow:0 12px 34px #0008}
+.quickBtn{width:42px;height:42px;border-radius:50%;border:1px solid #59d9ea66;background:#082535;color:#dffaff;font-size:17px;display:grid;place-items:center}
+.quickBtn.hawkeye{border-color:#f2c96f88;color:#f2c96f}.quickBtn.mic{border-color:#50f0ac88;color:#50f0ac}
+.chatSheet{position:absolute;left:10px;right:10px;bottom:78px;z-index:7;max-height:42vh;padding:9px;border:1px solid #44cbe066;border-radius:20px;background:#03131ee8;backdrop-filter:blur(16px);box-shadow:0 18px 44px #000a;opacity:0;transform:translateY(18px) scale(.985);pointer-events:none;transition:.2s ease}
+.chatSheet.open{opacity:1;transform:none;pointer-events:auto}
+.reply{min-height:34px;max-height:18vh;padding:4px 7px;font-size:13px;text-align:left}
+.composer{grid-template-columns:38px 60px minmax(0,1fr) 42px;gap:6px;padding:6px;border-radius:16px}
+.composer input[type=text]{padding:9px 6px}.composer select{max-width:60px}
+.cameraLayer.photographer .diagnosticOverlay,.cameraLayer.photographer .cameraAnalysis,.cameraLayer.photographer .cameraTop{display:none!important}
+.cameraTop{top:max(12px,env(safe-area-inset-top))}
+.cameraAnalysis{left:12px;right:12px;bottom:86px;max-height:24%;border-radius:16px}
+.cameraClose{top:max(14px,env(safe-area-inset-top));right:12px}
+.cameraPrimary{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:12;display:flex;align-items:center;gap:12px;padding:7px 10px;border-radius:32px;background:#020b12b8;backdrop-filter:blur(12px)}
+.cameraPrimary button{width:42px;height:42px;border-radius:50%;border:1px solid #65dce988;background:#0a2530dd;color:#fff;font-size:17px}
+.cameraPrimary .shutter{width:58px;height:58px;border:4px solid #fff;background:#ffffff33;box-shadow:0 0 0 2px #0008}
+.cameraActions{position:absolute;left:12px;right:12px;top:auto;bottom:88px;z-index:11;display:none;gap:6px;flex-wrap:wrap;padding:10px;border:1px solid #45d4e855;border-radius:16px;background:#03131eea;backdrop-filter:blur(12px)}
+.cameraActions.open{display:flex}
+.cameraRef{position:static;width:auto;height:34px}
+.cameraAction{height:34px}
+.gitaCard{bottom:80px}
+
 </style></head>
 <body><div class="app">
-<header><div class="brand">KRISHNA</div><div id="state" class="state" title="Tap to configure the private KRISHNA PC link" onclick="configurePc()">CONNECTING</div></header>
+<div id="state" class="state" title="KRISHNA private connection">CONNECTING</div>
 <section id="stage" class="stage">
   <div class="halo"></div><div id="rotateHint" class="rotateHint">SWIPE TO ROTATE · 360°</div>
   <div id="avatarViewport" class="avatarViewport"><img id="avatarSprite" class="sprite" src="krishna_child_360.webp" alt="KRISHNA child avatar"><div id="viewLabel" class="viewLabel">FRONT</div></div>
   <div id="bubble" class="bubble">Radhe Radhe. I am ready.</div>
+
   <section id="gitaCard" class="gitaCard" aria-live="polite">
     <div id="gitaRef" class="gitaRef">BHAGAVAD GITA</div>
     <div id="gitaSanskrit" class="gitaSanskrit"></div>
@@ -46,17 +78,23 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
       <button onclick="speakGitaExplanation()">EXPLAIN</button>
     </div>
   </section>
+
   <div id="cameraLayer" class="cameraLayer">
     <video id="fieldVideo" autoplay playsinline muted></video>
     <canvas id="fieldCanvas" hidden></canvas>
     <canvas id="diagnosticOverlay" class="diagnosticOverlay"></canvas>
     <div class="cameraHud">
       <div class="cameraTop"><span id="cameraMode" class="cameraBadge">HAWKEYE · AUTO SCAN</span><span id="cameraCount" class="cameraBadge">FRAME 0</span></div>
-      <div id="cameraAnalysis" class="cameraAnalysis">Point the camera at a hill, road, tower, building, bridge, or machinery.</div>
+      <div id="cameraAnalysis" class="cameraAnalysis">KRISHNA is looking.</div>
     </div>
-    <button id="cameraClose" class="cameraClose" onclick="stopFieldScan()" aria-label="Stop Hawkeye scan">×</button>
-    <button id="cameraRef" class="cameraRef" onclick="configureReferenceAlignment()" aria-label="Align verified circuit reference">REF</button>
-    <div class="cameraActions">
+    <button id="cameraClose" class="cameraClose" onclick="stopFieldScan()" aria-label="Close camera">×</button>
+    <div class="cameraPrimary">
+      <button onclick="flipCamera()" aria-label="Switch camera">↺</button>
+      <button class="shutter" onclick="HawkeyeObserverUI.photographerPhoto()" aria-label="Take edited photo"></button>
+      <button onclick="toggleCameraAdvanced()" aria-label="More Hawkeye controls">⋯</button>
+    </div>
+    <div id="cameraActions" class="cameraActions">
+      <button id="cameraRef" class="cameraRef" onclick="configureReferenceAlignment()" aria-label="Align verified circuit reference">REF</button>
       <button id="cameraLearn" class="cameraAction" onclick="HawkeyeObserverUI.toggleLearn()" aria-label="Toggle Hawkeye learning observer">LEARN</button>
       <button id="cameraAI" class="cameraAction" onclick="HawkeyeObserverUI.toggleAI()" aria-label="Cycle local, automatic free-cloud, OpenRouter and Gemini selected-frame reasoning">AI:LOCAL</button>
       <button id="cameraGeminiLive" class="cameraAction" onclick="HawkeyeObserverUI.toggleGeminiLive()" aria-label="Toggle Gemini Live with an ephemeral token">G-LIVE</button>
@@ -69,20 +107,25 @@ header{text-align:center;padding:16px 12px 7px}.brand{letter-spacing:7px;color:#
       <button id="cameraRecord" class="cameraAction" onclick="HawkeyeObserverUI.record()" aria-label="Record Hawkeye object with data">REC+DATA</button>
     </div>
   </div>
+
+  <div id="chatSheet" class="chatSheet" aria-label="KRISHNA conversation">
+    <div id="reply" class="reply">Talk to KRISHNA.</div>
+    <div class="composer">
+      <button onclick="document.getElementById('attach').click()" aria-label="Attach photo or file">＋</button>
+      <input id="attach" type="file" accept="image/*,.pdf,.txt,.md,.json" capture="environment" hidden onchange="attachFile(this)">
+      <select id="voiceLang" aria-label="Conversation language"><option value="or-IN">ଓଡ଼ିଆ</option><option value="hi-IN">हिन्दी</option><option value="en-IN">EN</option></select>
+      <input id="msg" type="text" placeholder="Talk to KRISHNA…" onkeydown="if(event.key==='Enter')send()">
+      <button class="send" onclick="send()" aria-label="Send">➤</button>
+    </div>
+    <div class="security">Conversation only · owner voice gate is local · sensitive actions still require device authorization</div>
+  </div>
+
+  <div class="quickDock" aria-label="KRISHNA quick controls">
+    <button id="hawkeyeQuick" class="quickBtn hawkeye" onclick="startFieldScan('automatic live visual check',false)" aria-label="Open Hawkeye">◉</button>
+    <button id="chatQuick" class="quickBtn" onclick="toggleChat()" aria-label="Open chat">⌁</button>
+    <button id="micQuick" class="quickBtn mic" onclick="listen()" aria-label="Talk to KRISHNA">🎙</button>
+  </div>
 </section>
-<footer class="bottom">
- <div id="reply" class="reply">Talk to KRISHNA.</div>
- <div class="composer">
-   <button onclick="startFieldScan()" aria-label="Hawkeye live camera scan">◉</button>
-   <button onclick="document.getElementById('attach').click()" aria-label="Attach photo or file">＋</button>
-   <input id="attach" type="file" accept="image/*,.pdf,.txt,.md,.json" capture="environment" hidden onchange="attachFile(this)">
-   <button onclick="listen()" aria-label="Talk to KRISHNA">🎙</button>
-   <select id="voiceLang" aria-label="Conversation language"><option value="or-IN">ଓଡ଼ିଆ</option><option value="hi-IN">हिन्दी</option><option value="en-IN">EN</option></select>
-   <input id="msg" type="text" placeholder="Talk to KRISHNA…" onkeydown="if(event.key==='Enter')send()">
-   <button class="send" onclick="send()" aria-label="Send">➤</button>
- </div>
- <div class="security">Conversation only · owner voice gate is local · sensitive actions still require device authorization</div>
-</footer>
 </div>
 <script src="realtime-client.js"></script>
 <script>
