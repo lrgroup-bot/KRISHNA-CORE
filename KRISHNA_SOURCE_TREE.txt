@@ -264,6 +264,7 @@ core\krishna_core\worker_fabric.py
 core\krishna_core\worker_supervisor.py
 core\krishna_core\workers.py
 core\krishna_core\workflow_recording.py
+core\krishna_core\zero_spend_policy.py
 core\krishna_desktop.py
 core\README.md
 core\requirements\krishna_chat_requirements.json
