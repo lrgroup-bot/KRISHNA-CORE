@@ -105,6 +105,18 @@ from .gita_performance import GitaPerformanceEngine
 from .krishna_shloka import KrishnaShlokaOrchestrator
 from .self_heal import KrishnaSelfHealRuntime
 from .mrityunjay import MrityunjayRuntime
+from .superhuman_operator import SuperhumanOperatorPolicy
+from .gmail_triage import GmailTriage
+from .manibhadra_commerce import ManibhadraCommerce
+from .marketplace_adapters import MarketplaceAdapterRegistry
+from .workflow_recording import WorkflowRecorder
+from .skill_compiler import SkillCompiler
+from .node_registry import NodeRegistry
+from .node_execution import TrustedNodeExecutor
+from .github_pr_review import GitHubPRReviewer
+from .application_security import ApplicationSecurityLoop
+from .windows_worker_sandbox import WindowsWorkerSandbox
+from .social_channels import SocialChannelRegistry
 
 
 class Orchestrator:
@@ -159,6 +171,18 @@ class Orchestrator:
         self.engineering_swarm = EngineeringSwarmManager(runtime_state / "engineering-swarm")
         self.engineering_worktree_root = (runtime_state.parent / "engineering-worktrees").resolve()
         self.engineering_worktree_root.mkdir(parents=True, exist_ok=True)
+        self.superhuman = SuperhumanOperatorPolicy()
+        self.gmail_triage = GmailTriage()
+        self.manibhadra = ManibhadraCommerce()
+        self.marketplaces = MarketplaceAdapterRegistry()
+        self.skill_compiler = SkillCompiler(runtime_state / "skill-candidates")
+        self.workflow_recorder = WorkflowRecorder(runtime_state / "workflow-recordings", self.skill_compiler)
+        self.compute_nodes = NodeRegistry(runtime_state / "trusted-nodes.json")
+        self.node_executor = TrustedNodeExecutor(self.compute_nodes)
+        self.github_pr_reviewer = GitHubPRReviewer()
+        self.application_security = ApplicationSecurityLoop()
+        self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
+        self.social_channels = SocialChannelRegistry()
         self.amcc = AMCCController(runtime_state / "amcc")
         self.actions = ActionRegistry()
         self.indexer = RepositoryIndexer()
@@ -514,6 +538,172 @@ class Orchestrator:
             project=str(payload.get("project") or context.get("project") or "").strip()
             if not project:raise ValueError("project is required")
             return self._engineering_worktree_manager(project).status()
+
+        def superhuman_status_action(payload,context):
+            return self.superhuman.status()
+
+        def social_channels_status_action(payload,context):
+            return self.social_channels.status()
+
+        def social_channel_action(payload,context):
+            return self.social_channels.get(str(payload.get("channel") or ""))
+
+        def gmail_triage_action(payload,context):
+            messages=payload.get("messages") or []
+            if not isinstance(messages,list):raise ValueError("messages must be a list")
+            return {"messages":self.gmail_triage.batch(messages,payload.get("model_verdicts") or {})}
+
+        def manibhadra_status_action(payload,context):
+            return self.manibhadra.status()
+
+        def manibhadra_evaluate_action(payload,context):
+            return self.manibhadra.evaluate(
+                str(payload.get("product") or ""),
+                demand=float(payload.get("demand") or 0),
+                margin=float(payload.get("margin") or 0),
+                competition=float(payload.get("competition") or 0),
+                return_risk=float(payload.get("return_risk") or 0),
+            )
+
+        def manibhadra_research_action(payload,context):
+            product=str(payload.get("product") or payload.get("category") or "").strip()
+            if not product:raise ValueError("product or category is required")
+            query=(
+                "product opportunity supplier demand competition pricing marketplace trends "
+                "Amazon Flipkart Meesho India "+product
+            )
+            report=self.garuda.scout(
+                str(payload.get("project") or context.get("project") or "KRISHNA"),
+                query,
+                max(3,min(int(payload.get("limit") or 8),12)),
+            )
+            return {
+                "agent":"MANIBHADRA","product":product,
+                "research":report,
+                "next":"evaluate margin/demand/competition then request owner approval before supplier outreach or marketplace mutation",
+            }
+
+        def manibhadra_supplier_offer_action(payload,context):
+            return self.manibhadra.supplier_offer(
+                str(payload.get("product") or ""),
+                seller_name=str(payload.get("seller_name") or ""),
+                commission_percent=payload.get("commission_percent"),
+            )
+
+        def manibhadra_listing_action(payload,context):
+            return self.manibhadra.listing_plan(
+                str(payload.get("platform") or ""),
+                payload.get("product") or {},
+                payload.get("keywords") or [],
+            )
+
+        def marketplace_status_action(payload,context):
+            return {"operations":self.marketplaces.list()}
+
+        def compute_nodes_status_action(payload,context):
+            return self.compute_nodes.status()
+
+        def compute_nodes_configure_action(payload,context):
+            return self.compute_nodes.configure_execution(
+                str(payload.get("node_id") or ""),
+                platform=str(payload.get("platform") or ""),
+                capabilities=payload.get("capabilities") or [],
+                endpoint=str(payload.get("endpoint") or ""),
+                workspace_root=str(payload.get("workspace_root") or ""),
+                approved=bool(context.get("approved",False)),
+            )
+
+        def compute_nodes_heartbeat_action(payload,context):
+            return self.compute_nodes.heartbeat(
+                str(payload.get("node_id") or ""),
+                payload.get("capabilities"),
+            )
+
+        def compute_nodes_select_action(payload,context):
+            return {"node":self.compute_nodes.select(
+                str(payload.get("capability") or ""),
+                str(payload.get("platform") or "").strip() or None,
+            )}
+
+        def compute_nodes_plan_action(payload,context):
+            return self.node_executor.plan(
+                str(payload.get("capability") or ""),
+                payload.get("command") or [],
+                str(payload.get("platform") or "").strip() or None,
+            )
+
+        def compute_nodes_run_action(payload,context):
+            return self.node_executor.run(
+                str(payload.get("capability") or ""),
+                payload.get("command") or [],
+                platform=str(payload.get("platform") or "").strip() or None,
+                approved=bool(context.get("approved",False)),
+                timeout=int(payload.get("timeout") or 1800),
+            )
+
+        def workflow_record_start_action(payload,context):
+            return self.workflow_recorder.start(
+                str(payload.get("name") or "Recorded workflow"),
+                str(payload.get("project") or context.get("project") or "KRISHNA"),
+            )
+
+        def workflow_record_append_action(payload,context):
+            return self.workflow_recorder.append(
+                str(payload.get("session_id") or ""),
+                str(payload.get("action") or ""),
+                str(payload.get("target") or ""),
+                str(payload.get("value") or ""),
+                payload.get("evidence") or [],
+            )
+
+        def workflow_record_finish_action(payload,context):
+            return self.workflow_recorder.finish(str(payload.get("session_id") or ""))
+
+        def github_pr_review_action(payload,context):
+            return self.github_pr_reviewer.review(
+                payload.get("pr") or {},
+                payload.get("diff_files") or [],
+                payload.get("checks") or [],
+                payload.get("security_findings") or [],
+            )
+
+        def application_security_threat_model_action(payload,context):
+            return self.application_security.threat_model(
+                str(payload.get("project_root") or ""),
+                payload.get("entry_points") or [],
+                payload.get("sensitive_assets") or [],
+            )
+
+        def application_security_scan_action(payload,context):
+            return self.application_security.scan(payload.get("paths") or [])
+
+        def application_security_reproduce_action(payload,context):
+            return self.application_security.reproduction_plan(
+                payload.get("finding") or {},
+                str(payload.get("candidate_root") or ""),
+            )
+
+        def windows_sandbox_status_action(payload,context):
+            return self.windows_worker_sandbox.status()
+
+        def windows_sandbox_setup_plan_action(payload,context):
+            return self.windows_worker_sandbox.setup_plan()
+
+        def windows_sandbox_plan_action(payload,context):
+            return self.windows_worker_sandbox.plan(
+                str(payload.get("worktree") or ""),
+                str(payload.get("worker_id") or ""),
+                network=bool(payload.get("network",False)),
+            )
+
+        def windows_sandbox_run_action(payload,context):
+            return self.windows_worker_sandbox.run(
+                str(payload.get("worktree") or ""),
+                str(payload.get("worker_id") or ""),
+                payload.get("command") or [],
+                approved=bool(context.get("approved",False)),
+                timeout=int(payload.get("timeout") or 900),
+            )
 
         def work_managed_run(payload,context):
             return self._run_managed_goal_impl(
@@ -2651,6 +2841,142 @@ class Orchestrator:
             "engineering.worktree.status",engineering_worktree_status_action,
             description="Read Git worktree isolation state for a registered project",
             permissions=("code.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "superhuman.status",superhuman_status_action,
+            description="Read owner-first KRISHNA Superhuman operator policy",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "social.channels.status",social_channels_status_action,
+            description="Read owner-authorized social channel capability truth and connection requirements",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "social.channel",social_channel_action,
+            description="Read capabilities and mutation policy for one social/email channel",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "gmail.triage",gmail_triage_action,
+            description="Classify Gmail messages into reply/update/promotion/sales/spam/phishing buckets without mutating the mailbox",
+            permissions=("provider.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.status",manibhadra_status_action,
+            description="Read MANIBHADRA commerce specialist capabilities and guardrails",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.evaluate",manibhadra_evaluate_action,
+            description="Score a product opportunity from bounded demand/margin/competition/return signals",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.research",manibhadra_research_action,
+            description="Use Garuda provenance-backed research to scout product/supplier/marketplace opportunities for MANIBHADRA",
+            permissions=("web.read","project.read"),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.supplier_offer",manibhadra_supplier_offer_action,
+            description="Draft a transparent supplier/reseller proposal; sending remains approval-gated",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.listing_plan",manibhadra_listing_action,
+            description="Create policy-bounded Amazon/Flipkart/Meesho listing and SEO plans",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "marketplace.capabilities",marketplace_status_action,
+            description="Read verified marketplace adapter operation contracts",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "compute.nodes.status",compute_nodes_status_action,
+            description="Read trusted compute-node fabric state",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "compute.nodes.configure",compute_nodes_configure_action,
+            description="Attach execution platform/capabilities to an already owner-trusted KRISHNA node",
+            mutating=True,requires_approval=True,permissions=("runtime.write",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "compute.nodes.heartbeat",compute_nodes_heartbeat_action,
+            description="Update a registered compute node heartbeat/capabilities",
+            mutating=True,permissions=("runtime.write",),sources=("pc","system","agent"),
+        )
+        self.action_bus.register(
+            "compute.nodes.select",compute_nodes_select_action,
+            description="Select an online trusted compute node for a declared capability",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "compute.nodes.plan",compute_nodes_plan_action,
+            description="Plan a bounded engineering command on an already-trusted Mac/Linux node",
+            permissions=("runtime.read",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "compute.nodes.run",compute_nodes_run_action,
+            description="Execute an approved allowlisted engineering command over strict-host-key SSH on a trusted node",
+            mutating=True,requires_approval=True,permissions=("candidate.write",),sources=("pc","system","job"),
+        )
+        self.action_bus.register(
+            "workflow.record.start",workflow_record_start_action,
+            description="Start a bounded Record-and-Replay workflow capture",
+            mutating=True,permissions=("memory.write",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "workflow.record.append",workflow_record_append_action,
+            description="Append an allowlisted desktop/browser action to a workflow recording",
+            mutating=True,permissions=("memory.write",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "workflow.record.finish",workflow_record_finish_action,
+            description="Compile a recorded workflow into a candidate KRISHNA Skill",
+            mutating=True,permissions=("memory.write",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "github.pr.review",github_pr_review_action,
+            description="Run deterministic PR intent/diff/check/security review before Sudarshan merge decisions",
+            permissions=("code.read","runtime.read"),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "application.security.threat_model",application_security_threat_model_action,
+            description="Build an authorized defensive application threat model",
+            permissions=("code.read","runtime.read"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "application.security.scan",application_security_scan_action,
+            description="Run defensive source/secret/dangerous-execution checks on authorized files",
+            permissions=("code.read","runtime.read"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "application.security.reproduction_plan",application_security_reproduce_action,
+            description="Build a candidate-only safe reproduction plan for a defensive finding",
+            permissions=("code.read","runtime.read"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "windows.sandbox.status",windows_sandbox_status_action,
+            description="Read Codex Windows sandbox provider availability and fail-closed enforcement state",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "windows.sandbox.setup_plan",windows_sandbox_setup_plan_action,
+            description="Return the explicit elevated setup command for the open-source Codex Windows sandbox",
+            permissions=("runtime.read",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "windows.sandbox.plan",windows_sandbox_plan_action,
+            description="Plan OS-enforced restricted-token Windows sandboxing for a coding worktree",
+            permissions=("runtime.read",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "windows.sandbox.run",windows_sandbox_run_action,
+            description="Run an approved worker command inside the native Windows restricted-token sandbox",
+            mutating=True,requires_approval=True,permissions=("candidate.write",),sources=("pc","system","job"),
         )
 
         self.action_bus.register(

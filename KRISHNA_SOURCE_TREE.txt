@@ -1,5 +1,6 @@
 .github\workflows\build-console.yml
 .github\workflows\build-mobile-v3.yml
+.github\workflows\krishna-pr-review.yml
 .github\workflows\long-context-regression.yml
 .github\workflows\spatial-ui.yml
 .github\workflows\test-core.yml
@@ -26,6 +27,7 @@ core\krishna_core\agent_runtime.py
 core\krishna_core\agi_kernel.py
 core\krishna_core\amcc_controller.py
 core\krishna_core\android_test_fabric.py
+core\krishna_core\application_security.py
 core\krishna_core\architecture_truth.py
 core\krishna_core\attachments.py
 core\krishna_core\automation_bus.py
@@ -91,7 +93,9 @@ core\krishna_core\gemini_hawkeye.py
 core\krishna_core\git_worktrees.py
 core\krishna_core\gita_gyan.py
 core\krishna_core\gita_performance.py
+core\krishna_core\github_pr_review.py
 core\krishna_core\github_research.py
+core\krishna_core\gmail_triage.py
 core\krishna_core\gnn_backend.py
 core\krishna_core\gnn_trainer.py
 core\krishna_core\goal_evaluator.py
@@ -124,6 +128,8 @@ core\krishna_core\lab_bot.py
 core\krishna_core\lan_discovery.py
 core\krishna_core\lip_sync.py
 core\krishna_core\long_context.py
+core\krishna_core\manibhadra_commerce.py
+core\krishna_core\marketplace_adapters.py
 core\krishna_core\mcp_transport.py
 core\krishna_core\media_adapter.py
 core\krishna_core\memory_fabric.py
@@ -155,6 +161,7 @@ core\krishna_core\narad\workflow_graph.py
 core\krishna_core\native_voice.py
 core\krishna_core\neural_action_graph.py
 core\krishna_core\node_bootstrap.py
+core\krishna_core\node_execution.py
 core\krishna_core\node_installer.py
 core\krishna_core\node_provisioner.py
 core\krishna_core\node_registry.py
@@ -222,6 +229,7 @@ core\krishna_core\shadow_workspace.py
 core\krishna_core\shared_action_bus.py
 core\krishna_core\skill_compiler.py
 core\krishna_core\skill_runtime.py
+core\krishna_core\social_channels.py
 core\krishna_core\software_factory.py
 core\krishna_core\spark_x25.py
 core\krishna_core\specialist_library.py
@@ -232,6 +240,7 @@ core\krishna_core\sudarshan_design_engine.py
 core\krishna_core\sudarshan_design_policy.py
 core\krishna_core\sudarshan_project_orchestrator.py
 core\krishna_core\sudarshan_ui_pipeline.py
+core\krishna_core\superhuman_operator.py
 core\krishna_core\task_ledger.py
 core\krishna_core\threat_intel.py
 core\krishna_core\ui_guardian.py
@@ -249,9 +258,11 @@ core\krishna_core\watcher.py
 core\krishna_core\wearable_bridge.py
 core\krishna_core\windows_desktop_fabric.py
 core\krishna_core\windows_remote_manager.py
+core\krishna_core\windows_worker_sandbox.py
 core\krishna_core\worker_fabric.py
 core\krishna_core\worker_supervisor.py
 core\krishna_core\workers.py
+core\krishna_core\workflow_recording.py
 core\krishna_desktop.py
 core\README.md
 core\requirements\krishna_chat_requirements.json
@@ -387,6 +398,7 @@ core\tests\test_sudarshan_design_engine.py
 core\tests\test_sudarshan_design_policy.py
 core\tests\test_sudarshan_project_orchestrator.py
 core\tests\test_sudarshan_ui_pipeline.py
+core\tests\test_superhuman_commerce.py
 core\tests\test_task_ledger.py
 core\tests\test_ui_guardian.py
 core\tests\test_universal_learning.py
@@ -467,6 +479,7 @@ scripts\INSTALL_KRISHNA_SANSKRIT_TTS.ps1
 scripts\INSTALL_KRISHNA_WAKE_RUNTIME.ps1
 scripts\INSTALL_VIDEO_AVATAR_ENGINES.ps1
 scripts\KRISHNA_GUARDIAN.ps1
+scripts\KRISHNA_PR_REVIEW.py
 scripts\PATCH_KRISHNA_V3.ps1
 scripts\PREPARE_KRISHNA_AVATAR.ps1
 scripts\SETUP_GYAN_SECURITY.ps1
