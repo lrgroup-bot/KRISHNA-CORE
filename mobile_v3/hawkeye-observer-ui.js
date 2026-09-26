@@ -18,6 +18,7 @@
     lastFreeCloudRole: "",
     lastFreeCloudReviews: [],
     lastFreeCloudPc: null,
+    lastPcFindingSyncAt: 0,
     aiMode: "LOCAL",
     cloudApproved: false,
     lockedTrackingId: null,
@@ -454,7 +455,8 @@
       }
       if(state.freeCloudAnalysis)byId("cameraAnalysis").textContent=local+label+": "+state.freeCloudAnalysis+review;
 
-      if(state.freeCloudAnalysis&&window.Krishna&&Krishna.hawkeyeFreeCloudFinding){
+      const pcSyncDue=!!force||(Date.now()-Number(state.lastPcFindingSyncAt||0)>=300000);
+      if(pcSyncDue&&state.freeCloudAnalysis&&window.Krishna&&Krishna.hawkeyeFreeCloudFinding){
         try{
           const finding={
             analysis:state.freeCloudAnalysis,
@@ -465,6 +467,7 @@
             local_context:richMetadata(),
             metadata:meta,
             zero_cost_verified:!!out.zero_cost_verified,
+            mobile_direct:!!out.mobile_direct,
             selected_keyframe:true,
             scene_signature:sig
           };
@@ -473,7 +476,7 @@
             String(typeof fieldGoal!=="undefined"?fieldGoal:"live visual assistance"),
             JSON.stringify(finding)
           ));
-          if(!pc.error)state.lastFreeCloudPc=pc;
+          if(!pc.error){state.lastFreeCloudPc=pc;state.lastPcFindingSyncAt=Date.now();}
         }catch(_){}
       }
     }catch(e){if(force&&typeof reply==="function")reply("HAWKEYE free cloud: "+e.message,"warn");}
@@ -509,7 +512,7 @@
       if(typeof reply==="function")reply("HAWKEYE cloud reasoning is off; ML Kit and MediaPipe stay local.","good");
     }else{
       const note=next==="AUTO"
-        ?"AUTO uses verified zero-cost OpenRouter vision first, then Gemini fallback; selected non-sensitive frames only."
+        ?"AUTO uses mobile-direct zero-price OpenRouter first, then PC-brokered verified-free fallbacks only when needed; selected non-sensitive frames only."
         :(next==="OPENROUTER"
           ?"OpenRouter vision uses the role-selected model only if the live catalog still reports zero cost."
           :"Gemini selected-keyframe mode enabled; sensitive scenes remain local.");
