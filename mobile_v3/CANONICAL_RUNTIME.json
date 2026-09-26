@@ -18,6 +18,7 @@
     "HawkeyeSensorFusion.java",
     "index.html",
     "realtime-client.js",
+    "mobile-cloud-client.js",
     "HawkeyeMobileVision.java",
     "HawkeyeOfflinePerception.java",
     "HawkeyeLanguage.java",
@@ -91,7 +92,7 @@
     "hawkeye_free_cloud_fabric": true,
     "openrouter_zero_cost_role_routing": true,
     "openrouter_role_preferences": true,
-    "free_cloud_credentials_pc_only": true,
+    "free_cloud_credentials_pc_only": false,
     "pc_heavy_inference_default": false,
     "hawkeye_cloud_reviews_text_only": true,
     "hawkeye_cloud_findings_synced_to_pc": true,
@@ -122,7 +123,17 @@
     "mobile_avatar_threejs_renderer": true,
     "mobile_avatar_visible_fallback_gate": true,
     "mobile_avatar_fallback_is_animated_2d": true,
-    "mobile_avatar_production_glb_required_for_true_3d": true
+    "mobile_avatar_production_glb_required_for_true_3d": true,
+    "mobile_direct_free_cloud_chat_session": true,
+    "mobile_direct_cloud_permanent_key": false,
+    "mobile_direct_cloud_short_lived_token": true,
+    "mobile_general_chat_pc_default": false,
+    "mobile_private_action_chat_pc_required": true,
+    "mobile_pc_poll_interval_foreground_seconds": 30,
+    "mobile_event_resume_interval_foreground_seconds": 15,
+    "mobile_event_resume_interval_background_seconds": 60,
+    "heavy_optional_capabilities_lazy": true,
+    "free_cloud_permanent_credentials_pc_only": true
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
@@ -143,14 +154,16 @@
     "large_media_sync": "Resumable 512 KiB chunks to the E-drive Hawkeye inbox; PC SHA-256 verification and atomic promotion are required before mobile sync state advances.",
     "assistant_mode": "Android VoiceInteractionService + Assistant role; one-time system consent is required for direct background assistant invocation.",
     "photographer": "Best-frame selection and natural local edit are performed on-device, then the clean photo is saved through Android MediaStore to Pictures/KRISHNA/Photos.",
-    "avatar_delivery": "Trusted private PC production GLB is synced to mobile only after the PC avatar inspector reports active_ready. Three.js renders it locally; otherwise the animated 8-view fallback remains visible."
+    "avatar_delivery": "Trusted private PC production GLB is synced to mobile only after the PC avatar inspector reports active_ready. Three.js renders it locally; otherwise the animated 8-view fallback remains visible.",
+    "mobile_chat_cloud": "Eligible general non-sensitive conversation uses a reusable short-lived free-only Gemini Live text session directly from the phone; private/stateful/action/attachment requests and cloud failures escalate to KRISHNA PC.",
+    "optional_capability_fabric": "OpenJev-style System-One, dots3/dots.mocr/dots.tts, STEMKit and Strix are lazy capability adapters; no heavyweight model or daemon is started automatically."
   },
   "model_policy": {
     "pc_qwen_allowed": true,
     "mobile_qwen_allowed": false,
     "mobile_qwen_dependency": false,
-    "mobile_cloud_mode": "verified-free-only",
-    "mobile_cloud_credentials": "PC-owned or short-lived device token only",
+    "mobile_cloud_mode": "short-lived free-only direct session first for eligible general conversation; KRISHNA PC escalation for private, stateful, action, attachment, heavy, or failed-cloud work",
+    "mobile_cloud_credentials": "permanent credentials remain on KRISHNA PC; mobile receives only short-lived tokens",
     "pc_qwen_default_role_assigned": true,
     "pc_roles": {
       "general": "qwen3.5:4b",
@@ -204,6 +217,8 @@
       ]
     },
     "private_heavy_hawkeye": "KRISHNA_PC_ONLY",
-    "automatic_paid_fallback": false
+    "automatic_paid_fallback": false,
+    "mobile_general_chat_pc_default": false,
+    "mobile_private_action_pc_required": true
   }
 }
