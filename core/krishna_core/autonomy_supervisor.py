@@ -13,7 +13,7 @@ class AutonomySupervisor:
     index evidence so KRISHNA keeps safe routine work moving while unattended.
     """
 
-    SAFE_OPERATIONS={"investigate","research","index"}
+    SAFE_OPERATIONS={"investigate","research","index","legal_update"}
 
     def __init__(self, orchestrator, poll_seconds=300):
         self.orch=orchestrator
@@ -63,6 +63,9 @@ class AutonomySupervisor:
                     "handover":result.get("handover")}
         if op=="index":
             return {"operation":op,"file_count":result.get("file_count",0),"symbol_count":len(result.get("symbols") or [])}
+        if op=="legal_update":
+            return {"operation":op,"checked":result.get("checked",0),"changed":list(result.get("changed") or []),
+                    "baselined":list(result.get("baselined") or []),"error_count":len(result.get("errors") or [])}
         return {"operation":op}
 
     def _execute(self,item):
@@ -77,6 +80,8 @@ class AutonomySupervisor:
             result=self.orch.garuda_scout(project,goal,min(20,max(1,int(cfg.get("limit") or 10))))
         elif op=="index":
             result=self.orch.index_project(project)
+        elif op=="legal_update":
+            result=self.orch.narada_legal.check_updates(cfg.get("source_ids"))
         else:
             raise PermissionError("autonomy operation is not in the non-mutating allowlist")
         summary=self._summary(op,result)
