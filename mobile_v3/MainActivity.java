@@ -524,8 +524,9 @@ public class MainActivity extends Activity {
         if(bytes.length==0||bytes.length>max)throw new IllegalArgumentException("HAWKEYE capture exceeds bounded size");
 
         String ext="image/png".equals(type)?".png":("image/webp".equals(type)?".webp":("video/mp4".equals(type)?".mp4":("video/webm".equals(type)?".webm":".jpg")));
-        String base="KRISHNA_HAWKEYE_"+System.currentTimeMillis();
         JSONObject metadata=(JSONObject)sanitizeCaptureMetadata("",new JSONObject(metadataJson==null||metadataJson.trim().isEmpty()?"{}":metadataJson));
+        boolean photographer=image&&metadata.optBoolean("photographer_mode",false);
+        String base=(photographer?"KRISHNA_PHOTO_":"KRISHNA_HAWKEYE_")+System.currentTimeMillis();
         metadata.put("saved_at",System.currentTimeMillis());
         metadata.put("raw_cloud_upload",false);
         metadata.put("privacy","user-requested local capture; no automatic cloud upload");
@@ -559,7 +560,7 @@ public class MainActivity extends Activity {
           ContentValues cv=new ContentValues();
           cv.put(MediaStore.MediaColumns.DISPLAY_NAME,base+ext);
           cv.put(MediaStore.MediaColumns.MIME_TYPE,type);
-          cv.put(MediaStore.MediaColumns.RELATIVE_PATH,(image?Environment.DIRECTORY_PICTURES:Environment.DIRECTORY_MOVIES)+"/KRISHNA/HAWKEYE");
+          cv.put(MediaStore.MediaColumns.RELATIVE_PATH,(image?Environment.DIRECTORY_PICTURES:Environment.DIRECTORY_MOVIES)+"/KRISHNA/"+(photographer?"Photos":"HAWKEYE"));
           cv.put(MediaStore.MediaColumns.IS_PENDING,1);
           Uri collection=image?MediaStore.Images.Media.EXTERNAL_CONTENT_URI:MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
           Uri uri=resolver.insert(collection,cv);
@@ -567,16 +568,19 @@ public class MainActivity extends Activity {
           try(OutputStream os=resolver.openOutputStream(uri)){if(os==null)throw new IOException("MediaStore stream unavailable");os.write(bytes);}
           cv.clear();cv.put(MediaStore.MediaColumns.IS_PENDING,0);resolver.update(uri,cv,null,null);
 
-          ContentValues side=new ContentValues();
-          side.put(MediaStore.MediaColumns.DISPLAY_NAME,base+".json");
-          side.put(MediaStore.MediaColumns.MIME_TYPE,"application/json");
-          side.put(MediaStore.MediaColumns.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/KRISHNA/HAWKEYE");
-          Uri metaUri=resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,side);
-          if(metaUri!=null)try(OutputStream os=resolver.openOutputStream(metaUri)){if(os!=null)os.write(metadata.toString(2).getBytes("UTF-8"));}
+          Uri metaUri=null;
+          if(!photographer){
+            ContentValues side=new ContentValues();
+            side.put(MediaStore.MediaColumns.DISPLAY_NAME,base+".json");
+            side.put(MediaStore.MediaColumns.MIME_TYPE,"application/json");
+            side.put(MediaStore.MediaColumns.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/KRISHNA/HAWKEYE");
+            metaUri=resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,side);
+            if(metaUri!=null)try(OutputStream os=resolver.openOutputStream(metaUri)){if(os!=null)os.write(metadata.toString(2).getBytes("UTF-8"));}
+          }
           out.put("uri",uri.toString());out.put("metadata_uri",metaUri==null?JSONObject.NULL:metaUri.toString());
-          out.put("gallery_visible",true);
+          out.put("gallery_visible",true);out.put("photographer_mode",photographer);
         }else{
-          File root=new File(getExternalFilesDir(image?Environment.DIRECTORY_PICTURES:Environment.DIRECTORY_MOVIES),"KRISHNA/HAWKEYE");
+          File root=new File(getExternalFilesDir(image?Environment.DIRECTORY_PICTURES:Environment.DIRECTORY_MOVIES),"KRISHNA/"+(photographer?"Photos":"HAWKEYE"));
           if(!root.exists()&&!root.mkdirs())throw new IOException("capture directory unavailable");
           File media=new File(root,base+ext),meta=new File(root,base+".json");
           try(FileOutputStream os=new FileOutputStream(media)){os.write(bytes);}
