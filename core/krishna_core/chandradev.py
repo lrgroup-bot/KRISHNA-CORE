@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-"""CHANDRADEV independent live-camera final QC peer for KRISHNA.
+"""CHANDRADEV independent PC live-camera vision/QC peer for KRISHNA.
 
-CHANDRADEV runs on a trusted external workstation/laptop and independently watches
+CHANDRADEV runs on the KRISHNA PC and independently watches
 live rendered/tested output through a camera or supplied visual observations. It
 does not silently override BRAHMA or deterministic tests. Disagreement between
 CHANDRADEV and BRAHMA creates an explicit QC debate that must be resolved before
@@ -290,10 +290,11 @@ class ChandradevQC:
         return {
             "agent": "CHANDRADEV",
             "version": self.VERSION,
-            "role": "independent external live-camera final QC peer",
+            "role": "independent PC live-camera vision and final-QC peer",
             "capabilities": list(self.CAPABILITIES),
-            "runs_on_external_node": True,
-            "transports": ["trusted_lan", "verified_usb_packet"],
+            "runs_on_pc": True,
+            "runs_on_external_node": False,
+            "transports": ["local_rtmp", "local_camera", "verified_usb_packet", "trusted_lan"],
             "qc_records": count,
             "camera_observations": len(self.camera_observations(500)),
             "open_debates": open_debates,
