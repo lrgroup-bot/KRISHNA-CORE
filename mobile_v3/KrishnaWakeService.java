@@ -40,6 +40,18 @@ public final class KrishnaWakeService extends Service implements RecognitionList
     return b.setSmallIcon(android.R.drawable.ic_btn_speak_now).setContentTitle("KRISHNA listening").setContentText(text).setOngoing(true).build();
   }
 
+  public static String commandMode(String raw){
+    String s=raw==null?"":raw.toLowerCase(Locale.ROOT).trim();
+    boolean photo=s.contains("photo")||s.contains("picture")||s.contains("selfie")||
+      s.contains("capture me")||s.contains("take my")||s.contains("फोटो")||s.contains("तस्वीर")||
+      s.contains("ଫଟୋ")||s.contains("ମୋ ଫଟୋ");
+    if(photo)return "photographer";
+    boolean see=s.contains(" dekh")||s.contains("dekho")||s.contains("देख")||s.contains("ଦେଖ")||
+      s.contains("watch")||s.contains("see")||s.contains("look")||s.contains("camera")||s.contains("hawkeye");
+    if(see)return "hawkeye";
+    return "chat";
+  }
+
   public static JSONObject capability(Context c){
     JSONObject o=new JSONObject();
     try{
@@ -50,6 +62,8 @@ public final class KrishnaWakeService extends Service implements RecognitionList
       o.put("on_device_recognition",onDevice);
       o.put("local_only",true);
       o.put("wake_phrases",new org.json.JSONArray().put("Krishna").put("କୃଷ୍ଣ").put("कृष्ण"));
+      o.put("direct_camera_examples",new org.json.JSONArray().put("Krishna dekh").put("watch Krishna").put("see Krishna"));
+      o.put("photographer_examples",new org.json.JSONArray().put("Krishna take my photo").put("Krishna photo"));
       o.put("wake_is_authentication",false);
       o.put("available",perm&&onDevice);
       o.put("state",c.getSharedPreferences("krishna_wake",0).getString("state","STOPPED"));
@@ -99,7 +113,7 @@ public final class KrishnaWakeService extends Service implements RecognitionList
         state("WAKE_DETECTED");
         try{recognizer.stopListening();}catch(Exception ignored){}
         listening=false;
-        Intent wake=new Intent(ACTION_WAKE);wake.setPackage(getPackageName());wake.putExtra("phrase",raw);sendBroadcast(wake);
+        Intent wake=new Intent(ACTION_WAKE);wake.setPackage(getPackageName());wake.putExtra("phrase",raw);wake.putExtra("mode",commandMode(raw));sendBroadcast(wake);
         scheduleRestart(18000L);
         return;
       }
