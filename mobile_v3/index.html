@@ -214,7 +214,16 @@ window.toggleGitaRecitation=toggleGitaRecitation;window.repeatGita=repeatGita;wi
 
 window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','KRISHNA is working…');reply('KRISHNA is thinking…');setTimeout(()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const d=JSON.parse(Krishna.chatWithAttachments(q,JSON.stringify(pendingAttachmentIds.slice(0,3))));if(d.error)throw new Error(d.error);pendingAttachmentIds=[];renderGita(d);const text=d.reply||d.text||'Done';reply(text);setMode(d.avatar_state||'TALKING',text);if(d.capability!=='gita-gyan')speak(text)}catch(e){reply(e.message,'bad');setMode('CHAT','Connection error')}finally{busy=false}},20)}
 
-window.listen=()=>{if(busy)return;if(!Krishna.voiceEnrolled()){reply('Say a natural sentence for a few seconds to create your local owner voice gate.','warn');setTimeout(()=>{const d=JSON.parse(Krishna.enrollVoice());if(d.error){reply(d.error,'bad');return}reply('Owner voice gate enrolled locally. Tap the microphone again and say “Krishna” before your request.','good')},80);return}
+window.listen=()=>{if(busy)return;
+ try{
+  const a=Krishna.assistantStatus?JSON.parse(Krishna.assistantStatus()):null;
+  if(a&&a.available&&!a.role_held&&!a.prompted){
+   reply('Enable KRISHNA as your Android assistant once, then tap the microphone again.','warn');
+   Krishna.requestAssistantMode();
+   return;
+  }
+ }catch(_){}
+ if(!Krishna.voiceEnrolled()){reply('Say a natural sentence for a few seconds to create your local owner voice gate.','warn');setTimeout(()=>{const d=JSON.parse(Krishna.enrollVoice());if(d.error){reply(d.error,'bad');return}reply('Owner voice gate enrolled locally. Tap the microphone again and say “Krishna” before your request.','good')},80);return}
  reply('Say “Krishna” to verify the local owner voice gate…','warn');setMode('LISTENING','OWNER CHECK');
  setTimeout(()=>{const v=JSON.parse(Krishna.verifyVoice());if(v.error){reply(v.error,'bad');setMode('CHAT','VOICE ERROR');return}if(!v.matched){reply('Voice gate did not match. Type your request or try again.','bad');setMode('CHAT','VOICE NOT MATCHED');return}
    const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
