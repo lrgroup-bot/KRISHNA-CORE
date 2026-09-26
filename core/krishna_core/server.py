@@ -1851,6 +1851,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if post_path == "/api/design-studio/research":
             project=str(data.get("project") or "").strip();goal=str(data.get("goal") or "").strip()
+            if project and not goal:
+                try:goal=str(orch.project_genesis.status(project).get("goal") or "").strip()
+                except KeyError:pass
             if not project or not goal:return self._json(400,{"error":"project and goal are required"})
             try:
                 receipt=orch.dispatch_action(
@@ -1882,6 +1885,15 @@ class Handler(BaseHTTPRequestHandler):
                 selection=orch.project_perfection.design_submit(sid,cid)
                 project=str(selection.get("project") or "").strip()
                 if not project:return self._json(400,{"error":"design session has no project"})
+                try:
+                    selected=selection.get("selected") or {}
+                    orch.project_genesis.record_design_selection(
+                        project,sid,cid,str(selected.get("label") or "").strip() or None,
+                    )
+                except KeyError:
+                    pass
+                except RuntimeError:
+                    pass
                 policy=orch.projects.get(project)
                 if not policy:return self._json(404,{"error":"project not registered"})
                 frontend_url=str(data.get("frontend_url") or (selection.get("metadata") or {}).get("frontend_url") or "").strip() or None
