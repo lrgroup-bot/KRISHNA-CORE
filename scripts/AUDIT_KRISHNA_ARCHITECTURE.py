@@ -37,6 +37,8 @@ def main():
         ("duplicate_agent_runtime_registrations","duplicate agent-runtime registrations"),
         ("duplicate_http_routes_same_handler","duplicate HTTP routes in the same handler"),
         ("duplicate_specialist_ids","duplicate specialist IDs"),
+        ("duplicate_rishi_ids","duplicate Rishi IDs"),
+        ("duplicate_3d_provider_ids","duplicate 3D provider IDs"),
         ("parse_errors","merge-integrity parse errors"),
     )
     for key,label in integrity_failures:
