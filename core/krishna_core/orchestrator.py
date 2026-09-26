@@ -113,6 +113,11 @@ from .workflow_recording import WorkflowRecorder
 from .skill_compiler import SkillCompiler
 from .node_registry import NodeRegistry
 from .node_execution import TrustedNodeExecutor
+from .hawkeye_ui_reviewer import HawkeyeUIReviewer
+from .suryadev import SuryadevAgent
+from .chandradev import ChandradevQC
+from .external_observer_bridge import ExternalObserverBridge
+from .auth_handoff import AuthenticationHandoffGate
 from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
@@ -405,6 +410,21 @@ class Orchestrator:
             universal_learning=self.universal_learning,
             brahma=self.brahma,
             council=self.agi.brahmagyan.council,
+            memory=self.memory,
+        )
+        self.suryadev = SuryadevAgent(
+            runtime_state / "suryadev",
+            brahma=self.brahma,
+            council=self.agi.brahmagyan.council,
+            ui_reviewer=HawkeyeUIReviewer(),
+            memory=self.memory,
+        )
+        self.chandradev = ChandradevQC(runtime_state / "chandradev", memory=self.memory)
+        self.external_observers = ExternalObserverBridge(
+            runtime_state / "external-observers", self.compute_nodes, memory=self.memory
+        )
+        self.external_auth = AuthenticationHandoffGate(
+            runtime_state / "external-observers" / "auth-handoffs",
             memory=self.memory,
         )
         self.agi.brahmagyan.bind_gyan_qc(self.brahma.qc_for_gyan)
@@ -950,6 +970,106 @@ class Orchestrator:
                 platform=str(payload.get("platform") or "").strip() or None,
                 approved=bool(context.get("approved",False)),
                 timeout=int(payload.get("timeout") or 1800),
+            )
+
+        def suryadev_status_action(payload,context):
+            return self.suryadev.status()
+
+        def suryadev_job_action(payload,context):
+            return self.suryadev.create_job(
+                str(payload.get("kind") or ""),
+                project=str(payload.get("project") or context.get("project") or "KRISHNA"),
+                target=str(payload.get("target") or ""),
+                instructions=str(payload.get("instructions") or ""),
+                source_ref=str(payload.get("source_ref") or ""),
+                constraints=payload.get("constraints") or {},
+                requested_by=str(context.get("actor") or "rishi"),
+            )
+
+        def suryadev_project_ui_audit_action(payload,context):
+            projects=payload.get("projects")
+            if not projects:
+                projects=[{"name":"KRISHNA","target":"http://127.0.0.1:8766"},*self.projects.list()]
+            return {"jobs":self.suryadev.project_ui_audit_jobs(projects)}
+
+        def suryadev_ui_research_plan_action(payload,context):
+            return self.suryadev.ui_research_plan(
+                project=str(payload.get("project") or context.get("project") or "KRISHNA"),
+                surface=str(payload.get("surface") or ""),
+                product_type=str(payload.get("product_type") or "application"),
+            )
+
+        def suryadev_finding_action(payload,context):
+            return self.suryadev.route_finding(payload.get("packet") or payload)
+
+        def chandradev_status_action(payload,context):
+            return self.chandradev.status()
+
+        def chandradev_qc_action(payload,context):
+            return self.chandradev.review(
+                project=str(payload.get("project") or context.get("project") or "KRISHNA"),
+                deterministic_passed=bool(payload.get("deterministic_passed")),
+                suryadev_review=payload.get("suryadev_review") or {},
+                brahma_review=payload.get("brahma_review") or {},
+                camera_observation=payload.get("camera_observation") or {},
+                test_summary=str(payload.get("test_summary") or ""),
+            )
+
+        def chandradev_resolve_action(payload,context):
+            return self.chandradev.resolve_debate(
+                str(payload.get("qc_id") or ""),
+                resolution=str(payload.get("resolution") or ""),
+                chandradev_position=str(payload.get("chandradev_position") or ""),
+                brahma_position=str(payload.get("brahma_position") or ""),
+                notes=str(payload.get("notes") or ""),
+                retest_evidence=payload.get("retest_evidence") or [],
+            )
+
+        def external_observer_lan_target_action(payload,context):
+            return self.external_observers.lan_target(
+                agent=str(payload.get("agent") or ""),
+                node_id=str(payload.get("node_id") or ""),
+            )
+
+        def external_auth_status_action(payload,context):
+            return {
+                **self.external_auth.status(),
+                "pending_requests": self.external_auth.pending(),
+            }
+
+        def external_auth_request_action(payload,context):
+            return self.external_auth.request(
+                agent=str(payload.get("agent") or "suryadev"),
+                job_id=str(payload.get("job_id") or ""),
+                origin=str(payload.get("origin") or ""),
+                method=str(payload.get("method") or "other_auth"),
+                reason=str(payload.get("reason") or ""),
+                checkpoint_ref=str(payload.get("checkpoint_ref") or ""),
+            )
+
+        def external_auth_approve_action(payload,context):
+            if not bool(context.get("approved",False)):
+                raise PermissionError("explicit owner approval required for authentication handoff")
+            return self.external_auth.decide(
+                str(payload.get("request_id") or ""),
+                approved=True,
+                approved_by=str(context.get("actor") or "owner"),
+            )
+
+        def external_auth_deny_action(payload,context):
+            return self.external_auth.decide(
+                str(payload.get("request_id") or ""),
+                approved=False,
+                approved_by=str(context.get("actor") or "owner"),
+            )
+
+        def external_auth_consume_action(payload,context):
+            return self.external_auth.consume(
+                str(payload.get("request_id") or ""),
+                agent=str(payload.get("agent") or ""),
+                job_id=str(payload.get("job_id") or ""),
+                origin=str(payload.get("origin") or ""),
+                method=str(payload.get("method") or ""),
             )
 
         def workflow_record_start_action(payload,context):
@@ -3451,6 +3571,76 @@ class Orchestrator:
             "compute.nodes.run",compute_nodes_run_action,
             description="Execute an approved allowlisted engineering command over strict-host-key SSH on a trusted node",
             mutating=True,requires_approval=True,permissions=("candidate.write",),sources=("pc","system","job"),
+        )
+        self.action_bus.register(
+            "suryadev.status",suryadev_status_action,
+            description="Read SURYDEV external eye/ear research worker status",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.job.create",suryadev_job_action,
+            description="Create a distilled-only SURYDEV screen/audio/video/UI research job for a trusted external node",
+            mutating=True,permissions=("memory.write",),sources=("pc","system","agent","job","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.ui.audit-projects",suryadev_project_ui_audit_action,
+            description="Create SURYDEV human-style UI audit jobs for KRISHNA projects",
+            mutating=True,permissions=("memory.write",),sources=("pc","system","agent","job","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.ui.research-plan",suryadev_ui_research_plan_action,
+            description="Create public UI/UX benchmark research queries for SURYDEV",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.finding.route",suryadev_finding_action,
+            description="Route a distilled SURYDEV finding into BRAHMA/BRAHMAGYAN and the Rishi Council",
+            mutating=True,permissions=("memory.write",),sources=("pc","system","agent","job","a2a"),
+        )
+        self.action_bus.register(
+            "chandradev.status",chandradev_status_action,
+            description="Read CHANDRADEV external final-QC worker status",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "chandradev.qc",chandradev_qc_action,
+            description="Run CHANDRADEV independent final QC against deterministic tests, SURYDEV and BRAHMA",
+            mutating=True,permissions=("evidence.write",),sources=("pc","system","agent","job","a2a"),
+        )
+        self.action_bus.register(
+            "chandradev.debate.resolve",chandradev_resolve_action,
+            description="Resolve a recorded CHANDRADEV/BRAHMA QC disagreement with both positions preserved",
+            mutating=True,permissions=("evidence.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "external.observer.lan-target",external_observer_lan_target_action,
+            description="Resolve the trusted LAN endpoint for SURYDEV or CHANDRADEV",
+            permissions=("runtime.read",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "external.auth.status",external_auth_status_action,
+            description="Read owner-permission authentication handoff state for external observers",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "external.auth.request",external_auth_request_action,
+            description="Pause an external observer at an authentication checkpoint and request one-time owner permission",
+            mutating=True,permissions=("memory.write",),sources=("pc","system","agent","job","a2a"),
+        )
+        self.action_bus.register(
+            "external.auth.approve",external_auth_approve_action,
+            description="Owner approves one specific human authentication handoff ticket",
+            mutating=True,requires_approval=True,permissions=("runtime.write",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "external.auth.deny",external_auth_deny_action,
+            description="Owner denies one specific external authentication handoff ticket",
+            mutating=True,permissions=("runtime.write",),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "external.auth.consume",external_auth_consume_action,
+            description="Consume one approved authentication handoff exactly once within its job/origin/method scope",
+            mutating=True,permissions=("runtime.write",),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "workflow.record.start",workflow_record_start_action,
