@@ -335,6 +335,29 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
       finally{if(c!=null)c.disconnect();}
     }
+    @JavascriptInterface public void avatarSyncAsync(){
+      new Thread(()->{
+        final String result=avatarSync();
+        runOnUiThread(()->{
+          if(web!=null)web.evaluateJavascript(
+            "window.onKrishnaAvatarSync&&window.onKrishnaAvatarSync("+JSONObject.quote(result)+")",null);
+        });
+      },"krishna-avatar-sync").start();
+    }
+    @JavascriptInterface public void pollAsync(){
+      new Thread(()->{
+        String link=connection(),coreState="{}";
+        try{
+          JSONObject l=new JSONObject(link);
+          if(!l.has("error")&&l.optBoolean("connected",false))coreState=state();
+        }catch(Exception ignored){}
+        final String linkResult=link,stateResult=coreState;
+        runOnUiThread(()->{
+          if(web!=null)web.evaluateJavascript(
+            "window.onKrishnaPoll&&window.onKrishnaPoll("+JSONObject.quote(linkResult)+","+JSONObject.quote(stateResult)+")",null);
+        });
+      },"krishna-mobile-poll").start();
+    }
     @JavascriptInterface public void uiReady(String payload){
       String safe=payload==null?"{}":payload;
       android.util.Log.i("KRISHNA_UI_READY",safe);
