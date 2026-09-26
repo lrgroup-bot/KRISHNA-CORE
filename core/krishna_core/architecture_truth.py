@@ -359,34 +359,42 @@ class ArchitectureTruthAudit:
                     "error": f"{type(exc).__name__}: {exc}",
                 })
 
-        specialist_ids = defaultdict(list)
-        specialist_path = core / "specialist_registry.py"
-        if specialist_path.is_file():
-            try:
-                tree = ast.parse(specialist_path.read_text(encoding="utf-8"))
-                for node in ast.walk(tree):
-                    if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name) or node.func.id != "Specialist":
-                        continue
-                    key = call_key(node)
-                    if key:
-                        specialist_ids[key].append(int(getattr(node, "lineno", 0) or 0))
-            except (SyntaxError, UnicodeDecodeError, OSError) as exc:
-                parse_errors.append({
-                    "path": self._relative(specialist_path),
-                    "error": f"{type(exc).__name__}: {exc}",
-                })
-        duplicate_specialists = [
-            {"name": key, "lines": lines}
-            for key, lines in sorted(specialist_ids.items())
-            if len(lines) > 1
-        ]
+        declared_id_specs = (
+            ("duplicate_specialist_ids", core / "specialist_registry.py", "Specialist"),
+            ("duplicate_rishi_ids", core / "rishi_council.py", "RishiProfile"),
+            ("duplicate_3d_provider_ids", core / "three_d_model_router.py", "ThreeDProvider"),
+        )
+        duplicate_declared_ids = {}
+        for result_key, path, constructor in declared_id_specs:
+            groups = defaultdict(list)
+            if path.is_file():
+                try:
+                    tree = ast.parse(path.read_text(encoding="utf-8"))
+                    for node in ast.walk(tree):
+                        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name) or node.func.id != constructor:
+                            continue
+                        key = call_key(node)
+                        if key:
+                            groups[key].append(int(getattr(node, "lineno", 0) or 0))
+                except (SyntaxError, UnicodeDecodeError, OSError) as exc:
+                    parse_errors.append({
+                        "path": self._relative(path),
+                        "error": f"{type(exc).__name__}: {exc}",
+                    })
+            duplicate_declared_ids[result_key] = [
+                {"name": key, "lines": lines}
+                for key, lines in sorted(groups.items())
+                if len(lines) > 1
+            ]
 
         return {
             "same_scope_python_redefinitions": redefinitions,
             "duplicate_action_bus_registrations": duplicate_regs["action_bus"],
             "duplicate_agent_runtime_registrations": duplicate_regs["agent_runtime"],
             "duplicate_http_routes_same_handler": duplicate_routes,
-            "duplicate_specialist_ids": duplicate_specialists,
+            "duplicate_specialist_ids": duplicate_declared_ids["duplicate_specialist_ids"],
+            "duplicate_rishi_ids": duplicate_declared_ids["duplicate_rishi_ids"],
+            "duplicate_3d_provider_ids": duplicate_declared_ids["duplicate_3d_provider_ids"],
             "parse_errors": parse_errors,
             "policy": (
                 "cross-scope repeated names and GET-vs-POST reuse are legitimate; "
@@ -533,6 +541,8 @@ class ArchitectureTruthAudit:
                     "duplicate_agent_runtime_registrations": len(merge_integrity["duplicate_agent_runtime_registrations"]),
                     "duplicate_http_routes_same_handler": len(merge_integrity["duplicate_http_routes_same_handler"]),
                     "duplicate_specialist_ids": len(merge_integrity["duplicate_specialist_ids"]),
+                    "duplicate_rishi_ids": len(merge_integrity["duplicate_rishi_ids"]),
+                    "duplicate_3d_provider_ids": len(merge_integrity["duplicate_3d_provider_ids"]),
                     "merge_integrity_parse_errors": len(merge_integrity["parse_errors"]),
                     "orphan_candidates": len(orphans),
                     "classified_non_entry_modules": len(classified),
