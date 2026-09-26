@@ -224,6 +224,27 @@ RISHI_RESEARCH_CHARTERS = {
             "self/reality/knowledge themes with textual provenance preserved",
         ),
     },
+    "narada": {
+        "primary_subjects": (
+            "constitutional law","statutory interpretation","central and state legislation",
+            "rules and regulations","notifications and circulars","delegated legislation",
+            "civil procedure","criminal procedure","evidence law","contracts","property law",
+            "business and company law","consumer law","privacy and data protection",
+            "cyber and technology law","regulatory compliance","police procedure",
+            "judicial precedent","legal research","legal information retrieval",
+        ),
+        "frontier_focus": (
+            "new Acts and amendments","new rules regulations notifications and circulars",
+            "commencement and effective-date changes","Supreme Court and High Court precedent",
+            "regulator directions","compliance-by-design","lawful alternatives and remedies",
+            "conflict between old operational assumptions and current law",
+        ),
+        "classical_lens": (
+            "Narada Smriti and Dharmashastra as historical jurisprudence only",
+            "classical legal thought may provide comparative history but never overrides current Indian law",
+            "modern legal conclusions require current official statutes subordinate legislation and judgments",
+        ),
+    },
     "agastya": {
         "primary_subjects": (
             "environment","climate","ecology","knowledge transmission","regional traditions",
