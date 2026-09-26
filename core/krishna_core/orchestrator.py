@@ -9,6 +9,7 @@ from .project_genesis import ProjectGenesis
 from .engineering_scheduler import EngineeringScheduler
 from .git_worktrees import GitWorktreeManager
 from .engineering_hooks import EngineeringHooks
+from .engineering_swarm import EngineeringSwarmManager
 from .design_implementation import DesignImplementationGuard
 from .candidate_repair import CandidateRepairGuard
 from .memory import MemoryStore
@@ -155,6 +156,7 @@ class Orchestrator:
         self.project_genesis = ProjectGenesis(runtime_state / "project-genesis")
         self.engineering_scheduler = EngineeringScheduler(max_workers=8)
         self.engineering_hooks = EngineeringHooks()
+        self.engineering_swarm = EngineeringSwarmManager(runtime_state / "engineering-swarm")
         self.engineering_worktree_root = (runtime_state.parent / "engineering-worktrees").resolve()
         self.engineering_worktree_root.mkdir(parents=True, exist_ok=True)
         self.amcc = AMCCController(runtime_state / "amcc")
@@ -484,6 +486,19 @@ class Orchestrator:
             project=str(payload.get("project") or context.get("project") or "").strip()
             if not project:raise ValueError("project is required")
             return self._engineering_plan(project,payload.get("tasks") or [])
+
+        def engineering_staff_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            if not project:raise ValueError("project is required")
+            return self._engineering_staff(
+                project,payload.get("tasks") or [],
+                base_ref=str(payload.get("base_ref") or "HEAD"),
+            )
+
+        def engineering_swarm_status_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "").strip()
+            if not project:raise ValueError("project is required")
+            return self.engineering_swarm.status(project) or {"project":project,"status":"UNSTAFFED"}
 
         def engineering_worktree_create_action(payload,context):
             project=str(payload.get("project") or context.get("project") or "").strip()
@@ -2618,6 +2633,16 @@ class Orchestrator:
             permissions=("project.read","runtime.read"),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
+            "engineering.staff",engineering_staff_action,
+            description="Let KRISHNA HR create durable child missions and isolated worktrees from the locked engineering plan",
+            mutating=True,permissions=("candidate.write","mission.write","project.read"),sources=("pc","system","job"),
+        )
+        self.action_bus.register(
+            "engineering.swarm.status",engineering_swarm_status_action,
+            description="Read HR-created coding swarm roster, missions, waves and worktrees",
+            permissions=("project.read","runtime.read"),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
             "engineering.worktree.create",engineering_worktree_create_action,
             description="Create one real isolated Git worktree/branch for a mutating coding worker",
             mutating=True,permissions=("candidate.write",),sources=("pc","system","agent","job"),
@@ -4545,6 +4570,22 @@ Project: {payload.get('project')}
         plan["factory"]=self.software_factory.plan(project,state.get("goal") or project,deadline_hours=deadline_hours)
         plan["resource_snapshot"]=snapshot
         return plan
+
+    def _engineering_staff(self,project,tasks=None,base_ref="HEAD"):
+        state=self.project_genesis.status(project)
+        if not state.get("implementation_allowed"):
+            raise RuntimeError("Project Genesis scope must be owner-locked before HR staffing")
+        parent=str(state.get("mission_id") or "").strip()
+        if not parent:
+            raise RuntimeError("Project Genesis is not bound to a durable parent mission")
+        plan=self._engineering_plan(project,tasks)
+        manager=self._engineering_worktree_manager(project)
+        roster=self.engineering_swarm.staff(
+            project,plan,parent_mission_id=parent,
+            mission_engine=self.missions,worktree_manager=manager,base_ref=base_ref,
+        )
+        self.engineering_hooks.emit("before_worker",{"project":project,"roster":roster})
+        return {"project":project,"plan":plan,"roster":roster}
 
     def _engineering_project_root(self,project):
         if project=="KRISHNA":
