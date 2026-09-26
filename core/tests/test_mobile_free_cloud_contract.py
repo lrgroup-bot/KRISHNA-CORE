@@ -16,6 +16,9 @@ class MobileDirectFreeCloudContractTests(unittest.TestCase):
         self.assertNotIn("localStorage",js)
         self.assertNotIn("GEMINI_API_KEY",js)
         self.assertNotIn("chatWithAttachments",js)
+        self.assertIn("sessionResumption",js)
+        self.assertIn("contextWindowCompression",js)
+        self.assertIn("token_persisted:false",js)
 
     def test_private_and_action_chat_still_has_pc_fallback(self):
         html=(self.root/"mobile_v3"/"index.html").read_text(encoding="utf-8")
