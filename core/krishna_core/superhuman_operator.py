@@ -8,7 +8,14 @@ HIGH_IMPACT={
     "send","reply","publish","post","delete","trash","bulk_message","price_change",
     "ad_spend","refund","cancel_order","account_setting","security_setting","supplier_commitment",
 }
-NEVER_UNATTENDED={"permanent_delete","credential_change","payment","bank_transfer","ownership_transfer"}
+NEVER_UNATTENDED={"permanent_delete","credential_change","ownership_transfer"}
+NEVER_ALLOWED_SPEND={
+    "payment","bank_transfer","purchase","purchase_inventory","supplier_prepay","supplier_deposit",
+    "subscription","membership","seller_membership","paid_api","api_credit","credit_purchase",
+    "ad_spend","boost","sponsor","paid_lead","listing_fee","platform_fee_payment",
+    "shipping_payment","courier_payment","domain_purchase","hosting_purchase","software_purchase",
+    "bid_payment","commission_payment",
+}
 
 
 @dataclass(frozen=True)
@@ -32,6 +39,8 @@ class SuperhumanOperatorPolicy:
         if not op: raise ValueError("operation is required")
         if op in READ_ONLY:
             return OperatorDecision(op,True,False,"read/draft/analysis operation","low").as_dict()
+        if op in NEVER_ALLOWED_SPEND:
+            return OperatorDecision(op,False,False,"zero-spend policy forbids outgoing money even with approval","critical").as_dict()
         if op in NEVER_UNATTENDED:
             return OperatorDecision(op,bool(approved),True,"irreversible/sensitive action requires owner approval","critical").as_dict()
         if op in HIGH_IMPACT:
@@ -48,5 +57,7 @@ class SuperhumanOperatorPolicy:
             "read_draft_without_prompt":sorted(READ_ONLY),
             "approval_required":sorted(HIGH_IMPACT),
             "never_unattended":sorted(NEVER_UNATTENDED),
+            "never_allowed_spend":sorted(NEVER_ALLOWED_SPEND),
+            "zero_spend":True,
             "approved_automation":dict(self.approved_automation),
         }
