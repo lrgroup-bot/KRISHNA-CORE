@@ -4,11 +4,28 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+from html.parser import HTMLParser
 import hashlib
 import json
 import re
+import time
 import urllib.parse
 import urllib.request
+import urllib.robotparser
+
+
+class _OfficialLinkParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.links=[]
+
+    def handle_starttag(self, tag, attrs):
+        if str(tag).lower() not in {"a","link"}:
+            return
+        row=dict(attrs)
+        href=str(row.get("href") or "").strip()
+        if href:
+            self.links.append(href)
 
 
 @dataclass(frozen=True)
@@ -308,6 +325,16 @@ _BLOCK_PATTERNS = (
 )
 
 
+LEGAL_SIGNAL_TERMS = (
+    "law","legal","illegal","constitution","act","section","rule","regulation","notification",
+    "circular","order","ordinance","statute","court","judge","judgment","judgement","precedent",
+    "police","fir","arrest","bail","criminal","civil","lawyer","advocate","vakeel","compliance",
+    "licence","license","permit","permission","contract","agreement","consumer","privacy","dpdp",
+    "cyber law","rera","orera","sebi","rbi","trai","gst","tax","litigation","appeal","petition",
+    "writ","evidence","penalty","fine","offence","offense","rights","liability","jurisdiction",
+)
+
+
 class NaradaLegalAdvisor:
     """Current-law research and compliance advisor under permanent Rishi Narada.
 
@@ -350,6 +377,7 @@ class NaradaLegalAdvisor:
         self.corpus = self.root / "corpus"
         self.corpus.mkdir(parents=True, exist_ok=True)
         self.state_path = self.root / "source_state.json"
+        self.crawl_state_path = self.root / "crawl_state.json"
         self._sources = {x.id: x for x in OFFICIAL_SOURCES}
         self._state = self._load_state()
 
@@ -374,6 +402,47 @@ class NaradaLegalAdvisor:
         tmp = self.state_path.with_suffix(".tmp")
         tmp.write_text(json.dumps(self._state, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
         tmp.replace(self.state_path)
+
+    @staticmethod
+    def looks_legal(text: str) -> bool:
+        value=" ".join(str(text or "").lower().split())
+        if not value:
+            return False
+        return any(
+            (term in value if " " in term else re.search(r"\\b"+re.escape(term)+r"\\b", value))
+            for term in LEGAL_SIGNAL_TERMS
+        )
+
+    def official_research_queries(self, issue: str, jurisdiction: str = "India") -> dict[str, str]:
+        issue=" ".join(str(issue or "").split())
+        if not issue:
+            raise ValueError("legal issue is required")
+        state=str(jurisdiction or "India")
+        state_sites=""
+        if "odisha" in state.lower() or any(x in issue.lower() for x in ("odisha","bhubaneswar","cuttack","rasulgarh","pahala")):
+            state_sites=" site:law.odisha.gov.in"
+        return {
+            "constitution": f"{issue} Constitution India Act Rules Regulations amendment commencement site:legislative.gov.in OR site:indiacode.nic.in{state_sites}",
+            "legal": f"{issue} lawful compliance licence permission consent obligations India site:indiacode.nic.in OR site:egazette.gov.in{state_sites}",
+            "illegal": f"{issue} prohibited penalty offence restriction India site:indiacode.nic.in OR site:egazette.gov.in{state_sites}",
+            "vakeel": f"{issue} exemption permission appeal review remedy compliance India site:indiacode.nic.in OR site:sci.gov.in{state_sites}",
+            "judge": f"{issue} judgment precedent ratio holding Supreme Court High Court India site:sci.gov.in OR site:judgments.ecourts.gov.in",
+            "police": f"{issue} police criminal procedure evidence BNS BNSS BSA India site:mha.gov.in OR site:bprd.nic.in OR site:judgments.ecourts.gov.in",
+        }
+
+    def filter_official_research(self, report: dict[str, Any]) -> dict[str, Any]:
+        rows=[]
+        for item in report.get("web") or []:
+            url=str(item.get("url") or "")
+            if self._official_host(url):
+                rows.append(dict(item))
+        return {
+            "web": rows,
+            "errors": dict(report.get("errors") or {}),
+            "coverage": list(report.get("coverage") or []),
+            "official_only": True,
+            "authority_policy": self.AUTHORITY_POLICY,
+        }
 
     @staticmethod
     def shishyas() -> list[dict[str, Any]]:
@@ -646,6 +715,162 @@ class NaradaLegalAdvisor:
             if self._sources[sid] not in out:
                 out.append(self._sources[sid])
         return out
+
+    @staticmethod
+    def _same_origin(seed_url: str, candidate_url: str) -> bool:
+        seed=(urllib.parse.urlparse(seed_url).hostname or "").lower()
+        candidate=(urllib.parse.urlparse(candidate_url).hostname or "").lower()
+        return bool(seed and candidate and (candidate==seed or candidate.endswith("."+seed) or seed.endswith("."+candidate)))
+
+    def _robots_allowed(self, url: str, timeout: int = 12) -> bool:
+        parsed=urllib.parse.urlparse(url)
+        robots=urllib.parse.urlunparse((parsed.scheme, parsed.netloc, "/robots.txt", "", "", ""))
+        rp=urllib.robotparser.RobotFileParser()
+        rp.set_url(robots)
+        try:
+            req=urllib.request.Request(robots,headers={"User-Agent":"KRISHNA-Narada-Legal/1.0"})
+            with urllib.request.urlopen(req,timeout=max(3,min(int(timeout),20))) as response:
+                text=response.read(512*1024).decode("utf-8","ignore")
+            rp.parse(text.splitlines())
+            return bool(rp.can_fetch("KRISHNA-Narada-Legal/1.0",url))
+        except Exception:
+            # Deep crawling fails closed when robots policy cannot be verified.
+            return False
+
+    def _fetch_crawl_url(self, url: str, max_bytes: int, timeout: int) -> tuple[bytes, dict[str,str]]:
+        if not self._official_host(url):
+            raise PermissionError("legal corpus crawl is limited to allowlisted official legal hosts")
+        req=urllib.request.Request(
+            url,
+            headers={
+                "User-Agent":"KRISHNA-Narada-Legal/1.0 (+bounded public legal corpus sync)",
+                "Accept":"text/html,application/pdf,text/plain,application/xhtml+xml,*/*;q=0.1",
+            },
+        )
+        with urllib.request.urlopen(req,timeout=max(3,min(int(timeout),60))) as response:
+            final_url=str(response.geturl())
+            if not self._official_host(final_url):
+                raise PermissionError("legal corpus source redirected outside the official allowlist")
+            data=response.read(max(1,int(max_bytes))+1)
+            if len(data)>max(1,int(max_bytes)):
+                raise ValueError("legal corpus document exceeds configured size cap")
+            headers={
+                "final_url":final_url,
+                "content_type":str(response.headers.get("Content-Type") or ""),
+                "etag":str(response.headers.get("ETag") or ""),
+                "last_modified":str(response.headers.get("Last-Modified") or ""),
+            }
+        return data,headers
+
+    def _load_crawl_state(self) -> dict[str,Any]:
+        if not self.crawl_state_path.exists():
+            return {"schema":"krishna.narada-legal-crawl.v1","sources":{}}
+        try:
+            raw=json.loads(self.crawl_state_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise RuntimeError(f"Narada crawl state is unreadable: {type(exc).__name__}") from exc
+        if not isinstance(raw,dict) or raw.get("schema")!="krishna.narada-legal-crawl.v1":
+            raise RuntimeError("unsupported Narada crawl-state schema")
+        raw.setdefault("sources",{})
+        return raw
+
+    def _save_crawl_state(self, state: dict[str,Any]) -> None:
+        state=dict(state)
+        state["updated_at"]=self._now()
+        tmp=self.crawl_state_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(state,ensure_ascii=False,indent=2,sort_keys=True),encoding="utf-8")
+        tmp.replace(self.crawl_state_path)
+
+    def crawl_official_source(
+        self, source_id: str, *, max_documents: int = 25, max_depth: int = 1,
+        delay_seconds: float = 2.0, timeout: int = 30,
+    ) -> dict[str,Any]:
+        """Bounded, resumable official-source discovery and snapshotting.
+
+        It follows only ordinary hyperlinks on the same official origin. It does not
+        submit forms, authenticate, solve CAPTCHAs or circumvent access controls.
+        """
+        sid=str(source_id or "").strip()
+        if sid not in self._sources:
+            raise KeyError(sid)
+        source=self._sources[sid]
+        cap=max(1,min(int(max_documents),100))
+        depth_cap=max(0,min(int(max_depth),3))
+        delay=max(0.5,min(float(delay_seconds),10.0))
+        state=self._load_crawl_state()
+        prior=dict((state.get("sources") or {}).get(sid) or {})
+        seen=set(str(x) for x in prior.get("seen_urls") or [])
+        frontier=list(prior.get("frontier") or [])
+        if not frontier:
+            frontier=[{"url":source.url,"depth":0}]
+        saved=[]
+        skipped=[]
+        errors=[]
+        processed=0
+        while frontier and processed<cap:
+            item=frontier.pop(0)
+            url=str(item.get("url") or "").split("#",1)[0].strip()
+            depth=int(item.get("depth") or 0)
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            if not self._official_host(url) or not self._same_origin(source.url,url):
+                skipped.append({"url":url,"reason":"outside_source_origin"})
+                continue
+            if not self._robots_allowed(url,timeout):
+                skipped.append({"url":url,"reason":"robots_policy_unverified_or_disallows"})
+                continue
+            try:
+                data,headers=self._fetch_crawl_url(url,source.max_bytes,timeout)
+                processed+=1
+                fp=hashlib.sha256(data).hexdigest()
+                folder=self.corpus/sid/"crawl"
+                folder.mkdir(parents=True,exist_ok=True)
+                ext=self._extension(headers.get("content_type",""),headers.get("final_url") or url)
+                target=folder/f"{fp[:24]}{ext}"
+                if not target.exists():
+                    target.write_bytes(data)
+                    meta={
+                        "source_id":sid,"source_title":source.title,"url":url,
+                        "retrieved_at":self._now(),"fingerprint":fp,"size_bytes":len(data),**headers,
+                    }
+                    target.with_suffix(target.suffix+".json").write_text(
+                        json.dumps(meta,ensure_ascii=False,indent=2,sort_keys=True),encoding="utf-8"
+                    )
+                    saved.append({"url":url,"path":str(target),"fingerprint":fp})
+                else:
+                    skipped.append({"url":url,"reason":"identical_snapshot_exists"})
+                content_type=str(headers.get("content_type") or "").lower()
+                if depth<depth_cap and ("html" in content_type or ext==".html"):
+                    parser=_OfficialLinkParser()
+                    parser.feed(data.decode("utf-8","ignore"))
+                    for href in parser.links:
+                        candidate=urllib.parse.urljoin(headers.get("final_url") or url,href).split("#",1)[0]
+                        scheme=urllib.parse.urlparse(candidate).scheme.lower()
+                        if scheme not in {"http","https"}:
+                            continue
+                        if candidate not in seen and self._official_host(candidate) and self._same_origin(source.url,candidate):
+                            frontier.append({"url":candidate,"depth":depth+1})
+            except Exception as exc:
+                errors.append({"url":url,"error":f"{type(exc).__name__}: {exc}"})
+            if frontier and processed<cap:
+                time.sleep(delay)
+        state.setdefault("sources",{})[sid]={
+            "source_id":sid,
+            "seen_urls":sorted(seen),
+            "frontier":frontier[:5000],
+            "last_run_at":self._now(),
+            "processed_total":int(prior.get("processed_total") or 0)+processed,
+            "saved_total":int(prior.get("saved_total") or 0)+len(saved),
+            "complete_for_discovered_frontier":not bool(frontier),
+        }
+        self._save_crawl_state(state)
+        return {
+            "source_id":sid,"processed":processed,"saved":saved,"skipped":skipped,
+            "errors":errors,"remaining_frontier":len(frontier),
+            "complete_for_discovered_frontier":not bool(frontier),
+            "coverage_truth":self.COVERAGE_TRUTH,
+        }
 
     def check_updates(self, source_ids: Iterable[str] | None = None, timeout: int = 30) -> dict[str, Any]:
         checked = []
