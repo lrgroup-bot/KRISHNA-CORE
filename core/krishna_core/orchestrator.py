@@ -126,6 +126,7 @@ from .windows_worker_sandbox import WindowsWorkerSandbox
 from .social_channels import SocialChannelRegistry
 from .affiliate_intent import AffiliateIntentEngine
 from .zero_spend_policy import ZeroSpendPolicy
+from .three_d_model_router import ThreeDModelRouter
 from .manibhadra_crm import ManibhadraCRM
 from .manibhadra_advisor import ManibhadraCloudAdvisor
 from .vanik_netra import VanikNetra
@@ -209,6 +210,7 @@ class Orchestrator:
         self.social_channels = SocialChannelRegistry()
         self.affiliate_intent = AffiliateIntentEngine()
         self.zero_spend = ZeroSpendPolicy()
+        self.three_d_router = ThreeDModelRouter(zero_spend=self.zero_spend)
         self.manibhadra_crm = ManibhadraCRM(runtime_state / "manibhadra-crm.json")
         self.manibhadra_advisor = ManibhadraCloudAdvisor(self.openrouter_free,self.direct_free)
         self.vanijya = VanijyaSalesHead(
@@ -1199,6 +1201,27 @@ class Orchestrator:
 
         def zero_spend_status_action(payload,context):
             return self.zero_spend.status()
+
+        def three_d_router_status_action(payload,context):
+            return self.three_d_router.status()
+
+        def three_d_router_catalog_action(payload,context):
+            vram=payload.get("vram_gb")
+            return {
+                "providers":self.three_d_router.catalog(
+                    vram_gb=None if vram in (None,"") else float(vram)
+                )
+            }
+
+        def three_d_router_plan_action(payload,context):
+            vram=payload.get("vram_gb")
+            return self.three_d_router.plan(
+                goal=str(payload.get("goal") or "production_avatar"),
+                vram_gb=None if vram in (None,"") else float(vram),
+                include_parts=bool(payload.get("include_parts",True)),
+                include_animation=bool(payload.get("include_animation",True)),
+                include_face=bool(payload.get("include_face",True)),
+            )
 
         def zero_spend_decide_action(payload,context):
             return self.zero_spend.decide(
@@ -4115,6 +4138,21 @@ class Orchestrator:
         self.action_bus.register(
             "money.zero_spend.status",zero_spend_status_action,
             description="Read KRISHNA's non-overridable receive-only money policy",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "avatar.3d.status",three_d_router_status_action,
+            description="Read the free-first KRISHNA 3D generation/retopo/rig/animation router and hardware gates",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "avatar.3d.catalog",three_d_router_catalog_action,
+            description="List local/free 3D providers with license, VRAM, configuration and zero-spend eligibility",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "avatar.3d.plan",three_d_router_plan_action,
+            description="Plan a zero-spend 3D avatar pipeline without downloading models or calling paid/free-credit cloud services automatically",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
