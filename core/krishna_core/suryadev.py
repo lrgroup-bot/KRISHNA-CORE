@@ -112,8 +112,9 @@ class SuryadevAgent:
                 "send_raw_media_to_krishna": False,
                 "return_distilled_findings_only": True,
                 "credential_capture": False,
-                "authentication_handoff": True,
-                "captcha_or_liveness": "human_handoff_only",
+                "authentication_handoff": "owner_permission_required_per_checkpoint",
+                "auth_permission_scope": "one_time_job_origin_method",
+                "captcha_or_liveness": "owner-approved_human_handoff_only",
             },
         }
         job["fingerprint"] = self._digest(job)
@@ -311,5 +312,7 @@ class SuryadevAgent:
             "routes_findings_to_brahmagyan": self.brahma is not None,
             "release_authority": False,
             "human_verification_handoff": True,
+            "authentication_permission": "explicit owner approval required for every checkpoint",
+            "auth_approval_scope": "single agent + job + origin + method; one-time; expires",
             "ready": True,
         }
