@@ -28,6 +28,9 @@ class ChandradevCameraIntegrationContractTests(unittest.TestCase):
             "chandradev.camera.receiver.stop",
             "chandradev.camera.frame.capture",
             "chandradev.camera.frame.analyze",
+            "chandradev.camera.screen.focus",
+            "chandradev.camera.screen.analyze",
+            "chandradev.camera.screen.unlock",
             "chandradev.camera.observations",
         ):
             self.assertIn(f'"{action}"',self.orchestrator)
