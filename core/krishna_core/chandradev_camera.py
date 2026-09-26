@@ -323,7 +323,7 @@ class ChandradevOsmoCameraAdapter:
                 "Start the local Chandradev MediaMTX receiver on the PC.",
                 "In DJI Mimo open Live Stream and choose RTMP.",
                 "Enter the exact Mimo push URL below.",
-                "For the original Osmo Action select 720p/30fps; use 2 Mbps first, then 4 Mbps if the LAN is stable.",
+                "For the original Osmo Action select 720p/30fps; use 4 Mbps for maximum supported live quality; fall back to 2 Mbps if the LAN is unstable.",
                 "Start livestreaming; Chandradev reads, analyzes and records sampled frames locally on the PC.",
             ],
             "mimo_push_url":urls["mimo_push_url"],
@@ -331,8 +331,8 @@ class ChandradevOsmoCameraAdapter:
             "recommended_original_osmo_settings":{
                 "resolution":"720p",
                 "fps":30,
-                "bitrate_mbps":2,
-                "fallback":"480p/1 Mbps when Wi-Fi is unstable",
+                "bitrate_mbps":4,
+                "fallback":"720p/2 Mbps first; 480p/1 Mbps only when Wi-Fi is unstable",
             },
             "note":"The original Osmo Action does not expose USB UVC live video; USB remains useful for file transfer and charging.",
         }
