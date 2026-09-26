@@ -113,6 +113,38 @@ A successful test writes a JPEG under:
 
 There is no chandradev.camera.session.start action because CHANDRADEV is not using Hawkeye sessions.
 
+## Automatic Screen Focus Mode
+
+CHANDRADEV now has software screen auto-focus for a monitor viewed through the Osmo stream. It does not modify DJI firmware or attempt to move the camera lens.
+
+Pipeline:
+
+    live Osmo frame burst
+      -> detect monitor quadrilateral
+      -> score candidate by size/rectangularity/position/aspect
+      -> perspective-correct the four corners
+      -> select the sharpest corrected screen from the burst
+      -> persist normalized screen-corner lock
+      -> upscale toward 1920 px width
+      -> local contrast enhancement
+      -> unsharp mask
+      -> detailed local VisionAdapter screen reading
+      -> CHANDRADEV observation ledger
+
+If one later frame has glare or weak edges, the saved normalized four-corner lock can be used as a fallback. If the camera moves, run `chandradev.camera.screen.unlock` to force a fresh monitor detection.
+
+Actions:
+
+- `chandradev.camera.screen.focus` — find/lock/enhance the monitor and save the focused image.
+- `chandradev.camera.screen.analyze` — auto-focus first, then read/understand the enhanced screen locally.
+- `chandradev.camera.screen.unlock` — clear the remembered monitor corners.
+
+Physical test after the RTMP stream is live:
+
+    .\scripts\TEST_CHANDRADEV_SCREEN.ps1
+
+Successful output includes the focused JPEG path, sharpness score and the fraction of the camera frame occupied by the monitor. The focused images are stored locally under the CHANDRADEV state tree.
+
 ## Privacy and network boundaries
 
 - Raw sampled frames stay on the PC.
