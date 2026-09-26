@@ -31,7 +31,7 @@ if($authoritative -and (Test-Path "$authoritative\.git")){
         Write-Host "KRISHNA runtime is not synchronized. Running verified deploy..." -ForegroundColor Yellow
         $deploy=Join-Path $authoritative "scripts\DEPLOY_KRISHNA_ONCE.ps1"
         if(!(Test-Path $deploy)){throw "Verified deploy script missing: $deploy"}
-        & powershell -NoProfile -ExecutionPolicy Bypass -File $deploy -SkipStart
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $deploy -SkipStart -SourceRoot $authoritative
         if($LASTEXITCODE -ne 0){throw "Automatic verified deployment failed"}
     }
 }

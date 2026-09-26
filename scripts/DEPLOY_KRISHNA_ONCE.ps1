@@ -3,10 +3,11 @@ param(
   [switch]$SkipAcceptance,
   [switch]$PrivateRemote,
   [string]$TailscaleExe = "E:\TailScale\tailscale.exe",
-  [string]$Branch = ""
+  [string]$Branch = "",
+  [string]$SourceRoot = "E:\KRISHNA-SOURCE"
 )
 $ErrorActionPreference="Stop"
-$Source="E:\KRISHNA-SOURCE"
+$Source=[IO.Path]::GetFullPath($SourceRoot)
 $Runtime="E:\Krishna-The GOD"
 $Py="$Runtime\.venv\Scripts\python.exe"
 
