@@ -570,7 +570,7 @@ class Orchestrator:
             if not product:raise ValueError("product or category is required")
             query=(
                 "product opportunity supplier demand competition pricing marketplace trends "
-                "Amazon Flipkart Meesho India "+product
+                "Amazon Flipkart Meesho Alibaba global wholesale export demand RFQ distributors importers "+product
             )
             report=self.garuda.scout(
                 str(payload.get("project") or context.get("project") or "KRISHNA"),
