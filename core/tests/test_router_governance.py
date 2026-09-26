@@ -138,11 +138,22 @@ class FreeCloudDefaultTests(unittest.TestCase):
         },clear=False):
             self.assertFalse(ModelRouter.paid_cloud_enabled())
 
-    def test_paid_cloud_requires_explicit_environment_opt_in(self):
+    def test_paid_cloud_requires_strict_zero_credit_to_be_disabled_and_explicit_opt_in(self):
         router=ModelRouter()
-        with patch.dict(os.environ,{"KRISHNA_ALLOW_PAID_CLOUD":"0"},clear=False):
+        with patch.dict(os.environ,{
+            "KRISHNA_STRICT_ZERO_CREDIT":"1",
+            "KRISHNA_ALLOW_PAID_CLOUD":"1",
+        },clear=False):
             self.assertFalse(router.paid_cloud_enabled())
-        with patch.dict(os.environ,{"KRISHNA_ALLOW_PAID_CLOUD":"1"},clear=False):
+        with patch.dict(os.environ,{
+            "KRISHNA_STRICT_ZERO_CREDIT":"0",
+            "KRISHNA_ALLOW_PAID_CLOUD":"0",
+        },clear=False):
+            self.assertFalse(router.paid_cloud_enabled())
+        with patch.dict(os.environ,{
+            "KRISHNA_STRICT_ZERO_CREDIT":"0",
+            "KRISHNA_ALLOW_PAID_CLOUD":"1",
+        },clear=False):
             self.assertTrue(router.paid_cloud_enabled())
 
 
