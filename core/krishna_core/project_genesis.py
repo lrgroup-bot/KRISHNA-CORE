@@ -164,7 +164,19 @@ class ProjectGenesis:
                 raise ValueError("deadline_hours must be positive")
             intake["deadline_hours"] = value
         if deadline_at is not None:
-            intake["deadline_at"] = str(deadline_at).strip() or None
+            raw_deadline = str(deadline_at).strip()
+            intake["deadline_at"] = raw_deadline or None
+            if raw_deadline and deadline_hours is None:
+                try:
+                    target = datetime.fromisoformat(raw_deadline.replace("Z", "+00:00"))
+                    if target.tzinfo is None:
+                        target = target.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                    hours = (target - datetime.now(target.tzinfo)).total_seconds() / 3600.0
+                except ValueError as exc:
+                    raise ValueError("deadline_at must be ISO-8601 when deadline_hours is omitted") from exc
+                if hours <= 0:
+                    raise ValueError("deadline_at must be in the future")
+                intake["deadline_hours"] = hours
         if platforms is not None:
             intake["platforms"] = list(dict.fromkeys(str(x).strip() for x in platforms if str(x).strip()))
         if core_requirements is not None:
