@@ -117,6 +117,7 @@ from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
 from .social_channels import SocialChannelRegistry
+from .narada_legal import NaradaLegalCouncil
 from .affiliate_intent import AffiliateIntentEngine
 from .zero_spend_policy import ZeroSpendPolicy
 from .manibhadra_crm import ManibhadraCRM
@@ -194,6 +195,7 @@ class Orchestrator:
         self.application_security = ApplicationSecurityLoop()
         self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
         self.social_channels = SocialChannelRegistry()
+        self.narada_legal = NaradaLegalCouncil(runtime_state / "narada-legal")
         self.affiliate_intent = AffiliateIntentEngine()
         self.zero_spend = ZeroSpendPolicy()
         self.manibhadra_crm = ManibhadraCRM(runtime_state / "manibhadra-crm.json")
@@ -621,7 +623,7 @@ class Orchestrator:
         def narada_legal_plan_action(payload,context):
             return self.narada_legal.analysis_plan(
                 str(payload.get("issue") or payload.get("question") or ""),
-                str(payload.get("jurisdiction") or "India"),
+                str(payload.get("jurisdiction") or "Bhubaneswar, Khordha, Odisha, India"),
             )
 
         def narada_legal_risk_gate_action(payload,context):
@@ -3432,7 +3434,7 @@ class Orchestrator:
         )
         self.action_bus.register(
             "narada.legal.case_plan",narada_legal_case_plan_action,
-            description="Plan Indian precedent research with hierarchy, later-history and fact-match checks",
+            description="Plan mandatory Judge + Vakeel Odisha precedent research, two-sided court arguments, later-history and fact-match checks",
             permissions=("web.read","runtime.read"),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
