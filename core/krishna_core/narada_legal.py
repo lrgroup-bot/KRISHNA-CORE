@@ -161,6 +161,14 @@ OFFICIAL_SOURCES = (
         ("acts", "rules", "regulations", "notifications", "orders", "ordinances", "statutes", "circulars"),
     ),
     LegalSourceProfile(
+        "india_code_data_report",
+        "India Code — official upload/notification coverage report",
+        "https://upload.indiacode.nic.in/showdatareport",
+        "India Code / Legislative Department, Government of India",
+        "India",
+        ("coverage", "acts", "rules", "regulations", "notifications", "orders", "ordinances", "statutes", "circulars"),
+    ),
+    LegalSourceProfile(
         "egazette",
         "eGazette of India",
         "https://egazette.gov.in/?acceptscookies=yes",
@@ -324,7 +332,7 @@ class NaradaLegalAdvisor:
     )
     ALLOWED_OFFICIAL_HOSTS = {
         "legislative.gov.in", "www.legislative.gov.in",
-        "indiacode.nic.in", "www.indiacode.nic.in",
+        "indiacode.nic.in", "www.indiacode.nic.in", "upload.indiacode.nic.in",
         "egazette.gov.in", "www.egazette.gov.in",
         "sci.gov.in", "www.sci.gov.in", "verdictfinder.sci.gov.in",
         "judgments.ecourts.gov.in", "ecourts.gov.in", "www.ecourts.gov.in",
@@ -434,7 +442,7 @@ class NaradaLegalAdvisor:
 
     def _selected_source_ids(self, topic: str, jurisdiction: str = "india") -> list[str]:
         text = f"{topic} {jurisdiction}".lower()
-        ids = ["constitution_2026", "india_code", "egazette"]
+        ids = ["constitution_2026", "india_code", "india_code_data_report", "egazette"]
         if any(x in text for x in ("case", "judgment", "judgement", "precedent", "court", "judge", "ratio")):
             ids += ["supreme_court_verdict_finder", "ecourts_judgments", "supreme_court_constitution"]
         if any(x in text for x in ("criminal", "police", "arrest", "fir", "bns", "bnss", "bsa", "evidence", "crime")):
@@ -530,6 +538,54 @@ class NaradaLegalAdvisor:
                 "search adverse and distinguishing precedent, not only favourable cases",
                 "never convert precedent similarity into a guaranteed prediction",
             ],
+        }
+
+    def deep_corpus_plan(self, jurisdiction: str = "India") -> dict[str, Any]:
+        """Return the bounded, resumable corpus acquisition contract.
+
+        This is intentionally a plan rather than an unbounded scraper. India Code
+        states that updating state and subordinate legislation is continuous, so
+        completeness must be measured against official inventories and refreshed.
+        """
+        state_text = str(jurisdiction or "India")
+        sources = ["constitution_2026", "india_code", "india_code_data_report", "egazette"]
+        if "odisha" in state_text.lower():
+            sources += ["odisha_acts", "odisha_rules", "odisha_notifications"]
+        return {
+            "parent_rishi": self.PARENT_RISHI,
+            "shishya": "constitution",
+            "jurisdiction": state_text,
+            "goal": "Build a versioned, provenance-backed current-law corpus without overloading official services.",
+            "categories": [
+                "Constitution and amendments",
+                "Acts and amending Acts",
+                "Rules",
+                "Regulations",
+                "Notifications",
+                "Orders",
+                "Ordinances",
+                "Statutes",
+                "Circulars",
+                "Gazette publications",
+                "binding and relevant judicial decisions",
+            ],
+            "official_inventory_sources": [self._sources[x].as_dict() for x in sources],
+            "crawl_contract": {
+                "official_hosts_only": True,
+                "concurrency": 1,
+                "minimum_delay_seconds": 2,
+                "resume_from_checkpoint": True,
+                "deduplicate_by_sha256": True,
+                "preserve_original_bytes": True,
+                "preserve_retrieval_metadata": True,
+                "respect_robots_terms_and_rate_limits": True,
+                "do_not_bypass_captcha_or_access_controls": True,
+            },
+            "completion_rule": (
+                "Do not mark corpus complete until official inventory counts/categories have been "
+                "reconciled with locally indexed documents and unresolved gaps are zero or explicitly documented."
+            ),
+            "coverage_truth": self.COVERAGE_TRUTH,
         }
 
     def monitor_plan(self) -> dict[str, Any]:
