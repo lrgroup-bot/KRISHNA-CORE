@@ -106,8 +106,8 @@ class FullUIFunctionContractTests(unittest.TestCase):
         for token in (
             "RISHI VĀṆIJYA · Sales & Marketing Head",
             "Lead Researcher → SDR / Calling → Lead Qualifier",
-            "vanijya.dashboard","vanijya.products.sync","vanijya.sales_cycle",
-            "loadVanijyaSales","vanijyaSyncProducts","vanijyaSalesCycle",
+            "vanijya.dashboard","vanijya.products.sync","vanijya.sales_cycle","vanijya.autopilot.tick",
+            "loadVanijyaSales","vanijyaSyncProducts","vanijyaAutopilot","vanijyaSalesCycle",
         ):
             self.assertIn(token,self.html)
         main=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',self.html)
@@ -118,7 +118,7 @@ class FullUIFunctionContractTests(unittest.TestCase):
     def test_vanijya_backend_actions_are_registered(self):
         for action in (
             "vanijya.status","vanijya.dashboard","vanijya.health","vanijya.health.verify",
-            "vanijya.manibhadra.request","vanijya.products.sync","vanijya.sales_cycle",
+            "vanijya.manibhadra.request","vanijya.products.sync","vanijya.sales_cycle","vanijya.autopilot.tick",
             "vanijya.campaign.create","vanijya.hr.request","vanijya.hr.create","vanijya.hr.retire",
             "vanijya.outreach.decide","vanijya.lead.qualify","vanijya.reply.ingest",
             "vanijya.outbound.plan","vanijya.narad.workflow","vanijya.quote.create",
