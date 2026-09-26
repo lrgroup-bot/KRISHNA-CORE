@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import urlparse
 import hashlib
 import json
 import re
@@ -11,6 +13,446 @@ import urllib.parse
 import urllib.request
 
 
+@dataclass(frozen=True)
+class LegalShishya:
+    id: str
+    display_name: str
+    role: str
+    mission: str
+    must_do: tuple[str, ...]
+    must_not_do: tuple[str, ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        row = asdict(self)
+        row["must_do"] = list(self.must_do)
+        row["must_not_do"] = list(self.must_not_do)
+        return row
+
+
+SHISHYA = (
+    LegalShishya(
+        "constitution", "Constitution", "Indian constitutional, legislation and regulatory corpus keeper",
+        "Maintain a versioned source-faithful Indian legal corpus and detect new, amended, commenced, repealed or superseded law.",
+        (
+            "prefer official Government of India and State sources",
+            "record jurisdiction, issuing authority, publication date, effective date and source URL",
+            "track amendments, commencement, repeal and supersession",
+            "preserve old versions and hash every stored document",
+            "flag material legal changes for Narada review",
+        ),
+        ("never treat an unofficial summary as authoritative law", "never silently overwrite prior legal versions"),
+    ),
+    LegalShishya(
+        "legal", "Legal", "Lawful-path and compliance analyst",
+        "Research what can lawfully be done, which permissions or registrations are needed, and the lowest-risk compliant path.",
+        (
+            "identify governing law and jurisdiction",
+            "separate mandatory legal duties from optional best practice",
+            "identify licenses, consent, notice, filing and recordkeeping requirements",
+            "state uncertainty and escalate consequential unresolved issues to a qualified Indian advocate",
+        ),
+        ("never invent a permission, exemption or legal conclusion",),
+    ),
+    LegalShishya(
+        "illegal", "Illegal", "Prohibition and legal-risk analyst",
+        "Identify conduct that is prohibited, restricted, criminal, fraudulent, deceptive, privacy-invasive or contrary to binding obligations.",
+        (
+            "name the suspected prohibition and official source supporting it",
+            "distinguish illegal conduct from civil risk, contractual restriction or platform-policy violation",
+            "identify a safer lawful alternative",
+            "surface uncertainty instead of accusing a person of wrongdoing",
+        ),
+        ("never teach evasion, concealment, bribery, obstruction, witness tampering or evidence destruction",),
+    ),
+    LegalShishya(
+        "vakeel", "Vakeel", "Lawful advocacy, defense, remedy and structuring analyst",
+        "Protect rights and pursue the objective through lawful authorization, consent, licensing, exemptions, appeals, reviews, contract design, restructuring, settlement or other compliant routes.",
+        (
+            "look for lawful exceptions, defenses and statutory remedies",
+            "identify appeal, review, representation, mediation and dispute-resolution routes",
+            "propose compliant contractual and operational structures",
+            "distinguish a lawful workaround from unlawful circumvention",
+        ),
+        (
+            "never advise how to hide an offence or avoid detection",
+            "never advise false statements, fake documents, bribery, obstruction, evidence destruction or witness tampering",
+            "never impersonate an advocate or claim an attorney-client relationship",
+        ),
+    ),
+    LegalShishya(
+        "judge", "Judge", "Judicial precedent and case-comparison analyst",
+        "Find Indian judgments matching the facts and legal issue, then explain holdings, court hierarchy, later history and material distinctions.",
+        (
+            "prefer Supreme Court and official eCourts/High Court sources",
+            "separate holdings from observations and party allegations",
+            "record court, bench, date, case number and cited provisions",
+            "check whether later authority overrules, stays, distinguishes or qualifies a case",
+        ),
+        ("never fabricate a citation or holding", "never present a future court outcome as certain"),
+    ),
+    LegalShishya(
+        "police", "Police", "Law-enforcement procedure, immediate-risk and evidence-preservation analyst",
+        "Assess a current situation from a lawful police/procedure perspective: safety, complaint/FIR/cybercrime channels, evidence preservation, rights and duties.",
+        (
+            "prioritize immediate safety and official emergency/reporting channels",
+            "identify the appropriate reporting route from official sources",
+            "preserve original records and relevant evidence",
+            "explain rights and duties without obstructing an investigation",
+        ),
+        ("never impersonate police", "never coach escape, resistance, obstruction or concealment/destruction of evidence", "never determine guilt"),
+    ),
+)
+
+
+DEFAULT_JURISDICTION={
+    "country":"India",
+    "state":"Odisha",
+    "district":"Khordha",
+    "city":"Bhubaneswar",
+}
+ODISHA_ONLY=True
+
+
+OFFICIAL_SOURCES = {
+    "odisha_law":{
+        "name":"Law Department, Government of Odisha",
+        "url":"https://law.odisha.gov.in/",
+        "domains":("law.odisha.gov.in",),
+        "scope":("Odisha acts","ordinances","rules","regulations","notifications","Odisha Gazette","Extraordinary Gazette"),
+        "priority":100,"jurisdiction":"Odisha",
+    },
+    "orissa_high_court":{
+        "name":"Orissa High Court, Cuttack",
+        "url":"https://www.orissahighcourt.nic.in/",
+        "domains":("orissahighcourt.nic.in","www.orissahighcourt.nic.in"),
+        "scope":("Odisha High Court judgments","orders","notifications","court rules","PIL"),
+        "priority":100,"jurisdiction":"Odisha",
+    },
+    "odisha_revenue":{
+        "name":"Revenue and Disaster Management Department, Government of Odisha",
+        "url":"https://revenue.odisha.gov.in/",
+        "domains":("revenue.odisha.gov.in",),
+        "scope":("land reforms","government land","registration","stamp","survey and settlement","minor minerals","land acquisition"),
+        "priority":100,"jurisdiction":"Odisha",
+    },
+    "odisha_urban":{
+        "name":"Housing & Urban Development Department, Government of Odisha",
+        "url":"https://urban.odisha.gov.in/",
+        "domains":("urban.odisha.gov.in",),
+        "scope":("municipal law","planning","building standards","apartments","urban local bodies","development authorities"),
+        "priority":100,"jurisdiction":"Odisha",
+    },
+    "bmc":{
+        "name":"Bhubaneswar Municipal Corporation",
+        "url":"https://www.bmc.gov.in/",
+        "domains":("bmc.gov.in","www.bmc.gov.in"),
+        "scope":("Bhubaneswar municipal law","trade regulation","solid waste bye-laws","municipal rules","local permissions"),
+        "priority":100,"jurisdiction":"Bhubaneswar",
+    },
+    "bda":{
+        "name":"Bhubaneswar Development Authority",
+        "url":"https://www.bda.gov.in/",
+        "domains":("bda.gov.in","www.bda.gov.in"),
+        "scope":("Bhubaneswar planning","building standards","development authority rules","occupancy","land development"),
+        "priority":100,"jurisdiction":"Bhubaneswar",
+    },
+    "orera":{
+        "name":"Odisha Real Estate Regulatory Authority",
+        "url":"https://rera.odisha.gov.in/",
+        "domains":("rera.odisha.gov.in",),
+        "scope":("real estate projects","promoters","agents","orders","RERA compliance","consumer protection in real estate"),
+        "priority":100,"jurisdiction":"Odisha",
+    },
+    "odisha_police":{
+        "name":"Odisha Police",
+        "url":"https://police.odisha.gov.in/",
+        "domains":("police.odisha.gov.in",),
+        "scope":("police citizen services","FIR","cyber crime","complaints","public services","police notices"),
+        "priority":100,"jurisdiction":"Odisha",
+    },
+    "commissionerate_police":{
+        "name":"Bhubaneswar-Cuttack Police Commissionerate",
+        "url":"https://bhubaneswarcuttackpolice.gov.in/",
+        "domains":("bhubaneswarcuttackpolice.gov.in","www.bhubaneswarcuttackpolice.gov.in"),
+        "scope":("Bhubaneswar police procedure","local FIR services","traffic","permissions","public safety"),
+        "priority":100,"jurisdiction":"Bhubaneswar",
+    },
+    "odisha_labour":{
+        "name":"Labour & ESI Department, Government of Odisha",
+        "url":"https://labour.odisha.gov.in/",
+        "domains":("labour.odisha.gov.in",),
+        "scope":("labour rules","wages","industrial relations","social security","occupational safety","gazette notifications"),
+        "priority":95,"jurisdiction":"Odisha",
+    },
+    "odisha_finance":{
+        "name":"Finance Department, Government of Odisha",
+        "url":"https://finance.odisha.gov.in/",
+        "domains":("finance.odisha.gov.in",),
+        "scope":("Odisha GST","tax notifications","financial rules","state finance circulars"),
+        "priority":95,"jurisdiction":"Odisha",
+    },
+    "odisha_spcb":{
+        "name":"State Pollution Control Board, Odisha",
+        "url":"https://ospcboard.odisha.gov.in/",
+        "domains":("ospcboard.odisha.gov.in",),
+        "scope":("pollution consent","environmental authorisation","waste rules","notices","industrial environmental compliance"),
+        "priority":95,"jurisdiction":"Odisha",
+    },
+    "constitution":{
+        "name":"Legislative Department, Ministry of Law and Justice",
+        "url":"https://legislative.gov.in/",
+        "domains":("legislative.gov.in","www.legislative.gov.in"),
+        "scope":("Constitution of India","central legislation applicable in Odisha","constitutional amendments"),
+        "priority":90,"jurisdiction":"India",
+    },
+    "india_code":{
+        "name":"India Code",
+        "url":"https://www.indiacode.nic.in/",
+        "domains":("indiacode.nic.in","www.indiacode.nic.in","upload.indiacode.nic.in"),
+        "scope":("central acts and subordinate law applicable in Odisha"),
+        "priority":90,"jurisdiction":"India",
+    },
+    "egazette":{
+        "name":"eGazette of India",
+        "url":"https://egazette.nic.in/",
+        "domains":("egazette.nic.in","www.egazette.nic.in"),
+        "scope":("central gazette material applicable in Odisha"),
+        "priority":90,"jurisdiction":"India",
+    },
+    "supreme_court":{
+        "name":"Supreme Court of India",
+        "url":"https://www.sci.gov.in/",
+        "domains":("sci.gov.in","www.sci.gov.in"),
+        "scope":("binding Supreme Court judgments and orders applicable in Odisha"),
+        "priority":95,"jurisdiction":"India",
+    },
+    "ecourts_judgments":{
+        "name":"eCourts Judgments and Orders",
+        "url":"https://judgments.ecourts.gov.in/",
+        "domains":("judgments.ecourts.gov.in","services.ecourts.gov.in"),
+        "scope":("Odisha court judgments/orders and case information"),
+        "priority":95,"jurisdiction":"India/Odisha",
+    },
+    "mha":{
+        "name":"Ministry of Home Affairs",
+        "url":"https://www.mha.gov.in/",
+        "domains":("mha.gov.in","www.mha.gov.in"),
+        "scope":("central criminal law applicable in Odisha","BNS","BNSS","BSA"),
+        "priority":90,"jurisdiction":"India",
+    },
+    "rbi":{
+        "name":"Reserve Bank of India",
+        "url":"https://www.rbi.org.in/",
+        "domains":("rbi.org.in","www.rbi.org.in"),
+        "scope":("banking","payments","financial regulation applicable in Odisha"),
+        "priority":90,"jurisdiction":"India",
+    },
+    "meity":{
+        "name":"Ministry of Electronics and Information Technology",
+        "url":"https://www.meity.gov.in/",
+        "domains":("meity.gov.in","www.meity.gov.in"),
+        "scope":("data protection","information technology","digital rules applicable in Odisha"),
+        "priority":90,"jurisdiction":"India",
+    },
+    "trai":{
+        "name":"Telecom Regulatory Authority of India",
+        "url":"https://www.trai.gov.in/",
+        "domains":("trai.gov.in","www.trai.gov.in"),
+        "scope":("telecom","commercial communications","consent and messaging rules applicable in Odisha"),
+        "priority":90,"jurisdiction":"India",
+    },
+}
+
+
+
+SENSITIVE_EVASION = re.compile(
+    r"\b(evade|escape police|avoid detection|hide evidence|destroy evidence|bribe|fake document|bypass law|bypass police|tamper witness|launder|conceal offence|conceal offense)\b",
+    re.I,
+)
+
+
+class NaradaLegalCouncil:
+    """Permanent six-shishya legal advisory layer under Rishi Narada."""
+
+    SCHEMA="krishna.narada-legal.v1"
+
+    def __init__(self,root:str|Path):
+        self.root=Path(root).resolve()
+        self.corpus=self.root/"corpus"
+        self.root.mkdir(parents=True,exist_ok=True)
+        self.corpus.mkdir(parents=True,exist_ok=True)
+        self.index_path=self.root/"index.json"
+        if not self.index_path.exists():
+            self._write_index({"schema":self.SCHEMA,"documents":{},"updates":[],"last_sync":None})
+
+    @staticmethod
+    def _now():
+        return datetime.now(timezone.utc).isoformat()
+
+    def _read_index(self):
+        try:raw=json.loads(self.index_path.read_text(encoding="utf-8"))
+        except Exception as exc:raise RuntimeError(f"Narada legal index unreadable: {type(exc).__name__}: {exc}") from exc
+        if not isinstance(raw,dict) or raw.get("schema")!=self.SCHEMA:raise RuntimeError("Narada legal index schema mismatch")
+        raw.setdefault("documents",{});raw.setdefault("updates",[])
+        return raw
+
+    def _write_index(self,data):
+        tmp=self.index_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data,ensure_ascii=False,indent=2,sort_keys=True),encoding="utf-8")
+        tmp.replace(self.index_path)
+
+    @staticmethod
+    def shishya():
+        return [x.as_dict() for x in SHISHYA]
+
+    @staticmethod
+    def sources():
+        return {k:{**v,"domains":list(v["domains"]),"scope":list(v["scope"])} for k,v in OFFICIAL_SOURCES.items()}
+
+    @staticmethod
+    def _source_for_url(url):
+        host=(urlparse(str(url or "")).hostname or "").lower()
+        for sid,row in OFFICIAL_SOURCES.items():
+            if host in row["domains"]:return sid
+        return None
+
+    def status(self):
+        idx=self._read_index()
+        return {
+            "name":"Rishi Narada Legal Council","advisor":"narada","permanent":True,
+            "default_jurisdiction":dict(DEFAULT_JURISDICTION),"odisha_only":ODISHA_ONLY,
+            "shishya":self.shishya(),"official_sources":self.sources(),
+            "corpus_documents":len(idx.get("documents") or {}),"recorded_updates":len(idx.get("updates") or []),
+            "last_sync":idx.get("last_sync"),
+            "policy":{
+                "modern_law_authority":"Odisha/Bhubaneswar official law first; Central Indian law only where applicable in Odisha",
+                "classical_texts":"historical jurisprudence only; never current law",
+                "unofficial_sources":"discovery/context only until verified against authoritative material",
+                "high_consequence":"qualified Indian advocate review required when unresolved or consequential",
+                "evasion":"prohibited; only lawful alternatives, defenses, remedies and compliant structuring",
+            },
+        }
+
+    def route(self,question):
+        text=str(question or "").strip()
+        if not text:raise ValueError("legal question is required")
+        lower=text.lower();ids=[]
+        if any(x in lower for x in ("constitution","article ","fundamental right","amendment","rule","regulation","notification","circular","act ")):ids.append("constitution")
+        if any(x in lower for x in ("case","judgment","judgement","precedent","court","judge","supreme court","high court")):ids.append("judge")
+        if any(x in lower for x in ("police","fir","complaint","arrest","cybercrime","investigation","evidence")):ids.append("police")
+        if any(x in lower for x in ("illegal","crime","offence","offense","prohibited","fraud","penalty")):ids.append("illegal")
+        if any(x in lower for x in ("appeal","defense","defence","exemption","license","licence","permission","contract","settlement","review","remedy","workaround")):ids.append("vakeel")
+        for required in ("legal","illegal","judge","vakeel"):
+            if required not in ids:ids.append(required)
+        ordered=[x.id for x in SHISHYA if x.id in ids]
+        return {
+            "question":text,"lead_rishi":"narada","shishya":ordered,
+            "requires_current_source_check":True,"requires_jurisdiction":True,
+            "evasion_language_detected":bool(SENSITIVE_EVASION.search(text)),
+            "instruction":"Find the lawful path and legal risk using current official sources. If the objective requires concealment, obstruction or evasion, reject that route and propose lawful alternatives.",
+        }
+
+    def research_plan(self,question,*,state="",district="",city="",domain=""):
+        requested_state=str(state or DEFAULT_JURISDICTION["state"]).strip()
+        if requested_state.lower() not in {"odisha","orissa"}:
+            raise PermissionError("Narada legal scope is currently restricted to Odisha; other-state law is disabled")
+        requested_city=str(city or DEFAULT_JURISDICTION["city"]).strip()
+        requested_district=str(district or DEFAULT_JURISDICTION["district"]).strip()
+        routing=self.route(question);profiles={x.id:x for x in SHISHYA};tasks=[]
+        outputs={
+            "constitution":["governing_sources","current_status","changes","effective_dates","superseded_material"],
+            "judge":["matching_cases","court_hierarchy","holding","fact_match","later_history","distinctions"],
+            "vakeel":["lawful_options","permissions","defenses","remedies","risk_reduction"],
+            "illegal":["prohibitions","risk_level","official_basis","lawful_alternative"],
+            "police":["immediate_risk","reporting_route","evidence_preservation","rights_and_duties"],
+            "legal":["governing_law","compliance_steps","permissions","uncertainties"],
+        }
+        for sid in routing["shishya"]:
+            p=profiles[sid]
+            tasks.append({"shishya":sid,"role":p.role,"task":p.mission,"required_output":outputs[sid]})
+        return {
+            "lead_rishi":"narada","question":str(question).strip(),
+            "jurisdiction":{"country":"India","state":"Odisha","district":requested_district or None,"city":requested_city or None},
+            "scope_policy":"Odisha law only for now; Bhubaneswar is the default local context. Central law is consulted only where it applies in Odisha.",
+            "domain":str(domain or "").strip() or None,"routing":routing,"tasks":tasks,
+            "source_order":[
+                "Odisha Law Department / Odisha Gazette",
+                "Orissa High Court / Odisha eCourts",
+                "relevant Odisha department or regulator",
+                "BMC / BDA / Bhubaneswar-Cuttack Commissionerate when local Bhubaneswar law or procedure applies",
+                "India Code / Central eGazette / Supreme Court only for Central law binding or applicable in Odisha",
+                "secondary commentary only for discovery and cross-checking",
+            ],
+            "github_policy":"Open-source legal/RAG repositories may inspire retrieval architecture but are never legal authority.",
+            "case_research_policy":{"judge_and_vakeel_mandatory":True,"two_sided_arguments":True,"adverse_authority_required_when_available":True,"result_rule":"compare actual precedent outcomes; never guarantee the current result"},
+            "final_review":["judge:precedent packet","vakeel:argument packet","gautama:evidence","narada:legal synthesis"],
+        }
+
+    def ingest_official_document(self,*,title,url,text,document_type,jurisdiction="India",published_at="",effective_at="",authority="",metadata=None):
+        title=str(title or "").strip();url=str(url or "").strip();body=str(text or "")
+        if not title or not url or not body.strip():raise ValueError("title, url and document text are required")
+        source_id=self._source_for_url(url)
+        if not source_id:raise PermissionError("only allowlisted official legal sources may enter the authoritative Narada corpus")
+        digest=sha256(body.encode("utf-8")).hexdigest();canonical=sha256(url.encode("utf-8")).hexdigest()
+        doc_id=f"{source_id}-{digest[:20]}";idx=self._read_index();old=idx["documents"].get(canonical)
+        row={
+            "document_id":doc_id,"canonical_id":canonical,"title":title,"url":url,"source_id":source_id,
+            "document_type":str(document_type or "unknown").strip().lower(),"jurisdiction":str(jurisdiction or "India").strip(),
+            "authority":str(authority or OFFICIAL_SOURCES[source_id]["name"]).strip(),
+            "published_at":str(published_at or "").strip() or None,"effective_at":str(effective_at or "").strip() or None,
+            "sha256":digest,"ingested_at":self._now(),"metadata":dict(metadata or {}),
+            "supersedes":old.get("document_id") if old and old.get("sha256")!=digest else None,
+        }
+        (self.corpus/f"{doc_id}.json").write_text(json.dumps({**row,"text":body},ensure_ascii=False,indent=2),encoding="utf-8")
+        changed=old is None or old.get("sha256")!=digest
+        idx["documents"][canonical]=row
+        if changed:
+            idx["updates"].append({"at":self._now(),"url":url,"old_document_id":old.get("document_id") if old else None,"new_document_id":doc_id,"kind":"new" if old is None else "changed"})
+            idx["updates"]=idx["updates"][-5000:]
+        idx["last_sync"]=self._now();self._write_index(idx)
+        return {"stored":True,"changed":changed,**row}
+
+    def search_corpus(self,query,limit=20):
+        terms=[x for x in re.findall(r"[a-zA-Z0-9]+",str(query or "").lower()) if len(x)>2]
+        if not terms:raise ValueError("search query is required")
+        idx=self._read_index();scored=[]
+        for row in idx.get("documents",{}).values():
+            path=self.corpus/f"{row['document_id']}.json"
+            if not path.exists():continue
+            try:doc=json.loads(path.read_text(encoding="utf-8"))
+            except Exception:continue
+            hay=(str(doc.get("title") or "")+"\n"+str(doc.get("text") or "")).lower()
+            score=sum(hay.count(t) for t in terms)
+            if score:scored.append((score,{k:v for k,v in doc.items() if k!="text"}))
+        scored.sort(key=lambda x:(-x[0],str(x[1].get("title") or "")))
+        rows=[{**row,"score":score} for score,row in scored[:max(1,min(int(limit),100))]]
+        return {"query":str(query),"results":rows,"count":len(rows)}
+
+    def update_watch_plan(self):
+        return {
+            "owner":"constitution","purpose":"detect new or changed law without silently replacing prior versions",
+            "jurisdiction":dict(DEFAULT_JURISDICTION),
+            "odisha_only":True,
+            "recommended_cadence":{
+                "Odisha Law Department / Odisha Gazette":"daily",
+                "Orissa High Court and Odisha-relevant eCourts judgments":"daily",
+                "Revenue / Urban / BMC / BDA / ORERA / Odisha Police / Labour / Finance / SPCB":"daily",
+                "Central sources":"daily only for changes applicable in Odisha",
+                "source coverage audit":"weekly",
+            },
+            "steps":[
+                "fetch Odisha/Bhubaneswar official indexes/feed/pages through approved browser or provider",
+                "compare canonical URL and content hash with Narada corpus",
+                "save new version while preserving the prior version",
+                "classify new/amended/repealed/superseded/commenced",
+                "send material changes through Constitution -> relevant shishya -> Judge/Vakeel where needed -> Gautama -> Narada",
+                "do not claim corpus completeness unless source coverage is machine-verified",
+            ],
+            "sources":self.sources(),
+        }
+
+
+# Compatibility/active runtime retained from the verified Narada advisor implementation.
 @dataclass(frozen=True)
 class LegalShishyaProfile:
     id: str
@@ -142,7 +584,7 @@ LEGAL_SHISHYAS = (
 )
 
 
-OFFICIAL_SOURCES = (
+ADVISOR_OFFICIAL_SOURCES = (
     LegalSourceProfile(
         "constitution_2026",
         "Constitution of India — official Legislative Department edition",
@@ -239,6 +681,70 @@ OFFICIAL_SOURCES = (
         "Law Department, Government of Odisha",
         "Odisha",
         ("state_notifications",),
+    ),
+    LegalSourceProfile(
+        "orissa_high_court",
+        "Orissa High Court, Cuttack",
+        "https://www.orissahighcourt.nic.in/",
+        "High Court of Orissa",
+        "Odisha",
+        ("judgments","orders","court_rules","precedent"),
+    ),
+    LegalSourceProfile(
+        "odisha_revenue",
+        "Revenue and Disaster Management Department, Odisha",
+        "https://revenue.odisha.gov.in/",
+        "Government of Odisha",
+        "Odisha",
+        ("land","registration","stamp","land_reform","settlement","acquisition"),
+    ),
+    LegalSourceProfile(
+        "odisha_urban",
+        "Housing & Urban Development Department, Odisha",
+        "https://urban.odisha.gov.in/",
+        "Government of Odisha",
+        "Odisha",
+        ("municipal","planning","building","development_authority","apartments"),
+    ),
+    LegalSourceProfile(
+        "bmc",
+        "Bhubaneswar Municipal Corporation",
+        "https://www.bmc.gov.in/",
+        "Bhubaneswar Municipal Corporation",
+        "Bhubaneswar, Odisha",
+        ("municipal","trade","local_permissions","bye_laws"),
+    ),
+    LegalSourceProfile(
+        "bda",
+        "Bhubaneswar Development Authority",
+        "https://www.bda.gov.in/",
+        "Bhubaneswar Development Authority",
+        "Bhubaneswar, Odisha",
+        ("planning","building","development","occupancy"),
+    ),
+    LegalSourceProfile(
+        "orera",
+        "Odisha Real Estate Regulatory Authority",
+        "https://rera.odisha.gov.in/",
+        "Odisha RERA",
+        "Odisha",
+        ("real_estate","projects","promoters","agents","orders"),
+    ),
+    LegalSourceProfile(
+        "odisha_police",
+        "Odisha Police",
+        "https://police.odisha.gov.in/",
+        "Odisha Police",
+        "Odisha",
+        ("police","fir","complaints","cybercrime","citizen_services"),
+    ),
+    LegalSourceProfile(
+        "commissionerate_police",
+        "Bhubaneswar-Cuttack Police Commissionerate",
+        "https://bhubaneswarcuttackpolice.gov.in/",
+        "Bhubaneswar-Cuttack Police Commissionerate",
+        "Bhubaneswar/Cuttack, Odisha",
+        ("police","permissions","traffic","public_safety"),
     ),
     LegalSourceProfile(
         "sebi_legal",
@@ -339,6 +845,14 @@ class NaradaLegalAdvisor:
         "mha.gov.in", "www.mha.gov.in",
         "bprd.nic.in", "www.bprd.nic.in",
         "law.odisha.gov.in",
+        "orissahighcourt.nic.in", "www.orissahighcourt.nic.in",
+        "revenue.odisha.gov.in",
+        "urban.odisha.gov.in",
+        "bmc.gov.in", "www.bmc.gov.in",
+        "bda.gov.in", "www.bda.gov.in",
+        "rera.odisha.gov.in",
+        "police.odisha.gov.in",
+        "bhubaneswarcuttackpolice.gov.in", "www.bhubaneswarcuttackpolice.gov.in",
         "sebi.gov.in", "www.sebi.gov.in",
         "rbi.org.in", "www.rbi.org.in",
         "trai.gov.in", "www.trai.gov.in",
@@ -350,12 +864,21 @@ class NaradaLegalAdvisor:
         self.corpus = self.root / "corpus"
         self.corpus.mkdir(parents=True, exist_ok=True)
         self.state_path = self.root / "source_state.json"
-        self._sources = {x.id: x for x in OFFICIAL_SOURCES}
+        self._sources = {x.id: x for x in ADVISOR_OFFICIAL_SOURCES}
         self._state = self._load_state()
 
     @staticmethod
     def _now() -> str:
         return datetime.now(timezone.utc).isoformat()
+
+    @staticmethod
+    def _jurisdiction(value: str = "") -> str:
+        raw=str(value or "").strip()
+        lower=raw.lower()
+        other_states=("karnataka","maharashtra","west bengal","tamil nadu","telangana","andhra pradesh","kerala","gujarat","rajasthan","punjab","haryana","assam","bihar","jharkhand","chhattisgarh","madhya pradesh","uttar pradesh","uttarakhand","goa","sikkim","tripura","manipur","mizoram","nagaland","arunachal pradesh","meghalaya")
+        if any(x in lower for x in other_states):
+            raise PermissionError("Narada legal scope is currently restricted to Bhubaneswar/Odisha; other-state law is disabled")
+        return raw or "Bhubaneswar, Khordha, Odisha, India"
 
     def _load_state(self) -> dict[str, Any]:
         if not self.state_path.exists():
@@ -381,7 +904,7 @@ class NaradaLegalAdvisor:
 
     def sources(self) -> dict[str, Any]:
         return {
-            "official": [x.as_dict() for x in OFFICIAL_SOURCES],
+            "official": [x.as_dict() for x in ADVISOR_OFFICIAL_SOURCES],
             "reference_repositories": [dict(x) for x in REFERENCE_REPOS],
             "authority_policy": self.AUTHORITY_POLICY,
             "coverage_truth": self.COVERAGE_TRUTH,
@@ -395,7 +918,7 @@ class NaradaLegalAdvisor:
             "role": "KRISHNA legal, judicial and compliance advisor",
             "permanent_shishyas": self.shishyas(),
             "permanent_shishya_count": len(LEGAL_SHISHYAS),
-            "official_source_count": len(OFFICIAL_SOURCES),
+            "official_source_count": len(ADVISOR_OFFICIAL_SOURCES),
             "cached_snapshot_count": len([x for x in cached if x.is_file()]),
             "authority_policy": self.AUTHORITY_POLICY,
             "coverage_truth": self.COVERAGE_TRUTH,
@@ -442,13 +965,13 @@ class NaradaLegalAdvisor:
 
     def _selected_source_ids(self, topic: str, jurisdiction: str = "india") -> list[str]:
         text = f"{topic} {jurisdiction}".lower()
-        ids = ["constitution_2026", "india_code", "india_code_data_report", "egazette"]
+        ids = ["odisha_acts","odisha_rules","odisha_notifications","orissa_high_court","constitution_2026","india_code","egazette"]
         if any(x in text for x in ("case", "judgment", "judgement", "precedent", "court", "judge", "ratio")):
-            ids += ["supreme_court_verdict_finder", "ecourts_judgments", "supreme_court_constitution"]
+            ids += ["orissa_high_court","supreme_court_verdict_finder", "ecourts_judgments", "supreme_court_constitution"]
         if any(x in text for x in ("criminal", "police", "arrest", "fir", "bns", "bnss", "bsa", "evidence", "crime")):
             ids += ["mha_new_criminal_laws", "bprd_model_police_manual", "ecourts_judgments"]
         if any(x in text for x in ("odisha", "bhubaneswar", "rasulgarh", "pahala", "cuttack")):
-            ids += ["odisha_acts", "odisha_rules", "odisha_notifications"]
+            ids += ["odisha_acts", "odisha_rules", "odisha_notifications","orissa_high_court","odisha_revenue","odisha_urban","bmc","bda","orera","odisha_police","commissionerate_police"]
         if any(x in text for x in ("bank", "payment", "forex", "foreign exchange", "rbi", "loan", "nbfc")):
             ids += ["rbi_master_directions"]
         if any(x in text for x in ("securities", "stock", "investment", "broker", "sebi", "mutual fund")):
@@ -461,7 +984,8 @@ class NaradaLegalAdvisor:
                 out.append(sid)
         return out
 
-    def source_plan(self, topic: str, jurisdiction: str = "India") -> dict[str, Any]:
+    def source_plan(self, topic: str, jurisdiction: str = "Bhubaneswar, Khordha, Odisha, India") -> dict[str, Any]:
+        jurisdiction=self._jurisdiction(jurisdiction)
         topic = str(topic or "").strip()
         if not topic:
             raise ValueError("legal research topic is required")
@@ -481,7 +1005,8 @@ class NaradaLegalAdvisor:
             ],
         }
 
-    def analysis_plan(self, issue: str, jurisdiction: str = "India") -> dict[str, Any]:
+    def analysis_plan(self, issue: str, jurisdiction: str = "Bhubaneswar, Khordha, Odisha, India") -> dict[str, Any]:
+        jurisdiction=self._jurisdiction(jurisdiction)
         issue = str(issue or "").strip()
         if not issue:
             raise ValueError("legal issue is required")
@@ -512,35 +1037,82 @@ class NaradaLegalAdvisor:
             },
         }
 
-    def case_research_plan(self, issue: str, jurisdiction: str = "India") -> dict[str, Any]:
+    def case_research_plan(self, issue: str, jurisdiction: str = "Bhubaneswar, Khordha, Odisha, India") -> dict[str, Any]:
+        jurisdiction=self._jurisdiction(jurisdiction)
         issue = str(issue or "").strip()
         if not issue:
             raise ValueError("case research issue is required")
         return {
             "parent_rishi": self.PARENT_RISHI,
-            "shishya": "judge",
+            "mandatory_shishyas": ["judge","vakeel"],
             "issue": issue,
             "jurisdiction": jurisdiction,
             "official_search_sources": [
+                self._sources["orissa_high_court"].as_dict(),
                 self._sources["supreme_court_verdict_finder"].as_dict(),
                 self._sources["ecourts_judgments"].as_dict(),
             ],
-            "extract": [
-                "court", "case_name", "citation", "case_number", "decision_date",
-                "judges", "material_facts", "issues", "statutes_and_provisions",
-                "precedents_relied", "precedents_not_relied", "ratio",
-                "holding", "result", "binding_status", "later_history",
-            ],
+            "judge": {
+                "mission": "Find the closest verified cases and reconstruct what the courts actually decided before advocacy is drafted.",
+                "extract": [
+                    "court","bench","case_name","citation","case_number","decision_date","judges",
+                    "material_facts","issues","statutes_and_provisions","arguments_recorded",
+                    "precedents_relied","precedents_distinguished","ratio","holding","result",
+                    "relief_granted_or_refused","binding_status","later_history",
+                ],
+                "required_search": [
+                    "closest fact-match",
+                    "favourable precedent",
+                    "adverse precedent",
+                    "higher-court authority",
+                    "later cases following/distinguishing/overruling/qualifying the authority",
+                ],
+            },
+            "vakeel": {
+                "mission": "Build the strongest lawful two-sided court argument from verified statutes, evidence and precedent.",
+                "argument_packet": [
+                    "issues presented",
+                    "our strongest argument linked to verified authority",
+                    "opponent's strongest counter-argument linked to verified authority",
+                    "reply/rebuttal",
+                    "why favourable cases match our material facts",
+                    "how adverse cases can lawfully be distinguished, if supportable",
+                    "procedural objections/prerequisites",
+                    "evidence required for each factual proposition",
+                    "interim and final remedies",
+                    "appeal/review/settlement alternatives",
+                ],
+                "rules": [
+                    "do not hide adverse authority",
+                    "do not invent facts, cases, quotations or evidence",
+                    "do not advise evasion, concealment, obstruction or false evidence",
+                ],
+            },
             "comparison_rules": [
                 "match material facts as well as legal issue",
-                "prefer higher and constitutionally binding authority where applicable",
-                "check whether the relevant statutory text later changed",
+                "prefer Supreme Court binding authority, then Orissa High Court for Odisha matters",
+                "check whether the relevant statutory text changed after each precedent",
                 "search adverse and distinguishing precedent, not only favourable cases",
+                "separate the court's findings from party allegations and advocate submissions",
                 "never convert precedent similarity into a guaranteed prediction",
             ],
+            "result_analysis": {
+                "purpose":"Compare what happened in verified analogous cases with our facts.",
+                "report":[
+                    "outcomes in closest verified cases",
+                    "facts helping our position",
+                    "facts hurting our position",
+                    "controlling legal differences",
+                    "missing evidence that could materially change the analysis",
+                    "uncertainties and unresolved conflicts in authority",
+                ],
+                "boundary":"Explain precedent-based implications; never promise or guarantee the present court's result.",
+            },
+            "review_chain":["judge","vakeel","gautama","narada"],
         }
 
-    def deep_corpus_plan(self, jurisdiction: str = "India") -> dict[str, Any]:
+
+    def deep_corpus_plan(self, jurisdiction: str = "Bhubaneswar, Khordha, Odisha, India") -> dict[str, Any]:
         """Return the bounded, resumable corpus acquisition contract.
 
         This is intentionally a plan rather than an unbounded scraper. India Code
@@ -592,10 +1164,12 @@ class NaradaLegalAdvisor:
         return {
             "parent_rishi": self.PARENT_RISHI,
             "shishya": "constitution",
+            "jurisdiction": "Bhubaneswar, Khordha, Odisha, India",
+            "odisha_only": True,
             "operation": "legal_update",
             "recommended_interval_seconds": 21600,
             "method": "fingerprint official source pages/documents; preserve retrieval metadata; research changed sources before promoting any legal conclusion",
-            "sources": [x.as_dict() for x in OFFICIAL_SOURCES if x.monitor],
+            "sources": [x.as_dict() for x in ADVISOR_OFFICIAL_SOURCES if x.monitor],
             "coverage_truth": self.COVERAGE_TRUTH,
         }
 
@@ -637,7 +1211,7 @@ class NaradaLegalAdvisor:
 
     def _resolve_sources(self, source_ids: Iterable[str] | None) -> list[LegalSourceProfile]:
         if source_ids is None:
-            return [x for x in OFFICIAL_SOURCES if x.monitor]
+            return [x for x in ADVISOR_OFFICIAL_SOURCES if x.monitor]
         out = []
         for raw in source_ids:
             sid = str(raw or "").strip()
