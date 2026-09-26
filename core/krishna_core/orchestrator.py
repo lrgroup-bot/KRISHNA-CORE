@@ -567,6 +567,16 @@ class Orchestrator:
                 currency=str(payload.get("currency") or "INR"),
             )
 
+        def investment_scenario_action(payload,context):
+            return self.zero_spend.investment_scenario(
+                investment=float(payload.get("investment") or 0),
+                expected_revenue=payload.get("expected_revenue"),
+                expected_margin_rate=payload.get("expected_margin_rate"),
+                low_revenue=payload.get("low_revenue"),
+                high_revenue=payload.get("high_revenue"),
+                assumptions=payload.get("assumptions") or [],
+            )
+
         def manibhadra_status_action(payload,context):
             return {**self.manibhadra.status(),"affiliate":self.affiliate_intent.status(),"money_policy":self.zero_spend.status()}
 
@@ -2912,6 +2922,11 @@ class Orchestrator:
             "money.zero_spend.decide",zero_spend_decide_action,
             description="Evaluate a proposed money movement; outgoing spend is hard-blocked",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "money.investment_scenario",investment_scenario_action,
+            description="KRISHNA-only advisory ROI scenario; creates no spending authority and never guarantees returns",
+            permissions=("runtime.read",),sources=("pc","system","mcp","a2a"),
         )
         self.action_bus.register(
             "manibhadra.intent",manibhadra_intent_action,
