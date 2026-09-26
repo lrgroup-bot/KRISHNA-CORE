@@ -127,7 +127,8 @@ class FullUIFunctionContractTests(unittest.TestCase):
             "vanijya.crm.dashboard","vanijya.crm.upsert_lead","vanijya.crm.upsert_deal",
             "vanijya.quote.create","vanijya.payment.request","vanijya.payment.upi_request","vanijya.payment.qr","vanijya.payment.verify",
             "vanijya.pipeline.next","vanijya.automation.blueprint",
-            "manibhadra.expansion.status","manibhadra.expansion.plan",
+            "manibhadra.expansion.status","manibhadra.expansion.providers",
+            "manibhadra.expansion.request_plan","manibhadra.expansion.plan",
         ):
             self.assertIn(f'"{action}"',self.orchestrator)
 
