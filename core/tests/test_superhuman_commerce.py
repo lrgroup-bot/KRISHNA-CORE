@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from krishna_core.application_security import ApplicationSecurityLoop
 from krishna_core.node_registry import NodeRegistry
+from krishna_core.node_execution import TrustedNodeExecutor
 from krishna_core.gmail_triage import GmailTriage
 from krishna_core.github_pr_review import GitHubPRReviewer
 from krishna_core.manibhadra_commerce import ManibhadraCommerce
@@ -63,9 +64,15 @@ class SuperhumanCommerceTests(unittest.TestCase):
             node=f.enroll("Mac Worker","0123456789abcdef",approved=True)
             with self.assertRaises(PermissionError):
                 f.configure_execution(node.id,platform="macos",capabilities=["build"],approved=False)
-            f.configure_execution(node.id,platform="macos",capabilities=["build","render"],endpoint="ssh://mac.local",approved=True)
+            f.configure_execution(node.id,platform="macos",capabilities=["build","render"],endpoint="ssh://builder@mac.local",workspace_root="/srv/krishna",approved=True)
             f.heartbeat(node.id)
             self.assertEqual(f.select("build")["id"],node.id)
+            executor=TrustedNodeExecutor(f)
+            with patch("krishna_core.node_execution.shutil.which",return_value="/usr/bin/ssh"):
+                plan=executor.plan("build",["python3","-m","unittest"],"macos")
+            self.assertTrue(plan["ready"])
+            self.assertEqual(plan["target"],"builder@mac.local")
+            self.assertEqual(plan["workspace_root"],"/srv/krishna")
 
     def test_record_to_skill_is_candidate_only(self):
         with tempfile.TemporaryDirectory() as td:
@@ -142,9 +149,9 @@ class IntegrationContractTests(unittest.TestCase):
         for action in (
             "superhuman.status","social.channels.status","social.channel","gmail.triage","manibhadra.status","manibhadra.research",
             "manibhadra.evaluate","manibhadra.supplier_offer","manibhadra.listing_plan",
-            "marketplace.capabilities","compute.nodes.status","compute.nodes.configure",
+            "marketplace.capabilities","compute.nodes.status","compute.nodes.configure","compute.nodes.plan","compute.nodes.run",
             "workflow.record.start","workflow.record.finish","github.pr.review",
-            "application.security.threat_model","windows.sandbox.plan",
+            "application.security.threat_model","windows.sandbox.status","windows.sandbox.setup_plan","windows.sandbox.plan","windows.sandbox.run",
         ):
             self.assertIn(f'"{action}"',text)
 
