@@ -507,17 +507,36 @@ public class MainActivity extends Activity {
         if(bytes.length==0||bytes.length>4*1024*1024)throw new IllegalArgumentException("free-cloud keyframe must be 1 byte to 4 MB");
         JSONObject metadata=new JSONObject(metadataJson==null||metadataJson.trim().isEmpty()?"{}":metadataJson);
         if(!metadata.optBoolean("cloud_approved",false))throw new SecurityException("free-cloud mode requires explicit owner approval");
+        if(metadata.optBoolean("contains_biometrics",false)||metadata.optBoolean("contains_credentials",false)||metadata.optBoolean("private_document",false))
+          throw new SecurityException("sensitive HAWKEYE evidence remains local/PC-only");
         metadata.put("selected_keyframe",true);
+        String requested=provider==null||provider.trim().isEmpty()?"auto":provider.trim().toLowerCase(java.util.Locale.US);
+        if("auto".equals(requested)||"openrouter".equals(requested)){
+          try{
+            JSONObject direct=MobileFreeCloudRouter.analyzeImage(MainActivity.this,bytes,contentType,prompt);
+            direct.put("mobile_direct",true);direct.put("pc_contacted",false);
+            return direct.toString();
+          }catch(Exception directFailure){
+            if("openrouter".equals(requested)){
+              JSONObject unavailable=new JSONObject();
+              unavailable.put("error","Mobile direct zero-cost OpenRouter unavailable: "+String.valueOf(directFailure.getMessage()));
+              unavailable.put("pc_contacted",false);unavailable.put("paid_fallback",false);
+              return unavailable.toString();
+            }
+          }
+        }
         JSONObject body=new JSONObject();
         body.put("data_b64",Base64.encodeToString(bytes,Base64.NO_WRAP));
         body.put("content_type",contentType==null||contentType.trim().isEmpty()?"image/jpeg":contentType);
         body.put("prompt",prompt==null?"":prompt);
         body.put("metadata",metadata);
-        body.put("provider",provider==null||provider.trim().isEmpty()?"auto":provider.trim());
+        body.put("provider",requested);
         body.put("openrouter_role",openrouterRole==null||openrouterRole.trim().isEmpty()?"hawkeye_vision":openrouterRole.trim());
         body.put("preferred_model",preferredModel==null?"":preferredModel.trim());
         body.put("include_reviews",includeReviews);
-        return call("/api/hawkeye/free-cloud/analyze",body.toString());
+        JSONObject pc=new JSONObject(call("/api/hawkeye/free-cloud/analyze",body.toString()));
+        if(!pc.has("error")){pc.put("mobile_direct",false);pc.put("pc_contacted",true);}
+        return pc.toString();
       }catch(Exception e){return error(e);}
     }
 
@@ -894,13 +913,39 @@ public class MainActivity extends Activity {
     @JavascriptInterface public String chat(String m){return chatWithAttachments(m,"[]");}
     @JavascriptInterface public String chatWithAttachments(String m,String attachmentIdsJson){
       try{
-        JSONObject ready=new JSONObject(ensureChat());if(ready.has("error"))return ready.toString();
-        String project=ready.optString("project","KRISHNA"),chatId=ready.optString("chat_id","");
         JSONArray ids=new JSONArray(attachmentIdsJson==null?"[]":attachmentIdsJson);
         if(ids.length()>3)throw new IllegalArgumentException("at most 3 attachments per request");
+        String route=MobileFreeCloudRouter.routeChat(m,ids.length());
+        if("MOBILE_FREE_CLOUD".equals(route)){
+          try{
+            JSONObject cloud=MobileFreeCloudRouter.chat(MainActivity.this,m);
+            cloud.put("route",route);
+            cloud.put("pc_contacted",false);
+            return cloud.toString();
+          }catch(Exception cloudError){
+            // Zero-cost cloud failure is allowed to fall back to the private PC.
+            // There is never a paid cloud fallback.
+          }
+        }
+        JSONObject ready=new JSONObject(ensureChat());if(ready.has("error"))return ready.toString();
+        String project=ready.optString("project","KRISHNA"),chatId=ready.optString("chat_id","");
         JSONObject body=new JSONObject();body.put("message",m);body.put("project",project);body.put("chat_id",chatId);body.put("source","mobile");body.put("mode","chat");body.put("attachment_ids",ids);
-        return call(CORE,body.toString());
+        JSONObject pc=new JSONObject(call(CORE,body.toString()));
+        if(!pc.has("error")){pc.put("route",route);pc.put("pc_contacted",true);}
+        return pc.toString();
       }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String mobileFreeCloudStatus(){
+      try{return MobileFreeCloudRouter.status(MainActivity.this).toString();}
+      catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String provisionMobileOpenRouter(String token){
+      try{return MobileFreeCloudRouter.provisionOpenRouter(MainActivity.this,token).toString();}
+      catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String clearMobileFreeCloud(){
+      try{return MobileFreeCloudRouter.clear(MainActivity.this).toString();}
+      catch(Exception e){return error(e);}
     }
     @JavascriptInterface public String attach(String name,String contentType,String dataB64){
       try{
