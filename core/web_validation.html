@@ -1638,7 +1638,7 @@ function confirmAction(message){return requestDialog(message,'',true)}
 async function req(path,payload){const o={headers:{Accept:'application/json','X-Krishna-Device':'sudarshan-web'}};if(payload!==undefined){o.method='POST';o.headers['Content-Type']='application/json';o.body=JSON.stringify(payload)}const r=await fetch(path,o);let d={};try{d=await r.json()}catch(e){d={error:'invalid JSON'}}if(!r.ok)throw new Error((d&&d.error)||('HTTP '+r.status));return d}
 async function actionReq(action,payload,options={}){const d=await req('/api/action-bus/dispatch',{action,payload:payload||{},project:options.project||($('project')?.value||'KRISHNA'),actor:'sudarshan-web',approved:!!options.approved,permissions:options.permissions||[],idempotency_key:options.idempotency_key||null});if(d.action_id){document.body.dataset.lastActionId=d.action_id;document.body.dataset.lastActionStatus=d.status||'completed'}return d.result!==undefined?d.result:d}
 function log(x){$('log').textContent=typeof x==='string'?x:JSON.stringify(x,null,2);if(typeof x==='string'){$('notice').textContent=x;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{$('notice').textContent=''},6000)}}
-function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.body.dataset.view=id;const titles={home:'Almighty Core',sudarshan:'Sudarshan',workingGods:'Working Gods',projects:'Projects',kabach:'KABACH',garuda:'Garuda',garudanetra:'Garudanetra',brahmagyan:'BRAHMAGYAN',gyan:'Gyan-Bhandar',narad:'NARAD',plugins:'Plugins',specialists:'Specialists',development:'Developer',uiGuardian:'UI Guardian',work:'Work progress',activity:'Activity',system:'System'};$('pageTitle').textContent=titles[id]||id;const composer=document.querySelector('.composerWrap');if(composer)composer.style.display=id==='sudarshan'?'block':'none';document.querySelectorAll('.nav button').forEach(x=>{const active=x.getAttribute('onclick')==="showView('"+id+"')";x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});if(id==='workingGods')loadWorkingGods();if(id==='work'){loadTasks();loadCommitments();}if(id==='uiGuardian')loadUIGuardian();if(id==='plugins')loadPlugins();if(id==='projects')renderProjects();if(id==='brahmagyan')loadBrahmagyan();if(id==='gyan'){loadGyanInventory();loadGyan();loadGyanPending()}if(id==='narad')loadNarad();if(id==='garuda')refreshGaruda();if(id==='garudanetra')loadGarudanetra();if(id==='kabach')loadKabach();if(id==='development')loadUIRegistry()}
+function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.body.dataset.view=id;const titles={home:'Almighty Core',sudarshan:'Sudarshan',manibhadra:'MANIBHADRA · Commerce CRM',workingGods:'Working Gods',projects:'Projects',kabach:'KABACH',garuda:'Garuda',garudanetra:'Garudanetra',brahmagyan:'BRAHMAGYAN',gyan:'Gyan-Bhandar',narad:'NARAD',plugins:'Plugins',specialists:'Specialists',development:'Developer',uiGuardian:'UI Guardian',work:'Work progress',activity:'Activity',system:'System'};$('pageTitle').textContent=titles[id]||id;const composer=document.querySelector('.composerWrap');if(composer)composer.style.display=id==='sudarshan'?'block':'none';document.querySelectorAll('.nav button').forEach(x=>{const active=x.getAttribute('onclick')==="showView('"+id+"')";x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});if(id==='workingGods')loadWorkingGods();if(id==='manibhadra')loadManibhadraCRM();if(id==='work'){loadTasks();loadCommitments();}if(id==='uiGuardian')loadUIGuardian();if(id==='plugins')loadPlugins();if(id==='projects')renderProjects();if(id==='brahmagyan')loadBrahmagyan();if(id==='gyan'){loadGyanInventory();loadGyan();loadGyanPending()}if(id==='narad')loadNarad();if(id==='garuda')refreshGaruda();if(id==='garudanetra')loadGarudanetra();if(id==='kabach')loadKabach();if(id==='development')loadUIRegistry()}
 async function refresh(){try{const [s,p,d]=await Promise.all([req('/api/status'),req('/api/projects'),req('/api/dashboard')]);const di=s.deployment_integrity||{};const drift=di.status==='DRIFT';$('online').textContent=drift?'CORE DRIFT':'CORE ONLINE';$('online').className='pill '+(drift?'bad':'ok');$('dot').className=drift?'statusDot':'statusDot on';$('sideStatus').textContent=drift?'Runtime drift detected':'Core online';$('core').textContent=s.core||'ONLINE';if($('deployIntegrity')){$('deployIntegrity').textContent=(di.status||'UNVERIFIED')+(di.commit?' · '+String(di.commit).slice(0,8):'')};const po=s.pc_observer||{};$('res').textContent=(po.cpu_percent??'—')+'% / '+(po.memory_percent??'—')+'%';if($('holoLoad'))$('holoLoad').textContent='CPU '+(po.cpu_percent??'—')+'% · RAM '+(po.memory_percent??'—')+'%';if($('holoCoreState'))$('holoCoreState').textContent='ONLINE';const projectsChanged=JSON.stringify(projects)!==JSON.stringify(p.projects||[]);projects=p.projects||[];$('projectsCount').textContent=projects.length;$('currentActivity').textContent=d.current_activity||'Idle';$('activityLog').textContent=(d.recent||[]).map(x=>'['+(x.time||'')+'] '+(x.event||x)).join('\n')||'No activity yet.';syncProjects();loadModelRouter();loadRuntimeAudit();loadRequirementsLedger();loadExtendedRuntime();if(projectsChanged||!$('projectCards').childElementCount)renderProjects();if(projectsChanged||!$('projectMenuTree').childElementCount)renderSidebarProjectTree();if(projectsChanged||!$('recentChats').childElementCount)loadGeneralChats()}catch(e){$('online').textContent='CORE OFFLINE';$('online').className='pill bad';$('dot').className='statusDot';$('sideStatus').textContent='Core offline';log(e.message)}}
 function projectByName(name){return projects.find(p=>p.name===name)||null}
 function projectLabel(name){
@@ -1757,6 +1757,224 @@ function addMsg(role,text){const w=$('welcome');if(w)w.remove();const d=document
 async function createChatForProject(project,title){const p=project||'KRISHNA';return actionReq('chat.create',{project:p,title:title||'New Sudarshan chat'},{project:p})}
 async function newChat(){try{showView('sudarshan');const p=$('project').value||'KRISHNA',c=await createChatForProject(p,'New Sudarshan chat');chatId=c.chat_id;$('messages').innerHTML='<div id="welcome" class="welcome"><div class="orb">☸</div><h1>New conversation</h1><p>Start a task, ask a question, or work on '+escapeHtml(p)+'.</p></div>';await loadChats();await loadGeneralChats();await openChat(chatId)}catch(e){log(e.message)}}
 async function send(){const t=$('input').value.trim();if(!t)return;if(sending)return;if(!chatId)await newChat();if(!chatId)return;sending=true;document.querySelector('.send').disabled=true;$('input').value='';showView('sudarshan');addMsg('user',t);$('sudarshanState').textContent='KRISHNA WORKING';try{const d=await req('/api/core/chat',{message:t,project:$('project').value||'general',chat_id:chatId,source:'web',mode:'chat',attachment_ids:pendingAttachmentIds.slice(0,3)});pendingAttachmentIds=[];addMsg('assistant',d.reply||d.text||JSON.stringify(d));if(d.capability==='gita-gyan')renderGitaSessionControls('messages');$('sudarshanState').textContent=d.task_id?'TASK '+String(d.task_id).slice(0,8):'RESPONSE RECEIVED';log(d);await loadChats()}catch(e){$('sudarshanState').textContent='ERROR';addMsg('assistant','ERROR: '+e.message);log(e.message)}finally{sending=false;document.querySelector('.send').disabled=false}}
+let manibhadraTab='leads',manibhadraRecords={leads:[],deals:[],customers:[],suppliers:[],products:[],tasks:[],activities:[],connections:[]};
+
+function maniMoney(value){
+ const n=Number(value||0);try{return new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n)}catch(e){return '₹'+Math.round(n).toLocaleString('en-IN')}
+}
+function maniClear(id){const el=$(id);if(el)el.innerHTML='';return el}
+function maniEmpty(box,text){if(!box)return;const d=document.createElement('div');d.className='maniEmpty';d.textContent=text;box.appendChild(d)}
+function maniStatus(id,text,state){const el=$(id);if(!el)return;el.className='maniStatus '+(state||'');el.innerHTML='<i></i>';el.append(document.createTextNode(' '+text))}
+function maniFormatDate(value){if(!value)return '—';try{return new Date(value).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}catch(e){return String(value)}}
+
+async function loadManibhadraCRM(){
+ const pipeline=$('maniPipeline');if(pipeline&&!pipeline.childElementCount)maniEmpty(pipeline,'Loading CRM…');
+ try{
+  const [dash,records,health,plugins]=await Promise.all([
+   actionReq('manibhadra.crm.dashboard',{}, {project:'KRISHNA'}),
+   actionReq('manibhadra.crm.records',{}, {project:'KRISHNA'}),
+   actionReq('manibhadra.health',{}, {project:'KRISHNA'}),
+   req('/api/plugins')
+  ]);
+  manibhadraRecords=records||manibhadraRecords;
+  renderManibhadraDashboard(dash||{});
+  renderManibhadraRecords();
+  renderManibhadraConnections(plugins?.plugins||[]);
+  const advisor=health?.advisor||{};
+  const cloud=!!(advisor.openrouter_free||advisor.direct_free);
+  maniStatus('maniCloudState',cloud?'FREE CLOUD · READY':'FREE CLOUD · WAITING',cloud?'ok':'warn');
+  maniStatus('maniHealthState',health?.ok?'CRM HEALTH · HEALTHY':'CRM HEALTH · ATTENTION',health?.ok?'ok':'bad');
+  if(!health?.ok){
+   try{await actionReq('manibhadra.health.verify',{}, {project:'KRISHNA'})}catch(e){
+    maniStatus('maniHealthState','MRITYUNJAY · NOTIFIED','bad');
+   }
+  }
+ }catch(e){
+  maniStatus('maniHealthState','CRM HEALTH · ERROR','bad');
+  log('MANIBHADRA CRM: '+e.message);
+ }
+}
+
+function renderManibhadraDashboard(d){
+ const k=d.kpis||{};
+ $('maniKpiPipeline').textContent=maniMoney(k.pipeline_value);
+ $('maniKpiCommission').textContent=maniMoney(k.expected_commission);
+ $('maniKpiWon').textContent=maniMoney(k.won_commission);
+ $('maniKpiLeads').textContent=String(k.leads||0);
+ $('maniKpiConversion').textContent=Number(k.conversion_percent||0).toFixed(1)+'%';
+ $('maniKpiTasks').textContent=String(k.open_tasks||0);
+ $('maniKpiActive').textContent=String(k.active_deals||0)+' active deals';
+ const attention=maniClear('maniAttention');
+ (d.attention||[]).forEach(row=>{
+  const item=document.createElement('div');item.className='maniAttentionRow';
+  const pri=document.createElement('span');pri.className='maniPriority';pri.textContent=Number(row.priority||0)>=90?'URGENT':Number(row.priority||0)>=70?'HIGH':'NEXT';
+  const title=document.createElement('b');title.textContent=row.title||'Attention';
+  const detail=document.createElement('span');detail.textContent=row.detail||'';
+  item.append(pri,title,detail);
+  if(row.kind==='task'&&row.action==='complete_task')item.onclick=()=>manibhadraCompleteTask(row.id);
+  attention.appendChild(item);
+ });
+ if(!attention.childElementCount)maniEmpty(attention,'Nothing needs your attention right now.');
+
+ const board=maniClear('maniPipeline');
+ (d.pipeline||[]).filter(stage=>!['lost'].includes(stage.stage)).forEach(stage=>{
+  const col=document.createElement('div');col.className='maniStage';
+  const head=document.createElement('div');head.className='maniStageHead';
+  const name=document.createElement('span');name.textContent=String(stage.stage||'').replace(/_/g,' ');
+  const meta=document.createElement('em');meta.textContent=(stage.count||0)+' · '+maniMoney(stage.value);
+  head.append(name,meta);col.appendChild(head);
+  (stage.deals||[]).forEach(deal=>{
+   const card=document.createElement('div');card.className='maniDeal';
+   const b=document.createElement('b');b.textContent=deal.title||'Untitled deal';
+   const m=document.createElement('div');m.className='meta';
+   const val=document.createElement('span');val.textContent=maniMoney(deal.value);
+   const comm=document.createElement('span');comm.textContent='Earn '+maniMoney(deal.expected_commission);
+   m.append(val,comm);card.append(b,m);
+   const n=document.createElement('div');n.className='next';n.textContent=deal.next_action?('Next: '+deal.next_action):'Next action not set';
+   card.appendChild(n);
+   if(stage.stage!=='won'){
+    const select=document.createElement('select');select.className='select';select.style.marginTop='8px';select.setAttribute('aria-label','Move '+(deal.title||'deal')+' stage');
+    ['new','qualified','contacted','proposal','negotiation','won','lost'].forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s.replace('_',' ');o.selected=s===deal.stage;select.appendChild(o)});
+    select.onchange=()=>manibhadraMoveDeal(deal.id,select.value);card.appendChild(select);
+   }
+   col.appendChild(card);
+  });
+  if(!(stage.deals||[]).length)maniEmpty(col,'No deals');
+  board.appendChild(col);
+ });
+ if(!board.childElementCount)maniEmpty(board,'Create your first deal to start the sales pipeline.');
+
+ const activity=maniClear('maniActivity');
+ (d.recent_activity||[]).forEach(row=>{
+  const div=document.createElement('div');div.className='maniActivityRow';
+  const b=document.createElement('b');b.textContent=row.title||row.kind||'Activity';
+  const span=document.createElement('span');span.textContent=(row.detail?row.detail+' · ':'')+maniFormatDate(row.time);
+  div.append(b,span);activity.appendChild(div);
+ });
+ if(!activity.childElementCount)maniEmpty(activity,'No activity yet.');
+}
+
+function setManibhadraTab(tab){
+ manibhadraTab=tab;
+ document.querySelectorAll('[data-mani-tab]').forEach(b=>b.classList.toggle('active',b.dataset.maniTab===tab));
+ renderManibhadraRecords();
+}
+
+function renderManibhadraRecords(){
+ const box=maniClear('maniRecords'),rows=manibhadraRecords[manibhadraTab]||[];
+ $('maniRecordCount').textContent=rows.length+' '+manibhadraTab;
+ rows.forEach(row=>{
+  const card=document.createElement('div');card.className='maniRecord';
+  const b=document.createElement('b');
+  const small=document.createElement('small');
+  if(manibhadraTab==='leads'){
+   b.textContent=row.name||row.company||'Lead';
+   small.textContent=(row.stage||'new')+' · '+(row.source||'manual')+' · score '+Number(row.score||0).toFixed(0)+(row.next_action?' · next: '+row.next_action:'');
+  }else if(manibhadraTab==='deals'){
+   b.textContent=row.title||'Deal';
+   small.textContent=(row.stage||'new')+' · '+maniMoney(row.value)+' · earn '+maniMoney(row.expected_commission)+(row.next_action?' · '+row.next_action:'');
+  }else if(manibhadraTab==='products'){
+   b.textContent=row.name||'Product';
+   small.textContent=(row.source||'supplier')+' · '+maniMoney(row.sale_price)+' · '+(row.status||'research');
+  }else if(manibhadraTab==='suppliers'||manibhadraTab==='customers'){
+   b.textContent=row.name||row.company||manibhadraTab.slice(0,-1);
+   small.textContent=[row.company,row.location,row.email,row.phone].filter(Boolean).join(' · ')||'No contact details';
+  }else if(manibhadraTab==='tasks'){
+   b.textContent=row.title||'Task';
+   small.textContent=(row.status||'open')+' · '+(row.priority||'normal')+' · '+(row.due_at?maniFormatDate(row.due_at):'no due date');
+   if(row.status==='open'){const done=document.createElement('button');done.className='ghost';done.style.marginTop='8px';done.textContent='✓ Complete';done.onclick=()=>manibhadraCompleteTask(row.id);card.append(b,small,done);box.appendChild(card);return}
+  }else{b.textContent=row.name||row.title||row.id||'Record';small.textContent=''}
+  card.append(b,small);box.appendChild(card);
+ });
+ if(!rows.length)maniEmpty(box,'No '+manibhadraTab+' yet. MANIBHADRA will keep this clean until real data exists.');
+}
+
+function renderManibhadraConnections(plugins){
+ const box=maniClear('maniConnections');
+ const wanted=['gmail','amazon-associates','flipkart-affiliate','alibaba-global','amazon-sp-api','flipkart-seller','meesho-seller','metricool','canva','windsor-ai','shopify','semrush','agentmail'];
+ const rows=(plugins||[]).filter(p=>wanted.includes(p.id));
+ rows.forEach(p=>{
+  const div=document.createElement('div');div.className='maniConnection';
+  const strong=document.createElement('strong');strong.textContent=p.name||p.id;
+  const span=document.createElement('span');
+  const enabled=!!p.enabled,blocked=!p.free;
+  span.className=enabled?'connected':blocked?'blocked':'wait';
+  span.textContent=enabled?'CONNECTED':blocked?'PAID · BLOCKED':'WAITING FOR CONNECTION';
+  const meta=document.createElement('span');meta.textContent=(p.free?'FREE':'NON-FREE')+' · '+(p.kind||'connector');
+  div.append(strong,span,meta);box.appendChild(div);
+ });
+ if(!rows.length)maniEmpty(box,'No commerce connectors registered.');
+}
+
+async function manibhadraAddLead(){
+ const name=await askText('Buyer / lead name or company:');if(!name)return;
+ const intent=await askText('What do they want to buy?','');if(intent===null)return;
+ const source=await askText('Lead source:','manual');if(source===null)return;
+ const scoreRaw=await askText('Intent score 0–100:','50');if(scoreRaw===null)return;
+ const next=await askText('Next action:','Follow up');if(next===null)return;
+ try{
+  await actionReq('manibhadra.crm.upsert_lead',{lead:{name,intent,source,score:Number(scoreRaw)||0,next_action:next}},{project:'KRISHNA'});
+  await loadManibhadraCRM();setManibhadraTab('leads');
+ }catch(e){log(e.message)}
+}
+
+async function manibhadraAddDeal(){
+ const title=await askText('Deal name:');if(!title)return;
+ const customer=await askText('Buyer / customer:','');if(customer===null)return;
+ const product=await askText('Product / offer:','');if(product===null)return;
+ const valueRaw=await askText('Expected customer value (₹):','0');if(valueRaw===null)return;
+ const commissionRaw=await askText('Expected money we receive (₹):','0');if(commissionRaw===null)return;
+ const next=await askText('Next action:','Qualify buyer');if(next===null)return;
+ try{
+  await actionReq('manibhadra.crm.upsert_deal',{deal:{title,customer,product,value:Number(valueRaw)||0,expected_commission:Number(commissionRaw)||0,stage:'new',next_action:next}},{project:'KRISHNA'});
+  await loadManibhadraCRM();setManibhadraTab('deals');
+ }catch(e){log(e.message)}
+}
+
+async function manibhadraMoveDeal(id,stage){
+ try{await actionReq('manibhadra.crm.move_deal',{deal_id:id,stage},{project:'KRISHNA'});await loadManibhadraCRM()}catch(e){log(e.message);await loadManibhadraCRM()}
+}
+async function manibhadraCompleteTask(id){
+ try{await actionReq('manibhadra.crm.task.complete',{task_id:id},{project:'KRISHNA'});await loadManibhadraCRM()}catch(e){log(e.message)}
+}
+
+async function manibhadraAskAI(){
+ const q=await askText('Ask MANIBHADRA:','What should I do next to make revenue without spending money?');if(!q)return;
+ const box=$('maniAI');box.classList.remove('maniAIEmpty');box.textContent='MANIBHADRA is reasoning through a verified free cloud model…';
+ try{
+  const out=await actionReq('manibhadra.ai.advice',{question:q},{project:'KRISHNA'});
+  box.textContent=(out.text||JSON.stringify(out,null,2))+'\n\nProvider: '+(out.provider||'verified-free cloud')+(out.model?' · '+out.model:'');
+ }catch(e){box.textContent='Free-cloud advisor unavailable: '+e.message}
+}
+
+async function manibhadraScoutProduct(){
+ const q=await askText('Product/category to scout:','');if(!q)return;
+ const box=$('maniAI');box.classList.remove('maniAIEmpty');box.textContent='Researching free/public product opportunities…';
+ try{
+  const out=await actionReq('manibhadra.research',{product:q,project:'KRISHNA',limit:8},{project:'KRISHNA'});
+  const research=out.research||{};
+  const rows=[];
+  (research.web||[]).slice(0,5).forEach(x=>rows.push('• '+(x.title||x.url||'Result')+(x.summary?' — '+x.summary:'')));
+  (research.github||[]).slice(0,3).forEach(x=>rows.push('• '+(x.full_name||x.name||'GitHub')+(x.description?' — '+x.description:'')));
+  box.textContent='PRODUCT SCOUT · '+q+'\n\n'+(rows.join('\n')||JSON.stringify(out,null,2))+'\n\nNo purchase or paid action has been authorized.';
+ }catch(e){box.textContent='Product scout error: '+e.message}
+}
+
+async function manibhadraInvestmentScenario(){
+ const amount=await askText('Hypothetical investment amount (₹):','10000');if(!amount)return;
+ const revenue=await askText('Expected revenue if you personally decide to invest (₹):','15000');if(!revenue)return;
+ const low=await askText('Downside revenue case (₹):','9000');if(!low)return;
+ const high=await askText('Upside revenue case (₹):','18000');if(!high)return;
+ try{
+  const out=await actionReq('money.investment_scenario',{
+   investment:Number(amount),expected_revenue:Number(revenue),low_revenue:Number(low),high_revenue:Number(high),
+   assumptions:['owner decides separately','MANIBHADRA cannot spend','estimate only']
+  },{project:'KRISHNA'});
+  const box=$('maniAI');box.classList.remove('maniAIEmpty');
+  box.textContent='KRISHNA INVESTMENT SCENARIO\n\nInvestment: '+maniMoney(out.investment)+'\nExpected revenue: '+maniMoney(out.expected_revenue)+'\nExpected profit: '+maniMoney(out.expected_profit)+'\nROI: '+out.expected_roi_percent+'%\nRevenue range: '+maniMoney(out.revenue_range?.low)+' – '+maniMoney(out.revenue_range?.high)+'\n\n'+out.warning;
+ }catch(e){log(e.message)}
+}
+
 async function loadPlugins(){
  try{
   const d=await req('/api/plugins'),box=$('pluginsGrid');box.innerHTML='';
