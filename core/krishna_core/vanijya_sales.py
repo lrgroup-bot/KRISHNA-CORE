@@ -616,7 +616,7 @@ class VanijyaSalesHead:
                 "payload": {
                     "to": to,
                     "subject": str(outbound.get("subject") or "Information from our team"),
-                    "body": str(outbound.get("text") or ""),
+                    "text": str(outbound.get("text") or ""),
                     "thread_id": str(outbound.get("thread_ref") or ""),
                 },
             }
