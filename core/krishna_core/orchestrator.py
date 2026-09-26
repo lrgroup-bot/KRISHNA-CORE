@@ -115,6 +115,7 @@ from .compute_node_fabric import ComputeNodeFabric
 from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
+from .social_channels import SocialChannelRegistry
 
 
 class Orchestrator:
@@ -179,6 +180,7 @@ class Orchestrator:
         self.github_pr_reviewer = GitHubPRReviewer()
         self.application_security = ApplicationSecurityLoop()
         self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
+        self.social_channels = SocialChannelRegistry()
         self.amcc = AMCCController(runtime_state / "amcc")
         self.actions = ActionRegistry()
         self.indexer = RepositoryIndexer()
@@ -537,6 +539,12 @@ class Orchestrator:
 
         def superhuman_status_action(payload,context):
             return self.superhuman.status()
+
+        def social_channels_status_action(payload,context):
+            return self.social_channels.status()
+
+        def social_channel_action(payload,context):
+            return self.social_channels.get(str(payload.get("channel") or ""))
 
         def gmail_triage_action(payload,context):
             messages=payload.get("messages") or []
@@ -2809,6 +2817,16 @@ class Orchestrator:
         self.action_bus.register(
             "superhuman.status",superhuman_status_action,
             description="Read owner-first KRISHNA Superhuman operator policy",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "social.channels.status",social_channels_status_action,
+            description="Read owner-authorized social channel capability truth and connection requirements",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "social.channel",social_channel_action,
+            description="Read capabilities and mutation policy for one social/email channel",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
