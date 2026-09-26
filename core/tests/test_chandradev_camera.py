@@ -1,3 +1,4 @@
+import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
@@ -75,6 +76,50 @@ class ChandradevOsmoCameraTests(unittest.TestCase):
             self.assertFalse(status["mediamtx"]["installed"])
             self.assertFalse(status["cloud_required"])
             self.assertFalse(status["paid_service_required"])
+
+    def test_runtime_and_powershell_share_one_stream_name(self):
+        with tempfile.TemporaryDirectory() as td:
+            shared=Path(td)/"shared"
+            shared.mkdir()
+            (shared/"stream-name.txt").write_text("osmo-shared\n",encoding="utf-8")
+            with patch.dict("os.environ",{"CHANDRADEV_SHARED_STATE":str(shared)}):
+                v=ChandradevOsmoCameraAdapter(
+                    Path(td)/"runtime",
+                    mediamtx_exe=Path(td)/"mediamtx.exe",
+                )
+            self.assertEqual(v.stream_name,"osmo-shared")
+            self.assertEqual(v.urls("10.0.0.2")["mimo_push_url"],"rtmp://10.0.0.2:1935/osmo-shared")
+
+    def test_screen_lock_can_be_cleared(self):
+        with tempfile.TemporaryDirectory() as td:
+            shared=Path(td)/"shared"
+            with patch.dict("os.environ",{"CHANDRADEV_SHARED_STATE":str(shared)}):
+                v=self.runtime(td)
+                v._state["screen_lock"]={"normalized_quad":[[0,0],[1,0],[1,1],[0,1]]}
+                v._save(v._state)
+                out=v.clear_screen_lock()
+            self.assertFalse(out["locked"])
+            self.assertIsNone(out["screen_lock"])
+            self.assertNotIn("screen_lock",v._state)
+
+    @unittest.skipUnless(importlib.util.find_spec("cv2"),"OpenCV is optional in CI")
+    def test_screen_detector_warp_and_enhancement_on_synthetic_monitor(self):
+        import cv2
+        import numpy as np
+        frame=np.zeros((720,1280,3),dtype=np.uint8)
+        quad=np.array([[150,100],[1130,130],[1080,620],[190,590]],dtype=np.int32)
+        cv2.fillConvexPoly(frame,quad,(25,25,25))
+        cv2.polylines(frame,[quad],True,(240,240,240),8)
+        for y in range(190,500,55):
+            cv2.line(frame,(280,y),(930,y),(180,180,180),5)
+        detected=ChandradevOsmoCameraAdapter._detect_screen_quad(frame)
+        self.assertIsNotNone(detected)
+        self.assertGreater(detected["area_ratio"],0.25)
+        warped=ChandradevOsmoCameraAdapter._warp_screen(frame,detected["quad"])
+        self.assertGreater(warped.shape[1],warped.shape[0])
+        enhanced=ChandradevOsmoCameraAdapter._enhance_screen(warped,target_width=1920)
+        self.assertGreaterEqual(enhanced.shape[1],1920)
+        self.assertGreaterEqual(ChandradevOsmoCameraAdapter._screen_sharpness(enhanced),0.0)
 
     def test_server_start_fails_closed_without_mediamtx(self):
         with tempfile.TemporaryDirectory() as td:
