@@ -131,7 +131,7 @@ header,.security,.rotateHint,.viewLabel{display:none!important}
 <script>
 const labels=['FRONT','FRONT-RIGHT','RIGHT','BACK-RIGHT','BACK','BACK-LEFT','LEFT','FRONT-LEFT'];
 let view=0,drag=false,startX=0,startView=0,mode='FLUTE',lastManual=0,autoTimer=null,busy=false,pendingAttachmentIds=[],pairingRequestedAt=0,lastGita=null;
-let fieldStream=null,fieldTimer=null,fieldSession='',fieldBusy=false,fieldFrames=0,fieldGoal='automatic live field scan',fieldAudio=false,fieldProbe=null,fieldVideoClipTimer=null,fieldAudioClipTimer=null,fieldMediaBusy=false,fieldReference=null,fieldReferencePending=null;
+let fieldStream=null,fieldTimer=null,fieldSession='',fieldBusy=false,fieldFrames=0,fieldGoal='automatic live field scan',fieldAudio=false,fieldProbe=null,fieldVideoClipTimer=null,fieldAudioClipTimer=null,fieldMediaBusy=false,fieldReference=null,fieldReferencePending=null,fieldFacingMode='environment',fieldPhotographerMode=false;
 function hawkeyeSensors(){try{const x=JSON.parse(Krishna.hawkeyeSensorSnapshot());return x&&typeof x==='object'?x:{available:false};}catch(_){return {available:false,evidence_state:'UNKNOWN'};}}
 const stage=document.getElementById('stage'),sprite=document.getElementById('avatarSprite'),label=document.getElementById('viewLabel'),vp=document.getElementById('avatarViewport');
 function showAvatarView(i,manual=false){view=(i%8+8)%8;sprite.style.transform='translateX('+(-view*12.5)+'%)';label.textContent=labels[view];if(manual)lastManual=Date.now()}
@@ -141,6 +141,25 @@ vp.addEventListener('pointermove',e=>{if(!drag)return;showAvatarView(startView+M
 vp.addEventListener('pointerup',()=>drag=false);vp.addEventListener('pointercancel',()=>drag=false);
 function startAuto(){clearInterval(autoTimer);autoTimer=setInterval(()=>{if(mode==='FLUTE'&&Date.now()-lastManual>4500&&!drag)step(1,false)},2600)}
 function setMode(m,text){mode=m||'FLUTE';document.getElementById('state').textContent=mode;stage.classList.toggle('working',mode==='WORKING'||mode==='SEARCH'||mode==='DHYAN');stage.classList.toggle('chat',mode==='CHAT'||mode==='TALKING'||mode==='LISTENING');if(text)document.getElementById('bubble').textContent=text;if(mode==='CHAT'||mode==='TALKING'||mode==='LISTENING')showAvatarView(0,false);else if(mode==='WORKING')showAvatarView(1,false);else if(mode==='SEARCH'||mode==='DHYAN')showAvatarView(2,false)}
+function toggleChat(force){
+ const sheet=document.getElementById('chatSheet');if(!sheet)return;
+ const open=typeof force==='boolean'?force:!sheet.classList.contains('open');
+ sheet.classList.toggle('open',open);
+ if(open)setTimeout(()=>document.getElementById('msg')?.focus(),120);
+}
+function toggleCameraAdvanced(){
+ const box=document.getElementById('cameraActions');if(box)box.classList.toggle('open');
+}
+function classifyAssistantPhrase(phrase){
+ const s=String(phrase||'').toLowerCase();
+ if(/photo|picture|selfie|capture me|take my|फोटो|तस्वीर|ଫଟୋ|ମୋ ଫଟୋ/.test(s))return'photographer';
+ if(/\bdekh\b|dekho|देख|ଦେଖ|watch|see|look|camera|hawkeye/.test(s))return'hawkeye';
+ return'chat';
+}
+function strippedAssistantText(phrase){
+ return String(phrase||'').replace(/^(hey\s+)?(krishna|कृष्ण|କୃଷ୍ଣ)[\s,.:;-]*/i,'').trim();
+}
+
 function reply(text,cls=''){const e=document.getElementById('reply');e.className='reply '+cls;e.textContent=text}
 function speechLocale(text=''){const value=String(text||'');if(/[\u0B00-\u0B7F]/.test(value))return'or-IN';if(/[\u0900-\u097F]/.test(value))return'hi-IN';return document.getElementById('voiceLang')?.value||'en-IN'}
 function speak(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang=speechLocale(t);speechSynthesis.speak(u)}catch(e){}}
@@ -170,11 +189,29 @@ window.listen=()=>{if(busy)return;if(!Krishna.voiceEnrolled()){reply('Say a natu
  },20)
 }
 
-window.onKrishnaWake=(phrase)=>{
- reply('KRISHNA wake detected locally. Owner voice check is required before the request is accepted.','good');
- setMode('LISTENING','WAKE DETECTED');
- setTimeout(()=>listen(),250);
+window.onAssistantCommand=(requestedMode,phrase)=>{
+ const direct=requestedMode||classifyAssistantPhrase(phrase);
+ if(direct==='hawkeye'){
+   setMode('WORKING','KRISHNA IS LOOKING');
+   startFieldScan('automatic live visual check',false);
+   return;
+ }
+ if(direct==='photographer'){
+   setMode('WORKING','KRISHNA PHOTOGRAPHER');
+   startPhotographerMode(true);
+   return;
+ }
+ const text=strippedAssistantText(phrase);
+ if(text && !/^(hi|hello|hey)$/i.test(text)){
+   toggleChat(true);
+   document.getElementById('msg').value=text;
+   send();
+   return;
+ }
+ setMode('LISTENING','KRISHNA');
+ setTimeout(()=>listen(),180);
 }
+window.onKrishnaWake=(phrase)=>window.onAssistantCommand(classifyAssistantPhrase(phrase),phrase);
 
 function cameraPointFromEvent(e){
  const video=document.getElementById('fieldVideo'),r=video.getBoundingClientRect();if(!video.videoWidth||!video.videoHeight)return null;
@@ -255,30 +292,49 @@ function startBoundedMediaCapture(){
  if(fieldAudio&&hawkeyeSoundGoal()){fieldAudioClipTimer=setInterval(()=>recordBoundedMedia('audio',3000),20000);setTimeout(()=>recordBoundedMedia('audio',3000),12000)}
 }
 
-async function startFieldScan(){
+async function startFieldScan(goalOverride='',photographer=false){
  if(fieldStream||fieldBusy)return;
  try{
    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Live camera is unavailable on this device.');
-   fieldGoal=(prompt('What should Hawkeye inspect?','automatic live field scan')||'automatic live field scan').trim();
+   fieldPhotographerMode=!!photographer;
+   if(fieldPhotographerMode)fieldFacingMode='user';
+   fieldGoal=String(goalOverride||'').trim()||(fieldPhotographerMode?'natural portrait with surrounding scenery':'automatic live visual check');
    let start={}; let offline=false;
    try{start=JSON.parse(Krishna.bhumiputraStart(fieldGoal,'auto'));if(start.error)throw new Error(start.error)}
    catch(_){offline=true;start={session_id:'offline-'+Date.now()}}
    fieldSession=start.session_id||('offline-'+Date.now());
    window.hawkeyeOffline=offline;
-   fieldStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:true});
+   fieldStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:fieldFacingMode}},audio:!fieldPhotographerMode});
    fieldAudio=fieldStream.getAudioTracks().length>0;
    const video=document.getElementById('fieldVideo');video.srcObject=fieldStream;
-   document.getElementById('cameraLayer').classList.add('active');
-   document.getElementById('cameraAnalysis').textContent='Hawkeye live scan started. Hold the camera steady and move around the object for additional viewpoints.';
-   document.getElementById('cameraMode').textContent='HAWKEYE · AUTO SCAN';
+   const layer=document.getElementById('cameraLayer');layer.classList.add('active');layer.classList.toggle('photographer',fieldPhotographerMode);
+   document.getElementById('cameraActions').classList.remove('open');
+   document.getElementById('cameraAnalysis').textContent=fieldPhotographerMode?'KRISHNA photographer is framing the scene.':'KRISHNA is looking. Move naturally for another viewpoint.';
+   document.getElementById('cameraMode').textContent=fieldPhotographerMode?'KRISHNA · PHOTOGRAPHER':'HAWKEYE · AUTO SCAN';
    clearDiagnosticOverlay();
-   fieldFrames=0;fieldProbe=null;setMode('WORKING','HAWKEYE LIVE');
+   fieldFrames=0;fieldProbe=null;setMode('WORKING',fieldPhotographerMode?'PHOTOGRAPHER':'HAWKEYE LIVE');
    clearInterval(fieldTimer);const edgeMs=Math.max(5000,Number(Krishna.edgeSamplingMs?Krishna.edgeSamplingMs():6000)||6000);fieldTimer=setInterval(sampleFieldFrame,edgeMs);
-   startBoundedMediaCapture();setTimeout(sampleFieldFrame,700);
+   if(!fieldPhotographerMode)startBoundedMediaCapture();
+   setTimeout(sampleFieldFrame,700);
  }catch(e){
-   reply('Hawkeye camera: '+e.message,'bad');
+   reply('Camera: '+e.message,'bad');
    stopFieldScan();
  }
+}
+async function startPhotographerMode(autoCapture=false){
+ fieldFacingMode='user';
+ await startFieldScan('natural portrait with surrounding scenery',true);
+ if(autoCapture){
+   setMode('WORKING','3 · 2 · 1');
+   setTimeout(()=>{if(fieldStream&&HawkeyeObserverUI?.photographerPhoto)HawkeyeObserverUI.photographerPhoto()},2600);
+ }
+}
+async function flipCamera(){
+ if(!fieldStream)return;
+ const goal=fieldGoal,photo=fieldPhotographerMode;
+ fieldFacingMode=fieldFacingMode==='user'?'environment':'user';
+ stopFieldScan(true);
+ setTimeout(()=>startFieldScan(goal,photo),180);
 }
 async function sampleFieldFrame(){
  if(!fieldStream||fieldBusy||!fieldSession)return;
@@ -325,18 +381,19 @@ async function sampleFieldFrame(){
    document.getElementById('cameraAnalysis').textContent='Scan warning: '+e.message;
  }finally{fieldBusy=false}
 }
-function stopFieldScan(){
+function stopFieldScan(silent=false){
  try{if(window.HawkeyeObserverUI&&HawkeyeObserverUI.stopGeminiLive)HawkeyeObserverUI.stopGeminiLive()}catch(_){}
  clearInterval(fieldTimer);fieldTimer=null;clearInterval(fieldVideoClipTimer);fieldVideoClipTimer=null;clearInterval(fieldAudioClipTimer);fieldAudioClipTimer=null;
  if(fieldStream){for(const t of fieldStream.getTracks())try{t.stop()}catch(e){}}
  fieldStream=null;fieldBusy=false;fieldAudio=false;fieldProbe=null;fieldMediaBusy=false;fieldReference=null;fieldReferencePending=null;
  clearDiagnosticOverlay();
  document.getElementById('fieldVideo').srcObject=null;
- document.getElementById('cameraLayer').classList.remove('active');
- if(fieldSession){reply('Hawkeye live scan stopped. Session '+fieldSession.slice(0,8)+' preserved locally.','good')}
- fieldSession='';setMode('CHAT','FIELD SCAN SAVED');
+ const layer=document.getElementById('cameraLayer');layer.classList.remove('active','photographer');
+ document.getElementById('cameraActions').classList.remove('open');
+ if(fieldSession&&!silent)reply('Camera session '+fieldSession.slice(0,8)+' saved locally.','good');
+ fieldSession='';fieldPhotographerMode=false;if(!silent)setMode('FLUTE','Radhe Radhe. I am ready.');
 }
-window.startFieldScan=startFieldScan;window.stopFieldScan=stopFieldScan;
+window.startFieldScan=startFieldScan;window.startPhotographerMode=startPhotographerMode;window.flipCamera=flipCamera;window.stopFieldScan=stopFieldScan;window.toggleChat=toggleChat;window.toggleCameraAdvanced=toggleCameraAdvanced;
 
 window.attachFile=input=>{const file=input.files&&input.files[0];if(!file)return;if(file.size>25*1024*1024){reply('Attachment exceeds 25 MB.','bad');input.value='';return}reply('Attaching '+file.name+'…','warn');const reader=new FileReader();reader.onload=()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const b64=String(reader.result).split(',')[1]||'';const d=JSON.parse(Krishna.attach(file.name,file.type||'application/octet-stream',b64));if(d.error)throw new Error(d.error);if(d.attachment_id)pendingAttachmentIds.push(d.attachment_id);reply('Attached '+file.name+'. It will be included in your next KRISHNA request.','good')}catch(e){reply(e.message,'bad')}finally{input.value=''}};reader.readAsDataURL(file)}
 
