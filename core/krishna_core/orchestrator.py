@@ -116,6 +116,8 @@ from .node_execution import TrustedNodeExecutor
 from .hawkeye_ui_reviewer import HawkeyeUIReviewer
 from .suryadev import SuryadevAgent
 from .chandradev import ChandradevQC
+from .chandradev_camera import ChandradevOsmoCameraAdapter, OSMO_ACTION_ORIGINAL_PROFILE
+from .vision_adapter import VisionAdapter
 from .external_observer_bridge import ExternalObserverBridge
 from .auth_handoff import AuthenticationHandoffGate
 from .github_pr_review import GitHubPRReviewer
@@ -420,6 +422,12 @@ class Orchestrator:
             memory=self.memory,
         )
         self.chandradev = ChandradevQC(runtime_state / "chandradev", memory=self.memory)
+        self.chandradev_camera_vision = VisionAdapter()
+        self.chandradev_camera = ChandradevOsmoCameraAdapter(
+            runtime_state / "chandradev" / "camera",
+            hawkeye=self.hawkeye,
+            vision=self.chandradev_camera_vision,
+        )
         self.external_observers = ExternalObserverBridge(
             runtime_state / "external-observers", self.compute_nodes, memory=self.memory
         )
@@ -1003,7 +1011,46 @@ class Orchestrator:
             return self.suryadev.route_finding(payload.get("packet") or payload)
 
         def chandradev_status_action(payload,context):
-            return self.chandradev.status()
+            status=self.chandradev.status()
+            status["camera"]=self.chandradev_camera.status()
+            return status
+
+        def chandradev_camera_profile_action(payload,context):
+            return OSMO_ACTION_ORIGINAL_PROFILE
+
+        def chandradev_camera_guide_action(payload,context):
+            return self.chandradev_camera.connection_guide(
+                str(payload.get("lan_ip") or "").strip() or None
+            )
+
+        def chandradev_camera_config_action(payload,context):
+            return self.chandradev_camera.ensure_config()
+
+        def chandradev_camera_start_action(payload,context):
+            return self.chandradev_camera.start_server()
+
+        def chandradev_camera_stop_action(payload,context):
+            return self.chandradev_camera.stop_server()
+
+        def chandradev_camera_session_action(payload,context):
+            return self.chandradev_camera.start_hawkeye_session(
+                project=str(payload.get("project") or context.get("project") or "KRISHNA"),
+                purpose=str(payload.get("purpose") or "CHANDRADEV Osmo live observation"),
+                scene_hint=str(payload.get("scene_hint") or "auto"),
+            )
+
+        def chandradev_camera_capture_action(payload,context):
+            return self.chandradev_camera.capture_frame(
+                quality=int(payload.get("quality") or 88),
+                timeout_seconds=int(payload.get("timeout_seconds") or 6),
+            )
+
+        def chandradev_camera_analyze_action(payload,context):
+            return self.chandradev_camera.analyze_frame(
+                prompt=str(payload.get("prompt") or ""),
+                session_id=str(payload.get("session_id") or ""),
+                scene_hint=str(payload.get("scene_hint") or "auto"),
+            )
 
         def chandradev_qc_action(payload,context):
             return self.chandradev.review(
@@ -3601,6 +3648,46 @@ class Orchestrator:
             "chandradev.status",chandradev_status_action,
             description="Read CHANDRADEV external final-QC worker status",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.osmo.profile",chandradev_camera_profile_action,
+            description="Read the original DJI Osmo Action hardware and live-stream capability profile for the existing CHANDRADEV QC peer",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.osmo.guide",chandradev_camera_guide_action,
+            description="Generate the exact DJI Mimo RTMP URL and local read endpoints for the CHANDRADEV Osmo camera adapter",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.receiver.config",chandradev_camera_config_action,
+            description="Write the local MediaMTX configuration for CHANDRADEV's generated Osmo RTMP stream path",
+            mutating=True,permissions=("runtime.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.receiver.start",chandradev_camera_start_action,
+            description="Start the local MediaMTX RTMP receiver used by the existing CHANDRADEV camera QC path",
+            mutating=True,requires_approval=True,permissions=("worker.execute","runtime.write"),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.receiver.stop",chandradev_camera_stop_action,
+            description="Stop the local CHANDRADEV Osmo RTMP receiver",
+            mutating=True,requires_approval=True,permissions=("worker.execute","runtime.write"),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.session.start",chandradev_camera_session_action,
+            description="Create a HAWKEYE live evidence session for the existing CHANDRADEV camera observation path",
+            mutating=True,permissions=("evidence.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.frame.capture",chandradev_camera_capture_action,
+            description="Capture one local JPEG frame from the Osmo RTMP feed without cloud upload",
+            mutating=True,permissions=("evidence.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.frame.analyze",chandradev_camera_analyze_action,
+            description="Capture one Osmo RTMP frame, run fast local vision, and optionally record the observation into HAWKEYE",
+            mutating=True,permissions=("evidence.write","model.use"),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "chandradev.qc",chandradev_qc_action,
