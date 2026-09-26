@@ -2624,13 +2624,13 @@ class Orchestrator:
         )
         self.action_bus.register(
             "project.genesis.lock_scope",project_genesis_lock_action,
-            description="Lock the owner-approved scope into a persistent goal contract",
-            mutating=True,permissions=("project.write",),sources=("pc","system","mcp","a2a"),
+            description="Lock the owner-approved scope into a persistent goal contract and durable parent mission",
+            mutating=True,permissions=("project.write","mission.write","memory.write"),sources=("pc","system","mcp","a2a"),
         )
         self.action_bus.register(
             "engineering.plan",engineering_plan_action,
-            description="Build dependency-aware HR/resource/model execution waves from a locked Project Genesis scope",
-            permissions=("project.read","runtime.read"),sources=("pc","system","agent","job","mcp","a2a"),
+            description="Build and persist dependency-aware HR/resource/model execution waves from a locked Project Genesis scope",
+            mutating=True,permissions=("project.write","runtime.read"),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "engineering.staff",engineering_staff_action,
@@ -4578,14 +4578,16 @@ Project: {payload.get('project')}
         parent=str(state.get("mission_id") or "").strip()
         if not parent:
             raise RuntimeError("Project Genesis is not bound to a durable parent mission")
+        existing=self.engineering_swarm.status(project)
+        if existing and existing.get("parent_mission_id")==parent and existing.get("status")=="STAFFED":
+            return {"project":project,"plan":None,"roster":existing,"reused":True}
         plan=self._engineering_plan(project,tasks)
         manager=self._engineering_worktree_manager(project)
         roster=self.engineering_swarm.staff(
             project,plan,parent_mission_id=parent,
             mission_engine=self.missions,worktree_manager=manager,base_ref=base_ref,
         )
-        self.engineering_hooks.emit("before_worker",{"project":project,"roster":roster})
-        return {"project":project,"plan":plan,"roster":roster}
+        return {"project":project,"plan":plan,"roster":roster,"reused":False}
 
     def _engineering_project_root(self,project):
         if project=="KRISHNA":
