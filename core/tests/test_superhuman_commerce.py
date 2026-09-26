@@ -19,6 +19,7 @@ from krishna_core.superhuman_operator import SuperhumanOperatorPolicy
 from krishna_core.social_channels import SocialChannelRegistry
 from krishna_core.workflow_recording import WorkflowRecorder
 from krishna_core.windows_worker_sandbox import WindowsWorkerSandbox
+from krishna_core.zero_spend_policy import ZeroSpendPolicy
 
 
 class SuperhumanCommerceTests(unittest.TestCase):
@@ -114,6 +115,39 @@ class SuperhumanCommerceTests(unittest.TestCase):
             self.assertFalse(by_id["blackbox-ai"]["free"])
             self.assertFalse(by_id["blackbox-ai"]["enabled"])
 
+    def test_zero_spend_policy_blocks_all_outgoing_money_even_with_owner_intent(self):
+        z=ZeroSpendPolicy()
+        for op in ("payment","purchase_inventory","subscription","seller_membership","paid_api","ad_spend","listing_fee","shipping_payment"):
+            out=z.decide(op,amount=1)
+            self.assertFalse(out["allowed"])
+            self.assertTrue(out["hard_block"])
+        self.assertTrue(z.decide("affiliate_commission",amount=100)["allowed"])
+        self.assertFalse(z.status()["owner_approval_can_override"])
+
+    def test_investment_scenario_is_advisory_only_and_never_executes(self):
+        z=ZeroSpendPolicy()
+        out=z.investment_scenario(
+            investment=10000,
+            expected_revenue=15000,
+            low_revenue=9000,
+            high_revenue=18000,
+            assumptions=["organic traffic","supplier fulfills order"],
+        )
+        self.assertTrue(out["advisory_only"])
+        self.assertFalse(out["guaranteed"])
+        self.assertEqual(out["proposal_authority"],"KRISHNA")
+        self.assertIn("NONE",out["execution_authority"])
+        self.assertEqual(out["expected_profit"],5000.0)
+
+    def test_paid_plugin_cannot_be_enabled(self):
+        with tempfile.TemporaryDirectory() as td:
+            r=PluginRegistry(td)
+            with self.assertRaises(PermissionError):
+                r.set_enabled("blackbox-ai",True)
+            with self.assertRaises(PermissionError):
+                r.set_enabled("alibaba-global",True)
+            self.assertTrue(r.set_enabled("agentmarkup",True)["enabled"])
+
     def test_social_registry_separates_direct_and_connector_channels(self):
         s=SocialChannelRegistry()
         self.assertEqual(s.get("whatsapp")["mode"],"narad_direct")
@@ -147,7 +181,7 @@ class IntegrationContractTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[2]
         text=(root/"core"/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
         for action in (
-            "superhuman.status","social.channels.status","social.channel","gmail.triage","manibhadra.status","manibhadra.research",
+            "superhuman.status","social.channels.status","social.channel","gmail.triage","money.zero_spend.status","money.zero_spend.decide","money.investment_scenario","manibhadra.status","manibhadra.research",
             "manibhadra.evaluate","manibhadra.supplier_offer","manibhadra.listing_plan",
             "marketplace.capabilities","compute.nodes.status","compute.nodes.configure","compute.nodes.plan","compute.nodes.run",
             "workflow.record.start","workflow.record.finish","github.pr.review",

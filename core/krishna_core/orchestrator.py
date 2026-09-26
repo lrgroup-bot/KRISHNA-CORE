@@ -117,6 +117,10 @@ from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
 from .social_channels import SocialChannelRegistry
+from .affiliate_intent import AffiliateIntentEngine
+from .zero_spend_policy import ZeroSpendPolicy
+from .manibhadra_crm import ManibhadraCRM
+from .manibhadra_advisor import ManibhadraCloudAdvisor
 from .narada_legal import NaradaLegalAdvisor
 
 
@@ -184,6 +188,10 @@ class Orchestrator:
         self.application_security = ApplicationSecurityLoop()
         self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
         self.social_channels = SocialChannelRegistry()
+        self.affiliate_intent = AffiliateIntentEngine()
+        self.zero_spend = ZeroSpendPolicy()
+        self.manibhadra_crm = ManibhadraCRM(runtime_state / "manibhadra-crm.json")
+        self.manibhadra_advisor = ManibhadraCloudAdvisor(self.openrouter_free,self.direct_free)
         self.narada_legal = NaradaLegalAdvisor(runtime_state / "narada-legal")
         legal_watch_title = "Narada Indian legal source freshness watch"
         if not any(x.get("title")==legal_watch_title for x in self.commitments.list("KRISHNA",True,500)):
@@ -605,8 +613,96 @@ class Orchestrator:
             if not isinstance(messages,list):raise ValueError("messages must be a list")
             return {"messages":self.gmail_triage.batch(messages,payload.get("model_verdicts") or {})}
 
+        def manibhadra_crm_dashboard_action(payload,context):
+            return self.manibhadra_crm.dashboard()
+
+        def manibhadra_crm_records_action(payload,context):
+            return self.manibhadra_crm.records()
+
+        def manibhadra_crm_upsert_lead_action(payload,context):
+            return self.manibhadra_crm.upsert_lead(payload.get("lead") or payload)
+
+        def manibhadra_crm_upsert_deal_action(payload,context):
+            return self.manibhadra_crm.upsert_deal(payload.get("deal") or payload)
+
+        def manibhadra_crm_move_deal_action(payload,context):
+            return self.manibhadra_crm.move_deal(
+                str(payload.get("deal_id") or ""),
+                str(payload.get("stage") or ""),
+            )
+
+        def manibhadra_crm_task_add_action(payload,context):
+            return self.manibhadra_crm.add_task(payload.get("task") or payload)
+
+        def manibhadra_crm_task_complete_action(payload,context):
+            return self.manibhadra_crm.complete_task(str(payload.get("task_id") or ""))
+
+        def manibhadra_crm_entity_upsert_action(payload,context):
+            return self.manibhadra_crm.upsert_entity(
+                str(payload.get("kind") or ""),
+                payload.get("record") or {},
+            )
+
+        def manibhadra_ai_advice_action(payload,context):
+            return self.manibhadra_advisor.advise(
+                str(payload.get("question") or "What should MANIBHADRA prioritize next?"),
+                self.manibhadra_crm.dashboard(),
+            )
+
+        def manibhadra_health_action(payload,context):
+            return {
+                **self.manibhadra_crm.health(),
+                "advisor":self.manibhadra_advisor.status(),
+            }
+
+        def manibhadra_health_verify_action(payload,context):
+            health=self.manibhadra_crm.health()
+            if not health.get("ok"):
+                raise RuntimeError("MANIBHADRA CRM health verification failed: "+str(health.get("error") or "unknown"))
+            return {**health,"advisor":self.manibhadra_advisor.status(),"mrityunjay_watch":"armed"}
+
+        def zero_spend_status_action(payload,context):
+            return self.zero_spend.status()
+
+        def zero_spend_decide_action(payload,context):
+            return self.zero_spend.decide(
+                str(payload.get("operation") or ""),
+                amount=payload.get("amount"),
+                currency=str(payload.get("currency") or "INR"),
+            )
+
+        def investment_scenario_action(payload,context):
+            return self.zero_spend.investment_scenario(
+                investment=float(payload.get("investment") or 0),
+                expected_revenue=payload.get("expected_revenue"),
+                expected_margin_rate=payload.get("expected_margin_rate"),
+                low_revenue=payload.get("low_revenue"),
+                high_revenue=payload.get("high_revenue"),
+                assumptions=payload.get("assumptions") or [],
+            )
+
         def manibhadra_status_action(payload,context):
-            return self.manibhadra.status()
+            return {
+                **self.manibhadra.status(),
+                "affiliate":self.affiliate_intent.status(),
+                "money_policy":self.zero_spend.status(),
+            }
+
+        def manibhadra_intent_action(payload,context):
+            return self.affiliate_intent.intent_summary(payload.get("signals") or [])
+
+        def manibhadra_referral_action(payload,context):
+            return self.affiliate_intent.referral_plan(
+                provider=str(payload.get("provider") or ""),
+                channel=str(payload.get("channel") or ""),
+                product_name=str(payload.get("product_name") or ""),
+                product_url=str(payload.get("product_url") or ""),
+                tracking_id=str(payload.get("tracking_id") or ""),
+                official_deep_link=str(payload.get("official_deep_link") or ""),
+                account_override=bool(payload.get("account_override",False)),
+                estimated_price=payload.get("estimated_price"),
+                commission_rate=payload.get("commission_rate"),
+            )
 
         def manibhadra_evaluate_action(payload,context):
             return self.manibhadra.evaluate(
@@ -622,7 +718,7 @@ class Orchestrator:
             if not product:raise ValueError("product or category is required")
             query=(
                 "product opportunity supplier demand competition pricing marketplace trends "
-                "Amazon Flipkart Meesho India "+product
+                "Amazon Flipkart Meesho Alibaba global wholesale export demand RFQ distributors importers "+product
             )
             report=self.garuda.scout(
                 str(payload.get("project") or context.get("project") or "KRISHNA"),
@@ -2949,6 +3045,86 @@ class Orchestrator:
             "gmail.triage",gmail_triage_action,
             description="Classify Gmail messages into reply/update/promotion/sales/spam/phishing buckets without mutating the mailbox",
             permissions=("provider.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.dashboard",manibhadra_crm_dashboard_action,
+            description="Read MANIBHADRA CRM decision dashboard",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.records",manibhadra_crm_records_action,
+            description="Read MANIBHADRA CRM local records",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.upsert_lead",manibhadra_crm_upsert_lead_action,
+            description="Create or update a MANIBHADRA CRM lead",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.upsert_deal",manibhadra_crm_upsert_deal_action,
+            description="Create or update a MANIBHADRA CRM deal",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.move_deal",manibhadra_crm_move_deal_action,
+            description="Move a MANIBHADRA CRM deal through the pipeline",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.task.add",manibhadra_crm_task_add_action,
+            description="Add a MANIBHADRA CRM follow-up task",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.task.complete",manibhadra_crm_task_complete_action,
+            description="Complete a MANIBHADRA CRM task",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.entity.upsert",manibhadra_crm_entity_upsert_action,
+            description="Create or update MANIBHADRA customer, supplier or product records",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.ai.advice",manibhadra_ai_advice_action,
+            description="Run MANIBHADRA commerce advice on verified-free cloud AI using sanitized CRM summaries",
+            permissions=("runtime.read","model.use"),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.health",manibhadra_health_action,
+            description="Read MANIBHADRA CRM and cloud-advisor health",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.health.verify",manibhadra_health_verify_action,
+            description="Verify MANIBHADRA CRM health; failures enter the action.failed lifecycle watched by MRITYUNJAY",
+            permissions=("runtime.read",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "money.zero_spend.status",zero_spend_status_action,
+            description="Read KRISHNA's non-overridable receive-only money policy",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "money.zero_spend.decide",zero_spend_decide_action,
+            description="Evaluate a proposed money movement; outgoing spend is hard-blocked",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "money.investment_scenario",investment_scenario_action,
+            description="KRISHNA-only advisory ROI scenario; creates no spending authority and never guarantees returns",
+            permissions=("runtime.read",),sources=("pc","system","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.intent",manibhadra_intent_action,
+            description="Summarize public/consented buyer-intent signals for product matching without private browsing surveillance",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.referral_plan",manibhadra_referral_action,
+            description="Create a compliant affiliate/referral link plan using connected tracking credentials and approved distribution channels",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "manibhadra.status",manibhadra_status_action,

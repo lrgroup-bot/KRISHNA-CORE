@@ -1016,7 +1016,7 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertTrue(any(x["workflow_id"]==wid for x in letters))
 
     def test_plugin_lifecycle(self):
-        code, plugin=self.call("/api/plugins/add", {"name":"Isolated test plugin","kind":"custom","enabled":False})
+        code, plugin=self.call("/api/plugins/add", {"name":"Isolated test plugin","kind":"custom","enabled":False,"free":True})
         self.assertEqual(code,200)
         self.assertEqual(self.call("/api/plugins/enable", {"id":plugin["id"],"enabled":True})[0],403)
         self.assertEqual(self.call("/api/plugins/enable", {"id":plugin["id"],"enabled":True,"approved":True})[0],200)
