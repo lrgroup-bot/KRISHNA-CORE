@@ -1112,6 +1112,9 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
   #home .holoCore{width:min(92vw,520px)!important;height:min(64dvh,540px)!important}
   #home .krishnaAvatar{width:min(86vw,440px)!important;height:min(70dvh,590px)!important}
 }
+/* Final avatar fallback authority: one 100x300 frame from the 800x300 8-view strip. */
+#avatarFallback .avatarFallbackStage{height:min(92%,560px)!important;aspect-ratio:1/3!important;overflow:hidden!important}
+#avatarFallback .avatarFallbackStrip{height:100%!important;width:800%!important;max-width:none!important;max-height:none!important;object-fit:fill!important;object-position:0 0!important}
 </style>
 <script type="importmap">
 {"imports":{"three":"/assets/avatar-engine/three/build/three.module.js","three/addons/":"/assets/avatar-engine/three/examples/jsm/","talkinghead":"/assets/avatar-engine/talkinghead/talkinghead.mjs"}}
