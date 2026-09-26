@@ -611,6 +611,8 @@ pc_observer = PCObserver(
     on_event=on_pc_event,
     cpu_budget_percent=orch.governor.cpu_budget,
     memory_budget_percent=orch.governor.memory_budget,
+    interval=float(os.getenv("KRISHNA_PC_OBSERVER_INTERVAL_SECONDS","30")),
+    max_files_per_project=int(os.getenv("KRISHNA_PC_OBSERVER_MAX_FILES_PER_PROJECT","2500")),
 )
 pc_observer.start()
 
