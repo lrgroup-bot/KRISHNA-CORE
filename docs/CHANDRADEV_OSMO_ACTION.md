@@ -1,127 +1,123 @@
-# CHANDRADEV — Original DJI Osmo Action Camera Adapter
+# CHANDRADEV — Original DJI Osmo Action on the KRISHNA PC
 
-## Canonical role
+## Architecture
 
-CHANDRADEV already exists in KRISHNA as the independent external live-camera final-QC peer. This module does **not** create another Chandradev. It adds an Osmo Action camera transport/input adapter beneath the existing CHANDRADEV/Hawkeye pipeline.
+CHANDRADEV runs on the KRISHNA PC. The DJI Osmo Action is a direct camera source for CHANDRADEV.
 
-Architecture:
+There is no Hawkeye dependency in this path.
 
     DJI Osmo Action (original)
       -> Wi-Fi
-    DJI Mimo on phone
+    DJI Mimo
       -> RTMP
-    Local MediaMTX receiver
-      -> local RTMP/HLS/WebRTC
-    chandradev_camera adapter
-      -> local fast VisionAdapter
-    HAWKEYE live evidence
-      -> existing CHANDRADEV QC / KRISHNA
+    MediaMTX on KRISHNA PC
+      -> local RTMP
+    CHANDRADEV camera adapter
+      -> local VisionAdapter
+    CHANDRADEV observation ledger
+      -> KRISHNA
 
-No paid streaming service is required.
+USB remains a separate file-transfer/presence path.
 
-## Original Osmo Action hardware facts used by KRISHNA
+## Original Osmo Action hardware profile used by CHANDRADEV
 
 - 1/2.3-inch CMOS, 12 MP.
 - 145-degree field of view, f/2.8.
-- Up to 4K/60 recorded video and 1080p/240 slow motion.
-- Up to 100 Mbps H.264 recorded video; 48 kHz AAC audio.
+- Recorded video up to 4K/60 and 1080p/240.
+- Up to 100 Mbps H.264 recorded video.
+- 48 kHz AAC audio.
 - Two built-in microphones.
-- External microphone support through USB-C with a compatible 3.5 mm adapter.
+- Compatible external microphone through USB-C/3.5 mm adapter.
 - Wi-Fi 802.11a/b/g/n/ac on 2.4 GHz and 5.8 GHz.
 - BLE 4.2.
 - microSD up to 256 GB.
 - 1300 mAh battery.
 - Waterproof to 11 m without a case and 60 m with the waterproof case.
 - DJI documented 1.5 m drop testing and operation down to -10 C.
-- DJI Mimo RTMP live streaming at 480p or 720p, 30 fps.
-- The original Osmo Action is not on DJI's current UVC webcam support list.
-- DJI states Osmo series does not provide HDMI/USB-C-to-HDMI output.
+- Supported DJI Mimo RTMP live path for this original model is treated separately from its high-resolution recording modes.
+- USB on this camera is file-transfer/storage, not the live camera path.
+- Do not rely on USB-C-to-HDMI for this model.
 
-## How KRISHNA uses each hardware path
+## CHANDRADEV responsibilities
 
-### Wi-Fi — primary live lane
+CHANDRADEV owns:
 
-DJI Mimo originates the supported RTMP stream. Start at 720p/30fps/2 Mbps. Increase to 4 Mbps only if the local Wi-Fi is stable. If unstable, fall back to 480p/1 Mbps.
+- Osmo USB presence detection on Windows.
+- Local RTMP receiver configuration.
+- Local RTMP server start/stop.
+- Exact Mimo stream URL generation.
+- Local JPEG frame capture.
+- PC-local vision analysis.
+- Local camera observation history.
+- Final visual/QC reasoning through the existing ChandradevQC runtime.
 
-### USB-C — presence, charging, file/evidence lane
+CHANDRADEV does not call, create a session in, or store observations in Hawkeye.
 
-On this original camera the Windows connection presents as USB mass storage/file transfer, not live UVC video. The adapter includes a read-only Windows PnP probe so KRISHNA can recognize the connected DJI/OSMO storage device. USB can also support the compatible 3.5 mm microphone adapter.
+## Install
 
-### microSD — high-quality evidence lane
-
-The RTMP feed is optimized for live observation. microSD recordings can preserve the higher-quality source for later local HAWKEYE review.
-
-### Audio
-
-The two built-in microphones can provide environmental audio in the stream/recording. A compatible external microphone can later improve speech or machine/acoustic evidence. Audio transcription/diagnostic extraction is a separate bounded pipeline; the first adapter implementation samples video frames.
-
-### Rugged field use
-
-The camera's 145-degree FOV, waterproofing, impact resistance and small mounting footprint make it suitable for fixed workshop views, vehicle/field observation, mobile inspection and outdoor Chandradev/Hawkeye work.
-
-## Installation
-
-Run:
+From the KRISHNA repository:
 
     .\scripts\INSTALL_CHANDRADEV_RTMP.ps1
 
-MediaMTX is downloaded from the official bluenviron/mediamtx GitHub release and placed under:
+This installs MediaMTX under:
 
     E:\Krishna-The GOD\tools\mediamtx
 
-The script attempts to create a Windows firewall rule for TCP 1935 limited to the Private profile and LocalSubnet.
-
-For local frame sampling:
+Then:
 
     .\scripts\INSTALL_CHANDRADEV_VISION.ps1
 
-OpenCV is installed only into KRISHNA's existing virtual environment and pip cache stays on E:. The installer refuses a global fallback.
+This installs OpenCV into KRISHNA's existing virtual environment only. The installer refuses a global fallback.
 
-## First live test
+## Start the receiver
 
-1. Disconnect the Osmo USB file-transfer session for live use.
-2. Put the phone and KRISHNA PC on the same trusted Wi-Fi.
-3. Connect the Osmo Action to DJI Mimo.
-4. Run:
+Run in PowerShell:
 
     .\scripts\START_CHANDRADEV_OSMO.ps1
 
-5. Copy the displayed RTMP URL.
-6. DJI Mimo -> Live Stream -> RTMP.
-7. Paste the URL.
-8. Select 720p / 30 fps / 2 Mbps.
-9. Start livestreaming.
-10. Use the CHANDRADEV camera actions to create a Hawkeye session, capture a frame or run fast local visual analysis.
+It prints the exact RTMP URL to enter in DJI Mimo.
 
-## Action surface
+Keep that PowerShell window open.
 
-- chandradev.status — existing canonical CHANDRADEV status, now also includes camera adapter status.
-- chandradev.qc — unchanged canonical final-QC action.
-- chandradev.debate.resolve — unchanged canonical CHANDRADEV/BRAHMA debate action.
+## Immediate DJI test
+
+Open a second PowerShell window and run:
+
+    .\scripts\TEST_CHANDRADEV_OSMO.ps1
+
+The test performs five checks:
+
+1. Detects the connected DJI/OSMO USB device.
+2. Verifies MediaMTX is installed.
+3. Verifies TCP 1935 is listening.
+4. Verifies KRISHNA Python + OpenCV.
+5. Attempts to capture one real frame from the DJI RTMP stream.
+
+A successful test writes a JPEG under:
+
+    E:\Krishna-The GOD\state\chandradev\test
+
+## Current CHANDRADEV action surface
+
+- chandradev.status
+- chandradev.qc
+- chandradev.debate.resolve
 - chandradev.camera.osmo.profile
 - chandradev.camera.osmo.guide
 - chandradev.camera.receiver.config
 - chandradev.camera.receiver.start
 - chandradev.camera.receiver.stop
-- chandradev.camera.session.start
 - chandradev.camera.frame.capture
 - chandradev.camera.frame.analyze
+- chandradev.camera.observations
 
-## Security and privacy
+There is no chandradev.camera.session.start action because CHANDRADEV is not using Hawkeye sessions.
 
-- RTMP port 1935 is intended only for the trusted Private LAN/local subnet.
-- Local HLS and WebRTC preview endpoints bind to 127.0.0.1.
-- A non-default generated stream path is persisted locally.
-- Publisher replacement is disabled.
-- Raw sampled frames remain local.
-- Fast VisionAdapter analysis is local-only and has no automatic cloud fallback.
-- Camera evidence is observable evidence only; it does not prove identity, hidden intent, mental state, diagnosis or hardware-fault certainty.
-- Starting/stopping the LAN receiver is an owner-approved action.
+## Privacy and network boundaries
 
-## Hardware roadmap
-
-Useful immediately: Wi-Fi RTMP, wide-angle live video, microSD high-quality evidence, built-in microphones, USB storage transfer, rugged mounts and field use.
-
-Useful later: compatible external microphone; multi-camera named views; optional audio extraction; recorded-video sync from USB/microSD; a newer UVC-capable Osmo as a direct USB live lane while this original camera remains a wireless RTMP field camera.
-
-Do not buy a USB-C-to-HDMI adapter for this camera path. DJI states Osmo series does not support HDMI output.
+- Raw sampled frames stay on the PC.
+- VisionAdapter is local-only and has no automatic cloud fallback.
+- RTMP TCP 1935 is intended for Windows Private profile + LocalSubnet only.
+- HLS/WebRTC helper listeners bind to localhost.
+- Starting/stopping the LAN listener remains an owner-approved action.
+- Camera observations are evidence; they do not establish hidden intent, identity, diagnosis, or fault certainty.
