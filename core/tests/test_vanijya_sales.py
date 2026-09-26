@@ -99,6 +99,26 @@ def test_sales_cycle_uses_approved_manibhadra_product_and_all_agents(tmp_path):
     assert out["communications_via"]=="NARAD"
 
 
+def test_autopilot_always_requests_manibhadra_and_assigns_sales_agents(tmp_path):
+    products=[{"id":"p1","name":"Website Service","sale_price":15000,"source":"our product","status":"ready"}]
+    crm=StubCRM(products)
+    crm.records=lambda:{
+        "products":products,
+        "leads":[{"id":"l1","stage":"new","score":80,"next_action":"Call buyer"}],
+        "deals":[{"id":"d1","stage":"negotiation","next_action":"Confirm terms"}],
+        "tasks":[{"id":"t1","status":"open","priority":"high","title":"Follow up"}],
+    }
+    v=VanijyaSalesHead(tmp_path/"vanijya-sales.json",crm=crm)
+    out=v.autopilot_plan()
+    assert out["manibhadra_request"]["to"]=="manibhadra"
+    assert out["external_send_performed"] is False
+    assert out["spend_performed"] is False
+    agents={x["agent"] for x in out["agent_queue"]}
+    assert "lead-qualifier" in agents
+    assert "deal-closer" in agents
+    assert "relationship-manager" in agents
+
+
 def test_campaign_is_zero_spend_and_paid_acquisition_disabled(tmp_path):
     v=make_runtime(tmp_path)
     c=v.create_campaign(
