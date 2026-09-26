@@ -124,6 +124,21 @@ class SuperhumanCommerceTests(unittest.TestCase):
         self.assertTrue(z.decide("affiliate_commission",amount=100)["allowed"])
         self.assertFalse(z.status()["owner_approval_can_override"])
 
+    def test_investment_scenario_is_advisory_only_and_never_executes(self):
+        z=ZeroSpendPolicy()
+        out=z.investment_scenario(
+            investment=10000,
+            expected_revenue=15000,
+            low_revenue=9000,
+            high_revenue=18000,
+            assumptions=["organic traffic","supplier fulfills order"],
+        )
+        self.assertTrue(out["advisory_only"])
+        self.assertFalse(out["guaranteed"])
+        self.assertEqual(out["proposal_authority"],"KRISHNA")
+        self.assertIn("NONE",out["execution_authority"])
+        self.assertEqual(out["expected_profit"],5000.0)
+
     def test_paid_plugin_cannot_be_enabled(self):
         with tempfile.TemporaryDirectory() as td:
             r=PluginRegistry(td)
@@ -166,7 +181,7 @@ class IntegrationContractTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[2]
         text=(root/"core"/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
         for action in (
-            "superhuman.status","social.channels.status","social.channel","gmail.triage","money.zero_spend.status","money.zero_spend.decide","manibhadra.status","manibhadra.research",
+            "superhuman.status","social.channels.status","social.channel","gmail.triage","money.zero_spend.status","money.zero_spend.decide","money.investment_scenario","manibhadra.status","manibhadra.research",
             "manibhadra.evaluate","manibhadra.supplier_offer","manibhadra.listing_plan",
             "marketplace.capabilities","compute.nodes.status","compute.nodes.configure","compute.nodes.plan","compute.nodes.run",
             "workflow.record.start","workflow.record.finish","github.pr.review",
