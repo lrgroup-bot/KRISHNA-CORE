@@ -26,6 +26,8 @@ class PrivateRemotePolicy:
         "/api/gita/performance/apply",
         "/api/gita/performance/qc",
         "/api/attachments",
+        "/api/avatar/status",
+        "/api/avatar.glb",
         "/api/bhumiputra/live/start",
         "/api/bhumiputra/live/frame",
         "/api/bhumiputra/live/state",
