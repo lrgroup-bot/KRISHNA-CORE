@@ -117,6 +117,7 @@ from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
 from .social_channels import SocialChannelRegistry
+from .affiliate_intent import AffiliateIntentEngine
 
 
 class Orchestrator:
@@ -183,6 +184,7 @@ class Orchestrator:
         self.application_security = ApplicationSecurityLoop()
         self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
         self.social_channels = SocialChannelRegistry()
+        self.affiliate_intent = AffiliateIntentEngine()
         self.amcc = AMCCController(runtime_state / "amcc")
         self.actions = ActionRegistry()
         self.indexer = RepositoryIndexer()
@@ -554,7 +556,23 @@ class Orchestrator:
             return {"messages":self.gmail_triage.batch(messages,payload.get("model_verdicts") or {})}
 
         def manibhadra_status_action(payload,context):
-            return self.manibhadra.status()
+            return {**self.manibhadra.status(),"affiliate":self.affiliate_intent.status()}
+
+        def manibhadra_intent_action(payload,context):
+            return self.affiliate_intent.intent_summary(payload.get("signals") or [])
+
+        def manibhadra_referral_action(payload,context):
+            return self.affiliate_intent.referral_plan(
+                provider=str(payload.get("provider") or ""),
+                channel=str(payload.get("channel") or ""),
+                product_name=str(payload.get("product_name") or ""),
+                product_url=str(payload.get("product_url") or ""),
+                tracking_id=str(payload.get("tracking_id") or ""),
+                official_deep_link=str(payload.get("official_deep_link") or ""),
+                account_override=bool(payload.get("account_override",False)),
+                estimated_price=payload.get("estimated_price"),
+                commission_rate=payload.get("commission_rate"),
+            )
 
         def manibhadra_evaluate_action(payload,context):
             return self.manibhadra.evaluate(
@@ -2871,6 +2889,16 @@ class Orchestrator:
         self.action_bus.register(
             "manibhadra.evaluate",manibhadra_evaluate_action,
             description="Score a product opportunity from bounded demand/margin/competition/return signals",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.intent",manibhadra_intent_action,
+            description="Summarize public/consented buyer-intent signals for product matching without private browsing surveillance",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.referral_plan",manibhadra_referral_action,
+            description="Create a compliant affiliate/referral link plan using connected tracking credentials and approved distribution channels",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
