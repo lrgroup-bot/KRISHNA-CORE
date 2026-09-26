@@ -266,6 +266,33 @@ def test_outbound_plan_records_narad_outbox_and_provider_payload(tmp_path):
     assert spec["payload"]["thread_id"]=="thread-1"
 
 
+def test_narad_inbox_processor_matches_sales_thread_and_routes_reply(tmp_path):
+    messages=StubMessages()
+    # Give the test store the same list() shape as NaradMessageStore.
+    def _list(**kwargs):
+        rows=list(reversed(messages.rows))
+        if kwargs.get("direction"):
+            rows=[x for x in rows if x.get("direction")==kwargs["direction"]]
+        return rows[:kwargs.get("limit",200)]
+    messages.list=_list
+    v=make_runtime(tmp_path,messages=messages)
+    lead={"id":"l1","email":"buyer@example.com","consented":True}
+    v.plan_outbound(
+        lead=lead,channel="gmail",connector_state="CONNECTED",
+        subject="Proposal",text="Here is our proposal.",thread_ref="thread-1",
+    )
+    messages.rows.append({
+        "id":"MSG-IN-1","direction":"inbox","provider":"gmail","thread_ref":"thread-1",
+        "sender":"buyer@example.com","text":"Please send the price and quotation.",
+        "metadata":{},"state":"received",
+    })
+    out=v.process_narad_inbox()
+    assert out["processed"]==1
+    assert out["results"][0]["lead_id"]=="l1"
+    assert out["results"][0]["intent"]=="pricing"
+    assert v.process_narad_inbox()["processed"]==0
+
+
 def test_quote_uses_catalogue_price_and_rejects_unapproved_discount(tmp_path):
     v=make_runtime(tmp_path)
     product={"id":"p1","name":"Service","sale_price":"1000","approved_discount_percent":10}
