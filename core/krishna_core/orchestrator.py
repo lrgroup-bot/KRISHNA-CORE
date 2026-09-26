@@ -603,6 +603,12 @@ class Orchestrator:
                 "advisor":self.manibhadra_advisor.status(),
             }
 
+        def manibhadra_health_verify_action(payload,context):
+            health=self.manibhadra_crm.health()
+            if not health.get("ok"):
+                raise RuntimeError("MANIBHADRA CRM health verification failed: "+str(health.get("error") or "unknown"))
+            return {**health,"advisor":self.manibhadra_advisor.status(),"mrityunjay_watch":"armed"}
+
         def zero_spend_status_action(payload,context):
             return self.zero_spend.status()
 
@@ -3008,6 +3014,11 @@ class Orchestrator:
             "manibhadra.health",manibhadra_health_action,
             description="Read MANIBHADRA CRM and cloud-advisor health",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.health.verify",manibhadra_health_verify_action,
+            description="Verify MANIBHADRA CRM health; failures enter the existing action.failed lifecycle watched by MRITYUNJAY",
+            permissions=("runtime.read",),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "money.zero_spend.status",zero_spend_status_action,
