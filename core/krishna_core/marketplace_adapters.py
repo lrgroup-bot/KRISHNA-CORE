@@ -32,6 +32,12 @@ class MarketplaceAdapterRegistry:
             MarketplaceOperation("flipkart","orders_search",False,False,"oauth","official_api"),
             MarketplaceOperation("meesho","seller_portal_read",False,False,"owner_session","authorized_browser"),
             MarketplaceOperation("meesho","seller_portal_write",True,True,"owner_session","authorized_browser"),
+            MarketplaceOperation("alibaba","product_research",False,False,"none","public_research"),
+            MarketplaceOperation("alibaba","rfq_research",False,False,"none","public_research"),
+            MarketplaceOperation("alibaba","listing_get",False,False,"alibaba_open_api_oauth","official_api_after_connection"),
+            MarketplaceOperation("alibaba","listing_put",True,True,"alibaba_open_api_oauth","official_api_after_connection"),
+            MarketplaceOperation("alibaba","order_search",False,False,"alibaba_open_api_oauth","official_api_after_connection"),
+            MarketplaceOperation("alibaba","rfq_reply",True,True,"seller_account","seller_portal_or_verified_api"),
         ):
             self._items[(row.provider,row.operation)]=row
 
