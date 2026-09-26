@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+import base64
+import io
 import re
 import urllib.parse
 import uuid
@@ -472,6 +474,37 @@ class VanijyaSalesHead:
             "money_policy": money,
             "verification_required": True,
             "trusted_verification_sources": sorted(TRUSTED_PAYMENT_SOURCES),
+        }
+
+    @staticmethod
+    def payment_qr_svg(payment_request: dict):
+        row = dict(payment_request or {})
+        uri = str(row.get("qr_payload") or row.get("upi_uri") or "").strip()
+        if not uri.startswith("upi://pay?"):
+            raise ValueError("a VANIJYA UPI payment request is required")
+        try:
+            import qrcode
+            from qrcode.image.svg import SvgPathImage
+        except ImportError:
+            return {
+                "available": False,
+                "reason": "local qrcode package is not installed",
+                "install": "run scripts/INSTALL_KRISHNA_QR.ps1",
+                "qr_payload": uri,
+            }
+        image=qrcode.make(uri,image_factory=SvgPathImage)
+        buf=io.BytesIO()
+        image.save(buf)
+        svg_bytes=buf.getvalue()
+        svg=svg_bytes.decode("utf-8")
+        return {
+            "available": True,
+            "mime_type": "image/svg+xml",
+            "filename": str(row.get("order_ref") or "upi-payment") + ".svg",
+            "svg": svg,
+            "data_uri": "data:image/svg+xml;base64," + base64.b64encode(svg_bytes).decode("ascii"),
+            "qr_payload": uri,
+            "payment_proof": False,
         }
 
     @staticmethod
