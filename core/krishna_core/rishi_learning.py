@@ -245,6 +245,24 @@ RISHI_RESEARCH_CHARTERS = {
             "modern legal conclusions require current official statutes subordinate legislation and judgments",
         ),
     },
+    "vanijya": {
+        "primary_subjects": (
+            "sales","marketing","lead generation","prospecting","lead qualification",
+            "customer discovery","solution selling","proposal strategy","commercial communication",
+            "negotiation","deal closing","account management","customer relationships",
+            "revenue operations","sales automation","CRM","B2B sales","digital marketing",
+        ),
+        "frontier_focus": (
+            "evidence-based customer acquisition","ethical automation of sales workflows",
+            "buyer-intent interpretation","solution-to-problem fit","conversion improvement",
+            "sales-cycle efficiency","relationship-led repeat revenue","zero-spend go-to-market",
+        ),
+        "classical_lens": (
+            "VANIJYA is a KRISHNA-created modern specialist assignment rather than a claim about a historical Rishi profession",
+            "classical commerce and communication sources may be studied as historical context only",
+            "modern sales, marketing, privacy and commercial-communication conclusions require current evidence, law and platform rules",
+        ),
+    },
     "agastya": {
         "primary_subjects": (
             "environment","climate","ecology","knowledge transmission","regional traditions",
