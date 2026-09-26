@@ -101,6 +101,7 @@ class ProjectGenesis:
             "created_at": _now(),
             "updated_at": _now(),
             "scope_locked": False,
+            "mission_id": None,
             "intake": {
                 "deadline_hours": None,
                 "deadline_at": None,
@@ -282,6 +283,8 @@ class ProjectGenesis:
 
     def lock_scope(self, project: str, acceptance: Iterable[str] | None = None, constraints: Iterable[str] | None = None) -> dict[str, Any]:
         state = self._read(project)
+        if state.get("scope_locked") and state.get("goal_contract"):
+            return self.status(project)
         missing = self.missing_intake(state.get("intake") or {})
         if missing:
             raise RuntimeError("project intake incomplete: " + ",".join(missing))
@@ -315,6 +318,18 @@ class ProjectGenesis:
         self._write(state)
         return self.status(project)
 
+    def bind_mission(self, project: str, mission_id: str) -> dict[str, Any]:
+        state = self._read(project)
+        value = str(mission_id or "").strip()
+        if not value:
+            raise ValueError("mission_id is required")
+        existing = str(state.get("mission_id") or "").strip()
+        if existing and existing != value:
+            raise RuntimeError("Project Genesis is already bound to another mission")
+        state["mission_id"] = value
+        self._write(state)
+        return self.status(project)
+
     def questions(self, project: str) -> list[dict[str, Any]]:
         state = self._read(project)
         missing = set(self.missing_intake(state.get("intake") or {}))
@@ -336,11 +351,27 @@ class ProjectGenesis:
     def status(self, project: str) -> dict[str, Any]:
         state = self._read(project)
         missing = self.missing_intake(state.get("intake") or {})
+        intake_ready = not missing
+        enhancements = state.get("enhancements") or {}
+        design = state.get("design") or {}
+        if not intake_ready:
+            next_action = "owner_answer_intake"
+        elif not enhancements.get("proposals"):
+            next_action = "project.genesis.enhancements"
+        elif not enhancements.get("decided"):
+            next_action = "owner_decide_enhancements"
+        elif design.get("required") and not design.get("candidate_id"):
+            next_action = "project.design.research"
+        elif not state.get("scope_locked"):
+            next_action = "project.genesis.lock_scope"
+        else:
+            next_action = "engineering.plan"
         return {
             **state,
-            "intake_ready": not missing,
+            "intake_ready": intake_ready,
             "missing_intake": missing,
             "questions": self.questions(project) if missing else [],
             "implementation_allowed": bool(state.get("scope_locked") and state.get("goal_contract")),
+            "next_action": next_action,
             "authority": "owner scope decision -> KRISHNA/Sudarshan -> HR/SoftwareFactory",
         }
