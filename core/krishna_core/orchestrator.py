@@ -111,7 +111,7 @@ from .manibhadra_commerce import ManibhadraCommerce
 from .marketplace_adapters import MarketplaceAdapterRegistry
 from .workflow_recording import WorkflowRecorder
 from .skill_compiler import SkillCompiler
-from .compute_node_fabric import ComputeNodeFabric
+from .node_registry import NodeRegistry
 from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
@@ -176,7 +176,7 @@ class Orchestrator:
         self.marketplaces = MarketplaceAdapterRegistry()
         self.skill_compiler = SkillCompiler(runtime_state / "skill-candidates")
         self.workflow_recorder = WorkflowRecorder(runtime_state / "workflow-recordings", self.skill_compiler)
-        self.compute_nodes = ComputeNodeFabric(runtime_state / "compute-nodes.json")
+        self.compute_nodes = NodeRegistry(runtime_state / "trusted-nodes.json")
         self.github_pr_reviewer = GitHubPRReviewer()
         self.application_security = ApplicationSecurityLoop()
         self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
@@ -601,17 +601,12 @@ class Orchestrator:
         def compute_nodes_status_action(payload,context):
             return self.compute_nodes.status()
 
-        def compute_nodes_register_action(payload,context):
-            return self.compute_nodes.register(
+        def compute_nodes_configure_action(payload,context):
+            return self.compute_nodes.configure_execution(
                 str(payload.get("node_id") or ""),
-                str(payload.get("platform") or ""),
-                payload.get("capabilities") or [],
-                str(payload.get("endpoint") or ""),
-            )
-
-        def compute_nodes_trust_action(payload,context):
-            return self.compute_nodes.trust(
-                str(payload.get("node_id") or ""),
+                platform=str(payload.get("platform") or ""),
+                capabilities=payload.get("capabilities") or [],
+                endpoint=str(payload.get("endpoint") or ""),
                 approved=bool(context.get("approved",False)),
             )
 
@@ -2885,13 +2880,8 @@ class Orchestrator:
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
-            "compute.nodes.register",compute_nodes_register_action,
-            description="Register an untrusted Windows/Mac/Linux compute node candidate",
-            mutating=True,permissions=("runtime.write",),sources=("pc","system"),
-        )
-        self.action_bus.register(
-            "compute.nodes.trust",compute_nodes_trust_action,
-            description="Owner-approved promotion of a compute node to trusted execution",
+            "compute.nodes.configure",compute_nodes_configure_action,
+            description="Attach execution platform/capabilities to an already owner-trusted KRISHNA node",
             mutating=True,requires_approval=True,permissions=("runtime.write",),sources=("pc","system"),
         )
         self.action_bus.register(
