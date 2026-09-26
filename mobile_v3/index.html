@@ -455,8 +455,22 @@ function configurePc(){
  }catch(e){reply(e.message,'bad')}
 }
 
-function poll(){try{const link=JSON.parse(Krishna.connection());if(link.error||!link.connected){if(Date.now()-pairingRequestedAt>15000){pairingRequestedAt=Date.now();try{const p=JSON.parse(Krishna.pairingRequest());if(!p.error){document.getElementById('state').textContent='WAITING FOR PC APPROVAL';document.getElementById('state').className='state warn';reply('Pairing request sent securely. Approve this phone once in KRISHNA PC System. No code is required.','warn');return}}catch(_){}}throw new Error(link.error||'Backend link not confirmed')}const d=JSON.parse(Krishna.state());if(d.error)throw new Error(d.error);setMode(d.operator?.avatar_state||'FLUTE',d.operator?.current?.task||'Radhe Radhe. I am ready.');document.getElementById('state').className='state good'}catch(e){if(document.getElementById('state').textContent!=='WAITING FOR PC APPROVAL')document.getElementById('state').textContent='PC OFFLINE';document.getElementById('state').className=document.getElementById('state').textContent==='WAITING FOR PC APPROVAL'?'state warn':'state bad'}}
-showAvatarView(0);startAuto();setTimeout(()=>window.reportKrishnaUiReady?.('animated-fallback'),900);poll();setInterval(poll,5000);
+function poll(){
+ try{if(Krishna.pollAsync){Krishna.pollAsync();return}}catch(_){}
+ document.getElementById('state').textContent='PC OFFLINE';document.getElementById('state').className='state bad';
+}
+window.onKrishnaPoll=(linkRaw,stateRaw)=>{
+ try{
+  const link=JSON.parse(String(linkRaw||'{}'));
+  if(link.error||!link.connected)throw new Error(link.error||'Backend link not confirmed');
+  const d=JSON.parse(String(stateRaw||'{}'));if(d.error)throw new Error(d.error);
+  setMode(d.operator?.avatar_state||'FLUTE',d.operator?.current?.task||'Radhe Radhe. I am ready.');
+  document.getElementById('state').className='state good';
+ }catch(e){
+  document.getElementById('state').textContent='PC OFFLINE';document.getElementById('state').className='state bad';
+ }
+};
+showAvatarView(0);startAuto();setTimeout(()=>window.reportKrishnaUiReady?.('animated-fallback'),450);setTimeout(poll,1800);setInterval(poll,8000);
 const realtime=new KrishnaRealtime(Krishna);
 realtime.onEvent=e=>{const p=e.payload||{};if(e.type==='task.completed'){reply(p.summary||'KRISHNA completed the task','good');setMode('CHAT','WORK COMPLETED');return}if(e.type==='action.sync'){const status=String(p.status||'').toUpperCase(),action=String(p.action||'KRISHNA action');if(status==='COMPLETED')setMode('CHAT',action+' · SYNCED');else if(status==='FAILED'||status==='BLOCKED')setMode('CHAT',action+' · '+status);else setMode('WORKING',action)}};
 realtime.onState=s=>{if(s==='reconnecting')document.getElementById('state').textContent='RECONNECTING'};
