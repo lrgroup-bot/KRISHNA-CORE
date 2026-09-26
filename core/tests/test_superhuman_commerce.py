@@ -102,7 +102,8 @@ class SuperhumanCommerceTests(unittest.TestCase):
             s=WindowsWorkerSandbox(td)
             plan=s.plan(Path(td)/"worktree","worker-1")
             self.assertFalse(plan["ready"])
-            self.assertTrue(plan["requires_admin_bootstrap"])
+            self.assertEqual(plan["provider"],"openai-codex-windows-sandbox")
+            self.assertIn("setup_command",plan)
 
     def test_curated_plugin_catalog_contains_requested_integrations(self):
         with tempfile.TemporaryDirectory() as td:
