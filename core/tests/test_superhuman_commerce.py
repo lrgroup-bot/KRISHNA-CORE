@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from krishna_core.application_security import ApplicationSecurityLoop
-from krishna_core.compute_node_fabric import ComputeNodeFabric
+from krishna_core.node_registry import NodeRegistry
 from krishna_core.gmail_triage import GmailTriage
 from krishna_core.github_pr_review import GitHubPRReviewer
 from krishna_core.manibhadra_commerce import ManibhadraCommerce
@@ -55,16 +55,17 @@ class SuperhumanCommerceTests(unittest.TestCase):
         self.assertTrue(r.get("amazon","listing_put")["approval_required"])
         self.assertEqual(r.get("meesho","seller_portal_write")["mode"],"authorized_browser")
 
-    def test_compute_node_needs_owner_trust(self):
+    def test_compute_node_reuses_canonical_trusted_registry(self):
         with tempfile.TemporaryDirectory() as td:
-            f=ComputeNodeFabric(Path(td)/"nodes.json")
-            f.register("mac-1","macos",["build","render"])
-            self.assertIsNone(f.select("build"))
+            f=NodeRegistry(Path(td)/"nodes.json")
             with self.assertRaises(PermissionError):
-                f.trust("mac-1")
-            f.trust("mac-1",approved=True)
-            f.heartbeat("mac-1")
-            self.assertEqual(f.select("build")["node_id"],"mac-1")
+                f.enroll("Mac Worker","0123456789abcdef",approved=False)
+            node=f.enroll("Mac Worker","0123456789abcdef",approved=True)
+            with self.assertRaises(PermissionError):
+                f.configure_execution(node.id,platform="macos",capabilities=["build"],approved=False)
+            f.configure_execution(node.id,platform="macos",capabilities=["build","render"],endpoint="ssh://mac.local",approved=True)
+            f.heartbeat(node.id)
+            self.assertEqual(f.select("build")["id"],node.id)
 
     def test_record_to_skill_is_candidate_only(self):
         with tempfile.TemporaryDirectory() as td:
@@ -141,7 +142,7 @@ class IntegrationContractTests(unittest.TestCase):
         for action in (
             "superhuman.status","social.channels.status","social.channel","gmail.triage","manibhadra.status","manibhadra.research",
             "manibhadra.evaluate","manibhadra.supplier_offer","manibhadra.listing_plan",
-            "marketplace.capabilities","compute.nodes.status","compute.nodes.trust",
+            "marketplace.capabilities","compute.nodes.status","compute.nodes.configure",
             "workflow.record.start","workflow.record.finish","github.pr.review",
             "application.security.threat_model","windows.sandbox.plan",
         ):
