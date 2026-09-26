@@ -203,26 +203,36 @@ class GeminiHawkeyeBridge:
         cfg=self._credential()
         if cfg is None:
             raise RuntimeError("Gemini is not configured on KRISHNA PC")
+        if not bool(cfg.get("free_only",False)):
+            raise PermissionError("automatic mobile Gemini sessions require a profile explicitly marked free_only")
         meta=dict(metadata or {})
         if not bool(meta.get("cloud_approved",False)) or not bool(meta.get("user_explicit",False)):
             raise PermissionError("Gemini Live token requires an explicit owner action")
         if bool(meta.get("contains_credentials") or meta.get("contains_biometrics") or meta.get("private_document")):
             raise PermissionError("Gemini Live is blocked for sensitive evidence")
+        purpose=str(meta.get("purpose") or "hawkeye").strip().lower()
+        if purpose not in {"hawkeye","chat"}:
+            raise ValueError("Gemini Live purpose must be hawkeye or chat")
         now=_dt.datetime.now(tz=_dt.timezone.utc)
         expire=now+_dt.timedelta(minutes=30)
         new_session_expire=now+_dt.timedelta(minutes=1)
-        model=str(meta.get("live_model") or os.getenv("KRISHNA_GEMINI_LIVE_MODEL",self.DEFAULT_LIVE_MODEL)).strip()
+        model=str(meta.get("live_model") or os.getenv(
+            "KRISHNA_GEMINI_LIVE_TEXT_MODEL" if purpose=="chat" else "KRISHNA_GEMINI_LIVE_MODEL",
+            self.DEFAULT_LIVE_MODEL,
+        )).strip()
+        config={
+            "sessionResumption":{},
+            "responseModalities":["TEXT"] if purpose=="chat" else ["AUDIO"],
+        }
+        if purpose=="hawkeye":
+            config["outputAudioTranscription"]={}
         payload={
             "uses":1,
             "expireTime":expire.isoformat().replace("+00:00","Z"),
             "newSessionExpireTime":new_session_expire.isoformat().replace("+00:00","Z"),
             "liveConnectConstraints":{
                 "model":"models/"+model,
-                "config":{
-                    "sessionResumption":{},
-                    "responseModalities":["AUDIO"],
-                    "outputAudioTranscription":{},
-                },
+                "config":config,
             },
         }
         out=self._request(f"{self.API_ROOT}/v1beta/auth_tokens",cfg["key"],payload,self.timeout)
@@ -232,9 +242,12 @@ class GeminiHawkeyeBridge:
         return {
             "provider":"google-gemini",
             "live_model":model,
+            "purpose":purpose,
+            "response_modalities":list(config["responseModalities"]),
             "token":token,
             "uses":1,
             "new_session_expires_at":payload["newSessionExpireTime"],
             "expires_at":payload["expireTime"],
+            "free_only":True,
             "permanent_key_exposed":False,
         }
