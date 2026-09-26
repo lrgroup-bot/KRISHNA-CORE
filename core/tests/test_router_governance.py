@@ -67,7 +67,7 @@ class FreeCloudDefaultTests(unittest.TestCase):
         self.assertNotIn("gateway:declared-free",providers)
         self.assertNotIn("openai",providers)
 
-    def test_route_does_not_reach_paid_gateway_without_explicit_opt_in(self):
+    def test_route_never_reaches_paid_gateway(self):
         class Gateway:
             def eligible(self,privacy="approved_cloud",free_only=False):
                 if free_only:return []
@@ -79,7 +79,7 @@ class FreeCloudDefaultTests(unittest.TestCase):
             raise RuntimeError("unavailable")
         router._governed_ask=governed
         with patch.dict(os.environ,{"KRISHNA_ALLOW_PAID_CLOUD":"0"},clear=False):
-            with self.assertRaisesRegex(RuntimeError,"auto-fallback is disabled"):
+            with self.assertRaisesRegex(RuntimeError,"hard zero-credit policy"):
                 router.route("hello",privacy="approved_cloud")
         self.assertEqual(called,["ollama","gpt4all"])
 
@@ -121,12 +121,22 @@ class FreeCloudDefaultTests(unittest.TestCase):
         self.assertTrue(out["zero_cost_verified"])
         self.assertEqual(direct.calls,[("public task","approved_cloud")])
 
-    def test_paid_cloud_requires_explicit_environment_opt_in(self):
+    def test_paid_cloud_cannot_be_enabled_by_environment(self):
         router=ModelRouter()
         with patch.dict(os.environ,{"KRISHNA_ALLOW_PAID_CLOUD":"0"},clear=False):
             self.assertFalse(router.paid_cloud_enabled())
         with patch.dict(os.environ,{"KRISHNA_ALLOW_PAID_CLOUD":"1"},clear=False):
-            self.assertTrue(router.paid_cloud_enabled())
+            self.assertFalse(router.paid_cloud_enabled())
+
+    def test_generic_gateway_inference_is_hard_blocked(self):
+        router=ModelRouter()
+        with self.assertRaisesRegex(PermissionError,"hard zero-credit policy"):
+            router.ask("gateway:any-profile","hello")
+
+    def test_environment_cloud_provider_is_hard_blocked(self):
+        router=ModelRouter()
+        with self.assertRaisesRegex(PermissionError,"hard zero-credit policy"):
+            router.ask("openai","hello")
 
 
 
