@@ -176,6 +176,7 @@ class VanijyaSalesHead:
             "hr_requests": [],
             "product_assignments": [],
             "opt_outs": [],
+            "processed_inbox_ids": [],
             "activities": [],
             "settings": {
                 "zero_spend": True,
@@ -711,7 +712,7 @@ class VanijyaSalesHead:
 
     def ingest_reply(
         self, *, lead_id: str, provider: str, text: str, thread_ref: str = "",
-        sender: str = "", metadata: dict | None = None,
+        sender: str = "", metadata: dict | None = None, record_message: bool = True,
     ) -> dict:
         intent = self._reply_intent(text)
         row = {
@@ -733,7 +734,7 @@ class VanijyaSalesHead:
                 "lead_id": row["lead_id"], "provider": row["provider"],
                 "sender": row["sender"], "at": _now(), "source": "customer_reply",
             })
-        if self.message_store is not None:
+        if record_message and self.message_store is not None:
             try:
                 self.message_store.add(
                     direction="inbox", provider=row["provider"], text=row["text"],
@@ -745,6 +746,48 @@ class VanijyaSalesHead:
         self._activity("reply", f"Customer reply · {intent}", row["sender"] or row["lead_id"], row["id"])
         self._write(self._state)
         return {**dict(row), "next": self.reply_plan(row)}
+
+    def process_narad_inbox(self, *, limit: int = 100) -> dict:
+        if self.message_store is None:
+            return {"processed":0,"skipped":0,"reason":"narad_message_store_not_bound","results":[]}
+        rows=self.message_store.list(direction="inbox",limit=max(1,min(int(limit or 100),500)))
+        processed_ids=set(str(x) for x in self._state.get("processed_inbox_ids") or [])
+        results=[];skipped=0
+        for msg in reversed(rows):
+            mid=str(msg.get("id") or "")
+            if not mid or mid in processed_ids:
+                continue
+            metadata=dict(msg.get("metadata") or {})
+            lead_id=str(metadata.get("lead_id") or "").strip()
+            thread=str(msg.get("thread_ref") or "").strip()
+            provider=str(msg.get("provider") or "").strip().lower()
+            if not lead_id and thread:
+                match=next((
+                    x for x in reversed(self._state["conversations"])
+                    if x.get("direction")=="outbound"
+                    and str(x.get("provider") or "").lower()==provider
+                    and str(x.get("thread_ref") or "")==thread
+                    and str(x.get("lead_id") or "")
+                ),None)
+                if match:
+                    lead_id=str(match.get("lead_id") or "")
+            if not lead_id:
+                skipped+=1
+                continue
+            result=self.ingest_reply(
+                lead_id=lead_id,provider=provider,
+                text=str(msg.get("text") or ""),
+                thread_ref=thread,sender=str(msg.get("sender") or ""),
+                metadata={**metadata,"narad_message_id":mid},
+                record_message=False,
+            )
+            processed_ids.add(mid)
+            results.append({"message_id":mid,"lead_id":lead_id,"intent":result.get("intent"),"next":result.get("next")})
+        self._state["processed_inbox_ids"]=list(processed_ids)[-5000:]
+        if results:
+            self._activity("inbox","NARAD sales replies processed",f"{len(results)} sales replies")
+            self._write(self._state)
+        return {"processed":len(results),"skipped":skipped,"results":results}
 
     def reply_plan(self, reply: dict) -> dict:
         intent = str(reply.get("intent") or self._reply_intent(reply.get("text") or ""))
@@ -989,14 +1032,14 @@ class VanijyaSalesHead:
             self._write(self._state)
         return result
 
-    def autopilot_plan(self) -> dict:
+    def autopilot_plan(self, *, sync_products: bool = True) -> dict:
         """Build the next bounded autonomous sales workload.
 
         This planner may update local VANIJYA product assignments, but it does not
         perform an external send or spend money. External communication is handed
         to NARAD and remains subject to connector, consent and workflow gates.
         """
-        sync=self.sync_manibhadra_products()
+        sync=self.sync_manibhadra_products() if sync_products else {"synced":0,"read_only":True}
         request=self.ask_manibhadra(
             objective=(
                 "Review current commerce state and identify any new or improved product/service "
