@@ -165,6 +165,8 @@ class PluginRegistry:
             item = self._items.get(plugin_id)
             if not item:
                 raise KeyError(plugin_id)
+            if bool(enabled) and not bool(item.free):
+                raise PermissionError("zero-spend policy blocks paid/non-free plugins")
             item.enabled = bool(enabled)
             item.updated_at = time.time()
             self._save()
