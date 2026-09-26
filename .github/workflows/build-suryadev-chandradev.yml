@@ -1,0 +1,44 @@
+name: Build Suryadev Chandradev
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/suryadev-chandradev-external-qc
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run external observer tests
+        run: python -m unittest tests.test_suryadev_chandradev -v
+
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build portable controllers
+        shell: pwsh
+        run: ./scripts/BUILD_SURYADEV_CHANDRADEV_EXE.ps1 -Output ./dist-external-observers
+      - name: Upload controller EXEs
+        uses: actions/upload-artifact@v4
+        with:
+          name: krishna-external-observers-windows
+          path: |
+            dist-external-observers/Suryadev.exe
+            dist-external-observers/Chandradev.exe
+            dist-external-observers/Suryadev-probe.json
+            dist-external-observers/Chandradev-probe.json
+            dist-external-observers/SHA256.json
+          if-no-files-found: error
