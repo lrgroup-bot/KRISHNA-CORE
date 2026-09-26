@@ -1049,7 +1049,6 @@ class Orchestrator:
                 "observations":self.chandradev.camera_observations(
                     int(payload.get("limit") or 50)
                 ),
-                "hawkeye_involved":False,
             }
 
         def chandradev_qc_action(payload,context):
