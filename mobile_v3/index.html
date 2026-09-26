@@ -129,7 +129,7 @@ header,.security,.rotateHint,.viewLabel{display:none!important}
       <input id="msg" type="text" placeholder="Talk to KRISHNA…" onkeydown="if(event.key==='Enter')send()">
       <button class="send" onclick="send()" aria-label="Send">➤</button>
     </div>
-    <div class="security">Conversation only · owner voice gate is local · sensitive actions still require device authorization</div>
+    <div class="security">Conversation only · general chat may use short-lived free cloud · private/actions stay with KRISHNA PC</div>
   </div>
 
   <div class="quickDock" aria-label="KRISHNA quick controls">
@@ -140,10 +140,12 @@ header,.security,.rotateHint,.viewLabel{display:none!important}
 </section>
 </div>
 <script src="realtime-client.js"></script>
+<script src="mobile-cloud-client.js"></script>
 <script>
 const labels=['FRONT','FRONT-RIGHT','RIGHT','BACK-RIGHT','BACK','BACK-LEFT','LEFT','FRONT-LEFT'];
 let view=0,drag=false,startX=0,startView=0,mode='FLUTE',lastManual=0,autoTimer=null,busy=false,pendingAttachmentIds=[],pairingRequestedAt=0,lastGita=null;
 let fieldStream=null,fieldTimer=null,fieldSession='',fieldBusy=false,fieldFrames=0,fieldGoal='automatic live field scan',fieldAudio=false,fieldProbe=null,fieldVideoClipTimer=null,fieldAudioClipTimer=null,fieldMediaBusy=false,fieldReference=null,fieldReferencePending=null,fieldFacingMode='environment',fieldPhotographerMode=false;
+const mobileCloud=new KrishnaMobileCloudChat(Krishna);
 function hawkeyeSensors(){try{const x=JSON.parse(Krishna.hawkeyeSensorSnapshot());return x&&typeof x==='object'?x:{available:false};}catch(_){return {available:false,evidence_state:'UNKNOWN'};}}
 const stage=document.getElementById('stage'),sprite=document.getElementById('avatarSprite'),label=document.getElementById('viewLabel'),vp=document.getElementById('avatarViewport'),avatar3d=document.getElementById('avatar3d');
 window.showKrishnaFallback=(reason='')=>{if(avatar3d)avatar3d.hidden=true;if(vp)vp.hidden=false;if(reason)console.warn('KRISHNA avatar fallback:',reason)};
@@ -212,7 +214,25 @@ function repeatGita(){try{speechSynthesis.cancel()}catch(e){};toggleGitaRecitati
 function speakGitaExplanation(){if(!lastGita)return;const t=lastGita.generated_explanation||lastGita.explanation||lastGita.trusted_summary_en||'';if(t)speak(t)}
 window.toggleGitaRecitation=toggleGitaRecitation;window.repeatGita=repeatGita;window.speakGitaExplanation=speakGitaExplanation;
 
-window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','KRISHNA is working…');reply('KRISHNA is thinking…');setTimeout(()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const d=JSON.parse(Krishna.chatWithAttachments(q,JSON.stringify(pendingAttachmentIds.slice(0,3))));if(d.error)throw new Error(d.error);pendingAttachmentIds=[];renderGita(d);const text=d.reply||d.text||'Done';reply(text);setMode(d.avatar_state||'TALKING',text);if(d.capability!=='gita-gyan')speak(text)}catch(e){reply(e.message,'bad');setMode('CHAT','Connection error')}finally{busy=false}},20)}
+window.send=async()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','KRISHNA is working…');reply('KRISHNA is thinking…');
+ try{
+  const attachmentCount=pendingAttachmentIds.length;
+  if(mobileCloud.eligible(q,attachmentCount)){
+   try{
+    const cloud=await mobileCloud.ask(q);
+    const text=cloud.text||'';
+    if(!text)throw new Error('empty free-cloud reply');
+    reply(text);setMode('TALKING','FREE CLOUD · '+(cloud.model||'GENERAL'));speak(text);return;
+   }catch(cloudError){
+    console.warn('KRISHNA Mobile free-cloud escalation:',cloudError);
+   }
+  }
+  const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);
+  const d=JSON.parse(Krishna.chatWithAttachments(q,JSON.stringify(pendingAttachmentIds.slice(0,3))));if(d.error)throw new Error(d.error);
+  pendingAttachmentIds=[];renderGita(d);const text=d.reply||d.text||'Done';reply(text);setMode(d.avatar_state||'TALKING',text);if(d.capability!=='gita-gyan')speak(text);
+ }catch(e){reply(e.message,'bad');setMode('CHAT','Connection error')}
+ finally{busy=false}
+}
 
 window.listen=()=>{if(busy)return;
  try{
@@ -470,7 +490,9 @@ window.onKrishnaPoll=(linkRaw,stateRaw)=>{
   document.getElementById('state').textContent='PC OFFLINE';document.getElementById('state').className='state bad';
  }
 };
-showAvatarView(0);startAuto();setTimeout(()=>window.reportKrishnaUiReady?.('animated-fallback'),450);setTimeout(poll,1800);setInterval(poll,8000);
+showAvatarView(0);startAuto();setTimeout(()=>window.reportKrishnaUiReady?.('animated-fallback'),450);setTimeout(poll,1800);
+setInterval(()=>{if(!document.hidden)poll()},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()});
 const realtime=new KrishnaRealtime(Krishna);
 realtime.onEvent=e=>{const p=e.payload||{};if(e.type==='task.completed'){reply(p.summary||'KRISHNA completed the task','good');setMode('CHAT','WORK COMPLETED');return}if(e.type==='action.sync'){const status=String(p.status||'').toUpperCase(),action=String(p.action||'KRISHNA action');if(status==='COMPLETED')setMode('CHAT',action+' · SYNCED');else if(status==='FAILED'||status==='BLOCKED')setMode('CHAT',action+' · '+status);else setMode('WORKING',action)}};
 realtime.onState=s=>{if(s==='reconnecting')document.getElementById('state').textContent='RECONNECTING'};
