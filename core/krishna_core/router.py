@@ -52,7 +52,9 @@ class ModelRouter:
 
     @staticmethod
     def paid_cloud_enabled():
-        return str(os.getenv("KRISHNA_ALLOW_PAID_CLOUD","0")).strip().lower() in {"1","true","yes","on"}
+        # Hard owner policy: no paid, promotional-credit, trial-credit or
+        # ambiguous-billing cloud execution. This cannot be enabled by an env var.
+        return False
 
     def bind_sudarshan(self,control_plane):
         self.control_plane=control_plane
@@ -311,9 +313,15 @@ class ModelRouter:
             if not self.direct_free:raise RuntimeError("verified direct-free fabric is not configured")
             return self.direct_free.complete(prompt,privacy="approved_cloud")["text"]
         if provider.startswith("gateway:"):
-            if not self.gateway:raise RuntimeError("encrypted model gateway is not configured")
-            return self.gateway.complete(provider.split(":",1)[1],prompt)
-        if provider in self.PROVIDERS:return self._chat_compatible(provider,prompt)
+            raise PermissionError(
+                "generic cloud gateway inference is blocked by KRISHNA hard zero-credit policy; "
+                "use a provider adapter that proves zero price/zero billing at execution time"
+            )
+        if provider in self.PROVIDERS:
+            raise PermissionError(
+                "environment cloud providers are blocked by KRISHNA hard zero-credit policy; "
+                "only live-verified zero-price adapters may perform inference"
+            )
         raise KeyError(provider)
 
     def _governed_complete(self,provider,prompt,privacy="approved_cloud",free_only=False,project="KRISHNA",actor="model-router"):
@@ -455,23 +463,10 @@ class ModelRouter:
             except Exception:
                 pass
 
-        # Other direct gateway profiles labelled free_only may still be invoked
-        # explicitly by the owner, but they are not automatic fallbacks because
-        # KRISHNA cannot independently prove their account billing state.
-        if free_only or not self.paid_cloud_enabled():
-            raise RuntimeError("no live-verified zero-cost provider succeeded; declared-free/paid cloud auto-fallback is disabled")
-
-        # Paid cloud is never a silent fallback. It must be explicitly enabled by
-        # KRISHNA_ALLOW_PAID_CLOUD=1.
-        if self.gateway:
-            for row in self.gateway.eligible(privacy,free_only=False):
-                if row.free_only:continue
-                try:return {"provider":"gateway:"+row.id,"text":self._governed_ask("gateway:"+row.id,prompt,privacy,False,project,actor),"free_only":False}
-                except Exception:continue
-        for row in self.available():
-            if row["available"] and not row["local"] and row["provider"] in self.PROVIDERS:
-                try:return {"provider":row["provider"],"text":self._governed_ask(row["provider"],prompt,privacy,False,project,actor)}
-                except Exception:continue
-        raise RuntimeError("no usable model provider")
+        # Hard zero-credit policy: no generic gateway, paid provider, promotional
+        # credit, trial credit, or ambiguous-billing fallback is permitted.
+        raise RuntimeError(
+            "no live-verified zero-cost provider succeeded; hard zero-credit policy blocks all other cloud inference"
+        )
 
     def auto(self,prompt,project="KRISHNA"):return self.route(prompt,"approved_cloud",project=project)
