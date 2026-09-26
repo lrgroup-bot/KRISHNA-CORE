@@ -222,10 +222,9 @@ class GeminiHawkeyeBridge:
         )).strip()
         config={
             "sessionResumption":{},
-            "responseModalities":["TEXT"] if purpose=="chat" else ["AUDIO"],
+            "responseModalities":["AUDIO"],
+            "outputAudioTranscription":{},
         }
-        if purpose=="hawkeye":
-            config["outputAudioTranscription"]={}
         payload={
             "uses":1,
             "expireTime":expire.isoformat().replace("+00:00","Z"),
