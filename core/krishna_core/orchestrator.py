@@ -460,11 +460,25 @@ class Orchestrator:
 
         def project_genesis_lock_action(payload,context):
             project=str(payload.get("project") or context.get("project") or "").strip()
-            return self.project_genesis.lock_scope(
+            result=self.project_genesis.lock_scope(
                 project,
                 acceptance=payload.get("acceptance") or [],
                 constraints=payload.get("constraints") or [],
             )
+            contract=result.get("goal_contract") or {}
+            self.project_brain.provision(project)
+            self.project_brain.record(project,"Genesis Scope",json.dumps(contract,ensure_ascii=False,indent=2))
+            if not result.get("mission_id"):
+                mission=self.missions.create(
+                    str(contract.get("objective") or result.get("goal") or project),
+                    project_id=project,
+                    assigned_agents=["architect","hr","mrityunjay","critic","verifier"],
+                    required_tools=["project-brain","software-factory","project-perfection"],
+                    permission_profile="project_genesis",
+                    metadata={"project_genesis":True,"goal_contract":contract},
+                )
+                result=self.project_genesis.bind_mission(project,mission["mission_id"])
+            return result
 
         def engineering_plan_action(payload,context):
             project=str(payload.get("project") or context.get("project") or "").strip()
@@ -4498,10 +4512,10 @@ Project: {payload.get('project')}
             tasks.append({"id":"ios","role":"ios","estimate_minutes":80,"depends_on":["architecture"],"privacy":"approved_cloud"})
         implementers=[x["id"] for x in tasks if x["id"]!="architecture"]
         tasks += [
-            {"id":"integration","role":"integration","estimate_minutes":30,"depends_on":implementers,"privacy":"local_only"},
+            {"id":"integration","role":"integration","estimate_minutes":30,"depends_on":implementers,"privacy":"local_only","parallelizable":False},
             {"id":"testing","role":"testing","estimate_minutes":35,"depends_on":["integration"],"mutable":False,"privacy":"local_only"},
             {"id":"security","role":"security","estimate_minutes":25,"depends_on":["integration"],"mutable":False,"privacy":"local_only"},
-            {"id":"release","role":"release","estimate_minutes":25,"depends_on":["testing","security"],"privacy":"local_only"},
+            {"id":"release","role":"release","estimate_minutes":25,"depends_on":["testing","security"],"privacy":"local_only","parallelizable":False},
         ]
         return tasks
 
