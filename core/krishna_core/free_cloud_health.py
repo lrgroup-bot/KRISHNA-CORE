@@ -55,6 +55,9 @@ class FreeCloudHealthGovernor:
 
     @staticmethod
     def _trusted_owner_declared():
+        # Kept only for diagnostics/backward compatibility. Under strict zero-credit
+        # policy, owner declaration alone can never make an unverified provider
+        # eligible for unattended inference.
         raw = str(os.getenv("KRISHNA_TRUST_DECLARED_FREE_PROVIDERS") or "")
         return {x.strip().lower() for x in raw.split(",") if x.strip()}
 
@@ -161,20 +164,22 @@ class FreeCloudHealthGovernor:
                 connectivity = {"checked": False, "healthy": False, "error": "encrypted credential reference unavailable"}
 
             if family == "huggingface":
-                billing = "credit-limited-not-zero-cost-guaranteed"
+                billing = "credit-consumption-capable"
                 unattended = False
-                reason = "Hugging Face routed inference uses monthly credits and may support paid continuation; keep manual/fail-closed"
+                reason = (
+                    "BLOCKED for automatic inference: Hugging Face routed inference consumes monthly monetary credits "
+                    "and can transition to purchased/pay-as-you-go credits"
+                )
             elif family == "nvidia":
                 billing = "development-tier-not-production-zero-cost-guaranteed"
                 unattended = False
-                reason = "NVIDIA is optional and not required by KRISHNA's current local/free fabric"
+                reason = "NVIDIA is optional and remains disabled because KRISHNA already has verified zero-cost/local alternatives"
             else:
-                billing = "owner-declared-free-tier"
-                trusted = family in self._trusted_owner_declared()
-                unattended = bool(declared and credential and connectivity.get("healthy") and trusted)
+                billing = "free-tier-health-only-not-zero-charge-proof"
+                unattended = False
                 reason = (
-                    "healthy credential plus owner-declared free tier; unattended use requires explicit "
-                    "KRISHNA_TRUST_DECLARED_FREE_PROVIDERS opt-in because account billing tier is not machine-proven"
+                    "credential/model health is visible, but billing/account state is not machine-proven zero-charge; "
+                    "strict zero-credit policy forbids unattended inference even if the profile is locally marked free_only"
                 )
 
         return {
@@ -218,6 +223,8 @@ class FreeCloudHealthGovernor:
             "network_refresh": bool(refresh),
             "background_workers": 0,
             "automatic_paid_fallback": False,
+            "paid_credit_consumption": "forbidden",
+            "monetary_credit_consumption": "forbidden",
             "profiles": rows,
             "summary": {
                 "configured": len(rows),
@@ -226,6 +233,7 @@ class FreeCloudHealthGovernor:
                 "manual_or_blocked": len(manual),
             },
             "automatic_route": [x["name"] for x in unattended],
+            "strict_zero_credit_route": [x["name"] for x in unattended],
             "manual_or_blocked": [x["name"] for x in manual],
             "nvidia": {
                 "needed": False,
@@ -238,7 +246,9 @@ class FreeCloudHealthGovernor:
                 "verified_zero_cost_first": True,
                 "private_or_sensitive_data": "local-only",
                 "generic_provider_probe": "metadata-only /models; no inference tokens",
-                "owner_declared_opt_in_env": "KRISHNA_TRUST_DECLARED_FREE_PROVIDERS",
+                "owner_declared_opt_in_env": "diagnostic-only; cannot bypass strict zero-credit policy",
+                "monetary_or_purchased_credits": "never consume automatically",
+                "free_allowances": "allowed only where provider/account state is machine-proven to fail instead of bill",
             },
         }
         self._cache = result

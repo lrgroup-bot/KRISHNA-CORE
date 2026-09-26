@@ -78,21 +78,22 @@ class FreeCloudHealthGovernorTests(unittest.TestCase):
         out=self.governor.status(refresh=True,max_age=0)
         row=next(x for x in out["profiles"] if x["family"]=="huggingface")
         self.assertFalse(row["unattended_allowed"])
-        self.assertEqual(row["billing_safety"],"credit-limited-not-zero-cost-guaranteed")
+        self.assertEqual(row["billing_safety"],"credit-consumption-capable")
 
     def test_generic_provider_health_does_not_become_billing_proof(self):
         out=self.governor.status(refresh=True,max_age=0)
         row=next(x for x in out["profiles"] if x["family"]=="gemini")
         self.assertTrue(row["connectivity"]["healthy"])
         self.assertFalse(row["unattended_allowed"])
-        self.assertEqual(row["billing_safety"],"owner-declared-free-tier")
+        self.assertEqual(row["billing_safety"],"free-tier-health-only-not-zero-charge-proof")
 
-    def test_owner_can_explicitly_trust_declared_free_provider(self):
+    def test_owner_declared_free_cannot_bypass_strict_zero_credit_policy(self):
         with patch.dict(os.environ,{"KRISHNA_TRUST_DECLARED_FREE_PROVIDERS":"gemini"},clear=False):
             governor=FreeCloudHealthGovernor(self.gateway,FakeOpenRouter(),FakeCloudflare())
             out=governor.status(refresh=True)
         row=next(x for x in out["profiles"] if x["family"]=="gemini")
-        self.assertTrue(row["unattended_allowed"])
+        self.assertFalse(row["unattended_allowed"])
+        self.assertEqual(out["monetary_credit_consumption"],"forbidden")
 
     def test_refresh_uses_metadata_only_for_generic_provider(self):
         self.governor.status(refresh=True)
