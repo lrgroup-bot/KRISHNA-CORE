@@ -177,6 +177,7 @@ jobs:
           cp mobile_v3/*.java app/src/main/java/com/krishna/mobile/
           cp mobile_v3/index.html app/src/main/assets/index.html
           cp mobile_v3/realtime-client.js app/src/main/assets/realtime-client.js
+          cp mobile_v3/mobile-cloud-client.js app/src/main/assets/mobile-cloud-client.js
           cp mobile_v3/hawkeye-observer-ui.js app/src/main/assets/hawkeye-observer-ui.js
           cp mobile_v3/avatar-renderer.js app/src/main/assets/avatar-renderer.js
           cp mobile_v3/CANONICAL_RUNTIME.json app/src/main/assets/canonical-runtime.json
@@ -222,6 +223,14 @@ jobs:
           grep -q "hawkeye-observer-ui.js" app/src/main/assets/index.html
           node --check app/src/main/assets/hawkeye-observer-ui.js
           node --check app/src/main/assets/realtime-client.js
+          node --check app/src/main/assets/mobile-cloud-client.js
+          grep -q "mobile-cloud-client.js" app/src/main/assets/index.html
+          grep -q "KrishnaMobileCloudChat" app/src/main/assets/mobile-cloud-client.js
+          grep -q "mobileFreeCloudSession" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "/api/mobile/free-cloud/session" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q '"mobile_direct_free_cloud_chat_session": true' app/src/main/assets/canonical-runtime.json
+          grep -q '"mobile_general_chat_pc_default": false' app/src/main/assets/canonical-runtime.json
+          grep -q '"heavy_optional_capabilities_lazy": true' app/src/main/assets/canonical-runtime.json
           grep -q "resumeAsync" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "pollAsync" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "avatarSyncAsync" app/src/main/java/com/krishna/mobile/MainActivity.java
