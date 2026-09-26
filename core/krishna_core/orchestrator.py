@@ -117,6 +117,7 @@ from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
 from .social_channels import SocialChannelRegistry
+from .narada_legal import NaradaLegalAdvisor
 
 
 class Orchestrator:
@@ -183,6 +184,24 @@ class Orchestrator:
         self.application_security = ApplicationSecurityLoop()
         self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
         self.social_channels = SocialChannelRegistry()
+        self.narada_legal = NaradaLegalAdvisor(runtime_state / "narada-legal")
+        legal_watch_title = "Narada Indian legal source freshness watch"
+        if not any(x.get("title")==legal_watch_title for x in self.commitments.list("KRISHNA",True,500)):
+            self.commitments.add(
+                "KRISHNA",legal_watch_title,
+                {
+                    "goal":"Check official Indian legal sources for new or changed law-related material",
+                    "autonomy":{
+                        "enabled":True,
+                        "operation":"legal_update",
+                        "interval_seconds":21600,
+                        "goal":"Refresh official Indian legal-source fingerprints for Rishi Narada",
+                        "source_ids":["india_code","egazette","mha_new_criminal_laws","odisha_acts","odisha_rules","odisha_notifications","sebi_legal","rbi_master_directions","trai_directions"],
+                    },
+                    "policy":"evidence refresh only; a changed source triggers research and never auto-changes legal conclusions",
+                },
+                "owner_requirement","in_progress",
+            )
         self.amcc = AMCCController(runtime_state / "amcc")
         self.actions = ActionRegistry()
         self.indexer = RepositoryIndexer()
@@ -547,6 +566,39 @@ class Orchestrator:
 
         def social_channel_action(payload,context):
             return self.social_channels.get(str(payload.get("channel") or ""))
+
+        def narada_legal_status_action(payload,context):
+            return self.narada_legal.status()
+
+        def narada_legal_sources_action(payload,context):
+            return self.narada_legal.sources()
+
+        def narada_legal_plan_action(payload,context):
+            return self.narada_legal.analysis_plan(
+                str(payload.get("issue") or payload.get("question") or ""),
+                str(payload.get("jurisdiction") or "India"),
+            )
+
+        def narada_legal_risk_gate_action(payload,context):
+            return self.narada_legal.risk_gate(str(payload.get("request") or payload.get("issue") or ""))
+
+        def narada_legal_case_plan_action(payload,context):
+            return self.narada_legal.case_research_plan(
+                str(payload.get("issue") or payload.get("question") or ""),
+                str(payload.get("jurisdiction") or "India"),
+            )
+
+        def narada_legal_update_check_action(payload,context):
+            source_ids=payload.get("source_ids")
+            if source_ids is not None and not isinstance(source_ids,list):
+                raise ValueError("source_ids must be a list")
+            return self.narada_legal.check_updates(source_ids)
+
+        def narada_legal_sync_action(payload,context):
+            source_ids=payload.get("source_ids")
+            if source_ids is not None and not isinstance(source_ids,list):
+                raise ValueError("source_ids must be a list")
+            return self.narada_legal.sync_sources(source_ids)
 
         def gmail_triage_action(payload,context):
             messages=payload.get("messages") or []
@@ -2857,6 +2909,41 @@ class Orchestrator:
             "social.channel",social_channel_action,
             description="Read capabilities and mutation policy for one social/email channel",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narada.legal.status",narada_legal_status_action,
+            description="Read Rishi Narada legal-advisor status, permanent Shishyas and legal-source coverage truth",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narada.legal.sources",narada_legal_sources_action,
+            description="Read authoritative Indian legal-source registry and non-authoritative implementation references",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narada.legal.plan",narada_legal_plan_action,
+            description="Create a six-Shishya current-law research and compliance workplan",
+            permissions=("web.read","runtime.read"),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narada.legal.risk_gate",narada_legal_risk_gate_action,
+            description="Block legal-evasion requests and redirect Vakeel work to lawful alternatives and remedies",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narada.legal.case_plan",narada_legal_case_plan_action,
+            description="Plan Indian precedent research with hierarchy, later-history and fact-match checks",
+            permissions=("web.read","runtime.read"),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "narada.legal.update_check",narada_legal_update_check_action,
+            description="Fingerprint allowlisted official Indian legal sources and report changes without changing legal conclusions",
+            mutating=True,permissions=("web.read","runtime.write"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "narada.legal.sync",narada_legal_sync_action,
+            description="Version official legal-source snapshots into Narada local corpus with provenance and hashes",
+            mutating=True,permissions=("web.read","runtime.write"),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "gmail.triage",gmail_triage_action,
