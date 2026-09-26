@@ -34,7 +34,7 @@ public final class MobileFreeCloudRouter {
   private static final String PREF="krishna_mobile_free_cloud";
   private static final String ALIAS="krishna.mobile.free.cloud.v1";
   private static final String OPENROUTER="https://openrouter.ai/api/v1";
-  private static final long MODEL_CACHE_MS=5*60*1000L;
+  private static final long MODEL_CACHE_MS=0L; // hard zero-credit: live price preflight before every request
   private static final Pattern SECRET=Pattern.compile(
     "(?i)(password|passwd|pwd|api[ _-]?key|secret|access[ _-]?token|refresh[ _-]?token|authorization|credential|private key|otp|pin)"
   );
@@ -97,6 +97,8 @@ public final class MobileFreeCloudRouter {
     out.put("credential_storage","AndroidKeyStore AES-GCM");
     out.put("credential_exportable",false);
     out.put("automatic_paid_fallback",false);
+    out.put("credit_use_allowed",false);
+    out.put("catalog_preflight_frequency","every request");
     out.put("catalog_preflight","live zero-price required");
     out.put("text_model",p.getString("model_text",""));
     out.put("vision_model",p.getString("model_vision",""));
@@ -138,13 +140,20 @@ public final class MobileFreeCloudRouter {
     }finally{c.disconnect();}
   }
 
-  private static boolean zero(JSONObject pricing,String name){
-    if(pricing==null||!pricing.has(name)||pricing.isNull(name))return true;
+  private static boolean zero(JSONObject pricing,String name,boolean required){
+    if(pricing==null||!pricing.has(name)||pricing.isNull(name))return !required;
     try{
       Object v=pricing.get(name);
       if(v instanceof Number)return Math.abs(((Number)v).doubleValue())<1e-15;
       return Math.abs(Double.parseDouble(String.valueOf(v)))<1e-15;
     }catch(Exception e){return false;}
+  }
+
+  private static boolean zeroPriced(JSONObject pricing,boolean vision){
+    if(!zero(pricing,"prompt",true)||!zero(pricing,"completion",true))return false;
+    String[] extras={"request","internal_reasoning","image","images","input_image","output_image","audio","video"};
+    for(String key:extras)if(!zero(pricing,key,false))return false;
+    return true;
   }
 
   private static boolean modality(JSONObject row,String wanted){
@@ -169,7 +178,7 @@ public final class MobileFreeCloudRouter {
     for(int i=0;i<rows.length();i++){
       JSONObject row=rows.optJSONObject(i);if(row==null)continue;
       JSONObject pricing=row.optJSONObject("pricing");
-      if(!zero(pricing,"prompt")||!zero(pricing,"completion")||!zero(pricing,"request"))continue;
+      if(!zeroPriced(pricing,vision))continue;
       if(!modality(row,"text"))continue;
       if(vision&&!modality(row,"image"))continue;
       String id=row.optString("id","").trim();if(id.isEmpty())continue;
@@ -187,6 +196,10 @@ public final class MobileFreeCloudRouter {
     if(apiKey.isEmpty())throw new IllegalStateException("mobile OpenRouter key is not provisioned");
     JSONObject body=new JSONObject();
     body.put("model",model);body.put("temperature",0.2);body.put("max_tokens",vision?1400:1200);
+    body.put("provider",new JSONObject()
+      .put("allow_fallbacks",false)
+      .put("data_collection","deny")
+      .put("zdr",true));
     JSONArray messages=new JSONArray();
     messages.put(new JSONObject().put("role","system").put("content",system));
     Object userContent=content.length()==1&&content.optJSONObject(0)!=null&&"text".equals(content.optJSONObject(0).optString("type"))
@@ -197,6 +210,15 @@ public final class MobileFreeCloudRouter {
     c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");
     try(OutputStream out=c.getOutputStream()){out.write(body.toString().getBytes("UTF-8"));}
     JSONObject response=new JSONObject(read(c));
+    JSONObject usage=response.optJSONObject("usage");
+    if(usage!=null&&!usage.isNull("cost")){
+      try{
+        double cost=Double.parseDouble(String.valueOf(usage.get("cost")));
+        if(Math.abs(cost)>1e-15)throw new SecurityException("provider reported non-zero cost under hard zero-credit policy");
+      }catch(NumberFormatException e){
+        throw new SecurityException("provider cost could not be verified as zero");
+      }
+    }
     JSONArray choices=response.optJSONArray("choices");
     String answer="";
     if(choices!=null&&choices.length()>0){
