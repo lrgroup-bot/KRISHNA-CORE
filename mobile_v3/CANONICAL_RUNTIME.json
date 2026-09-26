@@ -157,7 +157,7 @@
     "pc_qwen_allowed": true,
     "mobile_qwen_allowed": false,
     "mobile_qwen_dependency": false,
-    "mobile_cloud_mode": "mobile-direct-live-zero-price-first",
+    "mobile_cloud_mode": "verified-free-only",
     "mobile_cloud_credentials": "owner-provisioned OpenRouter token encrypted with Android Keystore; Gemini permanent credential remains PC-only; short-lived device tokens permitted",
     "pc_qwen_default_role_assigned": true,
     "pc_roles": {
@@ -218,6 +218,7 @@
       "mobile direct OpenRouter zero-price",
       "PC-brokered verified-free cloud",
       "KRISHNA PC private/heavy"
-    ]
+    ],
+    "mobile_cloud_strategy": "mobile-direct-live-zero-price-first"
   }
 }
