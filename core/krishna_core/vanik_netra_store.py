@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -41,8 +42,20 @@ class VanikNetraStore:
         con.row_factory = sqlite3.Row
         return con
 
+    @contextmanager
+    def _connection(self):
+        con = self._connect()
+        try:
+            yield con
+            con.commit()
+        except Exception:
+            con.rollback()
+            raise
+        finally:
+            con.close()
+
     def _init(self):
-        with self._connect() as con:
+        with self._connection() as con:
             con.executescript(
                 """
                 PRAGMA journal_mode=WAL;
@@ -117,7 +130,7 @@ class VanikNetraStore:
         }
 
     def latest_snapshot(self, area_key: str) -> dict[str, Any] | None:
-        with self._connect() as con:
+        with self._connection() as con:
             row = con.execute(
                 "SELECT * FROM snapshots WHERE area_key=? ORDER BY created_at DESC LIMIT 1",
                 (str(area_key),),
@@ -127,7 +140,7 @@ class VanikNetraStore:
     def _members(self, snapshot_id: str | None) -> dict[str, str]:
         if not snapshot_id:
             return {}
-        with self._connect() as con:
+        with self._connection() as con:
             rows = con.execute(
                 "SELECT business_id,fingerprint FROM snapshot_members WHERE snapshot_id=?",
                 (snapshot_id,),
@@ -165,7 +178,7 @@ class VanikNetraStore:
         removed = [bid for bid in previous_members if bid not in current]
         by_id = {str(row.get("business_id")): row for row, _ in normalized}
 
-        with self._connect() as con:
+        with self._connection() as con:
             con.execute(
                 "INSERT INTO snapshots(snapshot_id,area_key,created_at,source,bbox_json,category,record_count) VALUES(?,?,?,?,?,?,?)",
                 (snapshot_id, area_key, now, source, _json(bbox or {}), category or "", len(current)),
@@ -214,7 +227,7 @@ class VanikNetraStore:
 
     def changes(self, area_key: str, limit: int = 200) -> list[dict[str, Any]]:
         limit = max(1, min(int(limit), 2000))
-        with self._connect() as con:
+        with self._connection() as con:
             rows = con.execute(
                 "SELECT * FROM changes WHERE area_key=? ORDER BY id DESC LIMIT ?",
                 (str(area_key), limit),
@@ -246,7 +259,7 @@ class VanikNetraStore:
         )
         min_cell_businesses = max(1, int(min_cell_businesses))
         limit = max(1, min(int(limit), 1000))
-        with self._connect() as con:
+        with self._connection() as con:
             rows = con.execute(
                 """
                 SELECT
@@ -313,7 +326,7 @@ class VanikNetraStore:
             params.append("%" + str(category).strip().lower() + "%")
         sql += " ORDER BY updated_at DESC LIMIT ?"
         params.append(limit)
-        with self._connect() as con:
+        with self._connection() as con:
             rows = con.execute(sql, params).fetchall()
         out = []
         for row in rows:
