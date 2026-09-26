@@ -207,18 +207,14 @@ class ModelGatewayRegistry:
         except Exception as exc:raise RuntimeError("model gateway returned invalid JSON") from exc
 
     def complete(self,profile_id,prompt,system="You are a worker model for KRISHNA.",max_tokens=2048):
+        # Generic OpenAI-compatible profiles do not provide KRISHNA with a
+        # provider-independent proof that a completion will consume zero money
+        # and zero credits. Inference therefore requires a specialized adapter
+        # such as OpenRouterFreeFabric or VerifiedDirectFreeFabric.
         self._healthy()
         row=self.profiles.get(str(profile_id))
         if not row or not row.enabled:raise RuntimeError("model gateway profile is unavailable")
-        row.base_url=self._validate_url(row.base_url)
-        key=self.vault.resolve(row.secret_id)
-        body=json.dumps({"model":row.model,"messages":[{"role":"system","content":system},{"role":"user","content":str(prompt)}],
-                         "max_tokens":int(max_tokens),"temperature":0.2}).encode()
-        req=urllib.request.Request(row.base_url+"/chat/completions",data=body,
-            headers={"Content-Type":"application/json","Authorization":"Bearer "+key,
-                     "X-Krishna-Free-Only":"1" if row.free_only else "0"})
-        try:
-            with urllib.request.urlopen(req,timeout=120) as r:data=json.loads(r.read().decode())
-        except Exception as exc:
-            raise RuntimeError(f"model gateway request failed without fallback: {type(exc).__name__}: {exc}") from exc
-        return data["choices"][0]["message"]["content"]
+        raise PermissionError(
+            "generic model-gateway inference is blocked by KRISHNA hard zero-credit policy; "
+            "credential remains stored for metadata/status and future verified-zero-cost adapters"
+        )
