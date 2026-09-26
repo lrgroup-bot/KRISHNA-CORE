@@ -1,7 +1,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from krishna_core.vanijya_sales import PERMANENT_TEAM, VanijyaSalesHead
 
@@ -300,8 +299,12 @@ def test_quote_uses_catalogue_price_and_rejects_unapproved_discount(tmp_path):
     assert q["subtotal"]==2000.0
     assert q["amount_due"]==1800.0
     assert q["truth_source"]=="MANIBHADRA product record"
-    with pytest.raises(PermissionError):
+    try:
         v.quote(lead_id="l1",product=product,quantity=1,approved_discount_percent=20)
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError("unapproved discount was not blocked")
 
 
 def test_exact_amount_upi_request_is_receive_only_and_persistent(tmp_path):
