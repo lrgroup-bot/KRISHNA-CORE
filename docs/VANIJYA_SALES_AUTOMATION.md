@@ -54,6 +54,8 @@ Outreach is fail-closed unless the provider is connected and the recipient has a
 
 Inbound replies route to the correct role: pricing -> Proposal & Pricing; requirement/question -> Solution Consultant; positive/discovery -> Account Executive; purchase/negotiation -> Deal Closer; opt-out -> stop/suppress.
 
+`vanijya.inbox.process` reads NARAD's durable inbox, matches messages to Vāṇijya sales threads by explicit lead metadata or existing provider/thread references, records the customer reply once, classifies intent and returns the next agent/action. Unmatched inbox traffic is left alone.
+
 ## External execution
 
 Vāṇijya prepares the sales communication. NARAD creates and executes the provider workflow. A Gmail/WhatsApp send must use a connected credential and the existing NARAD/Sudarshan verification/promotion gates. Gmail replies can preserve Gmail thread IDs and reply headers.
@@ -96,11 +98,11 @@ Vāṇijya appears as a Sales & Marketing Head panel **inside MANIBHADRA**. He d
 - `vanijya.manibhadra.request`, `vanijya.products.sync`, `vanijya.product.scout`
 - `vanijya.sales_cycle`, `vanijya.autopilot.tick`, `vanijya.campaign.create`, `vanijya.marketing.plan`
 - `vanijya.hr.request`, `vanijya.hr.create`, `vanijya.hr.retire`, `vanijya.hr.plan`, `vanijya.hr.execute`
-- `vanijya.outreach.decide`, `vanijya.outreach.plan`, `vanijya.outbound.plan`, `vanijya.narad.workflow`
+- `vanijya.outreach.decide`, `vanijya.outreach.plan`, `vanijya.outbound.plan`, `vanijya.inbox.process`, `vanijya.narad.workflow`
 - `vanijya.reply.ingest`, `vanijya.inbound.reply`, `vanijya.lead.qualify`
 - `vanijya.crm.dashboard`, `vanijya.crm.upsert_lead`, `vanijya.crm.upsert_deal`
 - `vanijya.quote.create`
-- `vanijya.payment.upi_request`, `vanijya.payment.qr`, `vanijya.payment.verify`
+- `vanijya.payment.request`, `vanijya.payment.upi_request`, `vanijya.payment.qr`, `vanijya.payment.verify`
 - `vanijya.pipeline.next`, `vanijya.automation.blueprint`
 - `manibhadra.expansion.status`, `manibhadra.expansion.plan`
 
