@@ -16,6 +16,9 @@ class MobileCloudPolicyTests(unittest.TestCase):
             "What did I say last time?",
             "Tell me today's Gita verse",
             "My API key is abc",
+            "What is my blood pressure?",
+            "Where am I right now?",
+            "What is the latest stock price?",
         ):
             with self.subTest(text=text):
                 self.assertFalse(MobileCloudPolicy.classify(text)["eligible"])
