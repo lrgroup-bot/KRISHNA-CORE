@@ -2635,7 +2635,7 @@ class Orchestrator:
         self.action_bus.register(
             "engineering.staff",engineering_staff_action,
             description="Let KRISHNA HR create durable child missions and isolated worktrees from the locked engineering plan",
-            mutating=True,permissions=("candidate.write","mission.write","project.read"),sources=("pc","system","job"),
+            mutating=True,permissions=("candidate.write","mission.write","project.write"),sources=("pc","system","job"),
         )
         self.action_bus.register(
             "engineering.swarm.status",engineering_swarm_status_action,
