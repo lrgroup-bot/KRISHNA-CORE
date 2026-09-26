@@ -317,7 +317,11 @@ class ModelRouter:
                 "generic cloud gateway inference is blocked by KRISHNA hard zero-credit policy; "
                 "use a provider adapter that proves zero price/zero billing at execution time"
             )
-        if provider in self.PROVIDERS:return self._chat_compatible(provider,prompt)
+        if provider in self.PROVIDERS:
+            raise PermissionError(
+                "environment cloud providers are blocked by KRISHNA hard zero-credit policy; "
+                "only live-verified zero-price adapters may perform inference"
+            )
         raise KeyError(provider)
 
     def _governed_complete(self,provider,prompt,privacy="approved_cloud",free_only=False,project="KRISHNA",actor="model-router"):
