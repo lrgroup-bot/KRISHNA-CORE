@@ -425,7 +425,7 @@ class Orchestrator:
         self.chandradev_camera_vision = VisionAdapter()
         self.chandradev_camera = ChandradevOsmoCameraAdapter(
             runtime_state / "chandradev" / "camera",
-            hawkeye=self.hawkeye,
+            chandradev=self.chandradev,
             vision=self.chandradev_camera_vision,
         )
         self.external_observers = ExternalObserverBridge(
@@ -1032,13 +1032,6 @@ class Orchestrator:
         def chandradev_camera_stop_action(payload,context):
             return self.chandradev_camera.stop_server()
 
-        def chandradev_camera_session_action(payload,context):
-            return self.chandradev_camera.start_hawkeye_session(
-                project=str(payload.get("project") or context.get("project") or "KRISHNA"),
-                purpose=str(payload.get("purpose") or "CHANDRADEV Osmo live observation"),
-                scene_hint=str(payload.get("scene_hint") or "auto"),
-            )
-
         def chandradev_camera_capture_action(payload,context):
             return self.chandradev_camera.capture_frame(
                 quality=int(payload.get("quality") or 88),
@@ -1048,9 +1041,16 @@ class Orchestrator:
         def chandradev_camera_analyze_action(payload,context):
             return self.chandradev_camera.analyze_frame(
                 prompt=str(payload.get("prompt") or ""),
-                session_id=str(payload.get("session_id") or ""),
-                scene_hint=str(payload.get("scene_hint") or "auto"),
             )
+
+        def chandradev_camera_observations_action(payload,context):
+            return {
+                "agent":"CHANDRADEV",
+                "observations":self.chandradev.camera_observations(
+                    int(payload.get("limit") or 50)
+                ),
+                "hawkeye_involved":False,
+            }
 
         def chandradev_qc_action(payload,context):
             return self.chandradev.review(
@@ -3675,19 +3675,19 @@ class Orchestrator:
             mutating=True,requires_approval=True,permissions=("worker.execute","runtime.write"),sources=("pc","system"),
         )
         self.action_bus.register(
-            "chandradev.camera.session.start",chandradev_camera_session_action,
-            description="Create a HAWKEYE live evidence session for the existing CHANDRADEV camera observation path",
-            mutating=True,permissions=("evidence.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
             "chandradev.camera.frame.capture",chandradev_camera_capture_action,
-            description="Capture one local JPEG frame from the Osmo RTMP feed without cloud upload",
+            description="Capture one local JPEG frame from the Osmo RTMP feed for CHANDRADEV without cloud upload",
             mutating=True,permissions=("evidence.write",),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "chandradev.camera.frame.analyze",chandradev_camera_analyze_action,
-            description="Capture one Osmo RTMP frame, run fast local vision, and optionally record the observation into HAWKEYE",
+            description="Capture one Osmo RTMP frame, run CHANDRADEV PC-local vision, and record it in CHANDRADEV's own observation ledger",
             mutating=True,permissions=("evidence.write","model.use"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.observations",chandradev_camera_observations_action,
+            description="Read CHANDRADEV's own recent local camera observations; HAWKEYE is not involved",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "chandradev.qc",chandradev_qc_action,
