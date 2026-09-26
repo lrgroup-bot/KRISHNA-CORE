@@ -1303,7 +1303,7 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 <section class="maniPanel maniVanijya" aria-label="Rishi Vanijya sales and marketing">
  <div class="maniPanelHead">
   <div><strong>RISHI VĀṆIJYA · Sales & Marketing Head</strong><small> · MANIBHADRA product → customer → qualified deal → money received</small></div>
-  <div class="maniVanijyaActions"><button class="ghost" onclick="loadVanijyaSales()">↻ Sales</button><button class="ghost" onclick="vanijyaSyncProducts()">Sync products</button><button class="primary" onclick="vanijyaSalesCycle()">Start sales cycle</button></div>
+  <div class="maniVanijyaActions"><button class="ghost" onclick="loadVanijyaSales()">↻ Sales</button><button class="ghost" onclick="vanijyaSyncProducts()">Sync products</button><button class="ghost" onclick="vanijyaAutopilot()">Auto Sales</button><button class="primary" onclick="vanijyaSalesCycle()">Start sales cycle</button></div>
  </div>
  <div class="maniPanelBody">
   <div class="maniVanijyaStatus">
@@ -1904,6 +1904,19 @@ async function vanijyaSyncProducts(){
   log('VĀṆIJYA synced '+String(out.synced||0)+' new MANIBHADRA products.');
   await loadVanijyaSales();
  }catch(e){log('VĀṆIJYA product sync: '+e.message)}
+}
+
+async function vanijyaAutopilot(){
+ try{
+  if($('vanijyaState'))$('vanijyaState').textContent='PLANNING';
+  const out=await actionReq('vanijya.autopilot.tick',{}, {project:'KRISHNA',permissions:['project.write','model.use']});
+  const box=$('maniAI');box.classList.remove('maniAIEmpty');
+  const queue=(out.agent_queue||[]).slice(0,12).map((x,i)=>(i+1)+'. '+String(x.agent||'agent')+' — '+String(x.action||'')+(x.reason?' · '+x.reason:'')).join('\n');
+  const advice=out.manibhadra_advice||{};
+  const adviceText=advice.text||advice.advice||advice.reason||JSON.stringify(advice,null,2);
+  box.textContent='RISHI VĀṆIJYA AUTOPILOT\n\nMANIBHADRA check:\n'+adviceText+'\n\nSales work queue:\n'+(queue||'No pending sales work.')+'\n\nNo external send or spend was performed by this planning tick.';
+  await loadVanijyaSales();
+ }catch(e){if($('vanijyaState'))$('vanijyaState').textContent='ATTENTION';log('VĀṆIJYA autopilot: '+e.message)}
 }
 
 async function vanijyaSalesCycle(){
