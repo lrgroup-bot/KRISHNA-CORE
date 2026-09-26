@@ -82,7 +82,7 @@ class ChandradevOsmoCameraAdapter:
         self,
         state_dir: str | Path,
         *,
-        hawkeye=None,
+        chandradev=None,
         vision=None,
         mediamtx_exe: str | Path | None = None,
         stream_name: str | None = None,
@@ -94,7 +94,7 @@ class ChandradevOsmoCameraAdapter:
         self.state_file=self.root/"stream-state.json"
         self.config_file=self.root/"mediamtx.yml"
         self.log_file=self.root/"mediamtx.log"
-        self.hawkeye=hawkeye
+        self.chandradev=chandradev
         self.vision=vision
         self.mediamtx_exe=Path(
             mediamtx_exe
@@ -292,7 +292,7 @@ class ChandradevOsmoCameraAdapter:
         return {
             "component":"CHANDRADEV OSMO CAMERA ADAPTER",
             "version":self.VERSION,
-            "role":"camera transport/input adapter for the existing CHANDRADEV QC peer and HAWKEYE",
+            "role":"standalone PC camera transport/input adapter for the existing CHANDRADEV QC peer",
             "hardware_profile":OSMO_ACTION_ORIGINAL_PROFILE,
             "mediamtx":{
                 "exe":str(self.mediamtx_exe),
@@ -308,7 +308,7 @@ class ChandradevOsmoCameraAdapter:
             "cloud_required":False,
             "paid_service_required":False,
             "usb_live_video":False,
-            "live_path":"DJI Mimo RTMP -> MediaMTX -> local frame -> local VisionAdapter -> HAWKEYE",
+            "live_path":"DJI Mimo RTMP -> MediaMTX -> local frame -> local VisionAdapter -> CHANDRADEV",
         }
 
     def connection_guide(self,lan_ip=None):
@@ -324,7 +324,7 @@ class ChandradevOsmoCameraAdapter:
                 "In DJI Mimo open Live Stream and choose RTMP.",
                 "Enter the exact Mimo push URL below.",
                 "For the original Osmo Action select 720p/30fps; use 2 Mbps first, then 4 Mbps if the LAN is stable.",
-                "Start livestreaming; Chandradev reads the local stream and passes sampled frames to HAWKEYE.",
+                "Start livestreaming; Chandradev reads, analyzes and records sampled frames locally on the PC.",
             ],
             "mimo_push_url":urls["mimo_push_url"],
             "local_read_url":urls["local_rtmp_url"],
@@ -421,49 +421,30 @@ class ChandradevOsmoCameraAdapter:
             "height":int(frame.shape[0]),
         }
 
-    def analyze_frame(self,*,prompt="",session_id="",scene_hint="auto"):
+    def analyze_frame(self,*,prompt=""):
         if self.vision is None:
             raise RuntimeError("Chandradev VisionAdapter is not bound")
         frame=self.capture_frame()
         data=Path(frame["path"]).read_bytes()
         question=str(prompt or (
             "Observe this live Chandradev camera frame. Describe only visible evidence, important objects, "
-            "text, people/vehicles/equipment and changes that are actually supported. State uncertainty."
+            "text, people, vehicles, equipment and changes that are actually supported. State uncertainty."
         )).strip()
         result=self.vision.analyze_bytes(data,"image/jpeg",question,mode="fast")
-        hawkeye_row=None
-        if session_id and self.hawkeye is not None:
-            hawkeye_row=self.hawkeye.record_live_analysis(
-                str(session_id),
-                str(result.get("analysis") or ""),
-                model=result.get("model"),
-                sensor_context={
-                    "camera":"DJI Osmo Action (original)",
-                    "transport":"DJI Mimo RTMP",
-                    "scene_hint":str(scene_hint or "auto"),
-                },
-                frame_meta={
-                    "source":"chandradev-osmo-rtmp",
-                    "path":frame["path"],
-                    "width":frame["width"],
-                    "height":frame["height"],
-                    "confidence":0.65,
-                },
+        observation=None
+        if self.chandradev is not None:
+            observation=self.chandradev.record_camera_observation(
+                analysis=str(result.get("analysis") or ""),
+                frame_meta=frame,
+                source="DJI Osmo Action (original) via DJI Mimo RTMP",
+                prompt=question,
             )
         return {
             "component":"CHANDRADEV OSMO CAMERA ADAPTER",
             "frame":frame,
             "vision":result,
-            "hawkeye":hawkeye_row,
+            "chandradev_observation":observation,
+            "hawkeye_involved":False,
             "raw_frame_retention":"local PC only",
             "cloud_upload":False,
         }
-
-    def start_hawkeye_session(self,*,project="KRISHNA",purpose="Chandradev live Osmo observation",scene_hint="auto"):
-        if self.hawkeye is None:
-            raise RuntimeError("HAWKEYE coordinator is not bound")
-        return self.hawkeye.start_live_session(
-            project=str(project or "KRISHNA"),
-            purpose=str(purpose or "Chandradev live Osmo observation"),
-            scene_hint=str(scene_hint or "auto"),
-        )
