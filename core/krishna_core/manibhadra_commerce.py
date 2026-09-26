@@ -51,6 +51,8 @@ class ManibhadraCommerce:
             "listing_api":True,"orders_api":True,"rfq":True,
             "connection_required_for_writes":True,
             "paid_membership_may_be_required":True,
+            "selling_enabled_under_zero_spend":False,
+            "research_enabled_under_zero_spend":True,
         },
     }
 
@@ -108,10 +110,31 @@ class ManibhadraCommerce:
             "publish_requires_owner_approval":True,
         }
 
+    def zero_spend_strategy(self):
+        return {
+            "mode":"RECEIVE_ONLY",
+            "allowed":[
+                "affiliate/referral commissions",
+                "finder fees",
+                "supplier-paid fulfillment/reseller commissions",
+                "free organic social traffic",
+                "free SEO",
+                "free self-hosted storefront on existing hardware",
+                "free marketplace/research channels with no seller fee or paid membership",
+            ],
+            "blocked":[
+                "inventory purchase","supplier prepayment","paid ads","paid boosts","paid leads",
+                "seller memberships","listing fees","subscriptions","paid APIs","paid hosting",
+                "courier/shipping payment","domain purchase","software credits",
+            ],
+            "owner_approval_can_override":False,
+        }
+
     def status(self):
         return {
             "name":"MANIBHADRA","role":"commerce/sourcing/marketplace specialist",
             "platforms":self.PLATFORM_CAPABILITIES,
             "forbidden":["fake reviews","fake ratings","trademark stuffing","platform policy evasion","unauthorized price/order changes"],
             "external_commitments_require_owner_approval":True,
+            "zero_spend":self.zero_spend_strategy(),
         }
