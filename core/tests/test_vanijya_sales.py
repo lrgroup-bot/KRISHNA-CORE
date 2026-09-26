@@ -172,6 +172,20 @@ class VanijyaSalesHeadTests(unittest.TestCase):
         self.assertEqual(qs["cu"],["INR"])
         self.assertEqual(qs["tr"],["ORDER-42"])
 
+    def test_qr_renderer_is_local_and_fail_closed(self):
+        request=self.vanijya.payment_request(
+            payee_vpa="merchant@upi",payee_name="Example Merchant",
+            amount="99",order_ref="ORDER-QR",
+        )
+        result=self.vanijya.payment_qr_svg(request)
+        self.assertIn("available",result)
+        if result["available"]:
+            self.assertEqual(result["mime_type"],"image/svg+xml")
+            self.assertTrue(result["data_uri"].startswith("data:image/svg+xml;base64,"))
+            self.assertFalse(result["payment_proof"])
+        else:
+            self.assertIn("INSTALL_KRISHNA_QR.ps1",result["install"])
+
     def test_customer_claim_screenshot_or_redirect_never_verifies_payment(self):
         for source in ("customer_claim","customer_message","screenshot","browser_redirect"):
             row=self.vanijya.verify_payment({
@@ -224,6 +238,7 @@ class VanijyaSalesHeadTests(unittest.TestCase):
             '"vanijya.outreach.plan"',
             '"vanijya.inbound.reply"',
             '"vanijya.payment.request"',
+            '"vanijya.payment.qr"',
             '"vanijya.payment.verify"',
             '"vanijya","independent sales and marketing head',
         ):
