@@ -25,6 +25,19 @@ PIPELINE = (
     "closed_lost",
 )
 
+CRM_STAGE_MAP = {
+    "prospecting": "new",
+    "contact": "contacted",
+    "qualification": "qualified",
+    "discovery": "qualified",
+    "solution": "proposal",
+    "proposal": "proposal",
+    "negotiation": "negotiation",
+    "payment_pending": "negotiation",
+    "closed_won": "won",
+    "closed_lost": "lost",
+}
+
 TRUSTED_PAYMENT_SOURCES = frozenset({
     "bank_api",
     "bank_statement_api",
@@ -402,11 +415,19 @@ class VanijyaSalesHead:
     def crm_snapshot(self):
         return self.crm.dashboard()
 
+    @staticmethod
+    def _crm_row(row: dict):
+        data=dict(row or {})
+        stage=str(data.get("stage") or "").strip().lower()
+        if stage in CRM_STAGE_MAP:
+            data["stage"]=CRM_STAGE_MAP[stage]
+        return data
+
     def save_lead(self, lead: dict):
-        return self.crm.upsert_lead(dict(lead or {}))
+        return self.crm.upsert_lead(self._crm_row(lead))
 
     def save_deal(self, deal: dict):
-        return self.crm.upsert_deal(dict(deal or {}))
+        return self.crm.upsert_deal(self._crm_row(deal))
 
     @staticmethod
     def pipeline_next(stage: str, *, payment_verified: bool = False):
