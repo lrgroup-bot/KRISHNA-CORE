@@ -34,7 +34,7 @@ USB remains a separate file-transfer/presence path.
 - 1300 mAh battery.
 - Waterproof to 11 m without a case and 60 m with the waterproof case.
 - DJI documented 1.5 m drop testing and operation down to -10 C.
-- Supported DJI Mimo RTMP live path for this original model is treated separately from its high-resolution recording modes.
+- DJI Mimo RTMP live streaming on this original model is limited to 480p or 720p at 30 fps; CHANDRADEV therefore uses 720p/30 at 4 Mbps for maximum live quality, with 2 Mbps as the first fallback.
 - USB on this camera is file-transfer/storage, not the live camera path.
 - Do not rely on USB-C-to-HDMI for this model.
 
