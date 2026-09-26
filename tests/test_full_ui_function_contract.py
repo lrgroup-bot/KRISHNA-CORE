@@ -102,6 +102,31 @@ class FullUIFunctionContractTests(unittest.TestCase):
         ):
             self.assertIn(token,self.html)
 
+    def test_vanijya_sales_head_is_live_inside_manibhadra_not_main_menu(self):
+        for token in (
+            "RISHI VĀṆIJYA · Sales & Marketing Head",
+            "Lead Researcher → SDR / Calling → Lead Qualifier",
+            "vanijya.dashboard","vanijya.products.sync","vanijya.sales_cycle",
+            "loadVanijyaSales","vanijyaSyncProducts","vanijyaSalesCycle",
+        ):
+            self.assertIn(token,self.html)
+        main=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',self.html)
+        self.assertIsNotNone(main)
+        self.assertEqual(main.group(1).count("<button"),4)
+        self.assertNotIn("showView('vanijya')",main.group(1))
+
+    def test_vanijya_backend_actions_are_registered(self):
+        for action in (
+            "vanijya.status","vanijya.dashboard","vanijya.health","vanijya.health.verify",
+            "vanijya.manibhadra.request","vanijya.products.sync","vanijya.sales_cycle",
+            "vanijya.campaign.create","vanijya.hr.request","vanijya.hr.create","vanijya.hr.retire",
+            "vanijya.outreach.decide","vanijya.lead.qualify","vanijya.reply.ingest",
+            "vanijya.outbound.plan","vanijya.narad.workflow","vanijya.quote.create",
+            "vanijya.payment.upi_request","vanijya.payment.verify",
+            "manibhadra.expansion.status","manibhadra.expansion.plan",
+        ):
+            self.assertIn(f'"{action}"',self.orchestrator)
+
     def test_no_server_fallback_to_legacy_dashboard(self):
         self.assertNotIn("WEB_VALIDATION if WEB_VALIDATION.exists() else DASHBOARD",self.server)
         self.assertIn("stale KRISHNA desktop UI refused",self.server)
