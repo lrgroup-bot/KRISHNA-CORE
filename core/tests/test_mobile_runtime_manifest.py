@@ -30,7 +30,8 @@ class MobileRuntimeManifestTests(unittest.TestCase):
         for name in (
             "MobileEdgeBot.java","HawkeyeEvidenceCuratorBot.java","HawkeyeCrypto.java",
             "HawkeyeBackgroundSync.java","HawkeyeSyncJobService.java",
-            "KrishnaPrivateCore.java","HawkeyeMobileVision.java","hawkeye-observer-ui.js"
+            "KrishnaPrivateCore.java","HawkeyeMobileVision.java","hawkeye-observer-ui.js",
+            "mobile-cloud-client.js"
         ):
             self.assertIn(name,files)
         self.assertTrue(data["boundaries"]["hawkeye_learning_observer"])
@@ -46,6 +47,13 @@ class MobileRuntimeManifestTests(unittest.TestCase):
         self.assertTrue(data["boundaries"]["large_media_sha256_verified"])
         self.assertTrue(data["boundaries"]["mobile_retains_verified_copy_default"])
         self.assertFalse(data["boundaries"]["delete_after_verified_default"])
+        self.assertTrue(data["boundaries"]["mobile_direct_free_cloud_chat_session"])
+        self.assertFalse(data["boundaries"]["mobile_direct_cloud_permanent_key"])
+        self.assertTrue(data["boundaries"]["mobile_direct_cloud_short_lived_token"])
+        self.assertFalse(data["boundaries"]["mobile_general_chat_pc_default"])
+        self.assertTrue(data["boundaries"]["mobile_private_action_chat_pc_required"])
+        self.assertTrue(data["boundaries"]["heavy_optional_capabilities_lazy"])
+        self.assertEqual(data["boundaries"]["mobile_pc_poll_interval_foreground_seconds"],30)
 
 
 if __name__=="__main__":
