@@ -494,11 +494,34 @@ button:disabled{
     pointer-events:none;
 }
 
-.avatarFallback img{
-    max-width:100%;
-    max-height:100%;
-    object-fit:contain;
+.avatarFallbackStage{
+    position:relative;
+    height:min(92%,560px);
+    aspect-ratio:1/3;
+    overflow:hidden;
+    filter:drop-shadow(0 20px 30px rgba(0,0,0,.55));
+    transform-origin:50% 70%;
+    animation:krishnaFallbackBreath 4.8s ease-in-out infinite;
 }
+.avatarFallbackStrip{
+    height:100%;
+    width:800%;
+    max-width:none!important;
+    max-height:none!important;
+    object-fit:fill!important;
+    transform:translateX(0);
+    transition:transform .22s ease-out;
+    pointer-events:none;
+    filter:saturate(1.08) contrast(1.05);
+}
+.avatarFallback[data-state="SPEAKING"] .avatarFallbackStage{animation:krishnaFallbackTalk .72s ease-in-out infinite}
+.avatarFallback[data-state="THINKING"] .avatarFallbackStage,
+.avatarFallback[data-state="DHYAN"] .avatarFallbackStage{animation:krishnaFallbackDhyan 5.2s ease-in-out infinite}
+.avatarFallback[data-state="WORKING"] .avatarFallbackStage{animation:krishnaFallbackWork 1.2s ease-in-out infinite}
+@keyframes krishnaFallbackBreath{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-5px) scale(1.008)}}
+@keyframes krishnaFallbackTalk{0%,100%{transform:translateY(0) rotate(-.35deg)}50%{transform:translateY(-2px) rotate(.45deg)}}
+@keyframes krishnaFallbackDhyan{0%,100%{transform:translateY(2px) scale(.995)}50%{transform:translateY(-3px) scale(1.006)}}
+@keyframes krishnaFallbackWork{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 
 .avatarFallback small{
     position:absolute;
@@ -1163,7 +1186,7 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
   </div>
 </section>
 <div class="sceneGrid"></div><header class="top"><div class="crumb"><span id="modeBadge" style="color:var(--gold);margin-right:8px">KRISHNA</span><span id="pageTitle">Almighty Core</span> <span style="color:#596474">/</span> <span id="projectName">general</span></div><div class="topActions"><button id="brahmaNotify" class="brahmaNotify" type="button" title="BRAHMA QC notifications" aria-label="Open BRAHMA QC notifications" onclick="showView('workingGods')"><span class="brahmaGlyph">🪷</span><i id="brahmaLight" class="brahmaLight status-red"></i></button><span id="contextBadge" class="pill">KRISHNA</span><button class="ghost chatScopedTop legacyChatAction" onclick="moveCurrentChat()" style="display:none">Move chat</button><button class="ghost danger chatScopedTop legacyChatAction" onclick="deleteCurrentChat()" style="display:none">Delete chat</button><span id="online" class="pill">CHECKING</span></div></header>
-<select id="project" style="display:none"></select><section id="home" class="view active panelView"><div class="panelInner"><div id="workingGodsOverlay" class="workingGodsOverlay" aria-label="Working Gods live status"><div class="workingGodsOverlayHead"><span>WORKING GODS</span><button type="button" onclick="showView('workingGods')">OPEN</button></div><div id="workingGodsMini"></div></div><div class="holoStage"><div class="holoCore"><div class="holoRing r1"></div><div class="holoRing r2"></div><div class="holoRing r3"></div><div class="holoOrb"></div><div id="krishnaAvatar" class="krishnaAvatar"><div id="krishnaLiveAvatar" class="krishnaLiveAvatar" aria-label="KRISHNA live 3D avatar" hidden></div><model-viewer id="krishnaModel" alt="KRISHNA avatar" camera-controls disable-zoom autoplay shadow-intensity="1" interaction-prompt="none" hidden></model-viewer><div id="avatarFallback" class="avatarFallback"><img src="/api/avatar360" alt="KRISHNA avatar preview"><small id="avatarStatus">KRISHNA preview · local mode</small></div><div class="k" style="margin-top:6px">CHARACTER STATE · <span id="avatarPerformanceState">FLUTE</span></div></div><div class="homeLegacyDetails" aria-hidden="true"><div class="holoNode n1">NEURAL ACTION GRAPH</div><div class="holoNode n2">SYSTEM OBSERVER</div><div class="holoNode n3">VERIFICATION GATE</div><div class="holoNode n4">SUDARSHAN ONLINE</div><div class="holoLabel"><strong>KRISHNA</strong><span>ALMIGHTY CORE</span></div></div></div></div><div class="homeLegacyDetails" aria-hidden="true"><button class="primary" onclick="showView('sudarshan');newChat()">ENTER SUDARSHAN ☸</button><div class="grid"><div class="card"><div class="k">ROLE</div><div class="v">Almighty Core</div></div><div class="card"><div class="k">WORKSPACE</div><div class="v">Sudarshan</div></div><div class="card"><div class="k">AUTHORITY</div><div class="v">Policy + Verification</div></div></div></div></div></section>
+<select id="project" style="display:none"></select><section id="home" class="view active panelView"><div class="panelInner"><div id="workingGodsOverlay" class="workingGodsOverlay" aria-label="Working Gods live status"><div class="workingGodsOverlayHead"><span>WORKING GODS</span><button type="button" onclick="showView('workingGods')">OPEN</button></div><div id="workingGodsMini"></div></div><div class="holoStage"><div class="holoCore"><div class="holoRing r1"></div><div class="holoRing r2"></div><div class="holoRing r3"></div><div class="holoOrb"></div><div id="krishnaAvatar" class="krishnaAvatar"><div id="krishnaLiveAvatar" class="krishnaLiveAvatar" aria-label="KRISHNA live 3D avatar" hidden></div><model-viewer id="krishnaModel" alt="KRISHNA avatar" camera-controls disable-zoom autoplay shadow-intensity="1" interaction-prompt="none" hidden></model-viewer><div id="avatarFallback" class="avatarFallback" data-state="FLUTE"><div class="avatarFallbackStage"><img id="avatarFallbackStrip" class="avatarFallbackStrip" src="/api/avatar360" alt="KRISHNA animated avatar fallback"></div><small id="avatarStatus">KRISHNA animated fallback · local mode</small></div><div class="k" style="margin-top:6px">CHARACTER STATE · <span id="avatarPerformanceState">FLUTE</span></div></div><div class="homeLegacyDetails" aria-hidden="true"><div class="holoNode n1">NEURAL ACTION GRAPH</div><div class="holoNode n2">SYSTEM OBSERVER</div><div class="holoNode n3">VERIFICATION GATE</div><div class="holoNode n4">SUDARSHAN ONLINE</div><div class="holoLabel"><strong>KRISHNA</strong><span>ALMIGHTY CORE</span></div></div></div></div><div class="homeLegacyDetails" aria-hidden="true"><button class="primary" onclick="showView('sudarshan');newChat()">ENTER SUDARSHAN ☸</button><div class="grid"><div class="card"><div class="k">ROLE</div><div class="v">Almighty Core</div></div><div class="card"><div class="k">WORKSPACE</div><div class="v">Sudarshan</div></div><div class="card"><div class="k">AUTHORITY</div><div class="v">Policy + Verification</div></div></div></div></div></section>
 <section id="sudarshan" class="view chatView">
 <div class="sudarshanBar"><span class="miniCore">☸</span><button class="ghost" onclick="newChat()">＋ New</button><button class="ghost" onclick="loadChats()">↻ Chats</button><button class="ghost legacyChatAction" onclick="renameCurrentChat()">✎ Rename</button><button class="ghost legacyChatAction" onclick="moveCurrentChat()">◇ Move</button><button class="ghost danger legacyChatAction" onclick="deleteCurrentChat()">× Delete</button><button class="ghost" onclick="loadTasks()">▷ Work</button><span class="spacer"></span><span id="sudarshanState" class="workChip">READY</span></div>
 <div class="sudarshanDeck">
@@ -1789,7 +1812,7 @@ async function initAvatar(){
  const live=$('krishnaLiveAvatar'),viewer=$('krishnaModel'),fallback=$('avatarFallback'),status=$('avatarStatus');
  const avatar=viewer; // compatibility name retained by the canonical local-avatar contract
  if(!viewer||!fallback)return;
- const showFallback=msg=>{if(live)live.hidden=true;viewer.hidden=true;fallback.hidden=false;if(status)status.textContent=msg};
+ const showFallback=msg=>{if(live)live.hidden=true;viewer.hidden=true;fallback.hidden=false;fallback.dataset.state=fallback.dataset.state||'FLUTE';if(status)status.textContent=msg};
  showFallback('Checking local 3D avatar engine…');
  try{
   const a=await req('/api/avatar/status');
@@ -2628,8 +2651,14 @@ function openSharedChatFromUrl(){try{const params=new URLSearchParams(location.s
 
 function avatarState(state){
  const next=String(state||'IDLE').toUpperCase();
- const live=$('krishnaLiveAvatar'),previous=live?.dataset?.state||'';
+ const live=$('krishnaLiveAvatar'),fallback=$('avatarFallback'),previous=live?.dataset?.state||fallback?.dataset?.state||'';
  [$('krishnaModel'),live].filter(Boolean).forEach(m=>{m.setAttribute('data-state',next);m.dataset.characterBible='character-bible-v1'});
+ if(fallback)fallback.dataset.state=next;
+ const strip=$('avatarFallbackStrip');
+ if(strip){
+  const frameMap={IDLE:0,LISTENING:0,SPEAKING:0,WISDOM:0,PLAYFUL:1,PROTECTION:7,FLUTE:0,DHYAN:2,SLEEPING:4,WAKING:1,WORKING:1,THINKING:2};
+  const frame=Number(frameMap[next]??0);strip.style.transform='translateX('+(-frame*12.5)+'%)';
+ }
  const label=$('avatarPerformanceState');if(label)label.textContent=next;
  if(previous!==next)applyKrishnaAvatarMotion(next);
 }
