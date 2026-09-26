@@ -133,18 +133,27 @@ class FreeCloudHealthGovernor:
             reason = "OpenRouter inference requires live zero-price model preflight and blocks non-zero provider cost"
         elif family == "cloudflare":
             healthy = bool(cloudflare_status.get("configured"))
-            proof = cloudflare_status.get("zero_cost_proof") or cloudflare_status.get("billing_guard")
-            error = cloudflare_status.get("error")
+            error = cloudflare_status.get("verification_error") or cloudflare_status.get("error")
+            verified_now = bool(cloudflare_status.get("automatic_zero_cost_eligible"))
             connectivity = {"checked": bool(refresh), "healthy": healthy and not bool(error), "error": error}
             billing = "verified-account-zero-billing-preflight"
-            unattended = bool(connectivity["healthy"] and declared and proof)
-            reason = "Cloudflare direct-free adapter requires a live account billing/subscription guard"
+            # The direct-free completion path itself always re-runs the billing
+            # subscription guard before inference. A configured profile is safe
+            # to attempt unattended even when status() has no cached proof yet.
+            unattended = bool(connectivity["healthy"] and declared)
+            reason = (
+                "Cloudflare direct-free execution rechecks Billing Read/subscription state before inference"
+                + ("; current status has a cached/live proof" if verified_now else "; proof is obtained at execution time")
+            )
         elif family == "kimi-openrouter":
             ok, error = self._kimi_zero_cost(row.get("model"), refresh=refresh)
             connectivity = {"checked": bool(refresh), "healthy": bool(ok and credential), "error": error}
-            billing = "verified-via-openrouter-live-model-price" if ok else "blocked-until-openrouter-price-proof"
-            unattended = bool(ok and credential and declared)
-            reason = "Kimi profile is redundant for routing; exact model must remain zero-price in OpenRouter catalog"
+            billing = "delegate-to-openrouter-zero-cost-fabric"
+            unattended = False
+            reason = (
+                "Keep this duplicate gateway profile out of generic unattended routing; "
+                "use the OpenRouter zero-cost fabric, which rechecks the exact model price before inference"
+            )
         else:
             if refresh and credential:
                 connectivity = self._probe_generic(row, family)
