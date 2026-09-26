@@ -51,7 +51,7 @@ class KrishnaMobileCloudChat {
         ws.onopen=()=>{
           ws.send(JSON.stringify({setup:{
             model:'models/'+this.model,
-            generationConfig:{responseModalities:['TEXT'],temperature:0.3},
+            generationConfig:{responseModalities:['AUDIO'],temperature:0.3},outputAudioTranscription:{},
             systemInstruction:{parts:[{text:
               'You are KRISHNA Mobile free-cloud conversational helper. Answer general non-sensitive informational questions only. '+
               'You cannot see KRISHNA PC, local files, private memory, credentials, projects, connected accounts or tools. '+
@@ -65,6 +65,8 @@ class KrishnaMobileCloudChat {
             if(msg.setupComplete&&!settled){clearTimeout(startup);settled=true;resolve(this.status());}
             const sc=msg.serverContent||{};
             if(this.pending){
+              const transcript=String(sc.outputTranscription&&sc.outputTranscription.text||'');
+              if(transcript)this.pending.parts.push(transcript);
               const parts=sc.modelTurn&&Array.isArray(sc.modelTurn.parts)?sc.modelTurn.parts:[];
               for(const p of parts)if(p&&p.text)this.pending.parts.push(String(p.text));
               if(sc.turnComplete){
