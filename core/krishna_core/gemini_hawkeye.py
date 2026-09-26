@@ -141,9 +141,16 @@ class GeminiHawkeyeBridge:
             "credential_source":None if cfg is None else cfg["source"],
             "profile_id":None if cfg is None else cfg["profile_id"],
             "free_only_declared":False if cfg is None else bool(cfg.get("free_only",False)),
+            "hard_zero_credit":True,
+            "inference_allowed":False,
+            "blocked_reason":"Gemini account billing/free-tier state is not machine-proven zero-credit by KRISHNA",
         }
 
     def analyze_image(self,data:bytes,content_type:str,prompt:str,metadata=None):
+        raise PermissionError(
+            "Gemini inference is blocked by KRISHNA hard zero-credit policy until an execution-time "
+            "zero-price/zero-billing proof is available"
+        )
         cfg=self._credential()
         if cfg is None:
             raise RuntimeError("Gemini is not configured on KRISHNA PC")
@@ -200,6 +207,10 @@ class GeminiHawkeyeBridge:
         }
 
     def mint_live_token(self,metadata=None):
+        raise PermissionError(
+            "Gemini Live is blocked by KRISHNA hard zero-credit policy until an execution-time "
+            "zero-price/zero-billing proof is available"
+        )
         cfg=self._credential()
         if cfg is None:
             raise RuntimeError("Gemini is not configured on KRISHNA PC")
