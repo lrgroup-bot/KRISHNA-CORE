@@ -9,11 +9,12 @@ class AutonomySupervisor:
     """Resumes only explicitly opted-in, non-mutating commitments.
 
     This layer never edits project files, promotes candidates, sends external messages,
-    or bypasses Policy/approval. It can refresh investigation, research or repository
-    index evidence so KRISHNA keeps safe routine work moving while unattended.
+    or bypasses Policy/approval. It can refresh investigation, research, repository
+    index evidence, legal-source freshness, or a read-only VĀṆIJYA/MANIBHADRA
+    sales plan so KRISHNA keeps safe routine work moving while unattended.
     """
 
-    SAFE_OPERATIONS={"investigate","research","index","legal_update"}
+    SAFE_OPERATIONS={"investigate","research","index","legal_update","vanijya_plan"}
 
     def __init__(self, orchestrator, poll_seconds=300):
         self.orch=orchestrator
@@ -66,6 +67,17 @@ class AutonomySupervisor:
         if op=="legal_update":
             return {"operation":op,"checked":result.get("checked",0),"changed":list(result.get("changed") or []),
                     "baselined":list(result.get("baselined") or []),"error_count":len(result.get("errors") or [])}
+        if op=="vanijya_plan":
+            plan=result.get("plan") or {}
+            advice=result.get("manibhadra_advice") or {}
+            return {
+                "operation":op,"status":plan.get("status"),
+                "ready_product_count":plan.get("ready_product_count",0),
+                "lead_count":plan.get("lead_count",0),"deal_count":plan.get("deal_count",0),
+                "queued_actions":len(plan.get("agent_queue") or []),
+                "manibhadra_advisor_status":advice.get("status") or ("ok" if advice.get("text") else "unavailable"),
+                "external_send_performed":False,"spend_performed":False,
+            }
         return {"operation":op}
 
     def _execute(self,item):
@@ -82,6 +94,17 @@ class AutonomySupervisor:
             result=self.orch.index_project(project)
         elif op=="legal_update":
             result=self.orch.narada_legal.check_updates(cfg.get("source_ids"))
+        elif op=="vanijya_plan":
+            plan=self.orch.vanijya.autopilot_plan(sync_products=False)
+            try:
+                advice=self.orch.manibhadra_advisor.advise(
+                    "Rishi Vāṇijya asks MANIBHADRA for the current best zero-spend product/service or existing opportunity to market next. "
+                    "Use only sanitized CRM facts, make no external-send claim, and recommend no paid fallback.",
+                    self.orch.manibhadra_crm.dashboard(),
+                )
+            except Exception as exc:
+                advice={"status":"UNAVAILABLE","reason":f"{type(exc).__name__}: {exc}","paid_fallback":False}
+            result={"plan":plan,"manibhadra_advice":advice}
         else:
             raise PermissionError("autonomy operation is not in the non-mutating allowlist")
         summary=self._summary(op,result)
