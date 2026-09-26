@@ -19,6 +19,7 @@ class CurrentKrishnaUIContractTests(unittest.TestCase):
         menu=m.group(1)
         self.assertIn("showView('home')",menu)
         self.assertIn("showView('sudarshan')",menu)
+        self.assertIn("showView('manibhadra')",menu)
         self.assertIn("showView('plugins')",menu)
         self.assertNotIn("showView('workingGods')",menu)
         for hidden in ("kabach","garuda","garudanetra","brahmagyan","gyan","narad","specialists","developer","work","activity","system"):
