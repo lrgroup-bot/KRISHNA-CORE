@@ -92,7 +92,7 @@
     "hawkeye_free_cloud_fabric": true,
     "openrouter_zero_cost_role_routing": true,
     "openrouter_role_preferences": true,
-    "free_cloud_credentials_pc_only": false,
+    "free_cloud_credentials_pc_only": true,
     "pc_heavy_inference_default": false,
     "hawkeye_cloud_reviews_text_only": true,
     "hawkeye_cloud_findings_synced_to_pc": true,
