@@ -116,6 +116,8 @@ from .node_execution import TrustedNodeExecutor
 from .hawkeye_ui_reviewer import HawkeyeUIReviewer
 from .suryadev import SuryadevAgent
 from .chandradev import ChandradevQC
+from .chandradev_camera import ChandradevOsmoCameraAdapter, OSMO_ACTION_ORIGINAL_PROFILE
+from .vision_adapter import VisionAdapter
 from .external_observer_bridge import ExternalObserverBridge
 from .auth_handoff import AuthenticationHandoffGate
 from .github_pr_review import GitHubPRReviewer
@@ -447,6 +449,12 @@ class Orchestrator:
             memory=self.memory,
         )
         self.chandradev = ChandradevQC(runtime_state / "chandradev", memory=self.memory)
+        self.chandradev_camera_vision = VisionAdapter()
+        self.chandradev_camera = ChandradevOsmoCameraAdapter(
+            runtime_state / "chandradev" / "camera",
+            chandradev=self.chandradev,
+            vision=self.chandradev_camera_vision,
+        )
         self.external_observers = ExternalObserverBridge(
             runtime_state / "external-observers", self.compute_nodes, memory=self.memory
         )
@@ -1345,7 +1353,62 @@ class Orchestrator:
             return self.suryadev.route_finding(payload.get("packet") or payload)
 
         def chandradev_status_action(payload,context):
-            return self.chandradev.status()
+            status=self.chandradev.status()
+            status["camera"]=self.chandradev_camera.status()
+            return status
+
+        def chandradev_camera_profile_action(payload,context):
+            return OSMO_ACTION_ORIGINAL_PROFILE
+
+        def chandradev_camera_guide_action(payload,context):
+            return self.chandradev_camera.connection_guide(
+                str(payload.get("lan_ip") or "").strip() or None
+            )
+
+        def chandradev_camera_config_action(payload,context):
+            return self.chandradev_camera.ensure_config()
+
+        def chandradev_camera_start_action(payload,context):
+            return self.chandradev_camera.start_server()
+
+        def chandradev_camera_stop_action(payload,context):
+            return self.chandradev_camera.stop_server()
+
+        def chandradev_camera_capture_action(payload,context):
+            return self.chandradev_camera.capture_frame(
+                quality=int(payload.get("quality") or 88),
+                timeout_seconds=int(payload.get("timeout_seconds") or 6),
+            )
+
+        def chandradev_camera_analyze_action(payload,context):
+            return self.chandradev_camera.analyze_frame(
+                prompt=str(payload.get("prompt") or ""),
+            )
+
+        def chandradev_screen_focus_action(payload,context):
+            return self.chandradev_camera.focus_screen(
+                burst_frames=int(payload.get("burst_frames") or 12),
+                target_width=int(payload.get("target_width") or 1920),
+                timeout_seconds=int(payload.get("timeout_seconds") or 8),
+            )
+
+        def chandradev_screen_analyze_action(payload,context):
+            return self.chandradev_camera.analyze_screen(
+                prompt=str(payload.get("prompt") or ""),
+                burst_frames=int(payload.get("burst_frames") or 12),
+                target_width=int(payload.get("target_width") or 1920),
+            )
+
+        def chandradev_screen_unlock_action(payload,context):
+            return self.chandradev_camera.clear_screen_lock()
+
+        def chandradev_camera_observations_action(payload,context):
+            return {
+                "agent":"CHANDRADEV",
+                "observations":self.chandradev.camera_observations(
+                    int(payload.get("limit") or 50)
+                ),
+            }
 
         def chandradev_qc_action(payload,context):
             return self.chandradev.review(
@@ -4153,7 +4216,62 @@ class Orchestrator:
         )
         self.action_bus.register(
             "chandradev.status",chandradev_status_action,
-            description="Read CHANDRADEV external final-QC worker status",
+            description="Read CHANDRADEV PC live-camera and final-QC worker status",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.osmo.profile",chandradev_camera_profile_action,
+            description="Read the original DJI Osmo Action hardware and live-stream capability profile for CHANDRADEV",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.osmo.guide",chandradev_camera_guide_action,
+            description="Generate the exact DJI Mimo RTMP URL and local read endpoints for CHANDRADEV",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.receiver.config",chandradev_camera_config_action,
+            description="Write the local MediaMTX configuration for CHANDRADEV's Osmo RTMP stream",
+            mutating=True,permissions=("runtime.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.receiver.start",chandradev_camera_start_action,
+            description="Start the local MediaMTX RTMP receiver used by CHANDRADEV",
+            mutating=True,requires_approval=True,permissions=("worker.execute","runtime.write"),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.receiver.stop",chandradev_camera_stop_action,
+            description="Stop the local CHANDRADEV Osmo RTMP receiver",
+            mutating=True,requires_approval=True,permissions=("worker.execute","runtime.write"),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.frame.capture",chandradev_camera_capture_action,
+            description="Capture one local JPEG frame from the Osmo RTMP feed for CHANDRADEV",
+            mutating=True,permissions=("evidence.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.frame.analyze",chandradev_camera_analyze_action,
+            description="Capture and analyze one Osmo frame with PC-local vision and record it in CHANDRADEV",
+            mutating=True,permissions=("evidence.write","model.use"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.screen.focus",chandradev_screen_focus_action,
+            description="Detect, perspective-correct, sharpen and lock the monitor region from the Osmo feed",
+            mutating=True,permissions=("evidence.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.screen.analyze",chandradev_screen_analyze_action,
+            description="Run detailed local vision on CHANDRADEV's focused monitor image and record the observation",
+            mutating=True,permissions=("evidence.write","model.use"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.screen.unlock",chandradev_screen_unlock_action,
+            description="Clear CHANDRADEV's remembered monitor-corner lock",
+            mutating=True,permissions=("runtime.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.observations",chandradev_camera_observations_action,
+            description="Read CHANDRADEV's recent local camera observations",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
