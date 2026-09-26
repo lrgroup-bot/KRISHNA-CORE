@@ -94,10 +94,8 @@ class ChandradevOsmoCameraAdapter:
         self.screens=self.root/"screens"
         self.screens.mkdir(parents=True,exist_ok=True)
         self.state_file=self.root/"stream-state.json"
-        shared_root=Path(
-            os.getenv("CHANDRADEV_SHARED_STATE")
-            or r"E:\Krishna-The GOD\state\chandradev"
-        )
+        shared_override=str(os.getenv("CHANDRADEV_SHARED_STATE") or "").strip()
+        shared_root=Path(shared_override).resolve() if shared_override else self.root
         shared_root.mkdir(parents=True,exist_ok=True)
         self.shared_stream_file=shared_root/"stream-name.txt"
         self.config_file=self.root/"mediamtx.yml"
