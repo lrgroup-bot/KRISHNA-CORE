@@ -3723,7 +3723,7 @@ class Handler(BaseHTTPRequestHandler):
                     "project.genesis.lock_scope",
                     {"project":project,"acceptance":data.get("acceptance") or [],"constraints":data.get("constraints") or []},
                     project="KRISHNA",source="pc",actor="project-genesis-http",
-                    permissions=("project.write",),
+                    permissions=("project.write","mission.write","memory.write"),
                 )
                 return self._json(200,receipt["result"])
             except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
@@ -3735,7 +3735,7 @@ class Handler(BaseHTTPRequestHandler):
                 receipt=orch.dispatch_action(
                     "engineering.plan",{"project":project,"tasks":data.get("tasks") or []},
                     project="KRISHNA",source="pc",actor="project-genesis-http",
-                    permissions=("project.read","runtime.read"),
+                    permissions=("project.write","runtime.read"),
                 )
                 return self._json(200,receipt["result"])
             except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
