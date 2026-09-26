@@ -212,7 +212,7 @@ function repeatGita(){try{speechSynthesis.cancel()}catch(e){};toggleGitaRecitati
 function speakGitaExplanation(){if(!lastGita)return;const t=lastGita.generated_explanation||lastGita.explanation||lastGita.trusted_summary_en||'';if(t)speak(t)}
 window.toggleGitaRecitation=toggleGitaRecitation;window.repeatGita=repeatGita;window.speakGitaExplanation=speakGitaExplanation;
 
-window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','KRISHNA is working…');reply('KRISHNA is thinking…');setTimeout(()=>{try{const ready=JSON.parse(Krishna.ensureChat());if(ready.error)throw new Error(ready.error);const d=JSON.parse(Krishna.chatWithAttachments(q,JSON.stringify(pendingAttachmentIds.slice(0,3))));if(d.error)throw new Error(d.error);pendingAttachmentIds=[];renderGita(d);const text=d.reply||d.text||'Done';reply(text);setMode(d.avatar_state||'TALKING',text);if(d.capability!=='gita-gyan')speak(text)}catch(e){reply(e.message,'bad');setMode('CHAT','Connection error')}finally{busy=false}},20)}
+window.send=()=>{const i=document.getElementById('msg'),q=i.value.trim();if(!q||busy)return;i.value='';busy=true;setMode('WORKING','KRISHNA is working…');reply('KRISHNA is thinking…');setTimeout(()=>{try{const d=JSON.parse(Krishna.chatWithAttachments(q,JSON.stringify(pendingAttachmentIds.slice(0,3))));if(d.error)throw new Error(d.error);pendingAttachmentIds=[];renderGita(d);const text=d.reply||d.text||'Done';reply(text);setMode(d.avatar_state||'TALKING',text);if(d.capability!=='gita-gyan')speak(text)}catch(e){reply(e.message,'bad');setMode('CHAT','Connection error')}finally{busy=false}},20)}
 
 window.listen=()=>{if(busy)return;
  try{

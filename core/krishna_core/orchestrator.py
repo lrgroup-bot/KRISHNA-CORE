@@ -126,6 +126,11 @@ from .vanik_netra import VanikNetra
 from .vanik_netra_sources import FreeMarketSourceRegistry
 from .vanik_netra_store import VanikNetraStore
 from .narada_legal import NaradaLegalAdvisor
+from .system_one import SystemOneDecisionEngine
+from .capability_fabric import CapabilityFabric
+from .load_relief_integrations import LoadReliefIntegrationCatalog, StemkitOnDemand, StrixSandboxContract
+from .event_semantics import EventSemantics
+from .creator_workflow import CreatorWorkflowPlanner
 
 
 class Orchestrator:
@@ -204,6 +209,33 @@ class Orchestrator:
             store=self.vanik_netra_store,
             sources=self.vanik_netra_sources,
         )
+        self.system_one = SystemOneDecisionEngine()
+        self.capability_fabric = CapabilityFabric(self.system_one)
+        self.load_relief_integrations = LoadReliefIntegrationCatalog()
+        self.stemkit = StemkitOnDemand(
+            module_root=os.getenv("KRISHNA_STEMKIT_ROOT") or None
+        )
+        self.strix_contract = StrixSandboxContract()
+        self.event_semantics = EventSemantics()
+        self.creator_workflow = CreatorWorkflowPlanner()
+        for provider in (
+            ("android-mlkit","vision","mobile",True,False,True,False,"on-device lightweight perception"),
+            ("mobile-openrouter-zero","general","cloud",True,False,False,False,"mobile direct live zero-price catalog preflight"),
+            ("mobile-openrouter-vision-zero","vision","cloud",True,False,False,False,"selected non-sensitive keyframes only"),
+            ("pc-ollama-general","general","pc",True,False,True,True,"private/heavy fallback; started by existing Ollama runtime"),
+            ("pc-qwen-vision","vision","pc",True,False,True,True,"private/heavy detailed HAWKEYE fallback"),
+            ("dots3-note","multimodal","cloud",True,False,False,True,"remote/future server only; never resident on current PC"),
+            ("stemkit","science","pc",True,False,True,False,"cold Node subprocess for deterministic science"),
+            ("dots-tts","voice","pc",True,False,True,True,"optional cold provider; disabled until benchmarked"),
+            ("dots-mocr","document_vision","pc",True,False,True,True,"license review required before commercial activation"),
+            ("strix","security_verify","sandbox",True,False,False,True,"authorized candidate/staging only"),
+            ("kuber-stock-analysis","market_analysis","project",True,False,True,False,"isolated KUBER adapter; no KRISHNA resident service"),
+        ):
+            pid,capability,location,free,resident,sensitive,heavy,notes=provider
+            self.capability_fabric.register(
+                pid,capability,location,free_only=free,resident=resident,
+                sensitive_allowed=sensitive,heavy=heavy,notes=notes,
+            )
         self.narada_legal = NaradaLegalAdvisor(runtime_state / "narada-legal")
         legal_watch_title = "Narada Indian legal source freshness watch"
         if not any(x.get("title")==legal_watch_title for x in self.commitments.list("KRISHNA",True,500)):
@@ -624,6 +656,52 @@ class Orchestrator:
             messages=payload.get("messages") or []
             if not isinstance(messages,list):raise ValueError("messages must be a list")
             return {"messages":self.gmail_triage.batch(messages,payload.get("model_verdicts") or {})}
+
+        def system_one_status_action(payload,context):
+            return self.system_one.status()
+
+        def system_one_choose_action(payload,context):
+            options=payload.get("options") or []
+            if not isinstance(options,list):raise ValueError("options must be a list")
+            state=payload.get("context") or payload.get("state") or {}
+            if not isinstance(state,dict):raise ValueError("context/state must be an object")
+            return self.system_one.choose(state,options,allow_remote=bool(payload.get("allow_remote",True)))
+
+        def capability_status_action(payload,context):
+            return self.capability_fabric.status()
+
+        def capability_route_action(payload,context):
+            return self.capability_fabric.route(
+                str(payload.get("capability") or ""),
+                sensitive=bool(payload.get("sensitive",False)),
+                mobile=bool(payload.get("mobile",False)),
+                prefer_free=bool(payload.get("prefer_free",True)),
+                heavy=bool(payload.get("heavy",False)),
+                context=payload.get("context") if isinstance(payload.get("context"),dict) else {},
+            )
+
+        def load_relief_integrations_action(payload,context):
+            return self.load_relief_integrations.status()
+
+        def event_semantics_status_action(payload,context):
+            return self.event_semantics.status()
+
+        def creator_workflow_status_action(payload,context):
+            return self.creator_workflow.status()
+
+        def creator_workflow_plan_action(payload,context):
+            return self.creator_workflow.plan(str(payload.get("goal") or "campaign"))
+
+        def stemkit_status_action(payload,context):
+            return self.stemkit.status()
+
+        def strix_plan_action(payload,context):
+            return self.strix_contract.plan(
+                payload.get("target") or payload.get("url") or payload.get("path") or "",
+                candidate_root=payload.get("candidate_root"),
+                external=bool(payload.get("external",False)),
+                approved=bool(context.get("approved",False)),
+            )
 
         def vanik_netra_status_action(payload,context):
             return self.vanik_netra.status()
@@ -3154,6 +3232,57 @@ class Orchestrator:
         self.action_bus.register(
             "vanik_netra.map",vanik_netra_map_action,
             description="Build a bounded market-map point payload from local/open business records",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "system_one.status",system_one_status_action,
+            description="Inspect KRISHNA low-load bounded decision engine",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "system_one.choose",system_one_choose_action,
+            description="Choose among bounded options without granting execution authority",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "capability.status",capability_status_action,
+            description="Inspect cold/optional KRISHNA capability providers and idle-load policy",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "capability.route",capability_route_action,
+            description="Recommend a free/local/mobile/PC provider without starting heavy runtimes",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "load_relief.integrations",load_relief_integrations_action,
+            description="Inspect researched optional integrations and their no-overload execution modes",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "event_semantics.status",event_semantics_status_action,
+            description="Inspect zero-resident serial/parallel/waterfall/emit composition semantics",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "creator_workflow.status",creator_workflow_status_action,
+            description="Inspect free-first creator workflow planner",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "creator_workflow.plan",creator_workflow_plan_action,
+            description="Plan a cold free-first media workflow without starting providers",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "stemkit.status",stemkit_status_action,
+            description="Inspect cold on-demand STEMKit deterministic science adapter",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "strix.plan",strix_plan_action,
+            description="Create a bounded KABACH/Mrityunjay Strix validation contract without executing it",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
 

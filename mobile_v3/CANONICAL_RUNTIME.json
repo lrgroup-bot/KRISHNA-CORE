@@ -10,6 +10,7 @@
     "KrishnaPrivateCore.java",
     "MobileEdgeBot.java",
     "HawkeyeEvidenceCuratorBot.java",
+    "MobileFreeCloudRouter.java",
     "HawkeyeEdgeMemory.java",
     "HawkeyeCrypto.java",
     "HawkeyeBackgroundSync.java",
@@ -91,7 +92,7 @@
     "hawkeye_free_cloud_fabric": true,
     "openrouter_zero_cost_role_routing": true,
     "openrouter_role_preferences": true,
-    "free_cloud_credentials_pc_only": true,
+    "free_cloud_credentials_pc_only": false,
     "pc_heavy_inference_default": false,
     "hawkeye_cloud_reviews_text_only": true,
     "hawkeye_cloud_findings_synced_to_pc": true,
@@ -122,7 +123,13 @@
     "mobile_avatar_threejs_renderer": true,
     "mobile_avatar_visible_fallback_gate": true,
     "mobile_avatar_fallback_is_animated_2d": true,
-    "mobile_avatar_production_glb_required_for_true_3d": true
+    "mobile_avatar_production_glb_required_for_true_3d": true,
+    "mobile_general_chat_cloud_first": true,
+    "mobile_openrouter_direct_free": true,
+    "mobile_openrouter_live_zero_price_preflight": true,
+    "mobile_openrouter_key_android_keystore": true,
+    "mobile_cloud_pc_fallback_only": true,
+    "mobile_cloud_findings_pc_sync_rate_limited": true
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
@@ -133,24 +140,25 @@
     "gestures": "MediaPipe Gesture Recognizer runs on-device with bundled hand/gesture model; pose-based hand raise remains a fallback",
     "spatial": "Phone IMU/orientation metadata is attached to curated keyframes for BHOOMIPUTRA/photogrammetry correlation; it is not treated as SLAM, depth, or survey-grade pose by itself",
     "learning_verification": "Distilled HAWKEYE candidates can run through Rishi Live -> Garuda -> Gautama -> Gyan proposal gate without raw-media transfer; automatic model escalation remains local-only",
-    "openrouter": "KRISHNA PC brokers credentials; HAWKEYE selected non-sensitive keyframes use a live zero-cost vision model chosen by role preference or dynamic ranking.",
+    "openrouter": "Mobile may call OpenRouter directly using an owner-provisioned Android-Keystore-encrypted credential. Every automatic request requires a live zero-price model catalog preflight. Paid fallback is forbidden. PC-brokered OpenRouter remains a fallback for cases where the direct route is unavailable.",
     "free_cloud_reviews": "Sanitized HAWKEYE text summaries may be reviewed by verified Cloudflare Workers AI and configured free_only text gateways such as Groq/Mistral; raw camera frames are not sent to text-only providers.",
     "mobile_qwen": "disabled; no Qwen model is hosted on the phone. KRISHNA PC assigns Qwen by role: qwen3.5:4b general/fast vision, qwen2.5-coder:7b coding, qwen2.5vl:7b detailed HAWKEYE vision.",
-    "pc_offload": "Private/heavy HAWKEYE inference stays on KRISHNA PC; approved non-sensitive selected frames may use verified-free cloud to reduce PC load.",
-    "pc_finding_sync": "Distilled HAWKEYE cloud findings are written to the PC live-session ledger and Learning Observer with provider/model/reviewer provenance; raw keyframes are not required for this finding handoff.",
+    "pc_offload": "Private/protected/project actions and heavy HAWKEYE inference stay on KRISHNA PC. Ordinary non-sensitive chat and selected non-sensitive keyframes use mobile direct verified-zero-price cloud first.",
+    "pc_finding_sync": "Mobile direct cloud findings remain on-device for live use and are checkpointed to the PC only on explicit/periodic sync, avoiding a PC round-trip for every frame.",
     "pc_compute_relief": "When a cloud finding is already recorded, curated evidence sync stores the bounded evidence but skips duplicate PC vision/BRAHMA intake unless explicit heavy escalation is requested.",
     "private_transport": "First enrollment uses authenticated LAN discovery; after approval the paired phone learns the current private-overlay Core URL. Raw media sync requires unmetered transport plus fresh same-LAN discovery proof.",
     "large_media_sync": "Resumable 512 KiB chunks to the E-drive Hawkeye inbox; PC SHA-256 verification and atomic promotion are required before mobile sync state advances.",
     "assistant_mode": "Android VoiceInteractionService + Assistant role; one-time system consent is required for direct background assistant invocation.",
     "photographer": "Best-frame selection and natural local edit are performed on-device, then the clean photo is saved through Android MediaStore to Pictures/KRISHNA/Photos.",
-    "avatar_delivery": "Trusted private PC production GLB is synced to mobile only after the PC avatar inspector reports active_ready. Three.js renders it locally; otherwise the animated 8-view fallback remains visible."
+    "avatar_delivery": "Trusted private PC production GLB is synced to mobile only after the PC avatar inspector reports active_ready. Three.js renders it locally; otherwise the animated 8-view fallback remains visible.",
+    "mobile_cloud_route": "Phone local ML Kit/MediaPipe -> mobile direct verified-zero-price cloud -> KRISHNA PC only for private/protected/heavy/failure escalation."
   },
   "model_policy": {
     "pc_qwen_allowed": true,
     "mobile_qwen_allowed": false,
     "mobile_qwen_dependency": false,
     "mobile_cloud_mode": "verified-free-only",
-    "mobile_cloud_credentials": "PC-owned or short-lived device token only",
+    "mobile_cloud_credentials": "owner-provisioned OpenRouter token encrypted with Android Keystore; Gemini permanent credential remains PC-only; short-lived device tokens permitted",
     "pc_qwen_default_role_assigned": true,
     "pc_roles": {
       "general": "qwen3.5:4b",
@@ -204,6 +212,13 @@
       ]
     },
     "private_heavy_hawkeye": "KRISHNA_PC_ONLY",
-    "automatic_paid_fallback": false
+    "automatic_paid_fallback": false,
+    "mobile_route_order": [
+      "on-device Android",
+      "mobile direct OpenRouter zero-price",
+      "PC-brokered verified-free cloud",
+      "KRISHNA PC private/heavy"
+    ],
+    "mobile_cloud_strategy": "mobile-direct-live-zero-price-first"
   }
 }
