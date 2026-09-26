@@ -171,7 +171,7 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("com.google.mediapipe:tasks-vision:1.0.0",self.workflow)
         self.assertIn("gesture_recognizer.task",self.workflow)
         self.assertIn("hawkeye-observer-ui.js",self.workflow)
-        self.assertIn("KRISHNA-v3.8-HAWKEYE-Observer-APK",self.workflow)
+        self.assertIn("KRISHNA-v3.9-Assistant-Photographer-APK",self.workflow)
 
     def test_learning_overlay_has_candidate_status_and_visible_public_clues(self):
         self.assertIn("learningAnalysis",self.ui)
