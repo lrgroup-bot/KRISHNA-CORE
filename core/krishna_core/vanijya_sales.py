@@ -758,6 +758,103 @@ class VanijyaSalesHead:
             self._write(self._state)
         return result
 
+    def autopilot_plan(self) -> dict:
+        """Build the next bounded autonomous sales workload.
+
+        This planner may update local VANIJYA product assignments, but it does not
+        perform an external send or spend money. External communication is handed
+        to NARAD and remains subject to connector, consent and workflow gates.
+        """
+        sync=self.sync_manibhadra_products()
+        request=self.ask_manibhadra(
+            objective=(
+                "Review current commerce state and identify any new or improved product/service "
+                "Vāṇijya should market using zero-spend routes, with target customer, price/commission "
+                "economics, truthful claims, geography, fulfilment constraints and channel rules."
+            )
+        )
+        records=self.crm.records() if self.crm is not None else {
+            "products":[],"leads":[],"deals":[],"tasks":[],
+        }
+        products=list(records.get("products") or [])
+        leads=list(records.get("leads") or [])
+        deals=list(records.get("deals") or [])
+        tasks=list(records.get("tasks") or [])
+        ready_products=[
+            x for x in products
+            if str(x.get("status") or "research").lower() not in {"blocked","disabled","paused"}
+        ]
+        queue=[]
+        if not ready_products:
+            queue.append({
+                "agent":"lead-researcher",
+                "priority":100,
+                "action":"WAIT_FOR_MANIBHADRA_PRODUCT",
+                "reason":"No approved marketable product/service exists.",
+            })
+        elif not leads:
+            queue.append({
+                "agent":"lead-researcher",
+                "priority":95,
+                "action":"FIND_TARGET_PROSPECTS",
+                "product_id":ready_products[0].get("id"),
+                "reason":"A product is ready but there are no buyer leads yet.",
+            })
+        for lead in leads:
+            if str(lead.get("stage") or "new").lower() in {"won","lost"}:
+                continue
+            queue.append({
+                "agent":"lead-qualifier",
+                "priority":85 if float(lead.get("score") or 0)>=70 else 65,
+                "action":"QUALIFY_OR_FOLLOW_UP",
+                "lead_id":lead.get("id"),
+                "reason":lead.get("next_action") or "Lead requires qualification/follow-up.",
+            })
+        stage_agent={
+            "new":"lead-qualifier",
+            "qualified":"account-executive",
+            "contacted":"account-executive",
+            "proposal":"proposal-pricing",
+            "negotiation":"deal-closer",
+        }
+        for deal in deals:
+            stage=str(deal.get("stage") or "new").lower()
+            if stage in {"won","lost"}:
+                continue
+            queue.append({
+                "agent":stage_agent.get(stage,"account-executive"),
+                "priority":90 if stage in {"proposal","negotiation"} else 75,
+                "action":"ADVANCE_DEAL",
+                "deal_id":deal.get("id"),
+                "stage":stage,
+                "reason":deal.get("next_action") or "Deal requires a next action.",
+            })
+        for task in tasks:
+            if str(task.get("status") or "open").lower()=="open":
+                queue.append({
+                    "agent":"relationship-manager",
+                    "priority":80 if str(task.get("priority") or "").lower()=="high" else 60,
+                    "action":"FOLLOW_UP_TASK",
+                    "task_id":task.get("id"),
+                    "reason":task.get("title") or "Open follow-up task.",
+                })
+        queue.sort(key=lambda x:(-int(x.get("priority") or 0),str(x.get("agent") or "")))
+        return {
+            "schema":"krishna.vanijya.autopilot-plan.v1",
+            "status":"READY" if ready_products else "NEEDS_PRODUCT",
+            "manibhadra_request":request,
+            "product_sync":sync,
+            "ready_product_count":len(ready_products),
+            "lead_count":len(leads),
+            "deal_count":len(deals),
+            "agent_queue":queue[:100],
+            "external_send_performed":False,
+            "spend_performed":False,
+            "communications_via":"NARAD",
+            "zero_spend":True,
+            "created_at":_now(),
+        }
+
     def sales_cycle(self, *, product: dict | None = None) -> dict:
         product = dict(product or {})
         if not product and self.crm is not None:
