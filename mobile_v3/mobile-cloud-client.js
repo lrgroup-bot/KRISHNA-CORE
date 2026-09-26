@@ -19,6 +19,18 @@ class KrishnaMobileCloudChat {
   status(){
     return {connected:!!(this.ws&&this.ws.readyState===WebSocket.OPEN),model:this.model,provider:this.provider,last_error:this.lastError,pc_per_turn:false,permanent_key_on_device:false};
   }
+  playAudio(parts){
+    try{
+      const chunks=(parts||[]).filter(x=>x&&x.data);if(!chunks.length)return false;
+      let total=0;const decoded=chunks.map(x=>{const b=atob(x.data),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);total+=u.length;return u});
+      const joined=new Uint8Array(total);let off=0;for(const u of decoded){joined.set(u,off);off+=u.length}
+      const rateMatch=String(chunks[0].mimeType||'').match(/rate=(\d+)/i),rate=rateMatch?Number(rateMatch[1]):24000;
+      const samples=Math.floor(joined.length/2),ctx=new (window.AudioContext||window.webkitAudioContext)();
+      const buffer=ctx.createBuffer(1,samples,rate),channel=buffer.getChannelData(0),view=new DataView(joined.buffer,joined.byteOffset,joined.byteLength);
+      for(let i=0;i<samples;i++)channel[i]=view.getInt16(i*2,true)/32768;
+      const src=ctx.createBufferSource();src.buffer=buffer;src.connect(ctx.destination);src.onended=()=>{try{ctx.close()}catch(_){}};src.start();return true;
+    }catch(_){return false}
+  }
   close(){
     try{if(this.ws){this.ws.onclose=null;this.ws.close();}}catch(_){}
     this.ws=null;this.ready=null;
@@ -68,11 +80,14 @@ class KrishnaMobileCloudChat {
               const transcript=String(sc.outputTranscription&&sc.outputTranscription.text||'');
               if(transcript)this.pending.parts.push(transcript);
               const parts=sc.modelTurn&&Array.isArray(sc.modelTurn.parts)?sc.modelTurn.parts:[];
-              for(const p of parts)if(p&&p.text)this.pending.parts.push(String(p.text));
+              for(const p of parts){
+                if(p&&p.text)this.pending.parts.push(String(p.text));
+                if(p&&p.inlineData&&p.inlineData.data&&String(p.inlineData.mimeType||'').startsWith('audio/'))this.pending.audio.push(p.inlineData);
+              }
               if(sc.turnComplete){
                 const p=this.pending;this.pending=null;clearTimeout(p.timer);
-                const text=p.parts.join('').trim();
-                if(text)p.resolve({text,provider:this.provider,model:this.model,direct:true,free_only:true});
+                const text=p.parts.join('').trim(),audioPlayed=this.playAudio(p.audio);
+                if(text)p.resolve({text,provider:this.provider,model:this.model,direct:true,free_only:true,audio_played:audioPlayed});
                 else p.reject(new Error('free-cloud returned an empty response'));
               }
             }
@@ -90,7 +105,7 @@ class KrishnaMobileCloudChat {
     if(!this.ws||this.ws.readyState!==WebSocket.OPEN)throw new Error('free-cloud socket is unavailable');
     if(this.pending)throw new Error('a mobile cloud turn is already running');
     return new Promise((resolve,reject)=>{
-      const pending={parts:[],resolve,reject,timer:null};
+      const pending={parts:[],audio:[],resolve,reject,timer:null};
       pending.timer=setTimeout(()=>{if(this.pending===pending)this.pending=null;reject(new Error('free-cloud response timed out'));},45000);
       this.pending=pending;this.turn++;
       try{
