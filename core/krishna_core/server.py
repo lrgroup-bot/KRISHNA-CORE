@@ -37,6 +37,7 @@ from .windows_desktop_fabric import WindowsDesktopFabric
 from .android_test_fabric import AndroidTestFabric
 from .http_server_runtime import KrishnaThreadingHTTPServer
 from .hawkeye_media_sync import HawkeyeMediaSyncStore
+from .mobile_cloud_policy import MobileCloudPolicy
 
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -1447,6 +1448,23 @@ class Handler(BaseHTTPRequestHandler):
             })
         if path == "/api/mobile/connection":
             return self._json(200, {**mobile_link_state(),"remote_policy":_remote_policy.status()})
+        if path == "/api/mobile/free-cloud/status":
+            gemini=_gemini_hawkeye.status()
+            return self._json(200,{
+                "component":"KRISHNA Mobile Free Cloud",
+                "mode":"direct-short-lived-session",
+                "general_chat_direct":bool(gemini.get("configured") and gemini.get("free_only_declared")),
+                "permanent_key_on_mobile":False,
+                "paid_fallback":False,
+                "pc_escalation":"private, stateful, action, attachment, or cloud failure",
+                "provider":{
+                    "id":"google-gemini-live",
+                    "configured":bool(gemini.get("configured")),
+                    "free_only_declared":bool(gemini.get("free_only_declared")),
+                    "model":gemini.get("model"),
+                },
+                "capability":orch.capability_fabric.choose("conversation",require_free=True,prefer_mobile=True),
+            })
         if path == "/api/mobile/bootstrap":
             device, token = self._device_auth()
             if not _pairing.verify(device, token):
@@ -1459,6 +1477,14 @@ class Handler(BaseHTTPRequestHandler):
                 "private_remote_available":bool(overlay),
                 "control_port":settings.port,
                 "pairing":"device-credential",
+                "mobile_free_cloud":{
+                    "mode":"short-lived-direct-session",
+                    "general_chat_pc_default":False,
+                    "permanent_key_on_mobile":False,
+                    "paid_fallback":False,
+                    "session_endpoint":"/api/mobile/free-cloud/session",
+                    "status_endpoint":"/api/mobile/free-cloud/status",
+                },
                 "large_media_policy":{
                     "unmetered_only":True,
                     "cellular_large_upload":False,
@@ -3206,6 +3232,28 @@ class Handler(BaseHTTPRequestHandler):
                     str(data.get("model") or ""),
                 )
                 return self._json(200,out)
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/mobile/free-cloud/session":
+            metadata=data.get("metadata") or {}
+            if not isinstance(metadata,dict):return self._json(400,{"error":"metadata must be an object"})
+            purpose=str(data.get("purpose") or metadata.get("purpose") or "chat").strip().lower()
+            if purpose not in {"chat","hawkeye"}:
+                return self._json(400,{"error":"purpose must be chat or hawkeye"})
+            metadata=dict(metadata)
+            metadata["purpose"]=purpose
+            # The native mobile client may request a reusable session only after
+            # its owner-controlled app flow has selected free-cloud mode.
+            metadata["cloud_approved"]=bool(metadata.get("cloud_approved",False))
+            metadata["user_explicit"]=bool(metadata.get("user_explicit",False))
+            try:
+                token=_gemini_hawkeye.mint_live_token(metadata)
+                token["routing"]="device-direct"
+                token["pc_inference_used"]=False
+                token["permanent_key_on_mobile"]=False
+                token["paid_fallback"]=False
+                return self._json(201,token)
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
