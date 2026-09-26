@@ -14,8 +14,10 @@ class KrishnaMobileCloudChat {
     if(!q||attachmentCount>0||q.length>5000)return false;
     const sensitive=/(password|passwd|\bpwd\b|api[ _-]?key|secret|token|authorization|aadhaar|aadhar|pan card|bank account|credit card|debit card|\botp\b|\bpin\b|medical record|diagnosis|prescription|private document|biometric|face embedding)/i;
     const action=/\b(implement|install|delete|remove|modify|edit|fix|repair|audit|deploy|restart|run|execute|commit|merge|push|pull|github|repository|repo|file|folder|email|gmail|calendar|slack|whatsapp|payment|pay|buy|purchase|spend|transfer|krishna project|kuber|manibhadra|narad|sudarshan|mrityunjay)\b/i;
-    const stateful=/\b(gita|geeta|shloka|verse|my project|my file|my chat|remember|last time)\b/i;
-    return !(sensitive.test(q)||action.test(q)||stateful.test(q));
+    const stateful=/\b(gita|geeta|shloka|verse|my project|my file|my chat|remember|last time|where am i|who am i|what do you know about me|my location|my address)\b/i;
+    const personal=/\bmy\b.{0,40}\b(health|blood|bp|sugar|medicine|doctor|location|address|phone|email|account|company|business|family|photo|face)\b/i;
+    const fresh=/\b(latest|today|right now|current news|weather|live score|stock price|market price|breaking news)\b/i;
+    return !(sensitive.test(q)||action.test(q)||stateful.test(q)||personal.test(q)||fresh.test(q));
   }
   status(){
     return {connected:!!(this.ws&&this.ws.readyState===WebSocket.OPEN),model:this.model,provider:this.provider,last_error:this.lastError,pc_per_turn:false,permanent_key_on_device:false,resumable:!!this.resumeHandle,token_persisted:false};
