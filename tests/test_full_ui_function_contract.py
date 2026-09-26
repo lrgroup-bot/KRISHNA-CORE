@@ -119,10 +119,14 @@ class FullUIFunctionContractTests(unittest.TestCase):
         for action in (
             "vanijya.status","vanijya.dashboard","vanijya.health","vanijya.health.verify",
             "vanijya.manibhadra.request","vanijya.products.sync","vanijya.sales_cycle","vanijya.autopilot.tick",
-            "vanijya.campaign.create","vanijya.hr.request","vanijya.hr.create","vanijya.hr.retire",
-            "vanijya.outreach.decide","vanijya.lead.qualify","vanijya.reply.ingest",
-            "vanijya.outbound.plan","vanijya.narad.workflow","vanijya.quote.create",
-            "vanijya.payment.upi_request","vanijya.payment.verify",
+            "vanijya.team","vanijya.campaign.create",
+            "vanijya.hr.request","vanijya.hr.create","vanijya.hr.retire","vanijya.hr.plan","vanijya.hr.execute",
+            "vanijya.product.scout","vanijya.marketing.plan",
+            "vanijya.outreach.decide","vanijya.outreach.plan","vanijya.lead.qualify",
+            "vanijya.reply.ingest","vanijya.inbound.reply","vanijya.outbound.plan","vanijya.narad.workflow",
+            "vanijya.crm.dashboard","vanijya.crm.upsert_lead","vanijya.crm.upsert_deal",
+            "vanijya.quote.create","vanijya.payment.upi_request","vanijya.payment.qr","vanijya.payment.verify",
+            "vanijya.pipeline.next","vanijya.automation.blueprint",
             "manibhadra.expansion.status","manibhadra.expansion.plan",
         ):
             self.assertIn(f'"{action}"',self.orchestrator)
