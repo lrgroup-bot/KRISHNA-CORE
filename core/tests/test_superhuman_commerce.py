@@ -15,6 +15,7 @@ from krishna_core.automation_bus import AutomationBus
 from krishna_core.plugin_runtime import PluginRegistry
 from krishna_core.skill_compiler import SkillCompiler
 from krishna_core.superhuman_operator import SuperhumanOperatorPolicy
+from krishna_core.social_channels import SocialChannelRegistry
 from krishna_core.workflow_recording import WorkflowRecorder
 from krishna_core.windows_worker_sandbox import WindowsWorkerSandbox
 
@@ -99,11 +100,17 @@ class SuperhumanCommerceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             r=PluginRegistry(td)
             by_id={x["id"]:x for x in r.list()}
-            for pid in ("gmail","google-drive","agentmarkup","windsurf","blackbox-ai","amazon-sp-api","flipkart-seller","meesho-seller"):
+            for pid in ("gmail","google-drive","agentmarkup","windsurf","blackbox-ai","amazon-sp-api","flipkart-seller","meesho-seller","metricool","windsor-ai","shopify","semrush","agentmail","superhuman-mail"):
                 self.assertIn(pid,by_id)
             self.assertTrue(by_id["agentmarkup"]["free"])
             self.assertFalse(by_id["blackbox-ai"]["free"])
             self.assertFalse(by_id["blackbox-ai"]["enabled"])
+
+    def test_social_registry_separates_direct_and_connector_channels(self):
+        s=SocialChannelRegistry()
+        self.assertEqual(s.get("whatsapp")["mode"],"narad_direct")
+        self.assertEqual(s.get("instagram")["mode"],"connector_required")
+        self.assertIn("publish",s.get("instagram")["mutating"])
 
     def test_narad_registers_gmail_read_and_trash_operations(self):
         n=NaradRuntime(None,AutomationBus())
@@ -132,7 +139,7 @@ class IntegrationContractTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[2]
         text=(root/"core"/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
         for action in (
-            "superhuman.status","gmail.triage","manibhadra.status","manibhadra.research",
+            "superhuman.status","social.channels.status","social.channel","gmail.triage","manibhadra.status","manibhadra.research",
             "manibhadra.evaluate","manibhadra.supplier_offer","manibhadra.listing_plan",
             "marketplace.capabilities","compute.nodes.status","compute.nodes.trust",
             "workflow.record.start","workflow.record.finish","github.pr.review",
