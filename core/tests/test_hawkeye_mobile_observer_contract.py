@@ -173,6 +173,15 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("hawkeye-observer-ui.js",self.workflow)
         self.assertIn("KRISHNA-v3.9-Assistant-Photographer-APK",self.workflow)
 
+    def test_mobile_startup_networking_is_off_webview_thread(self):
+        realtime=(self.mobile/"realtime-client.js").read_text(encoding="utf-8")
+        self.assertIn("resumeAsync",self.activity)
+        self.assertIn("pollAsync",self.activity)
+        self.assertIn("avatarSyncAsync",self.activity)
+        self.assertIn("resumeAsync",realtime)
+        self.assertIn("Krishna.pollAsync",self.index)
+        self.assertNotIn("showAvatarView(0);startAuto();setTimeout(()=>window.reportKrishnaUiReady?.('animated-fallback'),900);poll()",self.index)
+
     def test_mobile_avatar_sync_renderer_and_visible_gate_are_wired(self):
         renderer=(self.mobile/"avatar-renderer.js").read_text(encoding="utf-8")
         runtime=(self.mobile/"CANONICAL_RUNTIME.json").read_text(encoding="utf-8")
