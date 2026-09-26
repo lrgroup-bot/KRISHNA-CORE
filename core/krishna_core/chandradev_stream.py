@@ -214,6 +214,66 @@ class ChandradevStreamRuntime:
         except (OSError,PermissionError):
             return False
 
+    def probe_usb(self):
+        if os.name!="nt":
+            return {
+                "supported":False,
+                "detected":False,
+                "reason":"Windows PnP probe is available only on Windows",
+                "devices":[],
+            }
+        command=(
+            "$rows=Get-PnpDevice -PresentOnly | "
+            "Where-Object { $_.FriendlyName -match 'DJI|OSMO' -or $_.InstanceId -match 'VEN_DJI|PROD_OSMO' } | "
+            "Select-Object Status,Class,FriendlyName,InstanceId; "
+            "$rows | ConvertTo-Json -Compress"
+        )
+        try:
+            proc=subprocess.run(
+                ["powershell.exe","-NoProfile","-NonInteractive","-Command",command],
+                capture_output=True,text=True,timeout=8,check=False,
+            )
+            raw=str(proc.stdout or "").strip()
+            if proc.returncode!=0:
+                return {
+                    "supported":True,"detected":False,
+                    "error":str(proc.stderr or "").strip()[:1000],
+                    "devices":[],
+                }
+            if not raw:
+                return {"supported":True,"detected":False,"devices":[]}
+            parsed=json.loads(raw)
+            rows=parsed if isinstance(parsed,list) else [parsed]
+            devices=[]
+            for row in rows:
+                if not isinstance(row,dict):continue
+                instance=str(row.get("InstanceId") or "")
+                klass=str(row.get("Class") or "")
+                storage=instance.upper().startswith("USBSTOR\\") or klass.lower()=="diskdrive"
+                devices.append({
+                    "status":row.get("Status"),
+                    "class":klass,
+                    "friendly_name":row.get("FriendlyName"),
+                    "instance_id":instance,
+                    "mass_storage":storage,
+                    "uvc_live_video":klass.lower()=="camera" and not storage,
+                })
+            return {
+                "supported":True,
+                "detected":bool(devices),
+                "devices":devices,
+                "interpretation":(
+                    "OSMO connected as file-transfer/storage; use DJI Mimo RTMP for live CHANDRADEV video"
+                    if any(x["mass_storage"] for x in devices)
+                    else "No DJI mass-storage interface detected"
+                ),
+            }
+        except Exception as exc:
+            return {
+                "supported":True,"detected":False,"devices":[],
+                "error":f"{type(exc).__name__}: {exc}",
+            }
+
     def status(self):
         pid=self._state.get("server_pid")
         try:
@@ -235,6 +295,7 @@ class ChandradevStreamRuntime:
                 "pid":pid if self._pid_alive(pid) else None,
             },
             "opencv_frame_reader":opencv,
+            "usb_probe":self.probe_usb(),
             "urls":self.urls(),
             "cloud_required":False,
             "paid_service_required":False,
