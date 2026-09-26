@@ -28,6 +28,22 @@ class StubMessages:
         return dict(row)
 
 
+class StubWorkerRuntime:
+    def __init__(self):
+        self.requests=[]
+
+    def execute(self,project,request,task,privacy):
+        self.requests.append({
+            "project":project,"request":dict(request),"task":task,"privacy":privacy,
+        })
+        return {
+            "batch_id":"batch-1",
+            "destroyed":True,
+            "live_after_return":False,
+            "workers":[{"worker_id_hash":"abc","specialty":request["role"],"result":"{}"}],
+        }
+
+
 def make_runtime(tmp_path,products=None,messages=None):
     return VanijyaSalesHead(
         tmp_path/"vanijya-sales.json",
@@ -70,6 +86,25 @@ def test_hr_request_create_and_retire_preserves_guardrails_and_learning(tmp_path
     retired=v.hr_retire_bot(bot["id"],outcome="campaign complete",lessons=["pricing question converts well"])
     assert retired["status"]=="RETIRED"
     assert retired["lessons"]==["pricing question converts well"]
+
+
+def test_real_hr_plan_is_preapproved_by_krishna_and_workers_retire(tmp_path):
+    v=make_runtime(tmp_path)
+    workers=StubWorkerRuntime()
+    v.bind_worker_runtime(workers)
+    plan=v.hr_plan("Call qualified leads in Hindi",role_ids=["sdr-caller"],requested_count=2)
+    req=plan["requests"][0]
+    assert req["status"]=="approved"
+    assert req["approved_by"]=="KRISHNA"
+    assert req["manager"]=="rishi:vanijya"
+    assert req["retention_policy"]=="findings_and_provenance_only"
+    result=v.execute_hr_plan(
+        "KRISHNA","Call qualified leads in Hindi",
+        role_ids=["sdr-caller"],requested_count=2,privacy="local_only",
+    )
+    assert result["all_workers_retire_after_handover"] is True
+    assert workers.requests[0]["request"]["approved_by"]=="KRISHNA"
+    assert workers.requests[0]["privacy"]=="local_only"
 
 
 def test_syncs_manibhadra_products_without_fabricating_products(tmp_path):
@@ -152,6 +187,32 @@ def test_outreach_blocks_opt_out_and_private_unconsented_contact():
     assert "no_public_or_consented_contact_basis" in private["reasons"]
 
 
+def test_marketing_plan_requires_manibhadra_and_never_enables_paid_media(tmp_path):
+    v=make_runtime(tmp_path)
+    waiting=v.marketing_plan({"name":"CRM Service"},manibhadra_checked=False)
+    assert waiting["status"]=="waiting_for_manibhadra"
+    ready=v.marketing_plan({"name":"CRM Service"},manibhadra_checked=True)
+    assert ready["paid_media"] is False
+    assert ready["paid_leads"] is False
+    assert ready["zero_spend"] is True
+
+
+def test_whatsapp_public_number_alone_is_not_enough_for_automatic_promotion(tmp_path):
+    v=make_runtime(tmp_path)
+    plan=v.outreach_plan(
+        "whatsapp",
+        {
+            "phone":"+911234567890",
+            "contact_basis":"public_business_contact_for_relevant_b2b",
+            "connector_state":"CONNECTED",
+        },
+        purpose="Product introduction",
+        body="A truthful relevant business introduction.",
+    )
+    assert plan["can_enter_automatic_send_workflow"] is False
+    assert "NARADA Legal" in plan["legal_gate"]
+
+
 def test_lead_qualification_routes_only_real_fit_to_account_executive(tmp_path):
     v=make_runtime(tmp_path)
     q=v.qualify_lead(
@@ -229,6 +290,21 @@ def test_exact_amount_upi_request_is_receive_only_and_persistent(tmp_path):
     assert v.status()["counts"]["pending_payments"]==1
 
 
+def test_local_qr_renderer_is_optional_free_and_never_payment_proof(tmp_path):
+    v=make_runtime(tmp_path)
+    req=v.upi_payment_request(
+        payee_vpa="merchant@example",payee_name="Example Merchant",
+        amount="1250",invoice_id="INV-QR",
+    )
+    qr=v.payment_qr_svg(req)
+    assert qr["payment_proof"] is False
+    if qr["available"]:
+        assert qr["mime_type"]=="image/svg+xml"
+        assert qr["data_uri"].startswith("data:image/svg+xml;base64,")
+    else:
+        assert "INSTALL_KRISHNA_QR.ps1" in qr["install"]
+
+
 def test_payment_screenshot_or_customer_claim_cannot_mark_paid(tmp_path):
     v=make_runtime(tmp_path)
     req=v.upi_payment_request(
@@ -236,7 +312,7 @@ def test_payment_screenshot_or_customer_claim_cannot_mark_paid(tmp_path):
         amount="1250",invoice_id="INV-1",
     )
     result=v.verify_payment(req,{
-        "provider":"customer_screenshot","signature_verified":False,"status":"SUCCESS",
+        "provider":"customer_screenshot","source":"screenshot","signature_verified":False,"status":"SUCCESS",
         "invoice_id":"INV-1","amount":"1250","transaction_id":"claimed",
     })
     assert result["paid"] is False
@@ -252,10 +328,20 @@ def test_verified_provider_exact_payment_moves_linked_deal_to_won(tmp_path):
         amount="1250",invoice_id="INV-1",deal_id="deal-1",
     )
     result=v.verify_payment(req,{
-        "provider":"trusted_psp","signature_verified":True,"status":"CAPTURED",
+        "provider":"gateway","source":"payment_gateway_webhook","signature_verified":True,"status":"CAPTURED",
         "invoice_id":"INV-1","amount":"1250","transaction_id":"pay_123",
     })
     assert result["paid"] is True
     assert result["status"]=="PAID"
     assert crm.moves==[("deal-1","won")]
     assert v.status()["counts"]["paid_payments"]==1
+
+
+def test_pipeline_cannot_close_before_verified_payment_and_blueprint_preserves_boundaries(tmp_path):
+    v=make_runtime(tmp_path)
+    pending=v.pipeline_next("payment_pending",payment_verified=False)
+    assert pending["stage"]=="payment_pending"
+    assert v.pipeline_next("payment_pending",payment_verified=True)["stage"]=="won"
+    blueprint=v.automation_blueprint()
+    assert "NARAD" in " ".join(blueprint["product_loop"])
+    assert any("outgoing money" in x for x in blueprint["never"])
