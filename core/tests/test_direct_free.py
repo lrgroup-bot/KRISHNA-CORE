@@ -26,10 +26,10 @@ class FakeGateway:
             }]
         }
 
-    def request_json(self, profile_id, path, payload=None, method=None, timeout=120):
+    def request_json(self, profile_id, path, payload=None, method=None, timeout=120, zero_credit_proof=None):
         self.calls.append({
             "profile_id": profile_id, "path": path, "payload": payload,
-            "method": method, "timeout": timeout,
+            "method": method, "timeout": timeout, "zero_credit_proof":zero_credit_proof,
         })
         if path == "/subscriptions":
             if self.subscription_error:

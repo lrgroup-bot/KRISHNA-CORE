@@ -7,6 +7,7 @@ from typing import Any
 ZERO_SPEND_FORBIDDEN={
     "payment","bank_transfer","purchase","purchase_inventory","supplier_prepay","supplier_deposit",
     "subscription","membership","seller_membership","paid_api","api_credit","credit_purchase",
+    "promotional_api_credit","trial_credit","free_trial_credit","provider_credit","cloud_credit",
     "ad_spend","boost","sponsor","paid_lead","listing_fee","platform_fee_payment",
     "shipping_payment","courier_payment","domain_purchase","hosting_purchase","software_purchase",
     "refund_from_our_funds","bid_payment","commission_payment",
@@ -111,9 +112,13 @@ class ZeroSpendPolicy:
         return {
             "component":"KRISHNA Zero Spend Policy",
             "enabled":True,
-            "rule":"receive money; never send money",
+            "rule":"receive money; never send money; never consume billable/promotional/trial cloud credits",
             "currency_agnostic":True,
             "owner_approval_can_override":False,
+            "cloud_credit_use_allowed":False,
+            "promotional_credit_use_allowed":False,
+            "free_trial_credit_use_allowed":False,
+            "zero_price_or_nonbillable_quota_only":True,
             "forbidden_operations":sorted(ZERO_SPEND_FORBIDDEN),
             "allowed_inflows":sorted(RECEIVE_ONLY_ALLOWED),
             "platform_fee_deducted_from_proceeds":"blocked by default until explicitly treated as non-outgoing by a future policy change",
