@@ -89,8 +89,13 @@ class VanijyaSalesHeadTests(unittest.TestCase):
         self.assertTrue(req["required_before_new_campaign"])
         self.assertEqual(req["next_action"],"manibhadra.research")
 
-    def test_marketing_plan_is_zero_spend(self):
-        plan=self.vanijya.marketing_plan({"name":"Example Service"})
+    def test_marketing_plan_requires_manibhadra_check_and_is_zero_spend(self):
+        waiting=self.vanijya.marketing_plan({"name":"Example Service"})
+        self.assertEqual(waiting["status"],"waiting_for_manibhadra")
+        self.assertEqual(waiting["required_action"],"manibhadra.research")
+
+        plan=self.vanijya.marketing_plan({"name":"Example Service"},manibhadra_checked=True)
+        self.assertTrue(plan["manibhadra_checked"])
         self.assertFalse(plan["paid_media"])
         self.assertIn("paid advertising under zero-spend mode",plan["prohibitions"])
 
