@@ -265,13 +265,22 @@ class VanijyaSalesHead:
             "next_action": "manibhadra.research",
         }
 
-    def marketing_plan(self, product: dict, *, objective: str = "generate qualified leads"):
+    def marketing_plan(self, product: dict, *, objective: str = "generate qualified leads", manibhadra_checked: bool = False):
         row = dict(product or {})
         name = str(row.get("name") or row.get("product") or "").strip()
         if not name:
             raise ValueError("product name is required")
+        if not manibhadra_checked:
+            return {
+                "head": VANIJYA_HEAD_NAME,
+                "status": "waiting_for_manibhadra",
+                "product": name,
+                "required_action": "manibhadra.research",
+                "reason": "VANIJYA must consult MANIBHADRA before every new product/service marketing campaign",
+            }
         return {
             "head": VANIJYA_HEAD_NAME,
+            "manibhadra_checked": True,
             "product": name,
             "objective": str(objective or "generate qualified leads"),
             "paid_media": False,
