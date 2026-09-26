@@ -6563,8 +6563,10 @@ Project: {payload.get('project')}
     def register_verification_check(self, project, name, fn):
         self._verification_checks[(project, name)] = fn
 
-    def register_action(self, project, name, fn, mutating=False, description=""):
-        return self.actions.register(project, name, fn, mutating=mutating, description=description)
+    def register_action(self, project, name, fn, mutating=False, description="", replace=False):
+        return self.actions.register(
+            project, name, fn, mutating=mutating, description=description, replace=replace
+        )
 
     def register_e2e_test_harness(self, project):
         """Register bounded mutation probes for a disposable, explicitly marked project.
@@ -6622,9 +6624,9 @@ Project: {payload.get('project')}
             return True, "bounded e2e marker verified"
 
         self.register_action(project, success_action, write_success, mutating=True,
-                             description="Bounded disposable-project promotion probe")
+                             description="Bounded disposable-project promotion probe", replace=True)
         self.register_action(project, rollback_action, write_rollback_probe, mutating=True,
-                             description="Bounded disposable-project rollback probe")
+                             description="Bounded disposable-project rollback probe", replace=True)
         self.register_verification_check(project, check_name, verify)
         self.memory.audit("e2e_harness", "registered", project)
         return {
