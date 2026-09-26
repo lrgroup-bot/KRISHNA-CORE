@@ -1386,6 +1386,18 @@ class Orchestrator:
         def chandradev_camera_profile_action(payload,context):
             return OSMO_ACTION_ORIGINAL_PROFILE
 
+        def chandradev_webcam_profile_action(payload,context):
+            return self.chandradev_camera.future_webcam_profile()
+
+        def chandradev_camera_selection_action(payload,context):
+            status=self.chandradev_camera.status()
+            return {
+                "agent":"CHANDRADEV",
+                "camera_selection":status.get("camera_selection") or {},
+                "active_live_path":status.get("live_path"),
+                "future_webcam_profile":status.get("future_webcam_profile") or {},
+            }
+
         def chandradev_camera_guide_action(payload,context):
             return self.chandradev_camera.connection_guide(
                 str(payload.get("lan_ip") or "").strip() or None
@@ -1427,6 +1439,9 @@ class Orchestrator:
 
         def chandradev_screen_unlock_action(payload,context):
             return self.chandradev_camera.clear_screen_lock()
+
+        def chandradev_screen_alignment_action(payload,context):
+            return self.chandradev_camera.alignment_status()
 
         def chandradev_camera_observations_action(payload,context):
             return {
@@ -4271,6 +4286,16 @@ class Orchestrator:
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
+            "chandradev.camera.webcam.profile",chandradev_webcam_profile_action,
+            description="Read the planned ZEB Pure Plus USB webcam profile without activating it before hardware installation",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.selection",chandradev_camera_selection_action,
+            description="Read CHANDRADEV camera selection policy; DJI Osmo RTMP remains active during current validation",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
             "chandradev.camera.osmo.guide",chandradev_camera_guide_action,
             description="Generate the exact DJI Mimo RTMP URL and local read endpoints for CHANDRADEV",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
@@ -4314,6 +4339,11 @@ class Orchestrator:
             "chandradev.camera.screen.unlock",chandradev_screen_unlock_action,
             description="Clear CHANDRADEV's remembered monitor-corner lock",
             mutating=True,permissions=("runtime.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.screen.alignment",chandradev_screen_alignment_action,
+            description="Read CHANDRADEV monitor lock and any pending KRISHNA owner handoff for manual camera stabilization",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "chandradev.camera.observations",chandradev_camera_observations_action,
