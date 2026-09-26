@@ -3047,6 +3047,86 @@ class Orchestrator:
             permissions=("provider.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
+            "manibhadra.crm.dashboard",manibhadra_crm_dashboard_action,
+            description="Read MANIBHADRA CRM decision dashboard",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.records",manibhadra_crm_records_action,
+            description="Read MANIBHADRA CRM local records",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.upsert_lead",manibhadra_crm_upsert_lead_action,
+            description="Create or update a MANIBHADRA CRM lead",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.upsert_deal",manibhadra_crm_upsert_deal_action,
+            description="Create or update a MANIBHADRA CRM deal",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.move_deal",manibhadra_crm_move_deal_action,
+            description="Move a MANIBHADRA CRM deal through the pipeline",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.task.add",manibhadra_crm_task_add_action,
+            description="Add a MANIBHADRA CRM follow-up task",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.task.complete",manibhadra_crm_task_complete_action,
+            description="Complete a MANIBHADRA CRM task",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.crm.entity.upsert",manibhadra_crm_entity_upsert_action,
+            description="Create or update MANIBHADRA customer, supplier or product records",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "manibhadra.ai.advice",manibhadra_ai_advice_action,
+            description="Run MANIBHADRA commerce advice on verified-free cloud AI using sanitized CRM summaries",
+            permissions=("runtime.read","model.use"),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.health",manibhadra_health_action,
+            description="Read MANIBHADRA CRM and cloud-advisor health",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.health.verify",manibhadra_health_verify_action,
+            description="Verify MANIBHADRA CRM health; failures enter the action.failed lifecycle watched by MRITYUNJAY",
+            permissions=("runtime.read",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "money.zero_spend.status",zero_spend_status_action,
+            description="Read KRISHNA's non-overridable receive-only money policy",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "money.zero_spend.decide",zero_spend_decide_action,
+            description="Evaluate a proposed money movement; outgoing spend is hard-blocked",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "money.investment_scenario",investment_scenario_action,
+            description="KRISHNA-only advisory ROI scenario; creates no spending authority and never guarantees returns",
+            permissions=("runtime.read",),sources=("pc","system","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.intent",manibhadra_intent_action,
+            description="Summarize public/consented buyer-intent signals for product matching without private browsing surveillance",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "manibhadra.referral_plan",manibhadra_referral_action,
+            description="Create a compliant affiliate/referral link plan using connected tracking credentials and approved distribution channels",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
             "manibhadra.status",manibhadra_status_action,
             description="Read MANIBHADRA commerce specialist capabilities and guardrails",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
