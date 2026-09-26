@@ -7,7 +7,7 @@ from dataclasses import dataclass,asdict,field
 from pathlib import Path
 import json,time,uuid
 
-ROLES={"worker","controller","research","media","field"}
+ROLES={"worker","controller","research","media","field","observer","qc"}
 
 @dataclass
 class NodeRecord:
