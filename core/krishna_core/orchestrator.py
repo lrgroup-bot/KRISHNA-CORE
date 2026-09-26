@@ -669,11 +669,26 @@ class Orchestrator:
                 str(payload.get("candidate_root") or ""),
             )
 
+        def windows_sandbox_status_action(payload,context):
+            return self.windows_worker_sandbox.status()
+
+        def windows_sandbox_setup_plan_action(payload,context):
+            return self.windows_worker_sandbox.setup_plan()
+
         def windows_sandbox_plan_action(payload,context):
             return self.windows_worker_sandbox.plan(
                 str(payload.get("worktree") or ""),
                 str(payload.get("worker_id") or ""),
                 network=bool(payload.get("network",False)),
+            )
+
+        def windows_sandbox_run_action(payload,context):
+            return self.windows_worker_sandbox.run(
+                str(payload.get("worktree") or ""),
+                str(payload.get("worker_id") or ""),
+                payload.get("command") or [],
+                approved=bool(context.get("approved",False)),
+                timeout=int(payload.get("timeout") or 900),
             )
 
         def work_managed_run(payload,context):
@@ -2925,9 +2940,24 @@ class Orchestrator:
             permissions=("code.read","runtime.read"),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
+            "windows.sandbox.status",windows_sandbox_status_action,
+            description="Read Codex Windows sandbox provider availability and fail-closed enforcement state",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "windows.sandbox.setup_plan",windows_sandbox_setup_plan_action,
+            description="Return the explicit elevated setup command for the open-source Codex Windows sandbox",
+            permissions=("runtime.read",),sources=("pc","system"),
+        )
+        self.action_bus.register(
             "windows.sandbox.plan",windows_sandbox_plan_action,
-            description="Plan OS-enforced restricted-token/ACL/firewall sandboxing for a coding worktree",
+            description="Plan OS-enforced restricted-token Windows sandboxing for a coding worktree",
             permissions=("runtime.read",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "windows.sandbox.run",windows_sandbox_run_action,
+            description="Run an approved worker command inside the native Windows restricted-token sandbox",
+            mutating=True,requires_approval=True,permissions=("candidate.write",),sources=("pc","system","job"),
         )
 
         self.action_bus.register(
