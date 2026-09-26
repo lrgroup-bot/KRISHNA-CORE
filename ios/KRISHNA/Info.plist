@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleDisplayName</key><string>KRISHNA</string>
+<key>CFBundleExecutable</key><string>KRISHNA</string>
+<key>CFBundleIdentifier</key><string>com.krishna.mobile.ios</string>
+<key>CFBundleName</key><string>KRISHNA</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>3.9.0</string>
+<key>CFBundleVersion</key><string>39</string>
+<key>LSRequiresIPhoneOS</key><true/>
+<key>MinimumOSVersion</key><string>17.0</string>
+<key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
+<key>UILaunchScreen</key><dict/>
+<key>UIRequiredDeviceCapabilities</key><array><string>arm64</string></array>
+<key>NSCameraUsageDescription</key><string>KRISHNA uses the camera for HAWKEYE visual assistance and photographer mode.</string>
+<key>NSMicrophoneUsageDescription</key><string>KRISHNA uses the microphone for in-app voice conversation.</string>
+<key>NSSpeechRecognitionUsageDescription</key><string>KRISHNA uses speech recognition while the app is active.</string>
+<key>NSPhotoLibraryAddUsageDescription</key><string>KRISHNA saves photographer and HAWKEYE captures to your Photos library.</string>
+</dict></plist>
