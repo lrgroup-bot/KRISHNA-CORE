@@ -104,7 +104,7 @@ if($integrity.status -eq "DRIFT"){
     if($authoritative -and (Test-Path "$authoritative\.git")){
         Write-Host "KRISHNA runtime drift detected. Re-running verified deployment..." -ForegroundColor Yellow
         $deploy=Join-Path $authoritative "scripts\DEPLOY_KRISHNA_ONCE.ps1"
-        & powershell -NoProfile -ExecutionPolicy Bypass -File $deploy -SkipStart
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $deploy -SkipStart -SourceRoot $authoritative
         if($LASTEXITCODE -ne 0){throw "Automatic drift reconciliation deployment failed"}
         $integrityJson=& $py -c "import json; from krishna_core.runtime_integrity import RuntimeIntegrity; print(json.dumps(RuntimeIntegrity().status()))"
         if($LASTEXITCODE -ne 0){throw "Post-reconciliation integrity check could not run"}

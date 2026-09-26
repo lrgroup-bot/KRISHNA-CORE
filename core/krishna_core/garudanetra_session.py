@@ -442,10 +442,10 @@ class GarudanetraSessionManager:
         except Exception:pass
 
     def _worker(self,sid):
-        session=self._get(sid);browser=context=page=None;playwright_cm=None;stream_cdp=None
+        session=self._get(sid);browser=context=page=None;p=None;stream_cdp=None
         try:
             from playwright.sync_api import sync_playwright
-            playwright_cm=sync_playwright();p=playwright_cm.start()
+            p=sync_playwright().start()
             if session.mode=="persistent_workspace":
                 Path(session.profile_path).mkdir(parents=True,exist_ok=True)
                 # Prefer KRISHNA's pinned Playwright Chromium. System Chrome is
@@ -593,7 +593,7 @@ class GarudanetraSessionManager:
                     if obj:obj.close()
                 except Exception as exc:self._warn(session,"browser_cleanup_error",exc)
             try:
-                if playwright_cm:playwright_cm.stop()
+                if p:p.stop()
             except Exception as exc:self._warn(session,"playwright_stop_error",exc)
             with self._lock:
                 if session.state!="ERROR":session.state="STOPPED"
