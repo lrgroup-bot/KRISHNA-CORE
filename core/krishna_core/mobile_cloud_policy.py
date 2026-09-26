@@ -21,7 +21,11 @@ class MobileCloudPolicy:
         r"email|gmail|calendar|slack|whatsapp|payment|pay|buy|purchase|spend|transfer|"
         r"krishna project|kuber|manibhadra|narad|sudarshan|mrityunjay)\b"
     )
-    STATEFUL=re.compile(r"(?i)\b(gita|geeta|shloka|verse|my project|my file|my chat|remember|last time)\b")
+    STATEFUL=re.compile(r"(?i)\b(gita|geeta|shloka|verse|my project|my file|my chat|remember|last time|where am i|who am i|what do you know about me|my location|my address)\b")
+    PERSONAL=re.compile(
+        r"(?i)\bmy\b.{0,40}\b(health|blood|bp|sugar|medicine|doctor|location|address|phone|email|account|company|business|family|photo|face)\b"
+    )
+    FRESH=re.compile(r"(?i)\b(latest|today|right now|current news|weather|live score|stock price|market price|breaking news)\b")
 
     @classmethod
     def classify(cls,text,*,attachments=0):
@@ -36,6 +40,8 @@ class MobileCloudPolicy:
             return {"eligible":False,"reason":"sensitive"}
         if cls.PC_ACTION.search(value):
             return {"eligible":False,"reason":"action_or_project_control"}
-        if cls.STATEFUL.search(value):
-            return {"eligible":False,"reason":"krishna_state_required"}
+        if cls.STATEFUL.search(value) or cls.PERSONAL.search(value):
+            return {"eligible":False,"reason":"krishna_state_or_personal_context_required"}
+        if cls.FRESH.search(value):
+            return {"eligible":False,"reason":"fresh_web_or_live_data_required"}
         return {"eligible":True,"reason":"general_non_sensitive_conversation"}
