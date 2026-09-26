@@ -496,6 +496,24 @@ public class MainActivity extends Activity {
       catch(Exception e){return error(e);}
     }
 
+    @JavascriptInterface public String mobileFreeCloudStatus(){
+      try{return call("/api/mobile/free-cloud/status",null);}
+      catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String mobileFreeCloudSession(String purpose,String metadataJson){
+      try{
+        String mode=purpose==null?"chat":purpose.trim().toLowerCase(java.util.Locale.US);
+        if(!"chat".equals(mode)&&!"hawkeye".equals(mode))throw new IllegalArgumentException("free-cloud purpose must be chat or hawkeye");
+        JSONObject metadata=new JSONObject(metadataJson==null||metadataJson.trim().isEmpty()?"{}":metadataJson);
+        metadata.put("purpose",mode);
+        metadata.put("cloud_approved",true);
+        metadata.put("user_explicit",true);
+        JSONObject body=new JSONObject();body.put("purpose",mode);body.put("metadata",metadata);
+        return call("/api/mobile/free-cloud/session",body.toString());
+      }catch(Exception e){return error(e);}
+    }
+
     @JavascriptInterface public String hawkeyeFreeCloudStatus(){
       try{return call("/api/hawkeye/free-cloud/status",null);}
       catch(Exception e){return error(e);}
