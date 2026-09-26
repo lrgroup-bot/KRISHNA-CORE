@@ -229,6 +229,68 @@ class VanikNetraStore:
             out.append(item)
         return out
 
+    def white_space(
+        self,
+        bbox: dict[str, Any],
+        target_category: str,
+        *,
+        min_cell_businesses: int = 3,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        target = str(target_category or "").strip().lower()
+        if not target:
+            raise ValueError("target_category is required")
+        west, south, east, north = (
+            float(bbox["west"]), float(bbox["south"]),
+            float(bbox["east"]), float(bbox["north"]),
+        )
+        min_cell_businesses = max(1, int(min_cell_businesses))
+        limit = max(1, min(int(limit), 1000))
+        with self._connect() as con:
+            rows = con.execute(
+                """
+                SELECT
+                    CASE
+                      WHEN h3_cell IS NOT NULL AND h3_cell <> '' THEN h3_cell
+                      ELSE printf('grid:%0.3f:%0.3f', round(latitude,3), round(longitude,3))
+                    END AS cell,
+                    COUNT(*) AS total_businesses,
+                    SUM(CASE WHEN lower(category) LIKE ? THEN 1 ELSE 0 END) AS target_businesses,
+                    AVG(latitude) AS latitude,
+                    AVG(longitude) AS longitude
+                FROM places
+                WHERE longitude BETWEEN ? AND ? AND latitude BETWEEN ? AND ?
+                GROUP BY cell
+                HAVING COUNT(*) >= ?
+                """,
+                ("%" + target + "%", west, east, south, north, min_cell_businesses),
+            ).fetchall()
+        cells = []
+        max_total = max((int(row["total_businesses"] or 0) for row in rows), default=1)
+        for row in rows:
+            total = int(row["total_businesses"] or 0)
+            target_count = int(row["target_businesses"] or 0)
+            density = total / max_total if max_total else 0.0
+            competition = target_count / total if total else 0.0
+            score = max(0.0, min(100.0, 100.0 * (0.65 * density + 0.35 * (1.0 - min(1.0, competition * 4.0)))))
+            cells.append({
+                "cell": row["cell"],
+                "latitude": row["latitude"],
+                "longitude": row["longitude"],
+                "total_businesses": total,
+                "target_businesses": target_count,
+                "commercial_density_proxy": round(density,4),
+                "target_share": round(competition,4),
+                "white_space_score": round(score,2),
+            })
+        cells.sort(key=lambda x: (-x["white_space_score"], -x["total_businesses"], x["target_businesses"]))
+        return {
+            "target_category": target_category,
+            "method": "commercial-density proxy minus target-category saturation",
+            "warning": "This is a market-structure proxy, not measured consumer demand or guaranteed revenue.",
+            "cells": cells[:limit],
+        }
+
     def query_bbox(
         self,
         bbox: dict[str, Any],
