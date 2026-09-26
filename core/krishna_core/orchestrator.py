@@ -1043,6 +1043,23 @@ class Orchestrator:
                 prompt=str(payload.get("prompt") or ""),
             )
 
+        def chandradev_screen_focus_action(payload,context):
+            return self.chandradev_camera.focus_screen(
+                burst_frames=int(payload.get("burst_frames") or 12),
+                target_width=int(payload.get("target_width") or 1920),
+                timeout_seconds=int(payload.get("timeout_seconds") or 8),
+            )
+
+        def chandradev_screen_analyze_action(payload,context):
+            return self.chandradev_camera.analyze_screen(
+                prompt=str(payload.get("prompt") or ""),
+                burst_frames=int(payload.get("burst_frames") or 12),
+                target_width=int(payload.get("target_width") or 1920),
+            )
+
+        def chandradev_screen_unlock_action(payload,context):
+            return self.chandradev_camera.clear_screen_lock()
+
         def chandradev_camera_observations_action(payload,context):
             return {
                 "agent":"CHANDRADEV",
@@ -3682,6 +3699,21 @@ class Orchestrator:
             "chandradev.camera.frame.analyze",chandradev_camera_analyze_action,
             description="Capture one Osmo RTMP frame, run CHANDRADEV PC-local vision, and record it in CHANDRADEV's own observation ledger",
             mutating=True,permissions=("evidence.write","model.use"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.screen.focus",chandradev_screen_focus_action,
+            description="Auto-detect the monitor in the DJI feed, lock its four corners, perspective-correct it, choose the sharpest burst frame and enhance it locally",
+            mutating=True,permissions=("evidence.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.screen.analyze",chandradev_screen_analyze_action,
+            description="Run CHANDRADEV detailed local vision on the auto-focused/enhanced monitor region and record the result in CHANDRADEV's own observation ledger",
+            mutating=True,permissions=("evidence.write","model.use"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.screen.unlock",chandradev_screen_unlock_action,
+            description="Clear CHANDRADEV's remembered monitor-corner lock so the next screen focus performs a fresh detection",
+            mutating=True,permissions=("runtime.write",),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "chandradev.camera.observations",chandradev_camera_observations_action,
