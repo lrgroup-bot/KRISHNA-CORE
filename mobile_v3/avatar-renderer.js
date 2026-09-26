@@ -17,8 +17,18 @@ class KrishnaMobileAvatar {
   }
   async start(){
     if(!this.root||!window.Krishna)return this.fail('avatar root unavailable');
+    window.showKrishnaFallback?.('Loading trusted KRISHNA avatar in background');
+    window.reportKrishnaUiReady?.('animated-fallback');
+    window.onKrishnaAvatarSync=(raw)=>this.acceptSync(raw);
+    try{
+      if(Krishna.avatarSyncAsync){Krishna.avatarSyncAsync();return true;}
+    }catch(e){}
+    return this.fail('background avatar sync unavailable');
+  }
+  async acceptSync(raw){
     let sync={};
-    try{sync=JSON.parse(Krishna.avatarSync());}catch(e){return this.fail('avatar sync unavailable');}
+    try{sync=JSON.parse(String(raw||'{}'));}catch(e){return this.fail('avatar sync response invalid');}
+    if(sync.error)return this.fail(sync.error);
     if(!sync.available||!sync.production_ready)return this.fail(sync.reason||'production GLB unavailable');
     try{
       this.scene=new THREE.Scene();
