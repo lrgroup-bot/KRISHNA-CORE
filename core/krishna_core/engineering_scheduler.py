@@ -155,7 +155,7 @@ class EngineeringScheduler:
             "max_graph_parallelism": available_parallelism,
             "local_execution_slots": local_slots,
             "recommended_workers": team.recommended_workers,
-            "deadline_risk": bool(team.exceeds_capacity or critical > float(deadline_minutes)),
+            "deadline_risk": bool(team.resource_limited or critical > float(deadline_minutes)),
             "execution_truth": {
                 "code_execution_host": execution_host,
                 "free_cloud_is_compute_node": False,
