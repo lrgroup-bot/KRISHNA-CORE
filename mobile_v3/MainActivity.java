@@ -381,6 +381,15 @@ public class MainActivity extends Activity {
       }catch(Exception ignored){}
       return raw;
     }
+    @JavascriptInterface public void resumeAsync(long after){
+      new Thread(()->{
+        final String result=resume(after);
+        runOnUiThread(()->{
+          if(web!=null)web.evaluateJavascript(
+            "window.onKrishnaRealtimeResult&&window.onKrishnaRealtimeResult("+JSONObject.quote(result)+")",null);
+        });
+      },"krishna-realtime-resume").start();
+    }
     @JavascriptInterface public String pairingRequest(){
       try{
         JSONObject b=new JSONObject();b.put("device_id",deviceId());b.put("name","KRISHNA Mobile");b.put("credential_sha256",credentialHash());
