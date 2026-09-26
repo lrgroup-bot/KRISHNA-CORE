@@ -524,3 +524,5 @@ core\\tests\\test_vanijya_sales.py
 docs\\VANIJYA_SALES_AUTOMATION.md
 scripts\\INSTALL_KRISHNA_QR.ps1
 core\\tests\\test_narad_gmail_threading.py
+core\\krishna_core\\commerce_expansion_adapters.py
+core\\tests\\test_commerce_expansion_adapters.py
