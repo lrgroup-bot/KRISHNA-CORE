@@ -419,6 +419,7 @@ docs\SUDARSHAN_PROJECT_LIFECYCLE.md
 docs\UNIVERSAL_LEARNING.md
 KRISHNA_AGI_V1_ARCHITECTURE.md
 KRISHNA_SOURCE_TREE.txt
+mobile_v3\avatar-renderer.js
 mobile_v3\CANONICAL_RUNTIME.json
 mobile_v3\hawkeye-observer-ui.js
 mobile_v3\HawkeyeBackgroundSync.java
