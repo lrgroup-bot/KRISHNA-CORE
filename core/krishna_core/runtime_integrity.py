@@ -35,6 +35,11 @@ def _git_ref(repo:Path,ref:str):
     git=_git_dir(repo)
     if not git:return None
     try:
+        # Linked worktrees keep HEAD locally but share branch and origin refs.
+        common=git/"commondir"
+        if common.is_file():
+            target=Path(common.read_text(encoding="utf-8").strip())
+            git=target if target.is_absolute() else (git/target).resolve()
         path=git/ref
         if path.exists():return path.read_text(encoding="utf-8").strip() or None
         packed=git/"packed-refs"
