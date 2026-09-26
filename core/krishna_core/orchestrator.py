@@ -122,6 +122,9 @@ from .affiliate_intent import AffiliateIntentEngine
 from .zero_spend_policy import ZeroSpendPolicy
 from .manibhadra_crm import ManibhadraCRM
 from .manibhadra_advisor import ManibhadraCloudAdvisor
+from .vanik_netra import VanikNetra
+from .vanik_netra_sources import FreeMarketSourceRegistry
+from .vanik_netra_store import VanikNetraStore
 from .narada_legal import NaradaLegalAdvisor
 
 
@@ -194,6 +197,13 @@ class Orchestrator:
         self.zero_spend = ZeroSpendPolicy()
         self.manibhadra_crm = ManibhadraCRM(runtime_state / "manibhadra-crm.json")
         self.manibhadra_advisor = ManibhadraCloudAdvisor(self.openrouter_free,self.direct_free)
+        self.vanik_netra_sources = FreeMarketSourceRegistry(runtime_state / "vanik-netra")
+        self.vanik_netra_store = VanikNetraStore(runtime_state / "vanik-netra" / "market.db")
+        self.vanik_netra = VanikNetra(
+            self.manibhadra_crm,
+            store=self.vanik_netra_store,
+            sources=self.vanik_netra_sources,
+        )
         self.narada_legal = NaradaLegalAdvisor(runtime_state / "narada-legal")
         legal_watch_title = "Narada Indian legal source freshness watch"
         if not any(x.get("title")==legal_watch_title for x in self.commitments.list("KRISHNA",True,500)):
@@ -614,6 +624,79 @@ class Orchestrator:
             messages=payload.get("messages") or []
             if not isinstance(messages,list):raise ValueError("messages must be a list")
             return {"messages":self.gmail_triage.batch(messages,payload.get("model_verdicts") or {})}
+
+        def vanik_netra_status_action(payload,context):
+            return self.vanik_netra.status()
+
+        def vanik_netra_scan_action(payload,context):
+            bbox=payload.get("bbox") or {}
+            return self.vanik_netra.scan_area(
+                bbox,
+                area_key=str(payload.get("area_key") or "market-scan").strip() or "market-scan",
+                source=str(payload.get("source") or "overture"),
+                category=(str(payload.get("category") or "").strip() or None),
+                limit=int(payload.get("limit") or 1000),
+                min_confidence=float(payload.get("min_confidence") or 0),
+                persist=bool(payload.get("persist",True)),
+                local_path=(str(payload.get("local_path") or "").strip() or None),
+            )
+
+        def vanik_netra_stored_action(payload,context):
+            return self.vanik_netra.stored_area(
+                payload.get("bbox") or {},
+                category=(str(payload.get("category") or "").strip() or None),
+                limit=int(payload.get("limit") or 2000),
+            )
+
+        def vanik_netra_white_space_action(payload,context):
+            return self.vanik_netra.white_space(
+                payload.get("bbox") or {},
+                str(payload.get("target_category") or payload.get("category") or ""),
+                min_cell_businesses=int(payload.get("min_cell_businesses") or 3),
+                limit=int(payload.get("limit") or 100),
+            )
+
+        def vanik_netra_changes_action(payload,context):
+            return self.vanik_netra.change_report(
+                str(payload.get("area_key") or ""),
+                limit=int(payload.get("limit") or 200),
+            )
+
+        def vanik_netra_map_action(payload,context):
+            rows=payload.get("records")
+            if rows is None:
+                stored=self.vanik_netra.stored_area(
+                    payload.get("bbox") or {},
+                    category=(str(payload.get("category") or "").strip() or None),
+                    limit=int(payload.get("limit") or 1000),
+                )
+                rows=stored.get("records") or []
+            if not isinstance(rows,list):raise ValueError("records must be a list")
+            return self.vanik_netra.map_payload(rows,limit=int(payload.get("limit") or 1000))
+
+        def vanik_netra_normalize_action(payload,context):
+            return self.vanik_netra.normalize_place(payload.get("record") or payload)
+
+        def vanik_netra_analyze_action(payload,context):
+            rows=payload.get("rows") or []
+            if not isinstance(rows,list):raise ValueError("rows must be a list")
+            return self.vanik_netra.analyze_area(rows)
+
+        def vanik_netra_score_action(payload,context):
+            row=payload.get("record") or {}
+            place=row if isinstance(row,dict) and "business_id" in row and "primary_category" in row else self.vanik_netra.normalize_place(row)
+            return self.vanik_netra.opportunity_score(
+                place,
+                category_value=float(payload.get("category_value",0.5)),
+                demand_proxy=float(payload.get("demand_proxy",0.5)),
+                competition_opportunity=float(payload.get("competition_opportunity",0.5)),
+                ai_visibility_gap=payload.get("ai_visibility_gap"),
+            )
+
+        def vanik_netra_crm_import_action(payload,context):
+            row=payload.get("record") or {}
+            score=payload.get("score")
+            return self.vanik_netra.import_to_crm(row,score=None if score is None else float(score))
 
         def manibhadra_crm_dashboard_action(payload,context):
             return self.manibhadra_crm.dashboard()
@@ -3049,6 +3132,58 @@ class Orchestrator:
             permissions=("provider.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
+            "vanik_netra.scan",vanik_netra_scan_action,
+            description="Scan a bounded area using a free/open VANIK-NETRA source and persist a local market snapshot",
+            mutating=True,permissions=("web.read","runtime.write"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vanik_netra.stored",vanik_netra_stored_action,
+            description="Read locally cached VANIK-NETRA market records inside a bounding box",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanik_netra.white_space",vanik_netra_white_space_action,
+            description="Estimate geographic white-space using commercial-density and target-category saturation proxies",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanik_netra.changes",vanik_netra_changes_action,
+            description="Read VANIK-NETRA opened/changed/removed business events between local area snapshots",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanik_netra.map",vanik_netra_map_action,
+            description="Build a bounded market-map point payload from local/open business records",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+
+        self.action_bus.register(
+            "vanik_netra.status",vanik_netra_status_action,
+            description="Read VANIK-NETRA market-intelligence capabilities, source policy and zero-spend guardrails",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanik_netra.normalize",vanik_netra_normalize_action,
+            description="Normalize a public/open business-place record into VANIK-NETRA canonical form",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanik_netra.analyze",vanik_netra_analyze_action,
+            description="Deduplicate and analyze bounded market-place records for category mix and digital gaps",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanik_netra.score",vanik_netra_score_action,
+            description="Score a bounded business opportunity using explicit deterministic market signals",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanik_netra.crm.import",vanik_netra_crm_import_action,
+            description="Import an owner-reviewed VANIK-NETRA business opportunity into local MANIBHADRA CRM; performs no outreach",
+            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
+        )
+
+        self.action_bus.register(
             "manibhadra.crm.dashboard",manibhadra_crm_dashboard_action,
             description="Read MANIBHADRA CRM decision dashboard",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
@@ -4154,6 +4289,12 @@ class Orchestrator:
             permissions=("code.read","candidate.write","git.push","tests.run","browser.read","browser.test","worker.execute","model.use","media.create"),
             actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead","repair.shadow","openrouter.free.*","direct.free.*"),
         )
+        self.agent_runtime.register(
+            "vanik-netra","market intelligence, POI fusion, competition analysis and opportunity scout",
+            permissions=("web.read","runtime.read","runtime.write","project.write","evidence.write"),
+            actions=("vanik_netra.*",),
+        )
+
         self.agent_runtime.register(
             "narad","durable automation and provider workflow runtime",
             permissions=("narad.write","narad.test","narad.execute","send_external"),
