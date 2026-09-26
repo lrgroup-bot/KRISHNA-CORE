@@ -23,6 +23,8 @@ class ChandradevCameraIntegrationContractTests(unittest.TestCase):
         for action in (
             "chandradev.camera.osmo.profile",
             "chandradev.camera.osmo.guide",
+            "chandradev.camera.webcam.profile",
+            "chandradev.camera.selection",
             "chandradev.camera.receiver.config",
             "chandradev.camera.receiver.start",
             "chandradev.camera.receiver.stop",
@@ -31,6 +33,7 @@ class ChandradevCameraIntegrationContractTests(unittest.TestCase):
             "chandradev.camera.screen.focus",
             "chandradev.camera.screen.analyze",
             "chandradev.camera.screen.unlock",
+            "chandradev.camera.screen.alignment",
             "chandradev.camera.observations",
         ):
             self.assertIn(f'"{action}"',self.orchestrator)
