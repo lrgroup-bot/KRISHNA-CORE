@@ -20,6 +20,7 @@ class NodeRecord:
  platform:str=""
  capabilities:list[str]=field(default_factory=list)
  endpoint:str=""
+ workspace_root:str=""
  online:bool=False
  last_seen:float=0
 
@@ -46,7 +47,7 @@ class NodeRegistry:
   if node_id not in d: raise KeyError(node_id)
   d[node_id].last_sync=time.time(); self.save(d)
   return asdict(d[node_id])
- def configure_execution(self,node_id,*,platform,capabilities,endpoint="",approved=False):
+ def configure_execution(self,node_id,*,platform,capabilities,endpoint="",workspace_root="",approved=False):
   if not approved: raise PermissionError("owner approval required to configure a compute node")
   d=self.load()
   if node_id not in d: raise KeyError(node_id)
@@ -55,6 +56,7 @@ class NodeRegistry:
   node.platform=str(platform or "").strip().lower()
   node.capabilities=sorted({str(x).strip() for x in capabilities or [] if str(x).strip()})
   node.endpoint=str(endpoint or "").strip()
+  node.workspace_root=str(workspace_root or "").strip()
   self.save(d);return asdict(node)
  def heartbeat(self,node_id,capabilities=None):
   d=self.load()
