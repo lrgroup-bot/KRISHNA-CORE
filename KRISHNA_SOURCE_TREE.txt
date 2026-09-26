@@ -516,3 +516,8 @@ tests\test_video_avatar_preflight_contract.py
 tests\test_voice_isolation_contract.py
 tests\test_web_integrity.py
 tools\INSTALL_AGENCY_SPECIALISTS.ps1
+
+core\\krishna_core\\commerce_expansion.py
+core\\krishna_core\\vanijya_sales.py
+core\\tests\\test_commerce_expansion.py
+core\\tests\\test_vanijya_sales.py
