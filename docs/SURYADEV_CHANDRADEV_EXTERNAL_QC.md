@@ -197,15 +197,50 @@ Internal HTTP status:
 
 ## Authentication and web verification
 
-Authentication is a handoff boundary. Credential entry, MFA, CAPTCHA, liveness and anti-bot human-verification challenges are not learned or bypassed by SURYDEV/CHANDRADEV.
+Authentication is an **owner-permission handoff boundary**. Credential entry, MFA, passkeys, CAPTCHA, liveness and anti-bot human-verification challenges are not learned or bypassed by SURYDEV/CHANDRADEV.
 
-During authentication/verification:
+When either external agent reaches an authentication checkpoint it must:
+
+1. Stop before the protected step.
+2. Create an `OWNER_APPROVAL_REQUIRED` ticket containing:
+   - agent
+   - job ID
+   - site/origin
+   - authentication method
+   - reason
+   - checkpoint reference
+3. Surface that permission request to the owner.
+4. Continue only after an explicit owner approval.
+5. Consume that approval exactly once for the same agent + job + origin + authentication method.
+6. Expire unused approvals automatically.
+7. If denied or expired, remain stopped or abandon that authentication-dependent path.
+
+Approval means only: **allow the authorized human to take control for this specific authentication checkpoint**.
+
+It does not authorize SURYDEV/CHANDRADEV to:
+- capture/store passwords, OTPs, recovery codes or other secrets
+- solve or bypass CAPTCHA
+- spoof liveness or biometric checks
+- reuse approval for another site/job/method
+- silently retain a standing authentication permission
+
+During the handoff:
 - raw credential capture is disabled
-- secrets are not learned
-- the worker pauses/hands control to the authorized human when required
-- normal observation can resume after authentication completes
+- secrets are not learned or transferred to BRAHMAGYAN
+- the authorized human performs the authentication step
+- normal observation resumes only after the handoff completes
 
-This keeps the observer useful for legitimate browsing/testing without turning it into a human-impersonation or anti-bot-bypass system.
+Internal actions:
+- `external.auth.status`
+- `external.auth.request`
+- `external.auth.approve`
+- `external.auth.deny`
+- `external.auth.consume`
+
+Status endpoint:
+- `/api/external-auth/status`
+
+This makes authentication explicitly owner-controlled while keeping the rest of the research/testing workflow automated.
 
 ## UI authority rule
 
