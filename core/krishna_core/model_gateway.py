@@ -173,7 +173,7 @@ class ModelGatewayRegistry:
         rows=[x for x in self.profiles.values() if x.enabled and (not free_only or x.free_only)]
         return sorted(rows,key=lambda x:x.created_at)
 
-    def request_json(self,profile_id,path,payload=None,method=None,timeout=120):
+    def request_json(self,profile_id,path,payload=None,method=None,timeout=120,zero_credit_proof=None):
         """Make an authenticated JSON request without exposing the stored secret.
 
         Internal provider adapters may use only relative paths under the registered,
@@ -189,6 +189,13 @@ class ModelGatewayRegistry:
             raise ValueError("gateway request path must be a safe relative API path")
         verb=str(method or ("POST" if payload is not None else "GET")).strip().upper()
         if verb not in {"GET","POST"}:raise ValueError("gateway JSON request supports GET/POST only")
+        if verb=="POST":
+            proof=str(zero_credit_proof or "").strip()
+            if proof not in {"openrouter-live-zero-price","cloudflare-live-zero-billing"}:
+                raise PermissionError(
+                    "cloud POST blocked by KRISHNA hard zero-credit gateway; "
+                    "a specialized execution-time zero-credit proof is required"
+                )
         key=self.vault.resolve(row.secret_id)
         body=None if payload is None else json.dumps(payload).encode()
         headers={
