@@ -44,6 +44,14 @@ class ManibhadraCommerce:
             "adapter":"Garudanetra/authorized seller portal",
             "listing_api":False,"orders_api":False,"inventory_api":False,
         },
+        "alibaba":{
+            "mode":"research_ready_waiting_for_connection",
+            "adapter":"Alibaba.com Open API / Seller Central after owner connection",
+            "market_type":"B2B_wholesale_global",
+            "listing_api":True,"orders_api":True,"rfq":True,
+            "connection_required_for_writes":True,
+            "paid_membership_may_be_required":True,
+        },
     }
 
     def evaluate(self,product:str,*,demand:float,margin:float,competition:float,return_risk:float)->dict[str,Any]:
