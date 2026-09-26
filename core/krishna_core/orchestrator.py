@@ -613,8 +613,96 @@ class Orchestrator:
             if not isinstance(messages,list):raise ValueError("messages must be a list")
             return {"messages":self.gmail_triage.batch(messages,payload.get("model_verdicts") or {})}
 
+        def manibhadra_crm_dashboard_action(payload,context):
+            return self.manibhadra_crm.dashboard()
+
+        def manibhadra_crm_records_action(payload,context):
+            return self.manibhadra_crm.records()
+
+        def manibhadra_crm_upsert_lead_action(payload,context):
+            return self.manibhadra_crm.upsert_lead(payload.get("lead") or payload)
+
+        def manibhadra_crm_upsert_deal_action(payload,context):
+            return self.manibhadra_crm.upsert_deal(payload.get("deal") or payload)
+
+        def manibhadra_crm_move_deal_action(payload,context):
+            return self.manibhadra_crm.move_deal(
+                str(payload.get("deal_id") or ""),
+                str(payload.get("stage") or ""),
+            )
+
+        def manibhadra_crm_task_add_action(payload,context):
+            return self.manibhadra_crm.add_task(payload.get("task") or payload)
+
+        def manibhadra_crm_task_complete_action(payload,context):
+            return self.manibhadra_crm.complete_task(str(payload.get("task_id") or ""))
+
+        def manibhadra_crm_entity_upsert_action(payload,context):
+            return self.manibhadra_crm.upsert_entity(
+                str(payload.get("kind") or ""),
+                payload.get("record") or {},
+            )
+
+        def manibhadra_ai_advice_action(payload,context):
+            return self.manibhadra_advisor.advise(
+                str(payload.get("question") or "What should MANIBHADRA prioritize next?"),
+                self.manibhadra_crm.dashboard(),
+            )
+
+        def manibhadra_health_action(payload,context):
+            return {
+                **self.manibhadra_crm.health(),
+                "advisor":self.manibhadra_advisor.status(),
+            }
+
+        def manibhadra_health_verify_action(payload,context):
+            health=self.manibhadra_crm.health()
+            if not health.get("ok"):
+                raise RuntimeError("MANIBHADRA CRM health verification failed: "+str(health.get("error") or "unknown"))
+            return {**health,"advisor":self.manibhadra_advisor.status(),"mrityunjay_watch":"armed"}
+
+        def zero_spend_status_action(payload,context):
+            return self.zero_spend.status()
+
+        def zero_spend_decide_action(payload,context):
+            return self.zero_spend.decide(
+                str(payload.get("operation") or ""),
+                amount=payload.get("amount"),
+                currency=str(payload.get("currency") or "INR"),
+            )
+
+        def investment_scenario_action(payload,context):
+            return self.zero_spend.investment_scenario(
+                investment=float(payload.get("investment") or 0),
+                expected_revenue=payload.get("expected_revenue"),
+                expected_margin_rate=payload.get("expected_margin_rate"),
+                low_revenue=payload.get("low_revenue"),
+                high_revenue=payload.get("high_revenue"),
+                assumptions=payload.get("assumptions") or [],
+            )
+
         def manibhadra_status_action(payload,context):
-            return self.manibhadra.status()
+            return {
+                **self.manibhadra.status(),
+                "affiliate":self.affiliate_intent.status(),
+                "money_policy":self.zero_spend.status(),
+            }
+
+        def manibhadra_intent_action(payload,context):
+            return self.affiliate_intent.intent_summary(payload.get("signals") or [])
+
+        def manibhadra_referral_action(payload,context):
+            return self.affiliate_intent.referral_plan(
+                provider=str(payload.get("provider") or ""),
+                channel=str(payload.get("channel") or ""),
+                product_name=str(payload.get("product_name") or ""),
+                product_url=str(payload.get("product_url") or ""),
+                tracking_id=str(payload.get("tracking_id") or ""),
+                official_deep_link=str(payload.get("official_deep_link") or ""),
+                account_override=bool(payload.get("account_override",False)),
+                estimated_price=payload.get("estimated_price"),
+                commission_rate=payload.get("commission_rate"),
+            )
 
         def manibhadra_evaluate_action(payload,context):
             return self.manibhadra.evaluate(
@@ -630,7 +718,7 @@ class Orchestrator:
             if not product:raise ValueError("product or category is required")
             query=(
                 "product opportunity supplier demand competition pricing marketplace trends "
-                "Amazon Flipkart Meesho India "+product
+                "Amazon Flipkart Meesho Alibaba global wholesale export demand RFQ distributors importers "+product
             )
             report=self.garuda.scout(
                 str(payload.get("project") or context.get("project") or "KRISHNA"),
