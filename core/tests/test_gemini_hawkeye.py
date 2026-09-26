@@ -79,12 +79,12 @@ class GeminiHawkeyeBridgeTests(unittest.TestCase):
                     "cloud_approved":True,"user_explicit":True,"purpose":"chat",
                 })
         self.assertEqual(row["purpose"],"chat")
-        self.assertEqual(row["response_modalities"],["TEXT"])
+        self.assertEqual(row["response_modalities"],["AUDIO"])
         self.assertTrue(row["free_only"])
         payload=req.call_args.args[2]
         config=payload["liveConnectConstraints"]["config"]
-        self.assertEqual(config["responseModalities"],["TEXT"])
-        self.assertNotIn("outputAudioTranscription",config)
+        self.assertEqual(config["responseModalities"],["AUDIO"])
+        self.assertIn("outputAudioTranscription",config)
 
     def test_mobile_live_session_rejects_non_free_profile(self):
         with patch.dict(os.environ,{
