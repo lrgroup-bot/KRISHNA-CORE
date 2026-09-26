@@ -866,10 +866,27 @@ class Orchestrator:
             return {"vanijya_request":request,"manibhadra_response":research}
 
         def vanijya_marketing_plan_action(payload,context):
-            return self.vanijya.marketing_plan(
-                payload.get("product") or payload,
-                objective=str(payload.get("objective") or "generate qualified leads"),
+            product=payload.get("product") or payload
+            if isinstance(product,dict):
+                product_name=str(product.get("name") or product.get("product") or "").strip()
+            else:
+                product_name=str(product or "").strip()
+                product={"name":product_name}
+            request=self.vanijya.product_request(product_name)
+            research=manibhadra_research_action(
+                {
+                    "product":request["category"],
+                    "project":str(payload.get("project") or context.get("project") or "KRISHNA"),
+                    "limit":int(payload.get("limit") or 8),
+                },
+                context,
             )
+            plan=self.vanijya.marketing_plan(
+                product,
+                objective=str(payload.get("objective") or "generate qualified leads"),
+                manibhadra_checked=True,
+            )
+            return {"manibhadra_request":request,"manibhadra_research":research,"marketing_plan":plan}
 
         def vanijya_lead_qualify_action(payload,context):
             return self.vanijya.qualify_lead(payload.get("lead") or payload)
