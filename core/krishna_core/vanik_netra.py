@@ -514,6 +514,25 @@ class VanikNetra:
             "records": report["records"],
         }
 
+    def white_space(
+        self,
+        bbox: dict[str, Any],
+        target_category: str,
+        *,
+        min_cell_businesses: int = 3,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        if not self.store:
+            raise RuntimeError("VANIK-NETRA market store is not bound")
+        box = BoundingBox.from_value(bbox)
+        out = self.store.white_space(
+            box.as_dict(),
+            target_category,
+            min_cell_businesses=min_cell_businesses,
+            limit=limit,
+        )
+        return {"bbox": box.as_dict(), **out}
+
     def change_report(self, area_key: str, *, limit: int = 200) -> dict[str, Any]:
         if not self.store:
             raise RuntimeError("VANIK-NETRA market store is not bound")
