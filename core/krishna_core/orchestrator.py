@@ -896,6 +896,9 @@ class Orchestrator:
                 note=str(payload.get("note") or ""),
             )
 
+        def vanijya_payment_qr_action(payload,context):
+            return self.vanijya.payment_qr_svg(payload.get("payment_request") or payload)
+
         def vanijya_payment_verify_action(payload,context):
             return self.vanijya.verify_payment(
                 payload.get("evidence") or {},
@@ -3428,6 +3431,11 @@ class Orchestrator:
         self.action_bus.register(
             "vanijya.payment.request",vanijya_payment_request_action,
             description="Generate receive-only exact-amount UPI URI/QR payload without claiming payment",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanijya.payment.qr",vanijya_payment_qr_action,
+            description="Render a VANIJYA UPI payment request into a local SVG QR; QR creation is never payment proof",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
