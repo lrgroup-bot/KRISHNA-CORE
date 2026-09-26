@@ -26,7 +26,7 @@ jobs:
           set -euo pipefail
           mkdir -p build/Payload/KRISHNA.app
           cp ios/KRISHNA/Info.plist build/Payload/KRISHNA.app/Info.plist
-          base64 --decode avatar/krishna_child_360.webp.b64 > build/Payload/KRISHNA.app/krishna_child_360.webp
+          base64 -D -i avatar/krishna_child_360.webp.b64 -o build/Payload/KRISHNA.app/krishna_child_360.webp
           plutil -lint build/Payload/KRISHNA.app/Info.plist
           test -s build/Payload/KRISHNA.app/krishna_child_360.webp
 
