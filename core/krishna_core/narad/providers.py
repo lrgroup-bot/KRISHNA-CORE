@@ -100,9 +100,9 @@ class NaradProviderHub:
             q=str(p.get("q") or "").strip()
             if q:params["q"]=q
             labels=p.get("label_ids") or []
-            if labels:params["labelIds"]=",".join(str(x) for x in labels)
+            if labels:params["labelIds"]=[str(x) for x in labels]
             if bool(p.get("include_spam_trash",False)):params["includeSpamTrash"]="true"
-            return _json_request(base+"?"+urllib.parse.urlencode(params),method="GET",headers=auth)
+            return _json_request(base+"?"+urllib.parse.urlencode(params,doseq=True),method="GET",headers=auth)
         message_id=str(p.get("message_id") or "").strip()
         if not message_id:raise ValueError("gmail message_id is required")
         safe=urllib.parse.quote(message_id,safe="")
