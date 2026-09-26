@@ -42,7 +42,7 @@ public final class MobileFreeCloudRouter {
     "(?i)([A-Z]:\\\\|/home/|/mnt/|my private|my file|my repo|krishna[- _]?(source|core|project)|kuber project|manibhadra|narad|brahmagyan|gyan-bhandar)"
   );
   private static final Pattern HOST_ACTION=Pattern.compile(
-    "(?i)\b(delete|remove|install|uninstall|execute|run|restart|stop|start|modify|edit|implement|merge|commit|push|deploy|build apk|change file|write file)\b"
+    "(?i)\\\\b(delete|remove|install|uninstall|execute|run|restart|stop|start|modify|edit|implement|merge|commit|push|deploy|build apk|change file|write file)\\\\b"
   );
 
   private MobileFreeCloudRouter(){}
