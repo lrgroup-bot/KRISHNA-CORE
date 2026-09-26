@@ -29,6 +29,8 @@ public class MainActivity extends Activity {
   ValueCallback<Uri[]> fileCallback;
   boolean webReady=false;
   String pendingAssistPhrase=null,pendingAssistMode=null;
+  static final String AVATAR_HOST="krishna.local";
+  static final long AVATAR_MAX_BYTES=120L*1024L*1024L;
   BroadcastReceiver wakeReceiver=new BroadcastReceiver(){
     @Override public void onReceive(Context context,Intent intent){
       if(intent==null||!KrishnaWakeService.ACTION_WAKE.equals(intent.getAction()))return;
@@ -114,6 +116,32 @@ public class MainActivity extends Activity {
     }catch(Exception ignored){stopService(new Intent(this,KrishnaWakeService.class));}
   }
 
+
+  File avatarCacheFile(){
+    File dir=new File(getFilesDir(),"avatar");
+    if(!dir.exists())dir.mkdirs();
+    return new File(dir,"krishna.production.glb");
+  }
+
+  String sha256File(File file)throws Exception{
+    java.security.MessageDigest d=java.security.MessageDigest.getInstance("SHA-256");
+    try(InputStream in=new FileInputStream(file)){
+      byte[] b=new byte[1024*1024];for(int n;(n=in.read(b))>0;)d.update(b,0,n);
+    }
+    StringBuilder s=new StringBuilder();for(byte b:d.digest())s.append(String.format(java.util.Locale.US,"%02x",b&255));return s.toString();
+  }
+
+  WebResourceResponse localAvatarResponse(){
+    try{
+      File file=avatarCacheFile();if(!file.isFile())return null;
+      Map<String,String> headers=new HashMap<>();
+      headers.put("Access-Control-Allow-Origin","*");
+      headers.put("Cache-Control","no-store");
+      headers.put("Content-Length",String.valueOf(file.length()));
+      return new WebResourceResponse("model/gltf-binary",null,200,"OK",headers,new FileInputStream(file));
+    }catch(Exception e){return null;}
+  }
+
   @Override public void onCreate(Bundle b){
     super.onCreate(b);
     ensureNotifications();
@@ -138,6 +166,13 @@ public class MainActivity extends Activity {
     web.removeJavascriptInterface("accessibilityTraversal");
     web.setWebViewClient(new WebViewClient(){
       boolean trusted(Uri u){return u!=null && "file".equalsIgnoreCase(u.getScheme()) && "/android_asset/index.html".equals(u.getPath());}
+      @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){
+        Uri u=request==null?null:request.getUrl();
+        if(u!=null&&"https".equalsIgnoreCase(u.getScheme())&&AVATAR_HOST.equalsIgnoreCase(u.getHost())&&"/avatar/krishna.glb".equals(u.getPath())){
+          WebResourceResponse response=localAvatarResponse();if(response!=null)return response;
+        }
+        return super.shouldInterceptRequest(view,request);
+      }
       @Override public void onPageFinished(WebView view,String url){
         super.onPageFinished(view,url);
         webReady=true;
@@ -246,6 +281,48 @@ public class MainActivity extends Activity {
       }
     }
     @JavascriptInterface public String status(){return call("/api/status",null);}
+    @JavascriptInterface public String avatarStatus(){
+      try{
+        JSONObject out=new JSONObject(call("/api/avatar/status",null));
+        File local=avatarCacheFile();out.put("mobile_cached",local.isFile());
+        if(local.isFile()){out.put("mobile_bytes",local.length());out.put("mobile_sha256",sha256File(local));}
+        return out.toString();
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String avatarSync(){
+      HttpURLConnection c=null;
+      try{
+        JSONObject status=new JSONObject(call("/api/avatar/status",null));
+        JSONObject pipeline=status.optJSONObject("asset_pipeline");
+        boolean ready=pipeline!=null&&pipeline.optBoolean("active_ready",false);
+        if(!status.optBoolean("glb_available",false)||!ready){
+          JSONObject out=new JSONObject();out.put("available",false);out.put("production_ready",false);
+          out.put("reason","trusted PC production GLB is not ready");out.put("asset_pipeline",pipeline);return out.toString();
+        }
+        File dest=avatarCacheFile(),tmp=new File(dest.getParentFile(),"krishna.production.glb.tmp");
+        c=conn("/api/avatar.glb");c.setRequestProperty("Accept","model/gltf-binary");c.setReadTimeout(120000);
+        int code=c.getResponseCode();if(code!=200)throw new IOException("avatar HTTP "+code);
+        long declared=c.getContentLengthLong();if(declared>AVATAR_MAX_BYTES)throw new IOException("avatar exceeds mobile size limit");
+        long total=0;
+        try(InputStream in=c.getInputStream();FileOutputStream out=new FileOutputStream(tmp)){
+          byte[] b=new byte[1024*1024];for(int n;(n=in.read(b))>0;){total+=n;if(total>AVATAR_MAX_BYTES)throw new IOException("avatar exceeds mobile size limit");out.write(b,0,n);}
+        }
+        try(FileInputStream in=new FileInputStream(tmp)){
+          byte[] h=new byte[4];if(in.read(h)!=4||h[0]!='g'||h[1]!='l'||h[2]!='T'||h[3]!='F')throw new IOException("avatar is not a GLB");
+        }
+        if(dest.exists()&&!dest.delete())throw new IOException("old avatar cache could not be replaced");
+        if(!tmp.renameTo(dest))throw new IOException("avatar cache promotion failed");
+        JSONObject out=new JSONObject();out.put("available",true);out.put("production_ready",true);
+        out.put("bytes",dest.length());out.put("sha256",sha256File(dest));out.put("local_url","https://"+AVATAR_HOST+"/avatar/krishna.glb");
+        return out.toString();
+      }catch(Exception e){return error(e);}
+      finally{if(c!=null)c.disconnect();}
+    }
+    @JavascriptInterface public void uiReady(String payload){
+      String safe=payload==null?"{}":payload;
+      android.util.Log.i("KRISHNA_UI_READY",safe);
+      getSharedPreferences("k",0).edit().putString("last_ui_ready",safe).putLong("last_ui_ready_at",System.currentTimeMillis()).apply();
+    }
     @JavascriptInterface public String hawkeyeSensorSnapshot(){
       try{return hawkeyeSensors==null?new JSONObject().put("available",false).toString():hawkeyeSensors.snapshot().toString();}
       catch(Exception e){return error(e);}
