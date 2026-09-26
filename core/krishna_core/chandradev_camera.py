@@ -82,7 +82,7 @@ class ChandradevOsmoCameraAdapter:
         self,
         state_dir: str | Path,
         *,
-        hawkeye=None,
+        chandradev=None,
         vision=None,
         mediamtx_exe: str | Path | None = None,
         stream_name: str | None = None,
@@ -91,10 +91,18 @@ class ChandradevOsmoCameraAdapter:
         self.root.mkdir(parents=True,exist_ok=True)
         self.frames=self.root/"frames"
         self.frames.mkdir(parents=True,exist_ok=True)
+        self.screens=self.root/"screens"
+        self.screens.mkdir(parents=True,exist_ok=True)
         self.state_file=self.root/"stream-state.json"
+        shared_root=Path(
+            os.getenv("CHANDRADEV_SHARED_STATE")
+            or r"E:\Krishna-The GOD\state\chandradev"
+        )
+        shared_root.mkdir(parents=True,exist_ok=True)
+        self.shared_stream_file=shared_root/"stream-name.txt"
         self.config_file=self.root/"mediamtx.yml"
         self.log_file=self.root/"mediamtx.log"
-        self.hawkeye=hawkeye
+        self.chandradev=chandradev
         self.vision=vision
         self.mediamtx_exe=Path(
             mediamtx_exe
@@ -104,25 +112,44 @@ class ChandradevOsmoCameraAdapter:
         self._state=self._load_or_create(stream_name)
 
     def _load_or_create(self,stream_name=None):
+        explicit=str(stream_name or "").strip()
+        shared=""
+        if self.shared_stream_file.is_file():
+            try:
+                shared=self.shared_stream_file.read_text(encoding="utf-8").strip()
+            except Exception:
+                shared=""
+        local=None
         if self.state_file.is_file():
             try:
                 row=json.loads(self.state_file.read_text(encoding="utf-8"))
                 if isinstance(row,dict) and row.get("stream_name"):
-                    return row
+                    local=row
             except Exception:
-                pass
-        name=str(stream_name or "").strip()
+                local=None
+        name=explicit or shared or (str(local.get("stream_name") or "").strip() if local else "")
         if not name:
             name="osmo-"+secrets.token_hex(6)
-        row={
+        row=dict(local or {})
+        row.update({
             "version":self.VERSION,
             "stream_name":name,
-            "server_pid":None,
-            "created_at":time.time(),
+            "server_pid":row.get("server_pid"),
+            "created_at":row.get("created_at") or time.time(),
             "updated_at":time.time(),
-        }
+        })
         self._save(row)
+        self._sync_shared_stream_name(name)
         return row
+
+    def _sync_shared_stream_name(self,name=None):
+        value=str(name or self._state.get("stream_name") or "").strip() if hasattr(self,"_state") else str(name or "").strip()
+        if not value:
+            return None
+        self.shared_stream_file.parent.mkdir(parents=True,exist_ok=True)
+        self.shared_stream_file.write_text(value+"\n",encoding="utf-8")
+        return str(self.shared_stream_file)
+
 
     def _save(self,row):
         row=dict(row)
@@ -292,7 +319,7 @@ class ChandradevOsmoCameraAdapter:
         return {
             "component":"CHANDRADEV OSMO CAMERA ADAPTER",
             "version":self.VERSION,
-            "role":"camera transport/input adapter for the existing CHANDRADEV QC peer and HAWKEYE",
+            "role":"standalone PC camera transport/input adapter for the existing CHANDRADEV QC peer",
             "hardware_profile":OSMO_ACTION_ORIGINAL_PROFILE,
             "mediamtx":{
                 "exe":str(self.mediamtx_exe),
@@ -303,12 +330,22 @@ class ChandradevOsmoCameraAdapter:
                 "pid":pid if self._pid_alive(pid) else None,
             },
             "opencv_frame_reader":opencv,
+            "screen_focus":{
+                "mode":"software_auto_focus",
+                "optical_focus_control":False,
+                "detect_monitor":True,
+                "perspective_correction":True,
+                "sharpest_frame_selection":True,
+                "screen_lock":self._state.get("screen_lock"),
+                "enhancement":["crop","perspective_warp","upscale","local_contrast","unsharp_mask"],
+            },
             "usb_probe":self.probe_usb(),
             "urls":self.urls(),
+            "shared_stream_name_file":str(self.shared_stream_file),
             "cloud_required":False,
             "paid_service_required":False,
             "usb_live_video":False,
-            "live_path":"DJI Mimo RTMP -> MediaMTX -> local frame -> local VisionAdapter -> HAWKEYE",
+            "live_path":"DJI Mimo RTMP -> MediaMTX -> local frame -> local VisionAdapter -> CHANDRADEV",
         }
 
     def connection_guide(self,lan_ip=None):
@@ -323,16 +360,16 @@ class ChandradevOsmoCameraAdapter:
                 "Start the local Chandradev MediaMTX receiver on the PC.",
                 "In DJI Mimo open Live Stream and choose RTMP.",
                 "Enter the exact Mimo push URL below.",
-                "For the original Osmo Action select 720p/30fps; use 2 Mbps first, then 4 Mbps if the LAN is stable.",
-                "Start livestreaming; Chandradev reads the local stream and passes sampled frames to HAWKEYE.",
+                "For the original Osmo Action select 720p/30fps; use 4 Mbps for maximum supported live quality; fall back to 2 Mbps if the LAN is unstable.",
+                "Start livestreaming; Chandradev reads, analyzes and records sampled frames locally on the PC.",
             ],
             "mimo_push_url":urls["mimo_push_url"],
             "local_read_url":urls["local_rtmp_url"],
             "recommended_original_osmo_settings":{
                 "resolution":"720p",
                 "fps":30,
-                "bitrate_mbps":2,
-                "fallback":"480p/1 Mbps when Wi-Fi is unstable",
+                "bitrate_mbps":4,
+                "fallback":"720p/2 Mbps first; 480p/1 Mbps only when Wi-Fi is unstable",
             },
             "note":"The original Osmo Action does not expose USB UVC live video; USB remains useful for file transfer and charging.",
         }
@@ -421,49 +458,337 @@ class ChandradevOsmoCameraAdapter:
             "height":int(frame.shape[0]),
         }
 
-    def analyze_frame(self,*,prompt="",session_id="",scene_hint="auto"):
+    @staticmethod
+    def _order_quad(points):
+        import numpy as np
+        pts=np.asarray(points,dtype="float32").reshape(4,2)
+        ordered=np.zeros((4,2),dtype="float32")
+        sums=pts.sum(axis=1)
+        diffs=np.diff(pts,axis=1).reshape(-1)
+        ordered[0]=pts[sums.argmin()]   # top-left
+        ordered[2]=pts[sums.argmax()]   # bottom-right
+        ordered[1]=pts[diffs.argmin()]  # top-right
+        ordered[3]=pts[diffs.argmax()]  # bottom-left
+        return ordered
+
+    @staticmethod
+    def _quad_geometry(quad):
+        import numpy as np
+        q=ChandradevOsmoCameraAdapter._order_quad(quad)
+        tl,tr,br,bl=q
+        width=max(float(np.linalg.norm(br-bl)),float(np.linalg.norm(tr-tl)))
+        height=max(float(np.linalg.norm(tr-br)),float(np.linalg.norm(tl-bl)))
+        return q,max(1.0,width),max(1.0,height)
+
+    @staticmethod
+    def _screen_sharpness(image):
+        import cv2
+        gray=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY) if len(image.shape)==3 else image
+        return float(cv2.Laplacian(gray,cv2.CV_64F).var())
+
+    @staticmethod
+    def _detect_screen_quad(frame):
+        import cv2
+        import numpy as np
+        h,w=frame.shape[:2]
+        frame_area=float(max(1,h*w))
+        gray=cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+        gray=cv2.GaussianBlur(gray,(5,5),0)
+        edges=cv2.Canny(gray,45,140)
+        kernel=cv2.getStructuringElement(cv2.MORPH_RECT,(5,5))
+        edges=cv2.morphologyEx(edges,cv2.MORPH_CLOSE,kernel,iterations=2)
+        contours,_=cv2.findContours(edges,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
+        candidates=[]
+        center=np.array([w/2.0,h/2.0],dtype="float32")
+        for contour in sorted(contours,key=cv2.contourArea,reverse=True)[:80]:
+            area=float(cv2.contourArea(contour))
+            area_ratio=area/frame_area
+            if area_ratio<0.08 or area_ratio>0.98:
+                continue
+            peri=cv2.arcLength(contour,True)
+            approx=cv2.approxPolyDP(contour,0.02*peri,True)
+            if len(approx)!=4 or not cv2.isContourConvex(approx):
+                continue
+            quad=ChandradevOsmoCameraAdapter._order_quad(approx.reshape(4,2))
+            _,qw,qh=ChandradevOsmoCameraAdapter._quad_geometry(quad)
+            aspect=qw/qh
+            if aspect<1.05 or aspect>3.8:
+                continue
+            rect=cv2.minAreaRect(contour)
+            box_area=max(1.0,float(rect[1][0]*rect[1][1]))
+            rectangularity=min(1.0,area/box_area) if box_area>0 else 0.0
+            qcenter=quad.mean(axis=0)
+            center_distance=float(np.linalg.norm(qcenter-center))/max(1.0,float(np.linalg.norm(center)))
+            center_score=max(0.0,1.0-center_distance)
+            aspect_score=max(0.0,1.0-abs(aspect-(16.0/9.0))/2.2)
+            score=(area_ratio*4.0)+(rectangularity*1.8)+(center_score*0.8)+(aspect_score*0.6)
+            candidates.append({
+                "quad":quad,
+                "score":float(score),
+                "area_ratio":area_ratio,
+                "aspect_ratio":aspect,
+                "rectangularity":rectangularity,
+            })
+        if not candidates:
+            return None
+        candidates.sort(key=lambda x:x["score"],reverse=True)
+        return candidates[0]
+
+    @staticmethod
+    def _warp_screen(frame,quad):
+        import cv2
+        import numpy as np
+        q,width,height=ChandradevOsmoCameraAdapter._quad_geometry(quad)
+        max_w=max(320,int(round(width)))
+        max_h=max(180,int(round(height)))
+        destination=np.array(
+            [[0,0],[max_w-1,0],[max_w-1,max_h-1],[0,max_h-1]],
+            dtype="float32",
+        )
+        matrix=cv2.getPerspectiveTransform(q,destination)
+        return cv2.warpPerspective(frame,matrix,(max_w,max_h),flags=cv2.INTER_CUBIC)
+
+    @staticmethod
+    def _enhance_screen(image,target_width=1920):
+        import cv2
+        h,w=image.shape[:2]
+        width=max(int(target_width or 1920),w)
+        scale=width/float(max(1,w))
+        resized=cv2.resize(
+            image,
+            (width,max(1,int(round(h*scale)))),
+            interpolation=cv2.INTER_CUBIC if scale>1 else cv2.INTER_AREA,
+        )
+        lab=cv2.cvtColor(resized,cv2.COLOR_BGR2LAB)
+        l,a,b=cv2.split(lab)
+        clahe=cv2.createCLAHE(clipLimit=1.7,tileGridSize=(8,8))
+        l=clahe.apply(l)
+        enhanced=cv2.cvtColor(cv2.merge((l,a,b)),cv2.COLOR_LAB2BGR)
+        blurred=cv2.GaussianBlur(enhanced,(0,0),1.0)
+        return cv2.addWeighted(enhanced,1.45,blurred,-0.45,0)
+
+    @staticmethod
+    def _normalize_quad(quad,width,height):
+        q=ChandradevOsmoCameraAdapter._order_quad(quad)
+        return [
+            [round(float(x)/max(1.0,float(width)),6),round(float(y)/max(1.0,float(height)),6)]
+            for x,y in q
+        ]
+
+    @staticmethod
+    def _denormalize_quad(points,width,height):
+        import numpy as np
+        return np.asarray(
+            [[float(x)*width,float(y)*height] for x,y in points],
+            dtype="float32",
+        )
+
+    def clear_screen_lock(self):
+        self._state.pop("screen_lock",None)
+        self._save(self._state)
+        return {"locked":False,"screen_lock":None}
+
+    def focus_screen(self,*,burst_frames=12,target_width=1920,timeout_seconds=8):
+        """Software auto-focus for a monitor/screen in the Osmo RTMP feed.
+
+        The original action camera does not expose motorized focus control here.
+        We instead detect the monitor, perspective-correct it, choose the
+        sharpest screen image from a short burst, upscale and enhance it.
+        """
+        try:
+            import cv2
+        except ImportError as exc:
+            raise RuntimeError(
+                "OpenCV screen focus is not installed; run scripts/INSTALL_CHANDRADEV_VISION.ps1"
+            ) from exc
+        source=self.urls()["local_rtmp_url"]
+        cap=cv2.VideoCapture()
+        for prop,value in (
+            (getattr(cv2,"CAP_PROP_OPEN_TIMEOUT_MSEC",-1),int(max(1,timeout_seconds)*1000)),
+            (getattr(cv2,"CAP_PROP_READ_TIMEOUT_MSEC",-1),int(max(1,timeout_seconds)*1000)),
+        ):
+            if prop>=0:
+                try:cap.set(prop,value)
+                except Exception:pass
+        if not cap.open(source):
+            cap.release()
+            raise RuntimeError("Chandradev RTMP stream is not available at "+source)
+
+        count=max(3,min(int(burst_frames or 12),45))
+        best=None
+        locked=self._state.get("screen_lock")
+        for index in range(count):
+            ok,frame=cap.read()
+            if not ok or frame is None:
+                continue
+            h,w=frame.shape[:2]
+            detected=self._detect_screen_quad(frame)
+            used_lock=False
+            if detected is None and isinstance(locked,dict) and len(locked.get("normalized_quad") or [])==4:
+                quad=self._denormalize_quad(locked["normalized_quad"],w,h)
+                detected={
+                    "quad":quad,
+                    "score":float(locked.get("detection_score") or 0.5)*0.82,
+                    "area_ratio":float(locked.get("area_ratio") or 0),
+                    "aspect_ratio":float(locked.get("aspect_ratio") or 0),
+                    "rectangularity":float(locked.get("rectangularity") or 0),
+                }
+                used_lock=True
+            if detected is None:
+                continue
+            warped=self._warp_screen(frame,detected["quad"])
+            sharpness=self._screen_sharpness(warped)
+            combined=(float(detected["score"])*100.0)+min(sharpness,2500.0)/12.0
+            row={
+                "frame":frame,
+                "warped":warped,
+                "quad":detected["quad"],
+                "detection_score":float(detected["score"]),
+                "area_ratio":float(detected["area_ratio"]),
+                "aspect_ratio":float(detected["aspect_ratio"]),
+                "rectangularity":float(detected["rectangularity"]),
+                "sharpness":sharpness,
+                "combined_score":combined,
+                "used_previous_lock":used_lock,
+                "source_width":w,
+                "source_height":h,
+                "burst_index":index,
+            }
+            if best is None or row["combined_score"]>best["combined_score"]:
+                best=row
+        cap.release()
+
+        if best is None:
+            return {
+                "found":False,
+                "mode":"software_auto_focus",
+                "reason":"screen_not_detected",
+                "guidance":[
+                    "Move the Osmo so the monitor occupies more of the frame.",
+                    "Avoid severe glare/reflections and keep all four screen edges visible.",
+                    "Keep the camera roughly 0.5-1.5 m from the monitor and physically stable.",
+                ],
+                "source":source,
+            }
+
+        enhanced=self._enhance_screen(best["warped"],target_width=target_width)
+        stamp=time.strftime("%Y%m%d-%H%M%S")+"-"+f"{int(time.time()*1000)%1000:03d}"
+        raw_path=self.screens/f"screen-{stamp}-raw.jpg"
+        focused_path=self.screens/f"screen-{stamp}-focused.jpg"
+        cv2.imwrite(str(raw_path),best["warped"],[int(cv2.IMWRITE_JPEG_QUALITY),95])
+        cv2.imwrite(str(focused_path),enhanced,[int(cv2.IMWRITE_JPEG_QUALITY),96])
+
+        normalized=self._normalize_quad(
+            best["quad"],best["source_width"],best["source_height"]
+        )
+        lock={
+            "normalized_quad":normalized,
+            "detection_score":round(best["detection_score"],6),
+            "area_ratio":round(best["area_ratio"],6),
+            "aspect_ratio":round(best["aspect_ratio"],6),
+            "rectangularity":round(best["rectangularity"],6),
+            "sharpness":round(best["sharpness"],3),
+            "source_width":best["source_width"],
+            "source_height":best["source_height"],
+            "locked_at":time.time(),
+        }
+        self._state["screen_lock"]=lock
+        self._save(self._state)
+
+        eh,ew=enhanced.shape[:2]
+        return {
+            "found":True,
+            "mode":"software_auto_focus",
+            "optical_focus_changed":False,
+            "screen_locked":True,
+            "used_previous_lock":bool(best["used_previous_lock"]),
+            "burst_frames_requested":count,
+            "selected_burst_index":best["burst_index"],
+            "detection_score":round(best["detection_score"],4),
+            "sharpness":round(best["sharpness"],2),
+            "screen_area_ratio":round(best["area_ratio"],4),
+            "screen_aspect_ratio":round(best["aspect_ratio"],4),
+            "normalized_quad":normalized,
+            "raw_screen_path":str(raw_path),
+            "focused_screen_path":str(focused_path),
+            "focused_width":int(ew),
+            "focused_height":int(eh),
+            "source":source,
+            "enhancement":[
+                "screen detection","perspective correction","sharpest-frame selection",
+                "bicubic upscale","local contrast enhancement","unsharp mask",
+            ],
+        }
+
+    def analyze_screen(self,*,prompt="",burst_frames=12,target_width=1920):
+        if self.vision is None:
+            raise RuntimeError("Chandradev VisionAdapter is not bound")
+        focus=self.focus_screen(
+            burst_frames=burst_frames,
+            target_width=target_width,
+        )
+        if not focus.get("found"):
+            return {
+                "component":"CHANDRADEV SCREEN FOCUS",
+                "focus":focus,
+                "vision":None,
+                "chandradev_observation":None,
+                "cloud_upload":False,
+            }
+        path=Path(focus["focused_screen_path"])
+        question=str(prompt or (
+            "Read and understand this computer screen. Prioritize visible text, buttons, menus, "
+            "dialogs, code, terminal output, warnings, status indicators and UI problems. "
+            "Do not guess text that is not legible; explicitly identify uncertain areas."
+        )).strip()
+        result=self.vision.analyze_bytes(
+            path.read_bytes(),"image/jpeg",question,mode="detailed"
+        )
+        observation=None
+        if self.chandradev is not None:
+            observation=self.chandradev.record_camera_observation(
+                analysis=str(result.get("analysis") or ""),
+                frame_meta={
+                    "path":focus["focused_screen_path"],
+                    "width":focus["focused_width"],
+                    "height":focus["focused_height"],
+                    "content_type":"image/jpeg",
+                    "captured_at":time.time(),
+                },
+                source="DJI Osmo Action screen focus via DJI Mimo RTMP",
+                prompt=question,
+            )
+        return {
+            "component":"CHANDRADEV SCREEN FOCUS",
+            "focus":focus,
+            "vision":result,
+            "chandradev_observation":observation,
+            "cloud_upload":False,
+        }
+
+    def analyze_frame(self,*,prompt=""):
         if self.vision is None:
             raise RuntimeError("Chandradev VisionAdapter is not bound")
         frame=self.capture_frame()
         data=Path(frame["path"]).read_bytes()
         question=str(prompt or (
             "Observe this live Chandradev camera frame. Describe only visible evidence, important objects, "
-            "text, people/vehicles/equipment and changes that are actually supported. State uncertainty."
+            "text, people, vehicles, equipment and changes that are actually supported. State uncertainty."
         )).strip()
         result=self.vision.analyze_bytes(data,"image/jpeg",question,mode="fast")
-        hawkeye_row=None
-        if session_id and self.hawkeye is not None:
-            hawkeye_row=self.hawkeye.record_live_analysis(
-                str(session_id),
-                str(result.get("analysis") or ""),
-                model=result.get("model"),
-                sensor_context={
-                    "camera":"DJI Osmo Action (original)",
-                    "transport":"DJI Mimo RTMP",
-                    "scene_hint":str(scene_hint or "auto"),
-                },
-                frame_meta={
-                    "source":"chandradev-osmo-rtmp",
-                    "path":frame["path"],
-                    "width":frame["width"],
-                    "height":frame["height"],
-                    "confidence":0.65,
-                },
+        observation=None
+        if self.chandradev is not None:
+            observation=self.chandradev.record_camera_observation(
+                analysis=str(result.get("analysis") or ""),
+                frame_meta=frame,
+                source="DJI Osmo Action (original) via DJI Mimo RTMP",
+                prompt=question,
             )
         return {
             "component":"CHANDRADEV OSMO CAMERA ADAPTER",
             "frame":frame,
             "vision":result,
-            "hawkeye":hawkeye_row,
+            "chandradev_observation":observation,
             "raw_frame_retention":"local PC only",
             "cloud_upload":False,
         }
-
-    def start_hawkeye_session(self,*,project="KRISHNA",purpose="Chandradev live Osmo observation",scene_hint="auto"):
-        if self.hawkeye is None:
-            raise RuntimeError("HAWKEYE coordinator is not bound")
-        return self.hawkeye.start_live_session(
-            project=str(project or "KRISHNA"),
-            purpose=str(purpose or "Chandradev live Osmo observation"),
-            scene_hint=str(scene_hint or "auto"),
-        )
