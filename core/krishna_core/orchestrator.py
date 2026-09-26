@@ -129,6 +129,8 @@ from .narada_legal import NaradaLegalAdvisor
 from .system_one import SystemOneDecisionEngine
 from .capability_fabric import CapabilityFabric
 from .load_relief_integrations import LoadReliefIntegrationCatalog, StemkitOnDemand, StrixSandboxContract
+from .event_semantics import EventSemantics
+from .creator_workflow import CreatorWorkflowPlanner
 
 
 class Orchestrator:
@@ -214,6 +216,8 @@ class Orchestrator:
             module_root=os.getenv("KRISHNA_STEMKIT_ROOT") or None
         )
         self.strix_contract = StrixSandboxContract()
+        self.event_semantics = EventSemantics()
+        self.creator_workflow = CreatorWorkflowPlanner()
         for provider in (
             ("android-mlkit","vision","mobile",True,False,True,False,"on-device lightweight perception"),
             ("mobile-openrouter-zero","general","cloud",True,False,False,False,"mobile direct live zero-price catalog preflight"),
@@ -678,6 +682,15 @@ class Orchestrator:
 
         def load_relief_integrations_action(payload,context):
             return self.load_relief_integrations.status()
+
+        def event_semantics_status_action(payload,context):
+            return self.event_semantics.status()
+
+        def creator_workflow_status_action(payload,context):
+            return self.creator_workflow.status()
+
+        def creator_workflow_plan_action(payload,context):
+            return self.creator_workflow.plan(str(payload.get("goal") or "campaign"))
 
         def stemkit_status_action(payload,context):
             return self.stemkit.status()
@@ -3246,6 +3259,21 @@ class Orchestrator:
             "load_relief.integrations",load_relief_integrations_action,
             description="Inspect researched optional integrations and their no-overload execution modes",
             permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "event_semantics.status",event_semantics_status_action,
+            description="Inspect zero-resident serial/parallel/waterfall/emit composition semantics",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "creator_workflow.status",creator_workflow_status_action,
+            description="Inspect free-first creator workflow planner",
+            permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "creator_workflow.plan",creator_workflow_plan_action,
+            description="Plan a cold free-first media workflow without starting providers",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "stemkit.status",stemkit_status_action,
