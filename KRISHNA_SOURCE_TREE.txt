@@ -129,7 +129,9 @@ core\krishna_core\lab_bot.py
 core\krishna_core\lan_discovery.py
 core\krishna_core\lip_sync.py
 core\krishna_core\long_context.py
+core\krishna_core\manibhadra_advisor.py
 core\krishna_core\manibhadra_commerce.py
+core\krishna_core\manibhadra_crm.py
 core\krishna_core\marketplace_adapters.py
 core\krishna_core\mcp_transport.py
 core\krishna_core\media_adapter.py
@@ -344,6 +346,7 @@ core\tests\test_lab_bot.py
 core\tests\test_lan_discovery_and_safety.py
 core\tests\test_lip_sync.py
 core\tests\test_long_context.py
+core\tests\test_manibhadra_crm.py
 core\tests\test_mcp_transport.py
 core\tests\test_missed_additions.py
 core\tests\test_mission_foundation.py
