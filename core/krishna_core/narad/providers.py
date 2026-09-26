@@ -87,12 +87,39 @@ class NaradProviderHub:
         return _json_request(f"https://graph.facebook.com/v23.0/{urllib.parse.quote(phone_id)}/messages",body=body,headers={"Authorization":self._bearer(h)})
 
     def _gmail(self,op,p,h):
-        if op!="send_email":raise ValueError("gmail supports send_email")
-        to=str(p.get("to") or "").strip();subject=str(p.get("subject") or "").strip();text=str(p.get("text") or "")
-        if not to or not subject:raise ValueError("gmail to and subject are required")
-        msg=EmailMessage();msg["To"]=to;msg["Subject"]=subject;msg["From"]=str(p.get("from") or "me");msg.set_content(text)
-        raw=base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii").rstrip("=")
-        return _json_request("https://gmail.googleapis.com/gmail/v1/users/me/messages/send",body={"raw":raw},headers={"Authorization":self._bearer(h)})
+        auth={"Authorization":self._bearer(h)}
+        base="https://gmail.googleapis.com/gmail/v1/users/me/messages"
+        if op=="send_email":
+            to=str(p.get("to") or "").strip();subject=str(p.get("subject") or "").strip();text=str(p.get("text") or "")
+            if not to or not subject:raise ValueError("gmail to and subject are required")
+            msg=EmailMessage();msg["To"]=to;msg["Subject"]=subject;msg["From"]=str(p.get("from") or "me");msg.set_content(text)
+            raw=base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii").rstrip("=")
+            return _json_request(base+"/send",body={"raw":raw},headers=auth)
+        if op=="list_messages":
+            params={"maxResults":min(500,max(1,int(p.get("max_results") or 50)))}
+            q=str(p.get("q") or "").strip()
+            if q:params["q"]=q
+            labels=p.get("label_ids") or []
+            if labels:params["labelIds"]=",".join(str(x) for x in labels)
+            if bool(p.get("include_spam_trash",False)):params["includeSpamTrash"]="true"
+            return _json_request(base+"?"+urllib.parse.urlencode(params),method="GET",headers=auth)
+        message_id=str(p.get("message_id") or "").strip()
+        if not message_id:raise ValueError("gmail message_id is required")
+        safe=urllib.parse.quote(message_id,safe="")
+        if op=="get_message":
+            fmt=str(p.get("format") or "metadata").lower()
+            if fmt not in {"minimal","full","raw","metadata"}:raise ValueError("unsupported gmail message format")
+            params={"format":fmt}
+            return _json_request(base+"/"+safe+"?"+urllib.parse.urlencode(params),method="GET",headers=auth)
+        if op=="modify_labels":
+            add=[str(x) for x in p.get("add_label_ids") or [] if str(x)]
+            remove=[str(x) for x in p.get("remove_label_ids") or [] if str(x)]
+            return _json_request(base+"/"+safe+"/modify",body={"addLabelIds":add,"removeLabelIds":remove},headers=auth)
+        if op=="trash_message":
+            return _json_request(base+"/"+safe+"/trash",body={},headers=auth)
+        if op=="untrash_message":
+            return _json_request(base+"/"+safe+"/untrash",body={},headers=auth)
+        raise ValueError("gmail supports send_email, list_messages, get_message, modify_labels, trash_message, untrash_message")
 
     def _drive(self,op,p,h):
         if op=="list_files":
