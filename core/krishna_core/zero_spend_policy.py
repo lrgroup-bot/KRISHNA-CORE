@@ -74,6 +74,39 @@ class ZeroSpendPolicy:
             "reason":"zero cash outflow" if allowed else "business model requires outgoing spend",
         }
 
+    def investment_scenario(
+        self,*,investment:float,expected_revenue:float|None=None,
+        expected_margin_rate:float|None=None,low_revenue:float|None=None,
+        high_revenue:float|None=None,assumptions:list[str]|None=None,
+    )->dict[str,Any]:
+        amount=float(investment)
+        if amount<=0:raise ValueError("investment must be positive")
+        if expected_revenue is None and expected_margin_rate is None:
+            raise ValueError("expected_revenue or expected_margin_rate is required")
+        revenue=float(expected_revenue) if expected_revenue is not None else amount*(1.0+float(expected_margin_rate))
+        low=float(low_revenue) if low_revenue is not None else max(0.0,revenue*0.70)
+        high=float(high_revenue) if high_revenue is not None else revenue*1.30
+        if low<0 or high<0 or high<low:raise ValueError("invalid revenue range")
+        profit=revenue-amount
+        low_profit=low-amount
+        high_profit=high-amount
+        roi=(profit/amount)*100.0
+        return {
+            "advisory_only":True,
+            "proposal_authority":"KRISHNA",
+            "execution_authority":"NONE under zero-spend mode",
+            "investment":round(amount,2),
+            "expected_revenue":round(revenue,2),
+            "revenue_range":{"low":round(low,2),"high":round(high,2)},
+            "expected_profit":round(profit,2),
+            "profit_range":{"low":round(low_profit,2),"high":round(high_profit,2)},
+            "expected_roi_percent":round(roi,2),
+            "break_even_revenue":round(amount,2),
+            "assumptions":list(assumptions or []),
+            "guaranteed":False,
+            "warning":"This is a scenario estimate, not a promise of return. KRISHNA must present it to the owner; no spending action is authorized.",
+        }
+
     def status(self):
         return {
             "component":"KRISHNA Zero Spend Policy",
@@ -84,4 +117,5 @@ class ZeroSpendPolicy:
             "forbidden_operations":sorted(ZERO_SPEND_FORBIDDEN),
             "allowed_inflows":sorted(RECEIVE_ONLY_ALLOWED),
             "platform_fee_deducted_from_proceeds":"blocked by default until explicitly treated as non-outgoing by a future policy change",
+            "investment_suggestions":"KRISHNA may present advisory ROI scenarios; MANIBHADRA cannot execute them",
         }
