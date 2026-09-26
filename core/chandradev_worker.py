@@ -40,6 +40,8 @@ def probe():
             "final_packet_contains_findings_only": True,
             "peer_qc": "BRAHMA",
             "disagreement": "DEBATE_REQUIRED",
+            "authentication_handoff": "owner_permission_required_per_checkpoint",
+            "captcha_liveness": "owner-approved_human_handoff_only",
         },
     }
 
