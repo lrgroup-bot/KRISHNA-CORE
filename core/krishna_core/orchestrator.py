@@ -117,6 +117,10 @@ from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
 from .social_channels import SocialChannelRegistry
+from .affiliate_intent import AffiliateIntentEngine
+from .zero_spend_policy import ZeroSpendPolicy
+from .manibhadra_crm import ManibhadraCRM
+from .manibhadra_advisor import ManibhadraCloudAdvisor
 from .narada_legal import NaradaLegalAdvisor
 
 
@@ -184,6 +188,10 @@ class Orchestrator:
         self.application_security = ApplicationSecurityLoop()
         self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
         self.social_channels = SocialChannelRegistry()
+        self.affiliate_intent = AffiliateIntentEngine()
+        self.zero_spend = ZeroSpendPolicy()
+        self.manibhadra_crm = ManibhadraCRM(runtime_state / "manibhadra-crm.json")
+        self.manibhadra_advisor = ManibhadraCloudAdvisor(self.openrouter_free,self.direct_free)
         self.narada_legal = NaradaLegalAdvisor(runtime_state / "narada-legal")
         legal_watch_title = "Narada Indian legal source freshness watch"
         if not any(x.get("title")==legal_watch_title for x in self.commitments.list("KRISHNA",True,500)):
