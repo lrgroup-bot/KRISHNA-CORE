@@ -200,7 +200,8 @@ class SharedActionBus:
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def register(self,name,handler,*,description="",mutating=False,requires_approval=False,
-                 permissions=(),sources=("pc","mobile","system","agent","job","mcp","a2a"),rollback_action=None)->dict:
+                 permissions=(),sources=("pc","mobile","system","agent","job","mcp","a2a"),rollback_action=None,
+                 replace=False)->dict:
         key=str(name or "").strip()
         if not key or any(ch.isspace() for ch in key):
             raise ValueError("shared action name must be a non-empty token")
@@ -214,6 +215,8 @@ class SharedActionBus:
             rollback_action=str(rollback_action) if rollback_action else None,
         )
         with self._lock:
+            if key in self._handlers and not replace:
+                raise ValueError(f"shared action already registered: {key}")
             self._handlers[key]=(spec,handler)
         return spec.as_dict()
 
