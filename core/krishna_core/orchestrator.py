@@ -112,6 +112,7 @@ from .marketplace_adapters import MarketplaceAdapterRegistry
 from .workflow_recording import WorkflowRecorder
 from .skill_compiler import SkillCompiler
 from .node_registry import NodeRegistry
+from .node_execution import TrustedNodeExecutor
 from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
@@ -177,6 +178,7 @@ class Orchestrator:
         self.skill_compiler = SkillCompiler(runtime_state / "skill-candidates")
         self.workflow_recorder = WorkflowRecorder(runtime_state / "workflow-recordings", self.skill_compiler)
         self.compute_nodes = NodeRegistry(runtime_state / "trusted-nodes.json")
+        self.node_executor = TrustedNodeExecutor(self.compute_nodes)
         self.github_pr_reviewer = GitHubPRReviewer()
         self.application_security = ApplicationSecurityLoop()
         self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
@@ -607,6 +609,7 @@ class Orchestrator:
                 platform=str(payload.get("platform") or ""),
                 capabilities=payload.get("capabilities") or [],
                 endpoint=str(payload.get("endpoint") or ""),
+                workspace_root=str(payload.get("workspace_root") or ""),
                 approved=bool(context.get("approved",False)),
             )
 
@@ -621,6 +624,22 @@ class Orchestrator:
                 str(payload.get("capability") or ""),
                 str(payload.get("platform") or "").strip() or None,
             )}
+
+        def compute_nodes_plan_action(payload,context):
+            return self.node_executor.plan(
+                str(payload.get("capability") or ""),
+                payload.get("command") or [],
+                str(payload.get("platform") or "").strip() or None,
+            )
+
+        def compute_nodes_run_action(payload,context):
+            return self.node_executor.run(
+                str(payload.get("capability") or ""),
+                payload.get("command") or [],
+                platform=str(payload.get("platform") or "").strip() or None,
+                approved=bool(context.get("approved",False)),
+                timeout=int(payload.get("timeout") or 1800),
+            )
 
         def workflow_record_start_action(payload,context):
             return self.workflow_recorder.start(
@@ -2893,6 +2912,16 @@ class Orchestrator:
             "compute.nodes.select",compute_nodes_select_action,
             description="Select an online trusted compute node for a declared capability",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "compute.nodes.plan",compute_nodes_plan_action,
+            description="Plan a bounded engineering command on an already-trusted Mac/Linux node",
+            permissions=("runtime.read",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "compute.nodes.run",compute_nodes_run_action,
+            description="Execute an approved allowlisted engineering command over strict-host-key SSH on a trusted node",
+            mutating=True,requires_approval=True,permissions=("candidate.write",),sources=("pc","system","job"),
         )
         self.action_bus.register(
             "workflow.record.start",workflow_record_start_action,
