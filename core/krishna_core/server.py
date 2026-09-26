@@ -1131,6 +1131,11 @@ class Handler(BaseHTTPRequestHandler):
             try:return self._json(200,orch._engineering_worktree_manager(project).status())
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+        if path == "/api/engineering/swarm/status":
+            project=(query.get("project") or [""])[0].strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:return self._json(200,orch.engineering_swarm.status(project) or {"project":project,"status":"UNSTAFFED"})
+            except RuntimeError as exc:return self._json(500,{"error":str(exc)})
         if path == "/api/project-perfection/status":
             return self._json(200,orch.project_perfection.status())
         if path == "/api/design-studio/session":
@@ -3734,6 +3739,20 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 return self._json(200,receipt["result"])
             except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/engineering/staff":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "engineering.staff",
+                    {"project":project,"tasks":data.get("tasks") or [],"base_ref":data.get("base_ref") or "HEAD"},
+                    project="KRISHNA",source="pc",actor="engineering-http",
+                    permissions=("candidate.write","mission.write","project.read"),
+                )
+                return self._json(201,receipt["result"])
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except (ValueError,PermissionError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/engineering/worktree/create":
             project=str(data.get("project") or "").strip();worker_id=str(data.get("worker_id") or "").strip()
