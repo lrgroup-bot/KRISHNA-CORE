@@ -23,6 +23,7 @@ core\design_studio.html
 core\krishna_console.py
 core\krishna_core\__init__.py
 core\krishna_core\action_registry.py
+core\krishna_core\affiliate_intent.py
 core\krishna_core\agent_runtime.py
 core\krishna_core\agi_kernel.py
 core\krishna_core\amcc_controller.py
@@ -275,6 +276,7 @@ core\skills\remote-node\SKILL.md
 core\skills\root-cause-investigation\SKILL.md
 core\skills\secure-mobile-gateway\SKILL.md
 core\skills\verification-gate\SKILL.md
+core\tests\test_affiliate_intent.py
 core\tests\test_agent_native_runtime.py
 core\tests\test_amcc_controller.py
 core\tests\test_architecture_truth_classification.py
