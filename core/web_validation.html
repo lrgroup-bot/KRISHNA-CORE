@@ -1191,6 +1191,15 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 @media(max-width:1350px){.maniMarketControls{grid-template-columns:repeat(4,1fr)}.maniMarketControls label:first-child{grid-column:span 2}.maniMarketSplit{grid-template-columns:1fr}.maniKpis{grid-template-columns:repeat(3,1fr)}.maniFocus{grid-template-columns:1fr 1.5fr}.maniFocus>.maniPanel:last-child{grid-column:1/-1}.maniRecordGrid,.maniConnections{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:850px){#manibhadra .panelInner{padding:18px 12px 50px}.maniMarketControls{grid-template-columns:1fr 1fr}.maniMarketControls label:first-child{grid-column:1/-1}.maniMarketSummary{grid-template-columns:1fr 1fr}.maniHero{align-items:flex-start;flex-direction:column}.maniHeroActions{justify-content:flex-start}.maniKpis{grid-template-columns:repeat(2,1fr)}.maniFocus,.maniLower{grid-template-columns:1fr}.maniFocus>.maniPanel:last-child{grid-column:auto}.maniRecordGrid,.maniConnections{grid-template-columns:1fr}.maniQuickForm{grid-template-columns:1fr 1fr}.maniPipeline{grid-auto-columns:minmax(210px,75vw)}}
 </style>
+<style id="windows-layout-corrections">
+/* The main column already reserves the sidebar width. */
+.main .composerWrap{left:auto!important;right:auto!important;min-width:0!important;max-width:100%!important;box-sizing:border-box}
+.main .composer{min-width:0!important;max-width:100%!important;box-sizing:border-box}
+.main:has(#sudarshan.active) #krishnaPopupLauncher{bottom:160px!important}
+#krishnaAvatar [hidden]{display:none!important}
+#home .krishnaAvatar{height:min(60dvh,560px)!important;max-height:calc(100dvh - 150px)!important}
+#avatarCapability{display:block;text-align:center;color:#b9c9d2;font-size:11px;line-height:1.4;margin-top:5px}
+</style>
 <script type="importmap">
 {"imports":{"three":"/assets/avatar-engine/three/build/three.module.js","three/addons/":"/assets/avatar-engine/three/examples/jsm/","talkinghead":"/assets/avatar-engine/talkinghead/talkinghead.mjs"}}
 </script>
@@ -1265,7 +1274,7 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
   </div>
 </section>
 <div class="sceneGrid"></div><header class="top"><div class="crumb"><span id="modeBadge" style="color:var(--gold);margin-right:8px">KRISHNA</span><span id="pageTitle">Almighty Core</span> <span style="color:#596474">/</span> <span id="projectName">general</span></div><div class="topActions"><button id="brahmaNotify" class="brahmaNotify" type="button" title="BRAHMA QC notifications" aria-label="Open BRAHMA QC notifications" onclick="showView('workingGods')"><span class="brahmaGlyph">🪷</span><i id="brahmaLight" class="brahmaLight status-red"></i></button><span id="contextBadge" class="pill">KRISHNA</span><button class="ghost chatScopedTop legacyChatAction" onclick="moveCurrentChat()" style="display:none">Move chat</button><button class="ghost danger chatScopedTop legacyChatAction" onclick="deleteCurrentChat()" style="display:none">Delete chat</button><span id="online" class="pill">CHECKING</span></div></header>
-<select id="project" style="display:none"></select><section id="home" class="view active panelView"><div class="panelInner"><div id="workingGodsOverlay" class="workingGodsOverlay" aria-label="Working Gods live status"><div class="workingGodsOverlayHead"><span>WORKING GODS</span><button type="button" onclick="showView('workingGods')">OPEN</button></div><div id="workingGodsMini"></div></div><div class="holoStage"><div class="holoCore"><div class="holoRing r1"></div><div class="holoRing r2"></div><div class="holoRing r3"></div><div class="holoOrb"></div><div id="krishnaAvatar" class="krishnaAvatar"><div id="krishnaLiveAvatar" class="krishnaLiveAvatar" aria-label="KRISHNA live 3D avatar" hidden></div><model-viewer id="krishnaModel" alt="KRISHNA avatar" camera-controls disable-zoom autoplay shadow-intensity="1" interaction-prompt="none" hidden></model-viewer><div id="avatarFallback" class="avatarFallback" data-state="FLUTE"><div class="avatarFallbackStage"><img id="avatarFallbackStrip" class="avatarFallbackStrip" src="/api/avatar360" alt="KRISHNA animated avatar fallback"></div><small id="avatarStatus">KRISHNA animated fallback · local mode</small></div><div class="k" style="margin-top:6px">CHARACTER STATE · <span id="avatarPerformanceState">FLUTE</span></div></div><div class="homeLegacyDetails" aria-hidden="true"><div class="holoNode n1">NEURAL ACTION GRAPH</div><div class="holoNode n2">SYSTEM OBSERVER</div><div class="holoNode n3">VERIFICATION GATE</div><div class="holoNode n4">SUDARSHAN ONLINE</div><div class="holoLabel"><strong>KRISHNA</strong><span>ALMIGHTY CORE</span></div></div></div></div><div class="homeLegacyDetails" aria-hidden="true"><button class="primary" onclick="showView('sudarshan');newChat()">ENTER SUDARSHAN ☸</button><div class="grid"><div class="card"><div class="k">ROLE</div><div class="v">Almighty Core</div></div><div class="card"><div class="k">WORKSPACE</div><div class="v">Sudarshan</div></div><div class="card"><div class="k">AUTHORITY</div><div class="v">Policy + Verification</div></div></div></div></div></section>
+<select id="project" style="display:none"></select><section id="home" class="view active panelView"><div class="panelInner"><div id="workingGodsOverlay" class="workingGodsOverlay" aria-label="Working Gods live status"><div class="workingGodsOverlayHead"><span>WORKING GODS</span><button type="button" onclick="showView('workingGods')">OPEN</button></div><div id="workingGodsMini"></div></div><div class="holoStage"><div class="holoCore"><div class="holoRing r1"></div><div class="holoRing r2"></div><div class="holoRing r3"></div><div class="holoOrb"></div><div id="krishnaAvatar" class="krishnaAvatar"><div id="krishnaLiveAvatar" class="krishnaLiveAvatar" aria-label="KRISHNA live 3D avatar" hidden></div><model-viewer id="krishnaModel" alt="KRISHNA avatar" camera-controls disable-zoom autoplay shadow-intensity="1" interaction-prompt="none" hidden></model-viewer><div id="avatarFallback" class="avatarFallback" data-state="FLUTE"><div class="avatarFallbackStage"><img id="avatarFallbackStrip" class="avatarFallbackStrip" src="/api/avatar360" alt="KRISHNA animated avatar fallback"></div><small id="avatarStatus">KRISHNA animated fallback · local mode</small></div><small id="avatarCapability"></small><div class="k" style="margin-top:6px">CHARACTER STATE · <span id="avatarPerformanceState">FLUTE</span></div></div><div class="homeLegacyDetails" aria-hidden="true"><div class="holoNode n1">NEURAL ACTION GRAPH</div><div class="holoNode n2">SYSTEM OBSERVER</div><div class="holoNode n3">VERIFICATION GATE</div><div class="holoNode n4">SUDARSHAN ONLINE</div><div class="holoLabel"><strong>KRISHNA</strong><span>ALMIGHTY CORE</span></div></div></div></div><div class="homeLegacyDetails" aria-hidden="true"><button class="primary" onclick="showView('sudarshan');newChat()">ENTER SUDARSHAN ☸</button><div class="grid"><div class="card"><div class="k">ROLE</div><div class="v">Almighty Core</div></div><div class="card"><div class="k">WORKSPACE</div><div class="v">Sudarshan</div></div><div class="card"><div class="k">AUTHORITY</div><div class="v">Policy + Verification</div></div></div></div></div></section>
 <section id="sudarshan" class="view chatView">
 <div class="sudarshanBar"><span class="miniCore">☸</span><button class="ghost" onclick="newChat()">＋ New</button><button class="ghost" onclick="loadChats()">↻ Chats</button><button class="ghost legacyChatAction" onclick="renameCurrentChat()">✎ Rename</button><button class="ghost legacyChatAction" onclick="moveCurrentChat()">◇ Move</button><button class="ghost danger legacyChatAction" onclick="deleteCurrentChat()">× Delete</button><button class="ghost" onclick="loadTasks()">▷ Work</button><span class="spacer"></span><span id="sudarshanState" class="workChip">READY</span></div>
 <div class="sudarshanDeck">
@@ -1551,7 +1560,16 @@ function filterSidebarChats(){
 function toggleKrishnaPopup(force){
  const p=$('krishnaPopup');if(!p)return;const open=typeof force==='boolean'?force:p.hidden;
  p.hidden=!open;p.classList.remove('minimized');
- if(open)setTimeout(()=>$('krishnaPopupInput')?.focus(),80);
+ if(open){setTimeout(()=>$('krishnaPopupInput')?.focus(),80);refreshVoiceAvailability()}
+}
+async function refreshVoiceAvailability(){
+ const state=$('krishnaVoiceState');if(!state||krishnaRecognition)return;
+ try{
+  const voice=await req('/api/voice/status');
+  const browser=!!(window.SpeechRecognition||window.webkitSpeechRecognition);
+  state.textContent=(browser?'Microphone uses browser speech':'Browser microphone recognition unavailable')+
+   (voice.stt?.available&&voice.tts?.available?' · local voice workers ready':' · local voice setup pending');
+ }catch(e){state.textContent='Voice status unavailable'}
 }
 function minimizeKrishnaPopup(){const p=$('krishnaPopup');if(!p)return;p.classList.toggle('minimized')}
 function fillKrishnaPopup(text){toggleKrishnaPopup(true);const i=$('krishnaPopupInput');if(i){i.value=text;i.focus()}}
@@ -1666,8 +1684,13 @@ async function refreshCommandCenter(){
  try{
    const [d,i]=await Promise.all([req('/api/dashboard'),req('/api/runtime/integrity')]);
    const act=d.current_activity||'Idle'; setOps('work',act,act==='Idle'?'idle':'good');avatarState(d.avatar_state||(act==='Idle'?'FLUTE':'WORKING'));
-   const r=d.resources||{}; const cpu=Math.round(Number(r.cpu_percent||r.cpu||0)); const mem=Math.round(Number(r.memory_percent||r.memory||0));
-   const peak=Math.max(cpu,mem); setOps('load','CPU '+cpu+'% · RAM '+mem+'%',peak>=90?'bad':peak>=75?'warn':'good');
+   const r=d.pc_observer||{};
+   const percent=v=>typeof v==='number'&&Number.isFinite(v)?Math.round(v):null;
+   const cpu=percent(r.cpu_percent),mem=percent(r.memory_percent);
+   const stale=!r.checked_at||Date.now()/1000-r.checked_at>60;
+   const peak=Math.max(cpu??0,mem??0),pressure=r.pressure?.cpu||r.pressure?.memory;
+   setOps('load','CPU '+(cpu??'—')+'% · RAM '+(mem??'—')+'%'+(stale?' · stale':''),
+     stale||cpu===null||mem===null?'idle':peak>=90?'bad':pressure||peak>=75?'warn':'good');
    if(i.status==='DRIFT')setOps('verify','RUNTIME DRIFT','bad');
    else if(i.status==='UNVERIFIED')setOps('verify','Runtime unverified','warn');
    else setOps('verify','Runtime synced · Verifier ready','good');
@@ -1723,7 +1746,7 @@ async function renderSidebarProjectTree(){
  try{
   const all=await req('/api/chats'),chats=all.chats||[];
   const visible=projects.filter(p=>p.name!=='KRISHNA'&&p.name!=='KRISHNA-E2E-PROBE');
-  if(!visible.length){tree.innerHTML='<div class="chatEmpty">No projects yet</div>';return}
+  if(!visible.length){tree.innerHTML='<div class="chatEmpty">No added projects</div>';return}
   const selected=$('project')?.value||'KRISHNA';
   visible.forEach(p=>{
    const name=p.name,label=projectLabel(name),expanded=expandedProjects.has(name);
@@ -1754,9 +1777,10 @@ async function newGeneralChat(){
  setProjectContext('KRISHNA');chatId=null;showView('sudarshan');await newChat();await loadGeneralChats();await renderSidebarProjectTree();
 }
 async function loadGeneralChats(){
- const box=$('recentChats');if(!box)return;box.innerHTML='';
+ const box=$('recentChats');if(!box)return;
  try{
   const all=await req('/api/chats');
+  box.replaceChildren();
   const rows=(all.chats||[]).filter(ch=>!ch.project||ch.project==='KRISHNA'||ch.project==='general').filter(ch=>ch.project!=='KRISHNA-E2E-PROBE').sort((a,b)=>Number(pinnedChats.has(b.chat_id))-Number(pinnedChats.has(a.chat_id)));
   if(!rows.length){box.innerHTML='<div class="chatEmpty">No chats yet</div>'}
   else rows.slice(0,30).forEach(ch=>{
@@ -2217,7 +2241,9 @@ async function initAvatar(){
   const a=await req('/api/avatar/status');
   window.krishnaAvatarAssetStatus=a.asset_pipeline||null;
   if(!a.glb_available){showFallback('3D avatar not installed · showing local preview');return}
-  if(live){
+  const rigReady=a.asset_pipeline?.source?.body?.ready===true;
+  if($('avatarCapability'))$('avatarCapability').textContent=rigReady?'':'3D preview · body rig and lip sync pending';
+  if(live&&rigReady){
    try{
     if(status)status.textContent='Loading KRISHNA live avatar engine…';
     const mod=await import('talkinghead'),TalkingHead=mod.TalkingHead;
