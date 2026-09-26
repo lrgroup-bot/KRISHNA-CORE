@@ -1280,7 +1280,7 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
  <section class="maniPanel"><div class="maniPanelHead"><div><strong>Sales pipeline</strong><small> · buyer → qualified → proposal → money received</small></div><button class="ghost" onclick="manibhadraAddDeal()">＋ Deal</button></div><div class="maniPanelBody"><div id="maniPipeline" class="maniPipeline"></div></div></section>
  <section class="maniPanel"><div class="maniPanelHead"><div><strong>MANIBHADRA advisor</strong><small> · verified free cloud only</small></div><button class="ghost" onclick="manibhadraAskAI()">Ask</button></div><div class="maniPanelBody"><div id="maniAI" class="maniAI maniAIEmpty">Ask: “What should I do next to make revenue?” MANIBHADRA receives only sanitized CRM totals and priorities—no credentials or private contacts.</div></div></section>
 </div>
-<section class="maniPanel"><div class="maniPanelHead"><div><strong>Business records</strong><small> · the details behind the pipeline</small></div><span id="maniRecordCount" class="workChip">0 records</span></div><div class="maniPanelBody">
+<section class="maniPanel"><div class="maniPanelHead"><div><strong>Business records</strong><small> · the details behind the pipeline</small></div><div style="display:flex;gap:7px;align-items:center"><span id="maniRecordCount" class="workChip">0 records</span><button class="ghost" onclick="manibhadraAddRecord()">＋ Add</button></div></div><div class="maniPanelBody">
  <div class="maniTabs"><button class="active" data-mani-tab="leads" onclick="setManibhadraTab('leads')">Leads</button><button data-mani-tab="deals" onclick="setManibhadraTab('deals')">Deals</button><button data-mani-tab="products" onclick="setManibhadraTab('products')">Products</button><button data-mani-tab="suppliers" onclick="setManibhadraTab('suppliers')">Suppliers</button><button data-mani-tab="customers" onclick="setManibhadraTab('customers')">Customers</button><button data-mani-tab="tasks" onclick="setManibhadraTab('tasks')">Tasks</button></div>
  <div id="maniRecords" class="maniRecordGrid"><div class="maniEmpty">No CRM records yet.</div></div>
 </div></section>
@@ -1904,6 +1904,34 @@ function renderManibhadraConnections(plugins){
   div.append(strong,span,meta);box.appendChild(div);
  });
  if(!rows.length)maniEmpty(box,'No commerce connectors registered.');
+}
+
+async function manibhadraAddRecord(){
+ if(manibhadraTab==='leads'){await manibhadraAddLead();return}
+ if(manibhadraTab==='deals'){await manibhadraAddDeal();return}
+ if(manibhadraTab==='tasks'){
+  const title=await askText('Follow-up task:');if(!title)return;
+  const priority=await askText('Priority: low / normal / high','normal');if(priority===null)return;
+  const due=await askText('Due date/time (optional ISO or leave blank):','');if(due===null)return;
+  try{await actionReq('manibhadra.crm.task.add',{task:{title,priority,due_at:due}},{project:'KRISHNA'});await loadManibhadraCRM();setManibhadraTab('tasks')}catch(e){log(e.message)}
+  return
+ }
+ if(manibhadraTab==='products'){
+  const name=await askText('Product name:');if(!name)return;
+  const source=await askText('Source: supplier / affiliate / own','supplier');if(source===null)return;
+  const price=await askText('Sale/reference price (₹):','0');if(price===null)return;
+  const status=await askText('Status: research / active / paused','research');if(status===null)return;
+  try{await actionReq('manibhadra.crm.entity.upsert',{kind:'product',record:{name,source,sale_price:Number(price)||0,status}},{project:'KRISHNA'});await loadManibhadraCRM();setManibhadraTab('products')}catch(e){log(e.message)}
+  return
+ }
+ if(manibhadraTab==='suppliers'||manibhadraTab==='customers'){
+  const kind=manibhadraTab==='suppliers'?'supplier':'customer';
+  const name=await askText((kind==='supplier'?'Supplier':'Customer')+' name / company:');if(!name)return;
+  const location=await askText('Location:','');if(location===null)return;
+  const email=await askText('Email (optional):','');if(email===null)return;
+  const phone=await askText('Phone (optional):','');if(phone===null)return;
+  try{await actionReq('manibhadra.crm.entity.upsert',{kind,record:{name,location,email,phone}},{project:'KRISHNA'});await loadManibhadraCRM();setManibhadraTab(manibhadraTab)}catch(e){log(e.message)}
+ }
 }
 
 async function manibhadraAddLead(){
