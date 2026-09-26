@@ -4,6 +4,9 @@ from collections import Counter
 from math import asin, cos, radians, sin, sqrt
 from typing import Any
 from urllib.parse import quote_plus
+
+from .vanik_netra_sources import BoundingBox, FreeMarketSourceRegistry
+from .vanik_netra_store import VanikNetraStore
 import re
 
 
@@ -93,8 +96,10 @@ class VanikNetra:
         },
     }
 
-    def __init__(self, crm=None):
+    def __init__(self, crm=None, *, store: VanikNetraStore | None = None, sources: FreeMarketSourceRegistry | None = None):
         self.crm = crm
+        self.store = store
+        self.source_registry = sources
 
     @staticmethod
     def _coords(row: dict[str, Any]) -> tuple[float | None, float | None]:
@@ -411,6 +416,139 @@ class VanikNetra:
             raise RuntimeError("MANIBHADRA CRM is not bound")
         return self.crm.upsert_lead(self.crm_lead_payload(row, score=score))
 
+    def source_status(self) -> dict[str, Any]:
+        return self.source_registry.status() if self.source_registry else {
+            "zero_spend": True,
+            "paid_fallback": False,
+            "sources": {},
+            "configured": False,
+        }
+
+    def scan_area(
+        self,
+        bbox: dict[str, Any] | list | tuple,
+        *,
+        area_key: str,
+        source: str = "overture",
+        category: str | None = None,
+        limit: int = 1000,
+        min_confidence: float = 0.0,
+        persist: bool = True,
+        local_path: str | None = None,
+    ) -> dict[str, Any]:
+        if not self.source_registry:
+            raise RuntimeError("VANIK-NETRA source registry is not bound")
+        box = BoundingBox.from_value(bbox)
+        source = str(source or "overture").strip().lower()
+        if source == "overture":
+            raw = self.source_registry.overture.scan(
+                box, category=category, limit=limit, min_confidence=min_confidence,
+            )
+        elif source == "foursquare_os":
+            if not local_path:
+                raise ValueError("Foursquare OS requires an owner-connected/local export path")
+            raw = self.source_registry.foursquare.load_local(local_path, limit=limit)
+        elif source == "openstreetmap_extract":
+            if not local_path:
+                raise ValueError("OpenStreetMap extract scan requires a local GeoJSON path")
+            raw = self.source_registry.osm.load_geojson(local_path, limit=limit)
+        else:
+            raise ValueError("unsupported market source")
+
+        normalized = []
+        for row in raw:
+            try:
+                item = self.normalize_place(row)
+            except (ValueError, TypeError):
+                continue
+            lat, lon = item.get("latitude"), item.get("longitude")
+            if lat is not None and lon is not None:
+                if not (box.west <= float(lon) <= box.east and box.south <= float(lat) <= box.north):
+                    continue
+            if category and category.lower() not in _text(item.get("primary_category")).lower():
+                continue
+            normalized.append(item)
+        records = self.deduplicate(normalized)
+        report = self.analyze_area(records)
+        snapshot = None
+        if persist and self.store:
+            snapshot = self.store.save_snapshot(
+                area_key, records, source=source, bbox=box.as_dict(), category=category,
+            )
+        return {
+            "agent": self.NAME,
+            "area_key": str(area_key),
+            "source": source,
+            "bbox": box.as_dict(),
+            "category": category,
+            "record_count": len(records),
+            "summary": {k: v for k, v in report.items() if k != "records"},
+            "snapshot": snapshot,
+            "records": records,
+            "zero_spend": True,
+            "external_outreach": False,
+        }
+
+    def stored_area(
+        self,
+        bbox: dict[str, Any],
+        *,
+        category: str | None = None,
+        limit: int = 2000,
+    ) -> dict[str, Any]:
+        if not self.store:
+            raise RuntimeError("VANIK-NETRA market store is not bound")
+        records = self.store.query_bbox(bbox, category=category, limit=limit)
+        report = self.analyze_area(records)
+        return {
+            "bbox": BoundingBox.from_value(bbox).as_dict(),
+            "category": category,
+            "summary": {k: v for k, v in report.items() if k != "records"},
+            "records": report["records"],
+        }
+
+    def change_report(self, area_key: str, *, limit: int = 200) -> dict[str, Any]:
+        if not self.store:
+            raise RuntimeError("VANIK-NETRA market store is not bound")
+        return {
+            "area_key": str(area_key),
+            "latest_snapshot": self.store.latest_snapshot(str(area_key)),
+            "changes": self.store.changes(str(area_key), limit=limit),
+        }
+
+    @staticmethod
+    def map_payload(records: list[dict[str, Any]], *, limit: int = 1000) -> dict[str, Any]:
+        points = []
+        for row in records or []:
+            lat = _float(row.get("latitude"))
+            lon = _float(row.get("longitude"))
+            if lat is None or lon is None:
+                continue
+            points.append({
+                "business_id": row.get("business_id"),
+                "name": row.get("name"),
+                "category": row.get("primary_category"),
+                "lat": lat,
+                "lon": lon,
+                "phone": row.get("phone"),
+                "website": row.get("website"),
+                "address": row.get("address"),
+                "map_url": row.get("google_maps_navigation_url"),
+            })
+            if len(points) >= max(1, min(int(limit), 5000)):
+                break
+        if not points:
+            return {"points": [], "bounds": None}
+        lats = [x["lat"] for x in points]
+        lons = [x["lon"] for x in points]
+        return {
+            "points": points,
+            "bounds": {
+                "west": min(lons), "south": min(lats),
+                "east": max(lons), "north": max(lats),
+            },
+        }
+
     def status(self) -> dict[str, Any]:
         return {
             "name": self.NAME,
@@ -422,6 +560,8 @@ class VanikNetra:
             "google_maps_bulk_scraping": False,
             "public_nominatim_bulk_grid": False,
             "crm_handoff": self.crm is not None,
+            "market_store": self.store.capabilities() if self.store else {"configured": False},
+            "source_registry": self.source_status(),
             "sources": self.SOURCE_POLICY,
             "capabilities": [
                 "area market analysis",
