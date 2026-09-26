@@ -119,6 +119,8 @@ from .windows_worker_sandbox import WindowsWorkerSandbox
 from .social_channels import SocialChannelRegistry
 from .affiliate_intent import AffiliateIntentEngine
 from .zero_spend_policy import ZeroSpendPolicy
+from .manibhadra_crm import ManibhadraCRM
+from .manibhadra_advisor import ManibhadraCloudAdvisor
 
 
 class Orchestrator:
@@ -187,6 +189,8 @@ class Orchestrator:
         self.social_channels = SocialChannelRegistry()
         self.affiliate_intent = AffiliateIntentEngine()
         self.zero_spend = ZeroSpendPolicy()
+        self.manibhadra_crm = ManibhadraCRM(runtime_state / "manibhadra-crm.json")
+        self.manibhadra_advisor = ManibhadraCloudAdvisor(self.openrouter_free,self.direct_free)
         self.amcc = AMCCController(runtime_state / "amcc")
         self.actions = ActionRegistry()
         self.indexer = RepositoryIndexer()
