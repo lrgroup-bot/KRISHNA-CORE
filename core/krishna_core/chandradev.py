@@ -36,6 +36,7 @@ class ChandradevQC:
         self.root = Path(state_root)
         self.root.mkdir(parents=True, exist_ok=True)
         self.ledger = self.root / "chandradev-qc.jsonl"
+        self.camera_ledger = self.root / "chandradev-camera.jsonl"
         self.memory = memory
 
     @staticmethod
@@ -222,6 +223,54 @@ class ChandradevQC:
             self.memory.audit("chandradev_qc_debate", resolution.lower(), qc_id)
         return resolved
 
+    def record_camera_observation(self, *, analysis, frame_meta=None, source="camera", prompt=""):
+        frame = dict(frame_meta or {})
+        row = {
+            "schema": "krishna.chandradev.camera-observation.v1",
+            "observation_id": "CHANDRA-CAM-" + uuid.uuid4().hex[:18],
+            "agent": "CHANDRADEV",
+            "source": self._text(source, 300) or "camera",
+            "analysis": self._text(analysis, 8000),
+            "prompt": self._text(prompt, 3000),
+            "frame": {
+                "path": self._text(frame.get("path"), 1000),
+                "width": int(frame.get("width") or 0),
+                "height": int(frame.get("height") or 0),
+                "content_type": self._text(frame.get("content_type"), 100),
+                "captured_at": frame.get("captured_at"),
+            },
+            "local_only": True,
+            "hawkeye_involved": False,
+            "raw_media_uploaded": False,
+            "created_at": time.time(),
+        }
+        row["fingerprint"] = self._fingerprint({
+            "source": row["source"],
+            "analysis": row["analysis"],
+            "frame": row["frame"],
+        })
+        with self.camera_ledger.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
+        if self.memory:
+            self.memory.audit(
+                "chandradev_camera_observation",
+                "recorded",
+                f"{row['observation_id']}:{row['fingerprint'][:16]}",
+            )
+        return row
+
+    def camera_observations(self, limit=50):
+        rows = []
+        if self.camera_ledger.is_file():
+            for line in self.camera_ledger.read_text(encoding="utf-8").splitlines():
+                try:
+                    row = json.loads(line)
+                except Exception:
+                    continue
+                if isinstance(row, dict):
+                    rows.append(row)
+        return list(reversed(rows[-max(1, min(int(limit or 50), 500)):]))
+
     def status(self):
         count = 0
         open_debates = 0
@@ -246,6 +295,7 @@ class ChandradevQC:
             "runs_on_external_node": True,
             "transports": ["trusted_lan", "verified_usb_packet"],
             "qc_records": count,
+            "camera_observations": len(self.camera_observations(500)),
             "open_debates": open_debates,
             "peer_qc": "BRAHMA",
             "upstream_observer": "SURYDEV",
