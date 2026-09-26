@@ -444,7 +444,6 @@ class ChandradevOsmoCameraAdapter:
             "frame":frame,
             "vision":result,
             "chandradev_observation":observation,
-            "hawkeye_involved":False,
             "raw_frame_retention":"local PC only",
             "cloud_upload":False,
         }
