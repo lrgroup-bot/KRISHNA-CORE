@@ -730,6 +730,24 @@ class Orchestrator:
         def vanijya_sales_cycle_action(payload,context):
             return self.vanijya.sales_cycle(product=payload.get("product") or None)
 
+        def vanijya_autopilot_tick_action(payload,context):
+            plan=self.vanijya.autopilot_plan()
+            try:
+                advice=self.manibhadra_advisor.advise(
+                    "Rishi Vāṇijya asks MANIBHADRA: review current products, pipeline and attention queue. "
+                    "What new or improved product/service should Vāṇijya market next using only zero-spend routes, "
+                    "and which existing opportunity should be prioritized? Do not claim any external action was executed.",
+                    self.manibhadra_crm.dashboard(),
+                )
+            except Exception as exc:
+                advice={
+                    "status":"UNAVAILABLE",
+                    "reason":f"{type(exc).__name__}: {exc}",
+                    "paid_fallback":False,
+                    "next":"continue local sales queue and retry verified-free MANIBHADRA advisor later",
+                }
+            return {**plan,"manibhadra_advice":advice}
+
         def vanijya_campaign_create_action(payload,context):
             return self.vanijya.create_campaign(
                 payload.get("product") or {},
@@ -3396,6 +3414,11 @@ class Orchestrator:
             "vanijya.sales_cycle",vanijya_sales_cycle_action,
             description="Create the next VANIJYA end-to-end sales workflow from an approved product or request one from MANIBHADRA",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vanijya.autopilot.tick",vanijya_autopilot_tick_action,
+            description="Build VANIJYA's next autonomous sales workload, sync MANIBHADRA products and ask the verified-free MANIBHADRA advisor what to market next; performs no external send or spend",
+            mutating=True,permissions=("project.write","model.use"),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "vanijya.campaign.create",vanijya_campaign_create_action,
