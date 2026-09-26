@@ -1,6 +1,7 @@
 package com.krishna.mobile;
 
 import android.app.*;
+import android.app.role.RoleManager;
 import android.os.*;
 import android.content.*;
 import android.content.pm.PackageManager;
@@ -20,16 +21,20 @@ public class MainActivity extends Activity {
   static final String CORE="/api/core/chat";
   static final String SPEAKER_ENGINE="LOCAL_VOICE_GATE_V3";
   static final int FILE_PICKER=73;
+  static final int ASSISTANT_ROLE_REQUEST=74;
+  public static final String ACTION_ASSIST_COMMAND="com.krishna.mobile.ASSIST_COMMAND";
   WebView web;
   Bridge bridge;
   HawkeyeSensorFusion hawkeyeSensors;
   ValueCallback<Uri[]> fileCallback;
+  boolean webReady=false;
+  String pendingAssistPhrase=null,pendingAssistMode=null;
   BroadcastReceiver wakeReceiver=new BroadcastReceiver(){
     @Override public void onReceive(Context context,Intent intent){
       if(intent==null||!KrishnaWakeService.ACTION_WAKE.equals(intent.getAction()))return;
       String phrase=intent.getStringExtra("phrase");
-      if(web!=null)runOnUiThread(()->web.evaluateJavascript(
-        "window.onKrishnaWake&&window.onKrishnaWake("+JSONObject.quote(phrase==null?"Krishna":phrase)+")",null));
+      String mode=intent.getStringExtra("mode");
+      receiveAssistantCommand(mode,phrase);
     }
   };
 
@@ -52,7 +57,50 @@ public class MainActivity extends Activity {
     ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify((int)(System.currentTimeMillis()&0x7fffffff),b.build());
   }
 
+  boolean assistantRoleHeld(){
+    if(Build.VERSION.SDK_INT<29)return false;
+    try{
+      RoleManager rm=getSystemService(RoleManager.class);
+      return rm!=null&&rm.isRoleAvailable(RoleManager.ROLE_ASSISTANT)&&rm.isRoleHeld(RoleManager.ROLE_ASSISTANT);
+    }catch(Exception ignored){return false;}
+  }
+
+  void requestAssistantRole(boolean rememberPrompt){
+    if(Build.VERSION.SDK_INT<29)return;
+    try{
+      RoleManager rm=getSystemService(RoleManager.class);
+      if(rm==null||!rm.isRoleAvailable(RoleManager.ROLE_ASSISTANT)||rm.isRoleHeld(RoleManager.ROLE_ASSISTANT))return;
+      if(rememberPrompt)getSharedPreferences("k",0).edit().putBoolean("assistant_role_prompted",true).apply();
+      startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_ASSISTANT),ASSISTANT_ROLE_REQUEST);
+    }catch(Exception ignored){}
+  }
+
+  void maybeRequestAssistantRole(){
+    if(getSharedPreferences("k",0).getBoolean("assistant_role_prompted",false))return;
+    requestAssistantRole(true);
+  }
+
+  void receiveAssistantCommand(String mode,String phrase){
+    pendingAssistMode=(mode==null||mode.trim().isEmpty())?"chat":mode.trim().toLowerCase(java.util.Locale.ROOT);
+    pendingAssistPhrase=(phrase==null||phrase.trim().isEmpty())?"Krishna":phrase.trim();
+    dispatchPendingAssistantCommand();
+  }
+
+  void dispatchPendingAssistantCommand(){
+    if(!webReady||web==null||pendingAssistMode==null)return;
+    final String mode=pendingAssistMode,phrase=pendingAssistPhrase==null?"Krishna":pendingAssistPhrase;
+    pendingAssistMode=null;pendingAssistPhrase=null;
+    runOnUiThread(()->web.evaluateJavascript(
+      "window.onAssistantCommand&&window.onAssistantCommand("+JSONObject.quote(mode)+","+JSONObject.quote(phrase)+")",null));
+  }
+
+  void handleAssistIntent(Intent intent){
+    if(intent==null||!ACTION_ASSIST_COMMAND.equals(intent.getAction()))return;
+    receiveAssistantCommand(intent.getStringExtra("mode"),intent.getStringExtra("phrase"));
+  }
+
   void startWakeIfReady(){
+    if(assistantRoleHeld()){stopWakeService();return;}
     boolean enrolled=getSharedPreferences("k",0).getString("voiceprint","").startsWith("v3:");
     boolean mic=Build.VERSION.SDK_INT<23||checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED;
     if(!enrolled||!mic)return;
@@ -90,6 +138,11 @@ public class MainActivity extends Activity {
     web.removeJavascriptInterface("accessibilityTraversal");
     web.setWebViewClient(new WebViewClient(){
       boolean trusted(Uri u){return u!=null && "file".equalsIgnoreCase(u.getScheme()) && "/android_asset/index.html".equals(u.getPath());}
+      @Override public void onPageFinished(WebView view,String url){
+        super.onPageFinished(view,url);
+        webReady=true;
+        dispatchPendingAssistantCommand();
+      }
       @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
         if(request==null || !request.isForMainFrame())return false;
         return !trusted(request.getUrl());
@@ -130,12 +183,15 @@ public class MainActivity extends Activity {
     if(Build.VERSION.SDK_INT>=33)registerReceiver(wakeReceiver,wakeFilter,Context.RECEIVER_NOT_EXPORTED);
     else registerReceiver(wakeReceiver,wakeFilter);
     setContentView(web);
+    handleAssistIntent(getIntent());
     web.loadUrl("file:///android_asset/index.html");
+    new Handler(Looper.getMainLooper()).postDelayed(this::maybeRequestAssistantRole,900);
     startWakeIfReady();
   }
 
   @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
     super.onActivityResult(requestCode,resultCode,data);
+    if(requestCode==ASSISTANT_ROLE_REQUEST){startWakeIfReady();return;}
     if(requestCode==FILE_PICKER && fileCallback!=null){
       Uri[] result=WebChromeClient.FileChooserParams.parseResult(resultCode,data);
       fileCallback.onReceiveValue(result);
@@ -147,8 +203,9 @@ public class MainActivity extends Activity {
     if(bridge==null)return;
     new Thread(()->bridge.event(kind,detail)).start();
   }
-  @Override protected void onResume(){super.onResume();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");startWakeIfReady();if(bridge!=null)new Thread(()->{bridge.autoBootstrap();bridge.hawkeyeSyncEvidence();},"krishna-mobile-resume").start();}
-  @Override protected void onPause(){emitAsync("mobile_background","KRISHNA Mobile entered background");super.onPause();}
+  @Override protected void onResume(){super.onResume();getSharedPreferences("k",0).edit().putBoolean("activity_foreground",true).apply();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");startWakeIfReady();if(bridge!=null)new Thread(()->{bridge.autoBootstrap();bridge.hawkeyeSyncEvidence();},"krishna-mobile-resume").start();}
+  @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);handleAssistIntent(intent);}
+  @Override protected void onPause(){getSharedPreferences("k",0).edit().putBoolean("activity_foreground",false).apply();emitAsync("mobile_background","KRISHNA Mobile entered background");super.onPause();}
   @Override protected void onDestroy(){try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}try{if(hawkeyeSensors!=null)hawkeyeSensors.close();}catch(Exception ignored){}super.onDestroy();}
 
   public class Bridge {
@@ -739,7 +796,21 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
     @JavascriptInterface public String wakeStatus(){
-      try{return KrishnaWakeService.capability(MainActivity.this).toString();}catch(Exception e){return error(e);}
+      try{
+        JSONObject out=KrishnaWakeService.capability(MainActivity.this);
+        out.put("assistant_role_held",assistantRoleHeld());
+        out.put("assistant_service","KrishnaAssistantService");
+        out.put("background_direct_launch",assistantRoleHeld());
+        return out.toString();
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String assistantStatus(){
+      try{return new JSONObject().put("available",Build.VERSION.SDK_INT>=29).put("role_held",assistantRoleHeld()).put("system_consent_required",true).toString();}
+      catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String requestAssistantMode(){
+      requestAssistantRole(true);
+      return assistantStatus();
     }
     @JavascriptInterface public String wakeStart(){
       startWakeIfReady();
