@@ -222,7 +222,7 @@ window.send=async()=>{const i=document.getElementById('msg'),q=i.value.trim();if
     const cloud=await mobileCloud.ask(q);
     const text=cloud.text||'';
     if(!text)throw new Error('empty free-cloud reply');
-    reply(text);setMode('TALKING','FREE CLOUD · '+(cloud.model||'GENERAL'));speak(text);return;
+    reply(text);setMode('TALKING','FREE CLOUD · '+(cloud.model||'GENERAL'));if(!cloud.audio_played)speak(text);return;
    }catch(cloudError){
     console.warn('KRISHNA Mobile free-cloud escalation:',cloudError);
    }
