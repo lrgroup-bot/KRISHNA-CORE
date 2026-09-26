@@ -1,11 +1,25 @@
 import hashlib, json, tempfile, unittest
 from pathlib import Path
-from krishna_core.runtime_integrity import RuntimeIntegrity
+from krishna_core.runtime_integrity import RuntimeIntegrity, _git_head, _git_ref
 
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 class RuntimeIntegrityTests(unittest.TestCase):
+    def test_linked_worktree_uses_common_loose_and_packed_refs(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td); src=root/"checkout"; common=root/"main/.git"
+            private=common/"worktrees/fix"
+            src.mkdir(); private.mkdir(parents=True)
+            (src/".git").write_text(f"gitdir: {private}\n",encoding="utf-8")
+            (private/"commondir").write_text("../..\n",encoding="utf-8")
+            (private/"HEAD").write_text("ref: refs/heads/fix\n",encoding="utf-8")
+            (common/"refs/heads").mkdir(parents=True)
+            (common/"refs/heads/fix").write_text("abc\n",encoding="utf-8")
+            (common/"packed-refs").write_text("abc refs/remotes/origin/fix\n",encoding="utf-8")
+            self.assertEqual(_git_head(src),"abc")
+            self.assertEqual(_git_ref(src,"refs/remotes/origin/fix"),"abc")
+
     def test_missing_manifest_is_unverified(self):
         with tempfile.TemporaryDirectory() as td:
             r=RuntimeIntegrity(td,Path(td)/"source")
