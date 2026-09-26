@@ -42,6 +42,7 @@ class KrishnaMobileAvatar {
         if(name)this.actions.set(name,this.mixer.clipAction(clip));
       }
       this.fit();
+      window.hideKrishnaFallback?.();
       this.root.hidden=false;this.root.dataset.engine='three-glb';
       this.ready=true;this.resize();this.setState(this.state);this.animate();
       window.addEventListener('resize',()=>this.resize(),{passive:true});
