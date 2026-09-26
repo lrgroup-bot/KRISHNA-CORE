@@ -94,6 +94,12 @@ class ChandradevOsmoCameraAdapter:
         self.screens=self.root/"screens"
         self.screens.mkdir(parents=True,exist_ok=True)
         self.state_file=self.root/"stream-state.json"
+        shared_root=Path(
+            os.getenv("CHANDRADEV_SHARED_STATE")
+            or r"E:\Krishna-The GOD\state\chandradev"
+        )
+        shared_root.mkdir(parents=True,exist_ok=True)
+        self.shared_stream_file=shared_root/"stream-name.txt"
         self.config_file=self.root/"mediamtx.yml"
         self.log_file=self.root/"mediamtx.log"
         self.chandradev=chandradev
@@ -106,25 +112,44 @@ class ChandradevOsmoCameraAdapter:
         self._state=self._load_or_create(stream_name)
 
     def _load_or_create(self,stream_name=None):
+        explicit=str(stream_name or "").strip()
+        shared=""
+        if self.shared_stream_file.is_file():
+            try:
+                shared=self.shared_stream_file.read_text(encoding="utf-8").strip()
+            except Exception:
+                shared=""
+        local=None
         if self.state_file.is_file():
             try:
                 row=json.loads(self.state_file.read_text(encoding="utf-8"))
                 if isinstance(row,dict) and row.get("stream_name"):
-                    return row
+                    local=row
             except Exception:
-                pass
-        name=str(stream_name or "").strip()
+                local=None
+        name=explicit or shared or (str(local.get("stream_name") or "").strip() if local else "")
         if not name:
             name="osmo-"+secrets.token_hex(6)
-        row={
+        row=dict(local or {})
+        row.update({
             "version":self.VERSION,
             "stream_name":name,
-            "server_pid":None,
-            "created_at":time.time(),
+            "server_pid":row.get("server_pid"),
+            "created_at":row.get("created_at") or time.time(),
             "updated_at":time.time(),
-        }
+        })
         self._save(row)
+        self._sync_shared_stream_name(name)
         return row
+
+    def _sync_shared_stream_name(self,name=None):
+        value=str(name or self._state.get("stream_name") or "").strip() if hasattr(self,"_state") else str(name or "").strip()
+        if not value:
+            return None
+        self.shared_stream_file.parent.mkdir(parents=True,exist_ok=True)
+        self.shared_stream_file.write_text(value+"\n",encoding="utf-8")
+        return str(self.shared_stream_file)
+
 
     def _save(self,row):
         row=dict(row)
@@ -316,6 +341,7 @@ class ChandradevOsmoCameraAdapter:
             },
             "usb_probe":self.probe_usb(),
             "urls":self.urls(),
+            "shared_stream_name_file":str(self.shared_stream_file),
             "cloud_required":False,
             "paid_service_required":False,
             "usb_live_video":False,
