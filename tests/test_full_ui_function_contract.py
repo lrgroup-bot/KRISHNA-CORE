@@ -80,7 +80,7 @@ class FullUIFunctionContractTests(unittest.TestCase):
     def test_current_owner_surface_and_language_controls(self):
         for token in (
             'data-krishna-ui="2026.09-current"',
-            "MAIN MENU","KRISHNA","Sudarshan","Plugins",
+            "MAIN MENU","KRISHNA","Sudarshan","MANIBHADRA","Plugins",
             'id="input"','id="krishnaPopupInput"','id="attachInput"',
             'value="en-IN"','value="hi-IN"','value="or-IN"',
         ):
@@ -88,10 +88,19 @@ class FullUIFunctionContractTests(unittest.TestCase):
         main=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',self.html)
         self.assertIsNotNone(main)
         menu=main.group(1)
-        self.assertEqual(menu.count("<button"),3)
+        self.assertEqual(menu.count("<button"),4)
         self.assertNotIn("showView('workingGods')",menu)
         for forbidden in ("KABACH","Garuda","Garudanetra","BRAHMAGYAN","Gyan-Bhandar","NARAD","System"):
             self.assertNotIn(forbidden,menu)
+
+    def test_manibhadra_owner_crm_surface_is_live(self):
+        for token in (
+            'id="manibhadra"',"MANIBHADRA","Needs your attention","Sales pipeline",
+            "manibhadra.crm.dashboard","manibhadra.crm.records","manibhadra.ai.advice",
+            "money.investment_scenario","loadManibhadraCRM","manibhadraAddLead",
+            "manibhadraAddDeal","manibhadraScoutProduct",
+        ):
+            self.assertIn(token,self.html)
 
     def test_no_server_fallback_to_legacy_dashboard(self):
         self.assertNotIn("WEB_VALIDATION if WEB_VALIDATION.exists() else DASHBOARD",self.server)
