@@ -409,7 +409,7 @@ class NaradaLegalAdvisor:
         if not value:
             return False
         return any(
-            (term in value if " " in term else re.search(r"\\b"+re.escape(term)+r"\\b", value))
+            (term in value if " " in term else re.search(r"\b"+re.escape(term)+r"\b", value))
             for term in LEGAL_SIGNAL_TERMS
         )
 
