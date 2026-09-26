@@ -136,6 +136,7 @@ from .capability_fabric import CapabilityFabric
 from .load_relief_integrations import LoadReliefIntegrationCatalog, StemkitOnDemand, StrixSandboxContract
 from .event_semantics import EventSemantics
 from .creator_workflow import CreatorWorkflowPlanner
+from .free_cloud_health import FreeCloudHealthGovernor
 
 
 class Orchestrator:
@@ -223,6 +224,7 @@ class Orchestrator:
         self.strix_contract = StrixSandboxContract()
         self.event_semantics = EventSemantics()
         self.creator_workflow = CreatorWorkflowPlanner()
+        self.free_cloud_health = FreeCloudHealthGovernor(self.model_gateway, self.openrouter_free, self.direct_free)
         for provider in (
             ("android-mlkit","vision","mobile",True,False,True,False,"on-device lightweight perception"),
             ("mobile-openrouter-zero","general","cloud",True,False,False,False,"mobile direct live zero-price catalog preflight"),
@@ -702,6 +704,9 @@ class Orchestrator:
 
         def load_relief_integrations_action(payload,context):
             return self.load_relief_integrations.status()
+
+        def free_cloud_health_action(payload,context):
+            return self.free_cloud_health.status(refresh=bool(payload.get("refresh",False)))
 
         def event_semantics_status_action(payload,context):
             return self.event_semantics.status()
@@ -3376,6 +3381,11 @@ class Orchestrator:
             permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
+            "free_cloud.health",free_cloud_health_action,
+            description="Inspect cloud credential health separately from zero-cost billing proof",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
             "load_relief.integrations",load_relief_integrations_action,
             description="Inspect researched optional integrations and their no-overload execution modes",
             permissions=("runtime.read",),sources=("pc","mobile","system","agent","job","mcp","a2a"),
@@ -5745,6 +5755,7 @@ Project: {payload.get('project')}
                 "paid_cloud_enabled":self.router.paid_cloud_enabled(),
                 "openrouter_free":self.openrouter_free.status(refresh=False),
                 "direct_free":self.direct_free.status(refresh=False),
+                "free_cloud_health":self.free_cloud_health.status(refresh=False),
                 "gateway":self.model_gateway.list(),"secure_vault":self.secure_vault.list()}
 
     def kabach_security_research(self, project, question, limit=10):
