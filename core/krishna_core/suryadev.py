@@ -17,6 +17,7 @@ import json
 import re
 import time
 import uuid
+import urllib.parse
 
 from .field_perception import FieldPerceptionPolicy
 
@@ -141,7 +142,7 @@ class SuryadevAgent:
                 "rank":i+1,
                 "show":name,
                 "youtube_search":"https://www.youtube.com/results?search_query="+
-                    re.sub(r"%20","+",__import__("urllib.parse").parse.quote(name+" full podcast episode")),
+                    urllib.parse.quote_plus(name+" full podcast episode"),
                 "approved":True,
             }
             for i,name in enumerate(self.PODCAST_QUEUE_SEED)
