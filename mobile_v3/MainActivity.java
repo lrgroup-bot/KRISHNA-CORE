@@ -29,6 +29,8 @@ public class MainActivity extends Activity {
   MrityunjayaMobileHealer mrityunjaya;
   ValueCallback<Uri[]> fileCallback;
   boolean webReady=false;
+  int coreFailureStreak=0;
+  long lastCoreHealAttempt=0L;
   String pendingAssistPhrase=null,pendingAssistMode=null;
   static final String AVATAR_HOST="krishna.local";
   static final long AVATAR_MAX_BYTES=120L*1024L*1024L;
@@ -441,9 +443,15 @@ public class MainActivity extends Activity {
           else linkProblem=l.optString("error","private Core link not confirmed");
         }catch(Exception e){linkProblem=e.getClass().getSimpleName()+": "+e.getMessage();}
         if(connected){
+          coreFailureStreak=0;
           if(mrityunjaya!=null)mrityunjaya.recovered("private-core-link","Private Core connection verified");
         }else if(mrityunjaya!=null){
-          handleMobileFault("private-core-link",linkProblem);
+          coreFailureStreak++;
+          long now=System.currentTimeMillis();
+          if(coreFailureStreak>=2&&now-lastCoreHealAttempt>=30000L){
+            lastCoreHealAttempt=now;
+            handleMobileFault("private-core-link",linkProblem);
+          }
         }
         final String linkResult=link,stateResult=coreState;
         runOnUiThread(()->{
