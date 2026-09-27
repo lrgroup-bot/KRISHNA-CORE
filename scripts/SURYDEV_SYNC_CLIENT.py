@@ -122,14 +122,25 @@ def heartbeat(config, root, *, learning_state="idle", current_job_id="", last_er
 
 
 def _run_local_ack(root, job_id, receipt):
-    worker = Path(__file__).resolve().parents[1] / "core" / "suryadev_worker.py"
-    python = str(os.getenv("SURYADEV_WORKER_PYTHON") or sys.executable)
-    cmd = [
-        python, str(worker), "--root", str(Path(root).resolve()),
+    here = Path(__file__).resolve().parent
+    configured_exe = str(os.getenv("SURYADEV_WORKER_EXE") or "").strip()
+    sibling_exe = here / "Suryadev.exe"
+    source_worker = here.parent / "core" / "suryadev_worker.py"
+    args = [
+        "--root", str(Path(root).resolve()),
         "--ack", str(job_id),
         "--receipt-id", str(receipt.get("receipt_id") or ""),
         "--bundle-sha256", str(receipt.get("bundle_sha256") or ""),
     ]
+    if configured_exe:
+        cmd = [configured_exe, *args]
+    elif sibling_exe.is_file():
+        cmd = [str(sibling_exe), *args]
+    elif source_worker.is_file():
+        python = str(os.getenv("SURYADEV_WORKER_PYTHON") or sys.executable)
+        cmd = [python, str(source_worker), *args]
+    else:
+        raise RuntimeError("SURYDEV worker executable/source not found for verified cleanup")
     proc = subprocess.run(cmd, capture_output=True, text=True, shell=False, timeout=60)
     if proc.returncode != 0:
         raise RuntimeError((proc.stderr or proc.stdout or "SURYDEV local ACK failed")[-2000:])
