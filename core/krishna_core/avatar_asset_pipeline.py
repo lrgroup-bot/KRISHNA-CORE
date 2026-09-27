@@ -192,7 +192,7 @@ class AvatarAssetInspector:
             ready=body_ready and face_ready
             production_ready=ready and animation_ready
             if ready:
-                stage="talkinghead-ready"
+                stage="production-ready" if production_ready else "talkinghead-ready"
             elif not skins:
                 stage="unrigged"
             elif not body_ready:
