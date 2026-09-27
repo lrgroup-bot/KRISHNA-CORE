@@ -340,15 +340,16 @@ public final class HawkeyeMobileVision {
     caps.put("api_key_required",false);
     out.put("capabilities",caps);
 
-    String guidance="Hold steady and center the important object.";
-    if(blocks.length()>0&&safeText.length()<8)guidance="Move closer and hold steady so HAWKEYE can read the text.";
-    if(subjects.length()>0){
-      JSONObject b=subjects.getJSONObject(0);
-      JSONArray q=b.getJSONArray("bbox");
-      double x=q.getDouble(0),y=q.getDouble(1),bw=q.getDouble(2),bh=q.getDouble(3);
-      if(x<0.02||y<0.02||x+bw>0.98||y+bh>0.98)guidance="Move slightly back or recenter; the main subject is clipped by the frame.";
-    }
-    out.put("recommended_next_scan",guidance);
+    JSONObject recovery=new JSONObject();
+    recovery.put("mode","automatic");
+    JSONArray recoveryActions=new JSONArray();
+    if(blocks.length()>0&&safeText.length()<8)recoveryActions.put("TARGET_CROP_OCR");
+    if(codes.length()>0)recoveryActions.put("BARCODE_RESCAN");
+    if(subjects.length()>0)recoveryActions.put("TRACK_SUBJECT");
+    if(recoveryActions.length()==0)recoveryActions.put("MULTIFRAME_RETRY");
+    recovery.put("actions",recoveryActions);
+    out.put("automatic_recovery",recovery);
+    out.put("recommended_next_scan","automatic");
     return out;
   }
 
