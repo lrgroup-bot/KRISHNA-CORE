@@ -32,6 +32,7 @@ public class MainActivity extends Activity {
   String pendingAssistPhrase=null,pendingAssistMode=null;
   static final String AVATAR_HOST="krishna.local";
   static final long AVATAR_MAX_BYTES=120L*1024L*1024L;
+  final Handler mobileHealthHandler=new Handler(Looper.getMainLooper());
   BroadcastReceiver wakeReceiver=new BroadcastReceiver(){
     @Override public void onReceive(Context context,Intent intent){
       if(intent==null||!KrishnaWakeService.ACTION_WAKE.equals(intent.getAction()))return;
@@ -154,6 +155,13 @@ public class MainActivity extends Activity {
     mrityunjaya.fault(k.isEmpty()?"mobile-runtime":k,detail);
   }
 
+  void runMobileHealthWatch(){
+    if(isFinishing()||(Build.VERSION.SDK_INT>=17&&isDestroyed()))return;
+    boolean foreground=getSharedPreferences("k",0).getBoolean("activity_foreground",true);
+    if(foreground&&webReady&&web!=null)probeUiReady();
+    mobileHealthHandler.postDelayed(this::runMobileHealthWatch,10000L);
+  }
+
   void probeUiReady(){
     if(web==null||!webReady)return;
     final String script="(()=>{"+
@@ -228,6 +236,10 @@ public class MainActivity extends Activity {
       requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO},41);
     if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(android.Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)
       requestPermissions(new String[]{android.Manifest.permission.CAMERA},43);
+    try{
+      if((getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0)
+        WebView.setWebContentsDebuggingEnabled(true);
+    }catch(Exception ignored){}
     web=new WebView(this);
     web.getSettings().setJavaScriptEnabled(true);
     web.getSettings().setDomStorageEnabled(true);
@@ -310,6 +322,7 @@ public class MainActivity extends Activity {
     setContentView(web);
     handleAssistIntent(getIntent());
     web.loadUrl("file:///android_asset/index.html");
+    mobileHealthHandler.postDelayed(this::runMobileHealthWatch,10000L);
     startWakeIfReady();
   }
 
@@ -330,7 +343,7 @@ public class MainActivity extends Activity {
   @Override protected void onResume(){super.onResume();getSharedPreferences("k",0).edit().putBoolean("activity_foreground",true).apply();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");startWakeIfReady();if(bridge!=null)new Thread(()->{bridge.autoBootstrap();bridge.hawkeyeSyncEvidence();},"krishna-mobile-resume").start();}
   @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);handleAssistIntent(intent);}
   @Override protected void onPause(){getSharedPreferences("k",0).edit().putBoolean("activity_foreground",false).apply();emitAsync("mobile_background","KRISHNA Mobile entered background");super.onPause();}
-  @Override protected void onDestroy(){try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}try{if(hawkeyeSensors!=null)hawkeyeSensors.close();}catch(Exception ignored){}try{if(web!=null)web.destroy();}catch(Exception ignored){}super.onDestroy();}
+  @Override protected void onDestroy(){mobileHealthHandler.removeCallbacksAndMessages(null);try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}try{if(hawkeyeSensors!=null)hawkeyeSensors.close();}catch(Exception ignored){}try{if(web!=null)web.destroy();}catch(Exception ignored){}super.onDestroy();}
 
   public class Bridge {
     final HawkeyeEvidenceCuratorBot hawkeyeCurator;
