@@ -2365,7 +2365,7 @@ class Handler(BaseHTTPRequestHandler):
             receipt=orch.dispatch_action("narad.workflow.execute",{"workflow_id":wid,"context":data.get("context") or {}},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
             return self._json(200,receipt["result"])
 
-        if post_path in ("/api/suryadev/device/heartbeat","/api/suryadev/device/alert","/api/suryadev/device/learning","/api/suryadev/device/research"):
+        if post_path == "/api/suryadev/device/heartbeat":
             device,token=self._device_auth()
             if not _pairing.verify(device,token):
                 return self._json(401,{"error":"paired Suryadev device required"})
@@ -2373,52 +2373,76 @@ class Handler(BaseHTTPRequestHandler):
             if body_device and body_device!=device:
                 return self._json(403,{"error":"authenticated Suryadev Node ID does not match payload"})
             data["device_id"]=device
-            if post_path=="/api/suryadev/device/heartbeat":
-                return self._json(200,orch.suryadev.device_heartbeat(data))
-            if post_path=="/api/suryadev/device/alert":
-                alert=orch.suryadev.device_alert(data)
-                orch.handle_event(
-                    "suryadev-ipad",alert["kind"],alert["detail"],
-                    severity=alert["severity"],project="BRAHMAGYAN",payload=alert,
-                )
-                delivered=[]
+            return self._json(200,orch.suryadev.device_heartbeat(data))
+
+        if post_path == "/api/suryadev/device/alert":
+            device,token=self._device_auth()
+            if not _pairing.verify(device,token):
+                return self._json(401,{"error":"paired Suryadev device required"})
+            body_device=str(data.get("device_id") or "").strip()
+            if body_device and body_device!=device:
+                return self._json(403,{"error":"authenticated Suryadev Node ID does not match payload"})
+            data["device_id"]=device
+            alert=orch.suryadev.device_alert(data)
+            orch.handle_event(
+                "suryadev-ipad",alert["kind"],alert["detail"],
+                severity=alert["severity"],project="BRAHMAGYAN",payload=alert,
+            )
+            delivered=[]
+            for row in (_pairing.paired().get("devices") or []):
+                target=str(row.get("device_id") or "")
+                if not target or target==device:continue
+                try:
+                    _sessions.publish(
+                        target,"suryadev.alert",
+                        {
+                            "summary":f"{alert['node_name']}: {alert['detail']}",
+                            "kind":alert["kind"],"severity":alert["severity"],
+                            "source_device":device,"alert_id":alert["alert_id"],
+                        },
+                        idempotency_key="suryadev-alert:"+alert["alert_id"]+":"+target,
+                    )
+                    delivered.append(target)
+                except Exception:
+                    pass
+            return self._json(200,{**alert,"krishna_notifications_queued":len(delivered)})
+
+        if post_path == "/api/suryadev/device/learning":
+            device,token=self._device_auth()
+            if not _pairing.verify(device,token):
+                return self._json(401,{"error":"paired Suryadev device required"})
+            body_device=str(data.get("device_id") or "").strip()
+            if body_device and body_device!=device:
+                return self._json(403,{"error":"authenticated Suryadev Node ID does not match payload"})
+            data["device_id"]=device
+            result=orch.suryadev.podcast_learning(data)
+            if result.get("routed_to_rishi"):
                 for row in (_pairing.paired().get("devices") or []):
                     target=str(row.get("device_id") or "")
-                    if not target or target==device:continue
+                    if not target:continue
                     try:
                         _sessions.publish(
-                            target,"suryadev.alert",
+                            target,"suryadev.learning",
                             {
-                                "summary":f"{alert['node_name']}: {alert['detail']}",
-                                "kind":alert["kind"],"severity":alert["severity"],
-                                "source_device":device,"alert_id":alert["alert_id"],
+                                "summary":"Shravana Rishi accepted a podcast learning segment",
+                                "source_device":device,
+                                "finding_id":result.get("finding_id"),
+                                "lead_rishi":result.get("lead_rishi"),
                             },
-                            idempotency_key="suryadev-alert:"+alert["alert_id"]+":"+target,
+                            idempotency_key="suryadev-learning:"+str(result.get("finding_id"))+":"+target,
                         )
-                        delivered.append(target)
                     except Exception:
                         pass
-                return self._json(200,{**alert,"krishna_notifications_queued":len(delivered)})
-            if post_path=="/api/suryadev/device/learning":
-                result=orch.suryadev.podcast_learning(data)
-                if result.get("routed_to_rishi"):
-                    for row in (_pairing.paired().get("devices") or []):
-                        target=str(row.get("device_id") or "")
-                        if not target:continue
-                        try:
-                            _sessions.publish(
-                                target,"suryadev.learning",
-                                {
-                                    "summary":"Shravana Rishi accepted a podcast learning segment",
-                                    "source_device":device,
-                                    "finding_id":result.get("finding_id"),
-                                    "lead_rishi":result.get("lead_rishi"),
-                                },
-                                idempotency_key="suryadev-learning:"+str(result.get("finding_id"))+":"+target,
-                            )
-                        except Exception:
-                            pass
-                return self._json(200,result)
+            return self._json(200,result)
+
+        if post_path == "/api/suryadev/device/research":
+            device,token=self._device_auth()
+            if not _pairing.verify(device,token):
+                return self._json(401,{"error":"paired Suryadev device required"})
+            body_device=str(data.get("device_id") or "").strip()
+            if body_device and body_device!=device:
+                return self._json(403,{"error":"authenticated Suryadev Node ID does not match payload"})
+            data["device_id"]=device
             query_text=str(data.get("query") or "").strip()
             if not query_text:return self._json(400,{"error":"research query is required"})
             limit=max(1,min(int(data.get("limit") or 8),12))
