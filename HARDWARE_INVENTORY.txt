@@ -35,8 +35,8 @@ LAPTOPS
    - Display class: 13.3-inch, 1440x900 for this model family
    - Graphics family: Intel HD Graphics 5000
    - Ports/platform family: 2x USB 3.0, Thunderbolt, SDXC, MagSafe 2, 802.11ac Wi-Fi
-   - CPU: TO VERIFY (EMC 2632 includes Core i5 and Core i7 configurations)
-   - RAM: TO VERIFY (4GB/8GB configurations; onboard/soldered)
+   - CPU: Intel Core i5 (exact i5 model / clock: TO VERIFY)
+   - RAM: 4GB onboard/soldered
    - SSD capacity: TO VERIFY
    - Battery health / charger / boot condition / macOS version: TO VERIFY
    - Potential KRISHNA use: lightweight secondary terminal, documentation/manual station, network/automation node, browser/control display, test/development machine if condition is good
