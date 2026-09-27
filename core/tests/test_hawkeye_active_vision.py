@@ -130,7 +130,7 @@ class HawkeyeActiveVisionContractTests(unittest.TestCase):
         self.assertNotIn("Move closer and hold steady",self.vision)
         self.assertNotIn("Move slightly back or recenter",self.vision)
         self.assertIn("applyActiveCameraPlan",self.ui)
-        self.assertIn("target-crop-ocr",str(self.runtime).lower().replace("_","-"))
+        self.assertTrue(self.runtime["boundaries"]["automatic_target_crop_reading"])
 
     def test_green_read_complete_ui_is_hard_contract(self):
         self.assertIn("READ COMPLETE",self.ui)
@@ -146,6 +146,8 @@ class HawkeyeActiveVisionContractTests(unittest.TestCase):
         self.assertTrue(boundaries["full_green_read_complete_border"])
         self.assertFalse(boundaries["movement_instruction_default"])
         self.assertIn("hawkeye-active-vision.js",self.runtime["canonical_files"])
+        self.assertIn("HawkeyeCameraProfiler.java",self.runtime["canonical_files"])
+        self.assertTrue(boundaries["native_read_only_camera_profile"])
 
 
 if __name__=="__main__":
