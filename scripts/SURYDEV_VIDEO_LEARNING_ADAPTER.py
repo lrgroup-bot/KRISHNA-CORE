@@ -262,8 +262,11 @@ def _try_play(page):
 
 def _capture_video_frame(page, frames_dir, subject, seconds, reason, title):
     stamp = _clock(seconds)
-    filename = f"{_safe_name(subject)}__{stamp}__{_safe_name(reason,40)}.jpg"
-    path = frames_dir / filename
+    subject_name = _safe_name(subject)
+    subject_dir = frames_dir / subject_name
+    subject_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{subject_name}__{stamp}__{_safe_name(reason,40)}.jpg"
+    path = subject_dir / filename
     try:
         video = page.locator("video")
         if video.count():
@@ -487,6 +490,22 @@ def observe(job, workspace):
             "evidence_status": "candidate",
             "research_required": True,
         }]
+
+    evidence_dir = workspace / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    subject_manifest = {
+        "schema": "krishna.suryadev.subject-evidence.v1",
+        "job_id": str(job.get("job_id") or ""),
+        "subject": subject,
+        "source_url": source_url,
+        "source_title": title,
+        "visuals": visual_evidence,
+        "research_questions": list(dict.fromkeys(
+            x.get("research_question") for x in visual_evidence if x.get("research_question")
+        )),
+        "created_at": time.time(),
+    }
+    _atomic_json(evidence_dir / f"{_safe_name(subject)}__manifest.json", subject_manifest)
 
     bundle = {
         "schema": BUNDLE_SCHEMA,
