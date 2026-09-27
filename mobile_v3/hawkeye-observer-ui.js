@@ -338,14 +338,33 @@
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,cw,ch);
     const scale=Math.max(cw/v.videoWidth,ch/v.videoHeight),dw=v.videoWidth*scale,dh=v.videoHeight*scale,ox=(cw-dw)/2,oy=(ch-dh)/2;
     ctx.lineWidth=2;ctx.font="12px sans-serif";ctx.textBaseline="bottom";
+    const activeKey=state.activeSelection&&state.activeSelection.key||"";
     for(const item of objects||[]){
       const b=item&&item.bbox;if(!Array.isArray(b)||b.length!==4)continue;
       const x=ox+(Number(b[0])||0)*dw,y=oy+(Number(b[1])||0)*dh,w=(Number(b[2])||0)*dw,h=(Number(b[3])||0)*dh;
-      ctx.strokeStyle="#50f0ac";ctx.fillStyle="#50f0ac";ctx.strokeRect(x,y,w,h);
+      const key=window.HawkeyeActiveVision?HawkeyeActiveVision.targetKey(item):"";
+      const selected=!!activeKey&&key===activeKey,complete=selected&&state.activeRead&&state.activeRead.complete;
+      ctx.lineWidth=selected?3:1.5;
+      ctx.strokeStyle=complete?"#43f59b":(selected?"#45d4e8":"rgba(150,215,225,.58)");
+      ctx.fillStyle=ctx.strokeStyle;ctx.strokeRect(x,y,w,h);
+      if(selected){
+        const s=11;ctx.lineWidth=4;
+        ctx.beginPath();ctx.moveTo(x,y+s);ctx.lineTo(x,y);ctx.lineTo(x+s,y);
+        ctx.moveTo(x+w-s,y);ctx.lineTo(x+w,y);ctx.lineTo(x+w,y+s);
+        ctx.moveTo(x,y+h-s);ctx.lineTo(x,y+h);ctx.lineTo(x+s,y+h);
+        ctx.moveTo(x+w-s,y+h);ctx.lineTo(x+w,y+h);ctx.lineTo(x+w,y+h-s);ctx.stroke();
+      }
       const tid=item.tracking_id===null||item.tracking_id===undefined?"":" #"+item.tracking_id;
       const top=Array.isArray(item.labels)&&item.labels.length?item.labels[0]:null;
       const conf=top&&Number.isFinite(Number(top.confidence))?" "+Math.round(Number(top.confidence)*100)+"%":"";
-      ctx.fillText(String(item.label||"object").slice(0,20)+tid+conf,x+3,Math.max(14,y-2));
+      const prefix=complete?"READ ✓ · ":(selected?(state.activeSelection.source==="POINTED"?"POINTED · ":"TARGET · "):"");
+      ctx.fillText(prefix+String(item.label||"object").slice(0,20)+tid+conf,x+3,Math.max(14,y-2));
+    }
+    const ray=state.activeSelection&&state.activeSelection.ray;
+    if(ray&&ray.origin&&ray.dir){
+      const x1=ox+ray.origin.x*dw,y1=oy+ray.origin.y*dh,len=Math.max(cw,ch)*.34;
+      ctx.save();ctx.strokeStyle="rgba(242,201,111,.9)";ctx.lineWidth=2;ctx.setLineDash([7,5]);
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x1+ray.dir.x*len,y1+ray.dir.y*len);ctx.stroke();ctx.restore();
     }
   }
 
