@@ -18,11 +18,16 @@ def main() -> int:
     parser=argparse.ArgumentParser(description="Audit a KRISHNA GLB without modifying it.")
     parser.add_argument("asset",type=Path)
     parser.add_argument("--report",type=Path,default=None)
-    parser.add_argument("--require-ready",action="store_true")
+    parser.add_argument("--require-ready",action="store_true",
+                        help="Require TalkingHead body + face compatibility.")
+    parser.add_argument("--require-production-ready",action="store_true",
+                        help="Require body, face and the complete KRISHNA animation pack.")
     args=parser.parse_args()
     result=inspect_avatar(args.asset,args.report)
     print(json.dumps(result,ensure_ascii=False,indent=2))
-    return 0 if (not args.require_ready or result.get("ready")) else 2
+    compatible=(not args.require_ready or bool(result.get("ready")))
+    production=(not args.require_production_ready or bool(result.get("production_ready")))
+    return 0 if compatible and production else 2
 
 
 if __name__=="__main__":
