@@ -203,6 +203,10 @@ class SuryadevLearningPipelineTests(unittest.TestCase):
         self.assertIn("300",source)
         self.assertIn("transcript.txt",source)
         self.assertIn("visual_evidence",source)
+        self.assertIn("_SystemAudioASR",source)
+        self.assertIn("pyaudiowpatch",source)
+        self.assertIn("WhisperModel",source)
+        self.assertIn("vad_filter=True",source)
         self.assertIn("source_video_downloaded",source)
         self.assertIn("False",source)
 
