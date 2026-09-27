@@ -563,7 +563,7 @@
       "User goal: "+String(typeof fieldGoal!=="undefined"?fieldGoal:"live visual assistance"),
       labels?"Local tracked objects: "+labels:"",
       ocr?"Local OCR (already redacted): "+ocr:"",
-      "Return a concise result and the next camera view that would reduce uncertainty."
+      "Return a concise result. For readability problems, do not instruct the owner to move left/right/closer or tilt; HAWKEYE Active Vision handles focus, zoom, light, crop and multi-frame retry automatically. Request a new physical view only when required information is genuinely hidden or occluded."
     ].filter(Boolean).join("\n");
   }
 
