@@ -22,7 +22,7 @@ from .field_perception import FieldPerceptionPolicy
 
 
 class SuryadevAgent:
-    VERSION = "suryadev-eye-ear-v1"
+    VERSION = "suryadev-eye-ear-v2"
     AGENT_ID = "suryadev"
     JOB_TYPES = {
         "screen_read",
@@ -47,6 +47,9 @@ class SuryadevAgent:
         "backend_test_observation",
         "public_ui_research",
         "rishi_research_handoff",
+        "timestamped_transcript",
+        "selected_visual_evidence",
+        "server_ack_cleanup",
     )
     RAW_MEDIA_KEYS = {
         "raw_media", "raw_video", "raw_audio", "screen_recording", "camera_recording",
@@ -58,8 +61,10 @@ class SuryadevAgent:
         self.root.mkdir(parents=True, exist_ok=True)
         self.jobs_dir = self.root / "jobs"
         self.reports_dir = self.root / "reports"
+        self.receipts_dir = self.root / "learning-receipts"
         self.jobs_dir.mkdir(parents=True, exist_ok=True)
         self.reports_dir.mkdir(parents=True, exist_ok=True)
+        self.receipts_dir.mkdir(parents=True, exist_ok=True)
         self.ledger = self.root / "suryadev-ledger.jsonl"
         self.brahma = brahma
         self.council = council
@@ -295,6 +300,167 @@ class SuryadevAgent:
             "finding_id": packet.get("finding_id"),
         }
 
+    def route_learning_bundle(self, bundle, *, device_id=""):
+        """Validate and route one external learning bundle through existing BRAHMA/Rishis.
+
+        This deliberately does not create a new learning authority. SURYDEV contributes
+        bounded candidate evidence; BRAHMA/Rishi learning remains authoritative.
+        A cleanup acknowledgement is issued only after every accepted chunk was routed.
+        """
+        bundle = dict(bundle or {})
+        if bundle.get("schema") != "krishna.suryadev.learning-bundle.v1":
+            raise ValueError("unsupported SURYDEV learning bundle schema")
+        if bundle.get("raw_media_included") is not False:
+            raise ValueError("raw media may not be transferred in a SURYDEV learning bundle")
+        job_id = self._text(bundle.get("job_id"), 200)
+        if not job_id:
+            raise ValueError("learning bundle job_id is required")
+        chunks = bundle.get("learning_chunks") or []
+        visuals = bundle.get("visual_evidence") or []
+        if not isinstance(chunks, list) or not isinstance(visuals, list):
+            raise ValueError("learning_chunks and visual_evidence must be lists")
+        if not chunks and not visuals:
+            raise ValueError("learning bundle contains no evidence")
+        if len(chunks) > 120 or len(visuals) > 120:
+            raise ValueError("learning bundle exceeds bounded evidence limits")
+
+        bundle_sha = self._digest(bundle)
+        receipt_path = self.receipts_dir / f"{job_id}.json"
+        if receipt_path.is_file():
+            prior = json.loads(receipt_path.read_text(encoding="utf-8"))
+            if prior.get("bundle_sha256") != bundle_sha:
+                raise RuntimeError("different learning bundle already acknowledged for this job")
+            return {**prior, "idempotent_replay": True}
+
+        source = dict(bundle.get("source") or {})
+        source_ref = self._text(source.get("url") or "", 2000)
+        source_title = self._text(source.get("title") or "", 500)
+        safe_visuals = []
+        for visual in visuals:
+            if not isinstance(visual, dict):
+                continue
+            sha = self._text(visual.get("sha256"), 80).lower()
+            if sha and (len(sha) != 64 or any(ch not in "0123456789abcdef" for ch in sha)):
+                raise ValueError("selected visual evidence has invalid SHA-256")
+            if visual.get("bytes") is not None or visual.get("base64") is not None:
+                raise ValueError("selected visual evidence may contain metadata/hash only")
+            safe_visuals.append({
+                "sha256": sha,
+                "subject": self._text(visual.get("subject"), 300),
+                "timestamp": self._text(visual.get("timestamp"), 80),
+                "reason": self._text(visual.get("reason"), 600),
+                "research_question": self._text(visual.get("research_question"), 1200),
+                "lab_relevance": bool(visual.get("lab_relevance", False)),
+            })
+
+        routed = []
+        for index, chunk in enumerate(chunks[:120], 1):
+            if not isinstance(chunk, dict):
+                raise ValueError("learning chunk must be an object")
+            text = self._text(chunk.get("text"), 8000)
+            topic = self._text(chunk.get("topic") or source_title or "SURYDEV video learning", 1000)
+            if not text:
+                raise ValueError("learning chunk text is required")
+            start = chunk.get("start_seconds")
+            end = chunk.get("end_seconds")
+            timestamps = []
+            if start is not None:
+                timestamps.append(f"start_seconds={float(start):.2f}")
+            if end is not None:
+                timestamps.append(f"end_seconds={float(end):.2f}")
+            evidence = [{
+                "source_ref": source_ref or f"suryadev-job:{job_id}",
+                "source_type": "video_source",
+                "sha256": "",
+                "note": source_title,
+            }]
+            for visual in safe_visuals:
+                if not visual.get("sha256"):
+                    continue
+                evidence.append({
+                    "source_ref": f"suryadev-visual:{visual['sha256']}",
+                    "source_type": "selected_visual_evidence",
+                    "sha256": visual["sha256"],
+                    "note": " | ".join(x for x in [
+                        visual.get("timestamp"), visual.get("reason"), visual.get("research_question")
+                    ] if x)[:1200],
+                })
+            packet = self.distilled_finding(
+                job_id=job_id,
+                project=self._text(bundle.get("project") or "KRISHNA", 200),
+                topic=topic,
+                finding=text,
+                modality=self._text(chunk.get("modality") or "video_learning", 120),
+                evidence=evidence[:40],
+                confidence=self._clamp(chunk.get("confidence", 0.65)),
+                timestamps=timestamps,
+                source_ref=source_ref,
+            )
+            route = self.route_finding(packet)
+            if not route.get("routed"):
+                raise RuntimeError("BRAHMA did not accept SURYDEV learning chunk")
+            routed.append({
+                "chunk_index": index,
+                "finding_id": packet.get("finding_id"),
+                "lead_rishi": route.get("lead_rishi"),
+                "rishi_team": route.get("rishi_team") or [],
+            })
+
+        if not routed and safe_visuals:
+            # Visual-only sessions still create one bounded candidate so the relevant
+            # Rishi can decide whether the frame warrants deeper research/lab work.
+            questions = [x.get("research_question") for x in safe_visuals if x.get("research_question")]
+            visual_text = (
+                "Selected visual evidence was captured without reliable speech text. "
+                "Do not infer unseen/spoken claims. Review the visual hashes/timestamps and research: "
+                + "; ".join(questions[:12])
+            )
+            packet = self.distilled_finding(
+                job_id=job_id,
+                project=self._text(bundle.get("project") or "KRISHNA", 200),
+                topic=self._text(source.get("subject") or source_title or "SURYDEV visual evidence", 1000),
+                finding=visual_text,
+                modality="visual_observation",
+                evidence=[{
+                    "source_ref": f"suryadev-visual:{x['sha256']}",
+                    "source_type": "selected_visual_evidence",
+                    "sha256": x["sha256"],
+                    "note": " | ".join(y for y in [x.get("timestamp"), x.get("reason"), x.get("research_question")] if y)[:1200],
+                } for x in safe_visuals if x.get("sha256")][:40],
+                confidence=0.45,
+                source_ref=source_ref,
+            )
+            route = self.route_finding(packet)
+            if not route.get("routed"):
+                raise RuntimeError("BRAHMA did not accept SURYDEV visual evidence")
+            routed.append({
+                "chunk_index": 0,
+                "finding_id": packet.get("finding_id"),
+                "lead_rishi": route.get("lead_rishi"),
+                "rishi_team": route.get("rishi_team") or [],
+            })
+
+        receipt = {
+            "schema": "krishna.suryadev.learning-receipt.v1",
+            "receipt_id": "SURYA-ACK-" + uuid.uuid4().hex[:20],
+            "job_id": job_id,
+            "device_id": self._text(device_id, 200),
+            "bundle_sha256": bundle_sha,
+            "accepted_chunks": len(routed),
+            "selected_visuals": len(safe_visuals),
+            "routed": routed,
+            "cleanup_authorized": True,
+            "cleanup_rule": "external node may delete transient transcript/audio/video/frames only after verifying this bundle SHA-256",
+            "created_at": time.time(),
+        }
+        receipt_path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2), encoding="utf-8")
+        if self.memory:
+            self.memory.audit(
+                "suryadev_learning_bundle", "acknowledged",
+                f"{job_id}:{bundle_sha[:16]}:{len(routed)}",
+            )
+        return receipt
+
     def status(self):
         jobs = len(list(self.jobs_dir.glob("SURYA-*.json")))
         reports = len(list(self.reports_dir.glob("*.json")))
@@ -309,6 +475,9 @@ class SuryadevAgent:
             "runs_on_external_node": True,
             "transports": ["trusted_lan", "verified_usb_packet"],
             "raw_media_to_krishna": False,
+            "full_transcript_persistent": False,
+            "selected_visual_transfer": "metadata/hash only unless separately approved",
+            "server_ack_before_external_cleanup": True,
             "routes_findings_to_brahmagyan": self.brahma is not None,
             "release_authority": False,
             "human_verification_handoff": True,
