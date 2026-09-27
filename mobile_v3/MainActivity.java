@@ -26,6 +26,7 @@ public class MainActivity extends Activity {
   WebView web;
   Bridge bridge;
   HawkeyeSensorFusion hawkeyeSensors;
+  MrityunjayaMobileHealer mrityunjaya;
   ValueCallback<Uri[]> fileCallback;
   boolean webReady=false;
   String pendingAssistPhrase=null,pendingAssistMode=null;
@@ -101,6 +102,58 @@ public class MainActivity extends Activity {
     receiveAssistantCommand(intent.getStringExtra("mode"),intent.getStringExtra("phrase"));
   }
 
+  void publishMrityunjayaState(String state,JSONObject snapshot){
+    final String raw=snapshot==null?"{}":snapshot.toString();
+    runOnUiThread(()->{
+      try{
+        if(web!=null&&webReady)web.evaluateJavascript(
+          "window.onMrityunjayaState&&window.onMrityunjayaState("+JSONObject.quote(raw)+")",null);
+      }catch(Exception ignored){}
+    });
+  }
+
+  void reloadTrustedMobileShell(){
+    if(web==null)return;
+    webReady=false;
+    try{web.stopLoading();}catch(Exception ignored){}
+    try{web.loadUrl("file:///android_asset/index.html");}
+    catch(Exception e){if(mrityunjaya!=null)mrityunjaya.failed("ui-shell",e.getClass().getSimpleName()+": "+e.getMessage());}
+  }
+
+  void healPrivateCore(){
+    new Thread(()->{
+      try{
+        String found=KrishnaPrivateCore.discoverLan(MainActivity.this);
+        if(found.isEmpty())throw new IllegalStateException("trusted KRISHNA Core was not rediscovered");
+        if(bridge!=null)bridge.autoBootstrap();
+        if(mrityunjaya!=null)mrityunjaya.recovered("private-core-link","Private Core link rediscovered and bootstrap retried");
+      }catch(Exception e){
+        if(mrityunjaya!=null)mrityunjaya.failed("private-core-link",e.getClass().getSimpleName()+": "+e.getMessage());
+      }
+    },"mrityunjaya-core-recovery").start();
+  }
+
+  void handleMobileFault(String kind,String detail){
+    if(mrityunjaya==null)return;
+    final String k=kind==null?"":kind.trim().toLowerCase(java.util.Locale.ROOT);
+    if("private-core-link".equals(k)){
+      mrityunjaya.recover(k,detail,"rediscover private Core + bootstrap",this::healPrivateCore);
+      return;
+    }
+    if("camera-session".equals(k)){
+      mrityunjaya.recover(k,detail,"restart bounded camera session",()->{
+        if(web!=null&&webReady)web.evaluateJavascript(
+          "window.mrityunjayaRecover&&window.mrityunjayaRecover('camera-session')",null);
+      });
+      return;
+    }
+    if("javascript-runtime".equals(k)||"ui-shell".equals(k)){
+      mrityunjaya.recover(k,detail,"reload trusted mobile UI shell",this::reloadTrustedMobileShell);
+      return;
+    }
+    mrityunjaya.fault(k.isEmpty()?"mobile-runtime":k,detail);
+  }
+
   void probeUiReady(){
     if(web==null||!webReady)return;
     final String script="(()=>{"+
@@ -115,6 +168,10 @@ public class MainActivity extends Activity {
         ",\"hawkeye\":"+ok+",\"chat\":"+ok+",\"mic\":"+ok+"}";
       android.util.Log.i("KRISHNA_UI_READY",payload);
       getSharedPreferences("k",0).edit().putString("last_ui_ready",payload).putLong("last_ui_ready_at",System.currentTimeMillis()).apply();
+      if(mrityunjaya!=null){
+        if(ok)mrityunjaya.recovered("ui-shell","UI probe verified avatar + Hawkeye + chat + mic");
+        else mrityunjaya.recover("ui-shell",payload,"reload trusted mobile UI shell",MainActivity.this::reloadTrustedMobileShell);
+      }
     });
   }
 
@@ -161,6 +218,7 @@ public class MainActivity extends Activity {
 
   @Override public void onCreate(Bundle b){
     super.onCreate(b);
+    mrityunjaya=new MrityunjayaMobileHealer(this,this::publishMrityunjayaState);
     ensureNotifications();
     hawkeyeSensors=new HawkeyeSensorFusion(this);
     HawkeyeBackgroundSync.schedule(this);
@@ -202,6 +260,20 @@ public class MainActivity extends Activity {
       }
       @Override public boolean shouldOverrideUrlLoading(WebView view,String url){
         try{return !trusted(Uri.parse(url));}catch(Exception e){return true;}
+      }
+      @Override public boolean onRenderProcessGone(WebView view,RenderProcessGoneDetail detail){
+        webReady=false;
+        String why="didCrash="+(detail!=null&&detail.didCrash())+", priority="+(detail==null?"unknown":detail.rendererPriorityAtExit());
+        boolean scheduled=mrityunjaya!=null&&mrityunjaya.recover(
+          "webview-renderer",why,"recreate KRISHNA mobile activity",()->{
+            try{view.destroy();}catch(Exception ignored){}
+            recreate();
+          });
+        if(!scheduled){
+          try{view.destroy();}catch(Exception ignored){}
+          finish();
+        }
+        return true;
       }
     });
     web.setWebChromeClient(new WebChromeClient(){
@@ -258,7 +330,7 @@ public class MainActivity extends Activity {
   @Override protected void onResume(){super.onResume();getSharedPreferences("k",0).edit().putBoolean("activity_foreground",true).apply();emitAsync("mobile_foreground","KRISHNA Mobile entered foreground");startWakeIfReady();if(bridge!=null)new Thread(()->{bridge.autoBootstrap();bridge.hawkeyeSyncEvidence();},"krishna-mobile-resume").start();}
   @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);handleAssistIntent(intent);}
   @Override protected void onPause(){getSharedPreferences("k",0).edit().putBoolean("activity_foreground",false).apply();emitAsync("mobile_background","KRISHNA Mobile entered background");super.onPause();}
-  @Override protected void onDestroy(){try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}try{if(hawkeyeSensors!=null)hawkeyeSensors.close();}catch(Exception ignored){}super.onDestroy();}
+  @Override protected void onDestroy(){try{unregisterReceiver(wakeReceiver);}catch(Exception ignored){}try{if(hawkeyeSensors!=null)hawkeyeSensors.close();}catch(Exception ignored){}try{if(web!=null)web.destroy();}catch(Exception ignored){}super.onDestroy();}
 
   public class Bridge {
     final HawkeyeEvidenceCuratorBot hawkeyeCurator;
@@ -347,10 +419,19 @@ public class MainActivity extends Activity {
     @JavascriptInterface public void pollAsync(){
       new Thread(()->{
         String link=connection(),coreState="{}";
+        boolean connected=false;
+        String linkProblem="";
         try{
           JSONObject l=new JSONObject(link);
-          if(!l.has("error")&&l.optBoolean("connected",false))coreState=state();
-        }catch(Exception ignored){}
+          connected=!l.has("error")&&l.optBoolean("connected",false);
+          if(connected)coreState=state();
+          else linkProblem=l.optString("error","private Core link not confirmed");
+        }catch(Exception e){linkProblem=e.getClass().getSimpleName()+": "+e.getMessage();}
+        if(connected){
+          if(mrityunjaya!=null)mrityunjaya.recovered("private-core-link","Private Core connection verified");
+        }else if(mrityunjaya!=null){
+          handleMobileFault("private-core-link",linkProblem);
+        }
         final String linkResult=link,stateResult=coreState;
         runOnUiThread(()->{
           if(web!=null)web.evaluateJavascript(
@@ -362,6 +443,28 @@ public class MainActivity extends Activity {
       String safe=payload==null?"{}":payload;
       android.util.Log.i("KRISHNA_UI_READY",safe);
       getSharedPreferences("k",0).edit().putString("last_ui_ready",safe).putLong("last_ui_ready_at",System.currentTimeMillis()).apply();
+      if(mrityunjaya!=null)mrityunjaya.recovered("ui-shell","Web UI reported ready");
+    }
+    @JavascriptInterface public String mrityunjayaStatus(){
+      try{return mrityunjaya==null?new JSONObject().put("available",false).toString():mrityunjaya.status().toString();}
+      catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public void mrityunjayaFault(String kind,String detail){
+      handleMobileFault(kind,detail);
+    }
+    @JavascriptInterface public void mrityunjayaRecovered(String kind,String detail){
+      if(mrityunjaya!=null)mrityunjaya.recovered(kind,detail);
+    }
+    @JavascriptInterface public String mrityunjayaResetVolatileState(){
+      try{return mrityunjaya==null?new JSONObject().put("available",false).toString():mrityunjaya.resetVolatileState().toString();}
+      catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String mrityunjayaTest(String kind){
+      String k=kind==null?"ui-shell":kind.trim().toLowerCase(java.util.Locale.ROOT);
+      if(k.isEmpty())k="ui-shell";
+      handleMobileFault(k,"Android Studio recovery test");
+      try{return mrityunjaya==null?new JSONObject().put("available",false).toString():mrityunjaya.status().toString();}
+      catch(Exception e){return error(e);}
     }
     @JavascriptInterface public String hawkeyeSensorSnapshot(){
       try{return hawkeyeSensors==null?new JSONObject().put("available",false).toString():hawkeyeSensors.snapshot().toString();}
