@@ -8,6 +8,13 @@ on:
       - 'ios/**'
       - 'avatar/krishna_child_360.webp.b64'
       - '.github/workflows/build-ios.yml'
+  pull_request:
+    branches:
+      - fix/krishna-ui-runtime-verification
+    paths:
+      - 'ios/**'
+      - 'avatar/krishna_child_360.webp.b64'
+      - '.github/workflows/build-ios.yml'
   workflow_dispatch:
 
 permissions:
