@@ -56,14 +56,14 @@ function Save-Pipeline([object]$Payload){
 }
 
 function Promote-Candidate([string]$Candidate,[object]$Audit,[string]$Reason){
-  if(!$Audit.ready){throw "Refusing avatar promotion: candidate did not pass production audit"}
+  if(!$Audit.production_ready){throw "Refusing avatar promotion: candidate did not pass complete body + face + viseme + animation production audit"}
   if(Test-Path $productionGlb){
     $stamp=(Get-Date).ToUniversalTime().ToString("yyyyMMdd-HHmmss")
     Copy-Item -Force $productionGlb (Join-Path $backupDir ("krishna.production-"+$stamp+".glb"))
   }
   Copy-Item -Force $Candidate $productionGlb
   $verify=Invoke-AvatarAudit $productionGlb (Join-Path $reportDir "production-audit.json")
-  if(!$verify.ready){
+  if(!$verify.production_ready){
     Remove-Item -Force $productionGlb
     throw "Promoted avatar failed re-audit; production copy removed"
   }
@@ -95,8 +95,8 @@ Write-Host ("SOURCE STAGE: "+$sourceAudit.stage) -ForegroundColor Yellow
 
 # A source asset that already meets the complete TalkingHead contract can be
 # promoted byte-for-byte. The source remains untouched.
-if($sourceAudit.ready){
-  $prod=Promote-Candidate $sourceGlb $sourceAudit "private source already satisfies TalkingHead body + ARKit + Oculus requirements"
+if($sourceAudit.production_ready){
+  $prod=Promote-Candidate $sourceGlb $sourceAudit "private source already satisfies TalkingHead body + ARKit + Oculus + complete KRISHNA animation requirements"
   Save-Pipeline ([ordered]@{
     schema=1;status="production-ready";source=$sourceAudit;candidate=$null;production=$prod
     body_rig_attempted=$false;cloud_upload_used=$false
@@ -112,7 +112,7 @@ if($sourceAudit.ready){
 $existingProduction=$null
 if(Test-Path $productionGlb){
   $existingProduction=Invoke-AvatarAudit $productionGlb (Join-Path $reportDir "production-audit.json")
-  if(!$existingProduction.ready){
+  if(!$existingProduction.production_ready){
     $quarantine=Join-Path $candidateDir ("krishna.production-rejected-"+(Get-Date -Format "yyyyMMdd-HHmmss")+".glb")
     Move-Item -Force $productionGlb $quarantine
     Write-Warning "Existing krishna.production.glb failed the current compatibility gate and was moved to candidates."
@@ -202,9 +202,10 @@ $next=@()
 if(!$effectiveAudit.body.ready){$next+="Body rig still does not match TalkingHead/Mixamo pose-bone requirements."}
 if(!$effectiveAudit.face.arkit.ready){$next+=("$($effectiveAudit.face.arkit.missing.Count) ARKit facial blend shapes still need a source-faithful local facial rig.")}
 if(!$effectiveAudit.face.oculus_visemes.ready){$next+=("$($effectiveAudit.face.oculus_visemes.missing.Count) Oculus viseme shapes still need a local facial/lip rig.")}
-if(!$next.Count){$next+="Re-run the production audit and promote only after all checks pass."}
+if(!$effectiveAudit.animation.ready){$next+=("$($effectiveAudit.animation.missing.Count) KRISHNA state animation clips are still missing: "+(@($effectiveAudit.animation.missing) -join ", "))}
+if(!$next.Count){$next+="Re-run the production audit and promote only after all body, face, viseme and animation checks pass."}
 
-$status=if($existingProduction -and $existingProduction.ready){"production-ready"}else{"candidate-only"}
+$status=if($existingProduction -and $existingProduction.production_ready){"production-ready"}else{"candidate-only"}
 Save-Pipeline ([ordered]@{
   schema=1;status=$status
   source=$sourceAudit
