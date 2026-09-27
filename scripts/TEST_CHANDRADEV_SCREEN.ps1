@@ -1,3 +1,7 @@
+param(
+    [int]$CameraIndex = 0
+)
+
 $ErrorActionPreference = "Stop"
 
 $root = if ($env:KRISHNA_ROOT) { $env:KRISHNA_ROOT } else { "E:\Krishna-The GOD" }
@@ -17,14 +21,7 @@ foreach ($candidate in $candidates) {
 if (-not $python) { throw "KRISHNA Python venv not found." }
 
 $env:CHANDRADEV_SHARED_STATE = $shared
-
-$listen = Get-NetTCPConnection -State Listen -LocalPort 1935 -ErrorAction SilentlyContinue
-if (-not $listen) {
-    Write-Host ""
-    Write-Host "CHANDRADEV RTMP RECEIVER IS NOT RUNNING"
-    Write-Host "Keep START_CHANDRADEV_OSMO.ps1 open in another PowerShell window."
-    exit 11
-}
+$env:CHANDRADEV_WEBCAM_INDEX = "$CameraIndex"
 
 $py = @"
 import json,sys
@@ -36,12 +33,13 @@ from krishna_core.chandradev_camera import ChandradevOsmoCameraAdapter
 adapter=ChandradevOsmoCameraAdapter(
     Path(r'''$root''')/'state'/'chandradev'/'screen-focus-runtime'
 )
+adapter.select_camera_source('usb_uvc_webcam',webcam_index=int(r'''$CameraIndex'''))
 try:
     result=adapter.focus_screen(burst_frames=15,target_width=1920,timeout_seconds=8)
 except RuntimeError as exc:
     message=str(exc)
-    if 'RTMP stream is not available' in message:
-        print('NO_DJI_STREAM: MediaMTX is listening, but DJI Mimo is not publishing the expected Osmo RTMP stream.')
+    if 'USB webcam index' in message:
+        print('NO_USB_WEBCAM:',message)
         raise SystemExit(12)
     raise
 print(json.dumps(result,ensure_ascii=False,indent=2))
@@ -59,16 +57,16 @@ $code = $LASTEXITCODE
 
 if ($code -eq 12) {
     Write-Host ""
-    Write-Host "DJI MIMO IS NOT STREAMING TO CHANDRADEV"
-    Write-Host "In DJI Mimo, start the live RTMP stream using the exact URL printed by START_CHANDRADEV_OSMO.ps1."
-    Write-Host "Keep the phone and KRISHNA PC on the same Wi-Fi/LAN."
-    Write-Host "After Mimo says LIVE, run TEST_CHANDRADEV_OSMO.ps1 first, then rerun this screen test."
+    Write-Host "CHANDRADEV USB WEBCAM IS NOT AVAILABLE"
+    Write-Host "Connect the webcam directly to the KRISHNA PC and close Camera/Teams/Zoom or any app that may already be using it."
+    Write-Host "If Windows has multiple cameras, rerun with -CameraIndex 1, then 2, etc."
+    Write-Host "Example: .\scripts\TEST_CHANDRADEV_SCREEN.ps1 -CameraIndex 1"
 }
 if ($code -eq 10) {
     Write-Host ""
     Write-Host "CHANDRADEV SCREEN ALIGNMENT NEEDS OWNER HELP"
     Write-Host "KRISHNA should connect the owner for a manual camera adjustment."
-    Write-Host "Point the Osmo so the complete monitor and all four screen edges are visible."
+    Write-Host "Point the USB webcam so the complete monitor and all four screen edges are visible."
     Write-Host "Stabilize the camera/mount, reduce glare, then run this test again."
     Write-Host "After adjustment CHANDRADEV will re-detect, refocus and lock the monitor."
 }
