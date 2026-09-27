@@ -12,10 +12,14 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import platform
 import shutil
 import subprocess
 import sys
 import time
+import ctypes
+
+from krishna_core.suryadev_device_profile import SuryadevDeviceSelector
 
 
 AGENT = "SURYDEV"
@@ -35,6 +39,80 @@ OPTIONAL_TOOLS = {
 }
 
 
+def _windows_memory_mb():
+    if os.name!="nt":return 0
+    try:
+        class MEMORYSTATUSEX(ctypes.Structure):
+            _fields_=[
+                ("dwLength",ctypes.c_ulong),("dwMemoryLoad",ctypes.c_ulong),
+                ("ullTotalPhys",ctypes.c_ulonglong),("ullAvailPhys",ctypes.c_ulonglong),
+                ("ullTotalPageFile",ctypes.c_ulonglong),("ullAvailPageFile",ctypes.c_ulonglong),
+                ("ullTotalVirtual",ctypes.c_ulonglong),("ullAvailVirtual",ctypes.c_ulonglong),
+                ("ullAvailExtendedVirtual",ctypes.c_ulonglong),
+            ]
+        s=MEMORYSTATUSEX();s.dwLength=ctypes.sizeof(MEMORYSTATUSEX)
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(s)):
+            return int(s.ullTotalPhys//(1024*1024))
+    except Exception:
+        pass
+    return 0
+
+
+def _windows_power():
+    if os.name!="nt":return {"battery_percent":None,"charging":False,"battery_present":False}
+    try:
+        class SYSTEM_POWER_STATUS(ctypes.Structure):
+            _fields_=[
+                ("ACLineStatus",ctypes.c_ubyte),("BatteryFlag",ctypes.c_ubyte),
+                ("BatteryLifePercent",ctypes.c_ubyte),("SystemStatusFlag",ctypes.c_ubyte),
+                ("BatteryLifeTime",ctypes.c_ulong),("BatteryFullLifeTime",ctypes.c_ulong),
+            ]
+        s=SYSTEM_POWER_STATUS()
+        if ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(s)):
+            present=not bool(s.BatteryFlag&128)
+            pct=None if s.BatteryLifePercent==255 else int(s.BatteryLifePercent)
+            return {"battery_percent":pct,"charging":s.ACLineStatus==1,"battery_present":present}
+    except Exception:
+        pass
+    return {"battery_percent":None,"charging":False,"battery_present":False}
+
+
+def device_profile(modules=None,tools=None):
+    modules=modules or {}
+    tools=tools or {}
+    power=_windows_power()
+    try:free_gb=round(shutil.disk_usage(Path.cwd()).free/(1024**3),2)
+    except Exception:free_gb=0.0
+    system=platform.system().lower()
+    if system=="windows":
+        device_class="laptop" if power.get("battery_present") else "desktop"
+    elif system=="darwin":
+        device_class="macbook" if power.get("battery_present") else "desktop"
+    else:
+        device_class="laptop" if power.get("battery_present") else "pc"
+    memory_mb=_windows_memory_mb()
+    profile={
+        "platform":system or os.name,
+        "platform_version":platform.release(),
+        "device_class":device_class,
+        "model_family":platform.machine(),
+        "memory_mb":memory_mb,
+        "cpu_cores":os.cpu_count() or 0,
+        "free_storage_gb":free_gb,
+        "battery_percent":power.get("battery_percent"),
+        "charging":bool(power.get("charging")),
+        "thermal_state":"unknown",
+        "browser_available":bool((modules.get("playwright") or {}).get("available")),
+        "video_playback":bool((tools.get("ffmpeg") or {}).get("available") or (tools.get("ffprobe") or {}).get("available")),
+        "screen_understanding":bool((modules.get("mss") or {}).get("available") or (modules.get("cv2") or {}).get("available")),
+        "transcript_capable":bool((modules.get("faster_whisper") or {}).get("available") or (tools.get("yt-dlp") or {}).get("available")),
+        "playwright_available":bool((modules.get("playwright") or {}).get("available")),
+        "yt_dlp_available":bool((tools.get("yt-dlp") or {}).get("available")),
+        "network_online":True,
+    }
+    return SuryadevDeviceSelector.classify(profile)
+
+
 def probe():
     modules = {
         name: {"available": importlib.util.find_spec(name) is not None, "purpose": purpose}
@@ -44,11 +122,15 @@ def probe():
         name: {"available": bool(shutil.which(name)), "path": shutil.which(name), "purpose": purpose}
         for name, purpose in OPTIONAL_TOOLS.items()
     }
+    profile=device_profile(modules,tools)
     return {
         "agent": AGENT,
         "version": VERSION,
         "modules": modules,
         "tools": tools,
+        "device_profile": profile,
+        "recommended_workload": profile.get("workload"),
+        "max_browser_tabs": profile.get("max_browser_tabs"),
         "capabilities": {
             "screen_capture": modules["mss"]["available"],
             "camera_frames": modules["cv2"]["available"],
@@ -64,6 +146,11 @@ def probe():
             "authentication_handoff": "owner_permission_required_per_checkpoint",
             "auth_permission_scope": "one_time_job_origin_method",
             "captcha_liveness": "owner-approved_human_handoff_only",
+            "learning_cost": "zero",
+            "paid_learning": False,
+            "paid_api": False,
+            "deep_learning_required": True,
+            "researchable_output_required": True,
         },
     }
 
