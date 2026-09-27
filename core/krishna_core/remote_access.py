@@ -46,6 +46,11 @@ class PrivateRemotePolicy:
         "/api/hawkeye/learn/research",
         "/api/hawkeye/live/start",
         "/api/hawkeye/reference/item",
+        "/api/suryadev/horse/assignment",
+        "/api/suryadev/horse/curriculum",
+        "/api/suryadev/horse/profile",
+        "/api/suryadev/horse/heartbeat",
+        "/api/suryadev/horse/learning",
         "/api/mobile-log",
     })
     MOBILE_ROUTE_PREFIXES=("/api/gita/verse/","/api/gita/chapter/","/api/gita/performance/")
