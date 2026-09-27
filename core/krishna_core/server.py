@@ -2422,11 +2422,19 @@ class Handler(BaseHTTPRequestHandler):
             query_text=str(data.get("query") or "").strip()
             if not query_text:return self._json(400,{"error":"research query is required"})
             limit=max(1,min(int(data.get("limit") or 8),12))
+            mission=_browser_fabric.research.create_mission({
+                "question":query_text,
+                "project":"SURYDEV-SHRAVANA",
+                "requested_by":"suryadev-ipad:"+device,
+                "scouts":["papers","contradictions"],
+            })
             report=orch.garuda_scout("SURYDEV-SHRAVANA",query_text,limit)
             return self._json(200,{
                 "agent":"GARUDANETRA/GARUDA",
                 "consumer":"Rishi Shravana",
                 "query":query_text,
+                "garudanetra_mission_id":mission.get("mission_id"),
+                "garudanetra_targets":mission.get("targets") or [],
                 "report":report,
                 "rule":"web findings are verification evidence; they do not become Gyan without BRAHMA/Rishi review",
             })
