@@ -8,6 +8,7 @@ import com.google.android.gms.tasks.Tasks;
 import com.google.android.gms.tasks.Task;
 import com.google.mlkit.vision.barcode.BarcodeScanning;
 import com.google.mlkit.vision.barcode.BarcodeScanner;
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions;
 import com.google.mlkit.vision.barcode.common.Barcode;
 import com.google.mlkit.vision.face.Face;
 import com.google.mlkit.vision.face.FaceDetection;
@@ -61,7 +62,7 @@ public final class HawkeyeMobileVision {
     TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
   private static final TextRecognizer DEVANAGARI_OCR =
     TextRecognition.getClient(new DevanagariTextRecognizerOptions.Builder().build());
-  private static final BarcodeScanner BARCODES = BarcodeScanning.getClient();
+  private static final BarcodeScanner BARCODES = BarcodeScanning.getClient(\n    new BarcodeScannerOptions.Builder().enableAllPotentialBarcodes().build()\n  );
   private static final FaceDetector FACES = FaceDetection.getClient(
     new FaceDetectorOptions.Builder()
       .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
@@ -131,6 +132,73 @@ public final class HawkeyeMobileVision {
     out.put("objects",objects);
     if(primary!=null)out.put("primary",primary);
     out.put("count",objects.length());
+    return out;
+  }
+
+  public static JSONObject analyzeReadTarget(byte[] jpeg)throws Exception{
+    JSONObject out=new JSONObject();
+    out.put("schema","hawkeye.mobile-target-read.v1");
+    out.put("engine","ML_KIT_TARGET_OCR_BARCODE");
+    out.put("local",true);
+    out.put("cloud_required",false);
+    out.put("evidence_state","OBSERVED");
+
+    Bitmap bitmap=BitmapFactory.decodeByteArray(jpeg,0,jpeg.length);
+    if(bitmap==null){
+      out.put("error","image decode failed");
+      return out;
+    }
+    final double w=Math.max(1,bitmap.getWidth()),h=Math.max(1,bitmap.getHeight());
+    InputImage image=InputImage.fromBitmap(bitmap,0);
+    Task<Text> latinTask=LATIN_OCR.process(image);
+    Task<Text> devanagariTask=DEVANAGARI_OCR.process(image);
+    Task<List<Barcode>> barcodeTask=BARCODES.process(image);
+    try{
+      Tasks.await(Tasks.whenAllComplete(latinTask,devanagariTask,barcodeTask),1800,TimeUnit.MILLISECONDS);
+    }catch(Exception ignored){}
+
+    JSONArray blocks=new JSONArray();
+    StringBuilder merged=new StringBuilder();
+    appendTextResult(latinTask,blocks,merged,w,h,"latin");
+    appendTextResult(devanagariTask,blocks,merged,w,h,"devanagari");
+    String safeText=redactSensitive(merged.toString().trim());
+    if(safeText.length()>4000)safeText=safeText.substring(0,4000);
+    JSONObject ocr=new JSONObject();
+    ocr.put("text",safeText);
+    ocr.put("blocks",blocks);
+    ocr.put("credential_redaction",true);
+    out.put("ocr",ocr);
+
+    JSONArray codes=new JSONArray();
+    int decoded=0,potential=0;
+    if(barcodeTask.isSuccessful()&&barcodeTask.getResult()!=null){
+      for(Barcode code:barcodeTask.getResult()){
+        JSONObject row=new JSONObject();
+        String value=safeBarcodeValue(code);
+        boolean isDecoded=value!=null&&!value.isEmpty()&&!value.startsWith("[");
+        row.put("format",code.getFormat());
+        row.put("value_type",code.getValueType());
+        row.put("value",value);
+        row.put("decoded",isDecoded);
+        row.put("potential",!isDecoded);
+        Rect box=code.getBoundingBox();
+        if(box!=null)row.put("bbox",norm(box,w,h));
+        if(isDecoded)decoded++;else potential++;
+        codes.put(row);
+        if(codes.length()>=24)break;
+      }
+    }
+    out.put("barcodes",codes);
+    out.put("decoded_barcode_count",decoded);
+    out.put("potential_barcode_count",potential);
+    out.put("readable_character_count",safeText.replaceAll("[^A-Za-z0-9]","").length());
+    JSONObject caps=new JSONObject();
+    caps.put("ocr_latin",latinTask.isSuccessful());
+    caps.put("ocr_devanagari",devanagariTask.isSuccessful());
+    caps.put("barcode",barcodeTask.isSuccessful());
+    caps.put("potential_barcode_detection",true);
+    caps.put("api_key_required",false);
+    out.put("capabilities",caps);
     return out;
   }
 
