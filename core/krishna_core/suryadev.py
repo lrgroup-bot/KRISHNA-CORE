@@ -19,6 +19,7 @@ import time
 import uuid
 
 from .field_perception import FieldPerceptionPolicy
+from .suryadev_horses import SuryadevHorseFleet
 
 
 class SuryadevAgent:
@@ -61,6 +62,7 @@ class SuryadevAgent:
         self.jobs_dir.mkdir(parents=True, exist_ok=True)
         self.reports_dir.mkdir(parents=True, exist_ok=True)
         self.ledger = self.root / "suryadev-ledger.jsonl"
+        self.horses = SuryadevHorseFleet(self.root / "seven-horses")
         self.brahma = brahma
         self.council = council
         self.ui_reviewer = ui_reviewer
@@ -88,6 +90,138 @@ class SuryadevAgent:
     def _append(self, row):
         with self.ledger.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
+
+    def horse_status(self):
+        return self.horses.status()
+
+    def horse_bind(self, horse_id, *, node_id, device_class, label="", approved=False):
+        row=self.horses.bind(
+            horse_id,node_id=node_id,device_class=device_class,label=label,approved=approved,
+        )
+        if self.memory:
+            self.memory.audit(
+                "suryadev_horse_bind","bound",
+                f"{row['horse_id']}:{row['node_id']}:{row['device_class']}",
+            )
+        return row
+
+    def horse_unbind(self, horse_id, *, approved=False):
+        row=self.horses.unbind(horse_id,approved=approved)
+        if self.memory:
+            self.memory.audit("suryadev_horse_bind","unbound",str(row.get("horse_id") or horse_id))
+        return row
+
+    def horse_heartbeat(self, horse_id, *, node_id, status=None):
+        return self.horses.heartbeat(horse_id,node_id=node_id,status=status or {})
+
+    def horse_shift_boundary(self, elapsed_seconds, video_remaining_seconds=None):
+        return self.horses.shift_boundary(elapsed_seconds,video_remaining_seconds)
+
+    @staticmethod
+    def _horse_learning_text(source):
+        parts=[]
+        title=str(source.get("title") or "").strip()
+        if title:parts.append("TITLE: "+title)
+        publisher=str(source.get("publisher") or "").strip()
+        if publisher:parts.append("SOURCE/PUBLISHER: "+publisher)
+        tags=[str(x).strip() for x in (source.get("tags") or []) if str(x).strip()]
+        if tags:parts.append("TAGS: "+", ".join(tags))
+        description=str(source.get("description") or "").strip()
+        if description:parts.append("DESCRIPTION: "+description)
+        transcript=str(source.get("transcript_excerpt") or "").strip()
+        if transcript:parts.append("TRANSCRIPT/CAPTIONS: "+transcript)
+        screen_notes=str(source.get("screen_notes") or "").strip()
+        if screen_notes:parts.append("SCREEN UNDERSTANDING: "+screen_notes)
+        return "\n".join(parts)
+
+    def horse_learning_batch(self, horse_id, *, node_id, payload):
+        """Route a bound horse's distilled media batch into the existing BRAHMA/Rishi path."""
+        batch=self.horses.ingest_batch(horse_id,node_id=node_id,payload=payload or {})
+        routes=[];errors=[]
+        for index,source in enumerate(batch.get("sources") or []):
+            learning=self._horse_learning_text(source)
+            if not learning.strip():continue
+            title=str(source.get("title") or "").strip() or "Untitled media source"
+            tags=[str(x).strip() for x in (source.get("tags") or []) if str(x).strip()]
+            topic=(" ".join([title,*tags[:12]])).strip()[:1000]
+            evidence=[{
+                "source_ref":source.get("url") or source.get("source_sha256"),
+                "source_type":"suryadev_horse_media_source",
+                "sha256":source.get("source_sha256"),
+                "note":(
+                    f"{batch['horse_name']} device-learning source; "
+                    f"publisher={source.get('publisher') or 'unknown'}; "
+                    f"watched={source.get('start_seconds',0):.1f}-{source.get('end_seconds',0):.1f}s; "
+                    "raw media stayed on the edge device"
+                ),
+            }]
+            if source.get("transcript_sha256"):
+                evidence.append({
+                    "source_ref":source.get("url") or source.get("source_sha256"),
+                    "source_type":"transcript_or_caption_digest",
+                    "sha256":source.get("transcript_sha256"),
+                    "note":"Transcript/caption excerpt supplied by the bound SURYDEV horse; important claims still require independent verification.",
+                })
+            packet=self.distilled_finding(
+                job_id=batch["batch_id"],
+                project="BRAHMAGYAN",
+                topic=topic,
+                finding=learning,
+                modality="transcript" if source.get("transcript_excerpt") else "video_metadata",
+                evidence=evidence,
+                confidence=0.60 if source.get("transcript_excerpt") else 0.42,
+                timestamps=[f"{source.get('start_seconds',0):.1f}-{source.get('end_seconds',0):.1f}s"],
+                source_ref=source.get("url") or source.get("source_sha256"),
+            )
+            packet.update({
+                "horse_id":batch["horse_id"],
+                "horse_name":batch["horse_name"],
+                "node_id":batch["node_id"],
+                "learning_batch_id":batch["batch_id"],
+            })
+            try:
+                routed=self.route_finding(packet)
+                routes.append({
+                    "source_index":index,
+                    "title":title,
+                    "finding_id":packet.get("finding_id"),
+                    "lead_rishi":routed.get("lead_rishi"),
+                    "rishi_team":routed.get("rishi_team") or [],
+                    "routed":bool(routed.get("routed")),
+                    "next_action":"existing Rishi/BRAHMAGYAN research and cross-check",
+                })
+            except Exception as exc:
+                errors.append({"source_index":index,"title":title,"error":f"{type(exc).__name__}: {exc}"})
+        accepted=bool(routes) and not errors and all(x.get("routed") for x in routes)
+        receipt=self.horses.receipt(
+            batch["batch_id"],
+            routed_count=sum(1 for x in routes if x.get("routed")),
+            accepted=accepted,
+            details={
+                "source_count":batch.get("source_count"),
+                "route_count":len(routes),
+                "errors":errors,
+                "rule":"clear only transient device batch/cache after this positive receipt",
+            },
+        )
+        if self.memory:
+            self.memory.audit(
+                "suryadev_horse_learning",
+                "accepted" if accepted else "partial_or_failed",
+                f"{batch['horse_id']}:{batch['batch_id']}:{len(routes)} routes:{len(errors)} errors",
+            )
+        return {
+            "batch_id":batch["batch_id"],
+            "batch_sha256":batch["batch_sha256"],
+            "horse_id":batch["horse_id"],
+            "node_id":batch["node_id"],
+            "source_count":batch["source_count"],
+            "routes":routes,
+            "errors":errors,
+            "receipt":receipt,
+            "cleanup_allowed":bool(receipt.get("cleanup_allowed")),
+            "architecture":"SURYDEV horse -> existing BRAHMA intake -> existing subject Rishis",
+        }
 
     def create_job(self, kind, *, project="KRISHNA", target="", instructions="", source_ref="",
                    constraints=None, requested_by="krishna"):
@@ -260,6 +394,10 @@ class SuryadevAgent:
         evidence = list(packet.get("evidence") or [])
         provenance = {
             "source_agent": "suryadev",
+            "suryadev_horse_id": packet.get("horse_id"),
+            "suryadev_horse_name": packet.get("horse_name"),
+            "suryadev_node_id": packet.get("node_id"),
+            "suryadev_learning_batch_id": packet.get("learning_batch_id"),
             "source_ref": packet.get("source_ref") or packet.get("job_id"),
             "observation_id": packet.get("finding_id"),
             "captured_at": packet.get("created_at"),
@@ -302,7 +440,9 @@ class SuryadevAgent:
             "agent": "SURYDEV",
             "version": self.VERSION,
             "role": "external overall eye + ear + UI/research reviewer",
-            "capabilities": list(self.CAPABILITIES),
+            "capabilities": list(self.CAPABILITIES)+[
+                "seven_horse_device_fleet","multi_device_learning","edge_cache_ack_cleanup",
+            ],
             "job_types": sorted(self.JOB_TYPES),
             "jobs": jobs,
             "reports": reports,
@@ -310,6 +450,7 @@ class SuryadevAgent:
             "transports": ["trusted_lan", "verified_usb_packet"],
             "raw_media_to_krishna": False,
             "routes_findings_to_brahmagyan": self.brahma is not None,
+            "seven_horses": self.horses.status(),
             "release_authority": False,
             "human_verification_handoff": True,
             "authentication_permission": "explicit owner approval required for every checkpoint",
