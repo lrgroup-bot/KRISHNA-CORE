@@ -165,7 +165,8 @@ public final class MrityunjayaMobileHealer {
 
   public synchronized void recovered(String kind,String detail){
     String k=clean(kind,80);
-    boolean matched=healing&&(pendingKind.isEmpty()||pendingKind.equals(k)||"ui-shell".equals(k));
+    boolean uiProof="ui-shell".equals(k)&&("ui-shell".equals(pendingKind)||"javascript-runtime".equals(pendingKind)||"webview-renderer".equals(pendingKind));
+    boolean matched=healing&&(pendingKind.isEmpty()||pendingKind.equals(k)||uiProof);
     if(!matched){
       healthy(detail);
       return;
