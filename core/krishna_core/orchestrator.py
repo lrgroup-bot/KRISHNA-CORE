@@ -41,6 +41,7 @@ from .sudarshan_project_orchestrator import SudarshanProjectOrchestrator
 from .sudarshan_design_engine import DesignJob
 from .sudarshan_ui_pipeline import UIEvidence
 from .vishvakarma_learning import ResearchLesson
+from .vishvakarma_repair_shishya import RepairResearchFinding
 from .model_scout import ModelCandidate
 from .spark_x25 import SparkX25Manager
 from .repository_index import RepositoryIndexer
@@ -3417,6 +3418,78 @@ class Orchestrator:
             )
             return self.agi.vishvakarma_learning.verify(lesson)
 
+        def vishvakarma_repair_research_action(payload,context):
+            return self.agi.vishvakarma_repair.research_mission(
+                str(payload.get("topic") or "")
+            )
+
+        def vishvakarma_repair_learn_action(payload,context):
+            finding=RepairResearchFinding(
+                source=str(payload.get("source") or ""),
+                source_version=str(payload.get("source_version") or ""),
+                license=str(payload.get("license") or "unknown"),
+                topic=str(payload.get("topic") or ""),
+                lesson=str(payload.get("lesson") or ""),
+                evidence=str(payload.get("evidence") or ""),
+                confidence=float(payload.get("confidence") or 0.5),
+                failure_pattern=str(payload.get("failure_pattern") or ""),
+            )
+            return self.agi.vishvakarma_repair.save_research(finding)
+
+        def vishvakarma_repair_start_action(payload,context):
+            return self.agi.vishvakarma_repair.start_session(
+                device_type=str(payload.get("device_type") or ""),
+                symptom=str(payload.get("symptom") or ""),
+                model=str(payload.get("model") or ""),
+                board_id=str(payload.get("board_id") or ""),
+                reference_id=str(payload.get("reference_id") or ""),
+                reference_verified=bool(payload.get("reference_verified",False)),
+                test_points=list(payload.get("test_points") or []),
+                visible_targets=list(payload.get("visible_targets") or []),
+            )
+
+        def vishvakarma_repair_observe_action(payload,context):
+            return self.agi.vishvakarma_repair.add_observation(
+                str(payload.get("session_id") or ""),
+                str(payload.get("observation") or ""),
+                evidence_state=str(payload.get("evidence_state") or "OBSERVED"),
+                target=payload.get("target"),
+            )
+
+        def vishvakarma_repair_measure_action(payload,context):
+            return self.agi.vishvakarma_repair.record_measurement(
+                str(payload.get("session_id") or ""),
+                point=str(payload.get("point") or ""),
+                quantity=str(payload.get("quantity") or ""),
+                value=payload.get("value"),
+                unit=str(payload.get("unit") or ""),
+                reference=str(payload.get("reference") or ""),
+                target=payload.get("target"),
+                circuit_state=str(payload.get("circuit_state") or "unknown"),
+            )
+
+        def vishvakarma_repair_action_action(payload,context):
+            return self.agi.vishvakarma_repair.record_action(
+                str(payload.get("session_id") or ""),
+                str(payload.get("action") or ""),
+                result=str(payload.get("result") or ""),
+                evidence_state=str(payload.get("evidence_state") or "OBSERVED"),
+            )
+
+        def vishvakarma_repair_next_action(payload,context):
+            return self.agi.vishvakarma_repair.next_step(
+                str(payload.get("session_id") or "")
+            )
+
+        def vishvakarma_repair_finish_action(payload,context):
+            return self.agi.vishvakarma_repair.finish_session(
+                str(payload.get("session_id") or ""),
+                outcome=str(payload.get("outcome") or ""),
+                repaired=bool(payload.get("repaired",False)),
+                verification=str(payload.get("verification") or ""),
+                notes=str(payload.get("notes") or ""),
+            )
+
         def model_scout_evaluate_action(payload,context):
             candidate=ModelCandidate(
                 model_id=str(payload.get("model_id") or ""),
@@ -3521,6 +3594,46 @@ class Orchestrator:
         self.action_bus.register(
             "vishvakarma.verify",vishvakarma_verify_action,description="Owner-approved promotion of a Vishvakarma lesson to verified",
             mutating=True,requires_approval=True,permissions=("design.write","memory.write"),sources=("pc","system"),
+        )
+        self.action_bus.register(
+            "vishvakarma.repair.research",vishvakarma_repair_research_action,
+            description="Build a provenance-first repair-technology research mission for Vishvakarma Repair Shishya",
+            permissions=("design.read","memory.read"),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vishvakarma.repair.learn",vishvakarma_repair_learn_action,
+            description="Store a candidate electronics/electrical repair lesson under Vishvakarma",
+            mutating=True,permissions=("design.write","memory.write"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vishvakarma.repair.start",vishvakarma_repair_start_action,
+            description="Start an evidence-guided real repair session",
+            mutating=True,permissions=("design.write","memory.write"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vishvakarma.repair.observe",vishvakarma_repair_observe_action,
+            description="Add a real visual/bench observation and request the next repair step",
+            mutating=True,permissions=("design.write","memory.write"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vishvakarma.repair.measure",vishvakarma_repair_measure_action,
+            description="Record a real instrument reading and request the next repair step",
+            mutating=True,permissions=("design.write","memory.write"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vishvakarma.repair.action",vishvakarma_repair_action_action,
+            description="Record a repair action/result as evidence",
+            mutating=True,permissions=("design.write","memory.write"),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "vishvakarma.repair.next",vishvakarma_repair_next_action,
+            description="Return the next evidence-based repair test without guessing hidden topology",
+            permissions=("design.read","memory.read"),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "vishvakarma.repair.finish",vishvakarma_repair_finish_action,
+            description="Finish a real repair and distill the measured success/failure into Vishvakarma learning",
+            mutating=True,permissions=("design.write","memory.write"),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "model.scout.evaluate",model_scout_evaluate_action,description="Evaluate a local model candidate without downloading or routing it",
