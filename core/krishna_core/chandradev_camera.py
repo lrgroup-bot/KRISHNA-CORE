@@ -246,9 +246,9 @@ class ChandradevOsmoCameraAdapter:
             "rtmpAddress: :1935\n"
             "hls: true\n"
             "hlsAddress: 127.0.0.1:8888\n"
-            "webrtc: true\n"
-            "webrtcAddress: 127.0.0.1:8889\n"
+            "webrtc: false\n"
             "srt: false\n"
+            "moq: false\n"
             "api: false\n"
             "metrics: false\n"
             "pprof: false\n"
@@ -268,7 +268,8 @@ class ChandradevOsmoCameraAdapter:
             "security":{
                 "rtmp_listener":"LAN-accessible TCP 1935",
                 "hls_listener":"localhost only",
-                "webrtc_listener":"localhost only",
+                "webrtc_listener":"disabled",
+                "moq_listener":"disabled",
                 "single_expected_publish_path":True,
                 "publisher_override":False,
                 "recommended_firewall":"Windows Private profile + LocalSubnet only",
