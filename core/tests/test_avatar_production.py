@@ -46,6 +46,24 @@ class AvatarProductionPipelineTests(unittest.TestCase):
             self.assertTrue(out["ready"])
             self.assertEqual(out["missing_animation_clips"],[])
 
+    def test_custom_required_clips_cannot_weaken_canonical_production_minimum(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);asset=root/"krishna.glb"
+            target_names=list(ARKIT_52)+list(OCULUS_15)
+            write_glb(asset,{
+                "asset":{"version":"2.0"},
+                "nodes":[{"name":x} for x in TALKINGHEAD_BONES],
+                "skins":[{"joints":list(range(len(TALKINGHEAD_BONES)))}],
+                "meshes":[{"extras":{"targetNames":target_names},
+                           "primitives":[{"targets":[{} for _ in target_names]}]}],
+                "animations":[{"name":"idle"}],
+            })
+            pipe=AvatarProductionPipeline(root)
+            plan=pipe.plan(asset,root/"out.glb",required_clips=("idle",))
+            self.assertIn("walk",plan.required_clips)
+            out=pipe.validate_output(asset,required_clips=("idle",))
+            self.assertFalse(out["ready"])
+
     def test_missing_animation_prevents_production_ready(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);asset=root/"krishna.glb"

@@ -395,32 +395,48 @@ public class MainActivity extends Activity {
     }
     @JavascriptInterface public String avatarSync(){
       HttpURLConnection c=null;
+      File dest=avatarCacheFile(),tmp=new File(dest.getParentFile(),"krishna.production.glb.tmp"),backup=new File(dest.getParentFile(),"krishna.production.glb.bak");
       try{
         JSONObject status=new JSONObject(call("/api/avatar/status",null));
         JSONObject pipeline=status.optJSONObject("asset_pipeline");
         boolean ready=pipeline!=null&&pipeline.optBoolean("active_ready",false);
         if(!status.optBoolean("glb_available",false)||!ready){
           JSONObject out=new JSONObject();out.put("available",false);out.put("production_ready",false);
-          out.put("reason","trusted PC production GLB is not ready");out.put("asset_pipeline",pipeline);return out.toString();
+          out.put("reason","trusted PC active GLB is not production-ready");out.put("asset_pipeline",pipeline);return out.toString();
         }
-        File dest=avatarCacheFile(),tmp=new File(dest.getParentFile(),"krishna.production.glb.tmp");
+        if(tmp.exists()&&!tmp.delete())throw new IOException("stale avatar temp file could not be cleared");
         c=conn("/api/avatar.glb");c.setRequestProperty("Accept","model/gltf-binary");c.setReadTimeout(120000);
         int code=c.getResponseCode();if(code!=200)throw new IOException("avatar HTTP "+code);
         long declared=c.getContentLengthLong();if(declared>AVATAR_MAX_BYTES)throw new IOException("avatar exceeds mobile size limit");
         long total=0;
         try(InputStream in=c.getInputStream();FileOutputStream out=new FileOutputStream(tmp)){
           byte[] b=new byte[1024*1024];for(int n;(n=in.read(b))>0;){total+=n;if(total>AVATAR_MAX_BYTES)throw new IOException("avatar exceeds mobile size limit");out.write(b,0,n);}
+          out.getFD().sync();
         }
         try(FileInputStream in=new FileInputStream(tmp)){
-          byte[] h=new byte[4];if(in.read(h)!=4||h[0]!='g'||h[1]!='l'||h[2]!='T'||h[3]!='F')throw new IOException("avatar is not a GLB");
+          byte[] h=new byte[12];if(in.read(h)!=12)throw new IOException("avatar GLB header is incomplete");
+          if(h[0]!='g'||h[1]!='l'||h[2]!='T'||h[3]!='F')throw new IOException("avatar is not a GLB");
+          int version=(h[4]&255)|((h[5]&255)<<8)|((h[6]&255)<<16)|((h[7]&255)<<24);
+          long length=(h[8]&255L)|((h[9]&255L)<<8)|((h[10]&255L)<<16)|((h[11]&255L)<<24);
+          if(version!=2)throw new IOException("avatar GLB version "+version+" is unsupported");
+          if(length!=tmp.length())throw new IOException("avatar GLB declared length does not match downloaded bytes");
         }
-        if(dest.exists()&&!dest.delete())throw new IOException("old avatar cache could not be replaced");
-        if(!tmp.renameTo(dest))throw new IOException("avatar cache promotion failed");
+        if(backup.exists()&&!backup.delete())throw new IOException("old avatar backup could not be cleared");
+        boolean hadDest=dest.exists();
+        if(hadDest&&!dest.renameTo(backup))throw new IOException("current avatar cache could not be backed up");
+        if(!tmp.renameTo(dest)){
+          if(hadDest&&backup.exists())backup.renameTo(dest);
+          throw new IOException("avatar cache promotion failed; previous avatar restored");
+        }
+        if(backup.exists())backup.delete();
         JSONObject out=new JSONObject();out.put("available",true);out.put("production_ready",true);
         out.put("bytes",dest.length());out.put("sha256",sha256File(dest));out.put("local_url","https://"+AVATAR_HOST+"/avatar/krishna.glb");
         return out.toString();
-      }catch(Exception e){return error(e);}
-      finally{if(c!=null)c.disconnect();}
+      }catch(Exception e){
+        if(!dest.exists()&&backup.exists())backup.renameTo(dest);
+        if(tmp.exists())tmp.delete();
+        return error(e);
+      }finally{if(c!=null)c.disconnect();}
     }
     @JavascriptInterface public void avatarSyncAsync(){
       new Thread(()->{

@@ -531,15 +531,20 @@ _android_test_fabric = AndroidTestFabric(RUNTIME_ROOT)
 
 def avatar_asset_status():
     source=_avatar_inspector.inspect(AVATAR_GLB)
-    production=_avatar_inspector.inspect(AVATAR_PRODUCTION_GLB) if AVATAR_PRODUCTION_GLB.is_file() else {"available":False,"ready":False,"stage":"missing"}
-    active=AVATAR_PRODUCTION_GLB if production.get("ready") else AVATAR_GLB
+    production=_avatar_inspector.inspect(AVATAR_PRODUCTION_GLB)
+    # A file named krishna.production.glb is not authoritative by filename alone:
+    # it must satisfy body + face + complete cross-surface animation requirements.
+    active=AVATAR_PRODUCTION_GLB if production.get("production_ready") else AVATAR_GLB
+    active_report=production if active==AVATAR_PRODUCTION_GLB else source
     return {
         "source":source,
         "production":production,
         "active":"production" if active==AVATAR_PRODUCTION_GLB else "source",
         "active_path":str(active),
-        "active_ready":bool((production if active==AVATAR_PRODUCTION_GLB else source).get("ready")),
-        "promotion_policy":"krishna.production.glb is served only after local compatibility inspection reports production-ready",
+        "active_asset":active_report,
+        "active_compatible":bool(active_report.get("ready")),
+        "active_ready":bool(active_report.get("production_ready")),
+        "promotion_policy":"krishna.production.glb is served only after body, face, viseme and required-animation inspection reports production-ready",
     }
 
 def active_avatar_glb():
@@ -900,16 +905,32 @@ class Handler(BaseHTTPRequestHandler):
             return self._binary(200,asset.read_bytes(),content_type)
         if path == "/api/avatar/status":
             asset=avatar_asset_status()
+            talkinghead_installed=(AVATAR_ENGINE_ROOT/"talkinghead"/"talkinghead.mjs").is_file()
+            model_viewer_installed=(AVATAR_ENGINE_ROOT/"model-viewer"/"model-viewer.min.js").is_file()
+            headaudio_installed=(AVATAR_ENGINE_ROOT/"headaudio"/"dist"/"headaudio.min.mjs").is_file()
+            motion_engine_installed=(AVATAR_ENGINE_ROOT/"motion-engine"/"src"/"MotionEngine.js").is_file()
+            active_asset=asset.get("active_asset") or {}
+            viseme_ready=bool(((active_asset.get("face") or {}).get("oculus_visemes") or {}).get("ready"))
             return self._json(200,{
                 "preview_available": bool(avatar_360_bytes()),
                 "glb_available": active_avatar_glb().is_file(),
                 "viewer_policy": "local-only",
-                "talkinghead_installed": (AVATAR_ENGINE_ROOT/"talkinghead"/"talkinghead.mjs").is_file(),
-                "model_viewer_installed": (AVATAR_ENGINE_ROOT/"model-viewer"/"model-viewer.min.js").is_file(),
-                "headaudio_installed": (AVATAR_ENGINE_ROOT/"headaudio"/"dist"/"headaudio.min.mjs").is_file(),
-                "motion_engine_installed": (AVATAR_ENGINE_ROOT/"motion-engine"/"src"/"MotionEngine.js").is_file(),
-                "lipsync_quality":{"engine":"HeadAudio","bundled_model_training":"English mixed voices",
+                "talkinghead_installed": talkinghead_installed,
+                "model_viewer_installed": model_viewer_installed,
+                "headaudio_installed": headaudio_installed,
+                "motion_engine_installed": motion_engine_installed,
+                "lipsync_quality":{"engine":"HeadAudio","active":bool(asset.get("active_compatible") and viseme_ready and headaudio_installed),
+                                   "bundled_model_training":"English mixed voices",
                                    "english":"trained-model","hindi":"audio-driven approximation","odia":"audio-driven approximation"},
+                "surface_capabilities":{
+                    "pc":{"live_3d":bool(asset.get("active_compatible") and talkinghead_installed),
+                          "audio_lipsync":bool(asset.get("active_compatible") and viseme_ready and headaudio_installed),
+                          "motion_engine":bool(asset.get("active_compatible") and motion_engine_installed)},
+                    "mobile":{"production_glb_sync":bool(asset.get("active_ready")),
+                              "skeletal_animation":bool(asset.get("active_ready")),
+                              "viseme_lipsync":False,
+                              "renderer":"three-glb + animated 360 fallback"},
+                },
                 "asset_pipeline":asset,
                 "video_avatar":_video_avatar.status(),
                 "age":orch.agi.avatar_age.status(),

@@ -28,6 +28,14 @@ OCULUS_15 = (
     "viseme_aa","viseme_E","viseme_I","viseme_O","viseme_U",
 )
 
+# Canonical cross-surface animation vocabulary. A GLB may be TalkingHead-compatible
+# without these clips, but it is not KRISHNA production-ready until every required
+# state has an animation fallback for renderers that do not run MotionEngine.
+REQUIRED_ANIMATION_CLIPS = (
+    "idle","listen","think","talk","walk","wave","smile","flute","dhyan",
+    "sleep","wake","work","wisdom","playful","protection",
+)
+
 # TalkingHead accepts a Mixamo-compatible hierarchy. This list is intentionally a
 # conservative core-body compatibility gate; finger and auxiliary hair bones may
 # be present in addition to these.
@@ -111,6 +119,14 @@ def _target_names(document: dict) -> set[str]:
     return names
 
 
+def _animation_names(document: dict) -> list[str]:
+    names=[]
+    for i,item in enumerate(document.get("animations") or []):
+        name=str((item or {}).get("name") or f"animation-{i+1}").strip()
+        if name:names.append(name)
+    return names
+
+
 def _best_skin_joint_names(document: dict) -> set[str]:
     nodes=document.get("nodes") or []
     best=set()
@@ -142,7 +158,10 @@ class AvatarAssetInspector:
         asset=Path(path).resolve()
         if not asset.is_file():
             return {
-                "available":False,"path":str(asset),"ready":False,"stage":"missing",
+                "available":False,"path":str(asset),"ready":False,"production_ready":False,
+                "stage":"missing","production_stage":"missing",
+                "animation":{"ready":False,"present":[],"required":list(REQUIRED_ANIMATION_CLIPS),
+                             "missing":list(REQUIRED_ANIMATION_CLIPS)},
                 "issues":["private KRISHNA GLB is not installed"],
                 "checked_at":time.time(),
             }
@@ -159,7 +178,10 @@ class AvatarAssetInspector:
             skins=doc.get("skins") or []
             joint_names=_best_skin_joint_names(doc)
             animations=doc.get("animations") or []
-            animation_names=[str(x.get("name") or f"animation-{i+1}") for i,x in enumerate(animations)]
+            animation_names=_animation_names(doc)
+            normalized_animation_names={x.strip().lower() for x in animation_names}
+            missing_animation_clips=[x for x in REQUIRED_ANIMATION_CLIPS if x not in normalized_animation_names]
+            animation_ready=not missing_animation_clips
             missing_bones=[x for x in TALKINGHEAD_BONES if x not in joint_names]
             missing_arkit=[x for x in ARKIT_52 if x not in morphs]
             missing_visemes=[x for x in OCULUS_15 if x not in morphs]
@@ -168,8 +190,9 @@ class AvatarAssetInspector:
             face_viseme_ready=not missing_visemes
             face_ready=face_arkit_ready and face_viseme_ready
             ready=body_ready and face_ready
+            production_ready=ready and animation_ready
             if ready:
-                stage="production-ready"
+                stage="production-ready" if production_ready else "talkinghead-ready"
             elif not skins:
                 stage="unrigged"
             elif not body_ready:
@@ -178,12 +201,21 @@ class AvatarAssetInspector:
                 stage="facial-rig-missing"
             else:
                 stage="facial-rig-incomplete"
+            if production_ready:
+                production_stage="production-ready"
+            elif not ready:
+                production_stage=stage
+            else:
+                production_stage="animation-pack-incomplete"
             issues=[]
             if not skins:issues.append("no glTF skin/armature binding detected")
             if missing_bones:issues.append(f"{len(missing_bones)} TalkingHead/Mixamo-compatible pose bones missing")
             if not morphs:issues.append("no named facial morph targets detected")
             elif missing_arkit:issues.append(f"{len(missing_arkit)} ARKit blend shapes missing")
             if missing_visemes:issues.append(f"{len(missing_visemes)} Oculus viseme shapes missing")
+            if missing_animation_clips:issues.append(
+                f"{len(missing_animation_clips)} required KRISHNA animation clips missing"
+            )
             result={
                 "available":True,
                 "path":str(asset),
@@ -195,6 +227,9 @@ class AvatarAssetInspector:
                 "skin_joint_count":len(joint_names),
                 "animation_count":len(animations),
                 "animation_names":animation_names[:100],
+                "animation":{"ready":animation_ready,"present":animation_names[:100],
+                             "required":list(REQUIRED_ANIMATION_CLIPS),
+                             "missing":missing_animation_clips},
                 "node_count":len(doc.get("nodes") or []),
                 "mesh_count":len(doc.get("meshes") or []),
                 "morph_target_count":len(morphs),
@@ -208,14 +243,19 @@ class AvatarAssetInspector:
                 },
                 "talkinghead":{"ready":ready,"requires":"Mixamo-compatible body + ARKit 52 + Oculus 15"},
                 "ready":ready,
+                "production_ready":production_ready,
                 "stage":stage,
+                "production_stage":production_stage,
                 "issues":issues,
                 "policy":"inspection only; source GLB is never modified",
                 "checked_at":time.time(),
             }
         except Exception as exc:
             result={
-                "available":True,"path":str(asset),"ready":False,"stage":"invalid",
+                "available":True,"path":str(asset),"ready":False,"production_ready":False,
+                "stage":"invalid","production_stage":"invalid",
+                "animation":{"ready":False,"present":[],"required":list(REQUIRED_ANIMATION_CLIPS),
+                             "missing":list(REQUIRED_ANIMATION_CLIPS)},
                 "issues":[f"{type(exc).__name__}: {exc}"],"checked_at":time.time(),
             }
         self._cache[cache_key]=(stat.st_mtime_ns,stat.st_size,result)

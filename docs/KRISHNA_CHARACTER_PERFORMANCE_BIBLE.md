@@ -219,6 +219,7 @@ The production gate is deliberately strict:
 3. TalkingHead/Mixamo-compatible body, hand and finger pose bones;
 4. all 52 ARKit facial blend shapes;
 5. all 15 Oculus viseme blend shapes;
+6. complete KRISHNA state animation pack: idle, listen, think, talk, walk, wave, smile, flute, dhyan, sleep, wake, work, wisdom, playful and protection;
 6. local re-audit after promotion.
 
 A body-only auto-rig is never presented as a finished avatar. If the facial channels are missing, the candidate remains isolated and the UI may use the original GLB through the compatibility viewer while reporting the missing production requirements.
@@ -231,7 +232,9 @@ TalkingHead renders the character. MotionEngine maps KRISHNA state vocabulary to
 
 The fallback order is:
 
-**validated production GLB → private source GLB → local model-viewer compatibility renderer → 360 preview**
+**validated production GLB → TalkingHead-compatible private source GLB → local model-viewer compatibility renderer → 360 preview**
+
+Desktop may use a body+face compatible private source GLB through TalkingHead while clearly reporting that the production animation pack is incomplete. Mobile's Three.js skeletal renderer syncs only a fully production-ready GLB because its state machine depends on the named animation clips. Mobile viseme lip-sync is not claimed until a verified mobile morph-driving path exists; the animated 360 preview remains the fail-safe fallback.
 
 No cloud avatar/rigging service may receive the private child avatar by default. In particular, the public Make-It-Animatable/Gradio path is not part of the production pipeline. Motius may be used only with its deterministic local template path and local Blender to create an isolated body-rig candidate; that candidate still must pass the full TalkingHead face/body gate before promotion.
 
