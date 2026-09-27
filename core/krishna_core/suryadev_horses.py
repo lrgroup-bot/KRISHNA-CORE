@@ -271,29 +271,68 @@ class SuryadevHorseFleet:
         status=dict(status or {})
         self._reject_raw_media(status,"heartbeat")
         runtime=self._read_object(self.runtime_file)
+        prior=dict(runtime.get(horse["id"]) or {})
+        network_ok=bool(status.get("network_ok",True))
+        screen_ok=bool(status.get("screen_understanding_ok",False))
+        learning_ok=bool(status.get("learning_ok",False))
+        thermal=self._text(status.get("thermal_state"),40).lower()
+        battery=status.get("battery_percent")
+        try:battery_value=float(battery) if battery is not None else None
+        except (TypeError,ValueError):battery_value=None
+        battery50_alerted=bool(prior.get("battery50_alerted",False))
+        if battery_value is not None and battery_value>55:battery50_alerted=False
+        alerts=[]
+        if battery_value is not None and battery_value<=50 and not battery50_alerted:
+            alerts.append({
+                "kind":"battery_50","severity":"warning",
+                "summary":f"{horse['display_name']} / {binding['label']} battery is {int(round(battery_value))}%",
+            })
+            battery50_alerted=True
+        if thermal in {"serious","critical"} and str(prior.get("thermal_state") or "").lower() not in {"serious","critical"}:
+            alerts.append({
+                "kind":"thermal","severity":"critical" if thermal=="critical" else "warning",
+                "summary":f"{horse['display_name']} / {binding['label']} thermal state is {thermal}",
+            })
+        if not network_ok and bool(prior.get("network_ok",True)):
+            alerts.append({
+                "kind":"network_offline","severity":"warning",
+                "summary":f"{horse['display_name']} / {binding['label']} lost network connectivity",
+            })
+        if not screen_ok and bool(prior.get("screen_understanding_ok",False)):
+            alerts.append({
+                "kind":"screen_understanding","severity":"warning",
+                "summary":f"{horse['display_name']} / {binding['label']} screen understanding stopped",
+            })
+        if not learning_ok and bool(prior.get("learning_ok",False)):
+            alerts.append({
+                "kind":"learning_stopped","severity":"warning",
+                "summary":f"{horse['display_name']} / {binding['label']} learning stopped",
+            })
         row={
             "horse_id":horse["id"],
             "node_id":binding["node_id"],
             "device_class":binding["device_class"],
             "label":binding["label"],
             "last_seen":time.time(),
-            "network_ok":bool(status.get("network_ok",True)),
-            "screen_understanding_ok":bool(status.get("screen_understanding_ok",False)),
-            "learning_ok":bool(status.get("learning_ok",False)),
+            "network_ok":network_ok,
+            "screen_understanding_ok":screen_ok,
+            "learning_ok":learning_ok,
             "media_playing":bool(status.get("media_playing",False)),
             "current_url":self._text(status.get("current_url"),2000),
             "current_title":self._text(status.get("current_title"),500),
             "current_shift":self._text(status.get("current_shift"),120),
-            "battery_percent":status.get("battery_percent"),
+            "battery_percent":battery_value,
+            "battery50_alerted":battery50_alerted,
             "charging":status.get("charging"),
-            "thermal_state":self._text(status.get("thermal_state"),40),
+            "thermal_state":thermal,
             "free_storage_bytes":status.get("free_storage_bytes"),
             "pending_batches":max(0,int(status.get("pending_batches") or 0)),
+            "alerts":alerts[-10:],
             "policy":"lightweight metadata/status heartbeat; raw media never sent",
         }
         runtime[horse["id"]]=row
         self._write_object(self.runtime_file,runtime)
-        return {**row,"accepted":True}
+        return {**row,"accepted":True,"alerts":alerts}
 
     @classmethod
     def shift_boundary(cls,elapsed_seconds,video_remaining_seconds=None):
