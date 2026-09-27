@@ -53,12 +53,16 @@ TABLETS / MOBILE DEVICES
 ------------------------
 8. Apple iPad mini (5th generation, introduced 2019)
    - Status: Owned
+   - Device name shown: iPad
+   - Apple part/model code shown in About: MUQW2HN/A
    - Chip: Apple A12 Bionic with Neural Engine (generation-level specification)
    - Display: 7.9-inch Retina, 2048x1536
    - Connector: Lightning
-   - Storage: TO VERIFY (64GB or 256GB variants existed)
-   - Connectivity variant: TO VERIFY (Wi-Fi or Wi-Fi + Cellular)
-   - Exact model number / battery health / iPadOS version: TO VERIFY
+   - Storage: 64GB
+   - Available storage observed: 44.96GB
+   - iPadOS version observed: 18.6.2
+   - Connectivity variant: TO VERIFY (tap Model Number in About to reveal A-number; do not infer Wi-Fi vs Cellular from part code alone)
+   - Battery health: TO VERIFY; screenshot showed device actively charging at 26% state of charge
    - Assigned KRISHNA role: SURYADEV MEDIA / VISUAL NODE (subject to real-device acceptance)
    - Primary duty: Play YouTube or other approved media in the foreground, provide a dedicated visual/reference screen, and forward timestamps/selected evidence to KRISHNA PC for Rishi/BRAHMAGYAN analysis
    - Learning workflow: WATCH/PLAY -> CAPTURE TIMESTAMP + AVAILABLE CAPTION/TEXT + SELECTED FRAME/EVIDENCE -> SEND TO PC -> RISHI VERIFY/RESEARCH -> GYAN-BHANDAR STORE VERIFIED LEARNING
