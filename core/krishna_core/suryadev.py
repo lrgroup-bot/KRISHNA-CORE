@@ -17,6 +17,7 @@ import json
 import re
 import time
 import uuid
+from threading import RLock
 
 from .field_perception import FieldPerceptionPolicy
 
@@ -62,6 +63,8 @@ class SuryadevAgent:
         self.jobs_dir = self.root / "jobs"
         self.reports_dir = self.root / "reports"
         self.receipts_dir = self.root / "learning-receipts"
+        self.nodes_file = self.root / "device-nodes.json"
+        self._node_lock = RLock()
         self.jobs_dir.mkdir(parents=True, exist_ok=True)
         self.reports_dir.mkdir(parents=True, exist_ok=True)
         self.receipts_dir.mkdir(parents=True, exist_ok=True)
@@ -300,6 +303,97 @@ class SuryadevAgent:
             "finding_id": packet.get("finding_id"),
         }
 
+    def _load_nodes(self):
+        if not self.nodes_file.is_file():
+            return {}
+        try:
+            value = json.loads(self.nodes_file.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise RuntimeError(f"SURYDEV node state unreadable: {type(exc).__name__}") from exc
+        if not isinstance(value, dict):
+            raise RuntimeError("SURYDEV node state must be a JSON object")
+        return value
+
+    def _save_nodes(self, rows):
+        tmp = self.nodes_file.with_suffix(".tmp")
+        tmp.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(self.nodes_file)
+
+    def device_heartbeat(self, payload):
+        payload = dict(payload or {})
+        device_id = self._text(payload.get("device_id"), 200)
+        if not device_id:
+            raise ValueError("device_id is required")
+        now = time.time()
+        row = {
+            "device_id": device_id,
+            "node_name": self._text(payload.get("node_name") or device_id, 200),
+            "platform": self._text(payload.get("platform"), 100),
+            "last_seen": now,
+            "worker_running": bool(payload.get("worker_running", True)),
+            "learning_state": self._text(payload.get("learning_state") or "idle", 80).lower(),
+            "current_job_id": self._text(payload.get("current_job_id"), 200),
+            "network_online": bool(payload.get("network_online", True)),
+            "battery_percent": payload.get("battery_percent"),
+            "charging": bool(payload.get("charging", False)),
+            "thermal_state": self._text(payload.get("thermal_state") or "unknown", 60).lower(),
+            "last_error": self._text(payload.get("last_error"), 1000),
+        }
+        with self._node_lock:
+            rows = self._load_nodes()
+            previous = dict(rows.get(device_id) or {})
+            previous.update(row)
+            rows[device_id] = previous
+            self._save_nodes(rows)
+        learning_active = row["learning_state"] in {
+            "watching", "listening", "capturing", "transcribing",
+            "researching", "uploading", "awaiting_server_ack",
+        }
+        return {
+            "accepted": True,
+            "device_id": device_id,
+            "server_link_green": True,
+            "suryadev_working_green": bool(row["worker_running"] and row["network_online"] and not row["last_error"]),
+            "learning_green": bool(learning_active and not row["last_error"]),
+            "heartbeat_at": now,
+            "stale_after_seconds": 150,
+        }
+
+    def device_status(self, device_id=None):
+        now = time.time()
+        with self._node_lock:
+            rows = self._load_nodes()
+        out = []
+        for value in rows.values():
+            item = dict(value)
+            age = max(0.0, now - float(item.get("last_seen") or 0))
+            connected = age <= 150
+            item["age_seconds"] = round(age, 1)
+            item["connected"] = connected
+            item["server_link_green"] = connected
+            item["suryadev_working_green"] = bool(
+                connected and item.get("worker_running") and item.get("network_online") and not item.get("last_error")
+            )
+            item["learning_green"] = bool(
+                connected and item.get("learning_state") in {
+                    "watching", "listening", "capturing", "transcribing",
+                    "researching", "uploading", "awaiting_server_ack",
+                } and not item.get("last_error")
+            )
+            out.append(item)
+        out.sort(key=lambda x: float(x.get("last_seen") or 0), reverse=True)
+        if device_id:
+            found = next((x for x in out if x.get("device_id") == str(device_id)), None)
+            if found is None:
+                raise KeyError(device_id)
+            return found
+        return {
+            "nodes": out,
+            "count": len(out),
+            "stale_after_seconds": 150,
+            "truth_rule": "green requires a recent authenticated heartbeat; stale nodes are red",
+        }
+
     def route_learning_bundle(self, bundle, *, device_id=""):
         """Validate and route one external learning bundle through existing BRAHMA/Rishis.
 
@@ -472,6 +566,7 @@ class SuryadevAgent:
             "job_types": sorted(self.JOB_TYPES),
             "jobs": jobs,
             "reports": reports,
+            "device_nodes": self.device_status(),
             "runs_on_external_node": True,
             "transports": ["trusted_lan", "verified_usb_packet"],
             "raw_media_to_krishna": False,
