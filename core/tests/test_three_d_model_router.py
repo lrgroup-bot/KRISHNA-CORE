@@ -111,6 +111,18 @@ class ThreeDModelRouterTests(unittest.TestCase):
         self.assertEqual(plan["stages"]["generation"]["provider_id"],"pixal3d")
         self.assertEqual(plan["stages"]["rigging"]["provider_id"],"skintokens")
 
+    def test_configured_worker_path_with_spaces_is_detected(self):
+        with tempfile.TemporaryDirectory() as td:
+            worker_dir=Path(td)/"worker dir"
+            worker_dir.mkdir()
+            worker=worker_dir/"blender.worker"
+            worker.write_text("worker",encoding="utf-8")
+            with patch.dict(os.environ,{"KRISHNA_BLENDER_CMD":str(worker)},clear=False):
+                row=self.router.provider_status("blender",vram_gb=4)
+        self.assertTrue(row["configured"])
+        self.assertTrue(row["automatic_eligible"])
+        self.assertEqual(row["command"],str(worker))
+
     def test_anigen_remains_license_restricted_for_commercial_use(self):
         row=self.router.provider_status("anigen",vram_gb=24)
         self.assertIn("non-commercial",row["commercial_use"].lower())

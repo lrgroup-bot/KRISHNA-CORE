@@ -47,6 +47,19 @@ class DevelopmentOperator:
         source=Path(root).resolve()
         if not source.is_dir():raise ValueError("project root does not exist")
         parent=(self.staging_root or (source.parent/".krishna_state"/"dev-candidates")).resolve()
+
+        # The configured staging root may intentionally live under a project's
+        # .krishna_state directory, but an existing candidate must never become
+        # the source for another candidate. That creates candidate/.krishna_state/
+        # promotion-candidates/candidate/... recursion and eventually pathological
+        # Windows paths. Fail closed before creating any destination directory.
+        try:
+            source.relative_to(parent)
+        except ValueError:
+            pass
+        else:
+            raise RuntimeError("cannot stage a promotion candidate as a new project source")
+
         try:
             rel=parent.relative_to(source)
             if rel.parts and rel.parts[0]!=".krishna_state":

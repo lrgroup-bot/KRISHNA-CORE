@@ -29,7 +29,8 @@ class HTTPRuntimeTests(unittest.TestCase):
         env = dict(os.environ, KRISHNA_DB=str(cls.root / "core.db"),
                    KRISHNA_RUNTIME_ROOT=str(cls.root),
                    KRISHNA_HOST="127.0.0.1", KRISHNA_PORT=str(cls.port),
-                   KRISHNA_ALLOW_ACTIONS="0")
+                   KRISHNA_ALLOW_ACTIONS="0",
+                   KRISHNA_BACKGROUND_SERVICES_ENABLED="0")
         cls.log = (cls.root / "server.log").open("w")
         cls.proc = subprocess.Popen([sys.executable, "-m", "krishna_core.server"],
             cwd=Path(__file__).resolve().parents[1], env=env,

@@ -71,7 +71,21 @@ class ThreeDModelRouter:
             return None
         raw = str(os.getenv(provider.command_env) or "").strip()
         if raw:
-            first = raw.split()[0].strip('"')
+            # A configured worker may be an absolute executable/script path under
+            # KRISHNA's E:\\Krishna-The GOD tree. Do not split an unquoted path on
+            # whitespace before testing it: that turns a valid Windows path into
+            # E:\\Krishna-The and falsely marks every worker as unavailable.
+            direct = Path(raw.strip('"')).expanduser()
+            if direct.is_absolute() and direct.exists():
+                return raw
+
+            # Commands may also include arguments. Respect a quoted executable path
+            # first, then fall back to the first whitespace-delimited token.
+            if raw.startswith('"'):
+                closing = raw.find('"', 1)
+                first = raw[1:closing] if closing > 1 else raw.strip('"')
+            else:
+                first = raw.split(maxsplit=1)[0]
             p = Path(first).expanduser()
             if p.is_absolute() and p.exists():
                 return raw
