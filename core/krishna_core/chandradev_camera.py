@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import math
 import os
 import secrets
 import socket
@@ -72,6 +73,46 @@ OSMO_ACTION_ORIGINAL_PROFILE = {
         "RTMP live feed is limited to 480p/720p at 30 fps on the original Osmo Action",
         "DJI Mimo is required to originate the supported RTMP livestream",
     ],
+}
+
+
+ZEB_PURE_PLUS_PROFILE = {
+    "model": "ZEBRONICS ZEB-Pure Plus",
+    "role": "planned dedicated CHANDRADEV monitor-reading webcam",
+    "deployment_state": "planned_not_connected",
+    "live_transport": "direct USB UVC webcam",
+    "target_mode": {
+        "resolution": "3840x2160",
+        "fps": 30,
+        "priority": "screen text detail over high frame rate",
+    },
+    "camera": {
+        "autofocus": True,
+        "built_in_microphone": True,
+        "usb": True,
+        "tripod_support": True,
+    },
+    "mounting": {
+        "budget_mount_target_inr": 500,
+        "expensive_arm_required": False,
+        "manual_alignment_expected": True,
+        "camera_should_face_back_toward_monitor": True,
+        "preferred_reach_cm": [30, 60],
+        "stability_strategy": "software verifies alignment; owner manually repositions only when required",
+    },
+    "activation_rule": (
+        "Keep DJI Osmo RTMP as the active validation source until the physical USB webcam is installed, "
+        "detected and deliberately selected on the KRISHNA PC."
+    ),
+}
+
+CHANDRADEV_CAMERA_SELECTION = {
+    "active_validation_source": "dji_osmo_action_rtmp",
+    "active_validation_model": "DJI Osmo Action (original)",
+    "future_primary_screen_source": "zeb_pure_plus_usb_uvc",
+    "future_primary_screen_model": "ZEBRONICS ZEB-Pure Plus",
+    "automatic_source_switching": False,
+    "reason": "Do not pretend the future USB webcam exists before physical installation and validation.",
 }
 
 
@@ -335,8 +376,11 @@ class ChandradevOsmoCameraAdapter:
                 "perspective_correction":True,
                 "sharpest_frame_selection":True,
                 "screen_lock":self._state.get("screen_lock"),
+                "alignment_handoff":self._state.get("alignment_handoff"),
                 "enhancement":["crop","perspective_warp","upscale","local_contrast","unsharp_mask"],
             },
+            "camera_selection":dict(CHANDRADEV_CAMERA_SELECTION),
+            "future_webcam_profile":dict(ZEB_PURE_PLUS_PROFILE),
             "usb_probe":self.probe_usb(),
             "urls":self.urls(),
             "shared_stream_name_file":str(self.shared_stream_file),
@@ -583,8 +627,99 @@ class ChandradevOsmoCameraAdapter:
 
     def clear_screen_lock(self):
         self._state.pop("screen_lock",None)
+        self._state.pop("alignment_handoff",None)
         self._save(self._state)
-        return {"locked":False,"screen_lock":None}
+        return {"locked":False,"screen_lock":None,"alignment_handoff":None}
+
+    @staticmethod
+    def _normalized_quad_motion(samples):
+        rows=[x for x in (samples or []) if isinstance(x,list) and len(x)==4]
+        if len(rows)<2:
+            return {
+                "status":"unverified",
+                "stable":None,
+                "sample_count":len(rows),
+                "median_max_corner_shift":None,
+                "max_corner_shift":None,
+            }
+        shifts=[]
+        for previous,current in zip(rows,rows[1:]):
+            corner_shifts=[]
+            for p,c in zip(previous,current):
+                if not (isinstance(p,list) and isinstance(c,list) and len(p)==2 and len(c)==2):
+                    continue
+                corner_shifts.append(math.hypot(float(c[0])-float(p[0]),float(c[1])-float(p[1])))
+            if corner_shifts:
+                shifts.append(max(corner_shifts))
+        if not shifts:
+            return {
+                "status":"unverified",
+                "stable":None,
+                "sample_count":len(rows),
+                "median_max_corner_shift":None,
+                "max_corner_shift":None,
+            }
+        ordered=sorted(shifts)
+        middle=len(ordered)//2
+        median=ordered[middle] if len(ordered)%2 else (ordered[middle-1]+ordered[middle])/2.0
+        maximum=max(ordered)
+        stable=median<=0.018 and maximum<=0.060
+        return {
+            "status":"stable" if stable else "unstable",
+            "stable":stable,
+            "sample_count":len(rows),
+            "median_max_corner_shift":round(float(median),6),
+            "max_corner_shift":round(float(maximum),6),
+            "thresholds":{"median":0.018,"maximum":0.060},
+        }
+
+    def _alignment_handoff(self,reason,*,details=None):
+        reason=str(reason or "camera_alignment_required")
+        handoff={
+            "request_id":"CHANDRA-ALIGN-"+secrets.token_hex(6),
+            "requested_at":time.time(),
+            "agent":"CHANDRADEV",
+            "route_through":"KRISHNA",
+            "owner_handoff_required":True,
+            "reason":reason,
+            "instruction":(
+                "Please stabilize or reposition the CHANDRADEV camera so the complete monitor is visible, "
+                "all four screen edges are inside the frame and the camera is not shaking. "
+                "After adjustment CHANDRADEV will re-detect, refocus and lock the monitor automatically."
+            ),
+            "details":dict(details or {}),
+        }
+        self._state["alignment_handoff"]=handoff
+        self._state.pop("screen_lock",None)
+        self._save(self._state)
+        memory=getattr(self.chandradev,"memory",None) if self.chandradev is not None else None
+        if memory is not None:
+            try:
+                memory.audit(
+                    "chandradev_camera_alignment",
+                    "owner_handoff_required",
+                    f"{handoff['request_id']}:{reason}",
+                )
+            except Exception:
+                pass
+        return handoff
+
+    def alignment_status(self):
+        return {
+            "agent":"CHANDRADEV",
+            "active_source":CHANDRADEV_CAMERA_SELECTION["active_validation_source"],
+            "screen_lock":self._state.get("screen_lock"),
+            "alignment_handoff":self._state.get("alignment_handoff"),
+            "owner_handoff_required":bool(self._state.get("alignment_handoff")),
+        }
+
+    def future_webcam_profile(self):
+        return {
+            "profile":dict(ZEB_PURE_PLUS_PROFILE),
+            "selection":dict(CHANDRADEV_CAMERA_SELECTION),
+            "active_now":False,
+            "validation_now":"DJI Osmo Action via DJI Mimo RTMP only",
+        }
 
     def focus_screen(self,*,burst_frames=12,target_width=1920,timeout_seconds=8):
         """Software auto-focus for a monitor/screen in the Osmo RTMP feed.
@@ -615,6 +750,7 @@ class ChandradevOsmoCameraAdapter:
         count=max(3,min(int(burst_frames or 12),45))
         best=None
         locked=self._state.get("screen_lock")
+        fresh_quad_samples=[]
         for index in range(count):
             ok,frame=cap.read()
             if not ok or frame is None:
@@ -634,6 +770,8 @@ class ChandradevOsmoCameraAdapter:
                 used_lock=True
             if detected is None:
                 continue
+            if not used_lock:
+                fresh_quad_samples.append(self._normalize_quad(detected["quad"],w,h))
             warped=self._warp_screen(frame,detected["quad"])
             sharpness=self._screen_sharpness(warped)
             combined=(float(detected["score"])*100.0)+min(sharpness,2500.0)/12.0
@@ -657,15 +795,46 @@ class ChandradevOsmoCameraAdapter:
         cap.release()
 
         if best is None:
+            handoff=self._alignment_handoff(
+                "screen_not_detected",
+                details={
+                    "source":source,
+                    "active_camera":"DJI Osmo Action (original)",
+                    "requested_burst_frames":count,
+                },
+            )
             return {
                 "found":False,
                 "mode":"software_auto_focus",
                 "reason":"screen_not_detected",
+                "owner_handoff_required":True,
+                "alignment_handoff":handoff,
                 "guidance":[
-                    "Move the Osmo so the monitor occupies more of the frame.",
+                    "Point the camera toward the monitor so the complete display is inside the frame.",
                     "Avoid severe glare/reflections and keep all four screen edges visible.",
-                    "Keep the camera roughly 0.5-1.5 m from the monitor and physically stable.",
+                    "Stabilize the inexpensive mount by hand if required; no expensive arm is assumed.",
                 ],
+                "source":source,
+            }
+
+        stability=self._normalized_quad_motion(fresh_quad_samples)
+        if stability.get("stable") is False:
+            handoff=self._alignment_handoff(
+                "camera_or_mount_unstable",
+                details={
+                    "source":source,
+                    "active_camera":"DJI Osmo Action (original)",
+                    "stability":stability,
+                    "screen_area_ratio":round(best["area_ratio"],4),
+                },
+            )
+            return {
+                "found":False,
+                "mode":"software_auto_focus",
+                "reason":"camera_or_mount_unstable",
+                "owner_handoff_required":True,
+                "alignment_handoff":handoff,
+                "stability":stability,
                 "source":source,
             }
 
@@ -691,6 +860,8 @@ class ChandradevOsmoCameraAdapter:
             "locked_at":time.time(),
         }
         self._state["screen_lock"]=lock
+        self._state.pop("alignment_handoff",None)
+        self._state["last_alignment_stability"]=stability
         self._save(self._state)
 
         eh,ew=enhanced.shape[:2]
@@ -712,6 +883,9 @@ class ChandradevOsmoCameraAdapter:
             "focused_width":int(ew),
             "focused_height":int(eh),
             "source":source,
+            "owner_handoff_required":False,
+            "alignment_handoff":None,
+            "stability":stability,
             "enhancement":[
                 "screen detection","perspective correction","sharpest-frame selection",
                 "bicubic upscale","local contrast enhancement","unsharp mask",

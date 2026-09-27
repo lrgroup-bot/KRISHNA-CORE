@@ -220,6 +220,188 @@ class ArchitectureTruthAudit:
                         out.add(alias.name.split(".", 1)[1].split(".", 1)[0])
         return out
 
+    @staticmethod
+    def _scope_redefinitions(tree, rel_path):
+        rows = []
+
+        def visit_scope(body, scope):
+            seen = defaultdict(list)
+            for node in body or []:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    seen[node.name].append(int(getattr(node, "lineno", 0) or 0))
+            for name, lines in sorted(seen.items()):
+                if len(lines) > 1:
+                    rows.append({
+                        "path": rel_path,
+                        "scope": scope,
+                        "name": name,
+                        "lines": lines,
+                        "kind": "same_scope_python_redefinition",
+                    })
+            for node in body or []:
+                if isinstance(node, ast.ClassDef):
+                    visit_scope(node.body, scope + "." + node.name)
+                elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    visit_scope(node.body, scope + "." + node.name)
+
+        visit_scope(getattr(tree, "body", []), "<module>")
+        return rows
+
+    def _merge_integrity(self):
+        """Detect merge-time collisions that can silently shadow newer work.
+
+        Repeated names in different scopes are allowed (for example a nested
+        Shared Action handler and a public Orchestrator method). Only collisions
+        inside the same Python scope, duplicated global registrations, and
+        duplicate routes inside the same HTTP handler are reported.
+        """
+        core = self.root / "core" / "krishna_core"
+        redefinitions = []
+        parse_errors = []
+        for path in sorted(core.glob("*.py")) if core.is_dir() else []:
+            try:
+                text = path.read_text(encoding="utf-8")
+                tree = ast.parse(text)
+            except (SyntaxError, UnicodeDecodeError, OSError) as exc:
+                parse_errors.append({
+                    "path": self._relative(path),
+                    "error": f"{type(exc).__name__}: {exc}",
+                })
+                continue
+            redefinitions.extend(self._scope_redefinitions(tree, self._relative(path)))
+
+        def call_key(node):
+            if not isinstance(node, ast.Call) or not node.args:
+                return None
+            arg = node.args[0]
+            return arg.value if isinstance(arg, ast.Constant) and isinstance(arg.value, str) else None
+
+        registrations = {
+            "action_bus": defaultdict(list),
+            "agent_runtime": defaultdict(list),
+        }
+        orchestrator = core / "orchestrator.py"
+        if orchestrator.is_file():
+            try:
+                tree = ast.parse(orchestrator.read_text(encoding="utf-8"))
+                for node in ast.walk(tree):
+                    if not isinstance(node, ast.Call):
+                        continue
+                    fn = node.func
+                    if not isinstance(fn, ast.Attribute) or fn.attr != "register":
+                        continue
+                    owner = fn.value
+                    if not isinstance(owner, ast.Attribute):
+                        continue
+                    if not isinstance(owner.value, ast.Name) or owner.value.id != "self":
+                        continue
+                    category = None
+                    if owner.attr == "action_bus":
+                        category = "action_bus"
+                    elif owner.attr == "agent_runtime":
+                        category = "agent_runtime"
+                    if category:
+                        key = call_key(node)
+                        if key:
+                            registrations[category][key].append(int(getattr(node, "lineno", 0) or 0))
+            except (SyntaxError, UnicodeDecodeError, OSError) as exc:
+                parse_errors.append({
+                    "path": self._relative(orchestrator),
+                    "error": f"{type(exc).__name__}: {exc}",
+                })
+
+        duplicate_regs = {}
+        for category, groups in registrations.items():
+            duplicate_regs[category] = [
+                {"name": key, "lines": lines}
+                for key, lines in sorted(groups.items())
+                if len(lines) > 1
+            ]
+
+        duplicate_routes = []
+        server = core / "server.py"
+        if server.is_file():
+            try:
+                tree = ast.parse(server.read_text(encoding="utf-8"))
+                for node in ast.walk(tree):
+                    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        continue
+                    if node.name not in {"_get", "_post"}:
+                        continue
+                    variable = "path" if node.name == "_get" else "post_path"
+                    found = defaultdict(list)
+                    for child in ast.walk(node):
+                        if not isinstance(child, ast.Compare) or len(child.ops) != 1:
+                            continue
+                        if not isinstance(child.left, ast.Name) or child.left.id != variable:
+                            continue
+                        values = []
+                        rhs = child.comparators[0]
+                        if isinstance(child.ops[0], ast.Eq) and isinstance(rhs, ast.Constant) and isinstance(rhs.value, str):
+                            values = [rhs.value]
+                        elif isinstance(child.ops[0], ast.In) and isinstance(rhs, (ast.Tuple, ast.List, ast.Set)):
+                            values = [
+                                x.value for x in rhs.elts
+                                if isinstance(x, ast.Constant) and isinstance(x.value, str)
+                            ]
+                        for value in values:
+                            found[value].append(int(getattr(child, "lineno", 0) or 0))
+                    for route, lines in sorted(found.items()):
+                        if len(lines) > 1:
+                            duplicate_routes.append({
+                                "handler": node.name,
+                                "route": route,
+                                "lines": lines,
+                            })
+            except (SyntaxError, UnicodeDecodeError, OSError) as exc:
+                parse_errors.append({
+                    "path": self._relative(server),
+                    "error": f"{type(exc).__name__}: {exc}",
+                })
+
+        declared_id_specs = (
+            ("duplicate_specialist_ids", core / "specialist_registry.py", "Specialist"),
+            ("duplicate_rishi_ids", core / "rishi_council.py", "RishiProfile"),
+            ("duplicate_3d_provider_ids", core / "three_d_model_router.py", "ThreeDProvider"),
+        )
+        duplicate_declared_ids = {}
+        for result_key, path, constructor in declared_id_specs:
+            groups = defaultdict(list)
+            if path.is_file():
+                try:
+                    tree = ast.parse(path.read_text(encoding="utf-8"))
+                    for node in ast.walk(tree):
+                        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name) or node.func.id != constructor:
+                            continue
+                        key = call_key(node)
+                        if key:
+                            groups[key].append(int(getattr(node, "lineno", 0) or 0))
+                except (SyntaxError, UnicodeDecodeError, OSError) as exc:
+                    parse_errors.append({
+                        "path": self._relative(path),
+                        "error": f"{type(exc).__name__}: {exc}",
+                    })
+            duplicate_declared_ids[result_key] = [
+                {"name": key, "lines": lines}
+                for key, lines in sorted(groups.items())
+                if len(lines) > 1
+            ]
+
+        return {
+            "same_scope_python_redefinitions": redefinitions,
+            "duplicate_action_bus_registrations": duplicate_regs["action_bus"],
+            "duplicate_agent_runtime_registrations": duplicate_regs["agent_runtime"],
+            "duplicate_http_routes_same_handler": duplicate_routes,
+            "duplicate_specialist_ids": duplicate_declared_ids["duplicate_specialist_ids"],
+            "duplicate_rishi_ids": duplicate_declared_ids["duplicate_rishi_ids"],
+            "duplicate_3d_provider_ids": duplicate_declared_ids["duplicate_3d_provider_ids"],
+            "parse_errors": parse_errors,
+            "policy": (
+                "cross-scope repeated names and GET-vs-POST reuse are legitimate; "
+                "same-scope redefinitions and duplicate global registrations are merge hazards"
+            ),
+        }
+
     def _orphan_candidates(self):
         core = self.root / "core" / "krishna_core"
         if not core.is_dir():
@@ -330,6 +512,7 @@ class ArchitectureTruthAudit:
 
             requirements = self._requirements()
             duplicates = self._duplicate_inventory()
+            merge_integrity = self._merge_integrity()
             source_tree = self._source_tree_drift()
             orphans = self._orphan_candidates()
             legacy = self._legacy()
@@ -343,6 +526,7 @@ class ArchitectureTruthAudit:
                 "legacy_roots": legacy,
                 "requirements": requirements,
                 "duplicates": duplicates,
+                "merge_integrity": merge_integrity,
                 "orphan_candidates": orphans,
                 "classified_non_entry_modules": classified,
                 "source_tree_drift": source_tree,
@@ -352,6 +536,14 @@ class ArchitectureTruthAudit:
                     "legacy_roots_present": len(legacy),
                     "duplicate_basenames": len(duplicates["same_basename"]),
                     "identical_content_groups": len(duplicates["identical_content"]),
+                    "same_scope_python_redefinitions": len(merge_integrity["same_scope_python_redefinitions"]),
+                    "duplicate_action_bus_registrations": len(merge_integrity["duplicate_action_bus_registrations"]),
+                    "duplicate_agent_runtime_registrations": len(merge_integrity["duplicate_agent_runtime_registrations"]),
+                    "duplicate_http_routes_same_handler": len(merge_integrity["duplicate_http_routes_same_handler"]),
+                    "duplicate_specialist_ids": len(merge_integrity["duplicate_specialist_ids"]),
+                    "duplicate_rishi_ids": len(merge_integrity["duplicate_rishi_ids"]),
+                    "duplicate_3d_provider_ids": len(merge_integrity["duplicate_3d_provider_ids"]),
+                    "merge_integrity_parse_errors": len(merge_integrity["parse_errors"]),
                     "orphan_candidates": len(orphans),
                     "classified_non_entry_modules": len(classified),
                     "source_tree_missing_current_modules": len(source_tree.get("missing_current_modules") or []),

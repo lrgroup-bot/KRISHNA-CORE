@@ -6,8 +6,10 @@ from unittest.mock import patch
 
 from krishna_core.chandradev import ChandradevQC
 from krishna_core.chandradev_camera import (
+    CHANDRADEV_CAMERA_SELECTION,
     ChandradevOsmoCameraAdapter,
     OSMO_ACTION_ORIGINAL_PROFILE,
+    ZEB_PURE_PLUS_PROFILE,
 )
 
 
@@ -43,6 +45,53 @@ class ChandradevOsmoCameraTests(unittest.TestCase):
         self.assertEqual(p["audio"]["built_in_microphones"],2)
         self.assertEqual(p["field_hardware"]["waterproof_without_case_m"],11)
 
+    def test_future_zeb_webcam_is_prepared_but_not_active(self):
+        profile=ZEB_PURE_PLUS_PROFILE
+        self.assertEqual(profile["model"],"ZEBRONICS ZEB-Pure Plus")
+        self.assertEqual(profile["target_mode"]["resolution"],"3840x2160")
+        self.assertEqual(profile["target_mode"]["fps"],30)
+        self.assertTrue(profile["camera"]["autofocus"])
+        self.assertTrue(profile["camera"]["built_in_microphone"])
+        self.assertEqual(profile["mounting"]["budget_mount_target_inr"],500)
+        self.assertFalse(profile["mounting"]["expensive_arm_required"])
+        self.assertEqual(CHANDRADEV_CAMERA_SELECTION["active_validation_source"],"dji_osmo_action_rtmp")
+        self.assertFalse(CHANDRADEV_CAMERA_SELECTION["automatic_source_switching"])
+
+    def test_future_webcam_status_does_not_claim_hardware_is_connected(self):
+        with tempfile.TemporaryDirectory() as td:
+            out=self.runtime(td).future_webcam_profile()
+        self.assertFalse(out["active_now"])
+        self.assertIn("DJI Osmo Action",out["validation_now"])
+        self.assertEqual(out["profile"]["deployment_state"],"planned_not_connected")
+
+    def test_alignment_handoff_routes_through_krishna_and_clears_stale_lock(self):
+        with tempfile.TemporaryDirectory() as td:
+            v=self.runtime(td)
+            v._state["screen_lock"]={"normalized_quad":[[0,0],[1,0],[1,1],[0,1]]}
+            v._save(v._state)
+            handoff=v._alignment_handoff("camera_or_mount_unstable",details={"test":True})
+            state=v.alignment_status()
+        self.assertTrue(handoff["owner_handoff_required"])
+        self.assertEqual(handoff["route_through"],"KRISHNA")
+        self.assertIsNone(state["screen_lock"])
+        self.assertTrue(state["owner_handoff_required"])
+        self.assertEqual(state["alignment_handoff"]["reason"],"camera_or_mount_unstable")
+
+    def test_normalized_quad_motion_distinguishes_stable_and_unstable_mount(self):
+        base=[[0.10,0.10],[0.90,0.10],[0.90,0.90],[0.10,0.90]]
+        stable=[
+            base,
+            [[0.101,0.101],[0.901,0.101],[0.901,0.901],[0.101,0.901]],
+            [[0.102,0.101],[0.902,0.101],[0.902,0.901],[0.102,0.901]],
+        ]
+        unstable=[
+            base,
+            [[0.14,0.12],[0.94,0.12],[0.94,0.92],[0.14,0.92]],
+            [[0.20,0.15],[1.00,0.15],[1.00,0.95],[0.20,0.95]],
+        ]
+        self.assertTrue(ChandradevOsmoCameraAdapter._normalized_quad_motion(stable)["stable"])
+        self.assertFalse(ChandradevOsmoCameraAdapter._normalized_quad_motion(unstable)["stable"])
+
     def test_exact_mimo_and_local_urls(self):
         with tempfile.TemporaryDirectory() as td:
             urls=self.runtime(td).urls("192.168.0.50")
@@ -76,6 +125,8 @@ class ChandradevOsmoCameraTests(unittest.TestCase):
             self.assertFalse(status["mediamtx"]["installed"])
             self.assertFalse(status["cloud_required"])
             self.assertFalse(status["paid_service_required"])
+            self.assertEqual(status["camera_selection"]["active_validation_source"],"dji_osmo_action_rtmp")
+            self.assertEqual(status["future_webcam_profile"]["deployment_state"],"planned_not_connected")
 
     def test_runtime_and_powershell_share_one_stream_name(self):
         with tempfile.TemporaryDirectory() as td:

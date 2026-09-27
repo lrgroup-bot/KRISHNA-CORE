@@ -44,8 +44,10 @@ $code = $LASTEXITCODE
 
 if ($code -eq 10) {
     Write-Host ""
-    Write-Host "SCREEN NOT FOUND"
-    Write-Host "Point the Osmo so the monitor fills most of the frame and all four edges are visible."
-    Write-Host "Reduce glare/reflections, keep the camera stable, then run this test again."
+    Write-Host "CHANDRADEV SCREEN ALIGNMENT NEEDS OWNER HELP"
+    Write-Host "KRISHNA should connect the owner for a manual camera adjustment."
+    Write-Host "Point the Osmo so the complete monitor and all four screen edges are visible."
+    Write-Host "Stabilize the camera/mount, reduce glare, then run this test again."
+    Write-Host "After adjustment CHANDRADEV will re-detect, refocus and lock the monitor."
 }
 exit $code
