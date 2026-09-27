@@ -33,7 +33,11 @@ class KrishnaMobileAvatar {
     try{
       this.scene=new THREE.Scene();
       this.camera=new THREE.PerspectiveCamera(28,1,.01,100);
+      this.disposeRenderer();
       this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});
+      this.renderer.domElement.addEventListener('webglcontextlost',e=>{
+        e.preventDefault();this.fail('WebGL context lost; switched to animated fallback');
+      },{once:true});
       this.renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
       this.renderer.outputColorSpace=THREE.SRGBColorSpace;
       this.root.replaceChildren(this.renderer.domElement);
@@ -60,7 +64,16 @@ class KrishnaMobileAvatar {
       return true;
     }catch(e){return this.fail('GLB render failed: '+String(e?.message||e));}
   }
+  disposeRenderer(){
+    this.ready=false;
+    if(this.frame){cancelAnimationFrame(this.frame);this.frame=0;}
+    try{this.mixer?.stopAllAction?.();}catch(_){}
+    try{this.renderer?.dispose?.();}catch(_){}
+    this.mixer=null;this.model=null;this.actions.clear();this.active=null;this.renderer=null;
+    try{this.root?.replaceChildren();}catch(_){}
+  }
   fail(reason){
+    this.disposeRenderer();
     this.root?.setAttribute('hidden','');
     window.showKrishnaFallback?.(reason);
     window.reportKrishnaUiReady?.('animated-fallback');
