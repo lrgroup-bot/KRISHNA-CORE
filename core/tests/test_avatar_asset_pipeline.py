@@ -31,11 +31,15 @@ class AvatarAssetPipelineTests(unittest.TestCase):
             write_glb(asset,document)
             report=AvatarAssetInspector(root/"audit.json").inspect(asset)
             self.assertTrue(report["ready"])
-            self.assertEqual(report["stage"],"production-ready")
+            self.assertFalse(report["production_ready"])
+            self.assertEqual(report["stage"],"talkinghead-ready")
+            self.assertEqual(report["production_stage"],"animation-pack-incomplete")
             self.assertTrue(report["body"]["ready"])
             self.assertTrue(report["face"]["arkit"]["ready"])
             self.assertTrue(report["face"]["oculus_visemes"]["ready"])
             self.assertEqual(report["animation_count"],2)
+            self.assertFalse(report["animation"]["ready"])
+            self.assertIn("walk",report["animation"]["missing"])
             self.assertTrue((root/"audit.json").is_file())
 
     def test_unrigged_asset_is_never_reported_ready(self):
@@ -119,6 +123,7 @@ class AvatarAssetPipelineTests(unittest.TestCase):
             asset=Path(td)/"broken.glb";asset.write_bytes(b"not-a-glb")
             report=AvatarAssetInspector().inspect(asset)
             self.assertFalse(report["ready"])
+            self.assertFalse(report["production_ready"])
             self.assertEqual(report["stage"],"invalid")
             self.assertTrue(report["issues"])
 
