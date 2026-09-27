@@ -467,6 +467,11 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    @JavascriptInterface public String hawkeyeCameraProfile(){
+      try{return HawkeyeCameraProfiler.profile(MainActivity.this).toString();}
+      catch(Exception e){return error(e);}
+    }
+
     @JavascriptInterface public String hawkeyeDetectObjects(String dataB64){
       try{
         byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
