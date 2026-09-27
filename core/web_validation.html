@@ -1213,6 +1213,77 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 </script>
 <script type="module" src="/assets/avatar-engine/model-viewer/model-viewer.min.js"></script>
 <link rel="icon" href="data:,">
+
+<style id="manibhadra-human-workspace-v2">
+/* MANIBHADRA human workspace — one revenue surface, VANIJYA lives inside it. */
+#manibhadra{overflow:auto}
+#manibhadra .maniWorkspace{max-width:1540px;padding-top:22px}
+#manibhadra .maniHeroClean{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;align-items:center;padding:4px 2px 16px}
+#manibhadra .maniEyebrow{display:block;margin-bottom:7px;color:#83d7e7;font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}
+#manibhadra .maniHeroClean h1{margin:0;font-size:clamp(30px,4vw,48px);letter-spacing:-.035em}
+#manibhadra .maniHeroClean p{max-width:760px;margin:8px 0 0;color:#9eb0ba;font-size:14px;line-height:1.65}
+#manibhadra .maniHeroActions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+#manibhadra .maniHeroActions button{min-height:40px}
+#manibhadra .maniStatusRow{margin:0 0 12px}
+#manibhadra .maniWorkspaceNav{position:sticky;top:0;z-index:32;display:flex;gap:5px;align-items:center;margin:0 0 16px;padding:5px;border:1px solid rgba(89,211,235,.17);border-radius:14px;background:rgba(5,18,27,.90);box-shadow:0 16px 38px rgba(0,0,0,.24);backdrop-filter:blur(18px);overflow-x:auto;scrollbar-width:none}
+#manibhadra .maniWorkspaceNav::-webkit-scrollbar{display:none}
+#manibhadra .maniWorkspaceNav button{flex:0 0 auto;display:flex;align-items:center;gap:7px;min-height:40px;padding:0 13px;border:1px solid transparent;border-radius:10px;background:transparent;color:#91a6b2;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+#manibhadra .maniWorkspaceNav button:hover{background:rgba(83,201,225,.07);color:#d9edf2}
+#manibhadra .maniWorkspaceNav button.active{border-color:rgba(229,189,103,.34);background:linear-gradient(145deg,rgba(229,189,103,.13),rgba(65,196,220,.06));color:#f0d184;box-shadow:inset 0 0 0 1px rgba(255,255,255,.015)}
+#manibhadra .maniWorkspaceNav .navGlyph{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:rgba(255,255,255,.035);font-size:12px}
+#manibhadra .maniWorkspacePage{display:none;min-height:360px}
+#manibhadra .maniWorkspacePage.active{display:block;animation:maniPageIn .16s ease-out}
+@keyframes maniPageIn{from{opacity:.45;transform:translateY(3px)}to{opacity:1;transform:none}}
+#manibhadra .maniPageLead{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin:0 1px 13px}
+#manibhadra .maniPageLead h2{margin:0;color:#e9f0f3;font-size:19px;letter-spacing:-.01em}
+#manibhadra .maniPageLead p{margin:4px 0 0;color:#8398a5;font-size:12px;line-height:1.5}
+#manibhadra .maniHumanCue{display:flex;gap:8px;align-items:center;color:#9bb0ba;font-size:11px}
+#manibhadra .maniHumanCue b{color:#d9edf2}
+#manibhadra .maniKpis{margin-bottom:14px;grid-template-columns:repeat(6,minmax(140px,1fr))}
+#manibhadra .maniKpi{min-height:108px;padding:15px 16px;border-radius:14px}
+#manibhadra .maniKpi strong{font-size:23px}
+#manibhadra .maniFocus{grid-template-columns:minmax(280px,.82fr) minmax(480px,1.55fr) minmax(300px,.95fr);gap:12px}
+#manibhadra .maniPanel{border-radius:15px;box-shadow:0 14px 38px rgba(0,0,0,.16)}
+#manibhadra .maniPanelHead{min-height:54px}
+#manibhadra .maniPanelHead strong{font-size:13px}
+#manibhadra .maniPanelHead small{display:block;margin-top:2px;color:#78909c}
+#manibhadra .maniVanijya{border-color:rgba(229,189,103,.22);background:linear-gradient(155deg,rgba(229,189,103,.045),rgba(7,21,30,.82) 34%)}
+#manibhadra .maniVanijyaStatus{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#manibhadra .maniSalesIdentity{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;margin-bottom:12px;padding:12px 14px;border:1px solid rgba(229,189,103,.14);border-radius:12px;background:rgba(229,189,103,.035)}
+#manibhadra .maniSalesIdentity strong{color:#efd083;font-size:13px}
+#manibhadra .maniSalesIdentity p{margin:3px 0 0;color:#8ea1ab;font-size:11px}
+#manibhadra .maniSalesIdentity span{color:#76d8e9;font-size:10px;font-weight:800;letter-spacing:.11em}
+#manibhadra .maniVanijyaFlow{line-height:1.7}
+#manibhadra .maniMarketControls{border-radius:12px;background:rgba(255,255,255,.018);padding:10px}
+#manibhadra .maniRecordsShell{display:grid;grid-template-columns:190px minmax(0,1fr);gap:12px}
+#manibhadra .maniTabs{display:flex;flex-direction:column;align-items:stretch;gap:5px;margin:0}
+#manibhadra .maniTabs button{text-align:left;min-height:38px;border-radius:9px;padding:0 11px}
+#manibhadra .maniRecordGrid{min-width:0}
+#manibhadra .maniOwnerRule{padding:14px;border:1px solid rgba(229,189,103,.14);border-radius:13px;background:rgba(229,189,103,.035)}
+#manibhadra .maniOwnerRule strong{display:block;color:#edd080;font-size:12px}
+#manibhadra .maniOwnerRule p{margin:5px 0 0;color:#8fa4af;font-size:11px;line-height:1.55}
+.mainMenuNav button[onclick="showView('manibhadra')"] .ico{color:#e6c76d}
+@media(max-width:1250px){
+ #manibhadra .maniKpis{grid-template-columns:repeat(3,1fr)}
+ #manibhadra .maniFocus{grid-template-columns:1fr 1fr}
+ #manibhadra .maniFocus>section:last-child{grid-column:1/-1}
+}
+@media(max-width:850px){
+ #manibhadra .maniHeroClean{grid-template-columns:1fr}
+ #manibhadra .maniHeroActions{justify-content:flex-start}
+ #manibhadra .maniKpis{grid-template-columns:1fr 1fr}
+ #manibhadra .maniFocus{grid-template-columns:1fr}
+ #manibhadra .maniFocus>section:last-child{grid-column:auto}
+ #manibhadra .maniRecordsShell{grid-template-columns:1fr}
+ #manibhadra .maniTabs{flex-direction:row;overflow-x:auto}
+ #manibhadra .maniTabs button{flex:0 0 auto}
+}
+@media(max-width:560px){
+ #manibhadra .maniKpis{grid-template-columns:1fr}
+ #manibhadra .maniHeroActions button{flex:1 1 44%}
+}
+</style>
+
 </head><body data-krishna-ui="2026.09-current"><div id="notice" role="status" aria-live="polite"></div><dialog id="actionDialog" aria-labelledby="dialogLabel"><form method="dialog"><label id="dialogLabel" for="dialogInput"></label><input id="dialogInput" class="input" autocomplete="off"><div class="dialogActions"><button class="ghost" value="cancel">Cancel</button><button id="dialogAccept" class="primary" value="accept">Continue</button></div></form></dialog>
 <dialog id="pluginCredentialDialog" class="credentialDialog" aria-labelledby="pluginCredentialLabel">
  <form method="dialog">
@@ -1290,84 +1361,112 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 <div class="sudarshanCenter"><div id="messages" class="messages"><div id="welcome" class="welcome"><div class="orb">☸</div><h1>Sudarshan</h1><p>KRISHNA's spatial work console. Conversations, files, tools and verified work remain in one project context.</p><div style="margin-top:20px"><button class="new" style="display:inline-block;margin:0" onclick="newChat()">＋ New Sudarshan chat</button></div></div></div></div>
 <aside class="holoRail right"><div class="holoPanel"><div class="k">ACTIVE WORK</div><div id="holoTaskCount" class="hv">0 active</div><button class="ghost" onclick="showView('work');loadTasks()">Open ledger</button></div><div class="holoPanel"><div class="k">VERIFICATION</div><div class="hv">Evidence → Test → Browser → Promote</div></div><div class="holoPanel"><div class="k">SYSTEM LOAD</div><div id="holoLoad" class="hv">CHECKING</div></div></aside>
 </div></section>
-<section id="manibhadra" class="view panelView" aria-label="MANIBHADRA commerce CRM"><div class="panelInner">
-<div class="maniHero">
- <div><h1>MANIBHADRA</h1><p>Commerce CRM · turn buyer intent into revenue without paying to acquire it. Focus on the next human decision; MANIBHADRA handles research, prioritization and free-cloud reasoning.</p></div>
- <div class="maniHeroActions"><button class="ghost" onclick="loadManibhadraCRM()">↻ Refresh</button><button class="ghost" onclick="manibhadraScoutProduct()">⌕ Scout product</button><button class="ghost" onclick="manibhadraInvestmentScenario()">₹ Investment scenario</button><button class="primary" onclick="manibhadraAskAI()">✦ Ask MANIBHADRA</button></div>
-</div>
+<section id="manibhadra" class="view panelView" aria-label="MANIBHADRA revenue workspace"><div class="panelInner maniWorkspace">
+<header class="maniHero maniHeroClean">
+ <div><span class="maniEyebrow">Revenue operating system</span><h1>MANIBHADRA</h1><p>Products → buyers → sales → money received. Vāṇijya runs sales inside MANIBHADRA; market research, records, channels and revenue stay in one owner workspace.</p></div>
+ <div class="maniHeroActions"><button class="ghost" onclick="loadManibhadraCRM()">↻ Refresh</button><button class="ghost" onclick="manibhadraScoutProduct()">⌕ Find opportunity</button><button class="primary" onclick="setManibhadraWorkspace('sales');vanijyaSalesCycle()">▶ Start selling</button></div>
+</header>
 <div class="maniStatusRow">
  <span id="maniZeroSpend" class="maniStatus ok"><i></i> ZERO SPEND · RECEIVE ONLY</span>
- <span id="maniCloudState" class="maniStatus warn"><i></i> FREE CLOUD · CHECKING</span>
- <span id="maniHealthState" class="maniStatus warn"><i></i> CRM HEALTH · CHECKING</span>
- <span class="maniStatus"><i></i> EXTERNAL ACCOUNTS · WAITING</span>
+ <span id="maniCloudState" class="maniStatus warn"><i></i> FREE AI · CHECKING</span>
+ <span id="maniHealthState" class="maniStatus warn"><i></i> CRM · CHECKING</span>
+ <span class="maniStatus"><i></i> EXTERNAL ACCOUNTS · OWNER CONNECTS</span>
 </div>
-<div class="maniKpis">
- <div class="maniKpi"><span class="label">Active pipeline</span><strong id="maniKpiPipeline">₹0</strong><small id="maniKpiActive">0 active deals</small></div>
- <div class="maniKpi"><span class="label">Expected commission</span><strong id="maniKpiCommission">₹0</strong><small>weighted by stage probability</small></div>
- <div class="maniKpi"><span class="label">Won commission</span><strong id="maniKpiWon">₹0</strong><small>real closed-won revenue</small></div>
- <div class="maniKpi"><span class="label">Buyer leads</span><strong id="maniKpiLeads">0</strong><small>all captured intent</small></div>
- <div class="maniKpi"><span class="label">Close rate</span><strong id="maniKpiConversion">0%</strong><small>won / closed deals</small></div>
- <div class="maniKpi"><span class="label">Open follow-ups</span><strong id="maniKpiTasks">0</strong><small>human attention remaining</small></div>
+<nav class="maniWorkspaceNav" aria-label="MANIBHADRA workspace sections">
+ <button class="active" data-mani-page-button="overview" onclick="setManibhadraWorkspace('overview')"><span class="navGlyph">⌂</span>Overview</button>
+ <button data-mani-page-button="sales" onclick="setManibhadraWorkspace('sales')"><span class="navGlyph">₹</span>Vāṇijya Sales</button>
+ <button data-mani-page-button="market" onclick="setManibhadraWorkspace('market')"><span class="navGlyph">⌕</span>Market</button>
+ <button data-mani-page-button="records" onclick="setManibhadraWorkspace('records')"><span class="navGlyph">▦</span>Records</button>
+ <button data-mani-page-button="connections" onclick="setManibhadraWorkspace('connections')"><span class="navGlyph">⌘</span>Connections</button>
+</nav>
+
+<div class="maniWorkspacePage active" data-mani-page="overview">
+ <div class="maniPageLead"><div><h2>Today</h2><p>See what needs attention, where money is moving, and the next useful action.</p></div><div class="maniHumanCue"><b>Owner view</b> · decisions first, internals hidden</div></div>
+ <div class="maniKpis">
+  <div class="maniKpi"><span class="label">Active pipeline</span><strong id="maniKpiPipeline">₹0</strong><small id="maniKpiActive">0 active deals</small></div>
+  <div class="maniKpi"><span class="label">Expected commission</span><strong id="maniKpiCommission">₹0</strong><small>weighted by stage probability</small></div>
+  <div class="maniKpi"><span class="label">Won commission</span><strong id="maniKpiWon">₹0</strong><small>real closed-won revenue</small></div>
+  <div class="maniKpi"><span class="label">Buyer leads</span><strong id="maniKpiLeads">0</strong><small>captured intent</small></div>
+  <div class="maniKpi"><span class="label">Close rate</span><strong id="maniKpiConversion">0%</strong><small>won / closed deals</small></div>
+  <div class="maniKpi"><span class="label">Open follow-ups</span><strong id="maniKpiTasks">0</strong><small>attention remaining</small></div>
+ </div>
+ <div class="maniFocus">
+  <section class="maniPanel"><div class="maniPanelHead"><div><strong>Needs your attention</strong><small>highest-value human decisions first</small></div><button class="ghost" onclick="manibhadraAddLead()">＋ Lead</button></div><div class="maniPanelBody"><div id="maniAttention" class="maniAttention"><div class="maniEmpty">No pending attention yet.</div></div></div></section>
+  <section class="maniPanel"><div class="maniPanelHead"><div><strong>Sales pipeline</strong><small>buyer → qualified → proposal → money received</small></div><button class="ghost" onclick="manibhadraAddDeal()">＋ Deal</button></div><div class="maniPanelBody"><div id="maniPipeline" class="maniPipeline"></div></div></section>
+  <section class="maniPanel"><div class="maniPanelHead"><div><strong>MANIBHADRA advisor</strong><small>verified free AI only</small></div><button class="ghost" onclick="manibhadraAskAI()">Ask</button></div><div class="maniPanelBody"><div id="maniAI" class="maniAI maniAIEmpty">Ask: “What should I do next to make revenue?” Only sanitized totals and priorities are sent to approved free AI routes.</div><button class="ghost" style="margin-top:10px" onclick="manibhadraInvestmentScenario()">₹ Compare an investment scenario</button></div></section>
+ </div>
 </div>
-<section class="maniPanel maniVanijya" aria-label="Rishi Vanijya sales and marketing">
- <div class="maniPanelHead">
-  <div><strong>RISHI VĀṆIJYA · Sales & Marketing Head</strong><small> · MANIBHADRA product → customer → qualified deal → money received</small></div>
-  <div class="maniVanijyaActions"><button class="ghost" onclick="loadVanijyaSales()">↻ Sales</button><button class="ghost" onclick="vanijyaSyncProducts()">Sync products</button><button class="ghost" onclick="vanijyaAutopilot()">Auto Sales</button><button class="primary" onclick="vanijyaSalesCycle()">Start sales cycle</button></div>
- </div>
- <div class="maniPanelBody">
-  <div class="maniVanijyaStatus"><span id="vanijyaState" class="workChip">CHECKING</span><span>Independent head · NARAD communications · ₹0 acquisition spend</span></div>
-  <div class="maniVanijyaStats">
-   <div><span>Campaigns</span><strong id="vanijyaCampaigns">0</strong></div>
-   <div><span>Open conversations</span><strong id="vanijyaConversations">0</strong></div>
-   <div><span>Quotes</span><strong id="vanijyaQuotes">0</strong></div>
-   <div><span>Payments received</span><strong id="vanijyaPayments">0</strong></div>
-   <div><span>Sales workers</span><strong id="vanijyaWorkers">8</strong></div>
+
+<div class="maniWorkspacePage" data-mani-page="sales">
+ <div class="maniPageLead"><div><h2>Vāṇijya Sales</h2><p>Your sales and marketing head works here—not as another main-menu app.</p></div><div class="maniHumanCue"><b>NARAD</b> communications · <b>₹0</b> acquisition spend</div></div>
+ <section class="maniPanel maniVanijya" aria-label="Rishi Vanijya sales and marketing">
+  <div class="maniPanelHead">
+   <div><strong>RISHI VĀṆIJYA · Sales & Marketing Head</strong><small>MANIBHADRA product → customer → qualified deal → money received</small></div>
+   <div class="maniVanijyaActions"><button class="ghost" onclick="loadVanijyaSales()">↻ Refresh</button><button class="ghost" onclick="vanijyaSyncProducts()">Sync products</button><button class="ghost" onclick="vanijyaAutopilot()">Plan next work</button><button class="primary" onclick="vanijyaSalesCycle()">Start sales cycle</button></div>
   </div>
-  <div class="maniVanijyaFlow" id="vanijyaFlow">Lead Researcher → SDR / Calling → Lead Qualifier → Account Executive → Solution Consultant → Proposal & Pricing → Negotiator / Deal Closer → Customer Relationship Manager</div>
-  <div id="vanijyaActivity" class="maniActivity"><div class="maniEmpty">No VĀṆIJYA sales activity yet.</div></div>
- </div>
-</section>
-<section class="maniPanel maniMarket">
- <div class="maniPanelHead"><div><strong>VANIK-NETRA · Market Scanner</strong><small> · open-data intelligence → MANIBHADRA leads</small></div><span id="maniMarketState" class="workChip">READY · ₹0</span></div>
- <div class="maniPanelBody">
-  <div class="maniMarketControls">
-   <label>Area key<input id="maniMarketArea" class="input" value="rasulgarh"></label>
-   <label>West<input id="maniMarketWest" class="input" value="85.84" inputmode="decimal"></label>
-   <label>South<input id="maniMarketSouth" class="input" value="20.28" inputmode="decimal"></label>
-   <label>East<input id="maniMarketEast" class="input" value="85.88" inputmode="decimal"></label>
-   <label>North<input id="maniMarketNorth" class="input" value="20.31" inputmode="decimal"></label>
-   <label>Category<input id="maniMarketCategory" class="input" placeholder="e.g. hardware"></label>
-   <label>Source<select id="maniMarketSource" class="select"><option value="overture">Overture · live/free</option><option value="foursquare_os">Foursquare OS · connected export</option><option value="openstreetmap_extract">OSM · local extract</option></select></label>
-   <button class="primary" onclick="vanikNetraScan()">SCAN AREA</button>
+  <div class="maniPanelBody">
+   <div class="maniSalesIdentity"><div><strong>One sales team, one CRM</strong><p>Vāṇijya reads MANIBHADRA products and pipeline, then coordinates research, qualification, proposals, negotiation and receive-only payment verification.</p></div><span>INSIDE MANIBHADRA</span></div>
+   <div class="maniVanijyaStatus"><span id="vanijyaState" class="workChip">CHECKING</span><span>Independent head · NARAD communications · ₹0 acquisition spend</span></div>
+   <div class="maniVanijyaStats">
+    <div><span>Campaigns</span><strong id="vanijyaCampaigns">0</strong></div>
+    <div><span>Open conversations</span><strong id="vanijyaConversations">0</strong></div>
+    <div><span>Quotes</span><strong id="vanijyaQuotes">0</strong></div>
+    <div><span>Payments received</span><strong id="vanijyaPayments">0</strong></div>
+    <div><span>Sales workers</span><strong id="vanijyaWorkers">8</strong></div>
+   </div>
+   <div class="maniVanijyaFlow" id="vanijyaFlow">Lead Researcher → SDR / Calling → Lead Qualifier → Account Executive → Solution Consultant → Proposal & Pricing → Negotiator / Deal Closer → Customer Relationship Manager</div>
+   <div id="vanijyaActivity" class="maniActivity"><div class="maniEmpty">No VĀṆIJYA sales activity yet.</div></div>
   </div>
-  <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px"><button class="ghost" onclick="vanikNetraLoadCached()">Load cached</button><button class="ghost" onclick="vanikNetraChanges()">Business changes</button><button class="ghost" onclick="vanikNetraTopGaps()">Reachable no-website leads</button><button class="ghost" onclick="vanikNetraWhiteSpace()">Competition / white space</button></div>
-  <div class="maniMarketSummary">
-   <div class="maniMarketStat"><span>Businesses</span><strong id="maniMarketBusinesses">0</strong></div>
-   <div class="maniMarketStat"><span>Phone available</span><strong id="maniMarketPhones">0</strong></div>
-   <div class="maniMarketStat"><span>No website</span><strong id="maniMarketNoWeb">0</strong></div>
-   <div class="maniMarketStat"><span>Reachable gaps</span><strong id="maniMarketGaps">0</strong></div>
-  </div>
-  <div id="maniMarketCategories" class="maniMarketCategories"></div>
-  <div class="maniMarketSplit" style="margin-top:9px">
-   <div id="maniMarketMap" class="maniMarketMap"><div class="maniEmpty">Scan or load a bounded area to plot businesses.</div></div>
-   <div id="maniMarketList" class="maniMarketList"><div class="maniEmpty">No market records loaded.</div></div>
-  </div>
- </div>
-</section>
-<div class="maniFocus">
- <section class="maniPanel"><div class="maniPanelHead"><div><strong>Needs your attention</strong><small> · highest-value human decisions first</small></div><button class="ghost" onclick="manibhadraAddLead()">＋ Lead</button></div><div class="maniPanelBody"><div id="maniAttention" class="maniAttention"><div class="maniEmpty">No pending attention yet.</div></div></div></section>
- <section class="maniPanel"><div class="maniPanelHead"><div><strong>Sales pipeline</strong><small> · buyer → qualified → proposal → money received</small></div><button class="ghost" onclick="manibhadraAddDeal()">＋ Deal</button></div><div class="maniPanelBody"><div id="maniPipeline" class="maniPipeline"></div></div></section>
- <section class="maniPanel"><div class="maniPanelHead"><div><strong>MANIBHADRA advisor</strong><small> · verified free cloud only</small></div><button class="ghost" onclick="manibhadraAskAI()">Ask</button></div><div class="maniPanelBody"><div id="maniAI" class="maniAI maniAIEmpty">Ask: “What should I do next to make revenue?” MANIBHADRA receives only sanitized CRM totals and priorities—no credentials or private contacts.</div></div></section>
+ </section>
 </div>
-<section class="maniPanel"><div class="maniPanelHead"><div><strong>Business records</strong><small> · the details behind the pipeline</small></div><div style="display:flex;gap:7px;align-items:center"><span id="maniRecordCount" class="workChip">0 records</span><button class="ghost" onclick="manibhadraAddRecord()">＋ Add</button></div></div><div class="maniPanelBody">
- <div class="maniTabs"><button class="active" data-mani-tab="leads" onclick="setManibhadraTab('leads')">Leads</button><button data-mani-tab="deals" onclick="setManibhadraTab('deals')">Deals</button><button data-mani-tab="products" onclick="setManibhadraTab('products')">Products</button><button data-mani-tab="suppliers" onclick="setManibhadraTab('suppliers')">Suppliers</button><button data-mani-tab="customers" onclick="setManibhadraTab('customers')">Customers</button><button data-mani-tab="tasks" onclick="setManibhadraTab('tasks')">Tasks</button></div>
- <div id="maniRecords" class="maniRecordGrid"><div class="maniEmpty">No CRM records yet.</div></div>
+
+<div class="maniWorkspacePage" data-mani-page="market">
+ <div class="maniPageLead"><div><h2>Market</h2><p>Find reachable demand and business gaps before creating sales work.</p></div><div class="maniHumanCue"><b>VANIK-NETRA</b> · public/free data</div></div>
+ <section class="maniPanel maniMarket">
+  <div class="maniPanelHead"><div><strong>VANIK-NETRA · Market Scanner</strong><small>open-data intelligence → MANIBHADRA leads</small></div><span id="maniMarketState" class="workChip">READY · ₹0</span></div>
+  <div class="maniPanelBody">
+   <div class="maniMarketControls">
+    <label>Area key<input id="maniMarketArea" class="input" value="rasulgarh"></label>
+    <label>West<input id="maniMarketWest" class="input" value="85.84" inputmode="decimal"></label>
+    <label>South<input id="maniMarketSouth" class="input" value="20.28" inputmode="decimal"></label>
+    <label>East<input id="maniMarketEast" class="input" value="85.88" inputmode="decimal"></label>
+    <label>North<input id="maniMarketNorth" class="input" value="20.31" inputmode="decimal"></label>
+    <label>Category<input id="maniMarketCategory" class="input" placeholder="e.g. hardware"></label>
+    <label>Source<select id="maniMarketSource" class="select"><option value="overture">Overture · live/free</option><option value="foursquare_os">Foursquare OS · connected export</option><option value="openstreetmap_extract">OSM · local extract</option></select></label>
+    <button class="primary" onclick="vanikNetraScan()">SCAN AREA</button>
+   </div>
+   <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px"><button class="ghost" onclick="vanikNetraLoadCached()">Load cached</button><button class="ghost" onclick="vanikNetraChanges()">Business changes</button><button class="ghost" onclick="vanikNetraTopGaps()">Reachable no-website leads</button><button class="ghost" onclick="vanikNetraWhiteSpace()">Competition / white space</button></div>
+   <div class="maniMarketSummary">
+    <div class="maniMarketStat"><span>Businesses</span><strong id="maniMarketBusinesses">0</strong></div>
+    <div class="maniMarketStat"><span>Phone available</span><strong id="maniMarketPhones">0</strong></div>
+    <div class="maniMarketStat"><span>No website</span><strong id="maniMarketNoWeb">0</strong></div>
+    <div class="maniMarketStat"><span>Reachable gaps</span><strong id="maniMarketGaps">0</strong></div>
+   </div>
+   <div id="maniMarketCategories" class="maniMarketCategories"></div>
+   <div class="maniMarketSplit" style="margin-top:9px"><div id="maniMarketMap" class="maniMarketMap"><div class="maniEmpty">Scan or load a bounded area to plot businesses.</div></div><div id="maniMarketList" class="maniMarketList"><div class="maniEmpty">No market records loaded.</div></div></div>
+  </div>
+ </section>
+</div>
+
+<div class="maniWorkspacePage" data-mani-page="records">
+ <div class="maniPageLead"><div><h2>Records</h2><p>People, deals, products and tasks behind the revenue pipeline.</p></div><button class="primary" onclick="manibhadraAddRecord()">＋ Add record</button></div>
+ <section class="maniPanel"><div class="maniPanelHead"><div><strong>Business records</strong><small>clean operational truth behind the pipeline</small></div><span id="maniRecordCount" class="workChip">0 records</span></div><div class="maniPanelBody">
+  <div class="maniRecordsShell">
+   <div class="maniTabs"><button class="active" data-mani-tab="leads" onclick="setManibhadraTab('leads')">Leads</button><button data-mani-tab="deals" onclick="setManibhadraTab('deals')">Deals</button><button data-mani-tab="products" onclick="setManibhadraTab('products')">Products</button><button data-mani-tab="suppliers" onclick="setManibhadraTab('suppliers')">Suppliers</button><button data-mani-tab="customers" onclick="setManibhadraTab('customers')">Customers</button><button data-mani-tab="tasks" onclick="setManibhadraTab('tasks')">Tasks</button></div>
+   <div id="maniRecords" class="maniRecordGrid"><div class="maniEmpty">No CRM records yet.</div></div>
+  </div>
+ </div></section>
+</div>
+
+<div class="maniWorkspacePage" data-mani-page="connections">
+ <div class="maniPageLead"><div><h2>Connections</h2><p>Channels, external accounts and recent business activity. Nothing spends money automatically.</p></div><button class="ghost" onclick="showView('plugins')">Open Plugins</button></div>
+ <div class="maniLower">
+  <section class="maniPanel"><div class="maniPanelHead"><div><strong>Channels & money paths</strong><small>external accounts stay waiting until the owner connects them</small></div></div><div class="maniPanelBody"><div class="maniOwnerRule"><strong>Owner spend gate: ₹0 autonomous spend</strong><p>MANIBHADRA and Vāṇijya may research, draft, qualify and receive. Paid ads, subscriptions, inventory purchase or any outgoing payment remain blocked without explicit owner approval.</p></div><div id="maniConnections" class="maniConnections" style="margin-top:10px"></div></div></section>
+  <section class="maniPanel"><div class="maniPanelHead"><div><strong>Recent activity</strong><small>what changed and why</small></div></div><div class="maniPanelBody"><div id="maniActivity" class="maniActivity"><div class="maniEmpty">No activity yet.</div></div></div></section>
+ </div>
+</div>
 </div></section>
-<div class="maniLower">
- <section class="maniPanel"><div class="maniPanelHead"><div><strong>Channels & money paths</strong><small> · all external accounts stay waiting until you connect them</small></div><button class="ghost" onclick="showView('plugins')">Open Plugins</button></div><div class="maniPanelBody"><div id="maniConnections" class="maniConnections"></div></div></section>
- <section class="maniPanel"><div class="maniPanelHead"><div><strong>Recent activity</strong><small> · what changed and why</small></div></div><div class="maniPanelBody"><div id="maniActivity" class="maniActivity"><div class="maniEmpty">No activity yet.</div></div></div></section>
-</div>
-</div></section>
+
 <section id="workingGods" class="view panelView"><div class="panelInner">
 <h1 class="panelTitle">Working Gods</h1><p class="panelSub">Tiny live status of KRISHNA's internal workers. Red = idle/error, yellow = working/handling, green = completed/healthy.</p>
 <div id="workingGodsGrid" class="workingGodsGrid"></div>
@@ -1731,7 +1830,7 @@ function confirmAction(message){return requestDialog(message,'',true)}
 async function req(path,payload){const o={headers:{Accept:'application/json','X-Krishna-Device':'sudarshan-web'}};if(payload!==undefined){o.method='POST';o.headers['Content-Type']='application/json';o.body=JSON.stringify(payload)}const r=await fetch(path,o);let d={};try{d=await r.json()}catch(e){d={error:'invalid JSON'}}if(!r.ok)throw new Error((d&&d.error)||('HTTP '+r.status));return d}
 async function actionReq(action,payload,options={}){const d=await req('/api/action-bus/dispatch',{action,payload:payload||{},project:options.project||($('project')?.value||'KRISHNA'),actor:'sudarshan-web',approved:!!options.approved,permissions:options.permissions||[],idempotency_key:options.idempotency_key||null});if(d.action_id){document.body.dataset.lastActionId=d.action_id;document.body.dataset.lastActionStatus=d.status||'completed'}return d.result!==undefined?d.result:d}
 function log(x){$('log').textContent=typeof x==='string'?x:JSON.stringify(x,null,2);if(typeof x==='string'){$('notice').textContent=x;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{$('notice').textContent=''},6000)}}
-function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.body.dataset.view=id;const titles={home:'Almighty Core',sudarshan:'Sudarshan',manibhadra:'MANIBHADRA · Commerce CRM',workingGods:'Working Gods',projects:'Projects',kabach:'KABACH',garuda:'Garuda',garudanetra:'Garudanetra',brahmagyan:'BRAHMAGYAN',gyan:'Gyan-Bhandar',narad:'NARAD',plugins:'Plugins',specialists:'Specialists',development:'Developer',uiGuardian:'UI Guardian',work:'Work progress',activity:'Activity',system:'System'};$('pageTitle').textContent=titles[id]||id;const composer=document.querySelector('.composerWrap');if(composer)composer.style.display=id==='sudarshan'?'block':'none';document.querySelectorAll('.nav button').forEach(x=>{const active=x.getAttribute('onclick')==="showView('"+id+"')";x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});if(id==='workingGods')loadWorkingGods();if(id==='manibhadra')loadManibhadraCRM();if(id==='work'){loadTasks();loadCommitments();}if(id==='uiGuardian')loadUIGuardian();if(id==='plugins')loadPlugins();if(id==='projects')renderProjects();if(id==='brahmagyan')loadBrahmagyan();if(id==='gyan'){loadGyanInventory();loadGyan();loadGyanPending()}if(id==='narad')loadNarad();if(id==='garuda')refreshGaruda();if(id==='garudanetra')loadGarudanetra();if(id==='kabach')loadKabach();if(id==='development')loadUIRegistry()}
+function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.body.dataset.view=id;const titles={home:'Almighty Core',sudarshan:'Sudarshan',manibhadra:'MANIBHADRA · Commerce CRM',workingGods:'Working Gods',projects:'Projects',kabach:'KABACH',garuda:'Garuda',garudanetra:'Garudanetra',brahmagyan:'BRAHMAGYAN',gyan:'Gyan-Bhandar',narad:'NARAD',plugins:'Plugins',specialists:'Specialists',development:'Developer',uiGuardian:'UI Guardian',work:'Work progress',activity:'Activity',system:'System'};$('pageTitle').textContent=titles[id]||id;const composer=document.querySelector('.composerWrap');if(composer)composer.style.display=id==='sudarshan'?'block':'none';document.querySelectorAll('.nav button').forEach(x=>{const active=x.getAttribute('onclick')==="showView('"+id+"')";x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});if(id==='workingGods')loadWorkingGods();if(id==='manibhadra'){setManibhadraWorkspace(manibhadraWorkspace);loadManibhadraCRM();}if(id==='work'){loadTasks();loadCommitments();}if(id==='uiGuardian')loadUIGuardian();if(id==='plugins')loadPlugins();if(id==='projects')renderProjects();if(id==='brahmagyan')loadBrahmagyan();if(id==='gyan'){loadGyanInventory();loadGyan();loadGyanPending()}if(id==='narad')loadNarad();if(id==='garuda')refreshGaruda();if(id==='garudanetra')loadGarudanetra();if(id==='kabach')loadKabach();if(id==='development')loadUIRegistry()}
 async function refresh(){try{const [s,p,d]=await Promise.all([req('/api/status'),req('/api/projects'),req('/api/dashboard')]);const di=s.deployment_integrity||{};const drift=di.status==='DRIFT';$('online').textContent=drift?'CORE DRIFT':'CORE ONLINE';$('online').className='pill '+(drift?'bad':'ok');$('dot').className=drift?'statusDot':'statusDot on';$('sideStatus').textContent=drift?'Runtime drift detected':'Core online';$('core').textContent=s.core||'ONLINE';if($('deployIntegrity')){$('deployIntegrity').textContent=(di.status||'UNVERIFIED')+(di.commit?' · '+String(di.commit).slice(0,8):'')};const po=s.pc_observer||{};$('res').textContent=(po.cpu_percent??'—')+'% / '+(po.memory_percent??'—')+'%';if($('holoLoad'))$('holoLoad').textContent='CPU '+(po.cpu_percent??'—')+'% · RAM '+(po.memory_percent??'—')+'%';if($('holoCoreState'))$('holoCoreState').textContent='ONLINE';const projectsChanged=JSON.stringify(projects)!==JSON.stringify(p.projects||[]);projects=p.projects||[];$('projectsCount').textContent=projects.length;$('currentActivity').textContent=d.current_activity||'Idle';$('activityLog').textContent=(d.recent||[]).map(x=>'['+(x.time||'')+'] '+(x.event||x)).join('\n')||'No activity yet.';syncProjects();loadModelRouter();loadRuntimeAudit();loadRequirementsLedger();loadExtendedRuntime();if(projectsChanged||!$('projectCards').childElementCount)renderProjects();if(projectsChanged||!$('projectMenuTree').childElementCount)renderSidebarProjectTree();if(projectsChanged||!$('recentChats').childElementCount)loadGeneralChats()}catch(e){$('online').textContent='CORE OFFLINE';$('online').className='pill bad';$('dot').className='statusDot';$('sideStatus').textContent='Core offline';log(e.message)}}
 function projectByName(name){return projects.find(p=>p.name===name)||null}
 function projectLabel(name){
@@ -1851,6 +1950,17 @@ function addMsg(role,text){const w=$('welcome');if(w)w.remove();const d=document
 async function createChatForProject(project,title){const p=project||'KRISHNA';return actionReq('chat.create',{project:p,title:title||'New Sudarshan chat'},{project:p})}
 async function newChat(){try{showView('sudarshan');const p=$('project').value||'KRISHNA',c=await createChatForProject(p,'New Sudarshan chat');chatId=c.chat_id;$('messages').innerHTML='<div id="welcome" class="welcome"><div class="orb">☸</div><h1>New conversation</h1><p>Start a task, ask a question, or work on '+escapeHtml(p)+'.</p></div>';await loadChats();await loadGeneralChats();await openChat(chatId)}catch(e){log(e.message)}}
 async function send(){const t=$('input').value.trim();if(!t)return;if(sending)return;if(!chatId)await newChat();if(!chatId)return;sending=true;document.querySelector('.send').disabled=true;$('input').value='';showView('sudarshan');addMsg('user',t);$('sudarshanState').textContent='KRISHNA WORKING';try{const d=await req('/api/core/chat',{message:t,project:$('project').value||'general',chat_id:chatId,source:'web',mode:'chat',attachment_ids:pendingAttachmentIds.slice(0,3)});pendingAttachmentIds=[];addMsg('assistant',d.reply||d.text||JSON.stringify(d));if(d.capability==='gita-gyan')renderGitaSessionControls('messages');$('sudarshanState').textContent=d.task_id?'TASK '+String(d.task_id).slice(0,8):'RESPONSE RECEIVED';log(d);await loadChats()}catch(e){$('sudarshanState').textContent='ERROR';addMsg('assistant','ERROR: '+e.message);log(e.message)}finally{sending=false;document.querySelector('.send').disabled=false}}
+let manibhadraWorkspace=localStorage.getItem('krishnaManibhadraWorkspace')||'overview';
+function setManibhadraWorkspace(page){
+ const allowed=['overview','sales','market','records','connections'];
+ page=allowed.includes(page)?page:'overview';manibhadraWorkspace=page;
+ document.querySelectorAll('#manibhadra [data-mani-page]').forEach(x=>x.classList.toggle('active',x.dataset.maniPage===page));
+ document.querySelectorAll('#manibhadra [data-mani-page-button]').forEach(x=>{const active=x.dataset.maniPageButton===page;x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});
+ localStorage.setItem('krishnaManibhadraWorkspace',page);
+ if(page==='sales')loadVanijyaSales();
+ if(page==='records')renderManibhadraRecords();
+ return page;
+}
 let manibhadraTab='leads',manibhadraRecords={leads:[],deals:[],customers:[],suppliers:[],products:[],tasks:[],activities:[],connections:[]};
 let vanikNetraMarket={records:[],summary:{},bbox:null,area_key:'rasulgarh',changes:[]};
 
