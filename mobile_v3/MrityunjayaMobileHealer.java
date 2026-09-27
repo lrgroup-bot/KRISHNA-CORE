@@ -165,10 +165,13 @@ public final class MrityunjayaMobileHealer {
 
   public synchronized void recovered(String kind,String detail){
     String k=clean(kind,80);
-    if(healing&&(pendingKind.isEmpty()||pendingKind.equals(k)||"ui-shell".equals(k))){
-      healing=false;
-      pendingKind="";
+    boolean matched=healing&&(pendingKind.isEmpty()||pendingKind.equals(k)||"ui-shell".equals(k));
+    if(!matched){
+      healthy(detail);
+      return;
     }
+    healing=false;
+    pendingKind="";
     prefs.edit()
       .putLong("recovered_count",prefs.getLong("recovered_count",0L)+1L)
       .putString("last_action","verified-recovered:"+k)
