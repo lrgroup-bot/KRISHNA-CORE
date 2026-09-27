@@ -305,7 +305,7 @@ class SuryadevCurriculumPlanner:
                 row=json.loads(path.read_text(encoding="utf-8"))
             except Exception:
                 continue
-            if str(row.get("horse_id") or "").lower()==hid:
+            if str(row.get("horse_id") or "").lower()==hid and str(row.get("status") or "READY")!="COMPLETED":
                 rows.append(row)
         if not rows:raise KeyError(hid)
         rows.sort(key=lambda x:float(x.get("created_at") or 0),reverse=True)
@@ -384,6 +384,9 @@ class SuryadevCurriculumPlanner:
                 "BRAHMA routes the learned subjects to the existing Rishis for independent web research and verification",
             ],
             "created_at":time.time(),
+            "status":"READY",
+            "completed_at":None,
+            "learning_batch_id":None,
         }
         plan["ready"]=bool(plan["playlist"]) and packed["fit"] in {"WITHIN_FINISH_GRACE","UNDER_TARGET"}
         plan["needs_more_candidates"]=packed["total_seconds"] < self.TARGET_SECONDS-30*60
@@ -398,6 +401,20 @@ class SuryadevCurriculumPlanner:
                 "suryadev_curriculum",
                 "planned",
                 f"{plan['plan_id']}:{horse_id}:{subject}:{len(plan['playlist'])}:{plan['playlist_total_seconds']}s",
+            )
+        return plan
+
+    def complete(self,plan_id,batch_id):
+        plan=self.get(plan_id)
+        plan["status"]="COMPLETED"
+        plan["completed_at"]=time.time()
+        plan["learning_batch_id"]=str(batch_id or "")
+        path=self.plans_dir/f"{plan['plan_id']}.json"
+        path.write_text(json.dumps(plan,ensure_ascii=False,indent=2),encoding="utf-8")
+        if self.memory:
+            self.memory.audit(
+                "suryadev_curriculum","completed",
+                f"{plan['plan_id']}:{plan.get('horse_id')}:{batch_id}",
             )
         return plan
 
