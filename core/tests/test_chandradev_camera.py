@@ -119,7 +119,9 @@ class ChandradevOsmoCameraTests(unittest.TestCase):
             cfg=v.mediamtx_config()
             self.assertIn("rtmpAddress: :1935",cfg)
             self.assertIn("hlsAddress: 127.0.0.1:8888",cfg)
-            self.assertIn("webrtcAddress: 127.0.0.1:8889",cfg)
+            self.assertIn("webrtc: false",cfg)
+            self.assertIn("moq: false",cfg)
+            self.assertNotIn("webrtcAddress:",cfg)
             self.assertIn("overridePublisher: false",cfg)
             self.assertTrue(Path(v.ensure_config()["config_path"]).is_file())
 
