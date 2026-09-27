@@ -327,7 +327,7 @@ class SuryadevHorseFleet:
         payload=dict(payload or {})
         self._reject_raw_media(payload)
         sources=[]
-        for raw in list(payload.get("sources") or [])[:80]:
+        for raw in list(payload.get("sources") or [])[:16]:
             if not isinstance(raw,dict):continue
             url=self._valid_url(raw.get("url"))
             title=self._text(raw.get("title"),600)
@@ -365,6 +365,7 @@ class SuryadevHorseFleet:
             "started_at":payload.get("started_at"),
             "ended_at":payload.get("ended_at") or time.time(),
             "shift_name":self._text(payload.get("shift_name"),120),
+            "curriculum_plan_id":self._text(payload.get("curriculum_plan_id"),120) or None,
             "sources":sources,
             "source_count":len(sources),
             "raw_media_included":False,
