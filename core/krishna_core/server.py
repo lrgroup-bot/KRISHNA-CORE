@@ -2385,6 +2385,7 @@ class Handler(BaseHTTPRequestHandler):
             "/api/suryadev/horse/profile",
             "/api/suryadev/horse/heartbeat",
             "/api/suryadev/horse/learning",
+            "/api/suryadev/horse/curriculum/next",
         ):
             device,token=self._device_auth()
             if not _pairing.verify(device,token):
@@ -2424,6 +2425,16 @@ class Handler(BaseHTTPRequestHandler):
                 status=data.get("status") if isinstance(data.get("status"),dict) else data
                 return self._json(200,orch.suryadev.horse_heartbeat(
                     horse_id,node_id=device,status=status,
+                ))
+            if post_path=="/api/suryadev/horse/curriculum/next":
+                workload=str(horse.get("workload") or ((horse.get("binding") or {}).get("workload") or ""))
+                if workload not in {"media_learning","hybrid"}:
+                    return self._json(409,{"error":"this horse is not assigned a media-learning workload","workload":workload})
+                return self._json(200,orch.suryadev.curriculum_next(
+                    horse_id=horse_id,
+                    max_videos=max(1,min(int(data.get("max_videos") or 10),10)),
+                    candidate_limit=max(10,min(int(data.get("candidate_limit") or 40),40)),
+                    enrich_metadata=bool(data.get("enrich_metadata",True)),
                 ))
             batch=data.get("batch") if isinstance(data.get("batch"),dict) else data
             result=orch.suryadev.horse_learning_batch(
