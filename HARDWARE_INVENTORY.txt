@@ -39,9 +39,14 @@ LAPTOPS
    - RAM: 4GB onboard/soldered
    - SSD capacity: TO VERIFY
    - Battery health / charger / boot condition / macOS version: TO VERIFY
-   - Potential KRISHNA use: lightweight secondary terminal, documentation/manual station, network/automation node, browser/control display, test/development machine if condition is good
+   - Assigned KRISHNA role: CHANDRADEV MEDIA NODE
+   - Primary duty: Run YouTube/browser media for long-duration observation while KRISHNA PC performs transcript/metadata fetching, deep analysis, verification and Rishi/BRAHMAGYAN learning
+   - Node workflow: WATCH -> LISTEN -> TIMESTAMP -> CAPTURE KEY EVIDENCE -> SEND TO PC -> KEEP PLAYING
+   - Compute policy: Keep heavy AI/vision/research on KRISHNA PC or approved free cloud; Mac handles playback, lightweight capture/control and reconnect/watchdog duties
+   - Suggested playback target: 720p by default for continuous duty; increase resolution only when a frame genuinely needs more visual detail
+   - 24/7 prerequisites: verify battery is healthy/not swollen, charger is reliable, thermals are acceptable, sleep is disabled while plugged in, and browser/session watchdog recovery is working
    - Privacy note: Serial number is visible on the bottom case but is intentionally not stored in this inventory.
-   - Action: Boot and read Apple menu > About This Mac / System Information for exact CPU, RAM, SSD and battery condition
+   - Action: Boot and read Apple menu > About This Mac / System Information for exact CPU, SSD, battery condition and macOS version before continuous-duty deployment
 
 
 TABLETS / MOBILE DEVICES
@@ -54,8 +59,13 @@ TABLETS / MOBILE DEVICES
    - Storage: TO VERIFY (64GB or 256GB variants existed)
    - Connectivity variant: TO VERIFY (Wi-Fi or Wi-Fi + Cellular)
    - Exact model number / battery health / iPadOS version: TO VERIFY
-   - Potential KRISHNA use: secondary mobile control/monitoring screen, Hawkeye reference/research terminal, camera/control companion, local documentation/manual display
-   - Action: Identify Settings > General > About > Model Number and battery/condition before assignment
+   - Assigned KRISHNA role: SURYADEV MEDIA / VISUAL NODE (subject to real-device acceptance)
+   - Primary duty: Play YouTube or other approved media in the foreground, provide a dedicated visual/reference screen, and forward timestamps/selected evidence to KRISHNA PC for Rishi/BRAHMAGYAN analysis
+   - Learning workflow: WATCH/PLAY -> CAPTURE TIMESTAMP + AVAILABLE CAPTION/TEXT + SELECTED FRAME/EVIDENCE -> SEND TO PC -> RISHI VERIFY/RESEARCH -> GYAN-BHANDAR STORE VERIFIED LEARNING
+   - Important iPadOS boundary: Do not assume unrestricted 24/7 background screen capture or autonomous control of other apps; continuous operation may require YouTube/media to remain foreground and KRISHNA should use PC-side transcript/metadata fetching whenever possible
+   - Heavy-compute policy: iPad acts as Suryadev display/observer companion; deep reasoning, transcript fetching, web research and knowledge storage remain on KRISHNA PC or approved free cloud
+   - Potential supporting uses: secondary KRISHNA control/monitoring screen, Hawkeye reference/research terminal, manuals/datasheet display, selected-frame review
+   - Action: Identify Settings > General > About > Model Number, storage, iPadOS version and battery/condition; then run real-device foreground YouTube + KRISHNA handoff acceptance before assigning continuous duty
 
 NETWORK / POWER EQUIPMENT
 -------------------------
