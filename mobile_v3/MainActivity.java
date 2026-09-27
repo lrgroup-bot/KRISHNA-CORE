@@ -475,6 +475,14 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    @JavascriptInterface public String hawkeyeReadTarget(String dataB64){
+      try{
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
+        if(bytes.length==0||bytes.length>3*1024*1024)throw new IllegalArgumentException("target-read frame exceeds bounded size");
+        return HawkeyeMobileVision.analyzeReadTarget(bytes).toString();
+      }catch(Exception e){return error(e);}
+    }
+
     @JavascriptInterface public String hawkeyeRichPerception(String dataB64){
       try{
         byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
