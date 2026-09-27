@@ -230,6 +230,7 @@ class SuryadevAgent:
         foreground=str(packet.get("app_state") or "").lower()=="foreground"
         screen_awake=bool(packet.get("screen_awake",False))
         youtube=self._text(packet.get("youtube_url"),1600)
+        youtube_playing=bool(packet.get("youtube_playing",False))
         devices=self._load_object(self.device_file)
         prior=dict(devices.get(device_id) or {})
         last_learning=float(prior.get("last_learning_at") or 0.0)
@@ -249,11 +250,12 @@ class SuryadevAgent:
             "youtube_url":youtube,
             "youtube_title":self._text(packet.get("youtube_title"),500),
             "youtube_seconds":max(0.0,float(packet.get("youtube_seconds") or 0.0)),
+            "youtube_playing":youtube_playing,
             "free_storage_bytes":max(0,int(packet.get("free_storage_bytes") or 0)),
             "last_seen":now,
             "last_learning_at":last_learning,
             "krishna_link_green":True,
-            "suryadev_working_green":bool(network and foreground and screen_awake and self._youtube_url(youtube)),
+            "suryadev_working_green":bool(network and foreground and screen_awake and youtube_playing and self._youtube_url(youtube)),
             "rishi_learning_green":bool(last_learning and now-last_learning<=180.0),
         }
         devices[device_id]=row
@@ -271,7 +273,7 @@ class SuryadevAgent:
             x["online"]=age<=75.0
             x["krishna_link_green"]=x["online"]
             x["suryadev_working_green"]=bool(
-                x["online"] and x.get("network_online") and x.get("screen_awake") and
+                x["online"] and x.get("network_online") and x.get("screen_awake") and x.get("youtube_playing") and
                 x.get("app_state")=="foreground" and self._youtube_url(x.get("youtube_url"))
             )
             learning_age=max(0.0,now-float(x.get("last_learning_at") or 0.0)) if x.get("last_learning_at") else None
