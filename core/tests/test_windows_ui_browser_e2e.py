@@ -50,7 +50,7 @@ class WindowsUIBrowserTests(unittest.TestCase):
                 page.get_by_role("button", name="◆MANIBHADRA", exact=True).click()
                 self.assertTrue(page.locator("#manibhadra .maniWorkspaceNav").is_visible())
                 self.assertTrue(page.locator('[data-mani-page="overview"]').is_visible())
-                page.get_by_role("button", name="₹Vāṇijya Sales", exact=True).click()
+                page.locator('[data-mani-page-button="sales"]').click()
                 self.assertTrue(page.locator('[data-mani-page="sales"]').is_visible())
                 self.assertFalse(page.locator('[data-mani-page="overview"]').is_visible())
                 self.assertIn("Sales & Marketing Head", page.locator('[data-mani-page="sales"]').inner_text())
