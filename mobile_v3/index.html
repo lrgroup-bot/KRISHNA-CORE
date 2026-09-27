@@ -540,7 +540,7 @@ window.onKrishnaPoll=(linkRaw,stateRaw)=>{
 };
 showAvatarView(0);startAuto();setTimeout(()=>window.reportKrishnaUiReady?.('animated-fallback'),450);setTimeout(poll,1800);setInterval(poll,8000);
 const realtime=new KrishnaRealtime(Krishna);
-realtime.onEvent=e=>{const p=e.payload||{};if(e.type==='task.completed'){reply(p.summary||'KRISHNA completed the task','good');setMode('CHAT','WORK COMPLETED');return}if(e.type==='action.sync'){const status=String(p.status||'').toUpperCase(),action=String(p.action||'KRISHNA action');if(status==='COMPLETED')setMode('CHAT',action+' · SYNCED');else if(status==='FAILED'||status==='BLOCKED')setMode('CHAT',action+' · '+status);else setMode('WORKING',action)}};
+realtime.onEvent=e=>{const p=e.payload||{};if(e.type==='task.completed'){reply(p.summary||'KRISHNA completed the task','good');setMode('CHAT','WORK COMPLETED');return}if(e.type==='suryadev.alert'){const sev=String(p.severity||'warning').toLowerCase();reply(p.summary||'Suryadev learning node needs attention',sev==='critical'||sev==='error'?'bad':'warn');setMode('CHAT','SURYADEV ALERT');return}if(e.type==='suryadev.learning'){reply(p.summary||'Shravana Rishi accepted new podcast learning','good');setMode('CHAT','RISHI LEARNING');return}if(e.type==='action.sync'){const status=String(p.status||'').toUpperCase(),action=String(p.action||'KRISHNA action');if(status==='COMPLETED')setMode('CHAT',action+' · SYNCED');else if(status==='FAILED'||status==='BLOCKED')setMode('CHAT',action+' · '+status);else setMode('WORKING',action)}};
 realtime.onState=s=>{if(s==='reconnecting')document.getElementById('state').textContent='RECONNECTING'};
 realtime.start();
 function reportMobileJsFault(detail){
