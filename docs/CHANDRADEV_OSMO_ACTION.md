@@ -207,3 +207,35 @@ If the monitor is not reliably visible or the camera is moving too much, CHANDRA
 - HLS binds to localhost; unused WebRTC and MoQ listeners are disabled.
 - Starting/stopping the LAN listener remains an owner-approved action.
 - Camera observations are evidence; they do not establish hidden intent, identity, diagnosis, or fault certainty.
+
+
+## Direct USB webcam is now the primary CHANDRADEV path
+
+CHANDRADEV no longer requires DJI Mimo or MediaMTX for the normal monitor-reading workflow.
+
+Primary path:
+
+```text
+USB UVC webcam (ZEBRONICS ZEB-Pure Plus target)
+  -> Windows UVC driver
+  -> OpenCV (DirectShow / Media Foundation)
+  -> monitor detection
+  -> perspective correction
+  -> sharpest-frame selection
+  -> local enhancement
+  -> local VisionAdapter
+  -> CHANDRADEV
+```
+
+The runtime requests 3840x2160 at 30 FPS with MJPG when supported. The actual mode returned by the Windows camera driver is recorded with each capture, so CHANDRADEV does not claim 4K unless the hardware actually delivers it.
+
+Default camera source is `usb_uvc_webcam`, default camera index is `0`. If more than one Windows camera is present, use:
+
+```powershell
+.\scripts\TEST_CHANDRADEV_WEBCAM.ps1 -CameraIndex 1
+.\scripts\TEST_CHANDRADEV_SCREEN.ps1 -CameraIndex 1
+```
+
+DJI Osmo RTMP remains available only as an explicit fallback source. Automatic switching is disabled.
+
+The budget-mount recovery rule remains unchanged: if screen edges cannot be found or camera motion is excessive, CHANDRADEV clears the stale screen lock and routes a manual stabilization request through KRISHNA to the owner.
