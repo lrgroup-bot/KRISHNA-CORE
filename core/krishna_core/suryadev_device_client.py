@@ -17,6 +17,7 @@ import socket
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 import uuid
 
 from .lan_discovery import DISCOVERY_MAGIC, DISCOVERY_PORT
@@ -119,13 +120,7 @@ class SuryadevDeviceClient:
     def health(self,base_url):
         base=str(base_url or "").rstrip("/")
         if not base:return False
-        try:
-            host=urllib.request.urlparse(base).hostname  # pragma: no cover - fallback below
-        except Exception:
-            host=None
-        if host is None:
-            from urllib.parse import urlparse
-            host=urlparse(base).hostname
+        host=urlparse(base).hostname
         if not host or not self._private_host(host):return False
         try:
             code,data=self._request(base+"/health",timeout=2)
@@ -204,6 +199,14 @@ class SuryadevDeviceClient:
             "assignment":pdata,
             "core":base,
         }
+
+    def next_curriculum(self,base_url):
+        code,data=self._request(
+            str(base_url).rstrip("/")+"/api/suryadev/horse/curriculum/next",
+            method="POST",body={"max_videos":10,"candidate_limit":40,"enrich_metadata":True},
+            headers=self._auth_headers(),timeout=120,
+        )
+        return {"http_status":code,**data}
 
     def heartbeat(self,base_url,status):
         code,data=self._request(
