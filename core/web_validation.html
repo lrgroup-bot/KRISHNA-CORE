@@ -1098,6 +1098,7 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 .avatarFallback{overflow:visible!important}
 .avatarFallback img{max-width:94%!important;max-height:92%!important;object-fit:contain!important;object-position:center center!important}
 #avatarPerformanceState{color:#e8c879}
+#avatarVoiceFeedback{display:block;min-height:16px;text-align:center;color:#a6ced0;font-size:11px;margin-top:3px}
 @media(max-width:1100px){
   .opsInformer{width:calc(100% - 36px)!important}
   .opsVitals{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -1118,18 +1119,34 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 </style>
 <style id="windows-layout-corrections">
 /* The main column already reserves the sidebar width. */
+.main{overflow:clip!important}
 .main .composerWrap{left:auto!important;right:auto!important;min-width:0!important;max-width:100%!important;box-sizing:border-box}
 .main .composer{min-width:0!important;max-width:100%!important;box-sizing:border-box}
 .main:has(#sudarshan.active) #krishnaPopupLauncher{bottom:160px!important}
+.main:has(#home.active) #krishnaPopupLauncher{bottom:86px!important}
 /* A hidden renderer must not consume space above the visible fallback. */
 #krishnaAvatar [hidden]{display:none!important}
 #home .krishnaAvatar{height:min(60dvh,560px)!important;max-height:calc(100dvh - 150px)!important}
 #avatarCapability{display:block;text-align:center;color:#b9c9d2;font-size:11px;line-height:1.4;margin-top:5px}
+.avatarControls{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:20;display:flex;gap:7px;flex-wrap:wrap;justify-content:center;width:min(90%,540px)}
+.avatarControls select,.avatarControls button{background:#101e28;color:#ead29b;border:1px solid #46606c;border-radius:8px;padding:7px 10px;font-size:12px}
+#home .krishnaAvatar{top:45%!important;height:min(54dvh,520px)!important}
+#home .workingGodsOverlay{max-width:170px!important;max-height:30dvh!important;opacity:.8}
+.krishnaLiveAvatar canvas{touch-action:none}
+#home{box-sizing:border-box!important;overflow:clip!important;padding:68px 18px 12px!important}
+#home .panelInner{display:block!important;height:100%!important;min-height:0!important;overflow:clip!important}
+#home .holoStage{height:100%!important;min-height:0!important;overflow:clip!important}
+#home .holoCore{position:absolute!important;left:50%!important;top:43%!important;width:min(92%,560px)!important;height:calc(100% - 110px)!important;transform:translate(-50%,-50%)!important}
+#home .krishnaAvatar{left:0!important;top:0!important;width:100%!important;height:100%!important;max-height:none!important;transform:none!important;display:grid!important;grid-template-rows:minmax(0,1fr) auto auto auto;min-height:0}
+#home .krishnaLiveAvatar,#home model-viewer{min-height:0;overflow:hidden!important}
+#home .avatarFallback{position:relative!important;inset:auto!important;min-height:0;overflow:hidden!important}
+#home .avatarControls{bottom:8px}
+@media(prefers-reduced-motion:reduce){.avatarFallbackStage{animation:none!important}}
 </style>
 <script type="importmap">
 {"imports":{"three":"/assets/avatar-engine/three/build/three.module.js","three/addons/":"/assets/avatar-engine/three/examples/jsm/","talkinghead":"/assets/avatar-engine/talkinghead/talkinghead.mjs"}}
 </script>
-<script type="module" src="/assets/avatar-engine/model-viewer/model-viewer.min.js"></script>
+<!-- Compatibility viewer is loaded on demand: src="/assets/avatar-engine/model-viewer/model-viewer.min.js" -->
 <link rel="icon" href="data:,">
 </head><body data-krishna-ui="2026.09-current"><div id="notice" role="status" aria-live="polite"></div><dialog id="actionDialog" aria-labelledby="dialogLabel"><form method="dialog"><label id="dialogLabel" for="dialogInput"></label><input id="dialogInput" class="input" autocomplete="off"><div class="dialogActions"><button class="ghost" value="cancel">Cancel</button><button id="dialogAccept" class="primary" value="accept">Continue</button></div></form></dialog>
 <dialog id="pluginCredentialDialog" class="credentialDialog" aria-labelledby="pluginCredentialLabel">
@@ -1199,7 +1216,7 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
   </div>
 </section>
 <div class="sceneGrid"></div><header class="top"><div class="crumb"><span id="modeBadge" style="color:var(--gold);margin-right:8px">KRISHNA</span><span id="pageTitle">Almighty Core</span> <span style="color:#596474">/</span> <span id="projectName">general</span></div><div class="topActions"><button id="brahmaNotify" class="brahmaNotify" type="button" title="BRAHMA QC notifications" aria-label="Open BRAHMA QC notifications" onclick="showView('workingGods')"><span class="brahmaGlyph">🪷</span><i id="brahmaLight" class="brahmaLight status-red"></i></button><span id="contextBadge" class="pill">KRISHNA</span><button class="ghost chatScopedTop legacyChatAction" onclick="moveCurrentChat()" style="display:none">Move chat</button><button class="ghost danger chatScopedTop legacyChatAction" onclick="deleteCurrentChat()" style="display:none">Delete chat</button><span id="online" class="pill">CHECKING</span></div></header>
-<select id="project" style="display:none"></select><section id="home" class="view active panelView"><div class="panelInner"><div id="workingGodsOverlay" class="workingGodsOverlay" aria-label="Working Gods live status"><div class="workingGodsOverlayHead"><span>WORKING GODS</span><button type="button" onclick="showView('workingGods')">OPEN</button></div><div id="workingGodsMini"></div></div><div class="holoStage"><div class="holoCore"><div class="holoRing r1"></div><div class="holoRing r2"></div><div class="holoRing r3"></div><div class="holoOrb"></div><div id="krishnaAvatar" class="krishnaAvatar"><div id="krishnaLiveAvatar" class="krishnaLiveAvatar" aria-label="KRISHNA live 3D avatar" hidden></div><model-viewer id="krishnaModel" alt="KRISHNA avatar" camera-controls disable-zoom autoplay shadow-intensity="1" interaction-prompt="none" hidden></model-viewer><div id="avatarFallback" class="avatarFallback" data-state="FLUTE"><div class="avatarFallbackStage"><img id="avatarFallbackStrip" class="avatarFallbackStrip" src="/api/avatar360" alt="KRISHNA animated avatar fallback"></div><small id="avatarStatus">KRISHNA animated fallback · local mode</small></div><small id="avatarCapability"></small><div class="k" style="margin-top:6px">CHARACTER STATE · <span id="avatarPerformanceState">FLUTE</span></div></div><div class="homeLegacyDetails" aria-hidden="true"><div class="holoNode n1">NEURAL ACTION GRAPH</div><div class="holoNode n2">SYSTEM OBSERVER</div><div class="holoNode n3">VERIFICATION GATE</div><div class="holoNode n4">SUDARSHAN ONLINE</div><div class="holoLabel"><strong>KRISHNA</strong><span>ALMIGHTY CORE</span></div></div></div></div><div class="homeLegacyDetails" aria-hidden="true"><button class="primary" onclick="showView('sudarshan');newChat()">ENTER SUDARSHAN ☸</button><div class="grid"><div class="card"><div class="k">ROLE</div><div class="v">Almighty Core</div></div><div class="card"><div class="k">WORKSPACE</div><div class="v">Sudarshan</div></div><div class="card"><div class="k">AUTHORITY</div><div class="v">Policy + Verification</div></div></div></div></div></section>
+<select id="project" style="display:none"></select><section id="home" class="view active panelView"><div class="panelInner"><div id="workingGodsOverlay" class="workingGodsOverlay" aria-label="Working Gods live status"><div class="workingGodsOverlayHead"><span>WORKING GODS</span><button type="button" onclick="showView('workingGods')">OPEN</button></div><div id="workingGodsMini"></div></div><div class="holoStage"><div class="avatarControls" aria-label="Avatar controls"><select id="avatarRenderMode" aria-label="Avatar appearance" onchange="setAvatarAppearance(this.value)"><option value="3d">3D avatar</option><option value="artwork">Original artwork</option></select><select id="avatarPreviewState" aria-label="Avatar animation" onchange="previewAvatarState(this.value)"><option value="">Automatic</option><option value="FLUTE">Play flute</option><option value="LISTENING">Listen</option><option value="THINKING">Think</option><option value="SPEAKING">Speak</option><option value="DHYAN">Meditate</option><option value="WORKING">Work</option><option value="IDLE">Rest</option></select><button id="avatarVoiceTest" type="button" onclick="speakKrishnaReply('Hello. I am Krishna. I am here to listen and help you.')">Test voice</button><button id="avatarVoiceStop" type="button" onclick="stopKrishnaVoice()">Stop voice</button><button id="avatarResetView" type="button" onclick="resetAvatarView()">Reset view</button></div><div class="holoCore"><div class="holoRing r1"></div><div class="holoRing r2"></div><div class="holoRing r3"></div><div class="holoOrb"></div><div id="krishnaAvatar" class="krishnaAvatar"><div id="krishnaLiveAvatar" class="krishnaLiveAvatar" aria-label="KRISHNA live 3D avatar" hidden></div><model-viewer id="krishnaModel" alt="KRISHNA avatar" camera-controls disable-zoom autoplay shadow-intensity="1" interaction-prompt="none" hidden></model-viewer><div id="avatarFallback" class="avatarFallback" data-state="FLUTE"><div class="avatarFallbackStage"><img id="avatarFallbackStrip" class="avatarFallbackStrip" src="/api/avatar360" alt="KRISHNA animated avatar fallback"></div><small id="avatarStatus">KRISHNA animated fallback · local mode</small></div><small id="avatarCapability"></small><small id="avatarVoiceFeedback" role="status" aria-live="polite"></small><div class="k" style="margin-top:6px">CHARACTER STATE · <span id="avatarPerformanceState">FLUTE</span></div></div><div class="homeLegacyDetails" aria-hidden="true"><div class="holoNode n1">NEURAL ACTION GRAPH</div><div class="holoNode n2">SYSTEM OBSERVER</div><div class="holoNode n3">VERIFICATION GATE</div><div class="holoNode n4">SUDARSHAN ONLINE</div><div class="holoLabel"><strong>KRISHNA</strong><span>ALMIGHTY CORE</span></div></div></div></div><div class="homeLegacyDetails" aria-hidden="true"><button class="primary" onclick="showView('sudarshan');newChat()">ENTER SUDARSHAN ☸</button><div class="grid"><div class="card"><div class="k">ROLE</div><div class="v">Almighty Core</div></div><div class="card"><div class="k">WORKSPACE</div><div class="v">Sudarshan</div></div><div class="card"><div class="k">AUTHORITY</div><div class="v">Policy + Verification</div></div></div></div></div></section>
 <section id="sudarshan" class="view chatView">
 <div class="sudarshanBar"><span class="miniCore">☸</span><button class="ghost" onclick="newChat()">＋ New</button><button class="ghost" onclick="loadChats()">↻ Chats</button><button class="ghost legacyChatAction" onclick="renameCurrentChat()">✎ Rename</button><button class="ghost legacyChatAction" onclick="moveCurrentChat()">◇ Move</button><button class="ghost danger legacyChatAction" onclick="deleteCurrentChat()">× Delete</button><button class="ghost" onclick="loadTasks()">▷ Work</button><span class="spacer"></span><span id="sudarshanState" class="workChip">READY</span></div>
 <div class="sudarshanDeck">
@@ -1485,33 +1502,48 @@ function krishnaVoiceLanguage(text=''){
  return {short:'en',locale:'en-IN'};
 }
 let krishnaVoiceConversation=false;
+let krishnaAvatarSpeaking=false,krishnaVoiceGeneration=0;
 async function speakKrishnaReply(text){
  const value=String(text||'').trim();if(!value)return;
- const state=$('krishnaVoiceState'),lang=krishnaVoiceLanguage(value),head=window.krishnaTalkingHead;
- avatarState('SPEAKING');if(state)state.textContent='KRISHNA speaking · '+lang.locale;
+ const state=$('krishnaVoiceState'),feedback=$('avatarVoiceFeedback'),lang=krishnaVoiceLanguage(value),head=window.krishnaTalkingHead,native=window.krishnaNativeAvatar;
+ const generation=++krishnaVoiceGeneration;
+ window.speechSynthesis?.cancel();native?.stopAudio();
+ krishnaAvatarSpeaking=true;avatarState('THINKING');if(state)state.textContent='Preparing voice · '+lang.locale;if(feedback)feedback.textContent='Preparing local voice…';
+ const finish=failed=>{
+  if(generation!==krishnaVoiceGeneration)return;
+  krishnaAvatarSpeaking=false;avatarState($('avatarPreviewState')?.value||(failed?'IDLE':'LISTENING'));
+  if(state)state.textContent=failed?'Voice output unavailable':'Voice finished · microphone ready';if(feedback)feedback.textContent=failed?'No playable voice is available':'Voice playback finished';
+ };
  try{
-  if(head){
-   const tts=await req('/api/voice/tts',{text:value,language:lang.short});
-   const response=await fetch(tts.audio_url,{cache:'no-store'});
-   if(!response.ok)throw new Error('local voice audio unavailable');
-   const bytes=await response.arrayBuffer();
-   if(head.audioCtx.state==='suspended')await head.audioCtx.resume();
-   const audio=await head.audioCtx.decodeAudioData(bytes.slice(0));
-   head.speakAudio({audio},{isRaw:true});
-   setTimeout(()=>{avatarState('LISTENING');if(state)state.textContent='Listening ready · English · हिन्दी · ଓଡ଼ିଆ'},Math.max(700,audio.duration*1000+350));
-   return;
-  }
-  throw new Error('live avatar audio engine unavailable');
+  if(!head&&!native)throw new Error('3D audio unavailable');
+  const tts=await req('/api/voice/tts',{text:value,language:lang.short});
+  const response=await fetch(tts.audio_url,{cache:'no-store'});
+  if(!response.ok)throw new Error('local voice audio unavailable');
+  const bytes=await response.arrayBuffer();if(generation!==krishnaVoiceGeneration)return;
+  if(feedback)feedback.textContent='Speaking · '+(tts.provider==='windows-system-speech'?'Windows local voice':'Local voice');
+  if(native){avatarState('SPEAKING');await native.playAudio(bytes);finish(false);return}
+  if(head.audioCtx.state==='suspended')await head.audioCtx.resume();
+  const audio=await head.audioCtx.decodeAudioData(bytes.slice(0));avatarState('SPEAKING');head.speakAudio({audio},{isRaw:true});
+  setTimeout(()=>finish(false),Math.max(700,audio.duration*1000+350));return;
  }catch(e){
+  if(generation!==krishnaVoiceGeneration)return;
   const synth=window.speechSynthesis;
   if(synth&&window.SpeechSynthesisUtterance){
    const u=new SpeechSynthesisUtterance(value);u.lang=lang.locale;
-   u.onend=()=>{avatarState('LISTENING');if(state)state.textContent='Listening ready · English · हिन्दी · ଓଡ଼ିଆ'};
-   u.onerror=()=>{avatarState('IDLE');if(state)state.textContent='Voice output unavailable'};
-   synth.cancel();synth.speak(u);return;
+   const voices=synth.getVoices(),voice=voices.find(v=>v.lang.toLowerCase()===lang.locale.toLowerCase())||voices.find(v=>v.lang.toLowerCase().startsWith(lang.short));
+   if(voice)u.voice=voice;
+   u.onstart=()=>{if(generation===krishnaVoiceGeneration){avatarState('SPEAKING');if(feedback)feedback.textContent='Speaking · browser voice'}};
+   u.onend=()=>finish(false);u.onerror=()=>finish(true);synth.speak(u);return;
   }
-  avatarState('IDLE');if(state)state.textContent='Local voice output unavailable';
+  finish(true);
  }
+}
+
+function stopKrishnaVoice(){
+ ++krishnaVoiceGeneration;krishnaAvatarSpeaking=false;window.speechSynthesis?.cancel();
+ window.krishnaNativeAvatar?.stopAudio();window.krishnaTalkingHead?.stopSpeaking?.();
+ avatarState($('avatarPreviewState')?.value||'IDLE');$('avatarVoiceFeedback').textContent='Voice stopped';
+ if($('krishnaVoiceState'))$('krishnaVoiceState').textContent='Voice stopped';
 }
 async function sendKrishnaPopup(){
  const input=$('krishnaPopupInput'),sendBtn=$('krishnaPopupSend');const text=String(input?.value||'').trim();
@@ -1548,7 +1580,7 @@ async function garudaControl(action){
 async function refreshCommandCenter(){
  try{
    const [d,i]=await Promise.all([req('/api/dashboard'),req('/api/runtime/integrity')]);
-   const act=d.current_activity||'Idle'; setOps('work',act,act==='Idle'?'idle':'good');avatarState(d.avatar_state||(act==='Idle'?'FLUTE':'WORKING'));
+   const act=d.current_activity||'Idle'; setOps('work',act,act==='Idle'?'idle':'good');avatarState(d.avatar_state||(act==='Idle'?'FLUTE':'WORKING'),'runtime');
    const r=d.pc_observer||{};
    const percent=v=>typeof v==='number'&&Number.isFinite(v)?Math.round(v):null;
    const cpu=percent(r.cpu_percent),mem=percent(r.memory_percent);
@@ -1795,6 +1827,12 @@ async function installKrishnaAudioLipSync(head,status){
 }
 async function applyKrishnaAvatarMotion(state){
  const next=String(state||'IDLE').toUpperCase(),spec=KRISHNA_STATE_MOTION[next]||KRISHNA_STATE_MOTION.IDLE;
+ window.krishnaNativeAvatar?.setState(next);
+ const viewer=$('krishnaModel');
+ if(viewer&&!viewer.hidden){
+  const names=viewer.availableAnimations||[],clip={FLUTE:'FLUTE',SPEAKING:'CHAT',LISTENING:'IDLE',THINKING:'SEARCH',DHYAN:'DHYAN',SLEEPING:'DHYAN',WORKING:'WORKING'}[next]||'IDLE';
+  if(names.includes(clip)){viewer.animationName=clip;viewer.play?.()}
+ }
  const engine=window.krishnaMotionEngine,head=window.krishnaTalkingHead;
  try{
   if(engine&&spec.mood)await engine.play(spec.mood);
@@ -1802,6 +1840,83 @@ async function applyKrishnaAvatarMotion(state){
   if(engine&&spec.action)engine.play(spec.action).catch(()=>{});
  }catch(e){console.warn('KRISHNA state motion',next,e)}
 }
+async function installNativeKrishnaAvatar(node,onFailure){
+ const THREE=await import('three');
+ const [{GLTFLoader},{OrbitControls}]=await Promise.all([import('three/addons/loaders/GLTFLoader.js'),import('three/addons/controls/OrbitControls.js')]);
+ const gltf=await new GLTFLoader().loadAsync('/api/avatar.glb');
+ const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});
+ renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.outputColorSpace=THREE.SRGBColorSpace;
+ node.replaceChildren(renderer.domElement);node.hidden=false;
+ const scene=new THREE.Scene(),model=gltf.scene;
+ scene.add(model,new THREE.HemisphereLight(0xfff2dc,0x658198,2.4));
+ const key=new THREE.DirectionalLight(0xffedca,3);key.position.set(2,4,4);scene.add(key);
+ const fill=new THREE.DirectionalLight(0xa8dfff,1.4);fill.position.set(-3,2,-2);scene.add(fill);
+ // This procedural asset stores limb meshes along +Y while its child joints
+ // extend along -Y. Correct mesh origins in memory; keep the private GLB intact.
+ if(String(gltf.parser.json.asset?.generator||'').includes('KRISHNA procedural')){
+  for(const [name,length] of Object.entries({UpperArm_L:.29,UpperArm_R:.29,LowerArm_L:.25,LowerArm_R:.25,Thigh_L:.30,Thigh_R:.30,Shin_L:.28,Shin_R:.28})){
+   const part=model.getObjectByName(name);if(part)part.position.y-=length;
+  }
+ }
+ model.updateMatrixWorld(true);
+ const box=new THREE.Box3().setFromObject(model),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
+ if(box.isEmpty()||!Number.isFinite(size.y)||size.y<=0){renderer.dispose();throw new Error('Avatar has invalid bounds')}
+ const camera=new THREE.PerspectiveCamera(32,1,.01,100),controls=new OrbitControls(camera,renderer.domElement);
+ controls.enablePan=false;controls.enableZoom=false;controls.enableDamping=true;controls.minPolarAngle=Math.PI*.25;controls.maxPolarAngle=Math.PI*.7;
+ const fit=()=>{
+  const w=Math.max(node.clientWidth,1),h=Math.max(node.clientHeight,1);camera.aspect=w/h;
+  const distance=Math.max(size.y,size.x/camera.aspect)*.62/Math.tan(camera.fov*Math.PI/360)+size.z/2;
+  camera.position.set(center.x,center.y,center.z+distance);controls.target.copy(center);camera.updateProjectionMatrix();controls.update();renderer.setSize(w,h,false);
+ };
+ fit();const resize=new ResizeObserver(fit);resize.observe(node);
+ const mixer=new THREE.AnimationMixer(model),actions=new Map(gltf.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
+ const mouth=model.getObjectByName('Mouth'),eyes=['EyeWhiteL','EyeIrisL','EyeWhiteR','EyeIrisR'].map(n=>model.getObjectByName(n)).filter(Boolean);
+ const mouthScale=mouth?.scale.clone(),eyeScales=eyes.map(eye=>eye.scale.clone());
+ let current=null,state='FLUTE',elapsed=0,last=performance.now(),raf=0,disposed=false,analyser=null,voiceData=null,audioContext=null,audioSource=null;
+ const setState=next=>{
+  state=next;const clip={FLUTE:'FLUTE',SPEAKING:'CHAT',THINKING:'SEARCH',DHYAN:'DHYAN',SLEEPING:'DHYAN',WORKING:'WORKING'}[state]||'IDLE';
+  const flute=model.getObjectByName('FLUTE');if(flute)flute.visible=state==='FLUTE';
+  const action=actions.get(clip)||actions.values().next().value;
+  if(action&&action!==current){current?.fadeOut(.25);action.reset().fadeIn(.25).play();current=action}
+  node.dataset.state=state;node.dataset.clip=action?.getClip().name||'procedural-idle';
+ };
+ const animate=now=>{
+  if(disposed)return;raf=requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;
+  if(node.hidden||!$('home')?.classList.contains('active')||document.hidden)return;
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  elapsed+=dt;if(!reduced)mixer.update(dt);
+  let amplitude=0;
+  if(analyser&&voiceData){analyser.getByteTimeDomainData(voiceData);amplitude=Math.sqrt(voiceData.reduce((sum,v)=>sum+((v-128)/128)**2,0)/voiceData.length)*7}
+  else if(state==='SPEAKING'&&!reduced)amplitude=.35+.65*Math.abs(Math.sin(elapsed*12)*Math.sin(elapsed*7));
+  if(mouth&&mouthScale){mouth.scale.copy(mouthScale);mouth.scale.y*=1+Math.min(1,amplitude)*6}
+  const blink=!reduced&&(elapsed%4.7)>4.53;
+  eyes.forEach((eye,i)=>{eye.scale.copy(eyeScales[i]);if(blink||state==='SLEEPING')eye.scale.y*=.12});
+  controls.update();renderer.render(scene,camera);node.dataset.rendered='true';
+ };
+ const stopAudio=()=>{if(audioSource){try{audioSource.stop()}catch(_){}audioSource=null}analyser=null;voiceData=null};
+ const playAudio=async bytes=>{
+  stopAudio();audioContext=audioContext||new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();
+  const buffer=await audioContext.decodeAudioData(bytes.slice(0));
+  analyser=audioContext.createAnalyser();analyser.fftSize=256;voiceData=new Uint8Array(analyser.fftSize);
+  const source=audioContext.createBufferSource();audioSource=source;source.buffer=buffer;source.connect(analyser);analyser.connect(audioContext.destination);
+  setState('SPEAKING');
+  await new Promise(resolve=>{source.onended=()=>{if(audioSource===source){audioSource=null;analyser=null;voiceData=null}resolve()};source.start()});
+ };
+ const dispose=()=>{disposed=true;cancelAnimationFrame(raf);resize.disconnect();stopAudio();audioContext?.close();controls.dispose();mixer.stopAllAction();model.traverse(o=>{o.geometry?.dispose();if(o.material){for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose()}});renderer.dispose()};
+ renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();dispose();onFailure('3D graphics interrupted · original artwork is available')},{once:true});
+ window.addEventListener('pagehide',dispose,{once:true});
+ setState('FLUTE');raf=requestAnimationFrame(animate);node.dataset.engine='native-clips';
+ return {setState,playAudio,stopAudio,resetView:fit,dispose};
+}
+function setAvatarAppearance(mode){
+ const native=window.krishnaNativeAvatar,head=window.krishnaTalkingHead,live=$('krishnaLiveAvatar'),viewer=$('krishnaModel'),fallback=$('avatarFallback');
+ if(mode==='artwork'){live.hidden=true;viewer.hidden=true;fallback.hidden=false;$('avatarStatus').textContent='Original Krishna artwork';$('avatarCapability').textContent='Original Krishna artwork · animated state preview'}
+ else if(native||head){live.hidden=false;viewer.hidden=true;fallback.hidden=true;$('avatarCapability').textContent=native?'Local 3D · animated character':'Live 3D avatar'}
+ else if(viewer.getAttribute('src')){live.hidden=true;viewer.hidden=false;fallback.hidden=true}
+ else{fallback.hidden=false;$('avatarCapability').textContent='3D is unavailable · original artwork is active'}
+}
+function previewAvatarState(state){avatarState(state||'FLUTE');}
+function resetAvatarView(){window.krishnaNativeAvatar?.resetView();window.krishnaTalkingHead&&fitKrishnaAvatar(window.krishnaTalkingHead);$('krishnaModel')?.resetTurntableRotation?.();}
 async function fitKrishnaAvatar(head){
  try{
   const THREE=await import('three');
@@ -1846,8 +1961,9 @@ async function initAvatar(){
   const a=await req('/api/avatar/status');
   window.krishnaAvatarAssetStatus=a.asset_pipeline||null;
   if(!a.glb_available){showFallback('3D avatar not installed · showing local preview');return}
-  const rigReady=a.asset_pipeline?.source?.body?.ready===true;
-  $('avatarCapability').textContent=rigReady?'':'3D preview · body rig and lip sync pending';
+  const activeAsset=a.asset_pipeline?.active==='production'?a.asset_pipeline.production:a.asset_pipeline?.source;
+  const rigReady=activeAsset?.ready===true;
+  $('avatarCapability').textContent='Loading local 3D avatar…';
   if(live&&rigReady){
    try{
     if(status)status.textContent='Loading KRISHNA live avatar engine…';
@@ -1870,7 +1986,8 @@ async function initAvatar(){
     live.dataset.engine='talkinghead';
     live.dataset.motion=motion?'motion-engine':'native';
     live.dataset.lipsync=audio?'headaudio':'native';
-    const stage=a.asset_pipeline?.source?.stage||a.asset_pipeline?.production?.stage||'loaded';
+   const stage=activeAsset?.stage||'loaded';
+   $('avatarCapability').textContent='Live 3D avatar';
     if(status)status.textContent='KRISHNA live 3D · '+stage+(audio?' · audio lip-sync':'');
     await applyKrishnaAvatarMotion('FLUTE');
     return;
@@ -1880,6 +1997,14 @@ async function initAvatar(){
    }
   }
   try{
+   if(live){
+    window.krishnaNativeAvatar=await installNativeKrishnaAvatar(live,msg=>{window.krishnaNativeAvatar=null;showFallback(msg);$('avatarRenderMode').value='artwork';$('avatarCapability').textContent=msg});
+    viewer.hidden=true;fallback.hidden=true;$('avatarCapability').textContent='Local 3D · animated character';setAvatarAppearance($('avatarRenderMode').value);
+    return;
+   }
+  }catch(nativeError){console.warn('KRISHNA native avatar fallback',nativeError);if(live){live.hidden=true;live.replaceChildren()}}
+  try{
+   await import('/assets/avatar-engine/model-viewer/model-viewer.min.js');
    await Promise.race([
     customElements.whenDefined('model-viewer'),
     new Promise((_,reject)=>setTimeout(()=>reject(new Error('local model-viewer timeout')),4500))
@@ -2679,7 +2804,8 @@ async function retryNaradDeadLetter(id){
 }
 function openSharedChatFromUrl(){try{const params=new URLSearchParams(location.search),id=params.get('chat_id'),project=params.get('project');if(id){setTimeout(()=>openChat(id).then(()=>showView('sudarshan')).catch(e=>log(e.message)),0);return}if(project){setTimeout(async()=>{try{const p=await req('/api/projects');projects=p.projects||[];syncProjects();if(!projects.some(x=>x.name===project))throw new Error('Project not registered');setProjectContext(project);expandedProjects.add(project);saveExpandedProjects();await renderSidebarProjectTree();showView('sudarshan')}catch(e){log(e.message)}},150)}}catch(e){log(e.message)}}
 
-function avatarState(state){
+function avatarState(state,source='interaction'){
+ if(source==='runtime'&&(krishnaAvatarSpeaking||krishnaPopupSending||krishnaRecognition||$('avatarPreviewState')?.value))return;
  const next=String(state||'IDLE').toUpperCase();
  const live=$('krishnaLiveAvatar'),fallback=$('avatarFallback'),previous=live?.dataset?.state||fallback?.dataset?.state||'';
  [$('krishnaModel'),live].filter(Boolean).forEach(m=>{m.setAttribute('data-state',next);m.dataset.characterBible='character-bible-v1'});

@@ -56,3 +56,48 @@ class WindowsUIBrowserTests(unittest.TestCase):
                 self.assertIn("idle", page.locator("#opsLoadDot").get_attribute("class"))
             finally:
                 browser.close()
+
+
+@unittest.skipUnless(os.getenv("KRISHNA_AVATAR_UI_E2E") == "1", "local private avatar E2E disabled")
+class NativeAvatarBrowserTests(unittest.TestCase):
+    def test_real_asset_animation_controls_and_voice(self):
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as pw:
+            browser=pw.chromium.launch()
+            try:
+                page=browser.new_page(viewport={"width":1280,"height":720})
+                errors=[];page.on("pageerror",lambda e:errors.append(str(e)))
+                page.goto(os.getenv("KRISHNA_AVATAR_TEST_URL","http://127.0.0.1:8879/"))
+                live=page.locator('#krishnaLiveAvatar[data-engine="native-clips"][data-rendered="true"]')
+                live.wait_for(timeout=30000)
+                self.assertTrue(live.is_visible())
+                for width,height in [(614,672),(1280,720),(1366,768),(1440,900),(1920,1080)]:
+                    page.set_viewport_size({"width":width,"height":height})
+                    page.get_by_role("button",name="Reset view",exact=True).click()
+                    box=page.locator("#krishnaAvatar").bounding_box()
+                    self.assertGreaterEqual(box["y"],0)
+                    self.assertLessEqual(box["y"]+box["height"],height)
+                    for selector in ["#avatarRenderMode","#avatarPreviewState","#avatarVoiceTest","#avatarVoiceStop","#avatarResetView"]:
+                        self.assertTrue(page.locator(selector).evaluate("(el)=>{const b=el.getBoundingClientRect();return b.y>=0&&b.bottom<=innerHeight&&el.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2))}"),selector+" unreachable")
+                    self.assertEqual(page.locator(".main").evaluate("el=>el.scrollTop"),0)
+                for state,clip in [("SPEAKING","CHAT"),("THINKING","SEARCH"),("DHYAN","DHYAN"),("WORKING","WORKING"),("FLUTE","FLUTE")]:
+                    page.get_by_label("Avatar animation",exact=True).select_option(state)
+                    self.assertEqual(live.get_attribute("data-clip"),clip)
+                    self.assertEqual(page.locator("#avatarPerformanceState").inner_text(),state)
+                page.wait_for_timeout(2800)
+                self.assertEqual(live.get_attribute("data-state"),"FLUTE")
+                page.get_by_label("Avatar appearance",exact=True).select_option("artwork")
+                self.assertFalse(live.is_visible())
+                self.assertTrue(page.locator("#avatarFallback").is_visible())
+                page.get_by_label("Avatar appearance",exact=True).select_option("3d")
+                self.assertTrue(live.is_visible())
+                page.get_by_label("Avatar animation",exact=True).select_option("")
+                page.get_by_role("button",name="Test voice",exact=True).click()
+                page.get_by_text("Speaking · Windows local voice",exact=True).wait_for(timeout=30000)
+                self.assertEqual(live.get_attribute("data-state"),"SPEAKING")
+                self.assertEqual(page.locator("#avatarPerformanceState").inner_text(),"SPEAKING")
+                page.get_by_role("button",name="Stop voice",exact=True).click()
+                self.assertEqual(page.locator("#avatarVoiceFeedback").inner_text(),"Voice stopped")
+                self.assertFalse(errors,errors)
+            finally:
+                browser.close()
