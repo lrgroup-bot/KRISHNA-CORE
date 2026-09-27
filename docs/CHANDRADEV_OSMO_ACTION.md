@@ -53,30 +53,55 @@ CHANDRADEV owns:
 
 CHANDRADEV does not call, create a session in, or store observations in Hawkeye.
 
-## Future dedicated USB webcam — prepared but inactive
+## Direct USB webcam — primary CHANDRADEV monitor source
 
-The planned permanent monitor camera is **ZEBRONICS ZEB-Pure Plus**.
+The permanent monitor-camera path is now prepared for a standard Windows USB UVC webcam, with **ZEBRONICS ZEB-Pure Plus** as the target hardware profile.
 
-Target hardware profile:
+Target mode:
 
-- 3840x2160 / 4K at 30 FPS.
-- Autofocus.
-- Built-in microphone.
-- USB webcam transport.
-- Tripod support.
-- Dedicated physical placement in front of the monitor, pointing back toward the display.
-- Low-cost manual desk mount target around ₹500; an expensive arm is not required by design.
+- 3840x2160 / 4K at 30 FPS when the Windows driver actually provides it.
+- MJPG requested to make high-resolution UVC practical over USB.
+- Autofocus requested when the OpenCV/driver property is available.
+- Built-in microphone remains a Windows audio endpoint; this camera adapter owns the video path.
+- Tripod / low-cost manual mount support.
+- Dedicated placement facing the monitor.
+- Budget mount target around ₹500; no expensive arm is required.
 
-The runtime deliberately does **not** auto-select the future webcam before physical installation. The current validation source remains:
+Primary path:
 
-    DJI Osmo Action -> DJI Mimo -> RTMP -> CHANDRADEV
+    USB UVC webcam
+      -> Windows DirectShow / Media Foundation
+      -> OpenCV
+      -> monitor detection
+      -> perspective correction
+      -> sharpest-frame selection
+      -> local enhancement
+      -> local VisionAdapter
+      -> CHANDRADEV
 
-The future webcam plan is exposed through:
+CHANDRADEV requests 3840x2160 at 30 FPS but records the **actual** resolution/FPS returned by the Windows camera driver. It does not claim 4K unless a real frame is delivered at that mode.
+
+Default source:
+
+    usb_uvc_webcam
+
+Default camera index:
+
+    0
+
+If Windows exposes several cameras, test another index:
+
+    .\scripts\TEST_CHANDRADEV_WEBCAM.ps1 -CameraIndex 1
+    .\scripts\TEST_CHANDRADEV_SCREEN.ps1 -CameraIndex 1
+
+DJI Osmo RTMP remains only as an explicit fallback. Automatic source switching is disabled.
+
+The webcam control surface is exposed through:
 
 - `chandradev.camera.webcam.profile`
+- `chandradev.camera.webcam.detect`
+- `chandradev.camera.webcam.select`
 - `chandradev.camera.selection`
-
-This prevents KRISHNA from accidentally binding a laptop camera or another USB camera while the intended webcam is not yet installed.
 
 ## Budget mount and owner alignment handoff
 
@@ -151,6 +176,8 @@ A successful test writes a JPEG under:
 - chandradev.camera.osmo.profile
 - chandradev.camera.osmo.guide
 - chandradev.camera.webcam.profile
+- chandradev.camera.webcam.detect
+- chandradev.camera.webcam.select
 - chandradev.camera.selection
 - chandradev.camera.receiver.config
 - chandradev.camera.receiver.start
@@ -191,9 +218,12 @@ Actions:
 - `chandradev.camera.screen.analyze` — auto-focus first, then read/understand the enhanced screen locally.
 - `chandradev.camera.screen.unlock` — clear the remembered monitor corners.
 
-Physical test after the RTMP stream is live:
+Direct webcam validation:
 
-    .\scripts\TEST_CHANDRADEV_SCREEN.ps1
+    .\scripts\TEST_CHANDRADEV_WEBCAM.ps1 -CameraIndex 0
+    .\scripts\TEST_CHANDRADEV_SCREEN.ps1 -CameraIndex 0
+
+No MediaMTX or DJI Mimo session is required for the normal webcam path.
 
 Successful output includes the focused JPEG path, sharpness score, mount-stability result and the fraction of the camera frame occupied by the monitor. The focused images are stored locally under the CHANDRADEV state tree.
 
@@ -204,6 +234,7 @@ If the monitor is not reliably visible or the camera is moving too much, CHANDRA
 - Raw sampled frames stay on the PC.
 - VisionAdapter is local-only and has no automatic cloud fallback.
 - RTMP TCP 1935 is intended for Windows Private profile + LocalSubnet only.
-- HLS/WebRTC helper listeners bind to localhost.
+- The normal USB webcam path opens no LAN listener.
+- Optional Osmo fallback keeps HLS on localhost and disables unused WebRTC/MoQ listeners.
 - Starting/stopping the LAN listener remains an owner-approved action.
 - Camera observations are evidence; they do not establish hidden intent, identity, diagnosis, or fault certainty.

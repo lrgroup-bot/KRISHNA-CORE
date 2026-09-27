@@ -99,6 +99,9 @@ class FullUIFunctionContractTests(unittest.TestCase):
             "manibhadra.crm.dashboard","manibhadra.crm.records","manibhadra.ai.advice",
             "money.investment_scenario","loadManibhadraCRM","manibhadraAddLead",
             "manibhadraAddDeal","manibhadraScoutProduct",
+            'data-mani-page-button="overview"','data-mani-page-button="sales"',
+            'data-mani-page-button="market"','data-mani-page-button="records"',
+            'data-mani-page-button="connections"',"setManibhadraWorkspace",
         ):
             self.assertIn(token,self.html)
 
@@ -114,8 +117,11 @@ class FullUIFunctionContractTests(unittest.TestCase):
         self.assertIsNotNone(main)
         self.assertEqual(main.group(1).count("<button"),4)
         self.assertNotIn("showView('vanijya')",main.group(1))
+        self.assertIn('data-mani-page="sales"',self.html)
+        self.assertIn("INSIDE MANIBHADRA",self.html)
 
     def test_vanijya_backend_actions_are_registered(self):
+        self.assertIn("self.vanijya.message_store = self.agi.narad_messages",self.orchestrator)
         for action in (
             "vanijya.status","vanijya.dashboard","vanijya.health","vanijya.health.verify",
             "vanijya.manibhadra.request","vanijya.products.sync","vanijya.sales_cycle","vanijya.autopilot.tick",
