@@ -165,6 +165,23 @@ RISHI_RESEARCH_CHARTERS = {
             "classical pedagogical practices as comparative learning history",
         ),
     },
+    "shravana": {
+        "primary_subjects": (
+            "podcasts","long-form interviews","expert conversations","transcript analysis",
+            "claim extraction","speaker attribution","timestamped learning","oral knowledge",
+            "science podcasts","technology podcasts","business podcasts","history podcasts",
+            "founder interviews","scientist interviews","cross-domain research leads",
+        ),
+        "frontier_focus": (
+            "extract durable ideas from long-form conversation","separate claim from opinion and anecdote",
+            "route discovered topics to specialist Rishis","verify important podcast claims independently",
+            "preserve episode/source/speaker/timestamp provenance",
+        ),
+        "classical_lens": (
+            "oral teaching traditions may be studied as historical communication context",
+            "modern podcast claims remain modern candidate evidence and require independent verification",
+        ),
+    },
     "kanada": {
         "primary_subjects": (
             "physics","chemistry","materials science","atomic physics","molecular science",
