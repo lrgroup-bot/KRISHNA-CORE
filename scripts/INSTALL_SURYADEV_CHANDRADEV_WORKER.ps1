@@ -11,8 +11,9 @@ $Cache = Join-Path $Root "cache"
 $Models = Join-Path $Root "models"
 $Browsers = Join-Path $Root "playwright-browsers"
 $Workspace = Join-Path $Root "workspace"
+$Tools = Join-Path $Root "tools"
 
-New-Item -ItemType Directory -Force -Path $Root,$Cache,$Models,$Browsers,$Workspace | Out-Null
+New-Item -ItemType Directory -Force -Path $Root,$Cache,$Models,$Browsers,$Workspace,$Tools | Out-Null
 
 $env:TEMP = Join-Path $Root "tmp"
 $env:TMP = $env:TEMP
@@ -49,14 +50,27 @@ if (-not $SkipBrowser) {
     & $Python -m playwright install chromium
 }
 
+$LearningAdapterSource = Join-Path $PSScriptRoot "SURYDEV_VIDEO_LEARNING_ADAPTER.py"
+$SyncClientSource = Join-Path $PSScriptRoot "SURYDEV_SYNC_CLIENT.py"
+$LearningAdapter = Join-Path $Tools "SURYDEV_VIDEO_LEARNING_ADAPTER.py"
+$SyncClient = Join-Path $Tools "SURYDEV_SYNC_CLIENT.py"
+if (Test-Path $LearningAdapterSource) { Copy-Item -Force $LearningAdapterSource $LearningAdapter }
+if (Test-Path $SyncClientSource) { Copy-Item -Force $SyncClientSource $SyncClient }
+
 $Config = @{
-    schema = "krishna.external-observers.config.v1"
+    schema = "krishna.external-observers.config.v2"
     root = $Root
     workspace = $Workspace
     models = $Models
     browser_path = $Browsers
+    suryadev_learning_adapter = $LearningAdapter
+    suryadev_sync_client = $SyncClient
+    adapter_python = $Python
     raw_media_policy = "local-only"
-    transfer_policy = "distilled-findings-only"
+    transcript_policy = "transient-until-server-ack"
+    selected_visual_policy = "hash-metadata-only-unless-separately-approved"
+    transfer_policy = "bounded-learning-evidence-only"
+    cleanup_policy = "verified-server-ack-then-delete-transient"
     authentication_handoff = $true
     captcha_liveness = "human-handoff-only"
     free_only = $true
@@ -69,6 +83,11 @@ Write-Host "  Root      : $Root"
 Write-Host "  Python    : $Python"
 Write-Host "  Workspace : $Workspace"
 Write-Host "  Models    : $Models"
+Write-Host "  Tools     : $Tools"
+Write-Host "  Adapter   : $LearningAdapter"
+Write-Host "  Sync      : $SyncClient"
 Write-Host ""
+Write-Host "SURYDEV low-load policy: one active video lane per device; captions first; selected frames only."
+Write-Host "Transient transcript/frames are deleted only after a matching KRISHNA server ACK."
 Write-Host "FFmpeg is optional but recommended and must be installed separately if not already present."
 Write-Host "No paid API or paid service is configured by this installer."
