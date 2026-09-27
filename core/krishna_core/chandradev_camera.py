@@ -544,11 +544,12 @@ class ChandradevOsmoCameraAdapter:
             opencv=True
         except Exception:
             opencv=False
+        uvc_probe=self.probe_uvc_devices()
         return {
-            "component":"CHANDRADEV OSMO CAMERA ADAPTER",
+            "component":"CHANDRADEV PC CAMERA ADAPTER",
             "version":self.VERSION,
             "role":"standalone PC camera transport/input adapter for the existing CHANDRADEV QC peer",
-            "hardware_profile":OSMO_ACTION_ORIGINAL_PROFILE,
+            "hardware_profile":ZEB_PURE_PLUS_PROFILE if self.camera_source=="usb_uvc_webcam" else OSMO_ACTION_ORIGINAL_PROFILE,
             "mediamtx":{
                 "exe":str(self.mediamtx_exe),
                 "installed":self.mediamtx_exe.is_file(),
@@ -568,15 +569,24 @@ class ChandradevOsmoCameraAdapter:
                 "alignment_handoff":self._state.get("alignment_handoff"),
                 "enhancement":["crop","perspective_warp","upscale","local_contrast","unsharp_mask"],
             },
-            "camera_selection":dict(CHANDRADEV_CAMERA_SELECTION),
-            "future_webcam_profile":dict(ZEB_PURE_PLUS_PROFILE),
-            "usb_probe":self.probe_usb(),
+            "camera_selection":{
+                **dict(CHANDRADEV_CAMERA_SELECTION),
+                "selected_source":self.camera_source,
+                "webcam_index":self.webcam_index,
+            },
+            "webcam_profile":dict(ZEB_PURE_PLUS_PROFILE),
+            "uvc_probe":uvc_probe,
+            "osmo_usb_probe":self.probe_usb(),
             "urls":self.urls(),
             "shared_stream_name_file":str(self.shared_stream_file),
             "cloud_required":False,
             "paid_service_required":False,
-            "usb_live_video":False,
-            "live_path":"DJI Mimo RTMP -> MediaMTX -> local frame -> local VisionAdapter -> CHANDRADEV",
+            "usb_live_video":self.camera_source=="usb_uvc_webcam",
+            "live_path":(
+                f"USB UVC webcam index {self.webcam_index} -> OpenCV -> local VisionAdapter -> CHANDRADEV"
+                if self.camera_source=="usb_uvc_webcam"
+                else "DJI Mimo RTMP -> MediaMTX -> local frame -> local VisionAdapter -> CHANDRADEV"
+            ),
         }
 
     def connection_guide(self,lan_ip=None):
@@ -656,24 +666,11 @@ class ChandradevOsmoCameraAdapter:
             raise RuntimeError(
                 "OpenCV frame reader is not installed; run scripts/INSTALL_CHANDRADEV_VISION.ps1"
             ) from exc
-        source=self.urls()["local_rtmp_url"]
-        cap=cv2.VideoCapture()
-        for prop,value in (
-            (getattr(cv2,"CAP_PROP_OPEN_TIMEOUT_MSEC",-1),int(max(1,timeout_seconds)*1000)),
-            (getattr(cv2,"CAP_PROP_READ_TIMEOUT_MSEC",-1),int(max(1,timeout_seconds)*1000)),
-        ):
-            if prop>=0:
-                try:cap.set(prop,value)
-                except Exception:pass
-        if not cap.open(source):
-            cap.release()
-            raise RuntimeError("Chandradev RTMP stream is not available at "+source)
-        ok,frame=cap.read()
+        cap,frame,meta=self._open_video_capture(cv2,timeout_seconds=timeout_seconds)
         cap.release()
-        if not ok or frame is None:
-            raise RuntimeError("Chandradev could not read a frame from the Osmo RTMP stream")
         stamp=time.strftime("%Y%m%d-%H%M%S")
-        path=self.frames/f"osmo-{stamp}-{int(time.time()*1000)%1000:03d}.jpg"
+        prefix="webcam" if meta["kind"]=="usb_uvc_webcam" else "osmo"
+        path=self.frames/f"{prefix}-{stamp}-{int(time.time()*1000)%1000:03d}.jpg"
         ok,encoded=cv2.imencode(".jpg",frame,[int(cv2.IMWRITE_JPEG_QUALITY),max(40,min(int(quality),100))])
         if not ok:
             raise RuntimeError("OpenCV failed to encode Chandradev frame")
@@ -684,7 +681,11 @@ class ChandradevOsmoCameraAdapter:
             "bytes":len(data),
             "content_type":"image/jpeg",
             "captured_at":time.time(),
-            "source":source,
+            "source":meta["source"],
+            "camera_source":meta["kind"],
+            "capture_backend":meta.get("backend"),
+            "requested_mode":meta.get("requested"),
+            "actual_mode":meta.get("actual"),
             "width":int(frame.shape[1]),
             "height":int(frame.shape[0]),
         }
@@ -896,26 +897,24 @@ class ChandradevOsmoCameraAdapter:
     def alignment_status(self):
         return {
             "agent":"CHANDRADEV",
-            "active_source":CHANDRADEV_CAMERA_SELECTION["active_validation_source"],
+            "active_source":self.camera_source,
+            "webcam_index":self.webcam_index,
             "screen_lock":self._state.get("screen_lock"),
             "alignment_handoff":self._state.get("alignment_handoff"),
             "owner_handoff_required":bool(self._state.get("alignment_handoff")),
         }
 
     def future_webcam_profile(self):
-        return {
-            "profile":dict(ZEB_PURE_PLUS_PROFILE),
-            "selection":dict(CHANDRADEV_CAMERA_SELECTION),
-            "active_now":False,
-            "validation_now":"DJI Osmo Action via DJI Mimo RTMP only",
-        }
+        # Compatibility action name retained; webcam is now the configured primary path.
+        return self.webcam_profile()
 
     def focus_screen(self,*,burst_frames=12,target_width=1920,timeout_seconds=8):
-        """Software auto-focus for a monitor/screen in the Osmo RTMP feed.
+        """Software screen focus for the currently selected CHANDRADEV camera.
 
-        The original action camera does not expose motorized focus control here.
-        We instead detect the monitor, perspective-correct it, choose the
-        sharpest screen image from a short burst, upscale and enhance it.
+        Direct USB UVC webcam is the default. CHANDRADEV detects the monitor,
+        perspective-corrects it, selects the sharpest image from a short burst,
+        upscales it and enhances local contrast. Optical autofocus remains owned
+        by the webcam firmware/driver when the hardware supports autofocus.
         """
         try:
             import cv2
@@ -923,25 +922,18 @@ class ChandradevOsmoCameraAdapter:
             raise RuntimeError(
                 "OpenCV screen focus is not installed; run scripts/INSTALL_CHANDRADEV_VISION.ps1"
             ) from exc
-        source=self.urls()["local_rtmp_url"]
-        cap=cv2.VideoCapture()
-        for prop,value in (
-            (getattr(cv2,"CAP_PROP_OPEN_TIMEOUT_MSEC",-1),int(max(1,timeout_seconds)*1000)),
-            (getattr(cv2,"CAP_PROP_READ_TIMEOUT_MSEC",-1),int(max(1,timeout_seconds)*1000)),
-        ):
-            if prop>=0:
-                try:cap.set(prop,value)
-                except Exception:pass
-        if not cap.open(source):
-            cap.release()
-            raise RuntimeError("Chandradev RTMP stream is not available at "+source)
+        cap,first_frame,source_meta=self._open_video_capture(cv2,timeout_seconds=timeout_seconds)
+        source=source_meta["source"]
 
         count=max(3,min(int(burst_frames or 12),45))
         best=None
         locked=self._state.get("screen_lock")
         fresh_quad_samples=[]
         for index in range(count):
-            ok,frame=cap.read()
+            if index==0:
+                ok,frame=True,first_frame
+            else:
+                ok,frame=cap.read()
             if not ok or frame is None:
                 continue
             h,w=frame.shape[:2]
@@ -988,7 +980,8 @@ class ChandradevOsmoCameraAdapter:
                 "screen_not_detected",
                 details={
                     "source":source,
-                    "active_camera":"DJI Osmo Action (original)",
+                    "active_camera":source_meta["kind"],
+                    "webcam_index":source_meta.get("webcam_index"),
                     "requested_burst_frames":count,
                 },
             )
@@ -1012,7 +1005,8 @@ class ChandradevOsmoCameraAdapter:
                 "camera_or_mount_unstable",
                 details={
                     "source":source,
-                    "active_camera":"DJI Osmo Action (original)",
+                    "active_camera":source_meta["kind"],
+                    "webcam_index":source_meta.get("webcam_index"),
                     "stability":stability,
                     "screen_area_ratio":round(best["area_ratio"],4),
                 },
@@ -1072,6 +1066,10 @@ class ChandradevOsmoCameraAdapter:
             "focused_width":int(ew),
             "focused_height":int(eh),
             "source":source,
+            "camera_source":source_meta["kind"],
+            "capture_backend":source_meta.get("backend"),
+            "requested_mode":source_meta.get("requested"),
+            "actual_mode":source_meta.get("actual"),
             "owner_handoff_required":False,
             "alignment_handoff":None,
             "stability":stability,
