@@ -1381,6 +1381,33 @@ class Orchestrator:
         def suryadev_finding_action(payload,context):
             return self.suryadev.route_finding(payload.get("packet") or payload)
 
+        def suryadev_device_status_action(payload,context):
+            device_id=str(payload.get("device_id") or "").strip() or None
+            return self.suryadev.device_status(device_id)
+
+        def suryadev_podcast_queue_action(payload,context):
+            return self.suryadev.podcast_queue()
+
+        def suryadev_podcast_refresh_plan_action(payload,context):
+            return self.suryadev.podcast_refresh_plan()
+
+        def suryadev_podcast_queue_update_action(payload,context):
+            return self.suryadev.update_podcast_queue(
+                payload.get("items") or [],
+                source_refs=payload.get("source_refs") or [],
+                scope_note=str(payload.get("scope_note") or ""),
+                refreshed_by=str(context.get("actor") or "krishna"),
+            )
+
+        def suryadev_podcast_research_action(payload,context):
+            query=str(payload.get("query") or "").strip()
+            if not query:raise ValueError("query is required")
+            return {
+                "consumer":"Rishi Shravana",
+                "query":query,
+                "report":self.garuda_scout("SURYDEV-SHRAVANA",query,int(payload.get("limit") or 8)),
+            }
+
         def chandradev_status_action(payload,context):
             status=self.chandradev.status()
             status["camera"]=self.chandradev_camera.status()
@@ -4399,6 +4426,31 @@ class Orchestrator:
             "suryadev.finding.route",suryadev_finding_action,
             description="Route a distilled SURYDEV finding into BRAHMA/BRAHMAGYAN and the Rishi Council",
             mutating=True,permissions=("memory.write",),sources=("pc","system","agent","job","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.device.status",suryadev_device_status_action,
+            description="Read SURYADEV SHRAVANA iPad learning-node truth lights and heartbeat state",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.podcast.queue",suryadev_podcast_queue_action,
+            description="Read the approved Top-30 podcast learning queue used by SURYADEV SHRAVANA",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.podcast.refresh-plan",suryadev_podcast_refresh_plan_action,
+            description="Build Garudanetra chart-research queries for refreshing the Top-30 podcast queue",
+            permissions=("runtime.read","web.read"),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.podcast.queue.update",suryadev_podcast_queue_update_action,
+            description="Replace SURYADEV SHRAVANA's approved podcast queue with a provenance-preserving refreshed list",
+            mutating=True,permissions=("memory.write",),sources=("pc","system","agent","job","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.podcast.research",suryadev_podcast_research_action,
+            description="Run Garuda/Garudanetra-style web evidence research for Rishi Shravana podcast claims",
+            permissions=("web.read","evidence.write"),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "chandradev.status",chandradev_status_action,
