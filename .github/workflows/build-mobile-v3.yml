@@ -473,7 +473,12 @@ jobs:
           disable-animations: true
           script: |
             PYTHONPATH=core python scripts/VERIFY_KRISHNA_APK.py dist/KRISHNA-Mobile.apk com.krishna.mobile
-            sleep 3
+            sleep 2
+            adb shell am start -W -n com.krishna.mobile/.MainActivity
+            sleep 2
+            test -n "$(adb shell pidof com.krishna.mobile | tr -d '\\r')"
+            adb shell dumpsys window windows | tee krishna-window-focus.log
+            grep -E 'mCurrentFocus|mFocusedApp' krishna-window-focus.log | grep -q 'com.krishna.mobile/'
             adb logcat -d -s KRISHNA_UI_READY:I '*:S' | tee krishna-ui-ready.log
             grep -q '"avatar_visible":true' krishna-ui-ready.log
             grep -q '"hawkeye":true' krishna-ui-ready.log
@@ -490,6 +495,7 @@ jobs:
           path: |
             krishna-mobile-home.png
             krishna-ui-ready.log
+            krishna-window-focus.log
           retention-days: 30
 
       - name: Upload canonical KRISHNA Mobile APK
