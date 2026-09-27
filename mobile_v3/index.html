@@ -362,12 +362,12 @@ async function startFieldScan(goalOverride='',photographer=false){
    catch(_){offline=true;start={session_id:'offline-'+Date.now()}}
    fieldSession=start.session_id||('offline-'+Date.now());
    window.hawkeyeOffline=offline;
-   fieldStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:fieldFacingMode}},audio:!fieldPhotographerMode});
+   fieldStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:fieldFacingMode},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:60}},audio:!fieldPhotographerMode});
    fieldAudio=fieldStream.getAudioTracks().length>0;
    const video=document.getElementById('fieldVideo');video.srcObject=fieldStream;
    const layer=document.getElementById('cameraLayer');layer.classList.add('active');layer.classList.toggle('photographer',fieldPhotographerMode);
    document.getElementById('cameraActions').classList.remove('open');
-   document.getElementById('cameraAnalysis').textContent=fieldPhotographerMode?'KRISHNA photographer is framing the scene.':'KRISHNA is looking. Move naturally for another viewpoint.';
+   document.getElementById('cameraAnalysis').textContent=fieldPhotographerMode?'KRISHNA photographer is framing the scene.':'KRISHNA is looking and will auto-focus, zoom and read without movement instructions.';
    document.getElementById('cameraMode').textContent=fieldPhotographerMode?'KRISHNA · PHOTOGRAPHER':'HAWKEYE · AUTO SCAN';
    clearDiagnosticOverlay();
    fieldFrames=0;fieldProbe=null;setMode('WORKING',fieldPhotographerMode?'PHOTOGRAPHER':'HAWKEYE LIVE');
