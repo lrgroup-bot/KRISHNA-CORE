@@ -48,6 +48,7 @@ class PrivateRemotePolicy:
         "/api/hawkeye/reference/item",
         "/api/suryadev/horse/assignment",
         "/api/suryadev/horse/curriculum",
+        "/api/suryadev/horse/curriculum/next",
         "/api/suryadev/horse/profile",
         "/api/suryadev/horse/heartbeat",
         "/api/suryadev/horse/learning",
