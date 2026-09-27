@@ -38,6 +38,14 @@ from .android_test_fabric import AndroidTestFabric
 from .http_server_runtime import KrishnaThreadingHTTPServer
 from .hawkeye_media_sync import HawkeyeMediaSyncStore
 
+# HTTP regression/acceptance subprocesses exercise API contracts deterministically.
+# They must not simultaneously start autonomous schedulers, filesystem observers,
+# model-worker supervisors, or other unrelated background loops. Production keeps
+# these services enabled by default; tests opt out explicitly through the env flag.
+_BACKGROUND_SERVICES_ENABLED = str(
+    os.getenv("KRISHNA_BACKGROUND_SERVICES_ENABLED", "1")
+).strip().lower() not in {"0", "false", "no", "off"}
+
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _sessions = RealtimeSessionStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -188,7 +196,8 @@ _worker_resilience = WorkerResilienceSupervisor(
                                              severity="critical" if event.get("event")=="quarantined" else "notice",
                                              project="system",payload=event),
 )
-_worker_resilience.start()
+if _BACKGROUND_SERVICES_ENABLED:
+    _worker_resilience.start()
 _hawkeye_media_sync = HawkeyeMediaSyncStore(RUNTIME_ROOT)
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
@@ -383,9 +392,11 @@ orch.action_bus.register(
 _ui_registry = UIGuardianRegistry(Path(settings.db_path).resolve().parent / ".krishna_state" / "ui-guardian-registry.json")
 _ui_guardian = UIGuardian(_browser_fabric, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
 _narad_scheduler = NaradScheduler(orch.agi.narad)
-_narad_scheduler.start()
+if _BACKGROUND_SERVICES_ENABLED:
+    _narad_scheduler.start()
 _autonomy = AutonomySupervisor(orch)
-_autonomy.start()
+if _BACKGROUND_SERVICES_ENABLED:
+    _autonomy.start()
 _team_planner = SpecialistTeamPlanner(_specialists)
 try:
     if _specialists.source_root.exists():
@@ -581,7 +592,8 @@ def on_transition(transition):
 
 
 watcher = Watcher(on_transition=on_transition)
-watcher.start()
+if _BACKGROUND_SERVICES_ENABLED:
+    watcher.start()
 
 def on_pc_event(event):
     orch.handle_event(
@@ -611,7 +623,8 @@ pc_observer = PCObserver(
     cpu_budget_percent=orch.governor.cpu_budget,
     memory_budget_percent=orch.governor.memory_budget,
 )
-pc_observer.start()
+if _BACKGROUND_SERVICES_ENABLED:
+    pc_observer.start()
 
 def _science_frontier_tick():
     snap=pc_observer.snapshot()
@@ -624,7 +637,7 @@ _science_frontier_scheduler = ScienceFrontierScheduler(
     _science_frontier_tick,
     interval_seconds=int(os.getenv("KRISHNA_SCIENCE_RESEARCH_INTERVAL_SECONDS","1800")),
 )
-if str(os.getenv("KRISHNA_SCIENCE_RESEARCH_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
+if _BACKGROUND_SERVICES_ENABLED and str(os.getenv("KRISHNA_SCIENCE_RESEARCH_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
     _science_frontier_scheduler.start()
 
 
@@ -672,7 +685,7 @@ _brahma_consolidation_scheduler = BrahmaConsolidationScheduler(
     _brahma_consolidation_tick,
     interval_seconds=int(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_INTERVAL_SECONDS","1800")),
 )
-if str(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
+if _BACKGROUND_SERVICES_ENABLED and str(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
     _brahma_consolidation_scheduler.start()
 
 
