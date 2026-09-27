@@ -135,6 +135,10 @@ final class SuryadevCoreClient {
     func queue(_ completion: @escaping (Int, [String: Any]?) -> Void) {
         request("/api/suryadev/podcast/queue", method: "GET", authenticated: true, completion: completion)
     }
+    func status(_ completion: @escaping (Int, [String: Any]?) -> Void) {
+        request("/api/suryadev/device/status?device_id=" + deviceID.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!,
+                method: "GET", authenticated: true, completion: completion)
+    }
     func heartbeat(_ body: [String: Any], completion: @escaping (Int, [String: Any]?) -> Void) {
         request("/api/suryadev/device/heartbeat", body: body, completion: completion)
     }
@@ -354,6 +358,7 @@ final class SuryadevViewController: UIViewController, WKNavigationDelegate, WKUI
     private var learningBuffer: [String] = []
     private var learningStart: Double = 0
     private var latestVideoTime: Double = 0
+    private var latestPaused = true
     private var latestTitle = ""
     private var latestURL = ""
     private var lastLearningAcceptedAt: Date?
@@ -441,6 +446,7 @@ final class SuryadevViewController: UIViewController, WKNavigationDelegate, WKUI
 
         let controls = UIStackView(arrangedSubviews: [
             actionButton("PODCASTS", #selector(showQueue)),
+            actionButton("WHAT I LEARNED", #selector(showLearning)),
             actionButton("GARUDANETRA WEB", #selector(showResearch)),
             actionButton("↻", #selector(reload)),
             actionButton("CORE", #selector(configureCore)),
@@ -612,6 +618,7 @@ final class SuryadevViewController: UIViewController, WKNavigationDelegate, WKUI
             "youtube_url": latestURL,
             "youtube_title": latestTitle,
             "youtube_seconds": latestVideoTime,
+            "youtube_playing": !latestPaused,
             "screen_awake": UIApplication.shared.isIdleTimerDisabled,
             "app_state": UIApplication.shared.applicationState == .active ? "foreground" : "background",
             "free_storage_bytes": free,
@@ -750,6 +757,31 @@ final class SuryadevViewController: UIViewController, WKNavigationDelegate, WKUI
         }
     }
 
+    @objc private func showLearning() {
+        guard client.configured else {
+            showMessage("WHAT I LEARNED", "KRISHNA PC is not configured yet.")
+            return
+        }
+        client.status { [weak self] code, obj in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard (200..<300).contains(code), let obj else {
+                    self.showMessage("WHAT I LEARNED", "Unable to read this node's learning status from KRISHNA PC.")
+                    return
+                }
+                let title = obj["last_learning_title"] as? String ?? "No accepted podcast learning yet"
+                let finding = obj["last_learning_finding_id"] as? String ?? "—"
+                let green = obj["rishi_learning_green"] as? Bool ?? false
+                let age = obj["learning_age_seconds"] as? Double
+                let ageText = age == nil ? "—" : String(format: "%.0f sec", age!)
+                self.showMessage(
+                    "WHAT I LEARNED",
+                    "Node: \(self.client.deviceID)\nRishi: Shravana\nLearning: \(green ? "GREEN" : "RED")\nLatest: \(title)\nFinding: \(finding)\nAge: \(ageText)"
+                )
+            }
+        }
+    }
+
     @objc private func showResearch() {
         present(ResearchViewController(client: client), animated: true)
     }
@@ -813,6 +845,7 @@ final class SuryadevViewController: UIViewController, WKNavigationDelegate, WKUI
             self.latestURL = String(url.prefix(1500))
             self.latestTitle = String((obj["title"] as? String ?? "").prefix(500))
             self.latestVideoTime = obj["seconds"] as? Double ?? 0
+            self.latestPaused = obj["paused"] as? Bool ?? true
             let caption = (obj["caption"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if self.learningStart == 0 { self.learningStart = self.latestVideoTime }
             if !caption.isEmpty && self.learningBuffer.last != caption {
@@ -856,7 +889,7 @@ final class SuryadevViewController: UIViewController, WKNavigationDelegate, WKUI
 
     private func updateWorkLamp() {
         let foreground = UIApplication.shared.applicationState == .active
-        workLamp.set(networkUp && foreground && UIApplication.shared.isIdleTimerDisabled && !selectedShow.isEmpty && isYouTubeURL(latestURL))
+        workLamp.set(networkUp && foreground && UIApplication.shared.isIdleTimerDisabled && !selectedShow.isEmpty && isYouTubeURL(latestURL) && !latestPaused)
     }
 
     private func allowedYouTubeHost(_ host: String) -> Bool {
