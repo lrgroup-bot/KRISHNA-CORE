@@ -2423,9 +2423,35 @@ class Handler(BaseHTTPRequestHandler):
             horse_id=str(horse.get("id") or "")
             if post_path=="/api/suryadev/horse/heartbeat":
                 status=data.get("status") if isinstance(data.get("status"),dict) else data
-                return self._json(200,orch.suryadev.horse_heartbeat(
+                result=orch.suryadev.horse_heartbeat(
                     horse_id,node_id=device,status=status,
-                ))
+                )
+                for alert in result.get("alerts") or []:
+                    orch.handle_event(
+                        "suryadev-horse",str(alert.get("kind") or "device_alert"),
+                        str(alert.get("summary") or ""),severity=str(alert.get("severity") or "warning"),
+                        project="BRAHMAGYAN",
+                        payload={"horse_id":horse_id,"device_id":device,**alert},
+                    )
+                    for paired in (_pairing.paired().get("devices") or []):
+                        target=str(paired.get("device_id") or "")
+                        if not target or target==device:continue
+                        try:
+                            _sessions.publish(
+                                target,"suryadev.alert",
+                                {
+                                    "summary":str(alert.get("summary") or "SURYDEV device alert"),
+                                    "kind":alert.get("kind"),"severity":alert.get("severity"),
+                                    "horse_id":horse_id,"source_device":device,
+                                },
+                                idempotency_key=(
+                                    "suryadev-horse-alert:"+horse_id+":"+
+                                    str(alert.get("kind") or "alert")+":"+str(int(time.time()//60))+":"+target
+                                ),
+                            )
+                        except Exception:
+                            pass
+                return self._json(200,result)
             if post_path=="/api/suryadev/horse/curriculum/next":
                 workload=str(horse.get("workload") or ((horse.get("binding") or {}).get("workload") or ""))
                 if workload not in {"media_learning","hybrid"}:
