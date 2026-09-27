@@ -82,6 +82,11 @@ header,.security,.rotateHint,.viewLabel{display:none!important}
 .cameraRef{position:static;width:auto;height:34px}
 .cameraAction{height:34px}
 .gitaCard{bottom:80px}
+.mrityunjayaChip{position:absolute;left:50%;top:max(14px,env(safe-area-inset-top));transform:translate(-50%,-8px);z-index:30;opacity:0;pointer-events:none;max-width:82vw;padding:7px 12px;border-radius:18px;border:1px solid #596f7b;background:#04131ddd;color:#cce7ee;font-size:9px;font-weight:900;letter-spacing:1px;white-space:nowrap;box-shadow:0 8px 24px #0009;transition:opacity .18s ease,transform .18s ease}
+.mrityunjayaChip.show{opacity:1;transform:translate(-50%,0)}
+.mrityunjayaChip.healing{border-color:#f2c96f;color:#ffe49e}
+.mrityunjayaChip.recovered{border-color:#50f0ac;color:#83ffc4}
+.mrityunjayaChip.safe,.mrityunjayaChip.failed{border-color:#ff7189;color:#ff9cac}
 
 </style></head>
 <body><div class="app">
@@ -91,6 +96,7 @@ header,.security,.rotateHint,.viewLabel{display:none!important}
   <div id="avatar3d" aria-label="KRISHNA live 3D avatar" hidden></div>
   <div id="avatarViewport" class="avatarViewport" data-state="FLUTE"><img id="avatarSprite" class="sprite" src="krishna_child_360.webp" alt="KRISHNA animated avatar fallback"><div id="viewLabel" class="viewLabel">FRONT</div></div>
   <div id="bubble" class="bubble">Radhe Radhe. I am ready.</div>
+  <div id="mrityunjayaChip" class="mrityunjayaChip" aria-live="polite"></div>
 
   <section id="gitaCard" class="gitaCard" aria-live="polite">
     <div id="gitaRef" class="gitaRef">BHAGAVAD GITA</div>
@@ -159,6 +165,39 @@ header,.security,.rotateHint,.viewLabel{display:none!important}
 const labels=['FRONT','FRONT-RIGHT','RIGHT','BACK-RIGHT','BACK','BACK-LEFT','LEFT','FRONT-LEFT'];
 let view=0,drag=false,startX=0,startView=0,mode='FLUTE',lastManual=0,autoTimer=null,busy=false,pendingAttachmentIds=[],pairingRequestedAt=0,lastGita=null;
 let fieldStream=null,fieldTimer=null,fieldSession='',fieldBusy=false,fieldFrames=0,fieldGoal='automatic live field scan',fieldAudio=false,fieldProbe=null,fieldVideoClipTimer=null,fieldAudioClipTimer=null,fieldMediaBusy=false,fieldReference=null,fieldReferencePending=null,fieldFacingMode='environment',fieldPhotographerMode=false;
+let mrityunjayaChipTimer=null;
+function mrityunjayaChip(state,note=''){
+ const chip=document.getElementById('mrityunjayaChip');if(!chip)return;
+ clearTimeout(mrityunjayaChipTimer);
+ const s=String(state||'').toUpperCase();
+ chip.className='mrityunjayaChip';
+ if(s==='HEALTHY'||s==='FAULT'||s==='COOLDOWN'){chip.textContent='';return}
+ let label='MRUTYUNJAYA · '+s.replace('_',' ');
+ if(s==='HEALING')chip.classList.add('healing');
+ else if(s==='RECOVERED')chip.classList.add('recovered');
+ else if(s==='SAFE_MODE')chip.classList.add('safe');
+ else if(s==='FAILED')chip.classList.add('failed');
+ chip.textContent=label+(note?' · '+String(note).slice(0,72):'');
+ chip.classList.add('show');
+ if(s==='RECOVERED')mrityunjayaChipTimer=setTimeout(()=>chip.classList.remove('show'),1800);
+ else if(s==='FAILED'||s==='SAFE_MODE')mrityunjayaChipTimer=setTimeout(()=>chip.classList.remove('show'),5000);
+}
+window.onMrityunjayaState=raw=>{
+ try{const d=typeof raw==='string'?JSON.parse(raw):raw||{};mrityunjayaChip(d.state,d.note||d.last_action||'');}
+ catch(_){}
+};
+window.mrityunjayaRecover=kind=>{
+ const k=String(kind||'');
+ if(k!=='camera-session')return;
+ const goal=fieldGoal||'automatic live visual check',photo=!!fieldPhotographerMode;
+ try{stopFieldScan(true)}catch(_){}
+ setTimeout(async()=>{
+   try{
+     await startFieldScan(goal,photo);
+     if(fieldStream&&Krishna.mrityunjayaRecovered)Krishna.mrityunjayaRecovered('camera-session','Camera session restarted and live stream verified');
+   }catch(e){try{Krishna.mrityunjayaFault('camera-session',String(e&&e.message||e))}catch(_){}}
+ },420);
+};
 function hawkeyeSensors(){try{const x=JSON.parse(Krishna.hawkeyeSensorSnapshot());return x&&typeof x==='object'?x:{available:false};}catch(_){return {available:false,evidence_state:'UNKNOWN'};}}
 const stage=document.getElementById('stage'),sprite=document.getElementById('avatarSprite'),label=document.getElementById('viewLabel'),vp=document.getElementById('avatarViewport'),avatar3d=document.getElementById('avatar3d');
 window.showKrishnaFallback=(reason='')=>{if(avatar3d)avatar3d.hidden=true;if(vp)vp.hidden=false;if(reason)console.warn('KRISHNA avatar fallback:',reason)};
@@ -364,6 +403,12 @@ async function startFieldScan(goalOverride='',photographer=false){
    window.hawkeyeOffline=offline;
    fieldStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:fieldFacingMode},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:60}},audio:!fieldPhotographerMode});
    fieldAudio=fieldStream.getAudioTracks().length>0;
+   const liveStream=fieldStream,liveTrack=liveStream.getVideoTracks()[0];
+   if(liveTrack)liveTrack.addEventListener('ended',()=>setTimeout(()=>{
+     if(fieldStream===liveStream){
+       try{if(Krishna.mrityunjayaFault)Krishna.mrityunjayaFault('camera-session','Live camera track ended unexpectedly')}catch(_){}
+     }
+   },180),{once:true});
    const video=document.getElementById('fieldVideo');video.srcObject=fieldStream;
    const layer=document.getElementById('cameraLayer');layer.classList.add('active');layer.classList.toggle('photographer',fieldPhotographerMode);
    document.getElementById('cameraActions').classList.remove('open');
@@ -375,8 +420,16 @@ async function startFieldScan(goalOverride='',photographer=false){
    if(!fieldPhotographerMode)startBoundedMediaCapture();
    setTimeout(sampleFieldFrame,700);
  }catch(e){
-   reply('Camera: '+e.message,'bad');
-   stopFieldScan();
+   const msg=String(e&&e.message||e||'camera failure');
+   const permission=/notallowed|permission|denied|securityerror/i.test(String(e&&e.name||'')+' '+msg);
+   if(permission){
+     reply('Camera permission is required for Hawkeye.','warn');
+     stopFieldScan(true);
+   }else{
+     reply('Camera recovery started.','warn');
+     stopFieldScan(true);
+     try{if(Krishna.mrityunjayaFault)Krishna.mrityunjayaFault('camera-session',msg)}catch(_){}
+   }
  }
 }
 async function startPhotographerMode(autoCapture=false){
@@ -489,5 +542,14 @@ showAvatarView(0);startAuto();setTimeout(()=>window.reportKrishnaUiReady?.('anim
 const realtime=new KrishnaRealtime(Krishna);
 realtime.onEvent=e=>{const p=e.payload||{};if(e.type==='task.completed'){reply(p.summary||'KRISHNA completed the task','good');setMode('CHAT','WORK COMPLETED');return}if(e.type==='action.sync'){const status=String(p.status||'').toUpperCase(),action=String(p.action||'KRISHNA action');if(status==='COMPLETED')setMode('CHAT',action+' · SYNCED');else if(status==='FAILED'||status==='BLOCKED')setMode('CHAT',action+' · '+status);else setMode('WORKING',action)}};
 realtime.onState=s=>{if(s==='reconnecting')document.getElementById('state').textContent='RECONNECTING'};
-realtime.start();window.onerror=(m,s,l)=>{try{Krishna.log('JS '+m+' '+s+':'+l)}catch(e){}};
+realtime.start();
+function reportMobileJsFault(detail){
+ const msg=String(detail||'').slice(0,700);
+ try{Krishna.log('JS '+msg)}catch(_){}
+ if(/ResizeObserver loop|Script error\.?$/i.test(msg))return;
+ try{if(Krishna.mrityunjayaFault)Krishna.mrityunjayaFault('javascript-runtime',msg)}catch(_){}
+}
+window.onerror=(m,s,l,c,e)=>{reportMobileJsFault(String(m||'error')+' '+String(s||'')+':'+String(l||0)+':'+String(c||0)+' '+String(e&&e.message||''));return false};
+window.onunhandledrejection=e=>{reportMobileJsFault('Unhandled promise rejection: '+String(e&&e.reason&&e.reason.message||e&&e.reason||'unknown'))};
+try{if(Krishna.mrityunjayaStatus)window.onMrityunjayaState(Krishna.mrityunjayaStatus())}catch(_){}
 </script><script src="hawkeye-active-vision.js"></script><script src="hawkeye-observer-ui.js"></script><script type="module" src="avatar-renderer.js"></script></body></html>

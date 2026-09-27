@@ -215,6 +215,19 @@ jobs:
           grep -q 'id="avatar3d"' app/src/main/assets/index.html
           grep -q "avatar-renderer.js" app/src/main/assets/index.html
           node --check app/src/main/assets/avatar-renderer.js
+          grep -q "MrityunjayaMobileHealer" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "MRUTYUNJAYA_MOBILE" app/src/main/java/com/krishna/mobile/MrityunjayaMobileHealer.java
+          grep -q "onRenderProcessGone" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "runMobileHealthWatch" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "mrityunjayaStatus" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "mrityunjayaFault" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "MAX_HEALS_PER_WINDOW" app/src/main/java/com/krishna/mobile/MrityunjayaMobileHealer.java
+          grep -q "pending_native_crash" app/src/main/java/com/krishna/mobile/MrityunjayaMobileHealer.java
+          grep -q 'id="mrityunjayaChip"' app/src/main/assets/index.html
+          grep -q "window.onMrityunjayaState" app/src/main/assets/index.html
+          grep -q "window.mrityunjayaRecover" app/src/main/assets/index.html
+          grep -q '"mobile_mrityunjaya_auto_healer": true' app/src/main/assets/canonical-runtime.json
+          grep -q '"mobile_healer_source_mutation": false' app/src/main/assets/canonical-runtime.json
           grep -q "avatarSync" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "KRISHNA_UI_READY" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "krishna.local" app/src/main/java/com/krishna/mobile/MainActivity.java
