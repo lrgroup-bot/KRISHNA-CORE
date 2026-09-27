@@ -8,6 +8,9 @@ CURRICULUM = {
     "Playwright CLI": ("deterministic browser QA", "screenshots-snapshots", "interaction verification"),
     "Storybook": ("isolated component states", "component regression", "accessibility states"),
     "Stagehand": ("optional agentic browser recovery", "self-healing exploration", "deterministic fallback"),
+    "electronics-repair": ("board identification", "power-path tracing", "rail sequencing", "component datasheets", "schematics-boardviews", "multimeter-oscilloscope measurements", "fault isolation", "microsoldering", "repair verification"),
+    "electrical-repair": ("safe isolation", "power supplies", "motors", "relays", "protection devices", "wiring", "measurement practice", "post-repair load testing"),
+    "salvage-reuse": ("donor compatibility", "harvestable parts", "repair-vs-parts decision", "reuse engineering", "failure-history learning"),
 }
 
 RULES = (
@@ -18,4 +21,8 @@ RULES = (
     "candidate-before-verified",
     "store-success-and-failure",
     "retrieve-task-relevant-only",
+    "never-invent-pinouts-or-rail-values",
+    "measure-before-replace",
+    "store-real-repair-success-and-failure",
+    "verify-repair-under-safe-post-repair-test",
 )
