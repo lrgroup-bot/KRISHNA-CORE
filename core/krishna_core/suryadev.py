@@ -135,6 +135,20 @@ class SuryadevAgent:
             enrich_metadata=enrich_metadata,
         )
 
+    def curriculum_next(self, *, horse_id, max_videos=10, candidate_limit=40, enrich_metadata=True):
+        if self.curriculum is None:
+            raise RuntimeError("SURYDEV curriculum planner is not bound to BRAHMA/BRAHMAGYAN/Garuda")
+        self.horses._horse(horse_id)
+        return self.curriculum.build_next_plan(
+            horse_id=horse_id,max_videos=max_videos,
+            candidate_limit=candidate_limit,enrich_metadata=enrich_metadata,
+        )
+
+    def curriculum_latest(self, horse_id):
+        if self.curriculum is None:
+            raise RuntimeError("SURYDEV curriculum planner is not available")
+        return self.curriculum.latest_for_horse(horse_id)
+
     def horse_bind(self, horse_id, *, node_id, device_class, label="", approved=False):
         row=self.horses.bind(
             horse_id,node_id=node_id,device_class=device_class,label=label,approved=approved,
