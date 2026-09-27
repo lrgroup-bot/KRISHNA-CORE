@@ -259,6 +259,18 @@ class SuryadevAgent:
                 "rule":"clear only transient device batch/cache after this positive receipt",
             },
         )
+        completed_curriculum=None
+        if accepted and self.curriculum is not None and batch.get("curriculum_plan_id"):
+            try:
+                completed_curriculum=self.curriculum.complete(
+                    batch["curriculum_plan_id"],batch["batch_id"],
+                )
+            except Exception as exc:
+                errors.append({
+                    "source_index":None,
+                    "title":"curriculum completion",
+                    "error":f"{type(exc).__name__}: {exc}",
+                })
         if self.memory:
             self.memory.audit(
                 "suryadev_horse_learning",
@@ -275,6 +287,10 @@ class SuryadevAgent:
             "errors":errors,
             "receipt":receipt,
             "cleanup_allowed":bool(receipt.get("cleanup_allowed")),
+            "curriculum_completed":None if completed_curriculum is None else {
+                "plan_id":completed_curriculum.get("plan_id"),
+                "status":completed_curriculum.get("status"),
+            },
             "architecture":"SURYDEV horse -> existing BRAHMA intake -> existing subject Rishis",
         }
 
