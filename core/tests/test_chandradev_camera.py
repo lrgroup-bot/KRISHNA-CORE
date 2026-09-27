@@ -45,7 +45,7 @@ class ChandradevOsmoCameraTests(unittest.TestCase):
         self.assertEqual(p["audio"]["built_in_microphones"],2)
         self.assertEqual(p["field_hardware"]["waterproof_without_case_m"],11)
 
-    def test_future_zeb_webcam_is_prepared_but_not_active(self):
+    def test_zeb_webcam_is_prepared_as_primary_direct_uvc_source(self):
         profile=ZEB_PURE_PLUS_PROFILE
         self.assertEqual(profile["model"],"ZEBRONICS ZEB-Pure Plus")
         self.assertEqual(profile["target_mode"]["resolution"],"3840x2160")
@@ -54,15 +54,29 @@ class ChandradevOsmoCameraTests(unittest.TestCase):
         self.assertTrue(profile["camera"]["built_in_microphone"])
         self.assertEqual(profile["mounting"]["budget_mount_target_inr"],500)
         self.assertFalse(profile["mounting"]["expensive_arm_required"])
-        self.assertEqual(CHANDRADEV_CAMERA_SELECTION["active_validation_source"],"dji_osmo_action_rtmp")
+        self.assertEqual(CHANDRADEV_CAMERA_SELECTION["active_validation_source"],"usb_uvc_webcam")
+        self.assertEqual(CHANDRADEV_CAMERA_SELECTION["fallback_source"],"dji_osmo_action_rtmp")
         self.assertFalse(CHANDRADEV_CAMERA_SELECTION["automatic_source_switching"])
 
-    def test_future_webcam_status_does_not_claim_hardware_is_connected(self):
+    def test_webcam_profile_configures_uvc_without_claiming_physical_frame(self):
         with tempfile.TemporaryDirectory() as td:
-            out=self.runtime(td).future_webcam_profile()
-        self.assertFalse(out["active_now"])
-        self.assertIn("DJI Osmo Action",out["validation_now"])
-        self.assertEqual(out["profile"]["deployment_state"],"planned_not_connected")
+            with patch.object(ChandradevOsmoCameraAdapter,"probe_uvc_devices",return_value={"supported":True,"detected":False,"devices":[]}):
+                out=self.runtime(td).webcam_profile()
+        self.assertTrue(out["configured_primary"])
+        self.assertFalse(out["hardware_detected"])
+        self.assertIn("physical camera must be connected",out["validation_now"])
+        self.assertEqual(out["profile"]["deployment_state"],"software_ready_hardware_required")
+
+    def test_camera_source_selection_persists_usb_and_explicit_osmo_fallback(self):
+        with tempfile.TemporaryDirectory() as td:
+            v=self.runtime(td)
+            self.assertEqual(v.camera_source,"usb_uvc_webcam")
+            usb=v.select_camera_source("webcam",webcam_index=2)
+            self.assertEqual(usb["camera_source"],"usb_uvc_webcam")
+            self.assertEqual(usb["webcam_index"],2)
+            osmo=v.select_camera_source("osmo")
+            self.assertEqual(osmo["camera_source"],"dji_osmo_action_rtmp")
+            self.assertEqual(v.camera_source,"dji_osmo_action_rtmp")
 
     def test_alignment_handoff_routes_through_krishna_and_clears_stale_lock(self):
         with tempfile.TemporaryDirectory() as td:
@@ -121,14 +135,16 @@ class ChandradevOsmoCameraTests(unittest.TestCase):
     def test_status_is_pc_chandradev_camera_adapter(self):
         with tempfile.TemporaryDirectory() as td:
             status=self.runtime(td).status()
-            self.assertEqual(status["component"],"CHANDRADEV OSMO CAMERA ADAPTER")
+            self.assertEqual(status["component"],"CHANDRADEV PC CAMERA ADAPTER")
             self.assertIn("standalone PC",status["role"])
             self.assertIn("-> CHANDRADEV",status["live_path"])
             self.assertFalse(status["mediamtx"]["installed"])
             self.assertFalse(status["cloud_required"])
             self.assertFalse(status["paid_service_required"])
-            self.assertEqual(status["camera_selection"]["active_validation_source"],"dji_osmo_action_rtmp")
-            self.assertEqual(status["future_webcam_profile"]["deployment_state"],"planned_not_connected")
+            self.assertEqual(status["camera_selection"]["active_validation_source"],"usb_uvc_webcam")
+            self.assertEqual(status["camera_selection"]["selected_source"],"usb_uvc_webcam")
+            self.assertEqual(status["webcam_profile"]["deployment_state"],"software_ready_hardware_required")
+            self.assertTrue(status["usb_live_video"])
 
     def test_runtime_and_powershell_share_one_stream_name(self):
         with tempfile.TemporaryDirectory() as td:
@@ -187,7 +203,7 @@ class ChandradevOsmoCameraTests(unittest.TestCase):
             frame_path.write_bytes(b"fake-jpeg")
             with patch.object(v,"capture_frame",return_value={
                 "path":str(frame_path),"bytes":9,"content_type":"image/jpeg",
-                "captured_at":1.0,"source":"rtmp://127.0.0.1:1935/osmo-test",
+                "captured_at":1.0,"source":"uvc://0","camera_source":"usb_uvc_webcam",
                 "width":1280,"height":720,
             }):
                 out=v.analyze_frame()
@@ -197,6 +213,27 @@ class ChandradevOsmoCameraTests(unittest.TestCase):
             self.assertTrue(out["chandradev_observation"]["local_only"])
             self.assertEqual(len(qc.camera_observations()),1)
             self.assertFalse(out["cloud_upload"])
+
+    @unittest.skipUnless(importlib.util.find_spec("cv2"),"OpenCV is optional in CI")
+    def test_capture_frame_uses_selected_capture_abstraction(self):
+        import numpy as np
+        class FakeCap:
+            def release(self):
+                return None
+        frame=np.zeros((720,1280,3),dtype=np.uint8)
+        with tempfile.TemporaryDirectory() as td:
+            v=self.runtime(td)
+            meta={
+                "kind":"usb_uvc_webcam","source":"uvc://0","backend":"CAP_DSHOW",
+                "requested":{"width":3840,"height":2160,"fps":30},
+                "actual":{"width":1280,"height":720,"fps":30.0},
+            }
+            with patch.object(v,"_open_video_capture",return_value=(FakeCap(),frame,meta)):
+                out=v.capture_frame()
+        self.assertEqual(out["camera_source"],"usb_uvc_webcam")
+        self.assertEqual(out["source"],"uvc://0")
+        self.assertEqual(out["capture_backend"],"CAP_DSHOW")
+        self.assertTrue(Path(out["path"]).name.startswith("webcam-"))
 
     def test_camera_module_has_no_hawkeye_dependency(self):
         source=Path(__file__).resolve().parents[1]/"krishna_core"/"chandradev_camera.py"
