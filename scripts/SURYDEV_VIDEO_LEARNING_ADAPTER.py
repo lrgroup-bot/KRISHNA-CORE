@@ -507,6 +507,34 @@ def observe(job, workspace):
     }
     _atomic_json(evidence_dir / f"{_safe_name(subject)}__manifest.json", subject_manifest)
 
+    lab_questions = list(dict.fromkeys(
+        x.get("research_question") for x in visual_evidence if x.get("research_question")
+    ))
+    lab_dossier = {
+        "schema": "krishna.suryadev.lab-dossier.v1",
+        "job_id": str(job.get("job_id") or ""),
+        "subject": subject,
+        "source_url": source_url,
+        "source_title": title,
+        "transcript_sha256": _sha256(transcript_path),
+        "learning_chunk_count": len(chunks),
+        "selected_visuals": [{
+            "timestamp": x.get("timestamp"),
+            "sha256": x.get("sha256"),
+            "reason": x.get("reason"),
+            "research_question": x.get("research_question"),
+        } for x in visual_evidence],
+        "questions_for_rishi_or_lab": lab_questions,
+        "verification_rules": [
+            "separate what the frame visibly shows from what the speaker claimed",
+            "find independent primary/technical sources before treating a claim as supported",
+            "turn experimental ideas into falsifiable tests before LAB execution",
+            "preserve contradictory or negative evidence",
+        ],
+        "created_at": time.time(),
+    }
+    _atomic_json(evidence_dir / f"{_safe_name(subject)}__lab-dossier.json", lab_dossier)
+
     bundle = {
         "schema": BUNDLE_SCHEMA,
         "job_id": str(job.get("job_id") or ""),
@@ -518,6 +546,11 @@ def observe(job, workspace):
         },
         "learning_chunks": chunks,
         "visual_evidence": visual_evidence,
+        "lab_research": {
+            "subject": subject,
+            "questions": lab_questions,
+            "dossier_local_ref": str(evidence_dir / f"{_safe_name(subject)}__lab-dossier.json"),
+        },
         "transcript": {
             "local_ref": str(transcript_path),
             "sha256": _sha256(transcript_path),
