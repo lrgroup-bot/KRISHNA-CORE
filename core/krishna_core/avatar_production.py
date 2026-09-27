@@ -70,7 +70,10 @@ class AvatarProductionPipeline:
             raise FileNotFoundError(str(src))
         if out.suffix.lower() != ".glb":
             raise ValueError("avatar output must be a .glb file")
-        clips = tuple(dict.fromkeys(str(x).strip().lower() for x in required_clips if str(x).strip()))
+        requested = tuple(str(x).strip().lower() for x in required_clips if str(x).strip())
+        # Callers may require extra clips, but they may never weaken KRISHNA's
+        # canonical production minimum.
+        clips = tuple(dict.fromkeys((*REQUIRED_CLIPS, *requested)))
         if not clips:
             raise ValueError("at least one required animation clip is required")
         return AvatarProductionPlan(
@@ -109,7 +112,7 @@ class AvatarProductionPipeline:
         present = {str(x).strip().lower() for x in report.get("animation_names") or []}
         required = {str(x).strip().lower() for x in required_clips if str(x).strip()}
         missing = sorted(required - present)
-        ready = bool(report.get("ready")) and not missing
+        ready = bool(report.get("production_ready")) and not missing
         return {
             "ready": ready,
             "asset": report,
