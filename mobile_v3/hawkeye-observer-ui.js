@@ -59,6 +59,7 @@
     lastCameraPlanAt: 0,
     autoTorchOwned: false,
     cameraProfile: null,
+    announcedCompleteKey: "",
     recorder: null,
     chunks: [],
     recordStopTimer: null,
@@ -136,7 +137,7 @@
     const selection=HawkeyeActiveVision.selectTarget(activeObjects(),state.handResult,state.lockedTrackingId);
     const key=selection&&selection.key||"";
     if(key!==state.lastTargetKey){
-      state.lastTargetKey=key;state.activeRead=null;state.activeRecovery=null;
+      state.lastTargetKey=key;state.activeRead=null;state.activeRecovery=null;state.announcedCompleteKey="";
     }
     state.activeSelection=selection;
     return selection;
@@ -160,6 +161,7 @@
       if(d.voltage&&!d.input&&!d.output)rows.push("Voltage: "+d.voltage);
       if(d.current&&!d.input&&!d.output)rows.push("Current: "+d.current);
       if(d.barcode)rows.push("Code: "+d.barcode);
+      if(!rows.length&&state.activeRead&&state.activeRead.text)rows.push(String(state.activeRead.text).slice(0,320));
       panel.textContent=rows.join("\n");
       panel.classList.toggle("active",rows.length>0||mode==="COMPLETE");
     }
@@ -218,7 +220,10 @@
       await applyActiveCameraPlan(selection,result,recovery,frame.quality);
       if(result.complete){
         setActiveVisionState("COMPLETE","READ COMPLETE",result.details);
-        if(navigator.vibrate)try{navigator.vibrate(35);}catch(_){}
+        if(state.announcedCompleteKey!==selection.key){
+          state.announcedCompleteKey=selection.key;
+          if(navigator.vibrate)try{navigator.vibrate(35);}catch(_){}
+        }
       }else if(recovery.actions&&recovery.actions.length){
         const label=recovery.actions.includes("REFOCUS")?"REFOCUSING":
           (recovery.actions.includes("ZOOM_IN")?"ZOOMING TO LABEL":
@@ -498,6 +503,7 @@
 
   async function toggleTorch(){
     if(!cameraActive())return;
+    state.autoTorchOwned=false;
     const track=fieldStream&&fieldStream.getVideoTracks()[0],btn=byId("cameraTorch");
     if(!track||!track.getCapabilities||!track.applyConstraints){if(typeof reply==="function")reply("Camera torch control is unavailable on this device.","warn");return;}
     const caps=track.getCapabilities();if(!caps||caps.torch!==true){if(typeof reply==="function")reply("This camera does not expose hardware torch control.","warn");return;}
@@ -1036,7 +1042,7 @@
     if(state.torchOn&&fieldStream){try{const t=fieldStream.getVideoTracks()[0];if(t&&t.applyConstraints)t.applyConstraints({advanced:[{torch:false}]});}catch(_){}}
     state.objects=[];state.researchQueries=[];state.lastLearnText="";state.rich=null;state.handResult=null;state.localSummary="";state.geminiAnalysis="";state.freeCloudAnalysis="";state.lastFreeCloudSignature="";state.lastFreeCloudProvider="";state.lastFreeCloudModel="";state.lastFreeCloudRole="";state.lastFreeCloudReviews=[];state.lastFreeCloudPc=null;
     state.aiMode="LOCAL";state.cloudApproved=false;state.lockedTrackingId=null;
-    state.activeSelection=null;state.activeRead=null;state.activeRecovery=null;state.lastTargetKey="";state.targetReadBusy=false;state.autoTorchOwned=false;state.cameraProfile=null;
+    state.activeSelection=null;state.activeRead=null;state.activeRecovery=null;state.lastTargetKey="";state.targetReadBusy=false;state.autoTorchOwned=false;state.cameraProfile=null;state.announcedCompleteKey="";
     if(window.HawkeyeActiveVision)HawkeyeActiveVision.reset();
     setActiveVisionState("SEARCH","DETECTING ITEM",{});
     state.translationEnabled=false;state.translationText="";state.translationSource="";state.translationBusy=false;
