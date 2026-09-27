@@ -179,7 +179,14 @@ class ChandradevOsmoCameraAdapter:
             webcam_index=int(env_index) if env_index else int(row.get("webcam_index",CHANDRADEV_CAMERA_SELECTION["default_webcam_index"]))
         except (TypeError,ValueError):
             webcam_index=int(CHANDRADEV_CAMERA_SELECTION["default_webcam_index"])
-        source=str(row.get("camera_source") or env_source or CHANDRADEV_CAMERA_SELECTION["active_validation_source"]).strip()
+        # Explicit environment override wins. State written by the previous
+        # RTMP-only adapter is migrated once to the new direct-USB default.
+        stored_source=(
+            str(row.get("camera_source") or "").strip()
+            if str(row.get("version") or "")==self.VERSION
+            else ""
+        )
+        source=str(env_source or stored_source or CHANDRADEV_CAMERA_SELECTION["active_validation_source"]).strip()
         if source not in {"usb_uvc_webcam","dji_osmo_action_rtmp"}:
             source=CHANDRADEV_CAMERA_SELECTION["active_validation_source"]
         row.update({
@@ -482,6 +489,9 @@ class ChandradevOsmoCameraAdapter:
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH,3840)
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT,2160)
                     cap.set(cv2.CAP_PROP_FPS,30)
+                    if hasattr(cv2,"CAP_PROP_AUTOFOCUS"):
+                        try:cap.set(cv2.CAP_PROP_AUTOFOCUS,1)
+                        except Exception:pass
                     if hasattr(cv2,"CAP_PROP_BUFFERSIZE"):
                         cap.set(cv2.CAP_PROP_BUFFERSIZE,1)
                     first=None
