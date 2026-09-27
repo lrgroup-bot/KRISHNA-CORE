@@ -32,6 +32,21 @@ class CurrentKrishnaUIContractTests(unittest.TestCase):
         self.assertNotIn("showView('vanijya')",m.group(1))
         self.assertIn("RISHI VĀṆIJYA · Sales & Marketing Head",self.html)
 
+    def test_manibhadra_is_clean_tabbed_owner_workspace(self):
+        for token in (
+            'id="manibhadra-human-workspace-v2"',
+            'data-mani-page-button="overview"',
+            'data-mani-page-button="sales"',
+            'data-mani-page-button="market"',
+            'data-mani-page-button="records"',
+            'data-mani-page-button="connections"',
+            "function setManibhadraWorkspace(page)",
+            "Vāṇijya Sales",
+            "INSIDE MANIBHADRA",
+        ):
+            self.assertIn(token,self.html)
+        self.assertIn("setManibhadraWorkspace('sales');vanijyaSalesCycle()",self.html)
+
     def test_sudarshan_is_clean_conversation_workspace(self):
         self.assertIn("SUDARSHAN CLEAN CHAT MODE",self.html)
         self.assertRegex(self.html,r'#sudarshan \.sudarshanBar\{\s*display:none !important;')
