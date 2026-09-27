@@ -320,7 +320,7 @@ class VishvakarmaRepairShishya:
         if last["quantity"] == "voltage" and float(last["value"]) == 0.0:
             return {
                 "stage": "ZERO_VOLTAGE_BRANCH",
-                "instruction": "Do not move downstream yet. Verify the source/adapter, connector, fuse/protection device and both sides of the input path to find where voltage disappears.",
+                "instruction": "Do not move downstream yet. Move upstream: verify the source/adapter, connector, fuse/protection device and both sides of the input path to find where voltage disappears.",
                 "target": "upstream of " + str(last["point"]),
                 "instrument": "multimeter",
                 "mode": "voltage",
