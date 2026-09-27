@@ -328,6 +328,16 @@ class SuryadevAgent:
             raise ValueError("device_id is required")
         if not self._youtube_url(source_url):
             raise ValueError("SURYDEV iPad learning accepts YouTube podcast observations only")
+        queue_show=self._text(packet.get("queue_show"),240)
+        approved={str(x.get("show") or "").strip().lower() for x in self.podcast_queue().get("items") or [] if x.get("approved",True)}
+        if not queue_show or queue_show.lower() not in approved:
+            return {
+                "accepted":False,
+                "routed_to_rishi":False,
+                "reason":"not_approved_top30_podcast_queue",
+                "rishi":self.PODCAST_RISHI,
+                "learning_green":False,
+            }
         start=max(0.0,float(packet.get("start_seconds") or 0.0))
         end=max(start,float(packet.get("end_seconds") or start))
         event={
@@ -337,6 +347,7 @@ class SuryadevAgent:
             "rishi":self.PODCAST_RISHI,
             "source_url":source_url,
             "title":title,
+            "queue_show":queue_show,
             "start_seconds":start,
             "end_seconds":end,
             "caption_available":bool(caption),
@@ -357,7 +368,7 @@ class SuryadevAgent:
         packet_out=self.distilled_finding(
             job_id="IPAD-"+device_id,
             project="BRAHMAGYAN",
-            topic=f"Podcast long-form interview learning for Rishi Shravana: {title}",
+            topic=f"Podcast learning for Rishi Shravana — approved show {queue_show}: {title}",
             finding=caption,
             modality="transcript",
             evidence=[{
