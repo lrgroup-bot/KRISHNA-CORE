@@ -61,7 +61,8 @@ TABLETS / MOBILE DEVICES
    - Storage: 64GB
    - Available storage observed: 44.96GB
    - iPadOS version observed: 18.6.2
-   - Connectivity variant: TO VERIFY (tap Model Number in About to reveal A-number; do not infer Wi-Fi vs Cellular from part code alone)
+   - Hardware model number: A2133
+   - Connectivity variant: Wi-Fi only (no cellular modem / SIM variant)
    - Battery health: TO VERIFY; screenshot showed device actively charging at 26% state of charge
    - Assigned KRISHNA role: SURYADEV MEDIA / VISUAL NODE (subject to real-device acceptance)
    - Primary duty: Play YouTube or other approved media in the foreground, provide a dedicated visual/reference screen, and forward timestamps/selected evidence to KRISHNA PC for Rishi/BRAHMAGYAN analysis
