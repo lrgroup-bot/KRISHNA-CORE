@@ -1,0 +1,62 @@
+KRISHNA OWNER HARDWARE INVENTORY
+===============================
+Purpose: Persistent source-of-truth inventory for hardware/electronics already owned by the owner.
+Rule: When the owner identifies or adds hardware, append/update it here rather than creating another inventory file.
+Last updated: 2026-09-27
+
+COMPUTER COMPONENTS
+-------------------
+1. AMD Ryzen 3 3200G processor
+   - Status: Owned
+   - Platform: AM4
+   - Intended consideration: Initial Suryadev/Chandradev external observer build
+
+LAPTOPS
+-------
+2. Acer Aspire 4720 Series
+   - Model/platform marking: Z01
+   - Status: Owned
+   - Exact CPU/RAM/storage: To be inventoried after inspection
+
+3. Lenovo G505
+   - Status: Owned
+   - Exact CPU/RAM/storage/GPU: To be inventoried after inspection
+
+4. Compaq Presario C700
+   - Status: Owned
+   - Exact CPU/RAM/storage: To be inventoried after inspection
+
+5. Older Apple MacBook
+   - Status: Owned
+   - Exact model/year/specification: Not yet identified
+   - Action: Identify from bottom model marking and About This Mac when available
+
+NETWORK / POWER EQUIPMENT
+-------------------------
+6. 24V PoE injector / switching power supply
+   - Model: GP-B240-1100
+   - Input: 100-240V AC, 50/60Hz
+   - Output: 24V DC, 1A (24W max)
+   - Ports: LAN + POE RJ45
+   - Status: Owned
+   - Note: Treat as potentially passive 24V PoE until exact standard/pinout is verified. Do not connect unknown Ethernet equipment to POE output.
+
+POTENTIAL SALVAGE / REUSE FROM OLD LAPTOPS
+------------------------------------------
+- 2.5-inch HDDs: inspect model/capacity/SMART health before reuse
+- Lenovo G505 DDR3 SODIMM RAM: identify capacity/speed
+- Acer/Compaq DDR2 SODIMM RAM: legacy use only
+- Laptop webcams: identify modules/pinouts before attempting reuse
+- LCD panels: identify exact panel model before selecting an HDMI/LVDS/eDP controller
+- Wi-Fi cards: identify exact models
+- Optical/DVD drives: potentially reusable with compatible USB adapter/enclosure
+- Speakers, microphones, cooling fans/heatsinks and chargers: retain pending inspection
+- Old lithium-ion batteries: do not repurpose without proper battery safety assessment
+
+INVENTORY POLICY
+----------------
+- Do not assume unknown specifications; mark them TO VERIFY.
+- Record exact model/part number, condition, quantity and test status when known.
+- Prefer reusing owned hardware before purchasing replacements when technically sensible.
+- Keep Suryadev/Chandradev suitability separate from general reuse value.
+- This file is the canonical owner hardware inventory in KRISHNA-CORE.
