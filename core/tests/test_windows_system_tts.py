@@ -1,5 +1,7 @@
 import subprocess
+import os
 import tempfile
+from types import SimpleNamespace
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -18,11 +20,11 @@ class WindowsSystemTTSTests(unittest.TestCase):
                 self.assertNotIn("shell",kwargs)
                 output.write_bytes(b"RIFF"+b"x"*80)
                 return subprocess.CompletedProcess(args,0,"","")
-            with patch("krishna_core.native_voice.os.name","nt"),patch("krishna_core.native_voice.subprocess.run",side_effect=run):
+            with patch("krishna_core.native_voice.os",SimpleNamespace(name="nt",environ=os.environ)),patch("krishna_core.native_voice.subprocess.run",side_effect=run):
                 self.assertEqual(WindowsSystemTTS().speak(text,output),str(output))
 
     def test_success_without_audio_is_reported_as_failure(self):
         with tempfile.TemporaryDirectory() as td:
-            with patch("krishna_core.native_voice.os.name","nt"),patch("krishna_core.native_voice.subprocess.run",return_value=subprocess.CompletedProcess([],0,"","")):
+            with patch("krishna_core.native_voice.os",SimpleNamespace(name="nt",environ=os.environ)),patch("krishna_core.native_voice.subprocess.run",return_value=subprocess.CompletedProcess([],0,"","")):
                 with self.assertRaisesRegex(RuntimeError,"did not produce audio"):
                     WindowsSystemTTS().speak("Hello",Path(td)/"missing.wav")
