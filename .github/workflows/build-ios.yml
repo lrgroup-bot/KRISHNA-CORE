@@ -8,6 +8,10 @@ on:
       - 'ios/**'
       - 'avatar/krishna_child_360.webp.b64'
       - '.github/workflows/build-ios.yml'
+  pull_request:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/build-ios.yml'
   workflow_dispatch:
 
 permissions:
@@ -68,10 +72,73 @@ jobs:
           unzip -l build/KRISHNA-v3.9-iOS-Unsigned.ipa | grep -q 'Payload/KRISHNA.app/krishna_child_360.webp'
           echo KRISHNA_IOS_PRODUCT_CONTRACT_OK
 
+      - name: Prepare SURYADEV horse iPad bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build-suryadev/Payload/SURYADEV.app
+          cp ios/SURYDEV/Info.plist build-suryadev/Payload/SURYADEV.app/Info.plist
+          plutil -lint build-suryadev/Payload/SURYADEV.app/Info.plist
+
+      - name: Compile SURYADEV horse iPad app
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          xcrun --sdk iphoneos swiftc ios/SURYDEV/main.swift \
+            -parse-as-library \
+            -sdk "$SDK" \
+            -target arm64-apple-ios16.0 \
+            -o build-suryadev/Payload/SURYADEV.app/SURYADEV \
+            -framework UIKit \
+            -framework WebKit \
+            -framework Network \
+            -framework Security \
+            -framework CryptoKit
+          chmod +x build-suryadev/Payload/SURYADEV.app/SURYADEV
+          file build-suryadev/Payload/SURYADEV.app/SURYADEV
+          test -x build-suryadev/Payload/SURYADEV.app/SURYADEV
+
+      - name: Verify SURYADEV horse contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'SURYADEV · UNASSIGNED HORSE' ios/SURYDEV/main.swift
+          grep -q 'SERVER LINK' ios/SURYDEV/main.swift
+          grep -q 'SURYADEV WORKING' ios/SURYDEV/main.swift
+          grep -q 'LEARNING' ios/SURYDEV/main.swift
+          grep -q 'UIApplication.shared.isIdleTimerDisabled = true' ios/SURYDEV/main.swift
+          grep -q '/api/suryadev/horse/profile' ios/SURYDEV/main.swift
+          grep -q '/api/suryadev/horse/curriculum/next' ios/SURYDEV/main.swift
+          grep -q '/api/suryadev/horse/learning' ios/SURYDEV/main.swift
+          grep -q '21_600' ios/SURYDEV/main.swift
+          grep -q 'remaining <= 300' ios/SURYDEV/main.swift
+          grep -q 'cleanup_allowed' ios/SURYDEV/main.swift
+          grep -q '<integer>2</integer>' ios/SURYDEV/Info.plist
+          if grep -q '<integer>1</integer>' ios/SURYDEV/Info.plist; then
+            echo "SURYADEV must remain iPad-only" >&2
+            exit 1
+          fi
+          echo SURYADEV_HORSE_IPAD_CONTRACT_OK
+
+      - name: Ad-hoc sign and package SURYADEV horse IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          codesign --force --sign - --timestamp=none build-suryadev/Payload/SURYADEV.app
+          codesign --verify --deep --strict build-suryadev/Payload/SURYADEV.app
+          (
+            cd build-suryadev
+            zip -qry SURYADEV-HORSE-iPad-Unsigned.ipa Payload
+          )
+          test -s build-suryadev/SURYADEV-HORSE-iPad-Unsigned.ipa
+          unzip -l build-suryadev/SURYADEV-HORSE-iPad-Unsigned.ipa | grep -q 'Payload/SURYADEV.app/SURYADEV'
+
       - name: Upload KRISHNA iOS IPA
         uses: actions/upload-artifact@v7
         with:
-          name: KRISHNA-v3.9-iOS-IPA
+          name: KRISHNA-and-SURYADEV-iOS-IPA
           path: |
             build/KRISHNA-v3.9-iOS-Unsigned.ipa
+            build-suryadev/SURYADEV-HORSE-iPad-Unsigned.ipa
           retention-days: 90
