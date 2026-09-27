@@ -1065,6 +1065,15 @@ class Handler(BaseHTTPRequestHandler):
                 "nodes":orch.compute_nodes.status(),
                 "bridge":orch.external_observers.status(),
             })
+        if path == "/api/suryadev/device/status":
+            device,token=self._device_auth()
+            if not _pairing.verify(device,token):
+                return self._json(401,{"error":"paired Suryadev device required"})
+            requested=str((query.get("device_id") or [device])[0]).strip()
+            if requested!=device:
+                return self._json(403,{"error":"device may read only its own Suryadev status"})
+            try:return self._json(200,orch.suryadev.device_status(requested))
+            except KeyError:return self._json(404,{"error":"Suryadev node has not sent a heartbeat yet"})
         if path == "/api/chandradev/status":
             return self._json(200,{
                 **orch.chandradev.status(),
@@ -2369,6 +2378,32 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200,result)
             except PermissionError as exc:
                 return self._json(400, {"error": str(exc)})
+
+        if post_path in ("/api/suryadev/device/heartbeat","/api/suryadev/learning-bundle"):
+            device,token=self._device_auth()
+            if not _pairing.verify(device,token):
+                return self._json(401,{"error":"paired Suryadev device required"})
+            body_device=str(data.get("device_id") or "").strip()
+            if body_device and body_device!=device:
+                return self._json(403,{"error":"authenticated Suryadev Node ID does not match payload"})
+            if post_path=="/api/suryadev/device/heartbeat":
+                data["device_id"]=device
+                return self._json(200,orch.suryadev.device_heartbeat(data))
+            bundle=data.get("bundle") if isinstance(data.get("bundle"),dict) else data
+            if bundle is data:
+                bundle={k:v for k,v in data.items() if k!="device_id"}
+            receipt=orch.suryadev.route_learning_bundle(bundle,device_id=device)
+            orch.handle_event(
+                "suryadev", "learning_bundle_acknowledged",
+                f"{device}:{receipt.get('job_id')}:{receipt.get('accepted_chunks')} chunks",
+                severity="notice", project="BRAHMAGYAN",
+                payload={
+                    "device_id":device,"job_id":receipt.get("job_id"),
+                    "receipt_id":receipt.get("receipt_id"),
+                    "bundle_sha256":receipt.get("bundle_sha256"),
+                },
+            )
+            return self._json(200,receipt)
 
         if post_path in ("/api/core/event", "/api/neural/event"):
             source = str(data.get("source", "unknown")).strip() or "unknown"
