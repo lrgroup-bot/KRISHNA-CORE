@@ -249,6 +249,68 @@ class SuryadevCurriculumPlanner:
             if len(out)>=max_queries:break
         return out
 
+    def choose_next_subject(self):
+        """Choose the next subject from existing BRAHMA/BRAHMAGYAN learning gaps.
+
+        Priority 1 is the explicit curiosity queue.  If no queued curiosity exists,
+        reuse the Rishi learning ledger's least-trained charter assignment.  No
+        random/popularity-only subject is invented here.
+        """
+        curiosity=self.brahmagyan.curiosity_queue(limit=20)
+        if curiosity:
+            row=dict(curiosity[0])
+            question=self._text(row.get("question"),500)
+            # A question is a valid study subject; the conference will narrow it.
+            return {
+                "subject":question,
+                "preferred_rishis":[],
+                "reason":"highest-priority existing BRAHMAGYAN curiosity/knowledge gap",
+                "selection_basis":"brahmagyan_curiosity",
+                "source_id":row.get("id"),
+                "priority":row.get("priority"),
+            }
+        assignment=self.brahma.rishi_learning.next_learning_assignment()
+        if assignment:
+            return {
+                "subject":self._text(assignment.get("subject"),500),
+                "preferred_rishis":[assignment.get("rishi_id")] if assignment.get("rishi_id") else [],
+                "reason":(
+                    "Rishi learning ledger selected the least-trained Rishi and least-researched charter subject"
+                ),
+                "selection_basis":"rishi_learning_balance",
+                "source_id":None,
+                "priority":None,
+                "rishi_assignment":assignment,
+            }
+        raise RuntimeError("BRAHMA has no queued curiosity or Rishi learning assignment to schedule")
+
+    def build_next_plan(self, *, horse_id, max_videos=10, candidate_limit=40, enrich_metadata=True):
+        picked=self.choose_next_subject()
+        plan=self.build_six_hour_plan(
+            picked["subject"],horse_id=horse_id,reason=picked["reason"],
+            preferred_rishis=picked.get("preferred_rishis") or [],
+            max_videos=max_videos,candidate_limit=candidate_limit,
+            enrich_metadata=enrich_metadata,
+        )
+        plan["subject_selection"]=picked
+        path=self.plans_dir/f"{plan['plan_id']}.json"
+        path.write_text(json.dumps(plan,ensure_ascii=False,indent=2),encoding="utf-8")
+        return plan
+
+    def latest_for_horse(self,horse_id):
+        hid=self._text(horse_id,80).lower()
+        rows=[]
+        for path in self.plans_dir.glob("SURYA-CURRICULUM-*.json"):
+            try:
+                row=json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if str(row.get("horse_id") or "").lower()==hid:
+                rows.append(row)
+        if not rows:raise KeyError(hid)
+        rows.sort(key=lambda x:float(x.get("created_at") or 0),reverse=True)
+        return rows[0]
+
     def build_six_hour_plan(self,subject,*,horse_id,reason="",preferred_rishis=None,max_videos=10,
                             candidate_limit=40,enrich_metadata=True):
         subject=self._text(subject,500)
