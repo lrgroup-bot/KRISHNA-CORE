@@ -204,6 +204,6 @@ If the monitor is not reliably visible or the camera is moving too much, CHANDRA
 - Raw sampled frames stay on the PC.
 - VisionAdapter is local-only and has no automatic cloud fallback.
 - RTMP TCP 1935 is intended for Windows Private profile + LocalSubnet only.
-- HLS/WebRTC helper listeners bind to localhost.
+- HLS binds to localhost; unused WebRTC and MoQ listeners are disabled.
 - Starting/stopping the LAN listener remains an owner-approved action.
 - Camera observations are evidence; they do not establish hidden intent, identity, diagnosis, or fault certainty.
