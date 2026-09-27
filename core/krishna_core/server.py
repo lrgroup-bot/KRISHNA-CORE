@@ -2386,7 +2386,7 @@ class Handler(BaseHTTPRequestHandler):
             body_device=str(data.get("device_id") or "").strip()
             if body_device and body_device!=device:
                 return self._json(403,{"error":"authenticated Suryadev Node ID does not match payload"})
-            if post_path=="/api/suryadev/device/heartbeat":
+            if post_path.endswith("/heartbeat"):
                 data["device_id"]=device
                 return self._json(200,orch.suryadev.device_heartbeat(data))
             bundle=data.get("bundle") if isinstance(data.get("bundle"),dict) else data
