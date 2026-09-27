@@ -25,6 +25,8 @@ class ChandradevCameraIntegrationContractTests(unittest.TestCase):
             "chandradev.camera.osmo.profile",
             "chandradev.camera.osmo.guide",
             "chandradev.camera.webcam.profile",
+            "chandradev.camera.webcam.detect",
+            "chandradev.camera.webcam.select",
             "chandradev.camera.selection",
             "chandradev.camera.receiver.config",
             "chandradev.camera.receiver.start",
@@ -39,6 +41,14 @@ class ChandradevCameraIntegrationContractTests(unittest.TestCase):
         ):
             self.assertIn(f'"{action}"',self.orchestrator)
         self.assertNotIn('"chandradev.camera.session.start"',self.orchestrator)
+
+    def test_direct_usb_webcam_is_primary_and_dji_is_explicit_fallback(self):
+        self.assertIn('"active_validation_source": "usb_uvc_webcam"',self.camera)
+        self.assertIn('"fallback_source": "dji_osmo_action_rtmp"',self.camera)
+        self.assertIn("def select_camera_source",self.camera)
+        self.assertIn("def _open_video_capture",self.camera)
+        self.assertIn("CAP_DSHOW",self.camera)
+        self.assertIn("CAP_MSMF",self.camera)
 
     def test_osmo_start_script_writes_utf8_without_bom_and_prefers_real_lan(self):
         self.assertIn("System.Text.UTF8Encoding($false)",self.start_osmo)
