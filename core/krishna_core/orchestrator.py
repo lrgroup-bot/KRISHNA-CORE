@@ -449,7 +449,9 @@ class Orchestrator:
         self.suryadev = SuryadevAgent(
             runtime_state / "suryadev",
             brahma=self.brahma,
+            brahmagyan=self.agi.brahmagyan,
             council=self.agi.brahmagyan.council,
+            garuda_scout=self.garuda_scout,
             ui_reviewer=HawkeyeUIReviewer(),
             memory=self.memory,
         )
@@ -1353,6 +1355,59 @@ class Orchestrator:
 
         def suryadev_status_action(payload,context):
             return self.suryadev.status()
+
+        def suryadev_horse_status_action(payload,context):
+            return self.suryadev.horse_status()
+
+        def suryadev_horse_auto_bind_action(payload,context):
+            return self.suryadev.horse_auto_bind(
+                node_id=str(payload.get("node_id") or ""),
+                profile=payload.get("profile") or {},
+                label=str(payload.get("label") or ""),
+                approved=bool(context.get("approved",False)),
+            )
+
+        def suryadev_horse_heartbeat_action(payload,context):
+            return self.suryadev.horse_heartbeat(
+                str(payload.get("horse_id") or ""),
+                node_id=str(payload.get("node_id") or ""),
+                status=payload.get("status") or {},
+            )
+
+        def suryadev_horse_learning_action(payload,context):
+            return self.suryadev.horse_learning_batch(
+                str(payload.get("horse_id") or ""),
+                node_id=str(payload.get("node_id") or ""),
+                payload=payload.get("batch") or {},
+            )
+
+        def suryadev_curriculum_plan_action(payload,context):
+            return self.suryadev.curriculum_plan(
+                str(payload.get("subject") or ""),
+                horse_id=str(payload.get("horse_id") or ""),
+                reason=str(payload.get("reason") or ""),
+                preferred_rishis=payload.get("preferred_rishis") or [],
+                max_videos=int(payload.get("max_videos") or 10),
+                candidate_limit=int(payload.get("candidate_limit") or 40),
+                enrich_metadata=bool(payload.get("enrich_metadata",True)),
+            )
+
+        def suryadev_curriculum_next_action(payload,context):
+            return self.suryadev.curriculum_next(
+                horse_id=str(payload.get("horse_id") or ""),
+                max_videos=int(payload.get("max_videos") or 10),
+                candidate_limit=int(payload.get("candidate_limit") or 40),
+                enrich_metadata=bool(payload.get("enrich_metadata",True)),
+            )
+
+        def suryadev_curriculum_latest_action(payload,context):
+            return self.suryadev.curriculum_latest(str(payload.get("horse_id") or ""))
+
+        def suryadev_shift_boundary_action(payload,context):
+            return self.suryadev.horse_shift_boundary(
+                payload.get("elapsed_seconds") or 0,
+                payload.get("video_remaining_seconds"),
+            )
 
         def suryadev_job_action(payload,context):
             return self.suryadev.create_job(
@@ -4378,6 +4433,51 @@ class Orchestrator:
         self.action_bus.register(
             "suryadev.status",suryadev_status_action,
             description="Read SURYDEV external eye/ear research worker status",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.horses.status",suryadev_horse_status_action,
+            description="Read seven permanent SURYDEV horse device-learning Shishya status",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.horses.auto-bind",suryadev_horse_auto_bind_action,
+            description="Assign an approved paired device to a free SURYDEV horse from non-secret capability data",
+            mutating=True,requires_approval=True,permissions=("runtime.write",),
+            sources=("pc","system","job"),
+        )
+        self.action_bus.register(
+            "suryadev.horses.heartbeat",suryadev_horse_heartbeat_action,
+            description="Record lightweight health and learning heartbeat for one bound SURYDEV horse",
+            mutating=True,permissions=("runtime.write",),
+            sources=("pc","system","agent","job","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.horses.learning",suryadev_horse_learning_action,
+            description="Route a horse media-learning batch through existing BRAHMA and subject Rishis",
+            mutating=True,permissions=("memory.write",),
+            sources=("pc","system","agent","job","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.curriculum.plan",suryadev_curriculum_plan_action,
+            description="BRAHMA/Rishi guided six-hour free-only learning playlist for a SURYDEV horse",
+            mutating=True,permissions=("web.read","memory.write"),
+            sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
+            "suryadev.curriculum.next",suryadev_curriculum_next_action,
+            description="Choose the next six-hour subject from BRAHMAGYAN gaps and build a free-only playlist",
+            mutating=True,permissions=("web.read","memory.write"),
+            sources=("pc","system","job"),
+        )
+        self.action_bus.register(
+            "suryadev.curriculum.latest",suryadev_curriculum_latest_action,
+            description="Read latest curriculum assigned to a SURYDEV horse",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "suryadev.shift-boundary",suryadev_shift_boundary_action,
+            description="Apply six-hour learning boundary and five-minute finish-current-video grace",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
