@@ -21,14 +21,21 @@
   function pointingRay(handResult){
     let best=null;
     for(const hand of (handResult&&Array.isArray(handResult.hands)?handResult.hands:[])){
-      const pts=pointMap(hand),pip=pts.get(6),dip=pts.get(7),tip=pts.get(8),mcp=pts.get(5);
-      if(!tip||(!dip&&!pip)||!mcp)continue;
+      const pts=pointMap(hand),wrist=pts.get(0),pip=pts.get(6),dip=pts.get(7),tip=pts.get(8),mcp=pts.get(5);
+      if(!wrist||!tip||(!dip&&!pip)||!mcp)continue;
+      const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+      const indexExtended=dist(wrist,tip)>dist(wrist,pip)*1.12 && dist(mcp,tip)>dist(mcp,pip)*1.35;
+      let otherExtended=0;
+      for(const [p,t] of [[10,12],[14,16],[18,20]]){
+        const pp=pts.get(p),tt=pts.get(t);if(pp&&tt&&dist(wrist,tt)>dist(wrist,pp)*1.12)otherExtended++;
+      }
+      if(!indexExtended||otherExtended>1)continue;
       const base=dip||pip;
       let dx=tip.x-base.x,dy=tip.y-base.y;
       const mag=Math.hypot(dx,dy);if(mag<.025)continue;
       dx/=mag;dy/=mag;
       const straight=Math.hypot(tip.x-mcp.x,tip.y-mcp.y);
-      const confidence=clamp(.35+Math.min(.65,straight*2.4));
+      const confidence=clamp(.45+Math.min(.5,straight*2.2)-otherExtended*.08);
       const row={origin:{x:tip.x,y:tip.y},dir:{x:dx,y:dy},confidence,handedness:String(hand.handedness||"UNKNOWN")};
       if(!best||row.confidence>best.confidence)best=row;
     }
