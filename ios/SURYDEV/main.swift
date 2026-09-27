@@ -522,7 +522,7 @@ final class SuryadevViewController: UIViewController, WKNavigationDelegate, WKUI
         let n = NotificationCenter.default
         n.addObserver(self, selector: #selector(batteryChanged), name: UIDevice.batteryLevelDidChangeNotification, object: nil)
         n.addObserver(self, selector: #selector(thermalChanged), name: ProcessInfo.thermalStateDidChangeNotification, object: nil)
-        n.addObserver(self, selector: #selector(powerChanged), name: .NSProcessInfoPowerStateDidChange, object: nil)
+        n.addObserver(self, selector: #selector(powerChanged), name: ProcessInfo.powerStateDidChangeNotification, object: nil)
         n.addObserver(self, selector: #selector(memoryWarning), name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
         n.addObserver(self, selector: #selector(appActive), name: UIApplication.didBecomeActiveNotification, object: nil)
         n.addObserver(self, selector: #selector(appInactive), name: UIApplication.willResignActiveNotification, object: nil)
