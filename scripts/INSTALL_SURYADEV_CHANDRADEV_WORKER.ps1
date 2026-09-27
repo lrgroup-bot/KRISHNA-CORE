@@ -41,7 +41,8 @@ $Packages = @(
     "faster-whisper>=1.1,<2",
     "scenedetect[opencv]>=0.6.6,<0.8",
     "playwright>=1.50,<2",
-    "openadapt-capture>=1.3,<1.4"
+    "openadapt-capture>=1.3,<1.4",
+    "yt-dlp"
 )
 & $Python -m pip install $Packages
 
@@ -70,5 +71,18 @@ Write-Host "  Python    : $Python"
 Write-Host "  Workspace : $Workspace"
 Write-Host "  Models    : $Models"
 Write-Host ""
+Write-Host ""
+Write-Host "Attempting private-LAN SURYDEV learning-node enrollment..."
+try {
+    $Enroll = & $Python (Join-Path $Core "suryadev_worker.py") --root (Join-Path $Workspace "suryadev") --auto-enroll
+    $Enroll | Set-Content -Encoding UTF8 (Join-Path $Root "suryadev-enrollment.json")
+    Write-Host "  Enrollment result: $(Join-Path $Root "suryadev-enrollment.json")"
+    Write-Host "  If pairing is pending, approve the device on the KRISHNA PC; rerun auto-enroll afterward."
+} catch {
+    Write-Warning "SURYDEV auto-enroll could not complete now: $($_.Exception.Message)"
+    Write-Host "  Installation remains valid. Retry later with:"
+    Write-Host "  $Python $Core\suryadev_worker.py --root $Workspace\suryadev --auto-enroll"
+}
+
 Write-Host "FFmpeg is optional but recommended and must be installed separately if not already present."
 Write-Host "No paid API or paid service is configured by this installer."
