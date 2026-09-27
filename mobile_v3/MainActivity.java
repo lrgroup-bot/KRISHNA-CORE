@@ -62,6 +62,11 @@ public class MainActivity extends Activity {
     b.setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle("KRISHNA completed work").setContentText(text).setAutoCancel(true);
     ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify((int)(System.currentTimeMillis()&0x7fffffff),b.build());
   }
+  void notifySuryadev(String text){
+    Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,NOTIFY_CHANNEL):new Notification.Builder(this);
+    b.setSmallIcon(android.R.drawable.stat_notify_error).setContentTitle("KRISHNA · SURYADEV").setContentText(text).setAutoCancel(true);
+    ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify((int)(System.currentTimeMillis()&0x7fffffff),b.build());
+  }
 
   boolean assistantRoleHeld(){
     if(Build.VERSION.SDK_INT<29)return false;
@@ -589,6 +594,8 @@ public class MainActivity extends Activity {
           JSONObject e=a.getJSONObject(i);
           if("task.completed".equals(e.optString("type"))){
             JSONObject p=e.optJSONObject("payload");if(p!=null)notifyCompleted(p.optString("summary","KRISHNA completed the task"));
+          }else if("suryadev.alert".equals(e.optString("type"))){
+            JSONObject p=e.optJSONObject("payload");if(p!=null)notifySuryadev(p.optString("summary","SURYDEV device needs attention"));
           }
         }
       }catch(Exception ignored){}
