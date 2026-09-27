@@ -193,16 +193,37 @@ jobs:
           cp node_modules/three/examples/jsm/loaders/GLTFLoader.js app/src/main/assets/three/GLTFLoader.js
           sed -i "s/from 'three'/from '.\/three.module.js'/" app/src/main/assets/three/GLTFLoader.js
 
-      - name: Build APK
+      - name: Build canonical KRISHNA Mobile APK
         run: |
+          set -euo pipefail
           gradle --no-daemon :app:assembleDebug --stacktrace
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/KRISHNA-v3.9-Production-Candidate.apk
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/KRISHNA-Mobile.apk
+          sha256sum dist/KRISHNA-Mobile.apk | tee dist/KRISHNA-Mobile.apk.sha256
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          apk=Path("dist/KRISHNA-Mobile.apk")
+          payload={
+              "artifact":"KRISHNA-Mobile.apk",
+              "package_id":"com.krishna.mobile",
+              "build_type":"debug-signed private test APK",
+              "source_sha":os.environ.get("GITHUB_SHA",""),
+              "source_ref":os.environ.get("GITHUB_REF_NAME",""),
+              "size_bytes":apk.stat().st_size,
+              "install":"adb install -r KRISHNA-Mobile.apk",
+              "runtime_root_recommendation":r"E:\KRISHNA-Mobile",
+          }
+          Path("dist/KRISHNA-Mobile-build.json").write_text(
+              json.dumps(payload,indent=2),encoding="utf-8"
+          )
+          PY
 
       - name: Verify conversation-only KRISHNA Mobile
         shell: bash
         run: |
           set -euo pipefail
-          test -f app/build/outputs/apk/debug/app-debug.apk
+          test -f dist/KRISHNA-Mobile.apk
           test -s app/src/main/assets/krishna_child_360.webp
           test -s app/src/main/assets/canonical-runtime.json
           grep -q '"version": "krishna-mobile-canonical-v1"' app/src/main/assets/canonical-runtime.json
@@ -266,7 +287,9 @@ jobs:
           grep -q "android.service.voice.VoiceInteractionService" app/src/main/AndroidManifest.xml
           grep -q "@xml/krishna_voice_interaction_service" app/src/main/AndroidManifest.xml
           test -s app/src/main/res/xml/krishna_voice_interaction_service.xml
-          test -f app/build/outputs/apk/debug/KRISHNA-v3.9-Production-Candidate.apk
+          test -f dist/KRISHNA-Mobile.apk
+          test -s dist/KRISHNA-Mobile.apk.sha256
+          test -s dist/KRISHNA-Mobile-build.json
           grep -q "verifyVoice" app/src/main/assets/index.html
           grep -q "startFieldScan" app/src/main/assets/index.html
           grep -q 'id="diagnosticOverlay"' app/src/main/assets/index.html
@@ -403,7 +426,7 @@ jobs:
           from krishna_core.privacy_guardian.mobile import basic_apk_privacy_audit
           from krishna_core.privacy_guardian.policy import evaluate_release_gate
 
-          apk=Path("app/build/outputs/apk/debug/app-debug.apk")
+          apk=Path("dist/KRISHNA-Mobile.apk")
           report=basic_apk_privacy_audit(apk)
           wrapped={"target_type":"mobile","findings":report["findings"]}
           gate=evaluate_release_gate(wrapped,"MOBILE_RELEASE")
@@ -446,7 +469,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            PYTHONPATH=core python scripts/VERIFY_KRISHNA_APK.py app/build/outputs/apk/debug/app-debug.apk com.krishna.mobile
+            PYTHONPATH=core python scripts/VERIFY_KRISHNA_APK.py dist/KRISHNA-Mobile.apk com.krishna.mobile
             sleep 3
             adb logcat -d -s KRISHNA_UI_READY:I '*:S' | tee krishna-ui-ready.log
             grep -q '"avatar_visible":true' krishna-ui-ready.log
@@ -465,11 +488,23 @@ jobs:
             krishna-ui-ready.log
           retention-days: 30
 
-      - uses: actions/upload-artifact@v7
+      - name: Upload canonical KRISHNA Mobile APK
+        uses: actions/upload-artifact@v7
         with:
-          name: KRISHNA-v3.9-Assistant-Photographer-APK
+          name: KRISHNA-Mobile-APK
           path: |
-            app/build/outputs/apk/debug/KRISHNA-v3.9-Production-Candidate.apk
-            app/build/outputs/apk/debug/app-debug.apk
+            dist/KRISHNA-Mobile.apk
+            dist/KRISHNA-Mobile.apk.sha256
+            dist/KRISHNA-Mobile-build.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload KRISHNA Mobile validation reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: KRISHNA-Mobile-Validation
+          path: |
             privacy-apk-report.json
             project-perfection-apk-retest.json
+          if-no-files-found: error
+          retention-days: 30
