@@ -304,6 +304,9 @@ jobs:
           grep -q "saveHawkeyeCapture" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "ML_KIT_OBJECT_TRACKER" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
           grep -q "ML_KIT_LOCAL_RICH" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
+          grep -q "hawkeyeCameraProfile" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "HawkeyeCameraProfiler.profile" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "CONTROL_ZOOM_RATIO_RANGE" app/src/main/java/com/krishna/mobile/HawkeyeCameraProfiler.java
           grep -q "hawkeyeReadTarget" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "analyzeReadTarget" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
           grep -q "enableAllPotentialBarcodes" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
