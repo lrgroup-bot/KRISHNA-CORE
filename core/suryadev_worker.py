@@ -20,6 +20,7 @@ import time
 import ctypes
 
 from krishna_core.suryadev_device_profile import SuryadevDeviceSelector
+from krishna_core.suryadev_device_client import SuryadevDeviceClient
 
 
 AGENT = "SURYDEV"
@@ -155,6 +156,28 @@ def probe():
     }
 
 
+def auto_enroll(root):
+    capability=probe()
+    client=SuryadevDeviceClient(Path(root)/"device-client")
+    result=client.auto_enroll(
+        capability.get("device_profile") or {},
+        label=f"SURYDEV {platform.system()} learning node",
+    )
+    return {
+        "agent":AGENT,
+        "version":VERSION,
+        "device_profile":capability.get("device_profile"),
+        "recommended_workload":capability.get("recommended_workload"),
+        "enrollment":result,
+        "policy":{
+            "credential_printed":False,
+            "serial_collected":False,
+            "mac_address_collected":False,
+            "paid_learning":False,
+        },
+    }
+
+
 def _safe_job_id(value):
     value = "".join(ch for ch in str(value or "") if ch.isalnum() or ch in "-_")
     if not value:
@@ -245,6 +268,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="KRISHNA SURYDEV external Eye+Ear worker")
     parser.add_argument("--root", default=str(Path.cwd() / "suryadev-workspace"))
     parser.add_argument("--probe", action="store_true")
+    parser.add_argument("--auto-enroll", action="store_true",
+                        help="Discover private KRISHNA Core, request/verify pairing, and auto-select a horse workload")
     parser.add_argument("--job")
     parser.add_argument("--watch")
     parser.add_argument("--poll", type=float, default=2.0)
@@ -252,6 +277,9 @@ def main(argv=None):
 
     if args.probe:
         print(json.dumps(probe(), ensure_ascii=False, indent=2))
+        return 0
+    if args.auto_enroll:
+        print(json.dumps(auto_enroll(args.root), ensure_ascii=False, indent=2))
         return 0
     if args.job:
         print(json.dumps(process_job(args.job, args.root), ensure_ascii=False, indent=2))
