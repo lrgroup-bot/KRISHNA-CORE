@@ -25,6 +25,8 @@ import os
 import time
 import uuid
 
+from .suryadev_device_profile import SuryadevDeviceSelector
+
 
 HORSE_PROFILES=(
     {
@@ -160,6 +162,8 @@ class SuryadevHorseFleet:
                 "permanent":True,
                 "parent":"suryadev",
                 "binding":bind or None,
+                "workload":bind.get("workload") if bind else None,
+                "max_browser_tabs":bind.get("max_browser_tabs") if bind else 0,
                 "runtime":live or None,
                 "connected":connected,
                 "server_link":"green" if connected else "red",
@@ -168,6 +172,54 @@ class SuryadevHorseFleet:
                 "age_seconds":None if age is None else round(age,1),
             })
         return out
+
+    def auto_bind(self, *, node_id, profile, label="", approved=False):
+        """Assign the best available horse from a non-secret device capability profile."""
+        if not approved:
+            raise PermissionError("owner/Sudarshan approval required to auto-bind a physical device")
+        node_id=self._text(node_id,200)
+        if not node_id:
+            raise ValueError("node_id is required")
+        bindings=self._read_object(self.bindings_file)
+        # If this node is already bound, re-evaluate workload but preserve horse identity.
+        existing=next(((hid,row) for hid,row in bindings.items() if str((row or {}).get("node_id") or "")==node_id),None)
+        classified=SuryadevDeviceSelector.classify(profile)
+        if existing:
+            hid,row=existing
+            row=dict(row or {})
+            row["profile"]=classified
+            row["workload"]=classified["workload"]
+            row["max_browser_tabs"]=classified["max_browser_tabs"]
+            row["updated_at"]=time.time()
+            bindings[hid]=row
+            self._write_object(self.bindings_file,bindings)
+            return {"binding":row,"classification":classified,"reused_existing_horse":True}
+
+        horse_id,classified=SuryadevDeviceSelector.choose_horse(HORSE_PROFILES,bindings,profile)
+        if not horse_id:
+            return {
+                "binding":None,
+                "classification":classified,
+                "reused_existing_horse":False,
+                "fleet_full":True,
+                "next_action":"add another SURYDEV device-learning Shishya only if all seven permanent horse slots are already bound",
+            }
+        row=self.bind(
+            horse_id,node_id=node_id,
+            device_class=classified["device_class"],
+            label=label or next((x["preferred_slot"] for x in HORSE_PROFILES if x["id"]==horse_id),None) or node_id,
+            approved=True,
+        )
+        bindings=self._read_object(self.bindings_file)
+        live=dict(bindings.get(horse_id) or row)
+        live["profile"]=classified
+        live["workload"]=classified["workload"]
+        live["max_browser_tabs"]=classified["max_browser_tabs"]
+        live["youtube_lanes"]=classified["youtube_lanes"]
+        live["updated_at"]=time.time()
+        bindings[horse_id]=live
+        self._write_object(self.bindings_file,bindings)
+        return {"binding":live,"classification":classified,"reused_existing_horse":False,"fleet_full":False}
 
     def bind(self,horse_id,*,node_id,device_class,label="",approved=False):
         if not approved:raise PermissionError("owner/Sudarshan approval required to bind a physical device to a SURYDEV horse")
@@ -188,6 +240,7 @@ class SuryadevHorseFleet:
             "bound_at":time.time(),
             "owner_approved":True,
             "authority":"SURYDEV device-learning only; no Rishi/Gyan authority",
+            "workload":"unclassified",
         }
         bindings[horse["id"]]=row
         self._write_object(self.bindings_file,bindings)
@@ -386,6 +439,12 @@ class SuryadevHorseFleet:
                 "publisher/channel","timestamps","transcript/captions",
             ],
             "authority":"device learning only; BRAHMA routes topics to existing Rishis",
+            "auto_assignment":{
+                "selector":SuryadevDeviceSelector.VERSION,
+                "inputs":"non-secret system capability profile only",
+                "workloads":["media_learning","web_research","hybrid","standby"],
+                "fleet_full_behavior":"do not invent more workers automatically; report capacity exhaustion for owner planning",
+            },
             "raw_media_transfer":False,
             "local_cleanup":"only after positive server receipt",
         }
