@@ -442,6 +442,7 @@ class SuryadevAgent:
                 "sha256": sha,
                 "subject": self._text(visual.get("subject"), 300),
                 "timestamp": self._text(visual.get("timestamp"), 80),
+                "timestamp_seconds": float(visual.get("timestamp_seconds") or 0),
                 "reason": self._text(visual.get("reason"), 600),
                 "research_question": self._text(visual.get("research_question"), 1200),
                 "lab_relevance": bool(visual.get("lab_relevance", False)),
@@ -468,8 +469,16 @@ class SuryadevAgent:
                 "sha256": "",
                 "note": source_title,
             }]
+            try:
+                start_num = float(start) if start is not None else None
+                end_num = float(end) if end is not None else None
+            except (TypeError, ValueError):
+                start_num = end_num = None
             for visual in safe_visuals:
                 if not visual.get("sha256"):
+                    continue
+                vsec = float(visual.get("timestamp_seconds") or 0)
+                if start_num is not None and end_num is not None and not (start_num - 60 <= vsec <= end_num + 60):
                     continue
                 evidence.append({
                     "source_ref": f"suryadev-visual:{visual['sha256']}",
