@@ -23,6 +23,7 @@ public final class MrityunjayaMobileHealer {
   static final long BURST_WINDOW_MS=60000L;
   static final int MAX_HEALS_PER_WINDOW=4;
   static final long CIRCUIT_BREAK_MS=120000L;
+  static volatile boolean PROCESS_GUARD_INSTALLED=false;
 
   public interface Listener {
     void onState(String state,JSONObject snapshot);
@@ -44,6 +45,36 @@ public final class MrityunjayaMobileHealer {
     this.prefs=app.getSharedPreferences("mrityunjaya_mobile",Context.MODE_PRIVATE);
     long saved=prefs.getLong("circuit_open_until",0L);
     circuitOpenUntil=Math.max(0L,saved);
+    installProcessCrashGuard();
+    if(prefs.getBoolean("pending_native_crash",false)){
+      healing=true;
+      pendingKind="native-crash";
+      emit("HEALING","Recovering after previous native crash");
+    }
+  }
+
+  void installProcessCrashGuard(){
+    if(PROCESS_GUARD_INSTALLED)return;
+    synchronized(MrityunjayaMobileHealer.class){
+      if(PROCESS_GUARD_INSTALLED)return;
+      final Thread.UncaughtExceptionHandler previous=Thread.getDefaultUncaughtExceptionHandler();
+      final SharedPreferences store=prefs;
+      Thread.setDefaultUncaughtExceptionHandler((thread,error)->{
+        try{
+          String detail=(error==null?"unknown native crash":error.getClass().getSimpleName()+": "+String.valueOf(error.getMessage()));
+          store.edit()
+            .putBoolean("pending_native_crash",true)
+            .putString("last_fault_kind","native-crash")
+            .putString("last_fault_detail",clean(detail,800))
+            .putLong("fault_count",store.getLong("fault_count",0L)+1L)
+            .putLong("last_event_at",System.currentTimeMillis())
+            .apply();
+          Log.e("MRUTYUNJAYA_MOBILE","native crash marker recorded",error);
+        }catch(Throwable ignored){}
+        if(previous!=null)previous.uncaughtException(thread,error);
+      });
+      PROCESS_GUARD_INSTALLED=true;
+    }
   }
 
   static String clean(String value,int max){
@@ -165,7 +196,7 @@ public final class MrityunjayaMobileHealer {
 
   public synchronized void recovered(String kind,String detail){
     String k=clean(kind,80);
-    boolean uiProof="ui-shell".equals(k)&&("ui-shell".equals(pendingKind)||"javascript-runtime".equals(pendingKind)||"webview-renderer".equals(pendingKind));
+    boolean uiProof="ui-shell".equals(k)&&("ui-shell".equals(pendingKind)||"javascript-runtime".equals(pendingKind)||"webview-renderer".equals(pendingKind)||"native-crash".equals(pendingKind));
     boolean matched=healing&&(pendingKind.isEmpty()||pendingKind.equals(k)||uiProof);
     if(!matched){
       healthy(detail);
@@ -175,6 +206,7 @@ public final class MrityunjayaMobileHealer {
     pendingKind="";
     prefs.edit()
       .putLong("recovered_count",prefs.getLong("recovered_count",0L)+1L)
+      .putBoolean("pending_native_crash",false)
       .putString("last_action","verified-recovered:"+k)
       .putLong("last_event_at",System.currentTimeMillis())
       .apply();
