@@ -41,6 +41,16 @@ NETWORK / POWER EQUIPMENT
    - Status: Owned
    - Note: Treat as potentially passive 24V PoE until exact standard/pinout is verified. Do not connect unknown Ethernet equipment to POE output.
 
+VIDEO / DISPLAY EQUIPMENT
+-------------------------
+7. LINETEK 1x8 Video Splitter 4K
+   - Model: LTK-HS108
+   - Status: Owned
+   - Function: One video/HDMI source distributed to up to 8 displays/outputs (exact connector layout to verify from front/rear photos)
+   - Marking: 4K
+   - Potential KRISHNA use: Duplicate Suryadev/Chandradev/KRISHNA monitoring output to multiple displays; possible test/display distribution station
+   - Action: Verify input/output connector type, power adapter rating, supported refresh rate/HDCP/EDID behavior and working condition before deployment
+
 POTENTIAL SALVAGE / REUSE FROM OLD LAPTOPS
 ------------------------------------------
 - 2.5-inch HDDs: inspect model/capacity/SMART health before reuse
