@@ -50,6 +50,16 @@
     liveAudioNextTime: 0,
     lastZoomAt: 0,
     lastLearnText: "",
+    activeSelection: null,
+    activeRead: null,
+    activeRecovery: null,
+    activeVisionTimer: null,
+    targetReadBusy: false,
+    lastTargetKey: "",
+    lastCameraPlanAt: 0,
+    autoTorchOwned: false,
+    cameraProfile: null,
+    announcedCompleteKey: "",
     recorder: null,
     chunks: [],
     recordStopTimer: null,
@@ -93,6 +103,138 @@
       if(i+1<samples)await sleep(90);
     }
     return best;
+  }
+
+  function captureTargetFrame(selection,maxW=1100,quality=0.82){
+    const v=video(),item=selection&&selection.item,b=item&&item.bbox;
+    if(!v||!v.videoWidth||!v.videoHeight||!Array.isArray(b)||b.length!==4)return null;
+    const pad=.065;
+    const x=Math.max(0,(Number(b[0])||0)-pad),y=Math.max(0,(Number(b[1])||0)-pad);
+    const w=Math.min(1-x,(Number(b[2])||0)+pad*2),h=Math.min(1-y,(Number(b[3])||0)+pad*2);
+    const sx=Math.round(x*v.videoWidth),sy=Math.round(y*v.videoHeight);
+    const sw=Math.max(8,Math.round(w*v.videoWidth)),sh=Math.max(8,Math.round(h*v.videoHeight));
+    const scale=Math.min(3.0,Math.max(1,Math.min(maxW/sw,1400/sh)));
+    const c=document.createElement("canvas");
+    c.width=Math.max(1,Math.round(sw*scale));c.height=Math.max(1,Math.round(sh*scale));
+    const ctx=c.getContext("2d",{alpha:false});
+    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
+    ctx.filter="contrast(1.16) brightness(1.04) saturate(.96)";
+    ctx.drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);ctx.filter="none";
+    const q=frameQuality(c);
+    return {canvas:c,b64:(c.toDataURL("image/jpeg",quality).split(",")[1]||""),quality:q,crop:[x,y,w,h]};
+  }
+
+  function activeObjects(){
+    if(state.objects&&state.objects.length)return state.objects;
+    const subjects=state.rich&&Array.isArray(state.rich.subjects)?state.rich.subjects:[];
+    return subjects.filter(x=>x&&Array.isArray(x.bbox)).map((x,i)=>({
+      bbox:x.bbox,tracking_id:"subject-"+i,label:"subject",labels:[]
+    }));
+  }
+
+  function refreshActiveSelection(){
+    if(!window.HawkeyeActiveVision)return null;
+    const selection=HawkeyeActiveVision.selectTarget(activeObjects(),state.handResult,state.lockedTrackingId);
+    const key=selection&&selection.key||"";
+    if(key!==state.lastTargetKey){
+      state.lastTargetKey=key;state.activeRead=null;state.activeRecovery=null;state.announcedCompleteKey="";
+    }
+    state.activeSelection=selection;
+    return selection;
+  }
+
+  function setActiveVisionState(mode,text,details){
+    const layer=byId("cameraLayer"),status=byId("activeVisionStatus"),panel=byId("activeVisionPanel");
+    if(layer){
+      for(const x of ["av-search","av-lock","av-reading","av-recover","av-complete"])layer.classList.remove(x);
+      layer.classList.add("av-"+String(mode||"search").toLowerCase());
+    }
+    if(status)status.textContent=String(text||"DETECTING");
+    if(panel){
+      const d=details||{},rows=[];
+      if(d.name)rows.push(d.name);
+      if(d.model)rows.push("Model: "+d.model);
+      if(d.serial)rows.push("Serial: "+d.serial);
+      if(d.input)rows.push("Input: "+d.input);
+      if(d.output)rows.push("Output: "+d.output);
+      if(d.power)rows.push("Power: "+d.power);
+      if(d.voltage&&!d.input&&!d.output)rows.push("Voltage: "+d.voltage);
+      if(d.current&&!d.input&&!d.output)rows.push("Current: "+d.current);
+      if(d.barcode)rows.push("Code: "+d.barcode);
+      if(!rows.length&&state.activeRead&&state.activeRead.text)rows.push(String(state.activeRead.text).slice(0,320));
+      panel.textContent=rows.join("\n");
+      panel.classList.toggle("active",rows.length>0||mode==="COMPLETE");
+    }
+  }
+
+  async function applyActiveCameraPlan(selection,readResult,recovery,quality){
+    if(!cameraActive()||!selection||!selection.item||Date.now()-state.lastCameraPlanAt<160)return;
+    const track=fieldStream&&fieldStream.getVideoTracks()[0];
+    if(!track||!track.getCapabilities||!track.getSettings||!track.applyConstraints)return;
+    const caps=track.getCapabilities()||{},settings=track.getSettings()||{},advanced={};
+    let changed=false;
+    if(caps.zoom&&typeof caps.zoom.min==="number"&&typeof caps.zoom.max==="number"){
+      const current=Number(settings.zoom||caps.zoom.min||1);
+      let factor=window.HawkeyeActiveVision?HawkeyeActiveVision.zoomFactor(selection,readResult):1;
+      if(readResult&&!readResult.complete&&readResult.samples>=2)factor=Math.max(factor,1.08);
+      const desired=Math.max(caps.zoom.min,Math.min(caps.zoom.max,current*factor));
+      if(Math.abs(desired-current)>=.045){advanced.zoom=desired;changed=true;}
+    }
+    if(Array.isArray(caps.focusMode)&&caps.focusMode.includes("continuous")&&settings.focusMode!=="continuous"){
+      advanced.focusMode="continuous";changed=true;
+    }
+    const q=quality||{};
+    const low=!!q.lowLight||Number(q.brightness||0)<42;
+    if(caps.torch===true&&low&&!state.torchOn&&!(readResult&&readResult.complete)){
+      advanced.torch=true;state.torchOn=true;state.autoTorchOwned=true;changed=true;
+    }else if(caps.torch===true&&state.autoTorchOwned&&state.torchOn&&(Number(q.brightness||0)>72||(readResult&&readResult.complete))){
+      advanced.torch=false;state.torchOn=false;state.autoTorchOwned=false;changed=true;
+    }
+    if(caps.exposureCompensation&&typeof caps.exposureCompensation.min==="number"&&typeof caps.exposureCompensation.max==="number"){
+      const current=Number(settings.exposureCompensation||0),step=Number(caps.exposureCompensation.step||.25);
+      let desired=current;
+      if(Number(q.brightness||0)<58)desired=Math.min(caps.exposureCompensation.max,current+Math.max(step,.25));
+      else if(Number(q.brightness||0)>205)desired=Math.max(caps.exposureCompensation.min,current-Math.max(step,.25));
+      if(Math.abs(desired-current)>=Math.max(.05,step/2)){advanced.exposureCompensation=desired;changed=true;}
+    }
+    if(!changed)return;
+    try{
+      state.lastCameraPlanAt=Date.now();
+      await track.applyConstraints({advanced:[advanced]});
+      const btn=byId("cameraTorch");if(btn){btn.classList.toggle("active",state.torchOn);btn.textContent=state.torchOn?"LIGHT ON":"LIGHT";}
+    }catch(_){}
+  }
+
+  async function activeVisionTick(){
+    if(!cameraActive()||state.targetReadBusy||!window.HawkeyeActiveVision||!window.Krishna||!Krishna.hawkeyeReadTarget)return;
+    const selection=refreshActiveSelection();
+    if(!selection){setActiveVisionState("SEARCH","DETECTING ITEM",{});return;}
+    const frame=captureTargetFrame(selection,1100,.84);
+    if(!frame||!frame.b64)return;
+    state.targetReadBusy=true;
+    try{
+      const read=JSON.parse(Krishna.hawkeyeReadTarget(frame.b64));if(read.error)return;
+      const result=HawkeyeActiveVision.registerRead(selection,read,frame.quality);
+      const recovery=HawkeyeActiveVision.recovery(result,frame.quality,selection);
+      state.activeRead=result;state.activeRecovery=recovery;
+      await applyActiveCameraPlan(selection,result,recovery,frame.quality);
+      if(result.complete){
+        setActiveVisionState("COMPLETE","READ COMPLETE",result.details);
+        if(state.announcedCompleteKey!==selection.key){
+          state.announcedCompleteKey=selection.key;
+          if(navigator.vibrate)try{navigator.vibrate(35);}catch(_){}
+        }
+      }else if(recovery.actions&&recovery.actions.length){
+        const label=recovery.actions.includes("REFOCUS")?"REFOCUSING":
+          (recovery.actions.includes("ZOOM_IN")?"ZOOMING TO LABEL":
+          (recovery.actions.includes("LIGHT")?"ENHANCING LIGHT":"READING"));
+        setActiveVisionState("RECOVER",label,result.details);
+      }else{
+        setActiveVisionState("READING",selection.source==="POINTED"?"POINTED TARGET · READING":"READING",result.details);
+      }
+      drawObjects(state.objects);
+    }catch(_){}
+    finally{state.targetReadBusy=false;}
   }
 
 
@@ -202,46 +344,39 @@
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,cw,ch);
     const scale=Math.max(cw/v.videoWidth,ch/v.videoHeight),dw=v.videoWidth*scale,dh=v.videoHeight*scale,ox=(cw-dw)/2,oy=(ch-dh)/2;
     ctx.lineWidth=2;ctx.font="12px sans-serif";ctx.textBaseline="bottom";
+    const activeKey=state.activeSelection&&state.activeSelection.key||"";
     for(const item of objects||[]){
       const b=item&&item.bbox;if(!Array.isArray(b)||b.length!==4)continue;
       const x=ox+(Number(b[0])||0)*dw,y=oy+(Number(b[1])||0)*dh,w=(Number(b[2])||0)*dw,h=(Number(b[3])||0)*dh;
-      ctx.strokeStyle="#50f0ac";ctx.fillStyle="#50f0ac";ctx.strokeRect(x,y,w,h);
+      const key=window.HawkeyeActiveVision?HawkeyeActiveVision.targetKey(item):"";
+      const selected=!!activeKey&&key===activeKey,complete=selected&&state.activeRead&&state.activeRead.complete;
+      ctx.lineWidth=selected?3:1.5;
+      ctx.strokeStyle=complete?"#43f59b":(selected?"#45d4e8":"rgba(150,215,225,.58)");
+      ctx.fillStyle=ctx.strokeStyle;ctx.strokeRect(x,y,w,h);
+      if(selected){
+        const s=11;ctx.lineWidth=4;
+        ctx.beginPath();ctx.moveTo(x,y+s);ctx.lineTo(x,y);ctx.lineTo(x+s,y);
+        ctx.moveTo(x+w-s,y);ctx.lineTo(x+w,y);ctx.lineTo(x+w,y+s);
+        ctx.moveTo(x,y+h-s);ctx.lineTo(x,y+h);ctx.lineTo(x+s,y+h);
+        ctx.moveTo(x+w-s,y+h);ctx.lineTo(x+w,y+h);ctx.lineTo(x+w,y+h-s);ctx.stroke();
+      }
       const tid=item.tracking_id===null||item.tracking_id===undefined?"":" #"+item.tracking_id;
       const top=Array.isArray(item.labels)&&item.labels.length?item.labels[0]:null;
       const conf=top&&Number.isFinite(Number(top.confidence))?" "+Math.round(Number(top.confidence)*100)+"%":"";
-      ctx.fillText(String(item.label||"object").slice(0,20)+tid+conf,x+3,Math.max(14,y-2));
+      const prefix=complete?"READ ✓ · ":(selected?(state.activeSelection.source==="POINTED"?"POINTED · ":"TARGET · "):"");
+      ctx.fillText(prefix+String(item.label||"object").slice(0,20)+tid+conf,x+3,Math.max(14,y-2));
+    }
+    const ray=state.activeSelection&&state.activeSelection.ray;
+    if(ray&&ray.origin&&ray.dir){
+      const x1=ox+ray.origin.x*dw,y1=oy+ray.origin.y*dh,len=Math.max(cw,ch)*.34;
+      ctx.save();ctx.strokeStyle="rgba(242,201,111,.9)";ctx.lineWidth=2;ctx.setLineDash([7,5]);
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x1+ray.dir.x*len,y1+ray.dir.y*len);ctx.stroke();ctx.restore();
     }
   }
 
   async function autoZoom(objects){
-    if(!cameraActive()||Date.now()-state.lastZoomAt<1500||!objects||!objects.length)return;
-    const track=fieldStream.getVideoTracks()[0];
-    if(!track||!track.getCapabilities||!track.getSettings||!track.applyConstraints)return;
-    const caps=track.getCapabilities();
-    if(!caps||!caps.zoom||typeof caps.zoom.min!=="number"||typeof caps.zoom.max!=="number")return;
-    let best=null,bestArea=-1;
-    if(state.lockedTrackingId!==null){
-      best=(objects||[]).find(x=>x&&x.tracking_id===state.lockedTrackingId)||null;
-      if(best&&Array.isArray(best.bbox))bestArea=Math.max(0,Number(best.bbox[2])||0)*Math.max(0,Number(best.bbox[3])||0);
-      if(!best){state.lockedTrackingId=null;const lock=byId("cameraLock");if(lock){lock.classList.remove("active");lock.textContent="LOCK";}}
-    }
-    if(!best)for(const item of objects){
-      const b=item&&item.bbox;if(!Array.isArray(b)||b.length!==4)continue;
-      const area=Math.max(0,Number(b[2])||0)*Math.max(0,Number(b[3])||0);
-      if(area>bestArea){bestArea=area;best=item;}
-    }
-    if(!best||bestArea<=0)return;
-    const current=Number(track.getSettings().zoom||caps.zoom.min||1);
-    let desired=current;
-    if(bestArea<0.10)desired=current*Math.min(1.8,Math.sqrt(0.16/bestArea));
-    else if(bestArea>0.42)desired=current*0.88;
-    else return;
-    desired=Math.max(caps.zoom.min,Math.min(caps.zoom.max,desired));
-    if(Math.abs(desired-current)<0.08)return;
-    try{
-      state.lastZoomAt=Date.now();
-      await track.applyConstraints({advanced:[{zoom:desired}]});
-    }catch(_){}
+    refreshActiveSelection();
+    if(state.activeSelection)await applyActiveCameraPlan(state.activeSelection,state.activeRead,state.activeRecovery,null);
   }
 
   async function detect(){
@@ -252,6 +387,7 @@
       const result=JSON.parse(Krishna.hawkeyeDetectObjects(frame.b64));
       if(result.error)return;
       state.objects=Array.isArray(result.objects)?result.objects:[];
+      refreshActiveSelection();
       drawObjects(state.objects);
       await autoZoom(state.objects);
     }catch(_){}
@@ -330,13 +466,16 @@
   }
 
   async function handPerception(){
-    if(!cameraActive()||!state.gesturesEnabled||state.handBusy||!window.Krishna||!Krishna.hawkeyeHandGesture)return;
-    const frame=captureFrame(480,0.58);if(!frame||!frame.b64)return;
+    if(!cameraActive()||state.handBusy||!window.Krishna||!Krishna.hawkeyeHandGesture)return;
+    const frame=captureFrame(360,0.52);if(!frame||!frame.b64)return;
     state.handBusy=true;
     try{
       const result=JSON.parse(Krishna.hawkeyeHandGesture(frame.b64));
       if(result.error){state.handResult=null;return;}
-      state.handResult=result;handleFingerGesture(result);if(state.rich)drawRich(state.rich);
+      state.handResult=result;
+      if(state.gesturesEnabled)handleFingerGesture(result);
+      refreshActiveSelection();
+      if(state.rich)drawRich(state.rich);
     }catch(_){state.handResult=null;}
     finally{state.handBusy=false;}
   }
@@ -364,6 +503,7 @@
 
   async function toggleTorch(){
     if(!cameraActive())return;
+    state.autoTorchOwned=false;
     const track=fieldStream&&fieldStream.getVideoTracks()[0],btn=byId("cameraTorch");
     if(!track||!track.getCapabilities||!track.applyConstraints){if(typeof reply==="function")reply("Camera torch control is unavailable on this device.","warn");return;}
     const caps=track.getCapabilities();if(!caps||caps.torch!==true){if(typeof reply==="function")reply("This camera does not expose hardware torch control.","warn");return;}
@@ -386,8 +526,7 @@
       const parts=[];
       const text=String(result.ocr&&result.ocr.text||"").trim();if(text)parts.push("OCR: "+text.slice(0,180));
       if(Array.isArray(result.barcodes)&&result.barcodes.length)parts.push("Codes: "+result.barcodes.map(x=>String(x.value||"").slice(0,50)).filter(Boolean).join(" · "));
-      if(result.recommended_next_scan)parts.push("Next view: "+result.recommended_next_scan);
-      const probe=frameQuality(frame.canvas);if(probe.lowLight)parts.push("LOW LIGHT · use LIGHT if this phone exposes torch control");
+      const probe=frameQuality(frame.canvas);
       state.localSummary=parts.join("\n");
       if(Array.isArray(result.faces)&&result.faces.length&&state.liveSocket)stopGeminiLive("Gemini Live stopped because a face entered the frame; HAWKEYE stays local.");
     }catch(_){}
@@ -424,7 +563,7 @@
       "User goal: "+String(typeof fieldGoal!=="undefined"?fieldGoal:"live visual assistance"),
       labels?"Local tracked objects: "+labels:"",
       ocr?"Local OCR (already redacted): "+ocr:"",
-      "Return a concise result and the next camera view that would reduce uncertainty."
+      "Return a concise result. For readability problems, do not instruct the owner to move left/right/closer or tilt; HAWKEYE Active Vision handles focus, zoom, light, crop and multi-frame retry automatically. Request a new physical view only when required information is genuinely hidden or occluded."
     ].filter(Boolean).join("\n");
   }
 
@@ -737,6 +876,16 @@
       free_cloud_analysis:String(state.freeCloudAnalysis||"").slice(0,2000),
       translation:{enabled:state.translationEnabled,target:state.translationTarget,text:String(state.translationText||"").slice(0,1500)},
       gestures:{enabled:state.gesturesEnabled,scope:state.handResult?"mediapipe-hand-finger":"upper-body-pose-fallback",last:state.lastGesture},
+      camera_profile:state.cameraProfile||{available:false},
+      active_vision:{
+        schema:"hawkeye.active-vision.v1",
+        target_key:String(state.activeSelection&&state.activeSelection.key||""),
+        target_source:String(state.activeSelection&&state.activeSelection.source||""),
+        read_state:String(state.activeRead&&state.activeRead.state||"SEARCH"),
+        read_complete:!!(state.activeRead&&state.activeRead.complete),
+        read_confidence:Number(state.activeRead&&state.activeRead.confidence||0),
+        details:state.activeRead&&state.activeRead.details||{}
+      },
       torch_on:state.torchOn,
       sensor_fusion:sensorSnapshot(),
       spatial_handoff:{bhumiputra_ready:true,slam_pose_claimed:false,depth_claimed:false,survey_grade:false},
@@ -876,21 +1025,26 @@
 
   function activate(){
     if(state.active)return;state.active=true;
-    state.objectTimer=setInterval(detect,1200);
-    state.richTimer=setInterval(richPerception,2600);
-    state.handTimer=setInterval(handPerception,900);
+    try{if(window.Krishna&&Krishna.hawkeyeCameraProfile)state.cameraProfile=JSON.parse(Krishna.hawkeyeCameraProfile());}catch(_){state.cameraProfile={available:false};}
+    state.objectTimer=setInterval(detect,260);
+    state.richTimer=setInterval(richPerception,1200);
+    state.handTimer=setInterval(handPerception,280);
+    state.activeVisionTimer=setInterval(activeVisionTick,300);
     state.learnTimer=setInterval(()=>learningTick(false),6000);
     state.freeCloudTimer=setInterval(()=>freeCloudTick(false),8000);
-    setTimeout(detect,300);setTimeout(richPerception,650);
+    setTimeout(detect,60);setTimeout(handPerception,100);setTimeout(activeVisionTick,180);setTimeout(richPerception,520);
   }
   function deactivate(){
     if(!state.active)return;state.active=false;
-    clearInterval(state.objectTimer);clearInterval(state.learnTimer);clearInterval(state.richTimer);clearInterval(state.handTimer);clearInterval(state.geminiTimer);clearInterval(state.freeCloudTimer);
-    state.objectTimer=state.learnTimer=state.richTimer=state.handTimer=state.geminiTimer=state.freeCloudTimer=null;
+    clearInterval(state.objectTimer);clearInterval(state.learnTimer);clearInterval(state.richTimer);clearInterval(state.handTimer);clearInterval(state.activeVisionTimer);clearInterval(state.geminiTimer);clearInterval(state.freeCloudTimer);
+    state.objectTimer=state.learnTimer=state.richTimer=state.handTimer=state.activeVisionTimer=state.geminiTimer=state.freeCloudTimer=null;
     stopGeminiLive();
     if(state.torchOn&&fieldStream){try{const t=fieldStream.getVideoTracks()[0];if(t&&t.applyConstraints)t.applyConstraints({advanced:[{torch:false}]});}catch(_){}}
     state.objects=[];state.researchQueries=[];state.lastLearnText="";state.rich=null;state.handResult=null;state.localSummary="";state.geminiAnalysis="";state.freeCloudAnalysis="";state.lastFreeCloudSignature="";state.lastFreeCloudProvider="";state.lastFreeCloudModel="";state.lastFreeCloudRole="";state.lastFreeCloudReviews=[];state.lastFreeCloudPc=null;
     state.aiMode="LOCAL";state.cloudApproved=false;state.lockedTrackingId=null;
+    state.activeSelection=null;state.activeRead=null;state.activeRecovery=null;state.lastTargetKey="";state.targetReadBusy=false;state.autoTorchOwned=false;state.cameraProfile=null;state.announcedCompleteKey="";
+    if(window.HawkeyeActiveVision)HawkeyeActiveVision.reset();
+    setActiveVisionState("SEARCH","DETECTING ITEM",{});
     state.translationEnabled=false;state.translationText="";state.translationSource="";state.translationBusy=false;
     state.gesturesEnabled=false;state.gestureCandidate="NONE";state.gestureCandidateCount=0;state.lastGesture="NONE";state.torchOn=false;
     for(const id of ["objectOverlay","richOverlay"]){const c=byId(id);if(c){const ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);}}
@@ -905,5 +1059,5 @@
 
   setInterval(()=>{if(cameraActive())activate();else deactivate();},500);
 
-  window.HawkeyeObserverUI={isLearning,toggleLearn,research,photo,photographerPhoto,record,detect,richPerception,learningTick,onResearchResult,toggleAI,freeCloudTick,pcOffloadContext,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
+  window.HawkeyeObserverUI={isLearning,toggleLearn,research,photo,photographerPhoto,record,detect,richPerception,activeVisionTick,learningTick,onResearchResult,toggleAI,freeCloudTick,pcOffloadContext,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
 })();

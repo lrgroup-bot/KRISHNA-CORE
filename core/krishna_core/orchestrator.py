@@ -68,6 +68,7 @@ from .bhumiputra import BhumiputraAgent
 from .hawkeye_learning import HawkeyeLearningRuntime
 from .hawkeye_learning_observer import HawkeyeLearningObserver
 from .hawkeye_coordinator import HawkeyeCoordinator
+from .hawkeye_active_vision import HawkeyeActiveVisionRuntime
 from .hawkeye_diagnostic import HawkeyeDiagnosticRuntime
 from .diagnostic_adapters import DiagnosticAdapterRegistry
 from .hawkeye_reference import HawkeyeReferenceRegistry
@@ -308,6 +309,7 @@ class Orchestrator:
         self.kabach = KabachAgent(self.memory,runtime_state / "privacy",browser=self.browser,gyan_bhandar=self.gyan_bhandar)
         self.bhumiputra = BhumiputraAgent(runtime_state / "bhumiputra")
         self.hawkeye_learning = HawkeyeLearningRuntime(runtime_state / "hawkeye" / "learning")
+        self.hawkeye_active_vision = HawkeyeActiveVisionRuntime(runtime_state / "hawkeye" / "active-vision")
         self.hawkeye_reference = HawkeyeReferenceRegistry(runtime_state / "hawkeye" / "references")
         self.hawkeye_diagnostic = HawkeyeDiagnosticRuntime(runtime_state / "hawkeye" / "diagnostic")
         self.diagnostic_adapters = DiagnosticAdapterRegistry()

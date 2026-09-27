@@ -79,6 +79,22 @@ class FieldPerceptionPolicy:
             ),
         ),
         PerceptionCapability(
+            "active-product-reading","object",
+            (
+                "automatic best-target selection",
+                "continuous finger-point target priority",
+                "tracked target crop and local OCR/barcode reading",
+                "multi-frame read consensus",
+                "automatic focus/zoom/light recovery when camera capabilities expose controls",
+                "green read-complete state before advancing to the next visible item",
+            ),
+            (
+                "do not invent hidden or unreadable product details",
+                "authentication secrets remain redacted",
+                "camera capability controls are runtime-gated",
+            ),
+        ),
+        PerceptionCapability(
             "electronics-inspection","electronics",
             (
                 "PCB/components/connectors/cables",

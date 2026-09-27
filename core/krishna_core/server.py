@@ -996,6 +996,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"agent":"hawkeye","missions":orch.hawkeye_learning.daily_missions()})
         if path == "/api/hawkeye/observer/status":
             return self._json(200,orch.hawkeye_observer.status())
+        if path == "/api/hawkeye/active-vision/status":
+            return self._json(200,orch.hawkeye_active_vision.status())
         if path == "/api/hawkeye/diagnostic/status":
             return self._json(200,orch.hawkeye_diagnostic.status())
         if path == "/api/hawkeye/reference/status":
@@ -3243,6 +3245,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200,out)
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/hawkeye/active-vision/plan":
+            packet=data.get("packet") or data
+            if not isinstance(packet,dict):return self._json(400,{"error":"packet must be an object"})
+            installed=data.get("installed_engines") or []
+            if not isinstance(installed,list):return self._json(400,{"error":"installed_engines must be a list"})
+            try:
+                plan=orch.hawkeye_active_vision.escalation_plan(packet,installed_engines=installed)
+                if bool(data.get("record",False)):orch.hawkeye_active_vision.record(packet,plan)
+                return self._json(200,plan)
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/hawkeye/gemini/analyze":
             raw_b64=str(data.get("data_b64") or "").strip()

@@ -467,11 +467,24 @@ public class MainActivity extends Activity {
       }catch(Exception e){return error(e);}
     }
 
+    @JavascriptInterface public String hawkeyeCameraProfile(){
+      try{return HawkeyeCameraProfiler.profile(MainActivity.this).toString();}
+      catch(Exception e){return error(e);}
+    }
+
     @JavascriptInterface public String hawkeyeDetectObjects(String dataB64){
       try{
         byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
         if(bytes.length>2*1024*1024)throw new IllegalArgumentException("local object frame exceeds 2 MB");
         return HawkeyeMobileVision.detect(bytes).toString();
+      }catch(Exception e){return error(e);}
+    }
+
+    @JavascriptInterface public String hawkeyeReadTarget(String dataB64){
+      try{
+        byte[] bytes=Base64.decode(dataB64,Base64.DEFAULT);
+        if(bytes.length==0||bytes.length>3*1024*1024)throw new IllegalArgumentException("target-read frame exceeds bounded size");
+        return HawkeyeMobileVision.analyzeReadTarget(bytes).toString();
       }catch(Exception e){return error(e);}
     }
 
