@@ -26,10 +26,22 @@ LAPTOPS
    - Status: Owned
    - Exact CPU/RAM/storage: To be inventoried after inspection
 
-5. Older Apple MacBook
+5. Apple MacBook Air 13-inch
    - Status: Owned
-   - Exact model/year/specification: Not yet identified
-   - Action: Identify from bottom model marking and About This Mac when available
+   - Model number: A1466
+   - EMC: 2632
+   - Model family: MacBookAir6,2 generation (2013/2014-era Haswell 13-inch Air)
+   - Bottom-case rating: 14.85V DC, 3.05A max
+   - Display class: 13.3-inch, 1440x900 for this model family
+   - Graphics family: Intel HD Graphics 5000
+   - Ports/platform family: 2x USB 3.0, Thunderbolt, SDXC, MagSafe 2, 802.11ac Wi-Fi
+   - CPU: TO VERIFY (EMC 2632 includes Core i5 and Core i7 configurations)
+   - RAM: TO VERIFY (4GB/8GB configurations; onboard/soldered)
+   - SSD capacity: TO VERIFY
+   - Battery health / charger / boot condition / macOS version: TO VERIFY
+   - Potential KRISHNA use: lightweight secondary terminal, documentation/manual station, network/automation node, browser/control display, test/development machine if condition is good
+   - Privacy note: Serial number is visible on the bottom case but is intentionally not stored in this inventory.
+   - Action: Boot and read Apple menu > About This Mac / System Information for exact CPU, RAM, SSD and battery condition
 
 
 TABLETS / MOBILE DEVICES
