@@ -397,19 +397,31 @@ class ArtifactExecutor:
 
     def _wait_android_foreground(self, adb: str, package_id: str, attempts: int=15,
                                  delay_seconds: float=1.0) -> dict[str, Any]:
-        """Wait until Android reports this package as the top activity."""
+        """Wait until Android reports a live focused/resumed window for this package.
+
+        A stopped task can remain in dumpsys activity output with pid=(not running).
+        Merely finding the package string therefore creates a false-positive launch gate.
+        """
         last={"executed":True,"passed":False,"output":""}
+        package_re=re.escape(package_id)
+        focus_re=re.compile(rf"(?im)^\\s*(?:mCurrentFocus|mFocusedApp)=.*\\b{package_re}/")
+        resumed_re=re.compile(rf"(?im)^\\s*(?:mResumedActivity|topResumedActivity)=.*\\b{package_re}/")
         for attempt in range(1,max(1,int(attempts))+1):
-            last=self._cmd([adb,"shell","dumpsys","activity","top"],30)
-            output=last.get("output","")
-            if last.get("passed") and package_id in output:
-                return {"executed":True,"passed":True,"output":output[-4000:],
-                        "attempts":attempt}
+            window=self._cmd([adb,"shell","dumpsys","window","windows"],30)
+            activity=self._cmd([adb,"shell","dumpsys","activity","activities"],30)
+            output=window.get("output","")+"\\n"+activity.get("output","")
+            pid=self._cmd([adb,"shell","pidof",package_id],30)
+            alive=bool(pid.get("passed") and pid.get("output","").strip())
+            focused=bool(focus_re.search(output) or resumed_re.search(output))
+            last={"executed":True,"passed":alive and focused,"output":output[-6000:],
+                  "pid":pid.get("output","").strip(),"focused":focused,"alive":alive}
+            if last["passed"]:
+                last["attempts"]=attempt
+                return last
             if attempt<max(1,int(attempts)) and delay_seconds>0:
                 time.sleep(float(delay_seconds))
-        return {"executed":True,"passed":False,"output":last.get("output","")[-4000:],
-                "attempts":max(1,int(attempts))}
-
+        last["attempts"]=max(1,int(attempts))
+        return last
     def _launch_android_app(self, adb: str, package_id: str) -> dict[str, Any]:
         """Trigger the launcher and verify the resulting process + foreground state."""
         command=self._cmd([adb,"shell","monkey","-p",package_id,"-c",
