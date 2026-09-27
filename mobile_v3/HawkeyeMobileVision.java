@@ -62,7 +62,9 @@ public final class HawkeyeMobileVision {
     TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
   private static final TextRecognizer DEVANAGARI_OCR =
     TextRecognition.getClient(new DevanagariTextRecognizerOptions.Builder().build());
-  private static final BarcodeScanner BARCODES = BarcodeScanning.getClient(\n    new BarcodeScannerOptions.Builder().enableAllPotentialBarcodes().build()\n  );
+  private static final BarcodeScanner BARCODES = BarcodeScanning.getClient(
+    new BarcodeScannerOptions.Builder().enableAllPotentialBarcodes().build()
+  );
   private static final FaceDetector FACES = FaceDetection.getClient(
     new FaceDetectorOptions.Builder()
       .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
