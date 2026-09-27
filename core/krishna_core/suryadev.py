@@ -17,6 +17,7 @@ import json
 import re
 import time
 import uuid
+import urllib.parse
 
 from .field_perception import FieldPerceptionPolicy
 
@@ -52,6 +53,19 @@ class SuryadevAgent:
         "raw_media", "raw_video", "raw_audio", "screen_recording", "camera_recording",
         "frame_bytes", "audio_bytes", "video_bytes",
     }
+    PODCAST_NODE_NAME = "SURYADEV SHRAVANA — Podcast Gurukul"
+    PODCAST_RISHI = "shravana"
+    PODCAST_QUEUE_LIMIT = 30
+    PODCAST_QUEUE_SEED = (
+        "The Daily","Crime Junkie","Dateline NBC","Up First from NPR","REAL AF with Andy Frisella",
+        "The Joe Rogan Experience","Pardon My Take","Mick Unplugged","Live Free with Josh Howerton",
+        "The Dylan Gemelli Podcast","Good Hang with Amy Poehler","Morbid","Pod Save America",
+        "The Learning Leader Show With Ryan Hawk","In The Dark","Tomorrow, Today","The Bill Simmons Podcast",
+        "Coffeez with Joe Shalaby","The Shawn Ryan Show","The Team House","The Megyn Kelly Show",
+        "The Mel Robbins Podcast","20/20","We're Out of Time","Unblinded with Sean Callagy",
+        "The Ezra Klein Show","The Level Up Podcast w/ Paul Alex","Founder's Story","Notes from the Edge",
+        "Bred To Lead | With Dr. Jake Tayler Jacobs",
+    )
 
     def __init__(self, state_root, *, brahma=None, council=None, ui_reviewer=None, memory=None):
         self.root = Path(state_root)
@@ -61,6 +75,10 @@ class SuryadevAgent:
         self.jobs_dir.mkdir(parents=True, exist_ok=True)
         self.reports_dir.mkdir(parents=True, exist_ok=True)
         self.ledger = self.root / "suryadev-ledger.jsonl"
+        self.device_file = self.root / "ipad-learning-nodes.json"
+        self.alert_ledger = self.root / "ipad-node-alerts.jsonl"
+        self.podcast_ledger = self.root / "podcast-learning.jsonl"
+        self.podcast_queue_file = self.root / "podcast-top30.json"
         self.brahma = brahma
         self.council = council
         self.ui_reviewer = ui_reviewer
@@ -88,6 +106,304 @@ class SuryadevAgent:
     def _append(self, row):
         with self.ledger.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
+
+    @staticmethod
+    def _load_object(path):
+        if not path.exists():
+            return {}
+        data=json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data,dict):
+            raise RuntimeError(f"invalid SURYDEV state file: {path.name}")
+        return data
+
+    @staticmethod
+    def _save_object(path,data):
+        tmp=path.with_suffix(path.suffix+".tmp")
+        tmp.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding="utf-8")
+        tmp.replace(path)
+
+    @staticmethod
+    def _youtube_url(value):
+        value=str(value or "").strip()
+        return bool(re.match(r"^https://(?:www\.)?(?:youtube\.com|youtu\.be)/",value,re.I))
+
+    def podcast_queue(self):
+        if self.podcast_queue_file.exists():
+            try:
+                data=self._load_object(self.podcast_queue_file)
+                items=list(data.get("items") or [])[:self.PODCAST_QUEUE_LIMIT]
+                if items:
+                    return {**data,"items":items,"count":len(items)}
+            except Exception:
+                pass
+        now=time.time()
+        items=[
+            {
+                "rank":i+1,
+                "show":name,
+                "youtube_search":"https://www.youtube.com/results?search_query="+
+                    urllib.parse.quote_plus(name+" full podcast episode"),
+                "approved":True,
+            }
+            for i,name in enumerate(self.PODCAST_QUEUE_SEED)
+        ]
+        return {
+            "schema":"krishna.suryadev.podcast-queue.v1",
+            "node_name":self.PODCAST_NODE_NAME,
+            "rishi":self.PODCAST_RISHI,
+            "mode":"bootstrap-chart-snapshot",
+            "scope_note":"Seed is a current chart snapshot for bootstrap only; Garudanetra refresh should reconcile Apple/Spotify regional charts before treating rank as global.",
+            "source_refs":[
+                "https://podcasts.apple.com/browse/top-charts/shows",
+                "https://podcastcharts.byspotify.com/",
+            ],
+            "refreshed_at":now,
+            "items":items,
+            "count":len(items),
+            "refresh_required":True,
+        }
+
+    def update_podcast_queue(self,items,*,source_refs=None,scope_note="",refreshed_by="garudanetra"):
+        clean=[]
+        for row in list(items or [])[:self.PODCAST_QUEUE_LIMIT]:
+            if isinstance(row,str):
+                row={"show":row}
+            if not isinstance(row,dict):
+                continue
+            show=self._text(row.get("show") or row.get("name"),240)
+            if not show:
+                continue
+            clean.append({
+                "rank":len(clean)+1,
+                "show":show,
+                "youtube_url":self._text(row.get("youtube_url"),1600),
+                "youtube_search":self._text(row.get("youtube_search"),1600),
+                "approved":bool(row.get("approved",True)),
+                "source":self._text(row.get("source"),300),
+            })
+        if not clean:
+            raise ValueError("podcast queue requires at least one show")
+        data={
+            "schema":"krishna.suryadev.podcast-queue.v1",
+            "node_name":self.PODCAST_NODE_NAME,
+            "rishi":self.PODCAST_RISHI,
+            "mode":"garudanetra-refreshed",
+            "scope_note":self._text(scope_note,1200) or "Top podcast discovery is chart-derived and time/region sensitive.",
+            "source_refs":[self._text(x,1600) for x in (source_refs or []) if str(x).strip()][:20],
+            "refreshed_by":self._text(refreshed_by,120),
+            "refreshed_at":time.time(),
+            "items":clean,
+            "count":len(clean),
+            "refresh_required":len(clean)<self.PODCAST_QUEUE_LIMIT,
+        }
+        self._save_object(self.podcast_queue_file,data)
+        return data
+
+    def podcast_refresh_plan(self):
+        return {
+            "agent":"GARUDANETRA",
+            "consumer":"SURYDEV SHRAVANA",
+            "target_count":self.PODCAST_QUEUE_LIMIT,
+            "queries":[
+                "Apple Podcasts top shows current chart",
+                "Spotify top podcasts current charts",
+                "top long-form interview podcasts current",
+                "top science technology business history podcasts current",
+            ],
+            "policy":[
+                "rankings are time- and region-sensitive; preserve chart, region and retrieval date",
+                "popularity is not evidence quality",
+                "Shravana Rishi verifies learned factual claims independently",
+                "YouTube playback is limited to approved podcast queue items",
+            ],
+        }
+
+    def device_heartbeat(self,packet):
+        packet=dict(packet or {})
+        device_id=self._text(packet.get("device_id"),160)
+        if not device_id:
+            raise ValueError("device_id is required")
+        now=time.time()
+        battery=int(packet.get("battery_percent",-1))
+        thermal=self._text(packet.get("thermal_state"),40).lower() or "unknown"
+        network=bool(packet.get("network_online",False))
+        foreground=str(packet.get("app_state") or "").lower()=="foreground"
+        screen_awake=bool(packet.get("screen_awake",False))
+        youtube=self._text(packet.get("youtube_url"),1600)
+        youtube_playing=bool(packet.get("youtube_playing",False))
+        devices=self._load_object(self.device_file)
+        prior=dict(devices.get(device_id) or {})
+        last_learning=float(prior.get("last_learning_at") or 0.0)
+        row={
+            "device_id":device_id,
+            "node_name":self._text(packet.get("node_name"),160) or self.PODCAST_NODE_NAME,
+            "device_role":"suryadev-ipad",
+            "platform":self._text(packet.get("platform"),80) or "iPadOS",
+            "hardware":self._text(packet.get("hardware"),120),
+            "battery_percent":battery,
+            "battery_state":self._text(packet.get("battery_state"),40),
+            "thermal_state":thermal,
+            "low_power_mode":bool(packet.get("low_power_mode",False)),
+            "network_online":network,
+            "screen_awake":screen_awake,
+            "app_state":"foreground" if foreground else "background",
+            "youtube_url":youtube,
+            "youtube_title":self._text(packet.get("youtube_title"),500),
+            "youtube_seconds":max(0.0,float(packet.get("youtube_seconds") or 0.0)),
+            "youtube_playing":youtube_playing,
+            "free_storage_bytes":max(0,int(packet.get("free_storage_bytes") or 0)),
+            "last_seen":now,
+            "last_learning_at":last_learning,
+            "krishna_link_green":True,
+            "suryadev_working_green":bool(network and foreground and screen_awake and youtube_playing and self._youtube_url(youtube)),
+            "rishi_learning_green":bool(last_learning and now-last_learning<=180.0),
+        }
+        devices[device_id]=row
+        self._save_object(self.device_file,devices)
+        return {"ok":True,**row,"online":True}
+
+    def device_status(self,device_id=None):
+        devices=self._load_object(self.device_file)
+        now=time.time()
+        rows=[]
+        for did,row in devices.items():
+            x=dict(row)
+            age=max(0.0,now-float(x.get("last_seen") or 0.0))
+            x["age_seconds"]=round(age,1)
+            x["online"]=age<=75.0
+            x["krishna_link_green"]=x["online"]
+            x["suryadev_working_green"]=bool(
+                x["online"] and x.get("network_online") and x.get("screen_awake") and x.get("youtube_playing") and
+                x.get("app_state")=="foreground" and self._youtube_url(x.get("youtube_url"))
+            )
+            learning_age=max(0.0,now-float(x.get("last_learning_at") or 0.0)) if x.get("last_learning_at") else None
+            x["rishi_learning_green"]=bool(learning_age is not None and learning_age<=180.0 and x["online"])
+            x["learning_age_seconds"]=None if learning_age is None else round(learning_age,1)
+            rows.append(x)
+        rows.sort(key=lambda x:x.get("last_seen") or 0,reverse=True)
+        if device_id:
+            for row in rows:
+                if row.get("device_id")==device_id:
+                    return row
+            raise KeyError(device_id)
+        return {
+            "node_name":self.PODCAST_NODE_NAME,
+            "rishi":self.PODCAST_RISHI,
+            "devices":rows,
+            "count":len(rows),
+            "online":sum(1 for x in rows if x.get("online")),
+        }
+
+    def device_alert(self,packet):
+        packet=dict(packet or {})
+        device_id=self._text(packet.get("device_id"),160)
+        if not device_id:
+            raise ValueError("device_id is required")
+        severity=self._text(packet.get("severity"),20).lower() or "warning"
+        if severity not in {"info","notice","warning","error","critical"}:
+            severity="warning"
+        row={
+            "schema":"krishna.suryadev.device-alert.v1",
+            "alert_id":"SURYA-ALERT-"+uuid.uuid4().hex[:16],
+            "device_id":device_id,
+            "node_name":self._text(packet.get("node_name"),160) or self.PODCAST_NODE_NAME,
+            "kind":self._text(packet.get("kind"),120) or "device.alert",
+            "detail":self._text(packet.get("detail"),1200),
+            "severity":severity,
+            "battery_percent":int(packet.get("battery_percent",-1)),
+            "thermal_state":self._text(packet.get("thermal_state"),40),
+            "network_online":bool(packet.get("network_online",False)),
+            "created_at":time.time(),
+        }
+        with self.alert_ledger.open("a",encoding="utf-8") as handle:
+            handle.write(json.dumps(row,ensure_ascii=False,separators=(",",":"))+"\n")
+        if self.memory:
+            self.memory.audit(row["alert_id"],"suryadev_device_alert",f"{device_id}:{row['kind']}:{severity}")
+        return row
+
+    def podcast_learning(self,packet):
+        packet=dict(packet or {})
+        device_id=self._text(packet.get("device_id"),160)
+        source_url=self._text(packet.get("source_url"),1600)
+        title=self._text(packet.get("title"),500)
+        caption=self._text(packet.get("visible_caption_text"),6000)
+        if not device_id:
+            raise ValueError("device_id is required")
+        if not self._youtube_url(source_url):
+            raise ValueError("SURYDEV iPad learning accepts YouTube podcast observations only")
+        queue_show=self._text(packet.get("queue_show"),240)
+        approved={str(x.get("show") or "").strip().lower() for x in self.podcast_queue().get("items") or [] if x.get("approved",True)}
+        if not queue_show or queue_show.lower() not in approved:
+            return {
+                "accepted":False,
+                "routed_to_rishi":False,
+                "reason":"not_approved_top30_podcast_queue",
+                "rishi":self.PODCAST_RISHI,
+                "learning_green":False,
+            }
+        start=max(0.0,float(packet.get("start_seconds") or 0.0))
+        end=max(start,float(packet.get("end_seconds") or start))
+        event={
+            "schema":"krishna.suryadev.podcast-observation.v1",
+            "device_id":device_id,
+            "node_name":self.PODCAST_NODE_NAME,
+            "rishi":self.PODCAST_RISHI,
+            "source_url":source_url,
+            "title":title,
+            "queue_show":queue_show,
+            "start_seconds":start,
+            "end_seconds":end,
+            "caption_available":bool(caption),
+            "caption_text":caption,
+            "raw_media_included":False,
+            "created_at":time.time(),
+        }
+        with self.podcast_ledger.open("a",encoding="utf-8") as handle:
+            handle.write(json.dumps(event,ensure_ascii=False,separators=(",",":"))+"\n")
+        if len(re.sub(r"\W+","",caption))<40:
+            return {
+                "accepted":True,
+                "routed_to_rishi":False,
+                "reason":"not_enough_caption_evidence",
+                "rishi":self.PODCAST_RISHI,
+                "learning_green":False,
+            }
+        packet_out=self.distilled_finding(
+            job_id="IPAD-"+device_id,
+            project="BRAHMAGYAN",
+            topic=f"Podcast learning for Rishi Shravana — approved show {queue_show}: {title}",
+            finding=caption,
+            modality="transcript",
+            evidence=[{
+                "source_ref":source_url,
+                "source_type":"youtube_visible_caption",
+                "sha256":self._digest(caption),
+                "note":f"Foreground podcast observation {start:.1f}s-{end:.1f}s on {self.PODCAST_NODE_NAME}.",
+            }],
+            confidence=0.55,
+            timestamps=[f"{start:.1f}-{end:.1f}s"],
+            source_ref=source_url,
+        )
+        routed=self.route_finding(packet_out)
+        devices=self._load_object(self.device_file)
+        state=dict(devices.get(device_id) or {})
+        state["last_learning_at"]=time.time()
+        state["last_learning_title"]=title
+        state["last_learning_finding_id"]=packet_out["finding_id"]
+        state["rishi_learning_green"]=bool(routed.get("routed"))
+        devices[device_id]=state
+        self._save_object(self.device_file,devices)
+        return {
+            "accepted":True,
+            "routed_to_rishi":bool(routed.get("routed")),
+            "lead_rishi":routed.get("lead_rishi"),
+            "rishi_team":routed.get("rishi_team") or [],
+            "rishi":self.PODCAST_RISHI,
+            "finding_id":packet_out["finding_id"],
+            "learning_green":bool(routed.get("routed")),
+            "verification_required":True,
+            "garudanetra_followup_recommended":True,
+        }
 
     def create_job(self, kind, *, project="KRISHNA", target="", instructions="", source_ref="",
                    constraints=None, requested_by="krishna"):
@@ -302,7 +618,16 @@ class SuryadevAgent:
             "agent": "SURYDEV",
             "version": self.VERSION,
             "role": "external overall eye + ear + UI/research reviewer",
-            "capabilities": list(self.CAPABILITIES),
+            "capabilities": list(self.CAPABILITIES)+[
+                "ipad_podcast_learning_node","always_on_foreground_watchdog","device_health_heartbeat",
+                "podcast_top30_queue","shravana_rishi_learning","garudanetra_followup_research",
+            ],
+            "podcast_gurukul":{
+                "name":self.PODCAST_NODE_NAME,
+                "rishi":self.PODCAST_RISHI,
+                "device_status":self.device_status(),
+                "queue":self.podcast_queue(),
+            },
             "job_types": sorted(self.JOB_TYPES),
             "jobs": jobs,
             "reports": reports,

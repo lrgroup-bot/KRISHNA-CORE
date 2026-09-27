@@ -8,6 +8,13 @@ on:
       - 'ios/**'
       - 'avatar/krishna_child_360.webp.b64'
       - '.github/workflows/build-ios.yml'
+  pull_request:
+    branches:
+      - fix/krishna-ui-runtime-verification
+    paths:
+      - 'ios/**'
+      - 'avatar/krishna_child_360.webp.b64'
+      - '.github/workflows/build-ios.yml'
   workflow_dispatch:
 
 permissions:
@@ -68,10 +75,60 @@ jobs:
           unzip -l build/KRISHNA-v3.9-iOS-Unsigned.ipa | grep -q 'Payload/KRISHNA.app/krishna_child_360.webp'
           echo KRISHNA_IOS_PRODUCT_CONTRACT_OK
 
-      - name: Upload KRISHNA iOS IPA
+      - name: Prepare SURYADEV SHRAVANA iPad bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build-suryadev/Payload/SURYADEV.app
+          cp ios/SURYDEV/Info.plist build-suryadev/Payload/SURYADEV.app/Info.plist
+          plutil -lint build-suryadev/Payload/SURYADEV.app/Info.plist
+
+      - name: Compile SURYADEV SHRAVANA iPad app
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          xcrun --sdk iphoneos swiftc ios/SURYDEV/main.swift             -parse-as-library             -sdk "$SDK"             -target arm64-apple-ios16.0             -o build-suryadev/Payload/SURYADEV.app/SURYADEV             -framework UIKit             -framework WebKit             -framework Network             -framework Security             -framework CryptoKit
+          chmod +x build-suryadev/Payload/SURYADEV.app/SURYADEV
+          file build-suryadev/Payload/SURYADEV.app/SURYADEV
+          test -x build-suryadev/Payload/SURYADEV.app/SURYADEV
+
+      - name: Verify SURYADEV SHRAVANA product contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'SURYADEV SHRAVANA' ios/SURYDEV/main.swift
+          grep -q 'NODE ID' ios/SURYDEV/main.swift
+          grep -q 'KRISHNA LINK' ios/SURYDEV/main.swift
+          grep -q 'SURYADEV WORKING' ios/SURYDEV/main.swift
+          grep -q 'RISHI LEARNING' ios/SURYDEV/main.swift
+          grep -q 'UIApplication.shared.isIdleTimerDisabled = true' ios/SURYDEV/main.swift
+          grep -q 'battery.50' ios/SURYDEV/main.swift
+          grep -q 'GARUDANETRA WEB' ios/SURYDEV/main.swift
+          grep -q '/api/suryadev/device/heartbeat' ios/SURYDEV/main.swift
+          grep -q '/api/suryadev/device/learning' ios/SURYDEV/main.swift
+          grep -q 'Top 30 Podcast Queue' ios/SURYDEV/main.swift
+          grep -q '<integer>2</integer>' ios/SURYDEV/Info.plist
+          echo SURYADEV_SHRAVANA_IPAD_PRODUCT_CONTRACT_OK
+
+      - name: Ad-hoc sign and package SURYADEV IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          codesign --force --sign - --timestamp=none build-suryadev/Payload/SURYADEV.app
+          codesign --verify --deep --strict build-suryadev/Payload/SURYADEV.app
+          (
+            cd build-suryadev
+            zip -qry SURYADEV-SHRAVANA-iPad-Unsigned.ipa Payload
+          )
+          test -s build-suryadev/SURYADEV-SHRAVANA-iPad-Unsigned.ipa
+          unzip -l build-suryadev/SURYADEV-SHRAVANA-iPad-Unsigned.ipa | grep -q 'Payload/SURYADEV.app/SURYADEV'
+
+      - name: Upload KRISHNA and SURYADEV iOS IPAs
         uses: actions/upload-artifact@v7
         with:
-          name: KRISHNA-v3.9-iOS-IPA
+          name: KRISHNA-and-SURYADEV-iOS-IPA
           path: |
             build/KRISHNA-v3.9-iOS-Unsigned.ipa
+            build-suryadev/SURYADEV-SHRAVANA-iPad-Unsigned.ipa
           retention-days: 90

@@ -14,6 +14,25 @@ Neither external agent replaces HAWKEYE. HAWKEYE remains KRISHNA's field/percept
 
 ## SURYDEV responsibilities
 
+SURYDEV may run on a separate Windows PC/laptop or on a bounded iPad learning node. The iPad specialization is **SURYADEV SHRAVANA — Podcast Gurukul**.
+
+### SURYADEV SHRAVANA iPad learning node
+
+- iPad-only companion app with a persistent device Node ID.
+- Three independent truth lights:
+  - KRISHNA LINK: paired PC heartbeat is healthy.
+  - SURYADEV WORKING: an approved podcast is actually playing in the foreground with screen-awake protection active.
+  - RISHI LEARNING: KRISHNA accepted a caption/evidence segment and routed it through the Rishi/BRAHMA learning path.
+- The app disables the idle timer while foreground so normal Auto-Lock does not turn the display off.
+- A 15-second health heartbeat reports battery, charge state, network, thermal state, Low Power Mode, free storage, app lifecycle and podcast playback state.
+- Battery <=50%, critical battery, thermal trouble, network loss, low storage, memory warning, WebKit crash and foreground-learning interruption create Suryadev alerts.
+- Alerts are persisted locally if offline, sent to KRISHNA when connectivity returns, and queued to trusted KRISHNA mobile sessions.
+- YouTube learning is restricted to an approved Top-30 podcast queue. Arbitrary YouTube pages cannot turn Rishi learning green.
+- The Top-30 list is time/region sensitive and is refreshable by KRISHNA/Garudanetra with source provenance instead of being treated as permanent truth.
+- Rishi Shravana is a KRISHNA-designed permanent podcast/long-form conversation specialist. Podcast speech remains candidate evidence; important factual claims require independent verification.
+- The in-app GARUDANETRA WEB surface creates a canonical Garudanetra research mission on KRISHNA PC and returns immediate Garuda web evidence for review.
+- Raw video/audio is not uploaded by default; the node sends bounded caption text, timestamps, titles/URLs, health state and distilled learning evidence.
+
 SURYDEV runs on a separate Windows PC/laptop and can be assigned jobs by KRISHNA/Rishis:
 
 1. Read the screen during frontend/backend testing.

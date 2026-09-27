@@ -59,8 +59,13 @@ TABLETS / MOBILE DEVICES
    - Storage: TO VERIFY (64GB or 256GB variants existed)
    - Connectivity variant: TO VERIFY (Wi-Fi or Wi-Fi + Cellular)
    - Exact model number / battery health / iPadOS version: TO VERIFY
-   - Assigned KRISHNA role: SURYADEV MEDIA / VISUAL NODE (subject to real-device acceptance)
-   - Primary duty: Play YouTube or other approved media in the foreground, provide a dedicated visual/reference screen, and forward timestamps/selected evidence to KRISHNA PC for Rishi/BRAHMAGYAN analysis
+   - Assigned KRISHNA role: SURYADEV SHRAVANA — PODCAST GURUKUL learning node (subject to real-device acceptance)
+   - Dedicated app: SURYADEV SHRAVANA (iPad-only)
+   - Permanent specialist: Rishi Shravana — podcast & long-form conversation learning
+   - Primary duty: Run only approved podcast learning inside the Suryadev YouTube browser, keep the screen awake while foreground, forward caption/timestamp evidence to KRISHNA PC, and use Garudanetra/Garuda web research for verification
+   - Status truth lights on-device: KRISHNA LINK green/red, SURYADEV WORKING green/red, RISHI LEARNING green/red
+   - Node identity: persistent device-specific Node ID displayed in the app and paired to KRISHNA PC
+   - Health reporting: 15-second KRISHNA heartbeat; battery <=50%, critical battery, thermal, network, low-storage, memory, WebKit and learning-pause problems are queued as KRISHNA alerts
    - Learning workflow: WATCH/PLAY -> CAPTURE TIMESTAMP + AVAILABLE CAPTION/TEXT + SELECTED FRAME/EVIDENCE -> SEND TO PC -> RISHI VERIFY/RESEARCH -> GYAN-BHANDAR STORE VERIFIED LEARNING
    - Important iPadOS boundary: Do not assume unrestricted 24/7 background screen capture or autonomous control of other apps; continuous operation may require YouTube/media to remain foreground and KRISHNA should use PC-side transcript/metadata fetching whenever possible
    - Heavy-compute policy: iPad acts as Suryadev display/observer companion; deep reasoning, transcript fetching, web research and knowledge storage remain on KRISHNA PC or approved free cloud
