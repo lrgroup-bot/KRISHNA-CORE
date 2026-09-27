@@ -359,6 +359,7 @@ public class MainActivity extends Activity {
           if(!requested.has("error"))getSharedPreferences("k",0).edit().putString("pair_request_id",requested.optString("request_id","")).apply();
         }else if(code==200){
           getSharedPreferences("k",0).edit().putBoolean("paired_ready",true).remove("pair_request_id").apply();
+          registerSuryadevDevice();
         }
       }catch(Exception ignored){}
     }
@@ -384,6 +385,78 @@ public class MainActivity extends Activity {
         getSharedPreferences("k",0).edit().putString("device_credential",id).apply();
       }
     }
+    JSONObject suryadevProfileObject()throws Exception{
+      ActivityManager.MemoryInfo mi=new ActivityManager.MemoryInfo();
+      ActivityManager am=(ActivityManager)getSystemService(ACTIVITY_SERVICE);
+      if(am!=null)am.getMemoryInfo(mi);
+      StatFs fs=new StatFs(getFilesDir().getAbsolutePath());
+      Intent battery=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+      int level=battery==null?-1:battery.getIntExtra(BatteryManager.EXTRA_LEVEL,-1);
+      int scale=battery==null?-1:battery.getIntExtra(BatteryManager.EXTRA_SCALE,-1);
+      int pct=(level>=0&&scale>0)?Math.round(level*100f/scale):-1;
+      int plugged=battery==null?0:battery.getIntExtra(BatteryManager.EXTRA_PLUGGED,0);
+      String thermal="unknown";
+      if(Build.VERSION.SDK_INT>=29){
+        try{
+          android.os.PowerManager pm=(android.os.PowerManager)getSystemService(POWER_SERVICE);
+          int t=pm==null?-1:pm.getCurrentThermalStatus();
+          if(t<=android.os.PowerManager.THERMAL_STATUS_NONE)thermal="nominal";
+          else if(t<=android.os.PowerManager.THERMAL_STATUS_MODERATE)thermal="fair";
+          else if(t<=android.os.PowerManager.THERMAL_STATUS_SEVERE)thermal="serious";
+          else thermal="critical";
+        }catch(Exception ignored){}
+      }
+      boolean online=true;
+      try{
+        android.net.ConnectivityManager cm=(android.net.ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE);
+        if(cm!=null){
+          android.net.Network n=cm.getActiveNetwork();
+          android.net.NetworkCapabilities caps=n==null?null:cm.getNetworkCapabilities(n);
+          online=caps!=null&&caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        }
+      }catch(Exception ignored){}
+      JSONObject p=new JSONObject();
+      p.put("platform","android");
+      p.put("platform_version",Build.VERSION.RELEASE);
+      p.put("device_class","mobile");
+      p.put("model_family",Build.MODEL==null?"Android":Build.MODEL);
+      p.put("memory_mb",mi.totalMem/(1024L*1024L));
+      p.put("cpu_cores",Runtime.getRuntime().availableProcessors());
+      p.put("free_storage_gb",fs.getAvailableBytes()/(1024.0*1024.0*1024.0));
+      if(pct>=0)p.put("battery_percent",pct);
+      p.put("charging",plugged!=0);
+      p.put("thermal_state",thermal);
+      p.put("browser_available",true);
+      p.put("video_playback",true);
+      p.put("screen_understanding",true);
+      p.put("transcript_capable",false);
+      p.put("playwright_available",false);
+      p.put("yt_dlp_available",false);
+      p.put("network_online",online);
+      p.put("serial_collected",false);
+      p.put("mac_address_collected",false);
+      return p;
+    }
+    @JavascriptInterface public String suryadevDeviceProfile(){
+      try{return suryadevProfileObject().toString();}
+      catch(Exception e){return error(e);}
+    }
+    String registerSuryadevDevice(){
+      try{
+        JSONObject body=new JSONObject();
+        body.put("profile",suryadevProfileObject());
+        body.put("label","Android learning node");
+        String out=call("/api/suryadev/horse/profile",body.toString());
+        getSharedPreferences("k",0).edit().putString("suryadev_assignment",out).apply();
+        return out;
+      }catch(Exception e){return error(e);}
+    }
+    @JavascriptInterface public String suryadevAssignment(){
+      String cached=getSharedPreferences("k",0).getString("suryadev_assignment","");
+      if(cached!=null&&!cached.isEmpty())return cached;
+      return call("/api/suryadev/horse/assignment",null);
+    }
+
     @JavascriptInterface public String status(){return call("/api/status",null);}
     @JavascriptInterface public String avatarStatus(){
       try{
