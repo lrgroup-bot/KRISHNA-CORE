@@ -2339,11 +2339,18 @@ async function research(){const q=await askText('What should KRISHNA research on
 async function runAll(){const tests=[['Health','/api/status'],['Dashboard','/api/dashboard'],['Capabilities','/api/capabilities'],['Projects','/api/projects'],['Plugins','/api/plugins'],['Resources','/api/resources'],['Neural state','/api/core/neural-state'],['Recovery ladder','/api/recovery/ladder'],['Incidents','/api/incidents']];$('testState').textContent='RUNNING';$('tests').innerHTML='';let fail=0;for(const [name,path] of tests){let ok=true,detail='OK';try{await req(path)}catch(e){ok=false;fail++;detail=e.message}const d=document.createElement('div');d.className=ok?'ok':'bad';d.textContent=(ok?'PASS ':'FAIL ')+name+' — '+detail;$('tests').appendChild(d)}$('testState').textContent=fail?('FAILED '+fail):'ALL PASS';$('testState').className='v '+(fail?'bad':'ok')}
 document.querySelectorAll('.nav button').forEach(b=>{b.setAttribute('aria-label',b.textContent.trim());b.title=b.textContent.trim()});document.querySelector('.send').setAttribute('aria-label','Send message');$('input').setAttribute('aria-label','Message to KRISHNA');
 const KRISHNA_STATE_MOTION={
- IDLE:{mood:'neutral'},FLUTE:{mood:'neutral',action:'slight_smile'},LISTENING:{mood:'listen'},
- THINKING:{mood:'thinking'},SPEAKING:{mood:'happy'},WISDOM:{mood:'neutral',action:'nod'},
- PLAYFUL:{mood:'happy',action:'wink_smile'},PROTECTION:{mood:'neutral'},
- DHYAN:{mood:'thinking',action:'pray'},SLEEPING:{mood:'sleeping'},WAKING:{mood:'happy',action:'nod_yes'},
- WORKING:{mood:'thinking'}
+ IDLE:{mood:'neutral',motions:['neutral','idle']},
+ FLUTE:{mood:'happy',motions:['flute','slight_smile','happy','neutral']},
+ LISTENING:{mood:'neutral',motions:['listen','neutral']},
+ THINKING:{mood:'neutral',motions:['thinking','think','neutral']},
+ SPEAKING:{mood:'happy',motions:['talk','happy','neutral']},
+ WISDOM:{mood:'neutral',motions:['wisdom','nod_yes','neutral']},
+ PLAYFUL:{mood:'happy',motions:['playful','wink_smile','happy']},
+ PROTECTION:{mood:'neutral',motions:['protection','neutral']},
+ DHYAN:{mood:'neutral',motions:['dhyan','pray','neutral']},
+ SLEEPING:{mood:'sleep',motions:['sleep','neutral']},
+ WAKING:{mood:'happy',motions:['wake','nod_yes','happy']},
+ WORKING:{mood:'neutral',motions:['work','think','neutral']}
 };
 function registerAvatarUpdater(fn){
  if(typeof fn!=='function')return;
@@ -2358,7 +2365,9 @@ async function installKrishnaMotionRuntime(head,status){
   const response=await fetch('/assets/avatar-engine/motion-engine/src/motions.json',{cache:'no-store'});
   if(!response.ok)throw new Error('MotionEngine motion catalog unavailable');
   const motions=await response.json(),engine=new MotionEngine(head);
-  engine.registerMotions(motions);registerAvatarUpdater(dt=>engine.update(dt));
+  engine.registerMotions(motions);
+  engine.__krishnaMotionNames=new Set((engine.getMotionNames?.()||[]).map(x=>String(x).toLowerCase()));
+  registerAvatarUpdater(dt=>engine.update(dt));
   window.krishnaMotionEngine=engine;return true;
  }catch(e){console.warn('KRISHNA MotionEngine unavailable',e);return false}
 }
@@ -2371,7 +2380,13 @@ async function installKrishnaAudioLipSync(head,status){
   const node=new HeadAudio(head.audioCtx,{processorOptions:{},parameterData:{vadGateActiveDb:-40,vadGateInactiveDb:-58,speakerMeanHz:320}});
   await node.loadModel('/assets/avatar-engine/headaudio/dist/model-en-mixed.bin');
   head.audioSpeechGainNode.connect(node);
-  node.onvalue=(key,value)=>{try{head.setValue(key,value,40)}catch(e){}};
+  node.onvalue=(key,value)=>{
+    try{
+      const target=head.mtAvatar?.[key];
+      if(target)Object.assign(target,{newvalue:Number(value)||0,needsUpdate:true});
+    }catch(e){console.warn('KRISHNA viseme update',key,e)}
+  };
+  node.onprocessorerror=e=>console.warn('KRISHNA HeadAudio processor error',e);
   registerAvatarUpdater(dt=>node.update(dt));
   window.krishnaHeadAudio=node;return true;
  }catch(e){console.warn('KRISHNA HeadAudio unavailable',e);return false}
@@ -2380,9 +2395,13 @@ async function applyKrishnaAvatarMotion(state){
  const next=String(state||'IDLE').toUpperCase(),spec=KRISHNA_STATE_MOTION[next]||KRISHNA_STATE_MOTION.IDLE;
  const engine=window.krishnaMotionEngine,head=window.krishnaTalkingHead;
  try{
-  if(engine&&spec.mood)await engine.play(spec.mood);
-  else if(head&&spec.mood&&head.getMoodNames?.().includes(spec.mood))head.setMood(spec.mood);
-  if(engine&&spec.action)engine.play(spec.action).catch(()=>{});
+  const moods=new Set((head?.getMoodNames?.()||['neutral','happy','angry','sad','fear','disgust','love','sleep']).map(x=>String(x).toLowerCase()));
+  if(head&&spec.mood&&moods.has(String(spec.mood).toLowerCase()))head.setMood(spec.mood);
+  if(engine){
+   const names=engine.__krishnaMotionNames||new Set((engine.getMotionNames?.()||[]).map(x=>String(x).toLowerCase()));
+   const motion=(spec.motions||[]).find(name=>names.has(String(name).toLowerCase()));
+   if(motion)await engine.play(motion);
+  }
  }catch(e){console.warn('KRISHNA state motion',next,e)}
 }
 async function fitKrishnaAvatar(head){
@@ -2429,8 +2448,13 @@ async function initAvatar(){
   const a=await req('/api/avatar/status');
   window.krishnaAvatarAssetStatus=a.asset_pipeline||null;
   if(!a.glb_available){showFallback('3D avatar not installed · showing local preview');return}
-  const rigReady=a.asset_pipeline?.source?.body?.ready===true;
-  if($('avatarCapability'))$('avatarCapability').textContent=rigReady?'':'3D preview · body rig and lip sync pending';
+  const activeAsset=a.asset_pipeline?.active_asset||a.asset_pipeline?.source||{};
+  const rigReady=activeAsset?.talkinghead?.ready===true;
+  const productionReady=a.asset_pipeline?.active_ready===true;
+  if($('avatarCapability'))$('avatarCapability').textContent=
+    productionReady?'Production rig · body + face + visemes + state animations verified':
+    rigReady?'Live 3D compatible · production animation pack incomplete':
+    '3D preview · body rig and lip sync pending';
   if(live&&rigReady){
    try{
     if(status)status.textContent='Loading KRISHNA live avatar engine…';
@@ -2453,7 +2477,7 @@ async function initAvatar(){
     live.dataset.engine='talkinghead';
     live.dataset.motion=motion?'motion-engine':'native';
     live.dataset.lipsync=audio?'headaudio':'native';
-    const stage=a.asset_pipeline?.source?.stage||a.asset_pipeline?.production?.stage||'loaded';
+    const stage=activeAsset?.production_stage||activeAsset?.stage||'loaded';
     if(status)status.textContent='KRISHNA live 3D · '+stage+(audio?' · audio lip-sync':'');
     await applyKrishnaAvatarMotion('FLUTE');
     return;
