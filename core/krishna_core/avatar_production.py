@@ -17,13 +17,10 @@ import subprocess
 import time
 import uuid
 
-from .avatar_asset_pipeline import AvatarAssetInspector
+from .avatar_asset_pipeline import AvatarAssetInspector, REQUIRED_ANIMATION_CLIPS
 
-
-REQUIRED_CLIPS = (
-    "idle","listen","think","talk","walk","wave","smile","flute","dhyan",
-    "sleep","wake","work","wisdom","playful","protection",
-)
+# Backward-compatible export used by production tests and worker manifests.
+REQUIRED_CLIPS = REQUIRED_ANIMATION_CLIPS
 
 
 @dataclass(frozen=True)
