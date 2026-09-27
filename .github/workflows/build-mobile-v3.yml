@@ -478,6 +478,7 @@ jobs:
             grep -q '"mic":true' krishna-ui-ready.log
             adb exec-out screencap -p > krishna-mobile-home.png
             test -s krishna-mobile-home.png
+            python scripts/VERIFY_KRISHNA_MOBILE_SCREENSHOT.py krishna-mobile-home.png
 
       - name: Upload KRISHNA mobile visual proof
         uses: actions/upload-artifact@v7
