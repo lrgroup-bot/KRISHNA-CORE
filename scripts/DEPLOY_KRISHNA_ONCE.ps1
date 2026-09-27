@@ -1,6 +1,7 @@
 param(
   [switch]$SkipStart,
   [switch]$SkipAcceptance,
+  [switch]$SkipDriveInventory,
   [switch]$PrivateRemote,
   [string]$TailscaleExe = "E:\TailScale\tailscale.exe",
   [string]$Branch = "",
@@ -458,7 +459,9 @@ Write-Host "PROVISIONAL MANIFEST $dest ($($hashes.Count) files)" -ForegroundColo
 if(!$SkipAcceptance){
   $accept=Join-Path $Runtime "scripts\ACCEPT_KRISHNA_RUNTIME.ps1"
   if(!(Test-Path $accept)){throw "Runtime acceptance harness missing: $accept"}
-  & powershell -NoProfile -ExecutionPolicy Bypass -File $accept -RuntimeRoot $Runtime -SourceRoot $Source
+  $acceptArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$accept,'-RuntimeRoot',$Runtime,'-SourceRoot',$Source)
+  if($SkipDriveInventory){$acceptArgs+='-SkipDriveInventory'}
+  & powershell @acceptArgs
   if($LASTEXITCODE -ne 0){
     if($null -ne $previousManifest){$previousManifest|Set-Content -Encoding UTF8 $dest}
     elseif(Test-Path $dest){Remove-Item -Force $dest}
@@ -469,10 +472,10 @@ if(!$SkipAcceptance){
 Write-Host "DEPLOY VERIFIED AT $Head" -ForegroundColor Green
 Write-Host "MANIFEST $dest ($($hashes.Count) files)" -ForegroundColor Green
 
-# Non-destructive E: audit after every verified deployment.
+# Full-drive inventory remains the default; scoped UI deployments can omit it.
 $audit=Join-Path $Runtime "scripts\AUDIT_KRISHNA_E_DRIVE.ps1"
-if(Test-Path $audit){
-  & powershell -NoProfile -ExecutionPolicy Bypass -File $audit | Out-Host
+if(!$SkipDriveInventory -and (Test-Path $audit)){
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $audit -SourceRoot $Source -RuntimeRoot $Runtime | Out-Host
 }
 
 if(!$SkipStart){

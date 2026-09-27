@@ -1,7 +1,8 @@
 param(
   [string]$RuntimeRoot="E:\Krishna-The GOD",
   [string]$SourceRoot="E:\KRISHNA-SOURCE",
-  [int]$Port=8876
+  [int]$Port=8876,
+  [switch]$SkipDriveInventory
 )
 $ErrorActionPreference="Stop"
 $Py=Join-Path $RuntimeRoot ".venv\Scripts\python.exe"
@@ -772,7 +773,9 @@ try{
   Add-Check "Mobile bridge" ($(if($mobile.connected){"PASS"}else{"WARN"})) ($(if($mobile.connected){"paired mobile is live"}else{"no paired mobile currently connected"})) $mobile
 
   $auditScript=Join-Path $RuntimeRoot "scripts\AUDIT_KRISHNA_E_DRIVE.ps1"
-  if(Test-Path $auditScript){
+  if($SkipDriveInventory){
+    Add-Check "E drive inventory" "WARN" "Omitted for scoped UI deployment; runtime hash integrity and acceptance checks remain active" $null
+  }elseif(Test-Path $auditScript){
     try{
       $auditOut=& powershell -NoProfile -ExecutionPolicy Bypass -File $auditScript -SourceRoot $SourceRoot -RuntimeRoot $RuntimeRoot | Select-Object -Last 1
       Add-Check "E drive reconciliation audit" "PASS" ("report="+$auditOut) $auditOut
