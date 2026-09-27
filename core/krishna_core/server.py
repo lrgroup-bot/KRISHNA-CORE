@@ -1065,6 +1065,36 @@ class Handler(BaseHTTPRequestHandler):
                 "nodes":orch.compute_nodes.status(),
                 "bridge":orch.external_observers.status(),
             })
+        if path in ("/api/suryadev/horse/assignment","/api/suryadev/horse/curriculum"):
+            device,token=self._device_auth()
+            if not _pairing.verify(device,token):
+                return self._json(401,{"error":"paired Suryadev device required"})
+            fleet=orch.suryadev.horse_status()
+            horse=next(
+                (
+                    row for row in fleet.get("horses") or []
+                    if str(((row.get("binding") or {}).get("node_id") or ""))==device
+                ),
+                None,
+            )
+            if not horse:
+                return self._json(404,{"error":"paired device has not been assigned to a SURYDEV horse"})
+            if path=="/api/suryadev/horse/assignment":
+                latest=None
+                try:latest=orch.suryadev.curriculum_latest(str(horse.get("id") or ""))
+                except KeyError:pass
+                return self._json(200,{
+                    "device_id":device,
+                    "horse":horse,
+                    "curriculum":latest,
+                    "free_only":True,
+                    "raw_media_upload":False,
+                })
+            try:
+                latest=orch.suryadev.curriculum_latest(str(horse.get("id") or ""))
+            except KeyError:
+                return self._json(404,{"error":"no curriculum has been assigned to this horse yet","horse_id":horse.get("id")})
+            return self._json(200,latest)
         if path == "/api/chandradev/status":
             return self._json(200,{
                 **orch.chandradev.status(),
@@ -2350,6 +2380,56 @@ class Handler(BaseHTTPRequestHandler):
             if not wid:return self._json(400,{"error":"workflow_id is required"})
             receipt=orch.dispatch_action("narad.workflow.execute",{"workflow_id":wid,"context":data.get("context") or {}},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
             return self._json(200,receipt["result"])
+
+        if post_path in (
+            "/api/suryadev/horse/profile",
+            "/api/suryadev/horse/heartbeat",
+            "/api/suryadev/horse/learning",
+        ):
+            device,token=self._device_auth()
+            if not _pairing.verify(device,token):
+                return self._json(401,{"error":"paired Suryadev device required"})
+            fleet=orch.suryadev.horse_status()
+            horse=next(
+                (
+                    row for row in fleet.get("horses") or []
+                    if str(((row.get("binding") or {}).get("node_id") or ""))==device
+                ),
+                None,
+            )
+            if post_path=="/api/suryadev/horse/profile":
+                profile=data.get("profile") or data
+                if not isinstance(profile,dict):
+                    return self._json(400,{"error":"profile must be an object"})
+                result=orch.suryadev.horse_auto_bind(
+                    node_id=device,
+                    profile=profile,
+                    label=str(data.get("label") or ""),
+                    approved=True,
+                )
+                binding=result.get("binding") or {}
+                if not binding:
+                    return self._json(409,result)
+                orch.handle_event(
+                    "suryadev", "horse_device_assigned",
+                    f"{binding.get('horse_id')}:{device}:{binding.get('workload')}",
+                    severity="notice",project="BRAHMAGYAN",
+                    payload={"horse_id":binding.get("horse_id"),"device_id":device,"workload":binding.get("workload")},
+                )
+                return self._json(200,result)
+            if not horse:
+                return self._json(404,{"error":"paired device has not been assigned to a SURYDEV horse"})
+            horse_id=str(horse.get("id") or "")
+            if post_path=="/api/suryadev/horse/heartbeat":
+                status=data.get("status") if isinstance(data.get("status"),dict) else data
+                return self._json(200,orch.suryadev.horse_heartbeat(
+                    horse_id,node_id=device,status=status,
+                ))
+            batch=data.get("batch") if isinstance(data.get("batch"),dict) else data
+            result=orch.suryadev.horse_learning_batch(
+                horse_id,node_id=device,payload=batch,
+            )
+            return self._json(200,result)
 
         if post_path == "/api/mobile/pair/request":
             device = str(data.get("device_id", "")).strip()
