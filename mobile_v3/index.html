@@ -403,6 +403,12 @@ async function startFieldScan(goalOverride='',photographer=false){
    window.hawkeyeOffline=offline;
    fieldStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:fieldFacingMode},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:60}},audio:!fieldPhotographerMode});
    fieldAudio=fieldStream.getAudioTracks().length>0;
+   const liveStream=fieldStream,liveTrack=liveStream.getVideoTracks()[0];
+   if(liveTrack)liveTrack.addEventListener('ended',()=>setTimeout(()=>{
+     if(fieldStream===liveStream){
+       try{if(Krishna.mrityunjayaFault)Krishna.mrityunjayaFault('camera-session','Live camera track ended unexpectedly')}catch(_){}
+     }
+   },180),{once:true});
    const video=document.getElementById('fieldVideo');video.srcObject=fieldStream;
    const layer=document.getElementById('cameraLayer');layer.classList.add('active');layer.classList.toggle('photographer',fieldPhotographerMode);
    document.getElementById('cameraActions').classList.remove('open');
