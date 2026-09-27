@@ -550,7 +550,7 @@ final class SuryadevViewController: UIViewController, WKNavigationDelegate, WKUI
     }
 
     private func startTimers() {
-        healthTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in self?.healthTick() }
+        healthTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in self?.healthTick() }
         sampleTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.sampleYouTube() }
         learningTimer = Timer.scheduledTimer(withTimeInterval: 90, repeats: true) { [weak self] _ in self?.flushLearning() }
         healthTick()
