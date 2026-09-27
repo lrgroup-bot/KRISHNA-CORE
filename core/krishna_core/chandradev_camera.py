@@ -78,8 +78,8 @@ OSMO_ACTION_ORIGINAL_PROFILE = {
 
 ZEB_PURE_PLUS_PROFILE = {
     "model": "ZEBRONICS ZEB-Pure Plus",
-    "role": "planned dedicated CHANDRADEV monitor-reading webcam",
-    "deployment_state": "planned_not_connected",
+    "role": "dedicated CHANDRADEV monitor-reading webcam",
+    "deployment_state": "software_ready_hardware_required",
     "live_transport": "direct USB UVC webcam",
     "target_mode": {
         "resolution": "3840x2160",
@@ -101,23 +101,26 @@ ZEB_PURE_PLUS_PROFILE = {
         "stability_strategy": "software verifies alignment; owner manually repositions only when required",
     },
     "activation_rule": (
-        "Keep DJI Osmo RTMP as the active validation source until the physical USB webcam is installed, "
-        "detected and deliberately selected on the KRISHNA PC."
+        "Direct Windows USB UVC is the primary CHANDRADEV camera path. "
+        "The physical webcam must still be present and readable before CHANDRADEV claims a live frame."
     ),
 }
 
 CHANDRADEV_CAMERA_SELECTION = {
-    "active_validation_source": "dji_osmo_action_rtmp",
-    "active_validation_model": "DJI Osmo Action (original)",
-    "future_primary_screen_source": "zeb_pure_plus_usb_uvc",
-    "future_primary_screen_model": "ZEBRONICS ZEB-Pure Plus",
+    "active_validation_source": "usb_uvc_webcam",
+    "active_validation_model": "Windows UVC webcam (ZEBRONICS ZEB-Pure Plus target)",
+    "fallback_source": "dji_osmo_action_rtmp",
+    "fallback_model": "DJI Osmo Action (original)",
     "automatic_source_switching": False,
-    "reason": "Do not pretend the future USB webcam exists before physical installation and validation.",
+    "default_webcam_index": 0,
+    "reason": "Use the directly attached USB webcam by default; keep DJI RTMP only as an explicitly selected fallback.",
 }
 
 
 class ChandradevOsmoCameraAdapter:
-    VERSION = "chandradev-osmo-rtmp-v1"
+    # Historical class name retained for compatibility; runtime now supports
+    # direct Windows UVC webcams as the primary CHANDRADEV input.
+    VERSION = "chandradev-camera-input-v2"
 
     def __init__(
         self,
@@ -170,10 +173,21 @@ class ChandradevOsmoCameraAdapter:
         if not name:
             name="osmo-"+secrets.token_hex(6)
         row=dict(local or {})
+        env_source=str(os.getenv("CHANDRADEV_CAMERA_SOURCE") or "").strip()
+        env_index=str(os.getenv("CHANDRADEV_WEBCAM_INDEX") or "").strip()
+        try:
+            webcam_index=int(env_index) if env_index else int(row.get("webcam_index",CHANDRADEV_CAMERA_SELECTION["default_webcam_index"]))
+        except (TypeError,ValueError):
+            webcam_index=int(CHANDRADEV_CAMERA_SELECTION["default_webcam_index"])
+        source=str(row.get("camera_source") or env_source or CHANDRADEV_CAMERA_SELECTION["active_validation_source"]).strip()
+        if source not in {"usb_uvc_webcam","dji_osmo_action_rtmp"}:
+            source=CHANDRADEV_CAMERA_SELECTION["active_validation_source"]
         row.update({
             "version":self.VERSION,
             "stream_name":name,
             "server_pid":row.get("server_pid"),
+            "camera_source":source,
+            "webcam_index":max(0,webcam_index),
             "created_at":row.get("created_at") or time.time(),
             "updated_at":time.time(),
         })
@@ -348,6 +362,180 @@ class ChandradevOsmoCameraAdapter:
                 "supported":True,"detected":False,"devices":[],
                 "error":f"{type(exc).__name__}: {exc}",
             }
+
+    @property
+    def camera_source(self):
+        source=str(self._state.get("camera_source") or CHANDRADEV_CAMERA_SELECTION["active_validation_source"]).strip()
+        return source if source in {"usb_uvc_webcam","dji_osmo_action_rtmp"} else "usb_uvc_webcam"
+
+    @property
+    def webcam_index(self):
+        try:
+            return max(0,int(self._state.get("webcam_index",CHANDRADEV_CAMERA_SELECTION["default_webcam_index"])))
+        except (TypeError,ValueError):
+            return int(CHANDRADEV_CAMERA_SELECTION["default_webcam_index"])
+
+    def select_camera_source(self,source="usb_uvc_webcam",*,webcam_index=None):
+        aliases={
+            "webcam":"usb_uvc_webcam","uvc":"usb_uvc_webcam","usb":"usb_uvc_webcam",
+            "zeb":"usb_uvc_webcam","zeb_pure_plus":"usb_uvc_webcam",
+            "osmo":"dji_osmo_action_rtmp","rtmp":"dji_osmo_action_rtmp",
+        }
+        requested=str(source or "usb_uvc_webcam").strip().lower()
+        selected=aliases.get(requested,requested)
+        if selected not in {"usb_uvc_webcam","dji_osmo_action_rtmp"}:
+            raise ValueError("camera source must be usb_uvc_webcam or dji_osmo_action_rtmp")
+        previous=self.camera_source
+        self._state["camera_source"]=selected
+        if webcam_index is not None:
+            self._state["webcam_index"]=max(0,int(webcam_index))
+        if previous!=selected:
+            self._state.pop("screen_lock",None)
+            self._state.pop("alignment_handoff",None)
+        self._save(self._state)
+        return {
+            "agent":"CHANDRADEV",
+            "camera_source":self.camera_source,
+            "webcam_index":self.webcam_index,
+            "previous_source":previous,
+            "automatic_source_switching":False,
+        }
+
+    def probe_uvc_devices(self):
+        """Enumerate present Windows camera-class devices without opening video streams."""
+        if os.name!="nt":
+            return {
+                "supported":False,"detected":False,
+                "reason":"Windows PnP UVC probe is available only on Windows","devices":[],
+            }
+        command=(
+            "$rows=Get-PnpDevice -PresentOnly | "
+            "Where-Object { $_.Class -in @('Camera','Image') } | "
+            "Select-Object Status,Class,FriendlyName,InstanceId; "
+            "$rows | ConvertTo-Json -Compress"
+        )
+        try:
+            proc=subprocess.run(
+                ["powershell.exe","-NoProfile","-NonInteractive","-Command",command],
+                capture_output=True,text=True,timeout=8,check=False,
+            )
+            raw=str(proc.stdout or "").strip()
+            if proc.returncode!=0:
+                return {"supported":True,"detected":False,"devices":[],"error":str(proc.stderr or "").strip()[:1000]}
+            if not raw:
+                return {"supported":True,"detected":False,"devices":[]}
+            parsed=json.loads(raw)
+            rows=parsed if isinstance(parsed,list) else [parsed]
+            devices=[]
+            for row in rows:
+                if not isinstance(row,dict):
+                    continue
+                devices.append({
+                    "status":row.get("Status"),
+                    "class":row.get("Class"),
+                    "friendly_name":row.get("FriendlyName"),
+                    "instance_id":row.get("InstanceId"),
+                    "uvc_candidate":True,
+                })
+            return {"supported":True,"detected":bool(devices),"devices":devices}
+        except Exception as exc:
+            return {"supported":True,"detected":False,"devices":[],"error":f"{type(exc).__name__}: {exc}"}
+
+    def webcam_profile(self):
+        probe=self.probe_uvc_devices()
+        return {
+            "profile":dict(ZEB_PURE_PLUS_PROFILE),
+            "selection":dict(CHANDRADEV_CAMERA_SELECTION),
+            "configured_primary":self.camera_source=="usb_uvc_webcam",
+            "camera_source":self.camera_source,
+            "webcam_index":self.webcam_index,
+            "hardware_detected":bool(probe.get("detected")),
+            "uvc_probe":probe,
+            "validation_now":"direct USB UVC webcam; physical camera must be connected for live validation",
+        }
+
+    def _open_video_capture(self,cv2,*,timeout_seconds=6):
+        if self.camera_source=="usb_uvc_webcam":
+            index=self.webcam_index
+            backends=[]
+            if os.name=="nt":
+                for name in ("CAP_DSHOW","CAP_MSMF"):
+                    value=getattr(cv2,name,None)
+                    if value is not None:
+                        backends.append((name,value))
+            backends.append(("CAP_ANY",getattr(cv2,"CAP_ANY",0)))
+            seen=set()
+            errors=[]
+            for backend_name,backend in backends:
+                if backend in seen:
+                    continue
+                seen.add(backend)
+                cap=cv2.VideoCapture(index,backend)
+                if not cap.isOpened():
+                    cap.release()
+                    errors.append(backend_name+":open_failed")
+                    continue
+                try:
+                    fourcc=getattr(cv2,"VideoWriter_fourcc",None)
+                    if fourcc is not None:
+                        cap.set(cv2.CAP_PROP_FOURCC,fourcc(*"MJPG"))
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH,3840)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT,2160)
+                    cap.set(cv2.CAP_PROP_FPS,30)
+                    if hasattr(cv2,"CAP_PROP_BUFFERSIZE"):
+                        cap.set(cv2.CAP_PROP_BUFFERSIZE,1)
+                    first=None
+                    deadline=time.time()+max(1.0,float(timeout_seconds))
+                    while time.time()<deadline:
+                        ok,frame=cap.read()
+                        if ok and frame is not None:
+                            first=frame
+                            break
+                        time.sleep(0.05)
+                    if first is None:
+                        errors.append(backend_name+":no_frame")
+                        cap.release()
+                        continue
+                    h,w=first.shape[:2]
+                    return cap,first,{
+                        "kind":"usb_uvc_webcam",
+                        "source":f"uvc://{index}",
+                        "webcam_index":index,
+                        "backend":backend_name,
+                        "requested":{"width":3840,"height":2160,"fps":30,"fourcc":"MJPG"},
+                        "actual":{"width":int(w),"height":int(h),"fps":float(cap.get(cv2.CAP_PROP_FPS) or 0)},
+                    }
+                except Exception:
+                    cap.release()
+                    raise
+            raise RuntimeError(
+                f"Chandradev USB webcam index {index} is not available or produced no frame; "
+                +" | ".join(errors)
+            )
+
+        source=self.urls()["local_rtmp_url"]
+        cap=cv2.VideoCapture()
+        for prop,value in (
+            (getattr(cv2,"CAP_PROP_OPEN_TIMEOUT_MSEC",-1),int(max(1,timeout_seconds)*1000)),
+            (getattr(cv2,"CAP_PROP_READ_TIMEOUT_MSEC",-1),int(max(1,timeout_seconds)*1000)),
+        ):
+            if prop>=0:
+                try:cap.set(prop,value)
+                except Exception:pass
+        if not cap.open(source):
+            cap.release()
+            raise RuntimeError("Chandradev RTMP stream is not available at "+source)
+        ok,first=cap.read()
+        if not ok or first is None:
+            cap.release()
+            raise RuntimeError("Chandradev could not read a frame from the Osmo RTMP stream")
+        h,w=first.shape[:2]
+        return cap,first,{
+            "kind":"dji_osmo_action_rtmp",
+            "source":source,
+            "backend":"rtmp",
+            "actual":{"width":int(w),"height":int(h)},
+        }
 
     def status(self):
         pid=self._state.get("server_pid")
