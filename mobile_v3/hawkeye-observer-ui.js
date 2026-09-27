@@ -58,6 +58,7 @@
     lastTargetKey: "",
     lastCameraPlanAt: 0,
     autoTorchOwned: false,
+    cameraProfile: null,
     recorder: null,
     chunks: [],
     recordStopTimer: null,
@@ -869,6 +870,7 @@
       free_cloud_analysis:String(state.freeCloudAnalysis||"").slice(0,2000),
       translation:{enabled:state.translationEnabled,target:state.translationTarget,text:String(state.translationText||"").slice(0,1500)},
       gestures:{enabled:state.gesturesEnabled,scope:state.handResult?"mediapipe-hand-finger":"upper-body-pose-fallback",last:state.lastGesture},
+      camera_profile:state.cameraProfile||{available:false},
       active_vision:{
         schema:"hawkeye.active-vision.v1",
         target_key:String(state.activeSelection&&state.activeSelection.key||""),
@@ -1017,6 +1019,7 @@
 
   function activate(){
     if(state.active)return;state.active=true;
+    try{if(window.Krishna&&Krishna.hawkeyeCameraProfile)state.cameraProfile=JSON.parse(Krishna.hawkeyeCameraProfile());}catch(_){state.cameraProfile={available:false};}
     state.objectTimer=setInterval(detect,260);
     state.richTimer=setInterval(richPerception,1200);
     state.handTimer=setInterval(handPerception,280);
@@ -1033,7 +1036,7 @@
     if(state.torchOn&&fieldStream){try{const t=fieldStream.getVideoTracks()[0];if(t&&t.applyConstraints)t.applyConstraints({advanced:[{torch:false}]});}catch(_){}}
     state.objects=[];state.researchQueries=[];state.lastLearnText="";state.rich=null;state.handResult=null;state.localSummary="";state.geminiAnalysis="";state.freeCloudAnalysis="";state.lastFreeCloudSignature="";state.lastFreeCloudProvider="";state.lastFreeCloudModel="";state.lastFreeCloudRole="";state.lastFreeCloudReviews=[];state.lastFreeCloudPc=null;
     state.aiMode="LOCAL";state.cloudApproved=false;state.lockedTrackingId=null;
-    state.activeSelection=null;state.activeRead=null;state.activeRecovery=null;state.lastTargetKey="";state.targetReadBusy=false;state.autoTorchOwned=false;
+    state.activeSelection=null;state.activeRead=null;state.activeRecovery=null;state.lastTargetKey="";state.targetReadBusy=false;state.autoTorchOwned=false;state.cameraProfile=null;
     if(window.HawkeyeActiveVision)HawkeyeActiveVision.reset();
     setActiveVisionState("SEARCH","DETECTING ITEM",{});
     state.translationEnabled=false;state.translationText="";state.translationSource="";state.translationBusy=false;
