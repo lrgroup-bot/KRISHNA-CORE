@@ -16,9 +16,12 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import queue
 import re
 import sys
+import threading
 import time
+import wave
 from urllib.parse import urlparse
 
 
@@ -59,6 +62,162 @@ def _is_http_url(value):
         return u.scheme in {"http", "https"} and bool(u.netloc)
     except Exception:
         return False
+
+
+class _SystemAudioASR:
+    """Bounded Windows loopback-ASR fallback used only when browser captions are absent."""
+
+    def __init__(self, workspace, *, chunk_seconds=60):
+        self.workspace = Path(workspace).resolve()
+        self.audio_dir = self.workspace / "audio"
+        self.audio_dir.mkdir(parents=True, exist_ok=True)
+        self.chunk_seconds = max(20, min(int(chunk_seconds), 180))
+        self.stop_event = threading.Event()
+        self.queue = queue.Queue(maxsize=10)
+        self.entries = []
+        self.error = ""
+        self.dropped_or_stopped_for_backlog = False
+        self._threads = []
+        self._started_at = time.monotonic()
+
+    @staticmethod
+    def available():
+        try:
+            import pyaudiowpatch  # noqa:F401
+            import faster_whisper  # noqa:F401
+            return sys.platform.startswith("win")
+        except Exception:
+            return False
+
+    @staticmethod
+    def _loopback_device(p, pyaudio):
+        host = p.get_host_api_info_by_type(pyaudio.paWASAPI)
+        speakers = p.get_device_info_by_index(host["defaultOutputDevice"])
+        if speakers.get("isLoopbackDevice"):
+            return speakers
+        name = str(speakers.get("name") or "")
+        for row in p.get_loopback_device_info_generator():
+            if name and name in str(row.get("name") or ""):
+                return row
+        raise RuntimeError("default Windows WASAPI loopback device not found")
+
+    def start(self):
+        if not self.available():
+            return False
+        recorder = threading.Thread(target=self._record_loop, name="suryadev-audio-record", daemon=True)
+        transcriber = threading.Thread(target=self._transcribe_loop, name="suryadev-audio-asr", daemon=True)
+        self._threads = [recorder, transcriber]
+        transcriber.start()
+        recorder.start()
+        return True
+
+    def _record_loop(self):
+        try:
+            import pyaudiowpatch as pyaudio
+            pa = pyaudio.PyAudio()
+            try:
+                dev = self._loopback_device(pa, pyaudio)
+                rate = int(dev.get("defaultSampleRate") or 48000)
+                channels = max(1, min(int(dev.get("maxInputChannels") or 2), 2))
+                sample_format = pyaudio.paInt16
+                width = pa.get_sample_size(sample_format)
+                stream = pa.open(
+                    format=sample_format,
+                    channels=channels,
+                    rate=rate,
+                    input=True,
+                    input_device_index=int(dev["index"]),
+                    frames_per_buffer=1024,
+                )
+                try:
+                    chunk_index = 0
+                    while not self.stop_event.is_set():
+                        frames = []
+                        chunk_started = time.monotonic()
+                        while (
+                            not self.stop_event.is_set()
+                            and time.monotonic() - chunk_started < self.chunk_seconds
+                        ):
+                            frames.append(stream.read(1024, exception_on_overflow=False))
+                        if not frames:
+                            continue
+                        offset = max(0.0, chunk_started - self._started_at)
+                        path = self.audio_dir / f"audio_{chunk_index:05d}.wav"
+                        chunk_index += 1
+                        with wave.open(str(path), "wb") as wav:
+                            wav.setnchannels(channels)
+                            wav.setsampwidth(width)
+                            wav.setframerate(rate)
+                            wav.writeframes(b"".join(frames))
+                        try:
+                            self.queue.put((path, offset), timeout=2)
+                        except queue.Full:
+                            self.dropped_or_stopped_for_backlog = True
+                            self.error = "audio ASR backlog reached safety limit"
+                            self.stop_event.set()
+                finally:
+                    stream.stop_stream()
+                    stream.close()
+            finally:
+                pa.terminate()
+        except Exception as exc:
+            self.error = f"{type(exc).__name__}: {exc}"
+            self.stop_event.set()
+        finally:
+            try:
+                self.queue.put_nowait(None)
+            except queue.Full:
+                pass
+
+    def _transcribe_loop(self):
+        try:
+            from faster_whisper import WhisperModel
+            model_name = str(os.getenv("SURYADEV_WHISPER_MODEL") or "tiny").strip()
+            model = WhisperModel(model_name, device="cpu", compute_type="int8")
+            while True:
+                try:
+                    item = self.queue.get(timeout=1)
+                except queue.Empty:
+                    if self.stop_event.is_set():
+                        break
+                    continue
+                if item is None:
+                    break
+                path, offset = item
+                try:
+                    segments, _ = model.transcribe(
+                        str(path),
+                        beam_size=1,
+                        vad_filter=True,
+                        condition_on_previous_text=False,
+                    )
+                    for seg in segments:
+                        text = re.sub(r"\s+", " ", str(seg.text or "").strip())
+                        if text:
+                            self.entries.append({
+                                "seconds": round(float(offset) + float(seg.start or 0), 2),
+                                "text": text[:1800],
+                                "source": "system_audio_asr",
+                            })
+                finally:
+                    try:
+                        Path(path).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+        except Exception as exc:
+            self.error = f"{type(exc).__name__}: {exc}"
+            self.stop_event.set()
+
+    def stop(self):
+        self.stop_event.set()
+        for thread in self._threads:
+            thread.join(timeout=max(5, self.chunk_seconds + 30))
+        for path in self.audio_dir.glob("*.wav"):
+            try:
+                path.unlink()
+            except Exception:
+                pass
+        return list(self.entries)
 
 
 def _video_snapshot(page):
@@ -198,6 +357,9 @@ def observe(job, workspace):
 
     transcript_rows = []
     visual_evidence = []
+    audio_asr = None
+    audio_asr_started = False
+    caption_seen = False
     last_caption = ""
     last_periodic = -visual_interval
     term_last_seen = {}
@@ -222,6 +384,16 @@ def observe(job, workspace):
             page.wait_for_timeout(2500)
             _try_enable_captions(page)
             _try_play(page)
+            page.wait_for_timeout(5000)
+            first = _video_snapshot(page)
+            caption_seen = bool(re.sub(r"\s+", " ", str(first.get("caption") or "").strip()))
+            allow_audio_asr = bool(constraints.get("allow_audio_asr_fallback", True))
+            if not caption_seen and allow_audio_asr and _SystemAudioASR.available():
+                audio_asr = _SystemAudioASR(
+                    workspace,
+                    chunk_seconds=int(constraints.get("audio_chunk_seconds") or 60),
+                )
+                audio_asr_started = audio_asr.start()
 
             while True:
                 snap = _video_snapshot(page)
@@ -233,7 +405,8 @@ def observe(job, workspace):
                     sec = float(snap.get("seconds") or 0)
                     caption = re.sub(r"\s+", " ", str(snap.get("caption") or "").strip())
                     if caption and caption != last_caption:
-                        transcript_rows.append({"seconds": round(sec, 2), "text": caption[:1800]})
+                        caption_seen = True
+                        transcript_rows.append({"seconds": round(sec, 2), "text": caption[:1800], "source": "browser_caption"})
                         last_caption = caption
 
                         low = caption.lower()
@@ -268,7 +441,12 @@ def observe(job, workspace):
                     if elapsed >= duration_seconds:
                         # User requirement: if the shift ends with <=5 minutes left,
                         # finish the current video before handoff. Otherwise checkpoint.
-                        if remaining is not None and remaining <= finish_grace:
+                        # A stalled stream is still bounded and cannot hold the worker forever.
+                        if (
+                            remaining is not None
+                            and remaining <= finish_grace
+                            and elapsed <= duration_seconds + finish_grace + 120
+                        ):
                             pass
                         else:
                             break
@@ -278,6 +456,10 @@ def observe(job, workspace):
                 time.sleep(sample_seconds)
         finally:
             context.close()
+
+    asr_rows = audio_asr.stop() if audio_asr_started and audio_asr is not None else []
+    if not caption_seen and asr_rows:
+        transcript_rows = asr_rows
 
     transcript_path = transcript_dir / "transcript.txt"
     transcript_text = "\n".join(
@@ -322,6 +504,9 @@ def observe(job, workspace):
             "sha256": _sha256(transcript_path),
             "temporary": True,
             "line_count": len(transcript_rows),
+            "source": "browser_caption" if caption_seen else ("system_audio_asr" if asr_rows else "unavailable"),
+            "audio_asr_started": audio_asr_started,
+            "audio_asr_error": "" if audio_asr is None else audio_asr.error,
             "persistent_copy_allowed": False,
         },
         "session": {
