@@ -43,6 +43,13 @@ $Chandra = Join-Path $Output "Chandradev.exe"
 if (-not (Test-Path $Surya)) { throw "Suryadev.exe was not built" }
 if (-not (Test-Path $Chandra)) { throw "Chandradev.exe was not built" }
 
+$LearningAdapter = Join-Path $PSScriptRoot "SURYDEV_VIDEO_LEARNING_ADAPTER.py"
+$SyncClient = Join-Path $PSScriptRoot "SURYDEV_SYNC_CLIENT.py"
+if (-not (Test-Path $LearningAdapter)) { throw "SURYDEV learning adapter is missing" }
+if (-not (Test-Path $SyncClient)) { throw "SURYDEV sync client is missing" }
+Copy-Item -Force $LearningAdapter (Join-Path $Output "SURYDEV_VIDEO_LEARNING_ADAPTER.py")
+Copy-Item -Force $SyncClient (Join-Path $Output "SURYDEV_SYNC_CLIENT.py")
+
 & $Surya --probe | Out-File -Encoding UTF8 (Join-Path $Output "Suryadev-probe.json")
 & $Chandra --probe | Out-File -Encoding UTF8 (Join-Path $Output "Chandradev-probe.json")
 
@@ -54,3 +61,5 @@ Get-FileHash -Algorithm SHA256 $Surya,$Chandra |
 Write-Host "Built and probe-tested:"
 Write-Host "  $Surya"
 Write-Host "  $Chandra"
+Write-Host "  $(Join-Path $Output 'SURYDEV_VIDEO_LEARNING_ADAPTER.py')"
+Write-Host "  $(Join-Path $Output 'SURYDEV_SYNC_CLIENT.py')"

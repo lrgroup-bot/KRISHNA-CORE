@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/suryadev-chandradev-external-qc
+      - fix/krishna-ui-runtime-verification
   pull_request:
 
 jobs:
@@ -41,4 +41,6 @@ jobs:
             dist-external-observers/Suryadev-probe.json
             dist-external-observers/Chandradev-probe.json
             dist-external-observers/SHA256.json
+            dist-external-observers/SURYDEV_VIDEO_LEARNING_ADAPTER.py
+            dist-external-observers/SURYDEV_SYNC_CLIENT.py
           if-no-files-found: error

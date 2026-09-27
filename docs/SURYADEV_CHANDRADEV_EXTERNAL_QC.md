@@ -38,6 +38,52 @@ SURYDEV runs on a separate Windows PC/laptop and can be assigned jobs by KRISHNA
 
 Raw recordings, full screenshots, full audio/video, browser caches and temporary frames remain on the external SURYDEV workspace unless an explicit separate evidence-transfer workflow is approved.
 
+## SURYDEV video-learning mode
+
+SURYDEV may use trusted iPads, phones, laptops, or PCs as lightweight external learning nodes. These devices are evidence collectors, not separate BRAHMAGYAN or Rishi authorities.
+
+Default low-load video policy:
+
+- one active video playback lane per low-memory tablet/iPad;
+- queue additional videos instead of decoding several at once;
+- captions/timestamp text first when available;
+- system-audio speech-to-text is an optional fallback on capable external computers;
+- keep a temporary timestamped `transcript.txt` locally;
+- split durable learning into bounded chunks (default 10-minute evidence windows);
+- select only useful visual frames instead of uploading continuous screen recordings;
+- preserve source URL/title, timestamp, frame SHA-256, capture reason and a research question;
+- never treat a speaker's claim as verified knowledge merely because it appeared in a video.
+
+A nominal six-hour shift uses a five-minute finish grace: when the shift limit is reached and the current video has at most five minutes remaining, SURYDEV finishes that video before handoff. Otherwise it checkpoints at the current timestamp and hands off the completed evidence window.
+
+Selected frame names are deterministic and subject-oriented, for example:
+
+`DNA_REPAIR__01h23m14s__diagram.jpg`
+
+The associated metadata records why the frame was selected and what the Rishi/Lab should verify. Full screenshots/video/audio stay on the external node by default; the learning bundle carries bounded text, provenance, timestamps and selected-frame hashes. A separate explicit evidence-transfer workflow is required to move selected image bytes.
+
+### Durable handoff and cleanup
+
+A worker state follows:
+
+`NEW -> PROCESSING -> AWAITING_SERVER_ACK -> ACKNOWLEDGED_CLEANED`
+
+Adapter exit code alone never means completion. A valid `learning-bundle.json` is required. The server routes each bounded learning chunk through the existing BRAHMA/Rishi path and returns a receipt containing the canonical bundle SHA-256. Only a matching receipt authorizes deletion of the local transcript, raw/audio/video/frame/cache data.
+
+The worker state is persisted, so a restart cannot silently re-run an already uploaded/awaiting-ACK job.
+
+### Device truth lights
+
+External nodes send an authenticated heartbeat. UI lights must reflect server truth:
+
+- **SERVER LINK green**: authenticated heartbeat is fresh;
+- **SURYDEV WORKING green**: worker is alive, online and not reporting an error;
+- **LEARNING green**: node is actively watching/listening/capturing/transcribing/researching/uploading.
+
+A heartbeat older than 150 seconds is stale and therefore red.
+
+"horses" or parallel execution lanes are implementation workers only. They do not become Rishis, do not own knowledge, and cannot bypass BRAHMA/BRAHMAGYAN evidence gates.
+
 ## CHANDRADEV responsibilities
 
 CHANDRADEV runs on a separate PC/laptop and is the final independent visual QC peer.
