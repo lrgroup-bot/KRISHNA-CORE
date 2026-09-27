@@ -31,6 +31,20 @@ LAPTOPS
    - Exact model/year/specification: Not yet identified
    - Action: Identify from bottom model marking and About This Mac when available
 
+
+TABLETS / MOBILE DEVICES
+------------------------
+8. Apple iPad mini (5th generation, introduced 2019)
+   - Status: Owned
+   - Chip: Apple A12 Bionic with Neural Engine (generation-level specification)
+   - Display: 7.9-inch Retina, 2048x1536
+   - Connector: Lightning
+   - Storage: TO VERIFY (64GB or 256GB variants existed)
+   - Connectivity variant: TO VERIFY (Wi-Fi or Wi-Fi + Cellular)
+   - Exact model number / battery health / iPadOS version: TO VERIFY
+   - Potential KRISHNA use: secondary mobile control/monitoring screen, Hawkeye reference/research terminal, camera/control companion, local documentation/manual display
+   - Action: Identify Settings > General > About > Model Number and battery/condition before assignment
+
 NETWORK / POWER EQUIPMENT
 -------------------------
 6. 24V PoE injector / switching power supply
@@ -40,6 +54,22 @@ NETWORK / POWER EQUIPMENT
    - Ports: LAN + POE RJ45
    - Status: Owned
    - Note: Treat as potentially passive 24V PoE until exact standard/pinout is verified. Do not connect unknown Ethernet equipment to POE output.
+
+
+7A. Scientific Atlanta / Cisco DPC2100R2 Cable Modem
+   - Status: Owned
+   - Model: DPC2100R2
+   - Device type: DOCSIS cable modem
+   - Rating on label: 12V DC, 1A
+   - Part number on label: 4013700
+   - Hardware revision: 2.1
+   - Manufacturing date on label: 09/2008
+   - Known platform capability: DOCSIS 2.0, backward compatible with DOCSIS 1.1/1.0; 10/100 Ethernet and USB 1.1 on the DPC2100 family
+   - Exact port condition / power adapter / modem lock status: TO VERIFY
+   - Potential reuse: Ethernet/USB/networking test bench, regulated 12V/1A adapter source if matching adapter is present, enclosure/LED/button/connectors for salvage, DOCSIS/network-protocol learning fixture
+   - Current broadband use: Legacy; do not assume compatibility with modern ISP service
+   - Privacy note: Serial number and MAC address were visible in the photo but are intentionally not stored in this inventory.
+   - Action: Photograph front/rear ports and power adapter, then test power-up and Ethernet link before opening or salvaging
 
 VIDEO / DISPLAY EQUIPMENT
 -------------------------
