@@ -20,6 +20,7 @@ import uuid
 
 from .field_perception import FieldPerceptionPolicy
 from .suryadev_horses import SuryadevHorseFleet
+from .suryadev_curriculum import SuryadevCurriculumPlanner
 
 
 class SuryadevAgent:
@@ -54,7 +55,7 @@ class SuryadevAgent:
         "frame_bytes", "audio_bytes", "video_bytes",
     }
 
-    def __init__(self, state_root, *, brahma=None, council=None, ui_reviewer=None, memory=None):
+    def __init__(self, state_root, *, brahma=None, brahmagyan=None, council=None, garuda_scout=None, ui_reviewer=None, memory=None):
         self.root = Path(state_root)
         self.root.mkdir(parents=True, exist_ok=True)
         self.jobs_dir = self.root / "jobs"
@@ -64,7 +65,20 @@ class SuryadevAgent:
         self.ledger = self.root / "suryadev-ledger.jsonl"
         self.horses = SuryadevHorseFleet(self.root / "seven-horses")
         self.brahma = brahma
+        self.brahmagyan = brahmagyan
         self.council = council
+        self.curriculum = (
+            SuryadevCurriculumPlanner(
+                self.root / "curriculum",
+                brahma=brahma,
+                brahmagyan=brahmagyan,
+                council=council,
+                garuda_scout=garuda_scout,
+                memory=memory,
+            )
+            if brahma is not None and brahmagyan is not None and council is not None and garuda_scout is not None
+            else None
+        )
         self.ui_reviewer = ui_reviewer
         self.memory = memory
 
@@ -93,6 +107,33 @@ class SuryadevAgent:
 
     def horse_status(self):
         return self.horses.status()
+
+    def horse_auto_bind(self, *, node_id, profile, label="", approved=False):
+        row=self.horses.auto_bind(
+            node_id=node_id,profile=profile or {},label=label,approved=approved,
+        )
+        if self.memory:
+            binding=row.get("binding") or {}
+            self.memory.audit(
+                "suryadev_horse_auto_bind",
+                "bound" if binding else "fleet_full",
+                f"{binding.get('horse_id','none')}:{node_id}:{row.get('classification',{}).get('workload')}",
+            )
+        return row
+
+    def curriculum_plan(self, subject, *, horse_id, reason="", preferred_rishis=None,
+                        max_videos=10, candidate_limit=40, enrich_metadata=True):
+        if self.curriculum is None:
+            raise RuntimeError("SURYDEV curriculum planner is not bound to BRAHMA/BRAHMAGYAN/Garuda")
+        # The horse must already exist as a permanent profile; a physical binding may
+        # be added later but unrecognized worker IDs cannot receive curricula.
+        self.horses._horse(horse_id)
+        return self.curriculum.build_six_hour_plan(
+            subject,horse_id=horse_id,reason=reason,
+            preferred_rishis=preferred_rishis or [],
+            max_videos=max_videos,candidate_limit=candidate_limit,
+            enrich_metadata=enrich_metadata,
+        )
 
     def horse_bind(self, horse_id, *, node_id, device_class, label="", approved=False):
         row=self.horses.bind(
@@ -451,6 +492,10 @@ class SuryadevAgent:
             "raw_media_to_krishna": False,
             "routes_findings_to_brahmagyan": self.brahma is not None,
             "seven_horses": self.horses.status(),
+            "curriculum": self.curriculum.status() if self.curriculum is not None else {
+                "available":False,
+                "reason":"BRAHMA/BRAHMAGYAN/Garuda curriculum dependencies not bound",
+            },
             "release_authority": False,
             "human_verification_handoff": True,
             "authentication_permission": "explicit owner approval required for every checkpoint",
