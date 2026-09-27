@@ -510,7 +510,17 @@ final class SuryadevHorseViewController: UIViewController, WKNavigationDelegate,
         guard !items.isEmpty else { learnLamp.set(false); return }
         let incomingPlan = plan["plan_id"] as? String ?? ""
         if incomingPlan != planID {
-            clearTransientBatch()
+            if !planID.isEmpty && !completedSources.isEmpty {
+                subjectLabel.text = "PENDING UPLOAD · local batch retained before new curriculum"
+                learnLamp.set(false)
+                return
+            }
+            // Safe reset only when there is no unsent evidence. Normal cleanup after
+            // a completed shift happens exclusively after a positive server receipt.
+            completedSources.removeAll()
+            transcriptChunks.removeAll()
+            shiftWatchSeconds = 0
+            shiftStartedAt = 0
             planID = incomingPlan
             subject = plan["subject"] as? String ?? "BRAHMA learning"
             playlist = items
@@ -685,7 +695,7 @@ final class SuryadevHorseViewController: UIViewController, WKNavigationDelegate,
         keepAwake()
         updateBattery()
         guard client.configured, !horseID.isEmpty else { serverLamp.set(false); return }
-        let status: [String: Any] = [
+        var status: [String: Any] = [
             "network_ok": networkUp,
             "screen_understanding_ok": !planID.isEmpty && UIApplication.shared.applicationState == .active,
             "learning_ok": !planID.isEmpty && !latestPaused,
@@ -693,12 +703,12 @@ final class SuryadevHorseViewController: UIViewController, WKNavigationDelegate,
             "current_url": latestURL,
             "current_title": latestTitle,
             "current_shift": subject,
-            "battery_percent": batteryPercent() as Any,
             "charging": UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full,
             "thermal_state": thermalName(ProcessInfo.processInfo.thermalState),
             "free_storage_bytes": freeDiskBytes(),
             "pending_batches": completedSources.isEmpty ? 0 : 1,
         ]
+        if let battery = batteryPercent() { status["battery_percent"] = battery }
         client.heartbeat(status) { [weak self] code, _ in
             DispatchQueue.main.async {
                 self?.serverLamp.set(code == 200)
@@ -728,8 +738,7 @@ final class SuryadevHorseViewController: UIViewController, WKNavigationDelegate,
 
     private func deviceProfile() -> [String: Any] {
         let memoryMB = Int(ProcessInfo.processInfo.physicalMemory / (1024 * 1024))
-        let battery = batteryPercent()
-        return [
+        var profile: [String: Any] = [
             "platform": "ios",
             "platform_version": UIDevice.current.systemVersion,
             "device_class": UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "mobile",
@@ -737,7 +746,6 @@ final class SuryadevHorseViewController: UIViewController, WKNavigationDelegate,
             "memory_mb": memoryMB,
             "cpu_cores": ProcessInfo.processInfo.processorCount,
             "free_storage_gb": Double(freeDiskBytes()) / 1_073_741_824.0,
-            "battery_percent": battery as Any,
             "charging": UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full,
             "thermal_state": thermalName(ProcessInfo.processInfo.thermalState),
             "browser_available": true,
@@ -750,6 +758,8 @@ final class SuryadevHorseViewController: UIViewController, WKNavigationDelegate,
             "serial_collected": false,
             "mac_address_collected": false,
         ]
+        if let battery = batteryPercent() { profile["battery_percent"] = battery }
+        return profile
     }
 
     private func persistLocalBatch() {
