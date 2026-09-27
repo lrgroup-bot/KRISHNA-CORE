@@ -210,7 +210,9 @@ def _validate_bundle(bundle_path, job):
     return {
         "valid": True,
         "bundle": row,
-        "bundle_sha256": _sha256_file(path),
+        "bundle_sha256": _sha256_bytes(
+            json.dumps(row, sort_keys=True, ensure_ascii=False, default=str, separators=(",", ":")).encode("utf-8")
+        ),
         "chunk_count": len(chunks),
         "visual_count": len(visuals),
     }
