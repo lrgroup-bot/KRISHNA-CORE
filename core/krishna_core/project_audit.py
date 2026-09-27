@@ -14,7 +14,7 @@ import json
 import re
 import time
 
-from .avatar_asset_pipeline import AvatarAssetInspector
+from .avatar_asset_pipeline import AvatarAssetInspector, REQUIRED_ANIMATION_CLIPS
 from .native_voice import KrishnaVoiceStack
 from .mission_engine import MISSION_STATES
 
@@ -341,13 +341,16 @@ class KrishnaProjectAudit:
                 "WISDOM":"wisdom","PLAYFUL":"playful","PROTECTION":"protection","FLUTE":"flute",
                 "DHYAN":"dhyan","SLEEPING":"sleep","WAKING":"wake","WORKING":"work",
             }
-            missing_clips=[clip for clip in clip_map.values() if f'"{clip}"' not in production_text]
-            direction_ok=not (missing_identity or missing_channels or missing_states or missing_clips)
+            canonical_clips={str(x).strip().lower() for x in REQUIRED_ANIMATION_CLIPS}
+            missing_clips=[clip for clip in clip_map.values() if clip not in canonical_clips]
+            production_uses_canonical="REQUIRED_ANIMATION_CLIPS" in production_text
+            direction_ok=not (missing_identity or missing_channels or missing_states or missing_clips) and production_uses_canonical
             self.add("avatar","owner avatar direction contract","PASS" if direction_ok else "FAIL",
                      "Bala Krishna identity, Partha relationship, performance hierarchy/states and production clips are codified"
                      if direction_ok else "one or more owner avatar directions are missing from canonical source",
                      missing_identity=missing_identity,missing_channels=missing_channels,
-                     missing_states=missing_states,missing_clips=missing_clips)
+                     missing_states=missing_states,missing_clips=missing_clips,
+                     production_uses_canonical_animation_contract=production_uses_canonical)
 
     def audit_voice(self):
         status=KrishnaVoiceStack().status()
