@@ -57,11 +57,12 @@ public class MainActivity extends Activity {
       n.createNotificationChannel(new NotificationChannel(NOTIFY_CHANNEL,"KRISHNA completed work",NotificationManager.IMPORTANCE_DEFAULT));
     }
   }
-  void notifyCompleted(String text){
+  void notifyKrishna(String title,String text){
     Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,NOTIFY_CHANNEL):new Notification.Builder(this);
-    b.setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle("KRISHNA completed work").setContentText(text).setAutoCancel(true);
+    b.setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle(title).setContentText(text).setAutoCancel(true);
     ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify((int)(System.currentTimeMillis()&0x7fffffff),b.build());
   }
+  void notifyCompleted(String text){notifyKrishna("KRISHNA completed work",text);}
 
   boolean assistantRoleHeld(){
     if(Build.VERSION.SDK_INT<29)return false;
@@ -514,8 +515,12 @@ public class MainActivity extends Activity {
         JSONObject d=new JSONObject(raw);JSONArray a=d.optJSONArray("events");
         if(a!=null)for(int i=0;i<a.length();i++){
           JSONObject e=a.getJSONObject(i);
-          if("task.completed".equals(e.optString("type"))){
+          String type=e.optString("type");
+          if("task.completed".equals(type)){
             JSONObject p=e.optJSONObject("payload");if(p!=null)notifyCompleted(p.optString("summary","KRISHNA completed the task"));
+          }else if("suryadev.alert".equals(type)){
+            JSONObject p=e.optJSONObject("payload");
+            if(p!=null)notifyKrishna("KRISHNA · SURYADEV",p.optString("summary","Suryadev learning node needs attention"));
           }
         }
       }catch(Exception ignored){}
