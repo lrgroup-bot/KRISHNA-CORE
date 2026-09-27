@@ -126,7 +126,8 @@
     let h=histories.get(key);
     if(!h)h={createdAt:now,rows:[],complete:false,details:{},lastSeen:now};
     h.lastSeen=now;
-    h.rows.push({at:now,text,codes,quality:quality||{}});
+    const potential=Math.max(0,Number(read&&read.potential_barcode_count||0));
+    h.rows.push({at:now,text,codes,potential_barcode_count:potential,quality:quality||{}});
     if(h.rows.length>MAX_HISTORY)h.rows.splice(0,h.rows.length-MAX_HISTORY);
 
     let textVotes=0,bestText=text;
@@ -156,6 +157,7 @@
       samples:h.rows.length,
       age_ms:age,
       quality:q,
+      potential_barcode_count:potential,
     };
   }
 
@@ -164,6 +166,7 @@
     const q=quality||{},actions=[];
     if(q.lowLight||Number(q.brightness||0)<48)actions.push("LIGHT");
     if(Number(q.detail||0)<.22)actions.push("REFOCUS");
+    if(Number(readResult&&readResult.potential_barcode_count||0)>0)actions.push("BARCODE_RESCAN");
     const a=selection&&selection.item?area(selection.item.bbox):0;
     if(a>0&&a<.16)actions.push("ZOOM_IN");
     if(a>.55)actions.push("ZOOM_OUT");
@@ -180,6 +183,7 @@
     else if(a<.16)factor=Math.min(1.6,Math.sqrt(.20/a));
     else if(a>.55)factor=.88;
     if(readResult&&!readResult.complete&&readResult.samples>=2&&a<.28)factor=Math.max(factor,1.12);
+    if(Number(readResult&&readResult.potential_barcode_count||0)>0)factor=Math.max(factor,1.25);
     return factor;
   }
 
