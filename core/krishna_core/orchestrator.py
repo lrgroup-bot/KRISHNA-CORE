@@ -1388,7 +1388,16 @@ class Orchestrator:
             return OSMO_ACTION_ORIGINAL_PROFILE
 
         def chandradev_webcam_profile_action(payload,context):
-            return self.chandradev_camera.future_webcam_profile()
+            return self.chandradev_camera.webcam_profile()
+
+        def chandradev_webcam_detect_action(payload,context):
+            return self.chandradev_camera.probe_uvc_devices()
+
+        def chandradev_webcam_select_action(payload,context):
+            return self.chandradev_camera.select_camera_source(
+                str(payload.get("source") or "usb_uvc_webcam"),
+                webcam_index=(None if payload.get("webcam_index") is None else int(payload.get("webcam_index"))),
+            )
 
         def chandradev_camera_selection_action(payload,context):
             status=self.chandradev_camera.status()
@@ -1396,7 +1405,8 @@ class Orchestrator:
                 "agent":"CHANDRADEV",
                 "camera_selection":status.get("camera_selection") or {},
                 "active_live_path":status.get("live_path"),
-                "future_webcam_profile":status.get("future_webcam_profile") or {},
+                "webcam_profile":status.get("webcam_profile") or {},
+                "uvc_probe":status.get("uvc_probe") or {},
             }
 
         def chandradev_camera_guide_action(payload,context):
@@ -4400,12 +4410,22 @@ class Orchestrator:
         )
         self.action_bus.register(
             "chandradev.camera.webcam.profile",chandradev_webcam_profile_action,
-            description="Read the planned ZEB Pure Plus USB webcam profile without activating it before hardware installation",
+            description="Read CHANDRADEV direct USB UVC webcam profile, selected camera index and present Windows camera devices",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
+            "chandradev.camera.webcam.detect",chandradev_webcam_detect_action,
+            description="Enumerate present Windows Camera/Image devices for CHANDRADEV without opening their video streams",
+            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "chandradev.camera.webcam.select",chandradev_webcam_select_action,
+            description="Select direct USB UVC webcam or explicit DJI RTMP fallback and persist the CHANDRADEV camera index",
+            mutating=True,permissions=("runtime.write",),sources=("pc","system","agent","job"),
+        )
+        self.action_bus.register(
             "chandradev.camera.selection",chandradev_camera_selection_action,
-            description="Read CHANDRADEV camera selection policy; DJI Osmo RTMP remains active during current validation",
+            description="Read CHANDRADEV active camera selection; direct USB UVC webcam is the default primary source",
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
@@ -4430,17 +4450,17 @@ class Orchestrator:
         )
         self.action_bus.register(
             "chandradev.camera.frame.capture",chandradev_camera_capture_action,
-            description="Capture one local JPEG frame from the Osmo RTMP feed for CHANDRADEV",
+            description="Capture one local JPEG frame from CHANDRADEV\'s selected direct USB webcam or explicit RTMP fallback",
             mutating=True,permissions=("evidence.write",),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "chandradev.camera.frame.analyze",chandradev_camera_analyze_action,
-            description="Capture and analyze one Osmo frame with PC-local vision and record it in CHANDRADEV",
+            description="Capture and analyze one selected camera frame with PC-local vision and record it in CHANDRADEV",
             mutating=True,permissions=("evidence.write","model.use"),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
             "chandradev.camera.screen.focus",chandradev_screen_focus_action,
-            description="Detect, perspective-correct, sharpen and lock the monitor region from the Osmo feed",
+            description="Detect, perspective-correct, sharpen and lock the monitor region from CHANDRADEV\'s selected camera",
             mutating=True,permissions=("evidence.write",),sources=("pc","system","agent","job"),
         )
         self.action_bus.register(
