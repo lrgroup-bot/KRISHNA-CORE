@@ -2,7 +2,7 @@ KRISHNA OWNER HARDWARE INVENTORY
 ===============================
 Purpose: Persistent source-of-truth inventory for hardware/electronics already owned by the owner.
 Rule: When the owner identifies or adds hardware, append/update it here rather than creating another inventory file.
-Last updated: 2026-09-27
+Last updated: 2026-09-28
 
 COMPUTER COMPONENTS
 -------------------
@@ -119,6 +119,84 @@ POTENTIAL SALVAGE / REUSE FROM OLD LAPTOPS
 - Optical/DVD drives: potentially reusable with compatible USB adapter/enclosure
 - Speakers, microphones, cooling fans/heatsinks and chargers: retain pending inspection
 - Old lithium-ion batteries: do not repurpose without proper battery safety assessment
+
+
+CAMERAS / CAPTURE DEVICES
+-------------------------
+9. Samsung legacy digital camcorder
+   - Status: Owned
+   - Brand: Samsung
+   - Exact model: TO VERIFY from bottom/battery-bay label
+   - Recording/media generation: Legacy tape/digital camcorder class
+   - Optical zoom marking: 22x
+   - Digital zoom marking: 880x
+   - Battery type marking: Samsung Li-ion
+   - Confirmed connector: A/V OUT
+   - Potential KRISHNA role: CHANDRADEV secondary/fixed observation camera
+   - Intended connection path: Camera A/V OUT -> correct Samsung A/V cable -> USB video-capture adapter -> KRISHNA Windows PC
+   - Potential duties: fixed monitor/object view, optical-zoom observation, hardware/workbench monitoring, selected evidence capture
+   - Limitation: Do not treat as a USB webcam until exact model/output behavior and live-feed capability are verified
+   - Action: Identify exact model, obtain/locate matching A/V cable, verify live output, capture resolution, focus/zoom, continuous-power operation and Windows capture stability
+
+10. Legacy USB gooseneck webcam with separate microphone plug
+   - Status: Owned
+   - Exact brand/model/chipset: TO VERIFY
+   - Video connection: USB-A
+   - Audio connection: separate 3.5 mm microphone plug
+   - Physical design: flexible gooseneck stand
+   - Front lighting: four LED-style lights around lens (function to verify)
+   - Potential KRISHNA role: CHANDRADEV secondary camera
+   - Potential duties: desk/workbench observation, equipment/status LEDs, fixed-object monitoring, fallback visual source
+   - Limitation: likely legacy low-resolution device; do not assign monitor OCR duty until real capture quality is measured
+   - Action: Test Windows detection, supported resolutions/frame rates, focus distance, LED operation, microphone, stability and OCR readability
+
+SOLAR / LOW-POWER ENERGY
+------------------------
+11. 3Wp / 5.5V solar panels
+   - Status: Owned
+   - Quantity: 10
+   - Model marking: 3WP-5.5V
+   - Rated maximum power per panel: 3Wp
+   - Voltage at maximum power (Vmp): 5.50V
+   - Current at maximum power (Imp): 0.54A
+   - Open-circuit voltage (Voc): 7.10V
+   - Short-circuit current (Isc): 0.59A
+   - Total nameplate peak power for 10 panels: 30Wp
+   - Potential KRISHNA/LR Group use: small independent solar subsystem for sensors, microcontrollers, low-power monitoring/IoT nodes, emergency USB/5V loads or field accessories
+   - Not suitable for: directly powering Mac Studio, desktop PC or LR Group server-class compute
+   - Safety/engineering note: Do not combine or connect directly to batteries/devices until series/parallel topology, charge controller, battery chemistry and protection are defined
+   - Action: Inspect panel connectors/wiring and test Voc/Isc/output under sunlight before designing a charge system
+
+LEGACY LAPTOP COMPONENTS / SALVAGE
+----------------------------------
+12. HP/Dell-era DDR2 laptop memory modules
+   - Status: Owned
+   - Quantity observed: 2 modules
+   - HP spare marking visible: SPS 454922-001
+   - Capacity: 1GB each
+   - Type: DDR2 SO-DIMM
+   - Speed class: DDR2-667 / PC2-5300
+   - Total observed capacity: 2GB
+   - Current use value: Legacy laptop repair/test only; not suitable for modern KRISHNA/LR Group server or current desktop upgrades
+
+13. Atheros AR5BXB63 Mini-PCIe Wi-Fi card
+   - Status: Owned
+   - Interface: Mini-PCIe
+   - Wireless generation: legacy 2.4GHz 802.11b/g class
+   - Potential use: legacy laptop repair, protocol/test-bench experiments, antenna salvage
+   - Not suitable for: LR Group high-speed backbone or modern primary networking
+
+14. Western Digital Blue 500GB 2.5-inch SATA HDD
+   - Status: Owned
+   - Model: WD5000LPVX
+   - Full model marking: WD5000LPVX-80V0TT0
+   - Capacity: 500GB
+   - Form factor/interface: 2.5-inch SATA mechanical HDD
+   - Label manufacture date: 18 MAR 2014
+   - Potential use: secondary/archive/testing storage, old-laptop storage, temporary capture/log storage, or USB external storage with a compatible SATA-to-USB enclosure
+   - Not suitable for: sole copy of important LR Group data, primary AI/model storage, high-performance databases or main OS storage
+   - Action: Run SMART/health test before reuse; check reallocated, pending and uncorrectable sectors plus power-on hours and read/write stability
+
 
 INVENTORY POLICY
 ----------------
