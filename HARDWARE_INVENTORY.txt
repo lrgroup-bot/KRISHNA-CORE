@@ -203,15 +203,25 @@ GAME / MEDIA CONSOLES
 ---------------------
 15. Sony PlayStation 3 (original/Fat-style chassis)
    - Status: Owned and working
-   - Exact CECH model: TO VERIFY; bottom/rear label is heavily worn and not reliably readable from current photo
+   - Exact model: CECHK08
+   - Region suffix: 08 (India/Russia/Ukraine/Central Asia PAL market)
+   - Generation/release family: CECHKxx, introduced 2008
+   - Original HDD capacity for CECHK family: 80GB
+   - Motherboard family: DIA-002
+   - Cell / RSX process: 65nm / 65nm
+   - Wi-Fi: Yes
+   - USB ports: 2
+   - HDMI generation: HDMI 1.3a
+   - PS2 hardware compatibility: No
+   - SA-CD playback: No
+   - Original OtherOS support: Yes
    - Power label visible: 220-240V AC, 50/60Hz
-   - Connectivity/features expected for platform: HDMI/AV output, Ethernet, USB, Blu-ray/DVD/CD, Wi-Fi/Bluetooth depending exact CECH revision
    - KRISHNA/LR Group reuse value: media/display test endpoint, HDMI/AV test source, Ethernet/Wi-Fi network endpoint, controller/USB testing, Blu-ray/DVD/CD playback, legacy console/media lab
    - CHANDRADEV possibility: can be used as a controlled video/display source for camera/monitor-testing workflows; HDMI capture may be affected by PS3 HDCP, so AV/component output may be more practical for capture testing
    - AI/server suitability: Not suitable as modern KRISHNA/LR Group AI compute or server hardware
    - Preservation rule: Keep intact while working; do not strip for parts unless it later fails or owner explicitly repurposes it
    - Potential internal parts only if retired later: 2.5-inch SATA HDD, fan/heatsink, PSU, optical drive, Wi-Fi/Bluetooth board, antennas, chassis hardware
-   - Action: Photograph a clearer CECH/model label or read System Information to identify exact revision, storage capacity and firmware before assigning a permanent lab role
+   - Action: Verify currently installed HDD capacity and firmware from PS3 System Information; original 80GB drive may have been upgraded
 
 
 INVENTORY POLICY
