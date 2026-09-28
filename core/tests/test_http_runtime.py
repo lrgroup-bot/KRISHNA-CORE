@@ -73,7 +73,7 @@ class HTTPRuntimeTests(unittest.TestCase):
             raise last_error
 
     @classmethod
-    def call(cls, path, data=None, headers=None):
+    def call(cls, path, data=None, headers=None, timeout=10):
         method = "GET" if data is None else "POST"
         attempts = 2 if data is None else 1
         for attempt in range(attempts):
@@ -81,14 +81,14 @@ class HTTPRuntimeTests(unittest.TestCase):
                 data=None if data is None else json.dumps(data).encode(),
                 headers={"Content-Type":"application/json", **(headers or {})})
             try:
-                response = urllib.request.urlopen(request, timeout=10)
+                response = urllib.request.urlopen(request, timeout=timeout)
             except urllib.error.HTTPError as error:
                 response = error
             except TimeoutError as exc:
                 if attempt + 1 < attempts:
                     time.sleep(0.25)
                     continue
-                raise TimeoutError(f"{method} {path} timed out after 10s (attempts={attempts})") from exc
+                raise TimeoutError(f"{method} {path} timed out after {timeout}s (attempts={attempts})") from exc
             with response:
                 body = response.read()
                 return response.status, json.loads(body) if "json" in response.headers.get("Content-Type", "") else body
@@ -183,7 +183,8 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(self.call("/api/protocol")[1]["version"],"1.0")
 
     def test_architecture_truth_and_unified_hawkeye_contracts(self):
-        code,truth=self.call("/api/architecture/truth")
+        # This endpoint scans the full project tree on a cold Windows runtime.
+        code,truth=self.call("/api/architecture/truth", timeout=30)
         self.assertEqual(code,200)
         self.assertEqual(truth["component"],"KRISHNA Architecture Truth Audit")
         self.assertEqual(truth["requirements"]["version"],"2026-09-23-master-product-truth-v9")
