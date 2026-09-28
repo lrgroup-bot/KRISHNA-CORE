@@ -22,6 +22,7 @@ class KrishnaMobileAPKReleaseContractTests(unittest.TestCase):
         self.assertIn("dist/KRISHNA-Mobile.apk.sha256",self.workflow)
         self.assertIn("dist/KRISHNA-Mobile-build.json",self.workflow)
         self.assertIn("if-no-files-found: error",self.workflow)
+        self.assertIn("VERIFY_KRISHNA_MOBILE_SCREENSHOT.py",self.workflow)
 
     def test_release_document_keeps_download_outside_source_checkout(self):
         self.assertIn(r"E:\KRISHNA-Mobile\KRISHNA-Mobile.apk",self.release)

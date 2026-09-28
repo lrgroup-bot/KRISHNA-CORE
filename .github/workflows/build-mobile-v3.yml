@@ -130,7 +130,8 @@ jobs:
 
           cp app/src/main/res/raw/krishna-ca.cer app/src/main/res/raw/krishna_ca.cer
           rm -f app/src/main/res/raw/krishna-ca.cer
-          cp app/src/main/res/drawable/krishna_hud.png app/src/main/res/drawable/krishna_hud_v3.png
+          rm -f app/src/main/res/drawable/krishna_hud.png app/src/main/res/drawable/krishna_hud_v3.png
+          cp mobile_v3/krishna_app_icon.xml app/src/main/res/drawable/krishna_app_icon.xml
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -144,7 +145,7 @@ jobs:
             <application
               android:theme="@style/AppTheme"
               android:label="KRISHNA"
-              android:icon="@drawable/krishna_hud_v3"
+              android:icon="@drawable/krishna_app_icon"
               android:usesCleartextTraffic="true"
               android:allowBackup="false"
               android:networkSecurityConfig="@xml/network_security_config">
@@ -229,6 +230,8 @@ jobs:
           grep -q '"version": "krishna-mobile-canonical-v1"' app/src/main/assets/canonical-runtime.json
           grep -q '"canonical_android_source": "mobile_v3"' app/src/main/assets/canonical-runtime.json
           grep -q '"package_id": "com.krishna.mobile"' app/src/main/assets/canonical-runtime.json
+          test -s app/src/main/res/drawable/krishna_app_icon.xml
+          ! test -e app/src/main/res/drawable/krishna_hud_v3.png
           grep -q '"HawkeyeOfflinePerception.java"' app/src/main/assets/canonical-runtime.json
           grep -q "krishna_child_360.webp" app/src/main/assets/index.html
           grep -q "SWIPE TO ROTATE" app/src/main/assets/index.html
@@ -470,7 +473,12 @@ jobs:
           disable-animations: true
           script: |
             PYTHONPATH=core python scripts/VERIFY_KRISHNA_APK.py dist/KRISHNA-Mobile.apk com.krishna.mobile
-            sleep 3
+            sleep 2
+            adb shell am start -W -n com.krishna.mobile/.MainActivity
+            sleep 2
+            test -n "$(adb shell pidof com.krishna.mobile | tr -d '\\r')"
+            adb shell dumpsys window windows | tee krishna-window-focus.log
+            grep -E 'mCurrentFocus|mFocusedApp' krishna-window-focus.log | grep -q 'com.krishna.mobile/'
             adb logcat -d -s KRISHNA_UI_READY:I '*:S' | tee krishna-ui-ready.log
             grep -q '"avatar_visible":true' krishna-ui-ready.log
             grep -q '"hawkeye":true' krishna-ui-ready.log
@@ -478,6 +486,7 @@ jobs:
             grep -q '"mic":true' krishna-ui-ready.log
             adb exec-out screencap -p > krishna-mobile-home.png
             test -s krishna-mobile-home.png
+            python scripts/VERIFY_KRISHNA_MOBILE_SCREENSHOT.py krishna-mobile-home.png
 
       - name: Upload KRISHNA mobile visual proof
         uses: actions/upload-artifact@v7
@@ -486,6 +495,7 @@ jobs:
           path: |
             krishna-mobile-home.png
             krishna-ui-ready.log
+            krishna-window-focus.log
           retention-days: 30
 
       - name: Upload canonical KRISHNA Mobile APK

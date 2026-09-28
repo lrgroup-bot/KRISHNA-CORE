@@ -32,7 +32,7 @@
     "avatar-renderer.js"
   ],
   "build_workflow": ".github/workflows/build-mobile-v3.yml",
-  "artifact_name": "KRISHNA-v3.9-Assistant-Photographer-APK",
+  "artifact_name": "KRISHNA-Mobile-APK",
   "pc_runtime_companion": {
     "path": "mobile/companion",
     "role": "pc-side compatibility/pairing support only",
@@ -57,7 +57,6 @@
     "mobile_healer_security_policy_mutation": false,
     "mobile_healer_credential_mutation": false,
     "mobile_healer_ui": "hidden-unless-recovering",
-    "mobile_edge_preprocessing": true,
     "mobile_edge_preprocessing": true,
     "encrypted_hawkeye_evidence": true,
     "evidence_curator": true,
@@ -160,7 +159,10 @@
     "mobile_openrouter_live_zero_price_preflight": true,
     "mobile_openrouter_key_android_keystore": true,
     "mobile_cloud_pc_fallback_only": true,
-    "mobile_cloud_findings_pc_sync_rate_limited": true
+    "mobile_cloud_findings_pc_sync_rate_limited": true,
+    "mobile_avatar_viseme_lipsync": false,
+    "mobile_native_tts_engine": false,
+    "mobile_visual_proof_pixel_verified": true
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
@@ -251,5 +253,6 @@
       "KRISHNA PC private/heavy"
     ],
     "mobile_cloud_strategy": "mobile-direct-live-zero-price-first"
-  }
+  },
+  "artifact_file": "KRISHNA-Mobile.apk"
 }
