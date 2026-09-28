@@ -198,6 +198,22 @@ LEGACY LAPTOP COMPONENTS / SALVAGE
    - Action: Run SMART/health test before reuse; check reallocated, pending and uncorrectable sectors plus power-on hours and read/write stability
 
 
+
+GAME / MEDIA CONSOLES
+---------------------
+15. Sony PlayStation 3 (original/Fat-style chassis)
+   - Status: Owned and working
+   - Exact CECH model: TO VERIFY; bottom/rear label is heavily worn and not reliably readable from current photo
+   - Power label visible: 220-240V AC, 50/60Hz
+   - Connectivity/features expected for platform: HDMI/AV output, Ethernet, USB, Blu-ray/DVD/CD, Wi-Fi/Bluetooth depending exact CECH revision
+   - KRISHNA/LR Group reuse value: media/display test endpoint, HDMI/AV test source, Ethernet/Wi-Fi network endpoint, controller/USB testing, Blu-ray/DVD/CD playback, legacy console/media lab
+   - CHANDRADEV possibility: can be used as a controlled video/display source for camera/monitor-testing workflows; HDMI capture may be affected by PS3 HDCP, so AV/component output may be more practical for capture testing
+   - AI/server suitability: Not suitable as modern KRISHNA/LR Group AI compute or server hardware
+   - Preservation rule: Keep intact while working; do not strip for parts unless it later fails or owner explicitly repurposes it
+   - Potential internal parts only if retired later: 2.5-inch SATA HDD, fan/heatsink, PSU, optical drive, Wi-Fi/Bluetooth board, antennas, chassis hardware
+   - Action: Photograph a clearer CECH/model label or read System Information to identify exact revision, storage capacity and firmware before assigning a permanent lab role
+
+
 INVENTORY POLICY
 ----------------
 - Do not assume unknown specifications; mark them TO VERIFY.
