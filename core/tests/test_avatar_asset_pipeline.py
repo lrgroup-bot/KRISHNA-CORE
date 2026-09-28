@@ -17,6 +17,15 @@ def write_glb(path: Path, document: dict):
 
 
 class AvatarAssetPipelineTests(unittest.TestCase):
+    def test_child_runtime_profile_does_not_bypass_rig_validation(self):
+        with tempfile.TemporaryDirectory() as td:
+            asset=Path(td)/'child.glb'
+            write_glb(asset,{'asset':{'version':'2.0','extras':{
+                'krishnaRuntimeProfile':'native-child-v1'}},'meshes':[{}]})
+            report=AvatarAssetInspector().inspect(asset)
+            self.assertEqual(report['runtime_profile'],'native-child-v1')
+            self.assertFalse(report['ready'])
+
     def test_ready_asset_requires_full_body_fingers_arkit_and_visemes(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);asset=root/"krishna.glb"

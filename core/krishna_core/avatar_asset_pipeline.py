@@ -191,6 +191,7 @@ class AvatarAssetInspector:
                 "size_bytes":stat.st_size,
                 "glb_version":2,
                 "generator":str((doc.get("asset") or {}).get("generator") or ""),
+                "runtime_profile":str(((doc.get("asset") or {}).get("extras") or {}).get("krishnaRuntimeProfile") or ""),
                 "skin_count":len(skins),
                 "skin_joint_count":len(joint_names),
                 "animation_count":len(animations),

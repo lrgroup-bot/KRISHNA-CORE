@@ -1502,11 +1502,13 @@ function krishnaVoiceLanguage(text=''){
  return {short:'en',locale:'en-IN'};
 }
 let krishnaVoiceConversation=false;
-let krishnaAvatarSpeaking=false,krishnaVoiceGeneration=0;
+let krishnaAvatarSpeaking=false,krishnaVoiceGeneration=0,krishnaVoiceAbort=null;
 async function speakKrishnaReply(text){
  const value=String(text||'').trim();if(!value)return;
  const state=$('krishnaVoiceState'),feedback=$('avatarVoiceFeedback'),lang=krishnaVoiceLanguage(value),head=window.krishnaTalkingHead,native=window.krishnaNativeAvatar;
  const generation=++krishnaVoiceGeneration;
+ krishnaVoiceAbort?.abort();const controller=new AbortController();krishnaVoiceAbort=controller;
+ const voiceTimeout=setTimeout(()=>controller.abort(),12000);
  window.speechSynthesis?.cancel();native?.stopAudio();
  krishnaAvatarSpeaking=true;avatarState('THINKING');if(state)state.textContent='Preparing voice · '+lang.locale;if(feedback)feedback.textContent='Preparing local voice…';
  const finish=failed=>{
@@ -1516,16 +1518,17 @@ async function speakKrishnaReply(text){
  };
  try{
   if(!head&&!native)throw new Error('3D audio unavailable');
-  const tts=await req('/api/voice/tts',{text:value,language:lang.short});
-  const response=await fetch(tts.audio_url,{cache:'no-store'});
+  const tts=await req('/api/voice/tts',{text:value,language:lang.short},controller.signal);
+  const response=await fetch(tts.audio_url,{cache:'no-store',signal:controller.signal});
   if(!response.ok)throw new Error('local voice audio unavailable');
-  const bytes=await response.arrayBuffer();if(generation!==krishnaVoiceGeneration)return;
+  const bytes=await response.arrayBuffer();clearTimeout(voiceTimeout);if(generation!==krishnaVoiceGeneration)return;
   if(feedback)feedback.textContent='Speaking · '+(tts.provider==='windows-system-speech'?'Windows local voice':'Local voice');
   if(native){avatarState('SPEAKING');await native.playAudio(bytes);finish(false);return}
   if(head.audioCtx.state==='suspended')await head.audioCtx.resume();
   const audio=await head.audioCtx.decodeAudioData(bytes.slice(0));avatarState('SPEAKING');head.speakAudio({audio},{isRaw:true});
   setTimeout(()=>finish(false),Math.max(700,audio.duration*1000+350));return;
  }catch(e){
+  clearTimeout(voiceTimeout);
   if(generation!==krishnaVoiceGeneration)return;
   const synth=window.speechSynthesis;
   if(synth&&window.SpeechSynthesisUtterance){
@@ -1540,6 +1543,7 @@ async function speakKrishnaReply(text){
 }
 
 function stopKrishnaVoice(){
+ krishnaVoiceAbort?.abort();krishnaVoiceAbort=null;
  ++krishnaVoiceGeneration;krishnaAvatarSpeaking=false;window.speechSynthesis?.cancel();
  window.krishnaNativeAvatar?.stopAudio();window.krishnaTalkingHead?.stopSpeaking?.();
  avatarState($('avatarPreviewState')?.value||'IDLE');$('avatarVoiceFeedback').textContent='Voice stopped';
@@ -1599,7 +1603,7 @@ setTimeout(()=>{const frame=$('garudaFrame');if(frame){let dragStart=null;frame.
 function requestDialog(message,value,confirmation){const dialog=$('actionDialog');if(dialog.open)return Promise.resolve(null);$('dialogLabel').textContent=message;$('dialogInput').hidden=confirmation;$('dialogInput').value=value||'';$('dialogAccept').textContent=confirmation?'Confirm':'Save';return new Promise(resolve=>{dialog.addEventListener('close',()=>resolve(dialog.returnValue==='accept'?(confirmation?true:$('dialogInput').value):null),{once:true});dialog.returnValue='cancel';dialog.showModal();(confirmation?$('dialogAccept'):$('dialogInput')).focus()})}
 function askText(message,value=''){return requestDialog(message,value,false)}
 function confirmAction(message){return requestDialog(message,'',true)}
-async function req(path,payload){const o={headers:{Accept:'application/json','X-Krishna-Device':'sudarshan-web'}};if(payload!==undefined){o.method='POST';o.headers['Content-Type']='application/json';o.body=JSON.stringify(payload)}const r=await fetch(path,o);let d={};try{d=await r.json()}catch(e){d={error:'invalid JSON'}}if(!r.ok)throw new Error((d&&d.error)||('HTTP '+r.status));return d}
+async function req(path,payload,signal){const o={headers:{Accept:'application/json','X-Krishna-Device':'sudarshan-web'}};if(signal)o.signal=signal;if(payload!==undefined){o.method='POST';o.headers['Content-Type']='application/json';o.body=JSON.stringify(payload)}const r=await fetch(path,o);let d={};try{d=await r.json()}catch(e){d={error:'invalid JSON'}}if(!r.ok)throw new Error((d&&d.error)||('HTTP '+r.status));return d}
 async function actionReq(action,payload,options={}){const d=await req('/api/action-bus/dispatch',{action,payload:payload||{},project:options.project||($('project')?.value||'KRISHNA'),actor:'sudarshan-web',approved:!!options.approved,permissions:options.permissions||[],idempotency_key:options.idempotency_key||null});if(d.action_id){document.body.dataset.lastActionId=d.action_id;document.body.dataset.lastActionStatus=d.status||'completed'}return d.result!==undefined?d.result:d}
 function log(x){$('log').textContent=typeof x==='string'?x:JSON.stringify(x,null,2);if(typeof x==='string'){$('notice').textContent=x;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{$('notice').textContent=''},6000)}}
 function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.body.dataset.view=id;const titles={home:'Almighty Core',sudarshan:'Sudarshan',workingGods:'Working Gods',projects:'Projects',kabach:'KABACH',garuda:'Garuda',garudanetra:'Garudanetra',brahmagyan:'BRAHMAGYAN',gyan:'Gyan-Bhandar',narad:'NARAD',plugins:'Plugins',specialists:'Specialists',development:'Developer',uiGuardian:'UI Guardian',work:'Work progress',activity:'Activity',system:'System'};$('pageTitle').textContent=titles[id]||id;const composer=document.querySelector('.composerWrap');if(composer)composer.style.display=id==='sudarshan'?'block':'none';document.querySelectorAll('.nav button').forEach(x=>{const active=x.getAttribute('onclick')==="showView('"+id+"')";x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});if(id==='workingGods')loadWorkingGods();if(id==='work'){loadTasks();loadCommitments();}if(id==='uiGuardian')loadUIGuardian();if(id==='plugins')loadPlugins();if(id==='projects')renderProjects();if(id==='brahmagyan')loadBrahmagyan();if(id==='gyan'){loadGyanInventory();loadGyan();loadGyanPending()}if(id==='narad')loadNarad();if(id==='garuda')refreshGaruda();if(id==='garudanetra')loadGarudanetra();if(id==='kabach')loadKabach();if(id==='development')loadUIRegistry()}
@@ -1843,9 +1847,9 @@ async function applyKrishnaAvatarMotion(state){
 async function installNativeKrishnaAvatar(node,onFailure){
  const THREE=await import('three');
  const [{GLTFLoader},{OrbitControls}]=await Promise.all([import('three/addons/loaders/GLTFLoader.js'),import('three/addons/controls/OrbitControls.js')]);
- const gltf=await new GLTFLoader().loadAsync('/api/avatar.glb');
+ const gltf=await new GLTFLoader().loadAsync(window.krishnaAvatarAssetUrl||'/api/avatar.glb');
  const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});
- renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.outputColorSpace=THREE.SRGBColorSpace;
+ renderer.setPixelRatio(Math.min(devicePixelRatio||1,1));renderer.outputColorSpace=THREE.SRGBColorSpace;
  node.replaceChildren(renderer.domElement);node.hidden=false;
  const scene=new THREE.Scene(),model=gltf.scene;
  scene.add(model,new THREE.HemisphereLight(0xfff2dc,0x658198,2.4));
@@ -1872,16 +1876,25 @@ async function installNativeKrishnaAvatar(node,onFailure){
  const mixer=new THREE.AnimationMixer(model),actions=new Map(gltf.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
  const mouth=model.getObjectByName('Mouth'),eyes=['EyeWhiteL','EyeIrisL','EyeWhiteR','EyeIrisR'].map(n=>model.getObjectByName(n)).filter(Boolean);
  const mouthScale=mouth?.scale.clone(),eyeScales=eyes.map(eye=>eye.scale.clone());
- let current=null,state='FLUTE',elapsed=0,last=performance.now(),raf=0,disposed=false,analyser=null,voiceData=null,audioContext=null,audioSource=null;
+ const morphMeshes=[];model.traverse(o=>{if(o.morphTargetDictionary&&o.morphTargetInfluences)morphMeshes.push(o)});
+ const setMorph=(name,value)=>{for(const mesh of morphMeshes){
+  // MPFB's interpolated blink eye target exposes the white eye through the lid.
+  // Keep the eyeball steady while the skin/lashes close around it.
+  if(name.startsWith('eyeBlink')&&/^(high|low)-poly/i.test(mesh.name))continue;
+  const index=mesh.morphTargetDictionary[name];if(index!==undefined)mesh.morphTargetInfluences[index]=value
+ }};
+ const childProfile=gltf.parser.json.asset?.extras?.krishnaRuntimeProfile==='native-child-v1';
+ let faceAudio=null,faceAudioLoading=null;
+ let current=null,state='FLUTE',elapsed=0,last=performance.now(),raf=0,disposed=false,analyser=null,voiceData=null,audioContext=null,audioSource=null,audioGeneration=0;
  const setState=next=>{
-  state=next;const clip={FLUTE:'FLUTE',SPEAKING:'CHAT',THINKING:'SEARCH',DHYAN:'DHYAN',SLEEPING:'DHYAN',WORKING:'WORKING'}[state]||'IDLE';
-  const flute=model.getObjectByName('FLUTE');if(flute)flute.visible=state==='FLUTE';
+  state=next;const clip=childProfile?({FLUTE:'flute',LISTENING:'listen',SPEAKING:'talk',THINKING:'think',DHYAN:'dhyan',SLEEPING:'sleep',WAKING:'wake',WORKING:'work',WISDOM:'wisdom',PLAYFUL:'playful',PROTECTION:'protection'}[state]||'idle'):({FLUTE:'FLUTE',SPEAKING:'CHAT',THINKING:'SEARCH',DHYAN:'DHYAN',SLEEPING:'DHYAN',WORKING:'WORKING'}[state]||'IDLE');
+  const flute=model.getObjectByName('FLUTE')||model.getObjectByName('Flute_export');if(flute)flute.visible=state==='FLUTE';
   const action=actions.get(clip)||actions.values().next().value;
   if(action&&action!==current){current?.fadeOut(.25);action.reset().fadeIn(.25).play();current=action}
   node.dataset.state=state;node.dataset.clip=action?.getClip().name||'procedural-idle';
  };
  const animate=now=>{
-  if(disposed)return;raf=requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;
+  if(disposed)return;raf=requestAnimationFrame(animate);if(now-last<1000/30)return;const dt=Math.min((now-last)/1000,.05);last=now;
   if(node.hidden||!$('home')?.classList.contains('active')||document.hidden)return;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   elapsed+=dt;if(!reduced)mixer.update(dt);
@@ -1891,16 +1904,44 @@ async function installNativeKrishnaAvatar(node,onFailure){
   if(mouth&&mouthScale){mouth.scale.copy(mouthScale);mouth.scale.y*=1+Math.min(1,amplitude)*6}
   const blink=!reduced&&(elapsed%4.7)>4.53;
   eyes.forEach((eye,i)=>{eye.scale.copy(eyeScales[i]);if(blink||state==='SLEEPING')eye.scale.y*=.12});
+  if(morphMeshes.length){
+   const eyelidValue=['SLEEPING','DHYAN'].includes(state)?.85:blink?.2:0;
+   setMorph('eyeBlinkLeft',eyelidValue);
+   setMorph('eyeBlinkRight',eyelidValue);
+   const smile=({FLUTE:.24,LISTENING:.16,SPEAKING:.17,THINKING:.08,DHYAN:.05,WISDOM:.16,PLAYFUL:.35,PROTECTION:.05})[state]??.14;
+   setMorph('mouthSmileLeft',smile);setMorph('mouthSmileRight',smile);
+   setMorph('browInnerUp',({LISTENING:.08,WISDOM:.12,PLAYFUL:.06})[state]||0);
+   const focus=({THINKING:.10,WORKING:.08,PROTECTION:.18})[state]||0;
+   setMorph('browDownLeft',focus);setMorph('browDownRight',focus);
+   setMorph('cheekSquintLeft',state==='PLAYFUL'?.10:0);setMorph('cheekSquintRight',state==='PLAYFUL'?.10:0);
+   if(faceAudio&&analyser)faceAudio.update(dt*1000);
+   else{setMorph('viseme_aa',Math.min(.6,amplitude*.5));setMorph('jawOpen',Math.min(.3,amplitude*.2))}
+  }
   controls.update();renderer.render(scene,camera);node.dataset.rendered='true';
  };
- const stopAudio=()=>{if(audioSource){try{audioSource.stop()}catch(_){}audioSource=null}analyser=null;voiceData=null};
+ const clearSpeechMorphs=()=>{for(const name of ['jawOpen','viseme_PP','viseme_FF','viseme_TH','viseme_DD','viseme_kk','viseme_CH','viseme_SS','viseme_nn','viseme_RR','viseme_aa','viseme_E','viseme_I','viseme_O','viseme_U'])setMorph(name,0)};
+ const stopAudio=()=>{audioGeneration++;if(audioSource){try{audioSource.stop()}catch(_){}audioSource=null}analyser=null;voiceData=null;clearSpeechMorphs()};
  const playAudio=async bytes=>{
-  stopAudio();audioContext=audioContext||new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();
+  stopAudio();const generation=audioGeneration;audioContext=audioContext||new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();
   const buffer=await audioContext.decodeAudioData(bytes.slice(0));
+  if(generation!==audioGeneration)return;
   analyser=audioContext.createAnalyser();analyser.fftSize=256;voiceData=new Uint8Array(analyser.fftSize);
   const source=audioContext.createBufferSource();audioSource=source;source.buffer=buffer;source.connect(analyser);analyser.connect(audioContext.destination);
+  if(childProfile&&!faceAudioLoading){faceAudioLoading=(async()=>{
+   try{
+    const {HeadAudio}=await import('/assets/avatar-engine/headaudio/dist/headaudio.min.mjs');
+    await audioContext.audioWorklet.addModule('/assets/avatar-engine/headaudio/modules/headworklet.mjs');
+    faceAudio=new HeadAudio(audioContext,{processorOptions:{},parameterData:{vadGateActiveDb:-40,vadGateInactiveDb:-58,speakerMeanHz:320}});
+    await faceAudio.loadModel('/assets/avatar-engine/headaudio/dist/model-en-mixed.bin');
+    faceAudio.onvalue=(name,value)=>{if(analyser)setMorph(name,Math.max(0,Math.min(.75,value)))};
+    node.dataset.lipsync='headaudio';
+   }catch(e){faceAudio=null;node.dataset.lipsync='audio-amplitude';console.warn('KRISHNA facial audio fallback',e)}
+  })()}
+  if(faceAudioLoading)await faceAudioLoading;
+  if(generation!==audioGeneration){source.disconnect();return}
+  if(faceAudio)source.connect(faceAudio);
   setState('SPEAKING');
-  await new Promise(resolve=>{source.onended=()=>{if(audioSource===source){audioSource=null;analyser=null;voiceData=null}resolve()};source.start()});
+  await new Promise(resolve=>{source.onended=()=>{if(audioSource===source){audioSource=null;analyser=null;voiceData=null}source.disconnect();clearSpeechMorphs();resolve()};source.start()});
  };
  const dispose=()=>{disposed=true;cancelAnimationFrame(raf);resize.disconnect();stopAudio();audioContext?.close();controls.dispose();mixer.stopAllAction();model.traverse(o=>{o.geometry?.dispose();if(o.material){for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose()}});renderer.dispose()};
  renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();dispose();onFailure('3D graphics interrupted · original artwork is available')},{once:true});
@@ -1909,6 +1950,7 @@ async function installNativeKrishnaAvatar(node,onFailure){
  return {setState,playAudio,stopAudio,resetView:fit,dispose};
 }
 function setAvatarAppearance(mode){
+ window.krishnaAvatarAppearancePreference=mode;
  const native=window.krishnaNativeAvatar,head=window.krishnaTalkingHead,live=$('krishnaLiveAvatar'),viewer=$('krishnaModel'),fallback=$('avatarFallback');
  if(mode==='artwork'){live.hidden=true;viewer.hidden=true;fallback.hidden=false;$('avatarStatus').textContent='Original Krishna artwork';$('avatarCapability').textContent='Original Krishna artwork · animated state preview'}
  else if(native||head){live.hidden=false;viewer.hidden=true;fallback.hidden=true;$('avatarCapability').textContent=native?'Local 3D · animated character':'Live 3D avatar'}
@@ -1962,9 +2004,10 @@ async function initAvatar(){
   window.krishnaAvatarAssetStatus=a.asset_pipeline||null;
   if(!a.glb_available){showFallback('3D avatar not installed · showing local preview');return}
   const activeAsset=a.asset_pipeline?.active==='production'?a.asset_pipeline.production:a.asset_pipeline?.source;
+  window.krishnaAvatarAssetUrl='/api/avatar.glb'+(activeAsset?.sha256?'?v='+encodeURIComponent(activeAsset.sha256):'');
   const rigReady=activeAsset?.ready===true;
   $('avatarCapability').textContent='Loading local 3D avatar…';
-  if(live&&rigReady){
+  if(live&&rigReady&&activeAsset?.runtime_profile!=='native-child-v1'){
    try{
     if(status)status.textContent='Loading KRISHNA live avatar engine…';
     const mod=await import('talkinghead'),TalkingHead=mod.TalkingHead;
@@ -1974,10 +2017,10 @@ async function initAvatar(){
     const head=new TalkingHead(live,{
       lipsyncModules:[],cameraView:'full',cameraRotateEnable:true,cameraPanEnable:false,cameraZoomEnable:false,
       modelFPS:30,avatarIdleEyeContact:.72,avatarIdleHeadMove:.28,avatarSpeakingEyeContact:.82,avatarSpeakingHeadMove:.38,
-      lightAmbientIntensity:2.1,lightDirectIntensity:18,
+      lightAmbientIntensity:.8,lightDirectIntensity:3,
       update:dt=>{for(const fn of (window.krishnaAvatarUpdaters||[])){try{fn(dt)}catch(e){}}}
     });
-    await head.showAvatar({url:'/api/avatar.glb',body:'M',avatarMood:'neutral'});
+    await head.showAvatar({url:window.krishnaAvatarAssetUrl,body:'M',avatarMood:'neutral'});
     const framing=await fitKrishnaAvatar(head);
     window.krishnaTalkingHead=head;
     live.dataset.framing=framing?.fallback?'fallback':'bounds-fit';
@@ -1998,7 +2041,14 @@ async function initAvatar(){
   }
   try{
    if(live){
-    window.krishnaNativeAvatar=await installNativeKrishnaAvatar(live,msg=>{window.krishnaNativeAvatar=null;showFallback(msg);$('avatarRenderMode').value='artwork';$('avatarCapability').textContent=msg});
+    window.krishnaNativeAvatar=await installNativeKrishnaAvatar(live,msg=>{
+     if(krishnaAvatarSpeaking)stopKrishnaVoice();window.krishnaNativeAvatar=null;
+     showFallback(msg);$('avatarRenderMode').value='artwork';$('avatarCapability').textContent=msg;
+     if(window.krishnaAvatarAppearancePreference!=='artwork'&&(window.krishnaAvatarGraphicsRetries||0)<1){
+      window.krishnaAvatarGraphicsRetries=(window.krishnaAvatarGraphicsRetries||0)+1;
+      setTimeout(()=>{if(!document.hidden&&window.krishnaAvatarAppearancePreference!=='artwork'){$('avatarRenderMode').value='3d';initAvatar()}},5000);
+     }
+    });
     viewer.hidden=true;fallback.hidden=true;$('avatarCapability').textContent='Local 3D · animated character';setAvatarAppearance($('avatarRenderMode').value);
     return;
    }
@@ -2012,7 +2062,7 @@ async function initAvatar(){
    if(!customElements.get('model-viewer'))throw new Error('local model-viewer was not registered');
    viewer.addEventListener('load',()=>{viewer.hidden=false;fallback.hidden=true;if(status)status.textContent='KRISHNA 3D · compatibility viewer · rig audit available'},{once:true});
    viewer.addEventListener('error',()=>showFallback('3D model could not render · showing local preview'),{once:true});
-   avatar.setAttribute('src','/api/avatar.glb');viewer.hidden=false;
+   avatar.setAttribute('src',window.krishnaAvatarAssetUrl);viewer.hidden=false;
    if(status)status.textContent='Loading KRISHNA 3D compatibility viewer…';
   }catch(viewerError){
    console.warn('KRISHNA model-viewer fallback',viewerError);
