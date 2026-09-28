@@ -225,26 +225,6 @@ GAME / MEDIA CONSOLES
 
 
 
-16. Apple MacBook Pro 13-inch with M1 and Touch Bar
-   - Status: Owned
-   - User-described year: 2021
-   - Apple model generation: MacBook Pro (13-inch, M1, 2020); Apple introduced this M1 Touch Bar model in 2020 and it was still sold/used into 2021
-   - Chip: Apple M1
-   - CPU: 8-core
-   - GPU: 8-core
-   - Neural Engine: 16-core
-   - Display: 13.3-inch Retina, 2560x1600, 500 nits, P3, True Tone
-   - Touch Bar: Yes
-   - Touch ID: Yes
-   - Unified memory: TO VERIFY (factory options 8GB or 16GB)
-   - SSD capacity: TO VERIFY (factory options 256GB, 512GB, 1TB or 2TB)
-   - Ports: 2x Thunderbolt / USB 4, up to 40Gb/s; 3.5mm headphone
-   - Wireless: Wi-Fi 6, Bluetooth 5.0
-   - Battery: 58.2Wh design capacity; current health/cycle count TO VERIFY
-   - Charger: 61W USB-C original specification; owned charger status TO VERIFY
-   - Potential KRISHNA/LR Group role: mobile Apple-silicon worker node, coding/development, MLX/local-model experiments, Suryadev research/media node, remote admin/control, light AI inference and Mac compatibility testing
-   - Limitation: unified memory and internal SSD are not practically upgradeable after purchase
-   - Action: Read About This Mac/System Information for exact RAM, SSD, serial/model identifier, battery cycle count/maximum capacity and macOS version before assigning permanent workload
 
 INVENTORY POLICY
 ----------------
