@@ -416,6 +416,7 @@ jobs:
           script: |
             PYTHONPATH=core python scripts/VERIFY_KRISHNA_APK.py app/build/outputs/apk/debug/app-debug.apk com.krishna.mobile
             adb logcat -c
+            adb shell am force-stop com.krishna.mobile
             adb shell am start -W -n com.krishna.mobile/.MainActivity
             for attempt in $(seq 1 10); do
               adb logcat -d -s KRISHNA_UI_READY:I '*:S' > krishna-ui-ready.log
