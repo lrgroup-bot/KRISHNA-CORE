@@ -113,11 +113,11 @@ class RepositoryErrorAudit(unittest.TestCase):
         for token in ("$MobileLan","KRISHNA_LAN_DISCOVERY","0.0.0.0","$PrivateRemote -and $MobileLan"):
             self.assertIn(token,text)
 
-    def test_deploy_copies_and_tracks_avatar_preview_without_private_glb(self):
+    def test_deploy_preserves_private_avatar_assets_without_running_avatar_tooling(self):
         text=(ROOT/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8-sig")
-        self.assertIn('avatar\\krishna_child_360.webp.b64',text)
-        self.assertIn('Copy-Item -Force $avatarPreviewSource $avatarPreviewRuntime',text)
-        self.assertIn('$Runtime\\avatar\\krishna_child_360.webp.b64',text)
+        self.assertNotIn('Copy-Item -Force $avatarPreviewSource $avatarPreviewRuntime',text)
+        self.assertNotIn('INSTALL_AVATAR_ENGINE.ps1',text)
+        self.assertNotIn('PREPARE_KRISHNA_AVATAR.ps1',text)
         self.assertIn('dashboard\\assets\\avatar',text)
         self.assertNotIn('Copy-Item -Force "$Source\\dashboard\\assets\\avatar',text)
 
@@ -133,9 +133,9 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn("lhupyn/motion-engine",installer)
         self.assertIn("bd780a19e10d1cc5736a77946b04e08d658d5bf8",installer)
         self.assertIn("@google/model-viewer@$ModelViewerVersion",installer)
-        self.assertIn("dashboard\\assets\\avatar-engine",deploy)
-        self.assertIn("INSTALL_AVATAR_ENGINE.ps1",deploy)
-        self.assertIn("PREPARE_KRISHNA_AVATAR.ps1",deploy)
+        self.assertNotIn("dashboard\\assets\\avatar-engine",deploy)
+        self.assertNotIn("INSTALL_AVATAR_ENGINE.ps1",deploy)
+        self.assertNotIn("PREPARE_KRISHNA_AVATAR.ps1",deploy)
         self.assertIn('path.startswith("/assets/avatar-engine/")',server)
         self.assertIn('"talkinghead_installed"',server)
         self.assertIn('"headaudio_installed"',server)
