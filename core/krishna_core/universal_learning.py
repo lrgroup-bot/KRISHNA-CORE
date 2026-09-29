@@ -72,7 +72,10 @@ class UniversalLearningRuntime:
     def route_rishi(self,subject:str)->str:
         low=str(subject or "").lower()
         for key,rishi in self.RISHI_ROUTES.items():
-            if key in low:return rishi
+            if len(key)<=2:
+                import re
+                if re.search(r"\b"+re.escape(key)+r"\b",low):return rishi
+            elif key in low:return rishi
         return "yajnavalkya"
 
     def ingest(self,*,utterance:str,source_type:str,source_ref:str="",modalities=None,

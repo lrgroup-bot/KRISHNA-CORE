@@ -12,18 +12,18 @@ function createHarness(browserVoice=false) {
     if (!elements.has(id)) elements.set(id, {textContent:'', value:''});
     return elements.get(id);
   };
-  const states=[], timers=[];
+  const timers=[];
   const synth=browserVoice ? {cancel(){},getVoices(){return []},speak(u){u.onstart();u.onend()}} : undefined;
   const context=vm.createContext({AbortController,window:{speechSynthesis:synth,
     SpeechSynthesisUtterance:browserVoice ? class {constructor(text){this.text=text}} : undefined,
-    krishnaNativeAvatar:{stopAudio(){},playAudio(){assert.fail('Cancelled voice must never play')}}},
+    },
     SpeechSynthesisUtterance:class {constructor(text){this.text=text}},
-    $:get,avatarState:state=>states.push(state),krishnaVoiceLanguage:()=>({short:'en',locale:'en-IN'}),
+    $:get,krishnaVoiceLanguage:()=>({short:'en',locale:'en-IN'}),
     req:(url,payload,signal)=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('aborted')),{once:true})),
-    fetch:()=>assert.fail('Cancelled synthesis must never fetch audio'),
+    Audio:()=>assert.fail('Cancelled synthesis must never play audio'),
     setTimeout:fn=>{timers.push(fn);return timers.length},clearTimeout(){}});
   vm.runInContext(source,context);
-  return {context,get,states,timers};
+  return {context,get,timers};
 }
 
 test('Stop voice cancels pending synthesis and preserves stopped status',async()=>{
@@ -31,8 +31,7 @@ test('Stop voice cancels pending synthesis and preserves stopped status',async()
   const pending=vm.runInContext("speakKrishnaReply('Hello')",h.context);
   vm.runInContext('stopKrishnaVoice()',h.context);
   await pending;
-  assert.equal(h.get('avatarVoiceFeedback').textContent,'Voice stopped');
-  assert.equal(h.states.at(-1),'IDLE');
+  assert.equal(h.get('krishnaVoiceState').textContent,'Voice stopped');
 });
 
 test('Synthesis timeout releases preparing state and completes browser fallback',async()=>{
@@ -40,7 +39,5 @@ test('Synthesis timeout releases preparing state and completes browser fallback'
   const pending=vm.runInContext("speakKrishnaReply('Hello')",h.context);
   h.timers[0]();
   await pending;
-  assert.equal(h.get('avatarVoiceFeedback').textContent,'Voice playback finished');
-  assert.ok(h.states.includes('SPEAKING'));
-  assert.equal(h.states.at(-1),'LISTENING');
+  assert.equal(h.get('krishnaVoiceState').textContent,'Voice finished · microphone ready');
 });

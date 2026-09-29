@@ -141,10 +141,9 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn('"headaudio_installed"',server)
         self.assertIn('"motion_engine_installed"',server)
         self.assertIn('"model_viewer_installed"',server)
-        self.assertIn("await import('talkinghead')",web)
-        self.assertIn("MotionEngine",web)
-        self.assertIn("HeadAudio",web)
-        self.assertIn('src="/assets/avatar-engine/model-viewer/model-viewer.min.js"',web)
+        self.assertNotIn("await import('talkinghead')",web)
+        self.assertNotIn('id="krishnaModel"',web)
+        self.assertIn('KRISHNA Project',web)
         self.assertNotIn("ajax.googleapis.com/ajax/libs/model-viewer",web)
 
     def test_private_avatar_production_pipeline_preserves_source_and_fails_closed(self):
@@ -341,13 +340,14 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertNotIn("while True",bg)
         self.assertNotIn("ThreadPoolExecutor",bg)
 
-    def test_avatar_runtime_uses_character_bible_not_two_state_stub(self):
+    def test_avatar_runtime_stays_dormant_without_web_surface(self):
         server=(ROOT/"core"/"krishna_core"/"server.py").read_text(encoding="utf-8-sig")
         web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
         avatar=(ROOT/"core"/"krishna_core"/"avatar_fabric.py").read_text(encoding="utf-8-sig")
         self.assertIn('orch.agi.avatar.state_for_activity',server)
         self.assertNotIn('"avatar_state": "FLUTE" if current == "Idle" else "WORKING"',server)
-        self.assertIn("avatarState(d.avatar_state",web)
+        self.assertNotIn("avatarState(d.avatar_state",web)
+        self.assertNotIn('id="krishnaModel"',web)
         self.assertIn("PERFORMANCE_CHANNELS",avatar)
         self.assertIn("SURFACE_CONTRACT",avatar)
 

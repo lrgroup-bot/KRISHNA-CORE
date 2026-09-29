@@ -64,15 +64,15 @@ class WebIntegrityTests(unittest.TestCase):
         self.assertIn('id="attachInput"',self.text)
         self.assertIn('uploadAttachment(this)',self.text)
 
-    def test_project_create_entry_and_local_avatar_engine_hooks(self):
+    def test_project_create_entry_and_conversation_home(self):
         self.assertIn('title="Create project"',self.text)
         self.assertIn('onclick="openNewProjectWizard()"',self.text)
-        self.assertIn('id="krishnaLiveAvatar"',self.text)
-        self.assertIn('"talkinghead":"/assets/avatar-engine/talkinghead/talkinghead.mjs"',self.text)
-        self.assertIn('src="/assets/avatar-engine/model-viewer/model-viewer.min.js"',self.text)
-        self.assertNotIn('ajax.googleapis.com/ajax/libs/model-viewer',self.text)
+        home=self.text.split('<section id="home"',1)[1].split('</section>',1)[0]
+        self.assertIn('KRISHNA Project',home)
+        self.assertIn('onclick="newChat()"',home)
+        self.assertNotIn('krishnaAvatar',home)
 
-    def test_v7_owner_surface_popup_voice_and_avatar_framing_contract(self):
+    def test_v7_owner_surface_popup_voice_and_project_home(self):
         for element_id in ("krishnaPopupLauncher","krishnaPopup","krishnaPopupBody","krishnaPopupInput","krishnaMic","krishnaVoiceLang"):
             self.assertIn(f'id="{element_id}"',self.text)
         owner_strip=self.text.split('<div id="opsInformer"',1)[1].split('<div id="liveWork"',1)[0]
@@ -81,10 +81,8 @@ class WebIntegrityTests(unittest.TestCase):
         self.assertNotIn("setInterval(refreshAgentRail,4000)",self.text)
         self.assertIn("function sendKrishnaPopup()",self.text)
         self.assertIn("function toggleKrishnaVoice()",self.text)
-        self.assertIn("async function fitKrishnaAvatar(head)",self.text)
-        self.assertIn("new THREE.Box3().setFromObject(root,true)",self.text)
-        self.assertIn("head.setView('full',{cameraDistance:distance-12,cameraX,cameraY})",self.text)
-        self.assertIn("live.dataset.framing=framing?.fallback?'fallback':'bounds-fit'",self.text)
+        self.assertIn('<style id="krishna-project-home">',self.text)
+        self.assertNotIn("showView('home');initAvatar()",self.text)
         self.assertIn('value="en-IN"',self.text)
         self.assertIn('value="hi-IN"',self.text)
         self.assertIn('value="or-IN"',self.text)
@@ -93,18 +91,11 @@ class WebIntegrityTests(unittest.TestCase):
         self.assertIn('<style id="krishna-ui-v7">',self.text)
         self.assertIn('id="chatSearch"',self.text)
 
-    def test_avatar_production_runtime_hooks(self):
-        for token in (
-            "KRISHNA_STATE_MOTION","installKrishnaMotionRuntime","installKrishnaAudioLipSync",
-            "/assets/avatar-engine/motion-engine/src/MotionEngine.js",
-            "/assets/avatar-engine/headaudio/dist/headaudio.min.mjs",
-            "/assets/avatar-engine/headaudio/dist/model-en-mixed.bin",
-            "speakKrishnaReply","/api/voice/tts","head.speakAudio",
-            "applyKrishnaAvatarMotion",
-        ):
-            self.assertIn(token,self.text)
-        for state in ("FLUTE","LISTENING","THINKING","SPEAKING","WISDOM","PLAYFUL","PROTECTION","DHYAN","SLEEPING","WAKING"):
-            self.assertIn(state,self.text)
+    def test_voice_works_without_avatar(self):
+        self.assertIn("speakKrishnaReply",self.text)
+        self.assertIn("/api/voice/tts",self.text)
+        self.assertIn("new Audio(tts.audio_url)",self.text)
+        self.assertNotIn("head.speakAudio",self.text)
 
     def test_free_plugin_catalog_and_secure_credential_ui(self):
         for element_id in ("pluginCredentialDialog","pluginCredentialInput","pluginAuth","pluginsGrid"):
