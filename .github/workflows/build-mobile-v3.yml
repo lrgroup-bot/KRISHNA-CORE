@@ -252,14 +252,14 @@ jobs:
           grep -q '"mobile_mrityunjaya_auto_healer": true' app/src/main/assets/canonical-runtime.json
           grep -q '"mobile_healer_source_mutation": false' app/src/main/assets/canonical-runtime.json
           grep -q "KRISHNA_UI_READY" app/src/main/java/com/krishna/mobile/MainActivity.java
-          grep -q "showKrishnaFallback" app/src/main/assets/index.html
+          test ! -e app/src/main/assets/avatar-renderer.js
+          if grep -q "avatar-renderer.js" app/src/main/assets/index.html; then echo "retired avatar renderer leaked into mobile" >&2; exit 1; fi
           grep -q "hawkeye-observer-ui.js" app/src/main/assets/index.html
           node --check app/src/main/assets/hawkeye-active-vision.js
           node --check app/src/main/assets/hawkeye-observer-ui.js
           node --check app/src/main/assets/realtime-client.js
           grep -q "resumeAsync" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "pollAsync" app/src/main/java/com/krishna/mobile/MainActivity.java
-          grep -q "avatarSyncAsync" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "resumeAsync" app/src/main/assets/realtime-client.js
           grep -q "Krishna.pollAsync" app/src/main/assets/index.html
           grep -q "PHOTO+DATA" app/src/main/assets/index.html
