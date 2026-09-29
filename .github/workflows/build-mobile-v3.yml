@@ -418,12 +418,8 @@ jobs:
             adb logcat -c
             adb shell am force-stop com.krishna.mobile
             adb shell am start -W -n com.krishna.mobile/.MainActivity
-            for attempt in $(seq 1 10); do
-              adb logcat -d -s KRISHNA_UI_READY:I '*:S' > krishna-ui-ready.log
-              if grep -q '"conversation_visible":true' krishna-ui-ready.log; then break; fi
-              sleep 1
-            done
-            cat krishna-ui-ready.log
+            sleep 4
+            adb logcat -d -s KRISHNA_UI_READY:I '*:S' | tee krishna-ui-ready.log
             grep -q '"conversation_visible":true' krishna-ui-ready.log
             grep -q '"hawkeye":true' krishna-ui-ready.log
             grep -q '"chat":true' krishna-ui-ready.log
