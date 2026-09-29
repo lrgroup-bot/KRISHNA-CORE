@@ -1,4 +1,4 @@
-﻿<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="krishna-ui-version" content="2026.09-current"><title>KRISHNA</title>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="krishna-ui-version" content="2026.09-current"><title>KRISHNA</title>
 <style>
 :root{--bg:#07090d;--panel:#0d1117;--panel2:#111722;--line:#222a36;--text:#f3f5f7;--muted:#8b96a8;--gold:#e5bd67;--cyan:#57d8ef;--green:#58dfa2;--danger:#ff7186}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 55% -20%,#162739 0,transparent 38%),var(--bg);color:var(--text);font:14px Inter,Segoe UI,Arial}.app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}.side{border-right:1px solid var(--line);background:#090c11e8;backdrop-filter:blur(18px);padding:16px;display:flex;flex-direction:column}.brand{font-size:20px;font-weight:800;letter-spacing:4px;color:var(--gold);padding:8px}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--muted);margin-top:6px}.new{margin:16px 0;background:#f0f3f6;color:#0a0c10;border:0;border-radius:10px;padding:11px;font-weight:700;cursor:pointer}.section{font-size:10px;color:#697587;letter-spacing:1.5px;margin:14px 8px 7px}.nav button{width:100%;border:0;background:transparent;color:#c8d0db;padding:10px;border-radius:9px;text-align:left;cursor:pointer;margin:2px 0}.nav button:hover,.nav button.active{background:#151b24;color:white}.nav .ico{display:inline-block;width:25px;color:var(--cyan)}.sideFoot{margin-top:auto;border-top:1px solid var(--line);padding-top:12px}.statusDot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#6c7380;margin-right:7px}.statusDot.on{background:var(--green);box-shadow:0 0 10px var(--green)}
@@ -1867,7 +1867,7 @@ function confirmAction(message){return requestDialog(message,'',true)}
 async function req(path,payload,signal){const o={headers:{Accept:'application/json','X-Krishna-Device':'sudarshan-web'}};if(signal)o.signal=signal;if(payload!==undefined){o.method='POST';o.headers['Content-Type']='application/json';o.body=JSON.stringify(payload)}const r=await fetch(path,o);let d={};try{d=await r.json()}catch(e){d={error:'invalid JSON'}}if(!r.ok)throw new Error((d&&d.error)||('HTTP '+r.status));return d}
 async function actionReq(action,payload,options={}){const d=await req('/api/action-bus/dispatch',{action,payload:payload||{},project:options.project||($('project')?.value||'KRISHNA'),actor:'sudarshan-web',approved:!!options.approved,permissions:options.permissions||[],idempotency_key:options.idempotency_key||null});if(d.action_id){document.body.dataset.lastActionId=d.action_id;document.body.dataset.lastActionStatus=d.status||'completed'}return d.result!==undefined?d.result:d}
 function log(x){$('log').textContent=typeof x==='string'?x:JSON.stringify(x,null,2);if(typeof x==='string'){$('notice').textContent=x;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{$('notice').textContent=''},6000)}}
-function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.body.dataset.view=id;const titles={home:'Almighty Core',sudarshan:'Sudarshan',manibhadra:'MANIBHADRA · Commerce CRM',workingGods:'Working Gods',projects:'Projects',kabach:'KABACH',garuda:'Garuda',garudanetra:'Garudanetra',brahmagyan:'BRAHMAGYAN',gyan:'Gyan-Bhandar',narad:'NARAD',plugins:'Plugins',specialists:'Specialists',development:'Developer',uiGuardian:'UI Guardian',work:'Work progress',activity:'Activity',system:'System'};$('pageTitle').textContent=titles[id]||id;const composer=document.querySelector('.composerWrap');if(composer)composer.style.display=id==='sudarshan'?'block':'none';document.querySelectorAll('.nav button').forEach(x=>{const active=x.getAttribute('onclick')==="showView('"+id+"')";x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});if(id==='workingGods')loadWorkingGods();if(id==='work'){loadTasks();loadCommitments();}if(id==='uiGuardian')loadUIGuardian();if(id==='plugins')loadPlugins();if(id==='projects')renderProjects();if(id==='brahmagyan')loadBrahmagyan();if(id==='gyan'){loadGyanInventory();loadGyan();loadGyanPending()}if(id==='narad')loadNarad();if(id==='garuda')refreshGaruda();if(id==='garudanetra')loadGarudanetra();if(id==='kabach')loadKabach();if(id==='development')loadUIRegistry()}
+function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.body.dataset.view=id;const titles={home:'Almighty Core',sudarshan:'Sudarshan',manibhadra:'MANIBHADRA · Commerce CRM',workingGods:'Working Gods',projects:'Projects',kabach:'KABACH',garuda:'Garuda',garudanetra:'Garudanetra',brahmagyan:'BRAHMAGYAN',gyan:'Gyan-Bhandar',narad:'NARAD',plugins:'Plugins',specialists:'Specialists',development:'Developer',uiGuardian:'UI Guardian',work:'Work progress',activity:'Activity',system:'System'};$('pageTitle').textContent=titles[id]||id;const composer=document.querySelector('.composerWrap');if(composer)composer.style.display=id==='sudarshan'?'block':'none';document.querySelectorAll('.nav button').forEach(x=>{const active=x.getAttribute('onclick')==="showView('"+id+"')";x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});if(id==='workingGods')loadWorkingGods();if(id==='manibhadra'){setManibhadraWorkspace(manibhadraWorkspace);loadManibhadraCRM()}if(id==='work'){loadTasks();loadCommitments();}if(id==='uiGuardian')loadUIGuardian();if(id==='plugins')loadPlugins();if(id==='projects')renderProjects();if(id==='brahmagyan')loadBrahmagyan();if(id==='gyan'){loadGyanInventory();loadGyan();loadGyanPending()}if(id==='narad')loadNarad();if(id==='garuda')refreshGaruda();if(id==='garudanetra')loadGarudanetra();if(id==='kabach')loadKabach();if(id==='development')loadUIRegistry()}
 async function refresh(){try{const [s,p,d]=await Promise.all([req('/api/status'),req('/api/projects'),req('/api/dashboard')]);const di=s.deployment_integrity||{};const drift=di.status==='DRIFT';$('online').textContent=drift?'CORE DRIFT':'CORE ONLINE';$('online').className='pill '+(drift?'bad':'ok');$('dot').className=drift?'statusDot':'statusDot on';$('sideStatus').textContent=drift?'Runtime drift detected':'Core online';$('core').textContent=s.core||'ONLINE';if($('deployIntegrity')){$('deployIntegrity').textContent=(di.status||'UNVERIFIED')+(di.commit?' · '+String(di.commit).slice(0,8):'')};const po=s.pc_observer||{};$('res').textContent=(po.cpu_percent??'—')+'% / '+(po.memory_percent??'—')+'%';if($('holoLoad'))$('holoLoad').textContent='CPU '+(po.cpu_percent??'—')+'% · RAM '+(po.memory_percent??'—')+'%';if($('holoCoreState'))$('holoCoreState').textContent='ONLINE';const projectsChanged=JSON.stringify(projects)!==JSON.stringify(p.projects||[]);projects=p.projects||[];$('projectsCount').textContent=projects.length;$('currentActivity').textContent=d.current_activity||'Idle';$('activityLog').textContent=(d.recent||[]).map(x=>'['+(x.time||'')+'] '+(x.event||x)).join('\n')||'No activity yet.';syncProjects();loadModelRouter();loadRuntimeAudit();loadRequirementsLedger();loadExtendedRuntime();if(projectsChanged||!$('projectCards').childElementCount)renderProjects();if(projectsChanged||!$('projectMenuTree').childElementCount)renderSidebarProjectTree();if(projectsChanged||!$('recentChats').childElementCount)loadGeneralChats()}catch(e){$('online').textContent='CORE OFFLINE';$('online').className='pill bad';$('dot').className='statusDot';$('sideStatus').textContent='Core offline';log(e.message)}}
 function projectByName(name){return projects.find(p=>p.name===name)||null}
 function projectLabel(name){
@@ -1987,6 +1987,329 @@ function addMsg(role,text){const w=$('welcome');if(w)w.remove();const d=document
 async function createChatForProject(project,title){const p=project||'KRISHNA';return actionReq('chat.create',{project:p,title:title||'New Sudarshan chat'},{project:p})}
 async function newChat(){try{showView('sudarshan');const p=$('project').value||'KRISHNA',c=await createChatForProject(p,'New Sudarshan chat');chatId=c.chat_id;$('messages').innerHTML='<div id="welcome" class="welcome"><div class="orb">☸</div><h1>New conversation</h1><p>Start a task, ask a question, or work on '+escapeHtml(p)+'.</p></div>';await loadChats();await loadGeneralChats();await openChat(chatId)}catch(e){log(e.message)}}
 async function send(){const t=$('input').value.trim();if(!t)return;if(sending)return;if(!chatId)await newChat();if(!chatId)return;sending=true;document.querySelector('.send').disabled=true;$('input').value='';showView('sudarshan');addMsg('user',t);$('sudarshanState').textContent='KRISHNA WORKING';try{const d=await req('/api/core/chat',{message:t,project:$('project').value||'general',chat_id:chatId,source:'web',mode:'chat',attachment_ids:pendingAttachmentIds.slice(0,3)});pendingAttachmentIds=[];addMsg('assistant',d.reply||d.text||JSON.stringify(d));if(d.capability==='gita-gyan')renderGitaSessionControls('messages');$('sudarshanState').textContent=d.task_id?'TASK '+String(d.task_id).slice(0,8):'RESPONSE RECEIVED';log(d);await loadChats()}catch(e){$('sudarshanState').textContent='ERROR';addMsg('assistant','ERROR: '+e.message);log(e.message)}finally{sending=false;document.querySelector('.send').disabled=false}}
+let manibhadraWorkspace=localStorage.getItem('krishnaManibhadraWorkspace')||'overview';
+function setManibhadraWorkspace(page){
+ const allowed=['overview','sales','market','records','connections'];
+ page=allowed.includes(page)?page:'overview';manibhadraWorkspace=page;
+ document.querySelectorAll('#manibhadra [data-mani-page]').forEach(x=>x.classList.toggle('active',x.dataset.maniPage===page));
+ document.querySelectorAll('#manibhadra [data-mani-page-button]').forEach(x=>{const active=x.dataset.maniPageButton===page;x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});
+ localStorage.setItem('krishnaManibhadraWorkspace',page);
+ if(page==='sales')loadVanijyaSales();
+ if(page==='records')renderManibhadraRecords();
+ return page;
+}
+let manibhadraTab='leads',manibhadraRecords={leads:[],deals:[],customers:[],suppliers:[],products:[],tasks:[],activities:[],connections:[]};
+let vanikNetraMarket={records:[],summary:{},bbox:null,area_key:'rasulgarh',changes:[]};
+
+function maniMoney(value){
+ const n=Number(value||0);try{return new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n)}catch(e){return '₹'+Math.round(n).toLocaleString('en-IN')}
+}
+function maniClear(id){const el=$(id);if(el)el.innerHTML='';return el}
+function maniEmpty(box,text){if(!box)return;const d=document.createElement('div');d.className='maniEmpty';d.textContent=text;box.appendChild(d)}
+function maniStatus(id,text,state){const el=$(id);if(!el)return;el.className='maniStatus '+(state||'');el.innerHTML='<i></i>';el.append(document.createTextNode(' '+text))}
+function maniFormatDate(value){if(!value)return '—';try{return new Date(value).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}catch(e){return String(value)}}
+
+async function loadManibhadraCRM(){
+ const pipeline=$('maniPipeline');if(pipeline&&!pipeline.childElementCount)maniEmpty(pipeline,'Loading CRM…');
+ try{
+  const [dash,records,health,plugins,marketStatus]=await Promise.all([
+   actionReq('manibhadra.crm.dashboard',{}, {project:'KRISHNA'}),
+   actionReq('manibhadra.crm.records',{}, {project:'KRISHNA'}),
+   actionReq('manibhadra.health',{}, {project:'KRISHNA'}),
+   req('/api/plugins'),
+   actionReq('vanik_netra.status',{}, {project:'KRISHNA'})
+  ]);
+  manibhadraRecords=records||manibhadraRecords;
+  renderManibhadraDashboard(dash||{});
+  renderManibhadraRecords();
+  renderManibhadraConnections(plugins?.plugins||[]);
+  const advisor=health?.advisor||{};
+  const cloud=!!(advisor.openrouter_free||advisor.direct_free);
+  maniStatus('maniCloudState',cloud?'FREE CLOUD · READY':'FREE CLOUD · WAITING',cloud?'ok':'warn');
+  maniStatus('maniHealthState',health?.ok?'CRM HEALTH · HEALTHY':'CRM HEALTH · ATTENTION',health?.ok?'ok':'bad');
+  const marketLive=!!marketStatus?.source_registry?.sources?.overture?.live_scan;
+  if($('maniMarketState'))$('maniMarketState').textContent=marketLive?'READY · OVERTURE LIVE · ₹0':'READY · INSTALL DUCKDB FOR LIVE SCAN';
+  if(!health?.ok){
+   try{await actionReq('manibhadra.health.verify',{}, {project:'KRISHNA'})}catch(e){
+    maniStatus('maniHealthState','MRITYUNJAY · NOTIFIED','bad');
+   }
+  }
+  await loadVanijyaSales();
+ }catch(e){
+  maniStatus('maniHealthState','CRM HEALTH · ERROR','bad');
+  log('MANIBHADRA CRM: '+e.message);
+ }
+}
+
+async function loadVanijyaSales(){
+ try{
+  const d=await actionReq('vanijya.dashboard',{}, {project:'KRISHNA'});
+  const status=d?.status||{},counts=status.counts||{};
+  if($('vanijyaState'))$('vanijyaState').textContent=status.health?.ok?'READY · AUTONOMOUS SALES':'ATTENTION';
+  if($('vanijyaCampaigns'))$('vanijyaCampaigns').textContent=String(counts.active_campaigns||0);
+  if($('vanijyaConversations'))$('vanijyaConversations').textContent=String(counts.open_conversations||0);
+  if($('vanijyaQuotes'))$('vanijyaQuotes').textContent=String(counts.quotes||0);
+  if($('vanijyaPayments'))$('vanijyaPayments').textContent=String(counts.paid_payments||0);
+  if($('vanijyaWorkers'))$('vanijyaWorkers').textContent=String(8+(counts.hr_requests?((d.workers||[]).filter(x=>x.status==='READY').length):0));
+  const box=maniClear('vanijyaActivity');
+  (d.activities||[]).slice(0,8).forEach(row=>{
+   const div=document.createElement('div');div.className='maniActivityRow';
+   const b=document.createElement('b');b.textContent=row.title||row.kind||'Sales activity';
+   const span=document.createElement('span');span.textContent=(row.detail?row.detail+' · ':'')+maniFormatDate(row.time);
+   div.append(b,span);box.appendChild(div);
+  });
+  if(!box.childElementCount)maniEmpty(box,'No VĀṆIJYA sales activity yet.');
+  return d;
+ }catch(e){if($('vanijyaState'))$('vanijyaState').textContent='ERROR';log('VĀṆIJYA: '+e.message);return null}
+}
+async function vanijyaSyncProducts(){
+ try{
+  const out=await actionReq('vanijya.products.sync',{}, {project:'KRISHNA',permissions:['project.write']});
+  log('VĀṆIJYA synced '+String(out.synced||0)+' new MANIBHADRA products.');await loadVanijyaSales();
+ }catch(e){log('VĀṆIJYA product sync: '+e.message)}
+}
+async function vanijyaAutopilot(){
+ try{
+  if($('vanijyaState'))$('vanijyaState').textContent='PLANNING';
+  const out=await actionReq('vanijya.autopilot.tick',{}, {project:'KRISHNA',permissions:['project.write','model.use']});
+  const box=$('maniAI');box.classList.remove('maniAIEmpty');
+  const queue=(out.agent_queue||[]).slice(0,12).map((x,i)=>(i+1)+'. '+String(x.agent||'agent')+' — '+String(x.action||'')+(x.reason?' · '+x.reason:'')).join('\n');
+  const advice=out.manibhadra_advice||{},adviceText=advice.text||advice.advice||advice.reason||JSON.stringify(advice,null,2);
+  box.textContent='RISHI VĀṆIJYA AUTOPILOT\n\nMANIBHADRA check:\n'+adviceText+'\n\nSales work queue:\n'+(queue||'No pending sales work.')+'\n\nNo external send or spend was performed by this planning tick.';
+  await loadVanijyaSales();
+ }catch(e){if($('vanijyaState'))$('vanijyaState').textContent='ATTENTION';log('VĀṆIJYA autopilot: '+e.message)}
+}
+async function vanijyaSalesCycle(){
+ try{
+  const out=await actionReq('vanijya.sales_cycle',{}, {project:'KRISHNA'});
+  const box=$('maniAI');box.classList.remove('maniAIEmpty');
+  if(out.status==='NEEDS_PRODUCT')box.textContent='RISHI VĀṆIJYA\n\nNo approved product is ready yet. Asking MANIBHADRA for the next product/service to market.\n\n'+JSON.stringify(out.next,null,2);
+  else{
+   const flow=(out.workflow||[]).map((x,i)=>(i+1)+'. '+x.agent+' — '+x.action).join('\n');
+   box.textContent='RISHI VĀṆIJYA SALES CYCLE\n\nProduct: '+String(out.product?.name||'')+'\nPrice: '+maniMoney(out.product?.sale_price)+'\n\n'+flow+'\n\nExternal communication routes through NARAD. Paid acquisition remains disabled.';
+  }
+  await loadVanijyaSales();
+ }catch(e){log('VĀṆIJYA sales cycle: '+e.message)}
+}
+
+function renderManibhadraDashboard(d){
+ const k=d.kpis||{};
+ $('maniKpiPipeline').textContent=maniMoney(k.pipeline_value);
+ $('maniKpiCommission').textContent=maniMoney(k.expected_commission);
+ $('maniKpiWon').textContent=maniMoney(k.won_commission);
+ $('maniKpiLeads').textContent=String(k.leads||0);
+ $('maniKpiConversion').textContent=Number(k.conversion_percent||0).toFixed(1)+'%';
+ $('maniKpiTasks').textContent=String(k.open_tasks||0);
+ $('maniKpiActive').textContent=String(k.active_deals||0)+' active deals';
+ const attention=maniClear('maniAttention');
+ (d.attention||[]).forEach(row=>{
+  const item=document.createElement('div');item.className='maniAttentionRow';
+  const pri=document.createElement('span');pri.className='maniPriority';pri.textContent=Number(row.priority||0)>=90?'URGENT':Number(row.priority||0)>=70?'HIGH':'NEXT';
+  const title=document.createElement('b');title.textContent=row.title||'Attention';
+  const detail=document.createElement('span');detail.textContent=row.detail||'';
+  item.append(pri,title,detail);
+  if(row.kind==='task'&&row.action==='complete_task')item.onclick=()=>manibhadraCompleteTask(row.id);
+  attention.appendChild(item);
+ });
+ if(!attention.childElementCount)maniEmpty(attention,'Nothing needs your attention right now.');
+
+ const board=maniClear('maniPipeline');
+ (d.pipeline||[]).filter(stage=>!['lost'].includes(stage.stage)).forEach(stage=>{
+  const col=document.createElement('div');col.className='maniStage';
+  const head=document.createElement('div');head.className='maniStageHead';
+  const name=document.createElement('span');name.textContent=String(stage.stage||'').replace(/_/g,' ');
+  const meta=document.createElement('em');meta.textContent=(stage.count||0)+' · '+maniMoney(stage.value);
+  head.append(name,meta);col.appendChild(head);
+  (stage.deals||[]).forEach(deal=>{
+   const card=document.createElement('div');card.className='maniDeal';
+   const b=document.createElement('b');b.textContent=deal.title||'Untitled deal';
+   const m=document.createElement('div');m.className='meta';
+   const val=document.createElement('span');val.textContent=maniMoney(deal.value);
+   const comm=document.createElement('span');comm.textContent='Earn '+maniMoney(deal.expected_commission);
+   m.append(val,comm);card.append(b,m);
+   const n=document.createElement('div');n.className='next';n.textContent=deal.next_action?('Next: '+deal.next_action):'Next action not set';
+   card.appendChild(n);
+   if(stage.stage!=='won'){
+    const select=document.createElement('select');select.className='select';select.style.marginTop='8px';select.setAttribute('aria-label','Move '+(deal.title||'deal')+' stage');
+    ['new','qualified','contacted','proposal','negotiation','won','lost'].forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s.replace('_',' ');o.selected=s===deal.stage;select.appendChild(o)});
+    select.onchange=()=>manibhadraMoveDeal(deal.id,select.value);card.appendChild(select);
+   }
+   col.appendChild(card);
+  });
+  if(!(stage.deals||[]).length)maniEmpty(col,'No deals');
+  board.appendChild(col);
+ });
+ if(!board.childElementCount)maniEmpty(board,'Create your first deal to start the sales pipeline.');
+
+ const activity=maniClear('maniActivity');
+ (d.recent_activity||[]).forEach(row=>{
+  const div=document.createElement('div');div.className='maniActivityRow';
+  const b=document.createElement('b');b.textContent=row.title||row.kind||'Activity';
+  const span=document.createElement('span');span.textContent=(row.detail?row.detail+' · ':'')+maniFormatDate(row.time);
+  div.append(b,span);activity.appendChild(div);
+ });
+ if(!activity.childElementCount)maniEmpty(activity,'No activity yet.');
+}
+
+function setManibhadraTab(tab){
+ manibhadraTab=tab;
+ document.querySelectorAll('[data-mani-tab]').forEach(b=>b.classList.toggle('active',b.dataset.maniTab===tab));
+ renderManibhadraRecords();
+}
+
+function renderManibhadraRecords(){
+ const box=maniClear('maniRecords'),rows=manibhadraRecords[manibhadraTab]||[];
+ $('maniRecordCount').textContent=rows.length+' '+manibhadraTab;
+ rows.forEach(row=>{
+  const card=document.createElement('div');card.className='maniRecord';
+  const b=document.createElement('b');
+  const small=document.createElement('small');
+  if(manibhadraTab==='leads'){
+   b.textContent=row.name||row.company||'Lead';
+   small.textContent=[row.stage||'new',row.category,row.phone,row.address,'score '+Number(row.score||0).toFixed(0),row.next_action?('next: '+row.next_action):''].filter(Boolean).join(' · ');
+  }else if(manibhadraTab==='deals'){
+   b.textContent=row.title||'Deal';
+   small.textContent=(row.stage||'new')+' · '+maniMoney(row.value)+' · earn '+maniMoney(row.expected_commission)+(row.next_action?' · '+row.next_action:'');
+  }else if(manibhadraTab==='products'){
+   b.textContent=row.name||'Product';
+   small.textContent=(row.source||'supplier')+' · '+maniMoney(row.sale_price)+' · '+(row.status||'research');
+  }else if(manibhadraTab==='suppliers'||manibhadraTab==='customers'){
+   b.textContent=row.name||row.company||manibhadraTab.slice(0,-1);
+   small.textContent=[row.company,row.location,row.email,row.phone].filter(Boolean).join(' · ')||'No contact details';
+  }else if(manibhadraTab==='tasks'){
+   b.textContent=row.title||'Task';
+   small.textContent=(row.status||'open')+' · '+(row.priority||'normal')+' · '+(row.due_at?maniFormatDate(row.due_at):'no due date');
+   if(row.status==='open'){const done=document.createElement('button');done.className='ghost';done.style.marginTop='8px';done.textContent='✓ Complete';done.onclick=()=>manibhadraCompleteTask(row.id);card.append(b,small,done);box.appendChild(card);return}
+  }else{b.textContent=row.name||row.title||row.id||'Record';small.textContent=''}
+  card.append(b,small);box.appendChild(card);
+ });
+ if(!rows.length)maniEmpty(box,'No '+manibhadraTab+' yet. MANIBHADRA will keep this clean until real data exists.');
+}
+
+function renderManibhadraConnections(plugins){
+ const box=maniClear('maniConnections');
+ const wanted=['gmail','amazon-associates','flipkart-affiliate','alibaba-global','amazon-sp-api','flipkart-seller','meesho-seller','metricool','canva','windsor-ai','shopify','semrush','agentmail'];
+ const rows=(plugins||[]).filter(p=>wanted.includes(p.id));
+ rows.forEach(p=>{
+  const div=document.createElement('div');div.className='maniConnection';
+  const strong=document.createElement('strong');strong.textContent=p.name||p.id;
+  const span=document.createElement('span');
+  const enabled=!!p.enabled,blocked=!p.free;
+  span.className=enabled?'connected':blocked?'blocked':'wait';
+  span.textContent=enabled?'CONNECTED':blocked?'PAID · BLOCKED':'WAITING FOR CONNECTION';
+  const meta=document.createElement('span');meta.textContent=(p.free?'FREE':'NON-FREE')+' · '+(p.kind||'connector');
+  div.append(strong,span,meta);box.appendChild(div);
+ });
+ if(!rows.length)maniEmpty(box,'No commerce connectors registered.');
+}
+
+async function manibhadraAddRecord(){
+ if(manibhadraTab==='leads'){await manibhadraAddLead();return}
+ if(manibhadraTab==='deals'){await manibhadraAddDeal();return}
+ if(manibhadraTab==='tasks'){
+  const title=await askText('Follow-up task:');if(!title)return;
+  const priority=await askText('Priority: low / normal / high','normal');if(priority===null)return;
+  const due=await askText('Due date/time (optional ISO or leave blank):','');if(due===null)return;
+  try{await actionReq('manibhadra.crm.task.add',{task:{title,priority,due_at:due}},{project:'KRISHNA'});await loadManibhadraCRM();setManibhadraTab('tasks')}catch(e){log(e.message)}
+  return
+ }
+ if(manibhadraTab==='products'){
+  const name=await askText('Product name:');if(!name)return;
+  const source=await askText('Source: supplier / affiliate / own','supplier');if(source===null)return;
+  const price=await askText('Sale/reference price (₹):','0');if(price===null)return;
+  const status=await askText('Status: research / active / paused','research');if(status===null)return;
+  try{await actionReq('manibhadra.crm.entity.upsert',{kind:'product',record:{name,source,sale_price:Number(price)||0,status}},{project:'KRISHNA'});await loadManibhadraCRM();setManibhadraTab('products')}catch(e){log(e.message)}
+  return
+ }
+ if(manibhadraTab==='suppliers'||manibhadraTab==='customers'){
+  const kind=manibhadraTab==='suppliers'?'supplier':'customer';
+  const name=await askText((kind==='supplier'?'Supplier':'Customer')+' name / company:');if(!name)return;
+  const location=await askText('Location:','');if(location===null)return;
+  const email=await askText('Email (optional):','');if(email===null)return;
+  const phone=await askText('Phone (optional):','');if(phone===null)return;
+  try{await actionReq('manibhadra.crm.entity.upsert',{kind,record:{name,location,email,phone}},{project:'KRISHNA'});await loadManibhadraCRM();setManibhadraTab(manibhadraTab)}catch(e){log(e.message)}
+ }
+}
+
+async function manibhadraAddLead(){
+ const name=await askText('Buyer / lead name or company:');if(!name)return;
+ const intent=await askText('What do they want to buy?','');if(intent===null)return;
+ const source=await askText('Lead source:','manual');if(source===null)return;
+ const scoreRaw=await askText('Intent score 0–100:','50');if(scoreRaw===null)return;
+ const next=await askText('Next action:','Follow up');if(next===null)return;
+ try{
+  await actionReq('manibhadra.crm.upsert_lead',{lead:{name,intent,source,score:Number(scoreRaw)||0,next_action:next}},{project:'KRISHNA'});
+  await loadManibhadraCRM();setManibhadraTab('leads');
+ }catch(e){log(e.message)}
+}
+
+async function manibhadraAddDeal(){
+ const title=await askText('Deal name:');if(!title)return;
+ const customer=await askText('Buyer / customer:','');if(customer===null)return;
+ const product=await askText('Product / offer:','');if(product===null)return;
+ const valueRaw=await askText('Expected customer value (₹):','0');if(valueRaw===null)return;
+ const commissionRaw=await askText('Expected money we receive (₹):','0');if(commissionRaw===null)return;
+ const next=await askText('Next action:','Qualify buyer');if(next===null)return;
+ try{
+  await actionReq('manibhadra.crm.upsert_deal',{deal:{title,customer,product,value:Number(valueRaw)||0,expected_commission:Number(commissionRaw)||0,stage:'new',next_action:next}},{project:'KRISHNA'});
+  await loadManibhadraCRM();setManibhadraTab('deals');
+ }catch(e){log(e.message)}
+}
+
+async function manibhadraMoveDeal(id,stage){
+ try{await actionReq('manibhadra.crm.move_deal',{deal_id:id,stage},{project:'KRISHNA'});await loadManibhadraCRM()}catch(e){log(e.message);await loadManibhadraCRM()}
+}
+async function manibhadraCompleteTask(id){
+ try{await actionReq('manibhadra.crm.task.complete',{task_id:id},{project:'KRISHNA'});await loadManibhadraCRM()}catch(e){log(e.message)}
+}
+
+async function manibhadraAskAI(){
+ const q=await askText('Ask MANIBHADRA:','What should I do next to make revenue without spending money?');if(!q)return;
+ const box=$('maniAI');box.classList.remove('maniAIEmpty');box.textContent='MANIBHADRA is reasoning through a verified free cloud model…';
+ try{
+  const out=await actionReq('manibhadra.ai.advice',{question:q},{project:'KRISHNA'});
+  box.textContent=(out.text||JSON.stringify(out,null,2))+'\n\nProvider: '+(out.provider||'verified-free cloud')+(out.model?' · '+out.model:'');
+ }catch(e){box.textContent='Free-cloud advisor unavailable: '+e.message}
+}
+
+function vanikNetraBBox(){const west=Number($('maniMarketWest').value),south=Number($('maniMarketSouth').value),east=Number($('maniMarketEast').value),north=Number($('maniMarketNorth').value);if(![west,south,east,north].every(Number.isFinite)||west>=east||south>=north)throw new Error('Enter a valid market bounding box');return {west,south,east,north}}
+function vanikNetraRender(out){const records=out.records||[],summary=out.summary||{},contact=summary.contactability||{},opp=summary.opportunities||{};vanikNetraMarket={records,summary,bbox:out.bbox||vanikNetraMarket.bbox,area_key:out.area_key||$('maniMarketArea').value||'market',changes:vanikNetraMarket.changes||[]};$('maniMarketBusinesses').textContent=String(summary.businesses??records.length);$('maniMarketPhones').textContent=String(contact.phone||0);$('maniMarketNoWeb').textContent=String(opp.no_website||0);$('maniMarketGaps').textContent=String(opp.no_website_but_reachable||0);const cats=maniClear('maniMarketCategories');(summary.categories||[]).slice(0,14).forEach(x=>{const s=document.createElement('span');s.textContent=(x.category||'other')+' · '+(x.count||0);cats.appendChild(s)});const list=maniClear('maniMarketList');records.slice(0,150).forEach(row=>{const div=document.createElement('div');div.className='maniMarketRow';const b=document.createElement('b');b.textContent=row.name||'Business';const small=document.createElement('small');small.textContent=[row.primary_category,row.phone,row.address].filter(Boolean).join(' · ')+(row.website?'':' · NO WEBSITE');const actions=document.createElement('div');actions.className='marketActions';const lead=document.createElement('button');lead.className='ghost';lead.textContent='＋ CRM lead';lead.onclick=()=>vanikNetraImportLead(row);actions.appendChild(lead);if(row.google_maps_navigation_url){const map=document.createElement('button');map.className='ghost';map.textContent='↗ Map';map.onclick=()=>window.open(row.google_maps_navigation_url,'_blank','noopener');actions.appendChild(map)}div.append(b,small,actions);list.appendChild(div)});if(!records.length)maniEmpty(list,'No businesses found in this bounded dataset/query.');vanikNetraRenderMap(records,out.bbox);if($('maniMarketState'))$('maniMarketState').textContent=(out.source?out.source.toUpperCase()+' · ':'')+records.length+' RECORDS · ₹0'}
+function vanikNetraRenderMap(records,bbox){const box=maniClear('maniMarketMap'),pts=(records||[]).filter(x=>Number.isFinite(Number(x.latitude))&&Number.isFinite(Number(x.longitude)));if(!pts.length){maniEmpty(box,'No coordinates available for these records.');return}const b=bbox||{west:Math.min(...pts.map(x=>Number(x.longitude))),east:Math.max(...pts.map(x=>Number(x.longitude))),south:Math.min(...pts.map(x=>Number(x.latitude))),north:Math.max(...pts.map(x=>Number(x.latitude)))};const dx=Math.max(.000001,Number(b.east)-Number(b.west)),dy=Math.max(.000001,Number(b.north)-Number(b.south));pts.slice(0,1000).forEach(row=>{const dot=document.createElement('button');dot.className='maniMarketDot'+(!row.website?' gap':'');dot.type='button';dot.style.left=(((Number(row.longitude)-Number(b.west))/dx)*96+2)+'%';dot.style.top=((1-(Number(row.latitude)-Number(b.south))/dy)*94+3)+'%';dot.title=(row.name||'Business')+' · '+(row.primary_category||'uncategorized')+(row.website?'':' · no website');dot.onclick=()=>{if(row.google_maps_navigation_url)window.open(row.google_maps_navigation_url,'_blank','noopener')};box.appendChild(dot)})}
+async function vanikNetraScan(){const state=$('maniMarketState');if(state)state.textContent='SCANNING · ₹0';try{const source=$('maniMarketSource').value;let local_path=null;if(source!=='overture'){local_path=await askText(source==='foursquare_os'?'Path to owner-exported Foursquare OS file:':'Path to local OSM GeoJSON extract:','');if(!local_path){if(state)state.textContent='CANCELLED';return}}const out=await actionReq('vanik_netra.scan',{bbox:vanikNetraBBox(),area_key:$('maniMarketArea').value||'market-scan',source,category:$('maniMarketCategory').value||null,limit:1000,min_confidence:0.35,persist:true,local_path},{project:'KRISHNA',permissions:['web.read','runtime.write']});vanikNetraRender(out)}catch(e){if(state)state.textContent='SCAN ERROR';log('VANIK-NETRA: '+e.message)}}
+async function vanikNetraLoadCached(){try{const out=await actionReq('vanik_netra.stored',{bbox:vanikNetraBBox(),category:$('maniMarketCategory').value||null,limit:2000},{project:'KRISHNA'});out.area_key=$('maniMarketArea').value||'market';out.source='cached';vanikNetraRender(out)}catch(e){log('VANIK-NETRA cache: '+e.message)}}
+async function vanikNetraChanges(){try{const area=$('maniMarketArea').value||'market';const out=await actionReq('vanik_netra.changes',{area_key:area,limit:200},{project:'KRISHNA'});vanikNetraMarket.changes=out.changes||[];const box=maniClear('maniMarketList');(out.changes||[]).forEach(x=>{const d=document.createElement('div');d.className='maniMarketRow';const b=document.createElement('b');b.textContent=String(x.change_type||'changed').toUpperCase()+' · '+(x.record?.name||x.business_id||'business');const s=document.createElement('small');s.textContent=maniFormatDate(x.created_at);d.append(b,s);box.appendChild(d)});if(!box.childElementCount)maniEmpty(box,'No recorded business changes yet. Run at least two snapshots of the same area.');if($('maniMarketState'))$('maniMarketState').textContent=(out.changes||[]).length+' CHANGE EVENTS'}catch(e){log('VANIK-NETRA changes: '+e.message)}}
+async function vanikNetraWhiteSpace(){try{const category=$('maniMarketCategory').value.trim();if(!category){log('Enter a target category first, such as hardware, clinic, tyre, restaurant.');return}const out=await actionReq('vanik_netra.white_space',{bbox:vanikNetraBBox(),target_category:category,min_cell_businesses:3,limit:100},{project:'KRISHNA'});const box=maniClear('maniMarketList');(out.cells||[]).forEach(x=>{const d=document.createElement('div');d.className='maniMarketRow';const b=document.createElement('b');b.textContent='WHITE SPACE '+Number(x.white_space_score||0).toFixed(0)+'/100 · '+x.cell;const s=document.createElement('small');s.textContent='All businesses '+x.total_businesses+' · '+category+' '+x.target_businesses+' · density proxy '+Math.round(Number(x.commercial_density_proxy||0)*100)+'%';d.append(b,s);box.appendChild(d)});if(!box.childElementCount)maniEmpty(box,'Not enough locally cached businesses for a white-space estimate.');if($('maniMarketState'))$('maniMarketState').textContent='WHITE SPACE · PROXY ONLY';log(out.warning||'White-space is a market-structure proxy, not guaranteed demand.')}catch(e){log('VANIK-NETRA white-space: '+e.message)}}
+function vanikNetraTopGaps(){const rows=(vanikNetraMarket.records||[]).filter(x=>!x.website&&(x.phone||x.email));rows.sort((a,b)=>Number(b.confidence||0)-Number(a.confidence||0));vanikNetraRender({...vanikNetraMarket,records:rows,summary:{...vanikNetraMarket.summary,businesses:rows.length}})}
+async function vanikNetraImportLead(row){try{const out=await actionReq('vanik_netra.crm.import',{record:row},{project:'KRISHNA',permissions:['project.write']});log('VANIK-NETRA → MANIBHADRA CRM: '+(out.company||out.name||'lead')+' added for owner review. No outreach sent.');await loadManibhadraCRM()}catch(e){log('VANIK-NETRA CRM import: '+e.message)}}
+
+async function manibhadraScoutProduct(){
+ const q=await askText('Product/category to scout:','');if(!q)return;
+ const box=$('maniAI');box.classList.remove('maniAIEmpty');box.textContent='Researching free/public product opportunities…';
+ try{
+  const out=await actionReq('manibhadra.research',{product:q,project:'KRISHNA',limit:8},{project:'KRISHNA'});
+  const research=out.research||{};
+  const rows=[];
+  (research.web||[]).slice(0,5).forEach(x=>rows.push('• '+(x.title||x.url||'Result')+(x.summary?' — '+x.summary:'')));
+  (research.github||[]).slice(0,3).forEach(x=>rows.push('• '+(x.full_name||x.name||'GitHub')+(x.description?' — '+x.description:'')));
+  box.textContent='PRODUCT SCOUT · '+q+'\n\n'+(rows.join('\n')||JSON.stringify(out,null,2))+'\n\nNo purchase or paid action has been authorized.';
+ }catch(e){box.textContent='Product scout error: '+e.message}
+}
+
+async function manibhadraInvestmentScenario(){
+ const amount=await askText('Hypothetical investment amount (₹):','10000');if(!amount)return;
+ const revenue=await askText('Expected revenue if you personally decide to invest (₹):','15000');if(!revenue)return;
+ const low=await askText('Downside revenue case (₹):','9000');if(!low)return;
+ const high=await askText('Upside revenue case (₹):','18000');if(!high)return;
+ try{
+  const out=await actionReq('money.investment_scenario',{
+   investment:Number(amount),expected_revenue:Number(revenue),low_revenue:Number(low),high_revenue:Number(high),
+   assumptions:['owner decides separately','MANIBHADRA cannot spend','estimate only']
+  },{project:'KRISHNA'});
+  const box=$('maniAI');box.classList.remove('maniAIEmpty');
+  box.textContent='KRISHNA INVESTMENT SCENARIO\n\nInvestment: '+maniMoney(out.investment)+'\nExpected revenue: '+maniMoney(out.expected_revenue)+'\nExpected profit: '+maniMoney(out.expected_profit)+'\nROI: '+out.expected_roi_percent+'%\nRevenue range: '+maniMoney(out.revenue_range?.low)+' – '+maniMoney(out.revenue_range?.high)+'\n\n'+out.warning;
+ }catch(e){log(e.message)}
+}
+
 async function loadPlugins(){
  try{
   const d=await req('/api/plugins'),box=$('pluginsGrid');box.innerHTML='';
@@ -2056,10 +2379,48 @@ function setBrahmaLight(color){
  const light=$('brahmaLight');if(!light)return;
  light.className='brahmaLight status-'+(color||'red');
 }
+const godRoles={
+ krishna:['Your main AI assistant. It brings conversations and the other systems together.','home'],
+ brahma:['Checks work for problems and tracks recovery when something fails.','workingGods'],
+ sudarshan:['The conversation and work console where you can give KRISHNA tasks.','sudarshan'],
+ hawkeye:['Observes visual evidence from the mobile device and supported workspace checks.','system'],
+ kabach:['Monitors protection and safety checks around the local system.','kabach'],
+ garuda:['Researches information and gathers evidence for KRISHNA.','garuda'],
+ garudanetra:['Operates the browser for approved research and web tasks.','garudanetra'],
+ narad:['Runs scheduled workflows and connects approved outside services.','narad'],
+ brahmagyan:['Coordinates deeper reasoning and council-style review.','brahmagyan'],
+ gyan:['Stores and strengthens knowledge learned by KRISHNA.','gyan'],
+ rishi:['Provides specialist council input when a task calls for it.','brahmagyan'],
+ amcc:['Adjusts how much effort and checking KRISHNA gives a task.','system']
+};
+let workingGodsSnapshot=null,selectedGodId=null,workingGodsFetchError=false;
+function openGodDetail(id){
+ selectedGodId=id;
+ const dialog=$('godDetailDialog');
+ updateGodDetail();
+ if(dialog&&!dialog.open)dialog.showModal();
+}
+function updateGodDetail(){
+ const g=(workingGodsSnapshot?.gods||[]).find(x=>x.id===selectedGodId);if(!g)return;
+ const [role,view]=godRoles[g.id]||['A KRISHNA system component.','workingGods'];
+ $('godDetailLogo').textContent=g.logo||'◈';$('godDetailName').textContent=g.name||g.id;
+ $('godDetailRole').textContent=role;
+ const state=String(g.state||'idle').toLowerCase();
+ $('godDetailState').textContent=state==='idle'?'Idle · no active work':state==='error'?'Needs attention':state==='working'||state==='handling'?'Working now':state==='done'||state==='completed'?'Last work completed':state;
+ $('godDetailUpdated').textContent=g.updated_at?new Date(g.updated_at*1000).toLocaleString():'Not reported';
+ const detail=String(g.detail||'').trim();
+ const latest=(workingGodsSnapshot?.notifications||[]).filter(n=>n.component===g.id).at(-1);
+ let activity=state==='idle'&&(!detail||detail.toLowerCase()==='idle')?'No recent work is recorded for this system.':detail||'No activity details have been reported.';
+ if(latest?.detail==='ConnectionAbortedError'||latest?.detail?.includes('ConnectionAbortedError'))activity=g.id==='brahma'?'BRAHMA recorded an interrupted connection and is handling the reported error.':'A connection closed before the task finished. The error is recorded for review.';
+ else if(latest?.detail==='action.requested')activity='A task was requested and this system is working on it.';
+ $('godDetailActivity').textContent=workingGodsFetchError?'Live update unavailable. Last report: '+activity:activity;
+ const open=$('godDetailOpen');open.hidden=!view;open.textContent=view==='home'?'Talk to KRISHNA':'Open '+(g.name||'system');open.onclick=()=>{const d=$('godDetailDialog');if(d.open)d.close();if(view==='home'){showView('home');toggleKrishnaPopup(true)}else showView(view)};
+}
 function godRowElement(g,compact=false){
- const row=document.createElement('div');
+ const row=document.createElement(compact?'button':'div');
  if(compact){
-  row.className='miniGodRow';
+  row.className='miniGodRow';row.type='button';row.dataset.godId=g.id;
+  row.setAttribute('aria-label','Show '+(g.name||g.id)+' details');row.onclick=()=>openGodDetail(g.id);
   const logo=document.createElement('span');logo.className='miniGodLogo';logo.textContent=g.logo||'•';
   const light=document.createElement('i');light.className='godLight status-'+(g.color||'red');
   const name=document.createElement('span');name.className='miniGodName';name.textContent=g.name||g.id;
@@ -2079,8 +2440,9 @@ function godRowElement(g,compact=false){
 }
 async function loadWorkingGods(){
  try{
-  const d=await req('/api/working-gods');setBrahmaLight(d.latest_color||'red');
-  const mini=$('workingGodsMini');if(mini){mini.replaceChildren();(d.gods||[]).forEach(g=>mini.appendChild(godRowElement(g,true)))}
+  const d=await req('/api/working-gods');workingGodsSnapshot=d;workingGodsFetchError=false;setBrahmaLight(d.latest_color||'red');
+  const mini=$('workingGodsMini');if(mini){const focused=mini.contains(document.activeElement)?document.activeElement.dataset.godId:null;mini.replaceChildren();(d.gods||[]).forEach(g=>mini.appendChild(godRowElement(g,true)));if(focused)Array.from(mini.children).find(x=>x.dataset.godId===focused)?.focus({preventScroll:true})}
+  if($('godDetailDialog')?.open)updateGodDetail();
   const grid=$('workingGodsGrid');if(grid){grid.replaceChildren();(d.gods||[]).forEach(g=>grid.appendChild(godRowElement(g,false)))}
   const feed=$('brahmaFeedRows');if(feed){
    feed.replaceChildren();
@@ -2094,7 +2456,7 @@ async function loadWorkingGods(){
     row.append(light,title,detail);feed.appendChild(row);
    });
   }
- }catch(e){setBrahmaLight('red')}
+ }catch(e){workingGodsFetchError=true;setBrahmaLight('red');const mini=$('workingGodsMini');if(mini)mini.textContent='Live system status unavailable';if($('godDetailDialog')?.open)updateGodDetail()}
 }
 showView('home');refresh();refreshGaruda();openSharedChatFromUrl();setInterval(refresh,5000);setInterval(refreshGaruda,1500);
 loadWorkingGods();setInterval(loadWorkingGods,3000);

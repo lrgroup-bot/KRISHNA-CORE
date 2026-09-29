@@ -9,6 +9,7 @@ on:
       - main
       - fix/krishna-ui-runtime-verification
       - fix/krishna-full-error-audit-v1
+      - fix/windows-ui-recovery-20260926
       - feature/bhumiputra-geovision-agent
   pull_request:
     paths:
