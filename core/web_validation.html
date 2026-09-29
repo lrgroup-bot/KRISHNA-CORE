@@ -1144,21 +1144,25 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 @media(prefers-reduced-motion:reduce){.avatarFallbackStage{animation:none!important}}
 </style>
 <style id="krishna-project-home">
-#home .panelInner.projectHome{display:flex!important;align-items:center;justify-content:center;overflow:auto!important;padding:24px!important}
-.projectHomeContent{width:min(900px,100%);margin:auto;text-align:center}
-.projectEmblem{width:74px;height:74px;display:grid;place-items:center;margin:0 auto 20px;border:1px solid rgba(228,187,94,.55);border-radius:23px;background:rgba(24,55,72,.9);color:#efd58b;font-size:42px;box-shadow:0 18px 50px rgba(0,0,0,.3)}
-.projectEyebrow{color:#9ac7d0;font-size:11px;letter-spacing:2.5px}
-.projectHomeContent h1{margin:10px 0;color:#f7dfaa;font-size:clamp(35px,5vw,62px);letter-spacing:1px}
-.projectHomeContent p{margin:0;color:#c2dce1;font-size:16px;line-height:1.5}
-.projectHomeActions{display:flex;gap:10px;justify-content:center;margin:27px 0 31px;flex-wrap:wrap}
-.projectHomeActions button{min-height:42px;padding:0 19px;border-radius:11px}
-.projectHomeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;text-align:left}
-.projectHomeGrid button{min-height:90px;padding:18px 20px;text-align:left;border:1px solid rgba(90,190,207,.27);border-radius:14px;background:rgba(7,34,49,.74);color:#e7f7f7;cursor:pointer}
-.projectHomeGrid button:hover,.projectHomeGrid button:focus-visible{border-color:#d7b75a;background:rgba(18,55,68,.95)}
-.projectHomeGrid strong,.projectHomeGrid span{display:block}.projectHomeGrid strong{font-size:17px}.projectHomeGrid span{margin-top:6px;color:#a5c8ce;font-size:12px}
-.projectHomeMini{margin-top:22px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap}.projectHomeMini .miniGodRow{padding:5px 9px;border:1px solid rgba(90,190,207,.22);border-radius:10px;background:rgba(7,34,49,.6)}
-.projectHomeStatus{margin-top:26px;color:#8db7c0;font-size:11px;letter-spacing:1.5px}.projectHomeStatus #holoLoad{margin-left:12px}
-@media(max-width:620px){#home .panelInner.projectHome{padding:16px!important}.projectHomeGrid{grid-template-columns:1fr}.projectHomeGrid button{min-height:66px}.projectHomeActions{margin:18px 0}.projectEmblem{margin-bottom:10px}}
+#home{padding-top:112px!important}
+#home .panelInner.projectHome{display:grid!important;place-items:center;overflow:auto!important;padding:24px!important}
+.assistantHome{text-align:center;display:grid;justify-items:center;gap:14px}
+.assistantOm{width:clamp(180px,24vw,280px);height:clamp(180px,24vw,280px);border-radius:50%;border:2px solid #e5bd67;background:radial-gradient(circle at 50% 40%,#24475a 0,#0d2635 48%,#06141e 100%);color:#f5d78b;font-size:clamp(95px,13vw,150px);line-height:1;cursor:pointer;box-shadow:0 0 0 12px rgba(229,189,103,.06),0 0 95px rgba(87,216,239,.18),inset 0 0 42px rgba(229,189,103,.13);transition:transform .18s,border-color .18s,box-shadow .18s}
+.assistantOm:hover,.assistantOm:focus-visible{transform:scale(1.035);border-color:#f8dfa4;box-shadow:0 0 0 12px rgba(229,189,103,.09),0 0 120px rgba(87,216,239,.28),inset 0 0 50px rgba(229,189,103,.2)}
+.assistantHome p{margin:0;color:#a9c4cc;font-size:13px;letter-spacing:1.3px}
+body[data-view="home"] #krishnaPopupLauncher{display:none!important}
+.opsInformer{left:18px!important;right:18px!important;width:auto!important;min-height:82px!important;max-height:105px!important;padding:8px 12px!important;overflow:auto!important}
+.projectHomeMini{display:flex;align-content:center;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;width:100%;min-height:64px}
+.projectHomeMini .miniGodRow{display:flex;gap:5px;align-items:center;min-height:25px;padding:4px 8px;border:1px solid rgba(90,190,207,.24);border-radius:9px;background:rgba(7,34,49,.6);color:#c9dce1;cursor:pointer;font:10px Inter,Segoe UI,Arial}
+.projectHomeMini .miniGodRow:hover,.projectHomeMini .miniGodRow:focus-visible{border-color:#e5bd67;background:#113343}.projectHomeMini .miniGodName{font-size:10px}.projectHomeMini .miniGodState{font-size:8px}
+.sideFoot{display:block!important;margin-top:auto!important;padding:10px 7px 0!important;border-top:1px solid rgba(90,190,207,.18)}
+.sideFoot .opsVitals{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;margin-bottom:12px}
+.sideFoot .opsVitals span{display:grid!important;grid-template-columns:1fr auto;gap:3px;align-items:center;padding:7px 8px;border:1px solid rgba(90,190,207,.14);border-radius:9px;background:rgba(7,25,35,.58);font-size:9px}
+.sideFoot .opsVitals b{font-size:9px;letter-spacing:.8px}.sideFoot .opsVitals em{display:block!important;grid-column:1 / -1;max-width:100%!important;white-space:normal;color:#9fbcc4;font-size:10px}.sideFoot .opsVitals i{justify-self:end}
+.sideFoot .txt{display:inline!important}.sideFoot .coreLine{font-size:10px;color:#9fbcc4}
+.godDetailDialog{border:1px solid rgba(87,216,239,.43);border-radius:18px;background:#071722;color:#e9f2f4;width:min(520px,calc(100vw - 30px));max-height:85dvh;padding:0;box-shadow:0 30px 90px #000c}.godDetailDialog::backdrop{background:#000b;backdrop-filter:blur(4px)}
+.godDetailInner{padding:20px;display:grid;gap:12px}.godDetailHead{display:flex;gap:12px;align-items:center}.godDetailHead strong{font-size:20px;color:#efd58b}.godDetailHead button{margin-left:auto;border:0;background:transparent;color:#d8e6eb;font-size:24px;cursor:pointer}.godDetailLogo{font-size:28px}.godDetailInner h3{font-size:10px;letter-spacing:1px;color:#89aebb;margin:0}.godDetailInner p{margin:0;line-height:1.5;color:#d5e5e8}.godDetailMeta{display:grid;grid-template-columns:1fr 1fr;gap:10px}.godDetailMeta div{padding:10px;border:1px solid rgba(87,216,239,.17);border-radius:9px;background:#0a2533}.godDetailMeta span{display:block;color:#86a5af;font-size:10px;margin-bottom:5px}.godDetailMeta b{font-size:12px}.godDetailActions button{padding:9px 12px;border-radius:9px;border:1px solid #507988;background:#113342;color:#d9f3f5;cursor:pointer}
+@media(max-width:820px){.opsInformer{left:8px!important;right:8px!important;width:auto!important;max-height:108px!important}.projectHomeMini{justify-content:flex-start}.projectHomeMini .miniGodState{display:none}#home{padding-top:119px!important}.assistantHome p{max-width:260px}.sideFoot .opsVitals em{display:none!important}.sideFoot .opsVitals span{display:flex!important;justify-content:center}.sideFoot .opsVitals b{display:none}.sideFoot .coreLine{display:none}}
 </style>
 
 <link rel="icon" href="data:,">
@@ -1186,15 +1190,21 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
  <div id="recentChats" class="chatMenuList" aria-label="Chats"></div>
 </div>
 <div id="chatProjectLabel" hidden>KRISHNA</div>
-<div class="sideFoot"><div><span id="dot" class="statusDot"></span><span id="sideStatus" class="txt">Checking Core</span></div></div></aside>
+<div class="sideFoot">
+ <div class="opsVitals" aria-label="Work and system status">
+  <span><b>ACTIVE WORK</b> <i id="opsWorkDot" class="opsDot idle"></i><em id="opsWorkText">Idle</em></span>
+  <span><b>VERIFICATION</b> <i id="opsVerifyDot" class="opsDot idle"></i><em id="opsVerifyText">Ready</em></span>
+  <span><b>SYSTEM LOAD</b> <i id="opsLoadDot" class="opsDot idle"></i><em id="opsLoadText">—</em></span>
+ </div>
+ <div class="coreLine"><span id="dot" class="statusDot"></span><span id="sideStatus" class="txt">Checking Core</span></div>
+</div></aside>
 <main class="main">
-<div id="opsInformer" class="opsInformer" aria-label="KRISHNA runtime status">
-  <div class="opsVitals">
-    <span><b>ACTIVE WORK</b> <i id="opsWorkDot" class="opsDot idle"></i><em id="opsWorkText">Idle</em></span>
-    <span><b>VERIFICATION</b> <i id="opsVerifyDot" class="opsDot idle"></i><em id="opsVerifyText">Ready</em></span>
-    <span><b>SYSTEM LOAD</b> <i id="opsLoadDot" class="opsDot idle"></i><em id="opsLoadText">—</em></span>
-  </div>
-</div>
+<div id="opsInformer" class="opsInformer" aria-label="KRISHNA systems"><div id="workingGodsMini" class="projectHomeMini" aria-label="Live systems; select one for details"></div></div>
+<dialog id="godDetailDialog" class="godDetailDialog" aria-labelledby="godDetailName"><div class="godDetailInner">
+ <div class="godDetailHead"><span id="godDetailLogo" class="godDetailLogo">◈</span><strong id="godDetailName">System</strong><button type="button" onclick="document.getElementById('godDetailDialog').close()" aria-label="Close system details">×</button></div>
+ <p id="godDetailRole"></p><div class="godDetailMeta"><div><span>CURRENT STATE</span><b id="godDetailState"></b></div><div><span>LAST UPDATE</span><b id="godDetailUpdated"></b></div></div>
+ <h3>WHAT IS GOING ON</h3><p id="godDetailActivity"></p><div class="godDetailActions"><button id="godDetailOpen" type="button" hidden>Open workspace</button></div>
+</div></dialog>
 <div id="liveWork" class="liveWork" hidden>
  <div class="liveHead"><div><strong>👁 GARUDANETRA · <span id="liveMode">PRIVATE</span></strong><small id="liveState">READY</small></div>
  <div class="liveControls"><button onclick="garudaControl('pause')">PAUSE</button><button onclick="garudaControl('takeover')">TAKE CONTROL</button><button onclick="garudaControl('continue')">CONTINUE</button><button onclick="garudaControl('stop')">STOP</button><button onclick="toggleGarudaExpand()">EXPAND</button><button onclick="toggleLiveWork()">CLOSE</button></div></div>
@@ -1232,24 +1242,7 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 <div class="sceneGrid"></div><header class="top"><div class="crumb"><span id="modeBadge" style="color:var(--gold);margin-right:8px">KRISHNA</span><span id="pageTitle">Almighty Core</span> <span style="color:#596474">/</span> <span id="projectName">general</span></div><div class="topActions"><button id="brahmaNotify" class="brahmaNotify" type="button" title="BRAHMA QC notifications" aria-label="Open BRAHMA QC notifications" onclick="showView('workingGods')"><span class="brahmaGlyph">🪷</span><i id="brahmaLight" class="brahmaLight status-red"></i></button><span id="contextBadge" class="pill">KRISHNA</span><button class="ghost chatScopedTop legacyChatAction" onclick="moveCurrentChat()" style="display:none">Move chat</button><button class="ghost danger chatScopedTop legacyChatAction" onclick="deleteCurrentChat()" style="display:none">Delete chat</button><span id="online" class="pill">CHECKING</span></div></header>
 <select id="project" style="display:none"></select><section id="home" class="view active panelView">
  <div class="panelInner projectHome">
-  <div class="projectHomeContent">
-   <div class="projectEmblem" aria-hidden="true">ॐ</div>
-   <div class="projectEyebrow">PRIVATE WORKSPACE · LOCAL CORE</div>
-   <h1>KRISHNA Project</h1>
-   <p>Conversations, projects, tools, and live work in one place.</p>
-   <div class="projectHomeActions">
-    <button class="primary" type="button" onclick="newChat()">New conversation</button>
-    <button class="ghost" type="button" onclick="showView('projects')">Open projects</button>
-   </div>
-   <div class="projectHomeGrid" aria-label="Project areas">
-    <button type="button" onclick="showView('sudarshan')"><strong>☸ Sudarshan</strong><span>Chat and work with KRISHNA</span></button>
-    <button type="button" onclick="showView('workingGods')"><strong>◈ Working Gods</strong><span>See live activity</span></button>
-    <button type="button" onclick="showView('work')"><strong>✓ Work progress</strong><span>Review tasks and commitments</span></button>
-    <button type="button" onclick="showView('system')"><strong>◇ System</strong><span>Check local runtime status</span></button>
-   </div>
-   <div id="workingGodsMini" class="projectHomeMini" aria-label="Working Gods live status"></div>
-   <div class="projectHomeStatus">KRISHNA CORE · <span id="holoCoreState">CONNECTING</span> <span id="holoLoad"></span></div>
-  </div>
+  <div class="assistantHome"><button id="assistantOm" class="assistantOm" type="button" onclick="toggleKrishnaPopup(true)" aria-label="Open KRISHNA AI assistant">ॐ</button><p>Talk or type to KRISHNA</p></div>
  </div>
 </section>
 <section id="sudarshan" class="view chatView">
@@ -1820,10 +1813,48 @@ function setBrahmaLight(color){
  const light=$('brahmaLight');if(!light)return;
  light.className='brahmaLight status-'+(color||'red');
 }
+const godRoles={
+ krishna:['Your main AI assistant. It brings conversations and the other systems together.','home'],
+ brahma:['Checks work for problems and tracks recovery when something fails.','workingGods'],
+ sudarshan:['The conversation and work console where you can give KRISHNA tasks.','sudarshan'],
+ hawkeye:['Observes visual evidence from the mobile device and supported workspace checks.','system'],
+ kabach:['Monitors protection and safety checks around the local system.','kabach'],
+ garuda:['Researches information and gathers evidence for KRISHNA.','garuda'],
+ garudanetra:['Operates the browser for approved research and web tasks.','garudanetra'],
+ narad:['Runs scheduled workflows and connects approved outside services.','narad'],
+ brahmagyan:['Coordinates deeper reasoning and council-style review.','brahmagyan'],
+ gyan:['Stores and strengthens knowledge learned by KRISHNA.','gyan'],
+ rishi:['Provides specialist council input when a task calls for it.','brahmagyan'],
+ amcc:['Adjusts how much effort and checking KRISHNA gives a task.','system']
+};
+let workingGodsSnapshot=null,selectedGodId=null,workingGodsFetchError=false;
+function openGodDetail(id){
+ selectedGodId=id;
+ const dialog=$('godDetailDialog');
+ updateGodDetail();
+ if(dialog&&!dialog.open)dialog.showModal();
+}
+function updateGodDetail(){
+ const g=(workingGodsSnapshot?.gods||[]).find(x=>x.id===selectedGodId);if(!g)return;
+ const [role,view]=godRoles[g.id]||['A KRISHNA system component.','workingGods'];
+ $('godDetailLogo').textContent=g.logo||'◈';$('godDetailName').textContent=g.name||g.id;
+ $('godDetailRole').textContent=role;
+ const state=String(g.state||'idle').toLowerCase();
+ $('godDetailState').textContent=state==='idle'?'Idle · no active work':state==='error'?'Needs attention':state==='working'||state==='handling'?'Working now':state==='done'||state==='completed'?'Last work completed':state;
+ $('godDetailUpdated').textContent=g.updated_at?new Date(g.updated_at*1000).toLocaleString():'Not reported';
+ const detail=String(g.detail||'').trim();
+ const latest=(workingGodsSnapshot?.notifications||[]).filter(n=>n.component===g.id).at(-1);
+ let activity=state==='idle'&&(!detail||detail.toLowerCase()==='idle')?'No recent work is recorded for this system.':detail||'No activity details have been reported.';
+ if(latest?.detail==='ConnectionAbortedError'||latest?.detail?.includes('ConnectionAbortedError'))activity=g.id==='brahma'?'BRAHMA recorded an interrupted connection and is handling the reported error.':'A connection closed before the task finished. The error is recorded for review.';
+ else if(latest?.detail==='action.requested')activity='A task was requested and this system is working on it.';
+ $('godDetailActivity').textContent=workingGodsFetchError?'Live update unavailable. Last report: '+activity:activity;
+ const open=$('godDetailOpen');open.hidden=!view;open.textContent=view==='home'?'Talk to KRISHNA':'Open '+(g.name||'system');open.onclick=()=>{const d=$('godDetailDialog');if(d.open)d.close();if(view==='home'){showView('home');toggleKrishnaPopup(true)}else showView(view)};
+}
 function godRowElement(g,compact=false){
- const row=document.createElement('div');
+ const row=document.createElement(compact?'button':'div');
  if(compact){
-  row.className='miniGodRow';
+  row.className='miniGodRow';row.type='button';row.dataset.godId=g.id;
+  row.setAttribute('aria-label','Show '+(g.name||g.id)+' details');row.onclick=()=>openGodDetail(g.id);
   const logo=document.createElement('span');logo.className='miniGodLogo';logo.textContent=g.logo||'•';
   const light=document.createElement('i');light.className='godLight status-'+(g.color||'red');
   const name=document.createElement('span');name.className='miniGodName';name.textContent=g.name||g.id;
@@ -1843,8 +1874,9 @@ function godRowElement(g,compact=false){
 }
 async function loadWorkingGods(){
  try{
-  const d=await req('/api/working-gods');setBrahmaLight(d.latest_color||'red');
-  const mini=$('workingGodsMini');if(mini){mini.replaceChildren();(d.gods||[]).forEach(g=>mini.appendChild(godRowElement(g,true)))}
+  const d=await req('/api/working-gods');workingGodsSnapshot=d;workingGodsFetchError=false;setBrahmaLight(d.latest_color||'red');
+  const mini=$('workingGodsMini');if(mini){const focused=mini.contains(document.activeElement)?document.activeElement.dataset.godId:null;mini.replaceChildren();(d.gods||[]).forEach(g=>mini.appendChild(godRowElement(g,true)));if(focused)Array.from(mini.children).find(x=>x.dataset.godId===focused)?.focus({preventScroll:true})}
+  if($('godDetailDialog')?.open)updateGodDetail();
   const grid=$('workingGodsGrid');if(grid){grid.replaceChildren();(d.gods||[]).forEach(g=>grid.appendChild(godRowElement(g,false)))}
   const feed=$('brahmaFeedRows');if(feed){
    feed.replaceChildren();
@@ -1858,7 +1890,7 @@ async function loadWorkingGods(){
     row.append(light,title,detail);feed.appendChild(row);
    });
   }
- }catch(e){setBrahmaLight('red')}
+ }catch(e){workingGodsFetchError=true;setBrahmaLight('red');const mini=$('workingGodsMini');if(mini)mini.textContent='Live system status unavailable';if($('godDetailDialog')?.open)updateGodDetail()}
 }
 showView('home');refresh();refreshGaruda();openSharedChatFromUrl();setInterval(refresh,5000);setInterval(refreshGaruda,1500);
 loadWorkingGods();setInterval(loadWorkingGods,3000);

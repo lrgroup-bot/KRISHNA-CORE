@@ -143,7 +143,7 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn('"model_viewer_installed"',server)
         self.assertNotIn("await import('talkinghead')",web)
         self.assertNotIn('id="krishnaModel"',web)
-        self.assertIn('KRISHNA Project',web)
+        self.assertIn('id="assistantOm"',web)
         self.assertNotIn("ajax.googleapis.com/ajax/libs/model-viewer",web)
 
     def test_private_avatar_production_pipeline_preserves_source_and_fails_closed(self):

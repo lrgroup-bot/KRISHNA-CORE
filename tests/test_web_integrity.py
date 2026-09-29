@@ -64,20 +64,20 @@ class WebIntegrityTests(unittest.TestCase):
         self.assertIn('id="attachInput"',self.text)
         self.assertIn('uploadAttachment(this)',self.text)
 
-    def test_project_create_entry_and_conversation_home(self):
+    def test_project_create_entry_and_assistant_home(self):
         self.assertIn('title="Create project"',self.text)
         self.assertIn('onclick="openNewProjectWizard()"',self.text)
         home=self.text.split('<section id="home"',1)[1].split('</section>',1)[0]
-        self.assertIn('KRISHNA Project',home)
-        self.assertIn('onclick="newChat()"',home)
+        self.assertIn('id="assistantOm"',home)
+        self.assertIn('onclick="toggleKrishnaPopup(true)"',home)
         self.assertNotIn('krishnaAvatar',home)
 
     def test_v7_owner_surface_popup_voice_and_project_home(self):
         for element_id in ("krishnaPopupLauncher","krishnaPopup","krishnaPopupBody","krishnaPopupInput","krishnaMic","krishnaVoiceLang"):
             self.assertIn(f'id="{element_id}"',self.text)
         owner_strip=self.text.split('<div id="opsInformer"',1)[1].split('<div id="liveWork"',1)[0]
-        for internal in ("agentRail","agentGaruda","agentKabach","agentGarudanetra","agentNarad","agentBrahmagyan","agentGyan","opsEye","GARUDA","KABACH","GARUDANETRA","NARAD","BRAHMAGYAN","GYAN-BHANDAR"):
-            self.assertNotIn(internal,owner_strip)
+        self.assertIn('id="workingGodsMini"',owner_strip)
+        self.assertIn('id="godDetailDialog"',owner_strip)
         self.assertNotIn("setInterval(refreshAgentRail,4000)",self.text)
         self.assertIn("function sendKrishnaPopup()",self.text)
         self.assertIn("function toggleKrishnaVoice()",self.text)

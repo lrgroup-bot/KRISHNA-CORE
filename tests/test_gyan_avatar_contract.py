@@ -25,10 +25,10 @@ class GyanAvatarContractTests(unittest.TestCase):
         self.assertNotIn("customElements.get('model-viewer')",WEB)
         self.assertNotIn('src="/api/avatar.glb"',WEB)
         self.assertNotIn('ajax.googleapis.com/ajax/libs/model-viewer',WEB)
-    def test_pc_home_is_project_first(self):
+    def test_pc_home_opens_assistant(self):
         home=WEB.split('<section id="home"',1)[1].split('</section>',1)[0]
-        self.assertIn('KRISHNA Project',home)
-        self.assertIn('Open projects',home)
+        self.assertIn('id="assistantOm"',home)
+        self.assertIn('toggleKrishnaPopup(true)',home)
         self.assertNotIn('id="avatarFallbackStrip"',home)
 
     def test_frozen_exe_uses_private_e_drive_avatar_not_bundle(self):
