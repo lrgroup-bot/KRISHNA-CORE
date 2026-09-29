@@ -143,7 +143,7 @@ class BrahmaProcessQCWiringTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[2]
         text=(root/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
         self.assertIn(">Working Gods<",text)
-        self.assertIn('id="workingGodsOverlay"',text)
+        self.assertIn('id="workingGodsMini"',text)
         self.assertIn('id="brahmaNotify"',text)
         self.assertIn("status-red",text)
         self.assertIn("status-yellow",text)

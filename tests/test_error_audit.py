@@ -113,11 +113,11 @@ class RepositoryErrorAudit(unittest.TestCase):
         for token in ("$MobileLan","KRISHNA_LAN_DISCOVERY","0.0.0.0","$PrivateRemote -and $MobileLan"):
             self.assertIn(token,text)
 
-    def test_deploy_copies_and_tracks_avatar_preview_without_private_glb(self):
+    def test_deploy_preserves_private_avatar_assets_without_running_avatar_tooling(self):
         text=(ROOT/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8-sig")
-        self.assertIn('avatar\\krishna_child_360.webp.b64',text)
-        self.assertIn('Copy-Item -Force $avatarPreviewSource $avatarPreviewRuntime',text)
-        self.assertIn('$Runtime\\avatar\\krishna_child_360.webp.b64',text)
+        self.assertNotIn('Copy-Item -Force $avatarPreviewSource $avatarPreviewRuntime',text)
+        self.assertNotIn('INSTALL_AVATAR_ENGINE.ps1',text)
+        self.assertNotIn('PREPARE_KRISHNA_AVATAR.ps1',text)
         self.assertIn('dashboard\\assets\\avatar',text)
         self.assertNotIn('Copy-Item -Force "$Source\\dashboard\\assets\\avatar',text)
 
@@ -133,18 +133,17 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn("lhupyn/motion-engine",installer)
         self.assertIn("bd780a19e10d1cc5736a77946b04e08d658d5bf8",installer)
         self.assertIn("@google/model-viewer@$ModelViewerVersion",installer)
-        self.assertIn("dashboard\\assets\\avatar-engine",deploy)
-        self.assertIn("INSTALL_AVATAR_ENGINE.ps1",deploy)
-        self.assertIn("PREPARE_KRISHNA_AVATAR.ps1",deploy)
+        self.assertNotIn("dashboard\\assets\\avatar-engine",deploy)
+        self.assertNotIn("INSTALL_AVATAR_ENGINE.ps1",deploy)
+        self.assertNotIn("PREPARE_KRISHNA_AVATAR.ps1",deploy)
         self.assertIn('path.startswith("/assets/avatar-engine/")',server)
         self.assertIn('"talkinghead_installed"',server)
         self.assertIn('"headaudio_installed"',server)
         self.assertIn('"motion_engine_installed"',server)
         self.assertIn('"model_viewer_installed"',server)
-        self.assertIn("await import('talkinghead')",web)
-        self.assertIn("MotionEngine",web)
-        self.assertIn("HeadAudio",web)
-        self.assertIn('src="/assets/avatar-engine/model-viewer/model-viewer.min.js"',web)
+        self.assertNotIn("await import('talkinghead')",web)
+        self.assertNotIn('id="krishnaModel"',web)
+        self.assertIn('id="assistantOm"',web)
         self.assertNotIn("ajax.googleapis.com/ajax/libs/model-viewer",web)
 
     def test_private_avatar_production_pipeline_preserves_source_and_fails_closed(self):
@@ -341,13 +340,14 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertNotIn("while True",bg)
         self.assertNotIn("ThreadPoolExecutor",bg)
 
-    def test_avatar_runtime_uses_character_bible_not_two_state_stub(self):
+    def test_avatar_runtime_stays_dormant_without_web_surface(self):
         server=(ROOT/"core"/"krishna_core"/"server.py").read_text(encoding="utf-8-sig")
         web=(ROOT/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
         avatar=(ROOT/"core"/"krishna_core"/"avatar_fabric.py").read_text(encoding="utf-8-sig")
         self.assertIn('orch.agi.avatar.state_for_activity',server)
         self.assertNotIn('"avatar_state": "FLUTE" if current == "Idle" else "WORKING"',server)
-        self.assertIn("avatarState(d.avatar_state",web)
+        self.assertNotIn("avatarState(d.avatar_state",web)
+        self.assertNotIn('id="krishnaModel"',web)
         self.assertIn("PERFORMANCE_CHANNELS",avatar)
         self.assertIn("SURFACE_CONTRACT",avatar)
 

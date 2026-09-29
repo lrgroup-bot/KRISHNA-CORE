@@ -81,6 +81,34 @@ class IndicTTS:
         return str(output)
 
 
+class WindowsSystemTTS:
+    """Render an installed Windows English voice to WAV for avatar playback."""
+    def status(self):
+        return {"provider":"windows-system-speech","languages":["en"],"local":True,
+                "available":os.name=="nt","note":"Uses an installed English Windows voice; synthesis can fail if no voice is installed."}
+    def speak(self,text,output_path):
+        if os.name!="nt":raise RuntimeError("Windows speech is unavailable on this platform")
+        text=str(text or "").strip()
+        if not text:raise ValueError("text is required")
+        output=Path(output_path).resolve();output.parent.mkdir(parents=True,exist_ok=True)
+        # Text and path travel through the child environment, never executable code.
+        script="""$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Speech;
+$voice=New-Object System.Speech.Synthesis.SpeechSynthesizer;
+try {
+ $installed=$voice.GetInstalledVoices() | Where-Object { $_.Enabled -and $_.VoiceInfo.Culture.TwoLetterISOLanguageName -eq 'en' } | Select-Object -First 1;
+ if(!$installed){throw 'No installed Windows English voice'};
+ $voice.SelectVoice($installed.VoiceInfo.Name);
+ $voice.SetOutputToWaveFile($env:KRISHNA_TTS_OUTPUT);
+ $voice.Speak($env:KRISHNA_TTS_TEXT);
+} finally {$voice.Dispose()}"""
+        env=os.environ.copy();env.update(KRISHNA_TTS_TEXT=text,KRISHNA_TTS_OUTPUT=str(output))
+        try:proc=subprocess.run(["powershell.exe","-NoProfile","-NonInteractive","-Command",script],env=env,capture_output=True,text=True,timeout=60)
+        except (OSError,subprocess.TimeoutExpired) as exc:raise RuntimeError("Windows speech could not finish: "+str(exc)) from exc
+        if proc.returncode:raise RuntimeError((proc.stderr or proc.stdout or "Windows speech failed")[-2000:])
+        if not output.is_file() or output.stat().st_size<=44:raise RuntimeError("Windows speech did not produce audio")
+        return str(output)
+
+
 class SanskritTTS:
     """Dedicated local Sanskrit shloka-recitation boundary.
 
@@ -291,9 +319,10 @@ class KrishnaVoiceStack:
     def __init__(self,on_wake=None):
         self.stt=IndicConformerSTT()
         self.tts=IndicTTS()
+        self.windows_tts=WindowsSystemTTS()
         self.sanskrit_tts=SanskritTTS()
         wake_command=os.getenv("KRISHNA_WAKEWORD_CMD")
         self.wake=ExternalWakeWordService(wake_command,on_wake=on_wake) if wake_command else WakeWordService(on_wake=on_wake)
     def status(self):
-        return {"stt":self.stt.status(),"tts":self.tts.status(),"sanskrit_tts":self.sanskrit_tts.status(),"wake":self.wake.status(),
+        return {"stt":self.stt.status(),"tts":self.tts.status(),"windows_tts":self.windows_tts.status(),"sanskrit_tts":self.sanskrit_tts.status(),"wake":self.wake.status(),
                 "language":"or-IN","global_conversation_language":"or","mode":"local-first","authentication":"device/policy gate remains authoritative"}

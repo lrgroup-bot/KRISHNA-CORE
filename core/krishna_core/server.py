@@ -2909,15 +2909,16 @@ class Handler(BaseHTTPRequestHandler):
             if not text_value:return self._json(400,{"error":"text is required"})
             if language not in {"en","hi","or"}:return self._json(400,{"error":"language must be one of: en, hi, or"})
             configured=set(_voice.tts.status().get("languages") or [])
-            if language not in configured:
+            windows_voice=language=="en" and language not in configured and _voice.windows_tts.status()["available"]
+            if language not in configured and not windows_voice:
                 fallback="browser/OS local speech" if language=="en" else "configured local voice worker"
                 return self._json(503,{"error":f"local TTS language is not configured: {language}; fallback={fallback}","configured_languages":sorted(configured)})
             out_dir=RUNTIME_ROOT/"state"/"voice";out_dir.mkdir(parents=True,exist_ok=True)
             audio_id=str(uuid.uuid4());out_path=out_dir/(audio_id+".wav")
             try:
-                resolved=_voice.tts.speak(text_value,out_path,language=language)
+                resolved=_voice.windows_tts.speak(text_value,out_path) if windows_voice else _voice.tts.speak(text_value,out_path,language=language)
                 return self._json(200,{"output_path":resolved,"audio_id":audio_id,"audio_url":"/api/voice/audio?id="+audio_id,
-                                       "language":language,"provider":"ai4bharat-indic-tts"})
+                                       "language":language,"provider":"windows-system-speech" if windows_voice else "ai4bharat-indic-tts"})
             except (RuntimeError,ValueError) as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/voice/stt":

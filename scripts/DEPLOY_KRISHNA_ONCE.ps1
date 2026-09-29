@@ -1,12 +1,14 @@
 param(
   [switch]$SkipStart,
   [switch]$SkipAcceptance,
+  [switch]$SkipDriveInventory,
   [switch]$PrivateRemote,
   [string]$TailscaleExe = "E:\TailScale\tailscale.exe",
-  [string]$Branch = ""
+  [string]$Branch = "",
+  [string]$SourceRoot = "E:\KRISHNA-SOURCE"
 )
 $ErrorActionPreference="Stop"
-$Source="E:\KRISHNA-SOURCE"
+$Source=[IO.Path]::GetFullPath($SourceRoot)
 $Runtime="E:\Krishna-The GOD"
 $Py="$Runtime\.venv\Scripts\python.exe"
 
@@ -326,46 +328,8 @@ if($LASTEXITCODE -ge 8){throw "SCRIPT COPY FAILED: robocopy=$LASTEXITCODE"}
 # models on the PC. Mobile inference policy is separate and remains Qwen-free.
 Write-Host "PC QWEN POLICY: role-assigned PC models preserved; mobile remains Qwen-free" -ForegroundColor Green
 
-# Deploy only the repository-owned 360 preview asset required by /api/avatar360.
-# Private runtime avatar assets (for example dashboard\assets\avatar\krishna.glb)
-# remain runtime-owned and are never overwritten by this deploy.
-$avatarPreviewSource=Join-Path $Source "avatar\krishna_child_360.webp.b64"
-$avatarPreviewDir=Join-Path $Runtime "avatar"
-$avatarPreviewRuntime=Join-Path $avatarPreviewDir "krishna_child_360.webp.b64"
-if(!(Test-Path $avatarPreviewSource)){throw "AVATAR PREVIEW SOURCE MISSING: $avatarPreviewSource"}
-New-Item -ItemType Directory -Force $avatarPreviewDir|Out-Null
-Copy-Item -Force $avatarPreviewSource $avatarPreviewRuntime
-if(!(Test-Path $avatarPreviewRuntime)){throw "AVATAR PREVIEW COPY FAILED: $avatarPreviewRuntime"}
-
-# Install the browser-side 3D avatar engines locally on E: when missing.
-# TalkingHead is cloned from GitHub at a pinned commit; model-viewer is pinned from npm.
-$avatarEngineInstaller=Join-Path $Runtime "scripts\INSTALL_AVATAR_ENGINE.ps1"
-$talkingHeadAsset=Join-Path $Runtime "dashboard\assets\avatar-engine\talkinghead\talkinghead.mjs"
-$modelViewerAsset=Join-Path $Runtime "dashboard\assets\avatar-engine\model-viewer\model-viewer.min.js"
-$headAudioAsset=Join-Path $Runtime "dashboard\assets\avatar-engine\headaudio\dist\headaudio.min.mjs"
-$headAudioModel=Join-Path $Runtime "dashboard\assets\avatar-engine\headaudio\dist\model-en-mixed.bin"
-$motionEngineAsset=Join-Path $Runtime "dashboard\assets\avatar-engine\motion-engine\src\MotionEngine.js"
-if(!(Test-Path $talkingHeadAsset) -or !(Test-Path $modelViewerAsset) -or !(Test-Path $headAudioAsset) -or !(Test-Path $headAudioModel) -or !(Test-Path $motionEngineAsset)){
-  if(!(Test-Path $avatarEngineInstaller)){throw "AVATAR ENGINE INSTALLER MISSING: $avatarEngineInstaller"}
-  & powershell -NoProfile -ExecutionPolicy Bypass -File $avatarEngineInstaller -RuntimeRoot $Runtime
-  if($LASTEXITCODE -ne 0){throw "AVATAR ENGINE INSTALL FAILED"}
-}
-if(!(Test-Path $talkingHeadAsset)){throw "TALKINGHEAD ASSET MISSING AFTER INSTALL: $talkingHeadAsset"}
-if(!(Test-Path $modelViewerAsset)){throw "MODEL-VIEWER ASSET MISSING AFTER INSTALL: $modelViewerAsset"}
-if(!(Test-Path $headAudioAsset)){throw "HEADAUDIO ASSET MISSING AFTER INSTALL: $headAudioAsset"}
-if(!(Test-Path $headAudioModel)){throw "HEADAUDIO VISEME MODEL MISSING AFTER INSTALL: $headAudioModel"}
-if(!(Test-Path $motionEngineAsset)){throw "MOTION ENGINE ASSET MISSING AFTER INSTALL: $motionEngineAsset"}
-
-# Inspect the private runtime avatar and prepare an isolated local candidate when
-# body rigging is required. This never overwrites dashboard\assets\avatar\krishna.glb.
-# Missing Blender/face-rig capability is reported, not disguised as a successful avatar.
-$avatarPrepare=Join-Path $Runtime "scripts\PREPARE_KRISHNA_AVATAR.ps1"
-if(Test-Path $avatarPrepare){
-  & powershell -NoProfile -ExecutionPolicy Bypass -File $avatarPrepare -RuntimeRoot $Runtime -SourceRoot $Source
-  if($LASTEXITCODE -ne 0){
-    Write-Warning "KRISHNA avatar candidate preparation reported a tooling failure. Core deployment will continue; the private source GLB remains untouched."
-  }
-}
+# Avatar assets and tooling are retired from the active deployment path.
+# Preserve any private runtime source files without invoking a renderer or rigging job.
 
 # Ensure Gyan-Bhandar AES-GCM envelope encryption dependency is installed only
 # inside KRISHNA's E: virtual environment/cache. DPAPI remains the Windows key wrapper.
@@ -423,8 +387,7 @@ $tracked=@()
 $tracked+=Get-ChildItem "$Runtime\core\krishna_core" -File -Recurse -Filter "*.py" -ErrorAction SilentlyContinue
 foreach($p in @(
   "$Runtime\core\web_validation.html",
-  "$Runtime\core\design_studio.html",
-  "$Runtime\avatar\krishna_child_360.webp.b64"
+  "$Runtime\core\design_studio.html"
 )){
   if(Test-Path $p){$tracked+=Get-Item $p}
 }
@@ -457,7 +420,9 @@ Write-Host "PROVISIONAL MANIFEST $dest ($($hashes.Count) files)" -ForegroundColo
 if(!$SkipAcceptance){
   $accept=Join-Path $Runtime "scripts\ACCEPT_KRISHNA_RUNTIME.ps1"
   if(!(Test-Path $accept)){throw "Runtime acceptance harness missing: $accept"}
-  & powershell -NoProfile -ExecutionPolicy Bypass -File $accept -RuntimeRoot $Runtime -SourceRoot $Source
+  $acceptArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$accept,'-RuntimeRoot',$Runtime,'-SourceRoot',$Source)
+  if($SkipDriveInventory){$acceptArgs+='-SkipDriveInventory'}
+  & powershell @acceptArgs
   if($LASTEXITCODE -ne 0){
     if($null -ne $previousManifest){$previousManifest|Set-Content -Encoding UTF8 $dest}
     elseif(Test-Path $dest){Remove-Item -Force $dest}
@@ -468,10 +433,10 @@ if(!$SkipAcceptance){
 Write-Host "DEPLOY VERIFIED AT $Head" -ForegroundColor Green
 Write-Host "MANIFEST $dest ($($hashes.Count) files)" -ForegroundColor Green
 
-# Non-destructive E: audit after every verified deployment.
+# Full-drive inventory remains the default; scoped UI deployments can omit it.
 $audit=Join-Path $Runtime "scripts\AUDIT_KRISHNA_E_DRIVE.ps1"
-if(Test-Path $audit){
-  & powershell -NoProfile -ExecutionPolicy Bypass -File $audit | Out-Host
+if(!$SkipDriveInventory -and (Test-Path $audit)){
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $audit -SourceRoot $Source -RuntimeRoot $Runtime | Out-Host
 }
 
 if(!$SkipStart){

@@ -21,19 +21,15 @@ class GyanAvatarContractTests(unittest.TestCase):
         self.assertIn('/api/avatar/status',SERVER)
         self.assertIn('/api/avatar.glb',SERVER)
         self.assertIn('dashboard" / "assets" / "avatar" / "krishna.glb"',SERVER)
-        self.assertIn('id="krishnaModel"',WEB)
-        self.assertIn("customElements.get('model-viewer')",WEB)
-        self.assertIn("avatar.setAttribute('src','/api/avatar.glb')",WEB)
+        self.assertNotIn('id="krishnaModel"',WEB)
+        self.assertNotIn("customElements.get('model-viewer')",WEB)
         self.assertNotIn('src="/api/avatar.glb"',WEB)
         self.assertNotIn('ajax.googleapis.com/ajax/libs/model-viewer',WEB)
-    def test_pc_avatar_has_single_frame_animated_fallback(self):
-        self.assertIn('id="avatarFallbackStrip"',WEB)
-        self.assertIn('class="avatarFallbackStage"',WEB)
-        self.assertIn('#avatarFallback .avatarFallbackStrip',WEB)
-        self.assertIn('width:800%!important',WEB)
-        self.assertIn('krishnaFallbackBreath',WEB)
-        self.assertIn("frameMap={IDLE:0",WEB)
-        self.assertIn("applyKrishnaAvatarMotion(next)",WEB)
+    def test_pc_home_opens_assistant(self):
+        home=WEB.split('<section id="home"',1)[1].split('</section>',1)[0]
+        self.assertIn('id="assistantOm"',home)
+        self.assertIn('toggleKrishnaPopup(true)',home)
+        self.assertNotIn('id="avatarFallbackStrip"',home)
 
     def test_frozen_exe_uses_private_e_drive_avatar_not_bundle(self):
         self.assertIn('AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"',SERVER)

@@ -32,8 +32,6 @@ public class MainActivity extends Activity {
   int coreFailureStreak=0;
   long lastCoreHealAttempt=0L;
   String pendingAssistPhrase=null,pendingAssistMode=null;
-  static final String AVATAR_HOST="krishna.local";
-  static final long AVATAR_MAX_BYTES=120L*1024L*1024L;
   final Handler mobileHealthHandler=new Handler(Looper.getMainLooper());
   BroadcastReceiver wakeReceiver=new BroadcastReceiver(){
     @Override public void onReceive(Context context,Intent intent){
@@ -167,21 +165,16 @@ public class MainActivity extends Activity {
   void probeUiReady(){
     if(web==null||!webReady)return;
     final String script="(()=>{"+
-      "const f=document.getElementById('avatarViewport'),g=document.getElementById('avatar3d');"+
-      "const a=(g&&!g.hidden?g:f);const r=a&&a.getBoundingClientRect?a.getBoundingClientRect():{width:0,height:0};"+
-      "return [r.width>80&&r.height>180,!!document.getElementById('hawkeyeQuick'),!!document.getElementById('chatQuick'),!!document.getElementById('micQuick')].join(',')"+
+      "const a=document.querySelector('.conversationHero');const r=a&&a.getBoundingClientRect?a.getBoundingClientRect():{width:0,height:0};"+
+      "return [r.width>80&&r.height>80,!!document.getElementById('hawkeyeQuick'),!!document.getElementById('chatQuick'),!!document.getElementById('micQuick')].join(',')"+
       "})()";
     web.evaluateJavascript(script,value->{
       String v=String.valueOf(value);
       boolean ok=v.contains("true,true,true,true");
-      String payload="{\"renderer\":\"native-webview-probe\",\"avatar_visible\":"+ok+
+      String payload="{\"renderer\":\"native-webview-probe\",\"conversation_visible\":"+ok+
         ",\"hawkeye\":"+ok+",\"chat\":"+ok+",\"mic\":"+ok+"}";
       android.util.Log.i("KRISHNA_UI_READY",payload);
       getSharedPreferences("k",0).edit().putString("last_ui_ready",payload).putLong("last_ui_ready_at",System.currentTimeMillis()).apply();
-      if(mrityunjaya!=null){
-        if(ok)mrityunjaya.recovered("ui-shell","UI probe verified avatar + Hawkeye + chat + mic");
-        else mrityunjaya.recover("ui-shell",payload,"reload trusted mobile UI shell",MainActivity.this::reloadTrustedMobileShell);
-      }
     });
   }
 
@@ -193,6 +186,29 @@ public class MainActivity extends Activity {
     Intent i=new Intent(this,KrishnaWakeService.class).setAction(KrishnaWakeService.ACTION_START);
     try{if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);}catch(Exception ignored){}
   }
+  void requestStartupPermissions(){
+    if(Build.VERSION.SDK_INT<23)return;
+    ArrayList<String> missing=new ArrayList<>();
+    if(checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)
+      missing.add(android.Manifest.permission.RECORD_AUDIO);
+    if(checkSelfPermission(android.Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)
+      missing.add(android.Manifest.permission.CAMERA);
+    if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
+      missing.add(android.Manifest.permission.POST_NOTIFICATIONS);
+    if(!missing.isEmpty())requestPermissions(missing.toArray(new String[0]),41);
+  }
+
+  void showStartupError(String detail){
+    android.util.Log.e("KRISHNA_STARTUP",detail);
+    android.widget.TextView message=new android.widget.TextView(this);
+    message.setText("KRISHNA could not open its conversation screen. Update Android System WebView, then reopen the app.\n\n"+detail);
+    message.setTextColor(android.graphics.Color.WHITE);
+    message.setBackgroundColor(android.graphics.Color.rgb(2,9,20));
+    message.setTextSize(17);
+    message.setGravity(android.view.Gravity.CENTER);
+    message.setPadding(32,32,32,32);
+    setContentView(message);
+  }
   void stopWakeService(){
     try{
       Intent i=new Intent(this,KrishnaWakeService.class).setAction(KrishnaWakeService.ACTION_STOP);
@@ -201,48 +217,17 @@ public class MainActivity extends Activity {
   }
 
 
-  File avatarCacheFile(){
-    File dir=new File(getFilesDir(),"avatar");
-    if(!dir.exists())dir.mkdirs();
-    return new File(dir,"krishna.production.glb");
-  }
-
-  String sha256File(File file)throws Exception{
-    java.security.MessageDigest d=java.security.MessageDigest.getInstance("SHA-256");
-    try(InputStream in=new FileInputStream(file)){
-      byte[] b=new byte[1024*1024];for(int n;(n=in.read(b))>0;)d.update(b,0,n);
-    }
-    StringBuilder s=new StringBuilder();for(byte b:d.digest())s.append(String.format(java.util.Locale.US,"%02x",b&255));return s.toString();
-  }
-
-  WebResourceResponse localAvatarResponse(){
-    try{
-      File file=avatarCacheFile();if(!file.isFile())return null;
-      Map<String,String> headers=new HashMap<>();
-      headers.put("Access-Control-Allow-Origin","*");
-      headers.put("Cache-Control","no-store");
-      headers.put("Content-Length",String.valueOf(file.length()));
-      return new WebResourceResponse("model/gltf-binary",null,200,"OK",headers,new FileInputStream(file));
-    }catch(Exception e){return null;}
-  }
-
   @Override public void onCreate(Bundle b){
     super.onCreate(b);
     mrityunjaya=new MrityunjayaMobileHealer(this,this::publishMrityunjayaState);
-    ensureNotifications();
-    hawkeyeSensors=new HawkeyeSensorFusion(this);
-    HawkeyeBackgroundSync.schedule(this);
-    if(Build.VERSION.SDK_INT>=33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED)
-      requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},42);
-    if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)
-      requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO},41);
-    if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(android.Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)
-      requestPermissions(new String[]{android.Manifest.permission.CAMERA},43);
+    try{ensureNotifications();}catch(Exception e){android.util.Log.w("KRISHNA_STARTUP","Notifications unavailable",e);}
+    try{hawkeyeSensors=new HawkeyeSensorFusion(this);}catch(Exception e){android.util.Log.w("KRISHNA_STARTUP","Sensors unavailable",e);}
+    try{HawkeyeBackgroundSync.schedule(this);}catch(Exception e){android.util.Log.w("KRISHNA_STARTUP","Background sync unavailable",e);}
     try{
       if((getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0)
         WebView.setWebContentsDebuggingEnabled(true);
     }catch(Exception ignored){}
-    web=new WebView(this);
+    try{web=new WebView(this);}catch(Exception e){showStartupError("Android WebView is unavailable.");return;}
     web.getSettings().setJavaScriptEnabled(true);
     web.getSettings().setDomStorageEnabled(true);
     web.getSettings().setAllowFileAccess(true); // required only for android_asset shell
@@ -255,18 +240,15 @@ public class MainActivity extends Activity {
     web.removeJavascriptInterface("accessibilityTraversal");
     web.setWebViewClient(new WebViewClient(){
       boolean trusted(Uri u){return u!=null && "file".equalsIgnoreCase(u.getScheme()) && "/android_asset/index.html".equals(u.getPath());}
-      @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){
-        Uri u=request==null?null:request.getUrl();
-        if(u!=null&&"https".equalsIgnoreCase(u.getScheme())&&AVATAR_HOST.equalsIgnoreCase(u.getHost())&&"/avatar/krishna.glb".equals(u.getPath())){
-          WebResourceResponse response=localAvatarResponse();if(response!=null)return response;
-        }
-        return super.shouldInterceptRequest(view,request);
-      }
       @Override public void onPageFinished(WebView view,String url){
         super.onPageFinished(view,url);
         webReady=true;
         dispatchPendingAssistantCommand();
         new Handler(Looper.getMainLooper()).postDelayed(MainActivity.this::probeUiReady,1200);
+        new Handler(Looper.getMainLooper()).postDelayed(MainActivity.this::requestStartupPermissions,1600);
+      }
+      @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){
+        if(request!=null&&request.isForMainFrame())showStartupError("The bundled conversation screen could not load.");
       }
       @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
         if(request==null || !request.isForMainFrame())return false;
@@ -385,68 +367,6 @@ public class MainActivity extends Activity {
       }
     }
     @JavascriptInterface public String status(){return call("/api/status",null);}
-    @JavascriptInterface public String avatarStatus(){
-      try{
-        JSONObject out=new JSONObject(call("/api/avatar/status",null));
-        File local=avatarCacheFile();out.put("mobile_cached",local.isFile());
-        if(local.isFile()){out.put("mobile_bytes",local.length());out.put("mobile_sha256",sha256File(local));}
-        return out.toString();
-      }catch(Exception e){return error(e);}
-    }
-    @JavascriptInterface public String avatarSync(){
-      HttpURLConnection c=null;
-      File dest=avatarCacheFile(),tmp=new File(dest.getParentFile(),"krishna.production.glb.tmp"),backup=new File(dest.getParentFile(),"krishna.production.glb.bak");
-      try{
-        JSONObject status=new JSONObject(call("/api/avatar/status",null));
-        JSONObject pipeline=status.optJSONObject("asset_pipeline");
-        boolean ready=pipeline!=null&&pipeline.optBoolean("active_ready",false);
-        if(!status.optBoolean("glb_available",false)||!ready){
-          JSONObject out=new JSONObject();out.put("available",false);out.put("production_ready",false);
-          out.put("reason","trusted PC active GLB is not production-ready");out.put("asset_pipeline",pipeline);return out.toString();
-        }
-        if(tmp.exists()&&!tmp.delete())throw new IOException("stale avatar temp file could not be cleared");
-        c=conn("/api/avatar.glb");c.setRequestProperty("Accept","model/gltf-binary");c.setReadTimeout(120000);
-        int code=c.getResponseCode();if(code!=200)throw new IOException("avatar HTTP "+code);
-        long declared=c.getContentLengthLong();if(declared>AVATAR_MAX_BYTES)throw new IOException("avatar exceeds mobile size limit");
-        long total=0;
-        try(InputStream in=c.getInputStream();FileOutputStream out=new FileOutputStream(tmp)){
-          byte[] b=new byte[1024*1024];for(int n;(n=in.read(b))>0;){total+=n;if(total>AVATAR_MAX_BYTES)throw new IOException("avatar exceeds mobile size limit");out.write(b,0,n);}
-          out.getFD().sync();
-        }
-        try(FileInputStream in=new FileInputStream(tmp)){
-          byte[] h=new byte[12];if(in.read(h)!=12)throw new IOException("avatar GLB header is incomplete");
-          if(h[0]!='g'||h[1]!='l'||h[2]!='T'||h[3]!='F')throw new IOException("avatar is not a GLB");
-          int version=(h[4]&255)|((h[5]&255)<<8)|((h[6]&255)<<16)|((h[7]&255)<<24);
-          long length=(h[8]&255L)|((h[9]&255L)<<8)|((h[10]&255L)<<16)|((h[11]&255L)<<24);
-          if(version!=2)throw new IOException("avatar GLB version "+version+" is unsupported");
-          if(length!=tmp.length())throw new IOException("avatar GLB declared length does not match downloaded bytes");
-        }
-        if(backup.exists()&&!backup.delete())throw new IOException("old avatar backup could not be cleared");
-        boolean hadDest=dest.exists();
-        if(hadDest&&!dest.renameTo(backup))throw new IOException("current avatar cache could not be backed up");
-        if(!tmp.renameTo(dest)){
-          if(hadDest&&backup.exists())backup.renameTo(dest);
-          throw new IOException("avatar cache promotion failed; previous avatar restored");
-        }
-        if(backup.exists())backup.delete();
-        JSONObject out=new JSONObject();out.put("available",true);out.put("production_ready",true);
-        out.put("bytes",dest.length());out.put("sha256",sha256File(dest));out.put("local_url","https://"+AVATAR_HOST+"/avatar/krishna.glb");
-        return out.toString();
-      }catch(Exception e){
-        if(!dest.exists()&&backup.exists())backup.renameTo(dest);
-        if(tmp.exists())tmp.delete();
-        return error(e);
-      }finally{if(c!=null)c.disconnect();}
-    }
-    @JavascriptInterface public void avatarSyncAsync(){
-      new Thread(()->{
-        final String result=avatarSync();
-        runOnUiThread(()->{
-          if(web!=null)web.evaluateJavascript(
-            "window.onKrishnaAvatarSync&&window.onKrishnaAvatarSync("+JSONObject.quote(result)+")",null);
-        });
-      },"krishna-avatar-sync").start();
-    }
     @JavascriptInterface public void pollAsync(){
       new Thread(()->{
         String link=connection(),coreState="{}";
