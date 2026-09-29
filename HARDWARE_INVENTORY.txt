@@ -1,0 +1,235 @@
+KRISHNA OWNER HARDWARE INVENTORY
+===============================
+Purpose: Persistent source-of-truth inventory for hardware/electronics already owned by the owner.
+Rule: When the owner identifies or adds hardware, append/update it here rather than creating another inventory file.
+Last updated: 2026-09-28
+
+COMPUTER COMPONENTS
+-------------------
+1. AMD Ryzen 3 3200G processor
+   - Status: Owned
+   - Platform: AM4
+   - Intended consideration: Initial Suryadev/Chandradev external observer build
+
+LAPTOPS
+-------
+2. Acer Aspire 4720 Series
+   - Model/platform marking: Z01
+   - Status: Owned
+   - Exact CPU/RAM/storage: To be inventoried after inspection
+
+3. Lenovo G505
+   - Status: Owned
+   - Exact CPU/RAM/storage/GPU: To be inventoried after inspection
+
+4. Compaq Presario C700
+   - Status: Owned
+   - Exact CPU/RAM/storage: To be inventoried after inspection
+
+5. Apple MacBook Air 13-inch
+   - Status: Owned
+   - Model number: A1466
+   - EMC: 2632
+   - Model family: MacBookAir6,2 generation (2013/2014-era Haswell 13-inch Air)
+   - Bottom-case rating: 14.85V DC, 3.05A max
+   - Display class: 13.3-inch, 1440x900 for this model family
+   - Graphics family: Intel HD Graphics 5000
+   - Ports/platform family: 2x USB 3.0, Thunderbolt, SDXC, MagSafe 2, 802.11ac Wi-Fi
+   - CPU: Intel Core i5 (exact i5 model / clock: TO VERIFY)
+   - RAM: 4GB onboard/soldered
+   - SSD capacity: TO VERIFY
+   - Battery health / charger / boot condition / macOS version: TO VERIFY
+   - Assigned KRISHNA role: CHANDRADEV MEDIA NODE
+   - Primary duty: Run YouTube/browser media for long-duration observation while KRISHNA PC performs transcript/metadata fetching, deep analysis, verification and Rishi/BRAHMAGYAN learning
+   - Node workflow: WATCH -> LISTEN -> TIMESTAMP -> CAPTURE KEY EVIDENCE -> SEND TO PC -> KEEP PLAYING
+   - Compute policy: Keep heavy AI/vision/research on KRISHNA PC or approved free cloud; Mac handles playback, lightweight capture/control and reconnect/watchdog duties
+   - Suggested playback target: 720p by default for continuous duty; increase resolution only when a frame genuinely needs more visual detail
+   - 24/7 prerequisites: verify battery is healthy/not swollen, charger is reliable, thermals are acceptable, sleep is disabled while plugged in, and browser/session watchdog recovery is working
+   - Privacy note: Serial number is visible on the bottom case but is intentionally not stored in this inventory.
+   - Action: Boot and read Apple menu > About This Mac / System Information for exact CPU, SSD, battery condition and macOS version before continuous-duty deployment
+
+
+TABLETS / MOBILE DEVICES
+------------------------
+8. Apple iPad mini (5th generation, introduced 2019)
+   - Status: Owned
+   - Device name shown: iPad
+   - Apple part/model code shown in About: MUQW2HN/A
+   - Chip: Apple A12 Bionic with Neural Engine (generation-level specification)
+   - Display: 7.9-inch Retina, 2048x1536
+   - Connector: Lightning
+   - Storage: 64GB
+   - Available storage observed: 44.96GB
+   - iPadOS version observed: 18.6.2
+   - Hardware model number: A2133
+   - Connectivity variant: Wi-Fi only (no cellular modem / SIM variant)
+   - Battery health: TO VERIFY; screenshot showed device actively charging at 26% state of charge
+   - Assigned KRISHNA role: SURYADEV MEDIA / VISUAL NODE (subject to real-device acceptance)
+   - Primary duty: Play YouTube or other approved media in the foreground, provide a dedicated visual/reference screen, and forward timestamps/selected evidence to KRISHNA PC for Rishi/BRAHMAGYAN analysis
+   - Learning workflow: WATCH/PLAY -> CAPTURE TIMESTAMP + AVAILABLE CAPTION/TEXT + SELECTED FRAME/EVIDENCE -> SEND TO PC -> RISHI VERIFY/RESEARCH -> GYAN-BHANDAR STORE VERIFIED LEARNING
+   - Important iPadOS boundary: Do not assume unrestricted 24/7 background screen capture or autonomous control of other apps; continuous operation may require YouTube/media to remain foreground and KRISHNA should use PC-side transcript/metadata fetching whenever possible
+   - Heavy-compute policy: iPad acts as Suryadev display/observer companion; deep reasoning, transcript fetching, web research and knowledge storage remain on KRISHNA PC or approved free cloud
+   - Potential supporting uses: secondary KRISHNA control/monitoring screen, Hawkeye reference/research terminal, manuals/datasheet display, selected-frame review
+   - Action: Identify Settings > General > About > Model Number, storage, iPadOS version and battery/condition; then run real-device foreground YouTube + KRISHNA handoff acceptance before assigning continuous duty
+
+NETWORK / POWER EQUIPMENT
+-------------------------
+6. 24V PoE injector / switching power supply
+   - Model: GP-B240-1100
+   - Input: 100-240V AC, 50/60Hz
+   - Output: 24V DC, 1A (24W max)
+   - Ports: LAN + POE RJ45
+   - Status: Owned
+   - Note: Treat as potentially passive 24V PoE until exact standard/pinout is verified. Do not connect unknown Ethernet equipment to POE output.
+
+
+7A. Scientific Atlanta / Cisco DPC2100R2 Cable Modem
+   - Status: Owned
+   - Model: DPC2100R2
+   - Device type: DOCSIS cable modem
+   - Rating on label: 12V DC, 1A
+   - Part number on label: 4013700
+   - Hardware revision: 2.1
+   - Manufacturing date on label: 09/2008
+   - Known platform capability: DOCSIS 2.0, backward compatible with DOCSIS 1.1/1.0; 10/100 Ethernet and USB 1.1 on the DPC2100 family
+   - Exact port condition / power adapter / modem lock status: TO VERIFY
+   - Potential reuse: Ethernet/USB/networking test bench, regulated 12V/1A adapter source if matching adapter is present, enclosure/LED/button/connectors for salvage, DOCSIS/network-protocol learning fixture
+   - Current broadband use: Legacy; do not assume compatibility with modern ISP service
+   - Privacy note: Serial number and MAC address were visible in the photo but are intentionally not stored in this inventory.
+   - Action: Photograph front/rear ports and power adapter, then test power-up and Ethernet link before opening or salvaging
+
+VIDEO / DISPLAY EQUIPMENT
+-------------------------
+7. LINETEK 1x8 Video Splitter 4K
+   - Model: LTK-HS108
+   - Status: Owned
+   - Function: One video/HDMI source distributed to up to 8 displays/outputs (exact connector layout to verify from front/rear photos)
+   - Marking: 4K
+   - Potential KRISHNA use: Duplicate Suryadev/Chandradev/KRISHNA monitoring output to multiple displays; possible test/display distribution station
+   - Action: Verify input/output connector type, power adapter rating, supported refresh rate/HDCP/EDID behavior and working condition before deployment
+
+POTENTIAL SALVAGE / REUSE FROM OLD LAPTOPS
+------------------------------------------
+- 2.5-inch HDDs: inspect model/capacity/SMART health before reuse
+- Lenovo G505 DDR3 SODIMM RAM: identify capacity/speed
+- Acer/Compaq DDR2 SODIMM RAM: legacy use only
+- Laptop webcams: identify modules/pinouts before attempting reuse
+- LCD panels: identify exact panel model before selecting an HDMI/LVDS/eDP controller
+- Wi-Fi cards: identify exact models
+- Optical/DVD drives: potentially reusable with compatible USB adapter/enclosure
+- Speakers, microphones, cooling fans/heatsinks and chargers: retain pending inspection
+- Old lithium-ion batteries: do not repurpose without proper battery safety assessment
+
+
+CAMERAS / CAPTURE DEVICES
+-------------------------
+9. Samsung legacy digital camcorder
+   - Status: Owned
+   - Brand: Samsung
+   - Exact model: TO VERIFY from bottom/battery-bay label
+   - Recording/media generation: Legacy tape/digital camcorder class
+   - Optical zoom marking: 22x
+   - Digital zoom marking: 880x
+   - Battery type marking: Samsung Li-ion
+   - Confirmed connector: A/V OUT
+   - Potential KRISHNA role: CHANDRADEV secondary/fixed observation camera
+   - Intended connection path: Camera A/V OUT -> correct Samsung A/V cable -> USB video-capture adapter -> KRISHNA Windows PC
+   - Potential duties: fixed monitor/object view, optical-zoom observation, hardware/workbench monitoring, selected evidence capture
+   - Limitation: Do not treat as a USB webcam until exact model/output behavior and live-feed capability are verified
+   - Action: Identify exact model, obtain/locate matching A/V cable, verify live output, capture resolution, focus/zoom, continuous-power operation and Windows capture stability
+
+10. Legacy USB gooseneck webcam with separate microphone plug
+   - Status: Owned
+   - Exact brand/model/chipset: TO VERIFY
+   - Video connection: USB-A
+   - Audio connection: separate 3.5 mm microphone plug
+   - Physical design: flexible gooseneck stand
+   - Front lighting: four LED-style lights around lens (function to verify)
+   - Potential KRISHNA role: CHANDRADEV secondary camera
+   - Potential duties: desk/workbench observation, equipment/status LEDs, fixed-object monitoring, fallback visual source
+   - Limitation: likely legacy low-resolution device; do not assign monitor OCR duty until real capture quality is measured
+   - Action: Test Windows detection, supported resolutions/frame rates, focus distance, LED operation, microphone, stability and OCR readability
+
+SOLAR / LOW-POWER ENERGY
+------------------------
+11. 3Wp / 5.5V solar panels
+   - Status: Owned
+   - Quantity: 10
+   - Model marking: 3WP-5.5V
+   - Rated maximum power per panel: 3Wp
+   - Voltage at maximum power (Vmp): 5.50V
+   - Current at maximum power (Imp): 0.54A
+   - Open-circuit voltage (Voc): 7.10V
+   - Short-circuit current (Isc): 0.59A
+   - Total nameplate peak power for 10 panels: 30Wp
+   - Potential KRISHNA/LR Group use: small independent solar subsystem for sensors, microcontrollers, low-power monitoring/IoT nodes, emergency USB/5V loads or field accessories
+   - Not suitable for: directly powering Mac Studio, desktop PC or LR Group server-class compute
+   - Safety/engineering note: Do not combine or connect directly to batteries/devices until series/parallel topology, charge controller, battery chemistry and protection are defined
+   - Action: Inspect panel connectors/wiring and test Voc/Isc/output under sunlight before designing a charge system
+
+LEGACY LAPTOP COMPONENTS / SALVAGE
+----------------------------------
+12. HP/Dell-era DDR2 laptop memory modules
+   - Status: Owned
+   - Quantity observed: 2 modules
+   - HP spare marking visible: SPS 454922-001
+   - Capacity: 1GB each
+   - Type: DDR2 SO-DIMM
+   - Speed class: DDR2-667 / PC2-5300
+   - Total observed capacity: 2GB
+   - Current use value: Legacy laptop repair/test only; not suitable for modern KRISHNA/LR Group server or current desktop upgrades
+
+13. Atheros AR5BXB63 Mini-PCIe Wi-Fi card
+   - Status: Owned
+   - Interface: Mini-PCIe
+   - Wireless generation: legacy 2.4GHz 802.11b/g class
+   - Potential use: legacy laptop repair, protocol/test-bench experiments, antenna salvage
+   - Not suitable for: LR Group high-speed backbone or modern primary networking
+
+14. Western Digital Blue 500GB 2.5-inch SATA HDD
+   - Status: Owned
+   - Model: WD5000LPVX
+   - Full model marking: WD5000LPVX-80V0TT0
+   - Capacity: 500GB
+   - Form factor/interface: 2.5-inch SATA mechanical HDD
+   - Label manufacture date: 18 MAR 2014
+   - Potential use: secondary/archive/testing storage, old-laptop storage, temporary capture/log storage, or USB external storage with a compatible SATA-to-USB enclosure
+   - Not suitable for: sole copy of important LR Group data, primary AI/model storage, high-performance databases or main OS storage
+   - Action: Run SMART/health test before reuse; check reallocated, pending and uncorrectable sectors plus power-on hours and read/write stability
+
+
+
+GAME / MEDIA CONSOLES
+---------------------
+15. Sony PlayStation 3 (original/Fat-style chassis)
+   - Status: Owned and working
+   - Exact model: CECHK08
+   - Region suffix: 08 (India/Russia/Ukraine/Central Asia PAL market)
+   - Generation/release family: CECHKxx, introduced 2008
+   - Original HDD capacity for CECHK family: 80GB
+   - Motherboard family: DIA-002
+   - Cell / RSX process: 65nm / 65nm
+   - Wi-Fi: Yes
+   - USB ports: 2
+   - HDMI generation: HDMI 1.3a
+   - PS2 hardware compatibility: No
+   - SA-CD playback: No
+   - Original OtherOS support: Yes
+   - Power label visible: 220-240V AC, 50/60Hz
+   - KRISHNA/LR Group reuse value: media/display test endpoint, HDMI/AV test source, Ethernet/Wi-Fi network endpoint, controller/USB testing, Blu-ray/DVD/CD playback, legacy console/media lab
+   - CHANDRADEV possibility: can be used as a controlled video/display source for camera/monitor-testing workflows; HDMI capture may be affected by PS3 HDCP, so AV/component output may be more practical for capture testing
+   - AI/server suitability: Not suitable as modern KRISHNA/LR Group AI compute or server hardware
+   - Preservation rule: Keep intact while working; do not strip for parts unless it later fails or owner explicitly repurposes it
+   - Potential internal parts only if retired later: 2.5-inch SATA HDD, fan/heatsink, PSU, optical drive, Wi-Fi/Bluetooth board, antennas, chassis hardware
+   - Action: Verify currently installed HDD capacity and firmware from PS3 System Information; original 80GB drive may have been upgraded
+
+
+
+
+INVENTORY POLICY
+----------------
+- Do not assume unknown specifications; mark them TO VERIFY.
+- Record exact model/part number, condition, quantity and test status when known.
+- Prefer reusing owned hardware before purchasing replacements when technically sensible.
+- Keep Suryadev/Chandradev suitability separate from general reuse value.
+- This file is the canonical owner hardware inventory in KRISHNA-CORE.

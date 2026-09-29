@@ -90,6 +90,101 @@ class ArchitectureTruthAuditTests(unittest.TestCase):
             self.assertIn("mobile_v3/src/keep.txt",paths)
             self.assertFalse(any("node_modules" in p or "/build/" in p for p in paths))
 
+    def test_merge_integrity_detects_real_same_scope_and_registration_collisions(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            core=root/"core"/"krishna_core"
+            tests=root/"core"/"tests"
+            req=root/"core"/"requirements"
+            core.mkdir(parents=True);tests.mkdir(parents=True);req.mkdir(parents=True)
+
+            (core/"dupe.py").write_text(
+                "def x():\n    return 1\ndef x():\n    return 2\n",
+                encoding="utf-8",
+            )
+            (core/"orchestrator.py").write_text(
+                "class O:\n"
+                "    def f(self):\n"
+                "        self.action_bus.register('same',None)\n"
+                "        self.action_bus.register('same',None)\n"
+                "        self.agent_runtime.register('agent',None)\n"
+                "        self.agent_runtime.register('agent',None)\n",
+                encoding="utf-8",
+            )
+            (core/"server.py").write_text(
+                "class H:\n"
+                "    def _get(self):\n"
+                "        if path == '/same': pass\n"
+                "        if path == '/same': pass\n"
+                "    def _post(self):\n"
+                "        if post_path == '/same': pass\n",
+                encoding="utf-8",
+            )
+            (core/"specialist_registry.py").write_text(
+                "Specialist('dup','a',())\nSpecialist('dup','b',())\n",
+                encoding="utf-8",
+            )
+            (core/"rishi_council.py").write_text(
+                "RishiProfile('dup','a','r','r',(),'q','c')\n"
+                "RishiProfile('dup','b','r','r',(),'q','c')\n",
+                encoding="utf-8",
+            )
+            (core/"three_d_model_router.py").write_text(
+                "ThreeDProvider('dup','a','a','MIT',0,True,True,'allowed')\n"
+                "ThreeDProvider('dup','b','b','MIT',0,True,True,'allowed')\n",
+                encoding="utf-8",
+            )
+
+            integrity=ArchitectureTruthAudit(root)._merge_integrity()
+            self.assertEqual(len(integrity["same_scope_python_redefinitions"]),1)
+            self.assertEqual(integrity["duplicate_action_bus_registrations"][0]["name"],"same")
+            self.assertEqual(integrity["duplicate_agent_runtime_registrations"][0]["name"],"agent")
+            self.assertEqual(integrity["duplicate_http_routes_same_handler"][0]["handler"],"_get")
+            self.assertEqual(integrity["duplicate_specialist_ids"][0]["name"],"dup")
+            self.assertEqual(integrity["duplicate_rishi_ids"][0]["name"],"dup")
+            self.assertEqual(integrity["duplicate_3d_provider_ids"][0]["name"],"dup")
+
+    def test_merge_integrity_allows_cross_scope_names_and_get_post_route_reuse(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            core=root/"core"/"krishna_core"
+            (root/"core"/"tests").mkdir(parents=True)
+            (root/"core"/"requirements").mkdir(parents=True)
+            core.mkdir(parents=True)
+            (core/"ok.py").write_text(
+                "class A:\n"
+                "    def verify(self): return True\n"
+                "class B:\n"
+                "    def verify(self): return True\n",
+                encoding="utf-8",
+            )
+            (core/"server.py").write_text(
+                "class H:\n"
+                "    def _get(self):\n"
+                "        if path == '/same': pass\n"
+                "    def _post(self):\n"
+                "        if post_path == '/same': pass\n",
+                encoding="utf-8",
+            )
+            integrity=ArchitectureTruthAudit(root)._merge_integrity()
+            self.assertFalse(integrity["same_scope_python_redefinitions"])
+            self.assertFalse(integrity["duplicate_http_routes_same_handler"])
+
+    def test_current_repository_has_no_dangerous_merge_collisions(self):
+        repo=Path(__file__).resolve().parents[2]
+        integrity=ArchitectureTruthAudit(repo)._merge_integrity()
+        for key in (
+            "same_scope_python_redefinitions",
+            "duplicate_action_bus_registrations",
+            "duplicate_agent_runtime_registrations",
+            "duplicate_http_routes_same_handler",
+            "duplicate_specialist_ids",
+            "duplicate_rishi_ids",
+            "duplicate_3d_provider_ids",
+            "parse_errors",
+        ):
+            self.assertEqual(integrity[key],[],msg=f"{key}: {integrity[key]}")
+
     def test_status_vocabulary_contains_product_truth_states(self):
         self.assertTrue({
             "VERIFIED","IMPLEMENTED_NOT_VERIFIED","PARTIAL","MISSING","ROADMAP","SUPERSEDED"

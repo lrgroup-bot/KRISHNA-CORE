@@ -223,7 +223,8 @@ class VerifiedDirectFreeFabric:
             "options": {"rejectIfBusy": True},
         }
         data = self.gateway.request_json(
-            row["id"], "/ai/v1/chat/completions", payload=payload, method="POST", timeout=120
+            row["id"], "/ai/v1/chat/completions", payload=payload, method="POST", timeout=120,
+            zero_credit_proof="cloudflare-live-zero-billing"
         )
         choices = (data or {}).get("choices") or []
         text = str((((choices or [{}])[0].get("message") or {}).get("content") or ""))

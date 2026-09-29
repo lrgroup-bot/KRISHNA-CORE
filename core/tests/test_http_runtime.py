@@ -29,7 +29,8 @@ class HTTPRuntimeTests(unittest.TestCase):
         env = dict(os.environ, KRISHNA_DB=str(cls.root / "core.db"),
                    KRISHNA_RUNTIME_ROOT=str(cls.root),
                    KRISHNA_HOST="127.0.0.1", KRISHNA_PORT=str(cls.port),
-                   KRISHNA_ALLOW_ACTIONS="0")
+                   KRISHNA_ALLOW_ACTIONS="0",
+                   KRISHNA_BACKGROUND_SERVICES_ENABLED="0")
         cls.log = (cls.root / "server.log").open("w")
         cls.proc = subprocess.Popen([sys.executable, "-m", "krishna_core.server"],
             cwd=Path(__file__).resolve().parents[1], env=env,
@@ -1017,7 +1018,7 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertTrue(any(x["workflow_id"]==wid for x in letters))
 
     def test_plugin_lifecycle(self):
-        code, plugin=self.call("/api/plugins/add", {"name":"Isolated test plugin","kind":"custom","enabled":False})
+        code, plugin=self.call("/api/plugins/add", {"name":"Isolated test plugin","kind":"custom","enabled":False,"free":True})
         self.assertEqual(code,200)
         self.assertEqual(self.call("/api/plugins/enable", {"id":plugin["id"],"enabled":True})[0],403)
         self.assertEqual(self.call("/api/plugins/enable", {"id":plugin["id"],"enabled":True,"approved":True})[0],200)

@@ -12,7 +12,7 @@ class PluginRegistryTests(unittest.TestCase):
                 self.assertIn(builtin,ids)
             free={p["id"] for p in r.list() if p.get("free")}
             self.assertTrue({"ollama","mcp-servers","activepieces"}.issubset(free))
-            added=r.add({"name":"My Tool","kind":"mcp","permissions":["read"],"project_scope":["*"]})
+            added=r.add({"name":"My Tool","kind":"mcp","permissions":["read"],"project_scope":["*"],"free":True})
             self.assertEqual(added["id"],"my-tool")
             self.assertFalse(added["enabled"])
             self.assertTrue(r.set_enabled("my-tool",True)["enabled"])

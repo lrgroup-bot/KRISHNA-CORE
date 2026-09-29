@@ -14,7 +14,7 @@ import json
 import re
 import time
 
-from .avatar_asset_pipeline import AvatarAssetInspector
+from .avatar_asset_pipeline import AvatarAssetInspector, REQUIRED_ANIMATION_CLIPS
 from .native_voice import KrishnaVoiceStack
 from .mission_engine import MISSION_STATES
 
@@ -151,10 +151,10 @@ class KrishnaProjectAudit:
         main=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',html)
         menu=main.group(1) if main else ""
         buttons=menu.count("<button")
-        correct=(buttons==3 and all(x in menu for x in ("showView('home')","showView('sudarshan')","showView('plugins')")) and "showView('workingGods')" not in menu)
+        correct=(buttons==4 and all(x in menu for x in ("showView('home')","showView('sudarshan')","showView('manibhadra')","showView('plugins')")) and "showView('workingGods')" not in menu)
         forbidden=[x for x in ("Working Gods","KABACH","Garuda","Garudanetra","BRAHMAGYAN","Gyan-Bhandar","NARAD","System") if x in menu]
         self.add("ui","minimal MAIN MENU","PASS" if correct and not forbidden else "FAIL",
-                 "MAIN MENU is KRISHNA / Sudarshan / Plugins" if correct and not forbidden else "owner-visible menu contract mismatch",
+                 "MAIN MENU is KRISHNA / Sudarshan / MANIBHADRA / Plugins" if correct and not forbidden else "owner-visible menu contract mismatch",
                  button_count=buttons,forbidden=forbidden)
 
         ids=set(re.findall(r'id="([^"]+)"',html))
@@ -341,13 +341,16 @@ class KrishnaProjectAudit:
                 "WISDOM":"wisdom","PLAYFUL":"playful","PROTECTION":"protection","FLUTE":"flute",
                 "DHYAN":"dhyan","SLEEPING":"sleep","WAKING":"wake","WORKING":"work",
             }
-            missing_clips=[clip for clip in clip_map.values() if f'"{clip}"' not in production_text]
-            direction_ok=not (missing_identity or missing_channels or missing_states or missing_clips)
+            canonical_clips={str(x).strip().lower() for x in REQUIRED_ANIMATION_CLIPS}
+            missing_clips=[clip for clip in clip_map.values() if clip not in canonical_clips]
+            production_uses_canonical="REQUIRED_ANIMATION_CLIPS" in production_text
+            direction_ok=not (missing_identity or missing_channels or missing_states or missing_clips) and production_uses_canonical
             self.add("avatar","owner avatar direction contract","PASS" if direction_ok else "FAIL",
                      "Bala Krishna identity, Partha relationship, performance hierarchy/states and production clips are codified"
                      if direction_ok else "one or more owner avatar directions are missing from canonical source",
                      missing_identity=missing_identity,missing_channels=missing_channels,
-                     missing_states=missing_states,missing_clips=missing_clips)
+                     missing_states=missing_states,missing_clips=missing_clips,
+                     production_uses_canonical_animation_contract=production_uses_canonical)
 
     def audit_voice(self):
         status=KrishnaVoiceStack().status()

@@ -224,6 +224,47 @@ RISHI_RESEARCH_CHARTERS = {
             "self/reality/knowledge themes with textual provenance preserved",
         ),
     },
+    "vanijya": {
+        "primary_subjects": (
+            "sales","marketing","lead generation","prospecting","customer discovery",
+            "lead qualification","sales development","account management","solution selling",
+            "proposal strategy","pricing communication","negotiation","deal closing",
+            "customer relationship management","retention","upsell","cross-sell",
+            "referrals","revenue operations","B2B sales","international sales",
+        ),
+        "frontier_focus": (
+            "buyer-intent detection from public or consented signals",
+            "ethical personalized outreach","sales-cycle automation","conversation quality",
+            "solution-to-problem fit","deal velocity","conversion learning",
+            "zero-spend organic distribution","repeat and referral revenue",
+        ),
+        "classical_lens": (
+            "Vāṇijya is a modern KRISHNA functional title for commerce and sales leadership",
+            "historical Indian commerce and trade sources may be studied as historical context only",
+            "modern sales claims, channel rules and commercial practices require current evidence",
+        ),
+    },
+    "narada": {
+        "primary_subjects": (
+            "constitutional law","statutory interpretation","central and state legislation",
+            "rules and regulations","notifications and circulars","delegated legislation",
+            "civil procedure","criminal procedure","evidence law","contracts","property law",
+            "business and company law","consumer law","privacy and data protection",
+            "cyber and technology law","regulatory compliance","police procedure",
+            "judicial precedent","legal research","legal information retrieval",
+        ),
+        "frontier_focus": (
+            "new Acts and amendments","new rules regulations notifications and circulars",
+            "commencement and effective-date changes","Supreme Court and High Court precedent",
+            "regulator directions","compliance-by-design","lawful alternatives and remedies",
+            "conflict between old operational assumptions and current law",
+        ),
+        "classical_lens": (
+            "Narada Smriti and Dharmashastra as historical jurisprudence only",
+            "classical legal thought may provide comparative history but never overrides current Indian law",
+            "modern legal conclusions require current official statutes subordinate legislation and judgments",
+        ),
+    },
     "agastya": {
         "primary_subjects": (
             "environment","climate","ecology","knowledge transmission","regional traditions",

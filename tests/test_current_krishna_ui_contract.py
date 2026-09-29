@@ -19,10 +19,33 @@ class CurrentKrishnaUIContractTests(unittest.TestCase):
         menu=m.group(1)
         self.assertIn("showView('home')",menu)
         self.assertIn("showView('sudarshan')",menu)
+        self.assertIn("showView('manibhadra')",menu)
         self.assertIn("showView('plugins')",menu)
         self.assertNotIn("showView('workingGods')",menu)
         for hidden in ("kabach","garuda","garudanetra","brahmagyan","gyan","narad","specialists","developer","work","activity","system"):
             self.assertNotIn(f"showView('{hidden}')",menu)
+
+    def test_vanijya_does_not_expand_main_menu(self):
+        m=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',self.html)
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1).count("<button"),4)
+        self.assertNotIn("showView('vanijya')",m.group(1))
+        self.assertIn("RISHI VĀṆIJYA · Sales & Marketing Head",self.html)
+
+    def test_manibhadra_is_clean_tabbed_owner_workspace(self):
+        for token in (
+            'id="manibhadra-human-workspace-v2"',
+            'data-mani-page-button="overview"',
+            'data-mani-page-button="sales"',
+            'data-mani-page-button="market"',
+            'data-mani-page-button="records"',
+            'data-mani-page-button="connections"',
+            "function setManibhadraWorkspace(page)",
+            "Vāṇijya Sales",
+            "INSIDE MANIBHADRA",
+        ):
+            self.assertIn(token,self.html)
+        self.assertIn("setManibhadraWorkspace('sales');vanijyaSalesCycle()",self.html)
 
     def test_sudarshan_is_clean_conversation_workspace(self):
         self.assertIn("SUDARSHAN CLEAN CHAT MODE",self.html)

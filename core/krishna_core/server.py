@@ -38,6 +38,14 @@ from .android_test_fabric import AndroidTestFabric
 from .http_server_runtime import KrishnaThreadingHTTPServer
 from .hawkeye_media_sync import HawkeyeMediaSyncStore
 
+# HTTP regression/acceptance subprocesses exercise API contracts deterministically.
+# They must not simultaneously start autonomous schedulers, filesystem observers,
+# model-worker supervisors, or other unrelated background loops. Production keeps
+# these services enabled by default; tests opt out explicitly through the env flag.
+_BACKGROUND_SERVICES_ENABLED = str(
+    os.getenv("KRISHNA_BACKGROUND_SERVICES_ENABLED", "1")
+).strip().lower() not in {"0", "false", "no", "off"}
+
 orch = Orchestrator()
 _pairing = DevicePairingStore(Path(settings.db_path).resolve().parent / ".krishna_state")
 _sessions = RealtimeSessionStore(Path(settings.db_path).resolve().parent / ".krishna_state")
@@ -188,7 +196,8 @@ _worker_resilience = WorkerResilienceSupervisor(
                                              severity="critical" if event.get("event")=="quarantined" else "notice",
                                              project="system",payload=event),
 )
-_worker_resilience.start()
+if _BACKGROUND_SERVICES_ENABLED:
+    _worker_resilience.start()
 _hawkeye_media_sync = HawkeyeMediaSyncStore(RUNTIME_ROOT)
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
@@ -383,9 +392,11 @@ orch.action_bus.register(
 _ui_registry = UIGuardianRegistry(Path(settings.db_path).resolve().parent / ".krishna_state" / "ui-guardian-registry.json")
 _ui_guardian = UIGuardian(_browser_fabric, _ui_registry, Path(settings.db_path).resolve().parent / "reports" / "ui-guardian")
 _narad_scheduler = NaradScheduler(orch.agi.narad)
-_narad_scheduler.start()
+if _BACKGROUND_SERVICES_ENABLED:
+    _narad_scheduler.start()
 _autonomy = AutonomySupervisor(orch)
-_autonomy.start()
+if _BACKGROUND_SERVICES_ENABLED:
+    _autonomy.start()
 _team_planner = SpecialistTeamPlanner(_specialists)
 try:
     if _specialists.source_root.exists():
@@ -520,15 +531,20 @@ _android_test_fabric = AndroidTestFabric(RUNTIME_ROOT)
 
 def avatar_asset_status():
     source=_avatar_inspector.inspect(AVATAR_GLB)
-    production=_avatar_inspector.inspect(AVATAR_PRODUCTION_GLB) if AVATAR_PRODUCTION_GLB.is_file() else {"available":False,"ready":False,"stage":"missing"}
-    active=AVATAR_PRODUCTION_GLB if production.get("ready") else AVATAR_GLB
+    production=_avatar_inspector.inspect(AVATAR_PRODUCTION_GLB)
+    # A file named krishna.production.glb is not authoritative by filename alone:
+    # it must satisfy body + face + complete cross-surface animation requirements.
+    active=AVATAR_PRODUCTION_GLB if production.get("production_ready") else AVATAR_GLB
+    active_report=production if active==AVATAR_PRODUCTION_GLB else source
     return {
         "source":source,
         "production":production,
         "active":"production" if active==AVATAR_PRODUCTION_GLB else "source",
         "active_path":str(active),
-        "active_ready":bool((production if active==AVATAR_PRODUCTION_GLB else source).get("ready")),
-        "promotion_policy":"krishna.production.glb is served only after local compatibility inspection reports production-ready",
+        "active_asset":active_report,
+        "active_compatible":bool(active_report.get("ready")),
+        "active_ready":bool(active_report.get("production_ready")),
+        "promotion_policy":"krishna.production.glb is served only after body, face, viseme and required-animation inspection reports production-ready",
     }
 
 def active_avatar_glb():
@@ -581,7 +597,8 @@ def on_transition(transition):
 
 
 watcher = Watcher(on_transition=on_transition)
-watcher.start()
+if _BACKGROUND_SERVICES_ENABLED:
+    watcher.start()
 
 def on_pc_event(event):
     orch.handle_event(
@@ -611,7 +628,8 @@ pc_observer = PCObserver(
     cpu_budget_percent=orch.governor.cpu_budget,
     memory_budget_percent=orch.governor.memory_budget,
 )
-pc_observer.start()
+if _BACKGROUND_SERVICES_ENABLED:
+    pc_observer.start()
 
 def _science_frontier_tick():
     snap=pc_observer.snapshot()
@@ -624,7 +642,7 @@ _science_frontier_scheduler = ScienceFrontierScheduler(
     _science_frontier_tick,
     interval_seconds=int(os.getenv("KRISHNA_SCIENCE_RESEARCH_INTERVAL_SECONDS","1800")),
 )
-if str(os.getenv("KRISHNA_SCIENCE_RESEARCH_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
+if _BACKGROUND_SERVICES_ENABLED and str(os.getenv("KRISHNA_SCIENCE_RESEARCH_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
     _science_frontier_scheduler.start()
 
 
@@ -672,7 +690,7 @@ _brahma_consolidation_scheduler = BrahmaConsolidationScheduler(
     _brahma_consolidation_tick,
     interval_seconds=int(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_INTERVAL_SECONDS","1800")),
 )
-if str(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
+if _BACKGROUND_SERVICES_ENABLED and str(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
     _brahma_consolidation_scheduler.start()
 
 
@@ -887,16 +905,32 @@ class Handler(BaseHTTPRequestHandler):
             return self._binary(200,asset.read_bytes(),content_type)
         if path == "/api/avatar/status":
             asset=avatar_asset_status()
+            talkinghead_installed=(AVATAR_ENGINE_ROOT/"talkinghead"/"talkinghead.mjs").is_file()
+            model_viewer_installed=(AVATAR_ENGINE_ROOT/"model-viewer"/"model-viewer.min.js").is_file()
+            headaudio_installed=(AVATAR_ENGINE_ROOT/"headaudio"/"dist"/"headaudio.min.mjs").is_file()
+            motion_engine_installed=(AVATAR_ENGINE_ROOT/"motion-engine"/"src"/"MotionEngine.js").is_file()
+            active_asset=asset.get("active_asset") or {}
+            viseme_ready=bool(((active_asset.get("face") or {}).get("oculus_visemes") or {}).get("ready"))
             return self._json(200,{
                 "preview_available": bool(avatar_360_bytes()),
                 "glb_available": active_avatar_glb().is_file(),
                 "viewer_policy": "local-only",
-                "talkinghead_installed": (AVATAR_ENGINE_ROOT/"talkinghead"/"talkinghead.mjs").is_file(),
-                "model_viewer_installed": (AVATAR_ENGINE_ROOT/"model-viewer"/"model-viewer.min.js").is_file(),
-                "headaudio_installed": (AVATAR_ENGINE_ROOT/"headaudio"/"dist"/"headaudio.min.mjs").is_file(),
-                "motion_engine_installed": (AVATAR_ENGINE_ROOT/"motion-engine"/"src"/"MotionEngine.js").is_file(),
-                "lipsync_quality":{"engine":"HeadAudio","bundled_model_training":"English mixed voices",
+                "talkinghead_installed": talkinghead_installed,
+                "model_viewer_installed": model_viewer_installed,
+                "headaudio_installed": headaudio_installed,
+                "motion_engine_installed": motion_engine_installed,
+                "lipsync_quality":{"engine":"HeadAudio","active":bool(asset.get("active_compatible") and viseme_ready and headaudio_installed),
+                                   "bundled_model_training":"English mixed voices",
                                    "english":"trained-model","hindi":"audio-driven approximation","odia":"audio-driven approximation"},
+                "surface_capabilities":{
+                    "pc":{"live_3d":bool(asset.get("active_compatible") and talkinghead_installed),
+                          "audio_lipsync":bool(asset.get("active_compatible") and viseme_ready and headaudio_installed),
+                          "motion_engine":bool(asset.get("active_compatible") and motion_engine_installed)},
+                    "mobile":{"production_glb_sync":bool(asset.get("active_ready")),
+                              "skeletal_animation":bool(asset.get("active_ready")),
+                              "viseme_lipsync":False,
+                              "renderer":"three-glb + animated 360 fallback"},
+                },
                 "asset_pipeline":asset,
                 "video_avatar":_video_avatar.status(),
                 "age":orch.agi.avatar_age.status(),
@@ -983,6 +1017,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,{"agent":"hawkeye","missions":orch.hawkeye_learning.daily_missions()})
         if path == "/api/hawkeye/observer/status":
             return self._json(200,orch.hawkeye_observer.status())
+        if path == "/api/hawkeye/active-vision/status":
+            return self._json(200,orch.hawkeye_active_vision.status())
         if path == "/api/hawkeye/diagnostic/status":
             return self._json(200,orch.hawkeye_diagnostic.status())
         if path == "/api/hawkeye/reference/status":
@@ -1023,6 +1059,32 @@ class Handler(BaseHTTPRequestHandler):
             return self._binary_nostore(200,audio_path.read_bytes(),"audio/wav")
         if path == "/api/voice/status":
             return self._json(200,{**_voice.status(),"character":orch.agi.character.status()})
+        if path == "/api/suryadev/status":
+            return self._json(200,{
+                **orch.suryadev.status(),
+                "nodes":orch.compute_nodes.status(),
+                "bridge":orch.external_observers.status(),
+            })
+        if path == "/api/suryadev/device/status":
+            device,token=self._device_auth()
+            if not _pairing.verify(device,token):
+                return self._json(401,{"error":"paired Suryadev device required"})
+            requested=str((query.get("device_id") or [device])[0]).strip()
+            if requested!=device:
+                return self._json(403,{"error":"device may read only its own Suryadev status"})
+            try:return self._json(200,orch.suryadev.device_status(requested))
+            except KeyError:return self._json(404,{"error":"Suryadev node has not sent a heartbeat yet"})
+        if path == "/api/chandradev/status":
+            return self._json(200,{
+                **orch.chandradev.status(),
+                "nodes":orch.compute_nodes.status(),
+                "bridge":orch.external_observers.status(),
+            })
+        if path == "/api/external-auth/status":
+            return self._json(200,{
+                **orch.external_auth.status(),
+                "pending_requests":orch.external_auth.pending(),
+            })
         if path == "/api/garuda/status":
             return self._json(200, orch.garuda_status())
         if path == "/api/brahmagyan/status":
@@ -1117,6 +1179,25 @@ class Handler(BaseHTTPRequestHandler):
                 x=float((query.get("x") or ["0"])[0]);y=float((query.get("y") or ["0"])[0])
             except ValueError:return self._json(400,{"error":"x and y must be numeric"})
             return self._json(200,_browser_fabric.element_at(sid,x,y,normalized=True))
+        if path == "/api/project-genesis/status":
+            project=(query.get("project") or [""])[0].strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:return self._json(200,orch.project_genesis.status(project))
+            except KeyError:return self._json(404,{"error":"project genesis state not found"})
+            except RuntimeError as exc:return self._json(500,{"error":str(exc)})
+        if path == "/api/engineering/scheduler/status":
+            return self._json(200,orch.engineering_scheduler.status())
+        if path == "/api/engineering/worktree/status":
+            project=(query.get("project") or [""])[0].strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:return self._json(200,orch._engineering_worktree_manager(project).status())
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+        if path == "/api/engineering/swarm/status":
+            project=(query.get("project") or [""])[0].strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:return self._json(200,orch.engineering_swarm.status(project) or {"project":project,"status":"UNSTAFFED"})
+            except RuntimeError as exc:return self._json(500,{"error":str(exc)})
         if path == "/api/project-perfection/status":
             return self._json(200,orch.project_perfection.status())
         if path == "/api/design-studio/session":
@@ -1177,6 +1258,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200,roles)
         if path == "/api/models/gateways":
             return self._json(200,orch.model_gateway.list())
+        if path == "/api/free-cloud/health":
+            refresh=str((query.get("refresh") or ["0"])[0]).lower() in {"1","true","yes"}
+            if refresh and self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"free-cloud health refresh must run on KRISHNA PC"})
+            return self._json(200,orch.free_cloud_health.status(refresh=refresh))
         if path == "/api/openrouter/free/status":
             refresh=str((query.get("refresh") or ["0"])[0]).lower() in {"1","true","yes"}
             if refresh and self.client_address[0] not in ("127.0.0.1","::1"):
@@ -1837,6 +1923,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if post_path == "/api/design-studio/research":
             project=str(data.get("project") or "").strip();goal=str(data.get("goal") or "").strip()
+            if project and not goal:
+                try:goal=str(orch.project_genesis.status(project).get("goal") or "").strip()
+                except KeyError:pass
             if not project or not goal:return self._json(400,{"error":"project and goal are required"})
             try:
                 receipt=orch.dispatch_action(
@@ -1868,6 +1957,15 @@ class Handler(BaseHTTPRequestHandler):
                 selection=orch.project_perfection.design_submit(sid,cid)
                 project=str(selection.get("project") or "").strip()
                 if not project:return self._json(400,{"error":"design session has no project"})
+                try:
+                    selected=selection.get("selected") or {}
+                    orch.project_genesis.record_design_selection(
+                        project,sid,cid,str(selected.get("label") or "").strip() or None,
+                    )
+                except KeyError:
+                    pass
+                except RuntimeError:
+                    pass
                 policy=orch.projects.get(project)
                 if not policy:return self._json(404,{"error":"project not registered"})
                 frontend_url=str(data.get("frontend_url") or (selection.get("metadata") or {}).get("frontend_url") or "").strip() or None
@@ -2280,6 +2378,32 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200,result)
             except PermissionError as exc:
                 return self._json(400, {"error": str(exc)})
+
+        if post_path in ("/api/suryadev/device/heartbeat","/api/suryadev/learning-bundle"):
+            device,token=self._device_auth()
+            if not _pairing.verify(device,token):
+                return self._json(401,{"error":"paired Suryadev device required"})
+            body_device=str(data.get("device_id") or "").strip()
+            if body_device and body_device!=device:
+                return self._json(403,{"error":"authenticated Suryadev Node ID does not match payload"})
+            if post_path.endswith("/heartbeat"):
+                data["device_id"]=device
+                return self._json(200,orch.suryadev.device_heartbeat(data))
+            bundle=data.get("bundle") if isinstance(data.get("bundle"),dict) else data
+            if bundle is data:
+                bundle={k:v for k,v in data.items() if k!="device_id"}
+            receipt=orch.suryadev.route_learning_bundle(bundle,device_id=device)
+            orch.handle_event(
+                "suryadev", "learning_bundle_acknowledged",
+                f"{device}:{receipt.get('job_id')}:{receipt.get('accepted_chunks')} chunks",
+                severity="notice", project="BRAHMAGYAN",
+                payload={
+                    "device_id":device,"job_id":receipt.get("job_id"),
+                    "receipt_id":receipt.get("receipt_id"),
+                    "bundle_sha256":receipt.get("bundle_sha256"),
+                },
+            )
+            return self._json(200,receipt)
 
         if post_path in ("/api/core/event", "/api/neural/event"):
             source = str(data.get("source", "unknown")).strip() or "unknown"
@@ -3179,6 +3303,17 @@ class Handler(BaseHTTPRequestHandler):
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
 
+        if post_path == "/api/hawkeye/active-vision/plan":
+            packet=data.get("packet") or data
+            if not isinstance(packet,dict):return self._json(400,{"error":"packet must be an object"})
+            installed=data.get("installed_engines") or []
+            if not isinstance(installed,list):return self._json(400,{"error":"installed_engines must be a list"})
+            try:
+                plan=orch.hawkeye_active_vision.escalation_plan(packet,installed_engines=installed)
+                if bool(data.get("record",False)):orch.hawkeye_active_vision.record(packet,plan)
+                return self._json(200,plan)
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
+
         if post_path == "/api/hawkeye/gemini/analyze":
             raw_b64=str(data.get("data_b64") or "").strip()
             if not raw_b64:return self._json(400,{"error":"data_b64 is required"})
@@ -3617,6 +3752,126 @@ class Handler(BaseHTTPRequestHandler):
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
             except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/start":
+            project=str(data.get("project") or "").strip();goal=str(data.get("goal") or "").strip()
+            if not project or not goal:return self._json(400,{"error":"project and goal are required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.genesis.start",{"project":project,"goal":goal},
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write",),
+                )
+                return self._json(201,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/intake":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            payload={k:data.get(k) for k in (
+                "project","deadline_hours","deadline_at","platforms","core_requirements",
+                "ui_mode","ui_reference","ui_description","owner_notes"
+            ) if k in data}
+            try:
+                receipt=orch.dispatch_action(
+                    "project.genesis.intake",payload,
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write",),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/enhancements":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.genesis.enhancements",
+                    {"project":project,"research":bool(data.get("research",True)),"limit":int(data.get("limit") or 8)},
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write","web.read","model.use"),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/decide":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.genesis.decide_enhancements",
+                    {"project":project,"selected_ids":data.get("selected_ids") or []},
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write",),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/design-selected":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.genesis.design_selected",
+                    {"project":project,"session_id":data.get("session_id"),"candidate_id":data.get("candidate_id"),"label":data.get("label")},
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write",),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/lock":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "project.genesis.lock_scope",
+                    {"project":project,"acceptance":data.get("acceptance") or [],"constraints":data.get("constraints") or []},
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write","mission.write","memory.write"),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/project-genesis/plan":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "engineering.plan",{"project":project,"tasks":data.get("tasks") or []},
+                    project="KRISHNA",source="pc",actor="project-genesis-http",
+                    permissions=("project.write","runtime.read"),
+                )
+                return self._json(200,receipt["result"])
+            except (ValueError,PermissionError,RuntimeError,KeyError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/engineering/staff":
+            project=str(data.get("project") or "").strip()
+            if not project:return self._json(400,{"error":"project is required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "engineering.staff",
+                    {"project":project,"tasks":data.get("tasks") or [],"base_ref":data.get("base_ref") or "HEAD"},
+                    project="KRISHNA",source="pc",actor="engineering-http",
+                    permissions=("candidate.write","mission.write","project.write"),
+                )
+                return self._json(201,receipt["result"])
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except (ValueError,PermissionError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/engineering/worktree/create":
+            project=str(data.get("project") or "").strip();worker_id=str(data.get("worker_id") or "").strip()
+            if not project or not worker_id:return self._json(400,{"error":"project and worker_id are required"})
+            try:
+                receipt=orch.dispatch_action(
+                    "engineering.worktree.create",
+                    {"project":project,"worker_id":worker_id,"base_ref":data.get("base_ref") or "HEAD","mission_id":data.get("mission_id")},
+                    project="KRISHNA",source="pc",actor="engineering-http",
+                    permissions=("candidate.write",),
+                )
+                return self._json(201,receipt["result"])
+            except KeyError:return self._json(404,{"error":"project not registered"})
+            except (ValueError,PermissionError,RuntimeError,OSError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/software-factory/create":
             project=str(data.get("project") or "").strip(); goal=str(data.get("goal") or "").strip()

@@ -398,11 +398,14 @@ try{
 
   $avatar=Get-Json "/api/avatar/status"
   if($avatar.glb_available){
-    $stage=[string]$avatar.asset_pipeline.source.stage
-    if($avatar.asset_pipeline.source.ready){
-      Add-Check "KRISHNA avatar production rig" "PASS" ("Private GLB ready; stage="+$stage+"; body+ARKit52+Oculus15 verified") $avatar.asset_pipeline.source
+    $active=$avatar.asset_pipeline.active_asset
+    $stage=[string]$active.production_stage
+    if($avatar.asset_pipeline.active_ready){
+      Add-Check "KRISHNA avatar production rig" "PASS" ("Active private GLB production-ready; stage="+$stage+"; body+ARKit52+Oculus15+state animations verified") $active
+    }elseif($avatar.asset_pipeline.active_compatible){
+      Add-Check "KRISHNA avatar production rig" "WARN" ("Active private GLB is TalkingHead-compatible but not production-ready; stage="+$stage+"; "+(@($active.issues) -join "; ")) $active
     }else{
-      Add-Check "KRISHNA avatar production rig" "WARN" ("Private GLB loaded but not production-ready; stage="+$stage+"; "+(@($avatar.asset_pipeline.source.issues) -join "; ")) $avatar.asset_pipeline.source
+      Add-Check "KRISHNA avatar production rig" "WARN" ("Private GLB loaded but body/face compatibility is incomplete; stage="+$stage+"; "+(@($active.issues) -join "; ")) $active
     }
   }else{
     Add-Check "KRISHNA avatar production rig" "WARN" "Private krishna.glb is not available in this isolated acceptance runtime" $avatar

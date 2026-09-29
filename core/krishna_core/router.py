@@ -51,7 +51,13 @@ class ModelRouter:
         return {"provider":"model-scout","bound":bool(scout)}
 
     @staticmethod
-    def paid_cloud_enabled():
+    def strict_zero_credit_enabled():
+        return str(os.getenv("KRISHNA_STRICT_ZERO_CREDIT","1")).strip().lower() not in {"0","false","no","off"}
+
+    @classmethod
+    def paid_cloud_enabled(cls):
+        if cls.strict_zero_credit_enabled():
+            return False
         return str(os.getenv("KRISHNA_ALLOW_PAID_CLOUD","0")).strip().lower() in {"1","true","yes","on"}
 
     def bind_sudarshan(self,control_plane):
@@ -312,8 +318,18 @@ class ModelRouter:
             return self.direct_free.complete(prompt,privacy="approved_cloud")["text"]
         if provider.startswith("gateway:"):
             if not self.gateway:raise RuntimeError("encrypted model gateway is not configured")
+            if self.strict_zero_credit_enabled():
+                raise PermissionError(
+                    "strict zero-credit policy blocks generic cloud gateway inference; "
+                    "use OpenRouter live-zero-price or Cloudflare verified-free adapters"
+                )
             return self.gateway.complete(provider.split(":",1)[1],prompt)
-        if provider in self.PROVIDERS:return self._chat_compatible(provider,prompt)
+        if provider in self.PROVIDERS:
+            if self.strict_zero_credit_enabled():
+                raise PermissionError(
+                    "strict zero-credit policy blocks unverified direct cloud inference"
+                )
+            return self._chat_compatible(provider,prompt)
         raise KeyError(provider)
 
     def _governed_complete(self,provider,prompt,privacy="approved_cloud",free_only=False,project="KRISHNA",actor="model-router"):

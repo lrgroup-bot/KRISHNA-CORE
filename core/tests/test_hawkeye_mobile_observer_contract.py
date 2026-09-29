@@ -171,7 +171,8 @@ class HawkeyeMobileObserverContractTests(unittest.TestCase):
         self.assertIn("com.google.mediapipe:tasks-vision:1.0.0",self.workflow)
         self.assertIn("gesture_recognizer.task",self.workflow)
         self.assertIn("hawkeye-observer-ui.js",self.workflow)
-        self.assertIn("KRISHNA-v3.9-Assistant-Photographer-APK",self.workflow)
+        self.assertIn("name: KRISHNA-Mobile-APK",self.workflow)
+        self.assertIn("dist/KRISHNA-Mobile.apk",self.workflow)
 
     def test_mobile_startup_networking_is_off_webview_thread(self):
         realtime=(self.mobile/"realtime-client.js").read_text(encoding="utf-8")

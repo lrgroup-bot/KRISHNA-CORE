@@ -47,7 +47,7 @@ jobs:
         shell: pwsh
         run: |
           python -m py_compile core/krishna_console.py core/krishna_desktop.py
-          python -c "from pathlib import Path; t=Path('core/web_validation.html').read_text(encoding='utf-8'); assert 'data-krishna-ui=\"2026.09-current\"' in t, 'current UI marker missing'"
+          python -c 'from pathlib import Path; t=Path("core/web_validation.html").read_text(encoding="utf-8"); assert "data-krishna-ui=\"2026.09-current\"" in t, "current UI marker missing"'
           python -m compileall -q core/krishna_core
           [void][scriptblock]::Create((Get-Content scripts/PATCH_KRISHNA_V3.ps1 -Raw))
           [void][scriptblock]::Create((Get-Content scripts/START_KRISHNA.ps1 -Raw))

@@ -105,7 +105,7 @@ class HawkeyeFreeCloudFabric:
         declared=self._declared_free_text_profiles()
         return {
             "component":"HAWKEYE Free Cloud Fabric",
-            "version":"hawkeye-free-cloud-v1",
+            "version":"hawkeye-free-cloud-v2-hard-zero-credit",
             "authority":"KRISHNA",
             "mobile_local_perception":True,
             "mobile_qwen":False,
@@ -114,6 +114,7 @@ class HawkeyeFreeCloudFabric:
                 "openrouter_zero_cost":self.openrouter_free.status(refresh=refresh),
                 "cloudflare_verified_free":self.direct_free.status(refresh=refresh),
                 "gemini_selected_keyframe":self.gemini.status(),
+                "gemini_execution":"blocked-no-zero-credit-proof",
                 "declared_free_text_gateways":[
                     {"id":x.get("id"),"name":x.get("name"),"model":x.get("model"),"family":x.get("family")}
                     for x in declared
@@ -130,7 +131,9 @@ class HawkeyeFreeCloudFabric:
                 "paid_fallback":False,
                 "openrouter":"live zero-price preflight",
                 "cloudflare":"live zero-billing account preflight",
-                "declared_free_gateways":"only profiles explicitly marked free_only; no paid fallback",
+                "declared_free_gateways":"status-only; generic gateway inference blocked without zero-credit proof",
+                "credits_allowed":False,
+                "promotional_or_trial_credits_allowed":False,
             },
         }
 
@@ -156,26 +159,8 @@ class HawkeyeFreeCloudFabric:
         except Exception:
             pass
 
-        for profile in self._declared_free_text_profiles():
-            if len(reviews)>=max(0,int(max_reviews)):
-                break
-            try:
-                text=self.gateway.complete(
-                    profile["id"],review_prompt,
-                    system="You are a bounded HAWKEYE reviewer for KRISHNA. Return analysis only; never claim host actions.",
-                    max_tokens=1200,
-                )
-                if str(text).strip():
-                    reviews.append({
-                        "provider":"gateway:"+str(profile["id"]),
-                        "provider_family":profile.get("family"),
-                        "model":profile.get("model"),
-                        "text":str(text),
-                        "free_only_declared":True,
-                        "paid_fallback":False,
-                    })
-            except Exception:
-                continue
+        # Generic free_only gateway labels are metadata only. Reviews never consume
+        # trial/promotional/provider credits under hard zero-credit mode.
         return reviews
 
     def analyze_image(self, data:bytes, content_type:str, prompt:str, metadata=None,
@@ -219,22 +204,13 @@ class HawkeyeFreeCloudFabric:
                     raise
 
         if result is None and provider in {"auto","gemini"}:
-            try:
-                gemini_status=self.gemini.status()
-                if not bool(gemini_status.get("free_only_declared",False)):
-                    raise PermissionError("Gemini is not marked free_only for automatic HAWKEYE routing")
-                row=self.gemini.analyze_image(data,ctype,prompt,meta)
-                result={
-                    "provider":"google-gemini",
-                    "model":row.get("model"),
-                    "analysis":row.get("analysis"),
-                    "selected_keyframe":True,
-                    "free_only_requested":True,
-                }
-            except Exception as exc:
-                attempts.append({"provider":"gemini","error":f"{type(exc).__name__}: {exc}"})
-                if provider=="gemini":
-                    raise
+            error=(
+                "PermissionError: Gemini is blocked by KRISHNA hard zero-credit policy "
+                "because free-tier/account billing state is not execution-time zero-credit proven"
+            )
+            attempts.append({"provider":"gemini","error":error})
+            if provider=="gemini":
+                raise PermissionError(error.split(": ",1)[1])
 
         if result is None:
             raise RuntimeError("no HAWKEYE free-cloud vision provider succeeded: "+json.dumps(attempts,ensure_ascii=False)[:4000])

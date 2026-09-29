@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Rishi Vishvakarma: provenance-preserving design/UI/software-craft curator."""
+"""Rishi Vishvakarma: provenance-preserving design, electronics and engineering-craft curator."""
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -27,12 +27,15 @@ class DesignFinding:
 
 
 class VishvakarmaRishi:
-    VERSION = "vishvakarma-rishi-v2"
+    VERSION = "vishvakarma-rishi-v3"
     DOMAINS = (
         "design-systems", "ui-ux", "typography", "spacing", "responsive-ui",
         "component-architecture", "image-to-code", "visual-diff",
         "browser-testing", "accessibility", "design-drift", "frontend-quality",
         "ui-repair",
+        "electronics", "electrical-systems", "pcb-repair", "power-electronics",
+        "embedded-hardware", "sensors", "motors", "instrumentation",
+        "fault-isolation", "repair-verification", "salvage-reuse", "hardware-fabrication",
     )
 
     def __init__(self, root):
@@ -74,5 +77,5 @@ class VishvakarmaRishi:
             "domains": list(self.DOMAINS),
             "knowledge_path": str(self.path),
             "provenance_required": True,
-            "authority": "design knowledge candidate; Sudarshan + BRAHMA/Verifier gate implementation truth",
+            "authority": "design/electronics/engineering knowledge candidate; domain verification + BRAHMA/Verifier gate implementation truth",
         }

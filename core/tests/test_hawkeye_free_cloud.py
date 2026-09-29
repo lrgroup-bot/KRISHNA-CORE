@@ -104,20 +104,27 @@ class HawkeyeFreeCloudFabricTests(unittest.TestCase):
         self.assertEqual(call["preferred_model"],"vision/free")
         self.assertTrue(str(call["image_data_url"]).startswith("data:image/jpeg;base64,"))
         self.assertTrue(self.direct.calls)
-        self.assertEqual(self.gateway.completions[0][0],"groq1")
-        self.assertNotIn("data:image",self.gateway.completions[0][1])
-        self.assertGreaterEqual(len(out["reviews"]),2)
+        self.assertEqual(self.gateway.completions,[])
+        self.assertEqual(len(out["reviews"]),1)
+        self.assertEqual(out["reviews"][0]["provider"],"direct-free:cloudflare-workers-ai")
 
-    def test_auto_falls_back_to_gemini_when_openrouter_fails(self):
+    def test_auto_does_not_fall_back_to_gemini_without_zero_credit_proof(self):
         fabric=self.make(FakeOpenRouter(fail=True))
-        out=fabric.analyze_image(
-            b"jpeg","image/jpeg","inspect",self.meta(),
-            provider="auto",include_reviews=False,
-        )
-        self.assertEqual(out["provider"],"google-gemini")
-        self.assertEqual(out["reviews"],[])
-        self.assertTrue(out["attempts"])
-        self.assertEqual(len(self.gemini.calls),1)
+        with self.assertRaisesRegex(RuntimeError,"no HAWKEYE free-cloud vision provider succeeded"):
+            fabric.analyze_image(
+                b"jpeg","image/jpeg","inspect",self.meta(),
+                provider="auto",include_reviews=False,
+            )
+        self.assertEqual(self.gemini.calls,[])
+
+    def test_explicit_gemini_is_blocked_under_zero_credit_policy(self):
+        fabric=self.make()
+        with self.assertRaisesRegex(PermissionError,"hard zero-credit policy"):
+            fabric.analyze_image(
+                b"jpeg","image/jpeg","inspect",self.meta(),
+                provider="gemini",include_reviews=False,
+            )
+        self.assertEqual(self.gemini.calls,[])
 
     def test_recorded_pc_finding_skips_duplicate_local_vision(self):
         row=HawkeyeFreeCloudFabric.recorded_pc_finding({

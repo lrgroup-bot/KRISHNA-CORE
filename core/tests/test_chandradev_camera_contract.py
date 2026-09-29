@@ -1,0 +1,78 @@
+import unittest
+from pathlib import Path
+
+
+class ChandradevCameraIntegrationContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root=Path(__file__).resolve().parents[2]
+        cls.orchestrator=(cls.root/"core"/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
+        cls.camera=(cls.root/"core"/"krishna_core"/"chandradev_camera.py").read_text(encoding="utf-8")
+        cls.start_osmo=(cls.root/"scripts"/"START_CHANDRADEV_OSMO.ps1").read_text(encoding="utf-8")
+        cls.test_webcam=(cls.root/"scripts"/"TEST_CHANDRADEV_WEBCAM.ps1").read_text(encoding="utf-8")
+        cls.test_screen=(cls.root/"scripts"/"TEST_CHANDRADEV_SCREEN.ps1").read_text(encoding="utf-8")
+
+    def test_existing_chandradev_is_canonical_pc_camera_owner(self):
+        self.assertIn("self.chandradev = ChandradevQC",self.orchestrator)
+        self.assertIn("self.chandradev_camera = ChandradevOsmoCameraAdapter",self.orchestrator)
+        self.assertIn("chandradev=self.chandradev",self.orchestrator)
+        self.assertNotIn("hawkeye=",self.camera.lower())
+
+    def test_chandradev_status_includes_camera_adapter(self):
+        self.assertIn('status=self.chandradev.status()',self.orchestrator)
+        self.assertIn('status["camera"]=self.chandradev_camera.status()',self.orchestrator)
+
+    def test_camera_actions_are_chandradev_only(self):
+        for action in (
+            "chandradev.camera.osmo.profile",
+            "chandradev.camera.osmo.guide",
+            "chandradev.camera.webcam.profile",
+            "chandradev.camera.webcam.detect",
+            "chandradev.camera.webcam.select",
+            "chandradev.camera.selection",
+            "chandradev.camera.receiver.config",
+            "chandradev.camera.receiver.start",
+            "chandradev.camera.receiver.stop",
+            "chandradev.camera.frame.capture",
+            "chandradev.camera.frame.analyze",
+            "chandradev.camera.screen.focus",
+            "chandradev.camera.screen.analyze",
+            "chandradev.camera.screen.unlock",
+            "chandradev.camera.screen.alignment",
+            "chandradev.camera.observations",
+        ):
+            self.assertIn(f'"{action}"',self.orchestrator)
+        self.assertNotIn('"chandradev.camera.session.start"',self.orchestrator)
+
+    def test_direct_usb_webcam_is_primary_and_dji_is_explicit_fallback(self):
+        self.assertIn('"active_validation_source": "usb_uvc_webcam"',self.camera)
+        self.assertIn('"fallback_source": "dji_osmo_action_rtmp"',self.camera)
+        self.assertIn("def select_camera_source",self.camera)
+        self.assertIn("def _open_video_capture",self.camera)
+        self.assertIn("CAP_DSHOW",self.camera)
+        self.assertIn("CAP_MSMF",self.camera)
+
+    def test_direct_webcam_scripts_do_not_require_rtmp_receiver(self):
+        self.assertIn("usb_uvc_webcam",self.test_webcam)
+        self.assertIn("CameraIndex",self.test_webcam)
+        self.assertIn("usb_uvc_webcam",self.test_screen)
+        self.assertNotIn("Get-NetTCPConnection -State Listen -LocalPort 1935",self.test_screen)
+        self.assertNotIn("DJI MIMO IS NOT STREAMING",self.test_screen)
+
+    def test_osmo_start_script_writes_utf8_without_bom_and_prefers_real_lan(self):
+        self.assertIn("System.Text.UTF8Encoding($false)",self.start_osmo)
+        self.assertIn("[System.IO.File]::WriteAllText($config",self.start_osmo)
+        self.assertIn("Get-NetIPConfiguration",self.start_osmo)
+        self.assertIn("IPv4DefaultGateway",self.start_osmo)
+        self.assertIn("100\\.",self.start_osmo)
+        self.assertNotIn('$yaml | Set-Content -Encoding UTF8 -Path $config',self.start_osmo)
+
+    def test_network_listener_start_stop_require_owner_approval(self):
+        start=self.orchestrator.index('"chandradev.camera.receiver.start"')
+        stop=self.orchestrator.index('"chandradev.camera.receiver.stop"')
+        self.assertIn("requires_approval=True",self.orchestrator[start:start+650])
+        self.assertIn("requires_approval=True",self.orchestrator[stop:stop+650])
+
+
+if __name__=="__main__":
+    unittest.main()

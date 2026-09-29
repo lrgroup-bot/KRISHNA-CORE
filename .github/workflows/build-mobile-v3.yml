@@ -9,7 +9,6 @@ on:
       - main
       - fix/krishna-ui-runtime-verification
       - fix/krishna-full-error-audit-v1
-      - fix/windows-ui-recovery-20260926
       - feature/bhumiputra-geovision-agent
   pull_request:
     paths:
@@ -178,6 +177,7 @@ jobs:
           cp mobile_v3/*.java app/src/main/java/com/krishna/mobile/
           cp mobile_v3/index.html app/src/main/assets/index.html
           cp mobile_v3/realtime-client.js app/src/main/assets/realtime-client.js
+          cp mobile_v3/hawkeye-active-vision.js app/src/main/assets/hawkeye-active-vision.js
           cp mobile_v3/hawkeye-observer-ui.js app/src/main/assets/hawkeye-observer-ui.js
           cp mobile_v3/CANONICAL_RUNTIME.json app/src/main/assets/canonical-runtime.json
           curl --retry 3 --fail --location --silent --show-error \
@@ -185,16 +185,38 @@ jobs:
             -o app/src/main/assets/gesture_recognizer.task
           test -s app/src/main/assets/gesture_recognizer.task
 
-      - name: Build APK
+
+      - name: Build canonical KRISHNA Mobile APK
         run: |
+          set -euo pipefail
           gradle --no-daemon :app:assembleDebug --stacktrace
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/KRISHNA-v3.9-Production-Candidate.apk
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/KRISHNA-Mobile.apk
+          sha256sum dist/KRISHNA-Mobile.apk | tee dist/KRISHNA-Mobile.apk.sha256
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          apk=Path("dist/KRISHNA-Mobile.apk")
+          payload={
+              "artifact":"KRISHNA-Mobile.apk",
+              "package_id":"com.krishna.mobile",
+              "build_type":"debug-signed private test APK",
+              "source_sha":os.environ.get("GITHUB_SHA",""),
+              "source_ref":os.environ.get("GITHUB_REF_NAME",""),
+              "size_bytes":apk.stat().st_size,
+              "install":"adb install -r KRISHNA-Mobile.apk",
+              "runtime_root_recommendation":r"E:\KRISHNA-Mobile",
+          }
+          Path("dist/KRISHNA-Mobile-build.json").write_text(
+              json.dumps(payload,indent=2),encoding="utf-8"
+          )
+          PY
 
       - name: Verify conversation-first KRISHNA Mobile
         shell: bash
         run: |
           set -euo pipefail
-          test -f app/build/outputs/apk/debug/app-debug.apk
+          test -f dist/KRISHNA-Mobile.apk
           test -s app/src/main/assets/canonical-runtime.json
           grep -q '"version": "krishna-mobile-canonical-v1"' app/src/main/assets/canonical-runtime.json
           grep -q '"canonical_android_source": "mobile_v3"' app/src/main/assets/canonical-runtime.json
@@ -215,12 +237,28 @@ jobs:
               path.write_text(body,encoding='utf-8')
               subprocess.run(['node','--check',str(path)],check=True)
           PY
+          grep -q "MrityunjayaMobileHealer" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "MRUTYUNJAYA_MOBILE" app/src/main/java/com/krishna/mobile/MrityunjayaMobileHealer.java
+          grep -q "onRenderProcessGone" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "runMobileHealthWatch" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "mrityunjayaStatus" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "mrityunjayaFault" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "MAX_HEALS_PER_WINDOW" app/src/main/java/com/krishna/mobile/MrityunjayaMobileHealer.java
+          grep -q "pending_native_crash" app/src/main/java/com/krishna/mobile/MrityunjayaMobileHealer.java
+          grep -q 'id="mrityunjayaChip"' app/src/main/assets/index.html
+          grep -q "window.onMrityunjayaState" app/src/main/assets/index.html
+          grep -q "window.mrityunjayaRecover" app/src/main/assets/index.html
+          grep -q '"mobile_mrityunjaya_auto_healer": true' app/src/main/assets/canonical-runtime.json
+          grep -q '"mobile_healer_source_mutation": false' app/src/main/assets/canonical-runtime.json
           grep -q "KRISHNA_UI_READY" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "showKrishnaFallback" app/src/main/assets/index.html
           grep -q "hawkeye-observer-ui.js" app/src/main/assets/index.html
+          node --check app/src/main/assets/hawkeye-active-vision.js
           node --check app/src/main/assets/hawkeye-observer-ui.js
           node --check app/src/main/assets/realtime-client.js
           grep -q "resumeAsync" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "pollAsync" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "avatarSyncAsync" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "resumeAsync" app/src/main/assets/realtime-client.js
           grep -q "Krishna.pollAsync" app/src/main/assets/index.html
           grep -q "PHOTO+DATA" app/src/main/assets/index.html
@@ -247,7 +285,9 @@ jobs:
           grep -q "android.service.voice.VoiceInteractionService" app/src/main/AndroidManifest.xml
           grep -q "@xml/krishna_voice_interaction_service" app/src/main/AndroidManifest.xml
           test -s app/src/main/res/xml/krishna_voice_interaction_service.xml
-          test -f app/build/outputs/apk/debug/KRISHNA-v3.9-Production-Candidate.apk
+          test -f dist/KRISHNA-Mobile.apk
+          test -s dist/KRISHNA-Mobile.apk.sha256
+          test -s dist/KRISHNA-Mobile-build.json
           grep -q "verifyVoice" app/src/main/assets/index.html
           grep -q "startFieldScan" app/src/main/assets/index.html
           grep -q 'id="diagnosticOverlay"' app/src/main/assets/index.html
@@ -298,6 +338,19 @@ jobs:
           grep -q "saveHawkeyeCapture" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "ML_KIT_OBJECT_TRACKER" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
           grep -q "ML_KIT_LOCAL_RICH" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
+          grep -q "hawkeyeCameraProfile" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "HawkeyeCameraProfiler.profile" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "CONTROL_ZOOM_RATIO_RANGE" app/src/main/java/com/krishna/mobile/HawkeyeCameraProfiler.java
+          grep -q "hawkeyeReadTarget" app/src/main/java/com/krishna/mobile/MainActivity.java
+          grep -q "analyzeReadTarget" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
+          grep -q "enableAllPotentialBarcodes" app/src/main/java/com/krishna/mobile/HawkeyeMobileVision.java
+          grep -q "hawkeye-active-vision.js" app/src/main/assets/index.html
+          grep -q "HawkeyeActiveVision" app/src/main/assets/hawkeye-active-vision.js
+          grep -q "activeVisionTick" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q "READ COMPLETE" app/src/main/assets/hawkeye-observer-ui.js
+          grep -q "POINTED" app/src/main/assets/hawkeye-active-vision.js
+          grep -q "activeVisionFrame" app/src/main/assets/index.html
+          grep -q "av-complete" app/src/main/assets/index.html
           grep -q "hawkeyeRichPerception" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "hawkeyeGeminiAnalyze" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "hawkeyeFreeCloudAnalyze" app/src/main/java/com/krishna/mobile/MainActivity.java
@@ -371,7 +424,7 @@ jobs:
           from krishna_core.privacy_guardian.mobile import basic_apk_privacy_audit
           from krishna_core.privacy_guardian.policy import evaluate_release_gate
 
-          apk=Path("app/build/outputs/apk/debug/app-debug.apk")
+          apk=Path("dist/KRISHNA-Mobile.apk")
           report=basic_apk_privacy_audit(apk)
           wrapped={"target_type":"mobile","findings":report["findings"]}
           gate=evaluate_release_gate(wrapped,"MOBILE_RELEASE")
@@ -414,7 +467,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            PYTHONPATH=core python scripts/VERIFY_KRISHNA_APK.py app/build/outputs/apk/debug/app-debug.apk com.krishna.mobile
+            PYTHONPATH=core python scripts/VERIFY_KRISHNA_APK.py dist/KRISHNA-Mobile.apk com.krishna.mobile
             adb logcat -c
             adb shell am force-stop com.krishna.mobile
             adb shell am start -W -n com.krishna.mobile/.MainActivity
@@ -436,11 +489,23 @@ jobs:
             krishna-ui-ready.log
           retention-days: 30
 
-      - uses: actions/upload-artifact@v7
+      - name: Upload canonical KRISHNA Mobile APK
+        uses: actions/upload-artifact@v7
         with:
-          name: KRISHNA-v3.9-Assistant-Photographer-APK
+          name: KRISHNA-Mobile-APK
           path: |
-            app/build/outputs/apk/debug/KRISHNA-v3.9-Production-Candidate.apk
-            app/build/outputs/apk/debug/app-debug.apk
+            dist/KRISHNA-Mobile.apk
+            dist/KRISHNA-Mobile.apk.sha256
+            dist/KRISHNA-Mobile-build.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload KRISHNA Mobile validation reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: KRISHNA-Mobile-Validation
+          path: |
             privacy-apk-report.json
             project-perfection-apk-retest.json
+          if-no-files-found: error
+          retention-days: 30

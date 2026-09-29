@@ -26,6 +26,7 @@ from .sudarshan_design_engine import SudarshanDesignEngine
 from .sudarshan_ui_pipeline import UIPipeline
 from .vishvakarma_learning import VishvakarmaLearning
 from .vishvakarma_rishi import VishvakarmaRishi
+from .vishvakarma_repair_shishya import VishvakarmaRepairShishya
 from .model_scout import ModelScout
 
 class AGIKernel:
@@ -63,6 +64,7 @@ class AGIKernel:
         self.media=OpenMontageAdapter(self.workers)
         self.vishvakarma=VishvakarmaRishi(self.root/"vishvakarma")
         self.vishvakarma_learning=VishvakarmaLearning(self.root/"vishvakarma"/"learning")
+        self.vishvakarma_repair=VishvakarmaRepairShishya(self.root/"vishvakarma"/"repair",self.vishvakarma_learning)
         self.design=SudarshanDesignEngine(self.root/"design",knowledge=self.vishvakarma_learning)
         self.ui_pipeline=UIPipeline(self.design)
         self.model_scout=ModelScout(self.root/"model-scout.json")
@@ -79,5 +81,5 @@ class AGIKernel:
         "creator":self.creator.status(),"avatar":{**self.avatar.status(),"age":self.avatar_age.status()},
         "character":self.character.status(),"brahmagyan":self.brahmagyan.status(),"media":self.media.status(),
         "revenue":self.revenue.status(),"workers":self.workers.status(),
-        "design":self.design.status(),"vishvakarma":{**self.vishvakarma.status(),"learning":self.vishvakarma_learning.status()},
+        "design":self.design.status(),"vishvakarma":{**self.vishvakarma.status(),"learning":self.vishvakarma_learning.status(),"repair_shishya":self.vishvakarma_repair.status()},
         "model_scout":self.model_scout.status()}
