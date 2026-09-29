@@ -26,14 +26,12 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         self.assertIn('SOURCE TESTS DIRTY THE REPOSITORY',deploy)
         self.assertIn('Remove-Item -Recurse -Force $sourceTestRuntime',deploy)
 
-    def test_avatar_prepare_does_not_pass_boolean_values_through_powershell_file(self):
+    def test_deploy_does_not_invoke_avatar_prepare(self):
         root=repository_root()
         deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
-        line=next(x for x in deploy.splitlines() if "-File $avatarPrepare" in x)
-        self.assertNotIn("-TryBodyRig",line)
-        self.assertNotIn("-InstallRigTools",line)
-        self.assertIn("-RuntimeRoot $Runtime",line)
-        self.assertIn("-SourceRoot $Source",line)
+        self.assertNotIn("-File $avatarPrepare",deploy)
+        self.assertNotIn("INSTALL_AVATAR_ENGINE.ps1",deploy)
+        self.assertIn('dashboard\\assets\\avatar',deploy)
 
     def test_acceptance_uses_current_shishya_tree_contract_not_legacy_four_worker_cap(self):
         root=repository_root()
