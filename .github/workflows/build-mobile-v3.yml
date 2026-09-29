@@ -55,6 +55,7 @@ jobs:
           set -euo pipefail
           mkdir -p app/src/main/java/com/krishna/mobile
           mkdir -p app/src/main/res/{values,drawable,xml,raw}
+          mkdir -p app/src/main/assets
 
           cat > settings.gradle <<'EOF'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
