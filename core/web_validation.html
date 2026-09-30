@@ -949,7 +949,7 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 
 /* KRISHNA simplified human navigation */
 .mainMenuDivider{height:1px;margin:7px 8px;background:rgba(255,255,255,.07)}
-.mainMenuPlugin{color:#cbd5de!important}
+.mainMenuPlugin{color:#cbd5de!important}.bottomNav{margin-top:8px;padding-top:8px;border-top:1px solid rgba(90,190,207,.14)}
 .sidebarWorkspace{min-height:0;display:flex;flex:1;flex-direction:column;overflow:hidden;margin-top:10px}
 .sideSectionHead{display:flex;align-items:center;justify-content:space-between;min-height:30px;padding:5px 8px 4px;color:#738191;font-size:10px;letter-spacing:1.25px}
 .sideSectionHead .miniAdd{width:26px;height:26px;display:grid;place-items:center;border:0;background:transparent;color:#9aa9b5;border-radius:7px;cursor:pointer;font-size:17px;padding:0}
@@ -1315,8 +1315,6 @@ body[data-view="home"] #krishnaPopupLauncher{display:none!important}
 <button class="active" onclick="showView('home')"><span class="ico">ॐ</span><span class="txt">KRISHNA</span></button>
 <button onclick="showView('sudarshan')"><span class="ico">☸</span><span class="txt">Sudarshan</span></button>
 <button onclick="showView('manibhadra')"><span class="ico">◆</span><span class="txt">MANIBHADRA</span></button>
-<div class="mainMenuDivider"></div>
-<button class="mainMenuPlugin" onclick="showView('plugins')"><span class="ico">⌘</span><span class="txt">Plugins</span></button>
 </div>
 <div class="sidebarWorkspace">
  <div class="sideSectionHead projectsHead"><span>PROJECTS</span><button class="miniAdd" title="Create project" aria-label="Create project" onclick="openNewProjectWizard()">＋</button></div>
@@ -1325,6 +1323,7 @@ body[data-view="home"] #krishnaPopupLauncher{display:none!important}
  <div class="chatSearchWrap"><span>⌕</span><input id="chatSearch" type="search" placeholder="Search chats…" aria-label="Search chats" oninput="filterSidebarChats()"></div>
  <div id="recentChats" class="chatMenuList" aria-label="Chats"></div>
 </div>
+<div class="nav bottomNav" aria-label="Plugins"><button class="mainMenuPlugin" onclick="showView('plugins')"><span class="ico">⌘</span><span class="txt">Plugins</span></button></div>
 <div id="chatProjectLabel" hidden>KRISHNA</div>
 <div class="sideFoot">
  <div class="opsVitals" aria-label="Work and system status">
