@@ -90,7 +90,7 @@ function Get-KrishnaListenerOwnership([int]$ProcessId,[string]$RuntimeRoot,[int]
   # Windows can redact CommandLine/ExecutablePath. In that case accept only an
   # exact match between the live listener ancestry and KRISHNA's own recorded
   # guardian state. This cannot authorize an arbitrary PID: the recorded Core PID
-  # must be an ancestor of the actual 8766 Python listener, and the recorded
+  # must be an ancestor of the actual canonical Core listener, and the recorded
   # Guardian PID (when present) must also be in that same ancestry.
   if($RecordedCorePid -gt 0){
     $recordedCore=@($chain | Where-Object {
@@ -136,7 +136,7 @@ function Stop-ExistingKrishnaGuardian([string]$RuntimeRoot){
 
   # WMI may redact command lines on an otherwise valid KRISHNA process chain.
   # Recover ownership only when the recorded Core/Guardian PIDs appear in the
-  # ancestry of the actual 8766 Python listener.
+  # ancestry of the actual canonical Core listener.
   if(!$coreProc -and $oldCorePid -gt 0){
     $live8766=Get-NetTCPConnection -LocalPort $CorePort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
     if($live8766){
@@ -164,7 +164,7 @@ function Stop-ExistingKrishnaGuardian([string]$RuntimeRoot){
   if($coreProc){
     Write-Host ("Stopping previous KRISHNA Core process tree rooted at PID {0} for verified generation handoff..." -f $oldCorePid) -ForegroundColor Yellow
     # START_KRISHNA.ps1 launches python.exe as a child. Killing only the PowerShell
-    # wrapper can orphan the server and leave port 8766 occupied. The wrapper PID
+    # wrapper can orphan the server and leave the canonical Core port occupied. The wrapper PID
     # has already been verified above as KRISHNA's START_KRISHNA.ps1, so terminate
     # that verified tree rather than touching unrelated processes.
     & taskkill.exe /PID $oldCorePid /T /F | Out-Null
