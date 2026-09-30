@@ -60,12 +60,12 @@ try{
     $mainMenu=if($mainMenuMatch.Success){$mainMenuMatch.Groups[1].Value}else{""}
     $mainMenuButtonCount=([regex]::Matches($mainMenu,'<button\b')).Count
     $uiCurrent=(
-      $mainMenuButtonCount -eq 3 -and
+      $mainMenuButtonCount -eq 2 -and
       $uiHtml -match 'data-krishna-ui="2026\.09-current"' -and
       $uiHtml -match 'name="krishna-ui-version" content="2026\.09-current"' -and
       $mainMenu -match "showView\('home'\)" -and
       $mainMenu -match "showView\('sudarshan'\)" -and
-      $mainMenu -match "showView\('manibhadra'\)" -and
+      $mainMenu -notmatch "showView\('(manibhadra|vanijya)'\)" -and
       $mainMenu -notmatch "showView\('plugins'\)" -and
       $uiHtml -match 'class="nav bottomNav"' -and
       $uiHtml -match "showView\('plugins'\)" -and
@@ -76,7 +76,7 @@ try{
       $uiHtml -match '#sudarshan \.holoRail\{\s*display:none !important;'
     )
     if($uiCurrent){
-      Add-Check "Current KRISHNA UI" "PASS" "2026.09 current design; KRISHNA + Sudarshan + MANIBHADRA main menu, Plugins bottom, clean Sudarshan conversation workspace" @{version="2026.09-current";main_menu=$mainMenu;main_menu_button_count=$mainMenuButtonCount}
+      Add-Check "Current KRISHNA UI" "PASS" "2026.09 current design; KRISHNA + Sudarshan main menu, Plugins bottom, live internal-system orbit, clean Sudarshan conversation workspace" @{version="2026.09-current";main_menu=$mainMenu;main_menu_button_count=$mainMenuButtonCount}
     }else{
       Add-Check "Current KRISHNA UI" "FAIL" "Old or mismatched KRISHNA desktop design detected" @{version_marker=($uiHtml -match '2026\.09-current');main_menu=$mainMenu;main_menu_button_count=$mainMenuButtonCount}
     }
