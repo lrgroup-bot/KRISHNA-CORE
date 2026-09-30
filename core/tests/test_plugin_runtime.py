@@ -44,6 +44,15 @@ class PluginRegistryTests(unittest.TestCase):
             self.assertEqual(added["runtime_state"],"ready")
             self.assertTrue(r.set_enabled(added["id"],True)["enabled"])
 
+    def test_stale_incomplete_plugin_is_disabled_on_startup(self):
+        with tempfile.TemporaryDirectory() as td:
+            state=Path(td)/"plugins.json"
+            state.write_text('[{"id":"gmail","name":"Gmail","kind":"connector","auth_type":"oauth","permissions":[],"project_scope":["*"],"risk":"high","enabled":true,"builtin":true,"source_url":"https://developers.google.com/workspace/gmail/api/guides","license":"service-connector","free":true}]',encoding="utf-8")
+            r=PluginRegistry(Path(td))
+            gmail=next(x for x in r.list() if x["id"]=="gmail")
+            self.assertFalse(gmail["enabled"])
+            self.assertEqual(gmail["runtime_state"],"setup_required")
+
     def test_builtin_cannot_be_removed(self):
         with tempfile.TemporaryDirectory() as td:
             r=PluginRegistry(Path(td))
