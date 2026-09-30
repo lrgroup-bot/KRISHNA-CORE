@@ -499,12 +499,307 @@ function TerminalPanel() {
   return <div className="terminal-host" ref={host} />;
 }
 
+type PluginManifest = {
+  id: string;
+  name: string;
+  description?: string;
+  kind?: string;
+  endpoint?: string;
+  auth_type?: string;
+  permissions?: string[];
+  project_scope?: string[];
+  risk?: string;
+  enabled?: boolean;
+  builtin?: boolean;
+  source_url?: string;
+  license?: string;
+  free?: boolean;
+  credential_ref?: string;
+};
+
 function PluginsPanel() {
+  const [plugins, setPlugins] = useState<PluginManifest[]>([]);
+  const [selected, setSelected] = useState<PluginManifest | null>(null);
+  const [query, setQuery] = useState('');
+  const [kind, setKind] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [credential, setCredential] = useState('');
+
+  const localSurface = useMemo(() => {
+    const host = window.location.hostname.toLowerCase();
+    return host === '127.0.0.1' || host === 'localhost' || host === '::1';
+  }, []);
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/plugins', { cache: 'no-store' });
+      const data = await response.json() as { plugins?: PluginManifest[]; error?: string };
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      setPlugins(data.plugins || []);
+      setError('');
+      setSelected((current) => current
+        ? (data.plugins || []).find((item) => item.id === current.id) || null
+        : null);
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void refresh(); }, []);
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return plugins.filter((plugin) => {
+      if (kind !== 'all' && plugin.kind !== kind) return false;
+      if (!needle) return true;
+      return [
+        plugin.name, plugin.id, plugin.description, plugin.kind,
+        ...(plugin.permissions || []),
+      ].some((value) => String(value || '').toLowerCase().includes(needle));
+    });
+  }, [plugins, query, kind]);
+
+  const kinds = useMemo(
+    () => Array.from(new Set(plugins.map((item) => item.kind || 'custom'))).sort(),
+    [plugins],
+  );
+
+  const enabledCount = plugins.filter((item) => item.enabled).length;
+  const connectedCount = plugins.filter((item) =>
+    ['none', 'local', 'device'].includes(String(item.auth_type || 'none')) || Boolean(item.credential_ref)
+  ).length;
+  const freeCount = plugins.filter((item) => item.free).length;
+
+  const togglePlugin = async (plugin: PluginManifest) => {
+    setBusy('toggle');
+    setNotice('');
+    setError('');
+    try {
+      const response = await fetch('/api/plugins/enable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: plugin.id, enabled: !plugin.enabled, approved: true, project: 'KRISHNA' }),
+      });
+      const data = await response.json() as PluginManifest & { error?: string };
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      setNotice(data.enabled ? 'Plugin enabled.' : 'Plugin disabled.');
+      await refresh();
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const saveCredential = async (plugin: PluginManifest) => {
+    if (!credential.trim()) return;
+    setBusy('credential');
+    setNotice('');
+    setError('');
+    try {
+      const response = await fetch('/api/plugins/credential', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plugin_id: plugin.id, secret: credential }),
+      });
+      const data = await response.json() as { plugin?: PluginManifest; error?: string };
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      setCredential('');
+      setNotice('Credential stored in KRISHNA secure vault.');
+      await refresh();
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy('');
+    }
+  };
+
   return (
-    <section className="panel-content">
-      <div className="eyebrow">PLUGINS</div>
-      <h2>Capability connections</h2>
-      <p className="muted">Enabled integrations remain project-scoped, permissioned and credential-referenced.</p>
+    <section className="panel-content plugins-surface">
+      <div className="plugins-header">
+        <div>
+          <div className="eyebrow">PLUGINS · KRISHNA CAPABILITY MARKETPLACE</div>
+          <h2>Connect tools without giving them KRISHNA authority</h2>
+          <p className="muted">
+            Install the capability first, connect credentials separately, then enable it.
+            Every plugin remains project-scoped, permissioned and zero-spend governed.
+          </p>
+        </div>
+        <button type="button" className="kr-button kr-button--ghost" onClick={() => void refresh()}>
+          Refresh
+        </button>
+      </div>
+
+      <div className="plugin-stats" aria-label="Plugin registry summary">
+        <article><strong>{plugins.length}</strong><span>registered</span></article>
+        <article><strong>{enabledCount}</strong><span>enabled</span></article>
+        <article><strong>{connectedCount}</strong><span>connected / local</span></article>
+        <article><strong>{freeCount}</strong><span>free-policy eligible</span></article>
+      </div>
+
+      <div className="plugin-toolbar">
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search plugins, capabilities or permissions…"
+          aria-label="Search plugins"
+        />
+        <select value={kind} onChange={(event) => setKind(event.target.value)} aria-label="Filter plugin kind">
+          <option value="all">All types</option>
+          {kinds.map((value) => <option key={value} value={value}>{value}</option>)}
+        </select>
+      </div>
+
+      {loading ? <p className="muted">Loading plugin registry…</p> : null}
+      {error && !selected ? <p className="plugin-error">{error}</p> : null}
+
+      <div className="plugin-grid" aria-label="KRISHNA plugins">
+        {filtered.map((plugin) => {
+          const connected = ['none', 'local', 'device'].includes(String(plugin.auth_type || 'none')) || Boolean(plugin.credential_ref);
+          return (
+            <button key={plugin.id} type="button" className="plugin-card" onClick={() => {
+              setSelected(plugin); setCredential(''); setError(''); setNotice('');
+            }}>
+              <div className="plugin-card__top">
+                <span className="plugin-symbol"><PlugZap size={18} /></span>
+                <span className={plugin.enabled ? 'plugin-state plugin-state--on' : 'plugin-state'}>
+                  {plugin.enabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              <strong>{plugin.name}</strong>
+              <span className="plugin-card__desc">{plugin.description || 'No description provided.'}</span>
+              <div className="plugin-card__meta">
+                <span>{plugin.kind || 'custom'}</span>
+                <span>{plugin.auth_type || 'none'}</span>
+                <span>{plugin.free ? 'Free' : 'Paid / restricted'}</span>
+              </div>
+              <div className="plugin-card__footer">
+                <span className={connected ? 'plugin-dot plugin-dot--ok' : 'plugin-dot'} />
+                {connected ? 'Connected / no credential needed' : 'Connection required'}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {!loading && filtered.length === 0 ? <p className="muted">No plugins match this filter.</p> : null}
+
+      {selected ? (
+        <div className="plugin-modal-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.currentTarget === event.target) setSelected(null);
+        }}>
+          <section className="plugin-modal" role="dialog" aria-modal="true" aria-label={`${selected.name} plugin details`}>
+            <button type="button" className="plugin-modal__close" onClick={() => setSelected(null)} aria-label="Close plugin details">×</button>
+
+            <div className="plugin-modal__hero">
+              <span className="plugin-symbol plugin-symbol--large"><PlugZap size={26} /></span>
+              <div>
+                <div className="eyebrow">{selected.kind || 'PLUGIN'} · {selected.builtin ? 'BUILT-IN' : 'CUSTOM'}</div>
+                <h2>{selected.name}</h2>
+                <p className="muted">{selected.description || 'No description provided.'}</p>
+              </div>
+            </div>
+
+            <div className="plugin-detail-grid">
+              <article><span>Status</span><strong>{selected.enabled ? 'Enabled' : 'Disabled'}</strong></article>
+              <article><span>Authentication</span><strong>{selected.auth_type || 'none'}</strong></article>
+              <article><span>Risk</span><strong>{selected.risk || 'medium'}</strong></article>
+              <article><span>Cost policy</span><strong>{selected.free ? 'Free eligible' : 'Paid / restricted'}</strong></article>
+              <article><span>Project scope</span><strong>{(selected.project_scope || ['*']).join(', ')}</strong></article>
+              <article><span>Credential</span><strong>{selected.credential_ref ? 'Secure reference stored' : 'Not stored'}</strong></article>
+            </div>
+
+            <div className="plugin-detail-section">
+              <span className="plugin-detail-label">Permissions requested</span>
+              <div className="plugin-permissions">
+                {(selected.permissions || []).length
+                  ? (selected.permissions || []).map((permission) => <span key={permission}>{permission}</span>)
+                  : <span>none declared</span>}
+              </div>
+            </div>
+
+            {selected.endpoint ? (
+              <div className="plugin-detail-section">
+                <span className="plugin-detail-label">Endpoint</span>
+                <code>{selected.endpoint}</code>
+              </div>
+            ) : null}
+
+            {['api_key', 'token'].includes(String(selected.auth_type || '')) ? (
+              <div className="plugin-connect-box">
+                <strong>API credential</strong>
+                <p className="muted">
+                  The secret is sent only to the local KRISHNA credential endpoint and stored by secure-vault reference.
+                  It is never written into the plugin manifest.
+                </p>
+                {localSurface ? (
+                  <div className="plugin-connect-row">
+                    <input
+                      type="password"
+                      value={credential}
+                      onChange={(event) => setCredential(event.target.value)}
+                      placeholder={selected.credential_ref ? 'Replace existing credential…' : 'Paste API key or token…'}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="kr-button"
+                      disabled={!credential.trim() || busy === 'credential'}
+                      onClick={() => void saveCredential(selected)}
+                    >
+                      {busy === 'credential' ? 'Saving…' : selected.credential_ref ? 'Replace' : 'Connect'}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="plugin-warning">Credential entry is available only on the local KRISHNA PC.</p>
+                )}
+              </div>
+            ) : null}
+
+            {selected.auth_type === 'oauth' ? (
+              <div className="plugin-connect-box">
+                <strong>OAuth connection</strong>
+                <p className="muted">
+                  This plugin needs its provider-specific OAuth connector. KRISHNA should open that approved provider flow;
+                  raw passwords are never accepted here.
+                </p>
+              </div>
+            ) : null}
+
+            {selected.auth_type === 'device' ? (
+              <div className="plugin-connect-box">
+                <strong>Device authorization</strong>
+                <p className="muted">Connect through the provider/device authorization flow; KRISHNA stores only the resulting approved reference.</p>
+              </div>
+            ) : null}
+
+            {notice ? <p className="plugin-notice">{notice}</p> : null}
+            {error ? <p className="plugin-error">{error}</p> : null}
+
+            <div className="plugin-modal__actions">
+              {selected.source_url ? (
+                <a className="kr-button kr-button--ghost plugin-link" href={selected.source_url} target="_blank" rel="noreferrer">
+                  Provider / source
+                </a>
+              ) : <span />}
+              <button
+                type="button"
+                className={selected.enabled ? 'kr-button kr-button--danger' : 'kr-button'}
+                disabled={busy === 'toggle' || (!selected.free && !selected.enabled)}
+                onClick={() => void togglePlugin(selected)}
+              >
+                {busy === 'toggle' ? 'Updating…' : selected.enabled ? 'Disable plugin' : selected.free ? 'Enable plugin' : 'Owner approval / paid blocked'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }
