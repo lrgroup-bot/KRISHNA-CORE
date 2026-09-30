@@ -17,7 +17,14 @@ class MrityunjayRuntime:
     self-heal/promotion loop.
     """
 
-    VERSION = "mrityunjay-v1"
+    VERSION = "mrityunjay-v2-change-supervisor"
+    LIGHTS = {
+        "WORKING": {"color": "green", "meaning": "KRISHNA is actively executing verified work"},
+        "IDLE": {"color": "yellow", "meaning": "KRISHNA is healthy and waiting"},
+        "DEGRADED": {"color": "amber", "meaning": "A subsystem is impaired; investigation is required"},
+        "HEALING": {"color": "blue", "meaning": "MRITYUNJAY is diagnosing or repairing a recoverable problem"},
+        "BLOCKED": {"color": "red", "meaning": "Work is stopped by a failed safety, verification, dependency or authority gate"},
+    }
     TRIGGERS = ("action.failed", "TEST_FAILED", "BUILD_FAILED", "VERIFICATION_FAILED")
     IGNORED_ACTION_PREFIXES = ("mrityunjay.", "self_heal.", "promotion.")
     DEFAULT_COOLDOWN_SECONDS = 900
@@ -33,6 +40,8 @@ class MrityunjayRuntime:
         self.enabled = bool(enabled)
         self.cooldown_seconds = max(60, int(cooldown_seconds or self.DEFAULT_COOLDOWN_SECONDS))
         self._heal = None
+        self._research = None
+        self._change = None
         self._attached = False
         self._lock = threading.RLock()
         self._busy = False
@@ -41,6 +50,61 @@ class MrityunjayRuntime:
         self.last_trigger = None
         self.run_count = 0
         self.trigger_count = 0
+
+    def bind_research(self, research_callable):
+        if not callable(research_callable):
+            raise TypeError("Mrityunjay research callback must be callable")
+        self._research = research_callable
+        return self.status()
+
+    def bind_change(self, change_callable):
+        if not callable(change_callable):
+            raise TypeError("Mrityunjay change callback must be callable")
+        self._change = change_callable
+        return self.status()
+
+    def light(self, *, working=False, degraded=False, blocked=False):
+        if blocked:
+            state = "BLOCKED"
+        elif self._busy:
+            state = "HEALING"
+        elif degraded:
+            state = "DEGRADED"
+        elif working:
+            state = "WORKING"
+        else:
+            state = "IDLE"
+        return {"state": state, **self.LIGHTS[state]}
+
+    def improve(self, *, project="KRISHNA", goal="make KRISHNA stronger and more capable",
+                evidence=None, apply=False, **kwargs):
+        if not self._research:
+            raise RuntimeError("Mrityunjay research callback is not bound")
+        research = self._research(
+            project=str(project or "KRISHNA"),
+            goal=str(goal or "make KRISHNA stronger and more capable"),
+            evidence=dict(evidence or {}),
+        )
+        result = {
+            "agent": "MRITYUNJAY",
+            "mode": "research-before-change",
+            "project": str(project or "KRISHNA"),
+            "goal": str(goal or ""),
+            "research": research,
+            "change_requested": bool(apply),
+            "change": None,
+        }
+        if apply:
+            if not self._change:
+                raise RuntimeError("Mrityunjay change callback is not bound")
+            result["change"] = self._change(
+                project=str(project or "KRISHNA"),
+                goal=str(goal or ""),
+                research=research,
+                **kwargs,
+            )
+        self._record("improvement", result)
+        return result
 
     def bind(self, heal_callable):
         if not callable(heal_callable):
@@ -164,10 +228,14 @@ class MrityunjayRuntime:
         return {
             "name": "MRITYUNJAY",
             "version": self.VERSION,
-            "role": "internal autonomous self-heal and recovery supervisor",
+            "role": "KRISHNA change, improvement, self-heal and recovery supervisor",
             "enabled": self.enabled,
             "attached": self._attached,
             "bound": bool(self._heal),
+            "research_bound": bool(self._research),
+            "change_bound": bool(self._change),
+            "light": self.light(),
+            "light_contract": dict(self.LIGHTS),
             "busy": self._busy,
             "triggers": list(self.TRIGGERS),
             "cooldown_seconds": self.cooldown_seconds,
@@ -175,7 +243,17 @@ class MrityunjayRuntime:
             "trigger_count": self.trigger_count,
             "last_trigger": self.last_trigger,
             "last_result": self.last_result,
-            "automatic_scope": "bounded reversible source repair only after deterministic verification",
+            "automatic_scope": "bounded reversible repair plus evidence-first improvement research; live changes require deterministic verification and transactional promotion",
+            "project_scope": "KRISHNA plus explicitly registered mutable LR Group projects; project boundaries and independent runtimes remain enforced",
+            "change_protocol": [
+                "observe current behavior and objective evidence",
+                "research current web/GitHub evidence through GARUDA",
+                "form a bounded improvement candidate",
+                "implement only in an isolated candidate",
+                "run narrow tests then full runtime/UI verification",
+                "promote transactionally only when verified",
+                "post-apply verify and rollback on regression",
+            ],
             "blocked_scope": [
                 "credentials/secrets",
                 "dependency manifests",

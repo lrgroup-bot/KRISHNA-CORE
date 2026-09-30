@@ -1484,6 +1484,13 @@ class Handler(BaseHTTPRequestHandler):
                 "uptime_seconds": int(time.time() - started),
             })
         if path == "/api/status":
+            deployment=_integrity.status()
+            activity=activity_snapshot()
+            activity_text=str(activity.get("current_activity") or "").strip().lower()
+            working=activity_text not in {"","idle","waiting","ready","none"}
+            degraded=str(deployment.get("status") or "").upper() in {"DRIFT","DEGRADED","STALE"}
+            mrityunjay=orch.mrityunjay.status()
+            system_light=orch.mrityunjay.light(working=working,degraded=degraded,blocked=False)
             return self._json(200, {
                 "ok": True,
                 "core": "ONLINE",
@@ -1493,9 +1500,17 @@ class Handler(BaseHTTPRequestHandler):
                 "mobile_connection": mobile_link_state(),
                 "uptime_seconds": int(time.time() - started),
                 "agi": orch.agi_status(),
-                "deployment_integrity": _integrity.status(),
+                "deployment_integrity": deployment,
+                "system_light": system_light,
+                "mrityunjay": {
+                    "busy": bool(mrityunjay.get("busy")),
+                    "role": mrityunjay.get("role"),
+                    "last_trigger": mrityunjay.get("last_trigger"),
+                },
                 "requirements": {"version":_requirements.snapshot()["version"],"count":_requirements.snapshot()["requirement_count"]},
             })
+        if path == "/api/mrityunjay/status":
+            return self._json(200, orch.mrityunjay.status())
         if path == "/api/dashboard":
             current_state=activity_snapshot()
             return self._json(200, {

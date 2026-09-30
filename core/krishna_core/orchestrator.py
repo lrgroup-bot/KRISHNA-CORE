@@ -459,6 +459,8 @@ class Orchestrator:
         self._register_shared_actions()
         self._register_agent_runtime()
         self.mrityunjay.bind(self._mrityunjay_heal_event)
+        self.mrityunjay.bind_research(self._mrityunjay_research_improvement)
+        self.mrityunjay.bind_change(self._mrityunjay_change_improvement)
         self.mrityunjay.attach()
         self._register_builtin_probes()
         self.startup_recovery = self.jobs.recover_startup()
@@ -1412,6 +1414,19 @@ class Orchestrator:
             wrapped["rolled_back"]=bool(applied.get("rolled_back"))
             wrapped["status"]="healed" if wrapped["verified"] else ("rolled_back" if wrapped["rolled_back"] else "apply_failed")
             return wrapped
+
+        def mrityunjay_improve_action(payload,context):
+            project=str(payload.get("project") or context.get("project") or "KRISHNA").strip() or "KRISHNA"
+            return self.mrityunjay.improve(
+                project=project,
+                goal=str(payload.get("goal") or "make KRISHNA stronger and more capable"),
+                evidence=dict(payload.get("evidence") or {}),
+                apply=bool(payload.get("apply",False)),
+                files=payload.get("files") or [],
+                checks=payload.get("checks") or [],
+                frontend_url=str(payload.get("frontend_url") or "").strip() or None,
+                auto_apply=bool(payload.get("auto_apply",False)),
+            )
 
         def project_perfection_finish_action(payload,context):
             project=str(payload.get("project") or context.get("project") or "").strip()
@@ -3940,6 +3955,14 @@ class Orchestrator:
         )
 
         self.action_bus.register(
+            "mrityunjay.improve",mrityunjay_improve_action,
+            description="Research current web/GitHub evidence for a KRISHNA improvement and optionally supervise an isolated verified change candidate",
+            mutating=True,
+            permissions=("web.read","browser.research","candidate.write","tests.run","browser.test","live.write"),
+            sources=("pc","system","agent","job"),
+        )
+
+        self.action_bus.register(
             "project.perfection.finish",project_perfection_finish_action,
             description="Run full project discovery, adversarial QA, artifact retest and evidence certification",
             mutating=True,permissions=("candidate.write","tests.run","browser.test"),
@@ -4698,9 +4721,9 @@ class Orchestrator:
         )
 
         self.agent_runtime.register(
-            "mrityunjay","autonomous bounded self-heal, recovery, regression verification and rollback guardian",
-            permissions=("runtime.read","candidate.write","tests.run","browser.test","model.use","live.write"),
-            actions=("mrityunjay.*","self_heal.status"),
+            "mrityunjay","KRISHNA change, improvement, self-heal, recovery, regression verification and rollback supervisor",
+            permissions=("runtime.read","web.read","browser.research","candidate.write","tests.run","browser.test","model.use","live.write"),
+            actions=("mrityunjay.*","self_heal.status","garuda.scout"),
         )
 
         self.agent_runtime.register(
@@ -4721,6 +4744,60 @@ class Orchestrator:
                 permissions=("web.read","browser.research","evidence.read","evidence.write","memory.write","worker.execute","lab.plan","lab.simulate","lab.quantum","lab.nano","model.use"),
                 actions=("brahmagyan.*","garuda.scout","garudanetra.research.*","lab.experiment.request","lab.experiment.protocol","lab.experiment.simulate","lab.quantum.*","lab.nano.*","lab.quantum-nano.bridge","openrouter.free.complete","direct.free.complete"),
             )
+
+    def _mrityunjay_research_improvement(self, project="KRISHNA", goal="make KRISHNA stronger and more capable", evidence=None, **kwargs):
+        query=(
+            "Current implementation improvements, stronger architecture, reliability, performance, security, "
+            "usability and open-source implementation patterns for: "+str(goal or "")
+        )
+        report=self.garuda.scout(str(project or "KRISHNA"),query,limit=10)
+        return {
+            "project":str(project or "KRISHNA"),
+            "goal":str(goal or ""),
+            "evidence":dict(evidence or {}),
+            "garuda":report,
+            "policy":"research evidence is advisory; implementation must use an isolated candidate and deterministic verification",
+        }
+
+    def _mrityunjay_change_improvement(self, project="KRISHNA", goal="", research=None, files=None,
+                                      checks=None, frontend_url=None, auto_apply=False, **kwargs):
+        project=str(project or "KRISHNA")
+        policy=self.projects.get(project)
+        if not policy:raise KeyError(project)
+        self.projects.assert_mutable(project,"mrityunjay_change")
+        proposed=[x for x in (files or []) if isinstance(x,dict)]
+        if not proposed:
+            return {
+                "status":"proposal_ready",
+                "project":project,
+                "goal":str(goal or ""),
+                "research":research or {},
+                "live_project_modified":False,
+                "reason":"MRITYUNJAY has researched the improvement; an implementation patch must be supplied by the bounded developer lane before mutation.",
+            }
+        staged=self._development_stage_impl(project,proposed)
+        candidate_root=str(staged.get("candidate_root") or "")
+        verify_checks=list(checks or policy.verification_checks or [])
+        if not verify_checks:
+            raise ValueError("MRITYUNJAY change requires registered verification checks")
+        verified=self._development_verify_impl(
+            project,candidate_root,verify_checks,
+            frontend_url=frontend_url,
+            browser_actions=[],api_expectations=[],screenshot_path=None,
+        )
+        result={
+            "status":"verified_candidate" if verified.get("verified") else "rejected",
+            "project":project,"goal":str(goal or ""),"research":research or {},
+            "candidate":staged,"verification":verified,"live_project_modified":False,
+        }
+        promotion=verified.get("promotion") or {}
+        token=str(promotion.get("promotion_token") or "").strip()
+        if auto_apply and token:
+            applied=self._promote_candidate_impl(token,approved=True)
+            result["promotion"]=applied
+            result["live_project_modified"]=bool(applied.get("promoted"))
+            result["status"]="changed" if result["live_project_modified"] else "promotion_failed"
+        return result
 
     def _mrityunjay_heal_event(self, project="KRISHNA", reason="runtime failure", evidence=None, **kwargs):
         frontend_url=f"http://127.0.0.1:{settings.port}"

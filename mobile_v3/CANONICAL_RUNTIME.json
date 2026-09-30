@@ -55,7 +55,7 @@
     "mobile_healer_apk_mutation": false,
     "mobile_healer_security_policy_mutation": false,
     "mobile_healer_credential_mutation": false,
-    "mobile_healer_ui": "hidden-unless-recovering",
+    "mobile_healer_ui": "persistent-operational-light",
     "mobile_edge_preprocessing": true,
     "encrypted_hawkeye_evidence": true,
     "evidence_curator": true,

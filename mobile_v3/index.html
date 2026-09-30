@@ -74,11 +74,13 @@ header,.security{display:none!important}
 .conversationHero button{border:1px solid #48c7da;background:#10384a;color:#e9fbff;border-radius:12px;padding:11px 18px;font-size:13px}
 .chatSheet.open{max-height:50vh}
 
-.mrityunjayaChip{position:absolute;left:50%;top:max(14px,env(safe-area-inset-top));transform:translate(-50%,-8px);z-index:30;opacity:0;pointer-events:none;max-width:82vw;padding:7px 12px;border-radius:18px;border:1px solid #596f7b;background:#04131ddd;color:#cce7ee;font-size:9px;font-weight:900;letter-spacing:1px;white-space:nowrap;box-shadow:0 8px 24px #0009;transition:opacity .18s ease,transform .18s ease}
-.mrityunjayaChip.show{opacity:1;transform:translate(-50%,0)}
-.mrityunjayaChip.healing{border-color:#f2c96f;color:#ffe49e}
-.mrityunjayaChip.recovered{border-color:#50f0ac;color:#83ffc4}
-.mrityunjayaChip.safe,.mrityunjayaChip.failed{border-color:#ff7189;color:#ff9cac}
+.mrityunjayaChip{position:absolute;left:50%;top:max(14px,env(safe-area-inset-top));transform:translate(-50%,0);z-index:30;opacity:1;pointer-events:none;max-width:86vw;padding:7px 12px;border-radius:18px;border:1px solid #e5bd67;background:#04131ddd;color:#ffe49e;font-size:9px;font-weight:900;letter-spacing:1px;white-space:nowrap;box-shadow:0 8px 24px #0009,0 0 12px #e5bd6744;transition:border-color .18s ease,color .18s ease,box-shadow .18s ease}
+.mrityunjayaChip::before{content:"";display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}
+.mrityunjayaChip.state-working{border-color:#58dfa2;color:#83ffc4;box-shadow:0 8px 24px #0009,0 0 12px #58dfa244}
+.mrityunjayaChip.state-idle{border-color:#e5bd67;color:#ffe49e;box-shadow:0 8px 24px #0009,0 0 12px #e5bd6744}
+.mrityunjayaChip.state-healing{border-color:#57d8ef;color:#9defff;box-shadow:0 8px 24px #0009,0 0 14px #57d8ef55}
+.mrityunjayaChip.state-degraded{border-color:#e69a3e;color:#ffc477;box-shadow:0 8px 24px #0009,0 0 12px #e69a3e44}
+.mrityunjayaChip.state-blocked{border-color:#ff7189;color:#ff9cac;box-shadow:0 8px 24px #0009,0 0 14px #ff718955}
 </style></head>
 <body><div class="app">
 <div id="state" class="state" title="KRISHNA private connection">CONNECTING</div>
@@ -90,7 +92,7 @@ header,.security{display:none!important}
     <button type="button" onclick="toggleChat(true)">Focus conversation</button>
   </div>
 
-  <div id="mrityunjayaChip" class="mrityunjayaChip" aria-live="polite"></div>
+  <div id="mrityunjayaChip" class="mrityunjayaChip state-idle" aria-live="polite">MRITYUNJAYA · IDLE</div>
 
   <section id="gitaCard" class="gitaCard" aria-live="polite">
     <div id="gitaRef" class="gitaRef">BHAGAVAD GITA</div>
@@ -168,10 +170,12 @@ window.reportKrishnaUiReady=()=>{
   Krishna.uiReady(JSON.stringify(payload));
  }catch(_){}
 };
+let mrityunjayaOverrideState='';
 function setMode(m,text){
  mode=m||'READY';document.getElementById('state').textContent=mode;
  stage.classList.toggle('working',mode==='WORKING'||mode==='SEARCH'||mode==='DHYAN');
  stage.classList.toggle('chat',mode==='CHAT'||mode==='TALKING'||mode==='LISTENING');
+ if(!mrityunjayaOverrideState)setSystemLight((mode==='WORKING'||mode==='SEARCH'||mode==='DHYAN'||mode==='TALKING'||mode==='LISTENING')?'WORKING':'IDLE');
  if(text)document.getElementById('bubble').textContent=text;
 }
 function toggleChat(force){
@@ -193,22 +197,24 @@ function strippedAssistantText(phrase){
  return String(phrase||'').replace(/^(hey\s+)?(krishna|कृष्ण|କୃଷ୍ଣ)[\s,.:;-]*/i,'').trim();
 }
 
-let mrityunjayaChipTimer=null;
-function mrityunjayaChip(state,note=''){
+function setSystemLight(state,note=''){
  const chip=document.getElementById('mrityunjayaChip');if(!chip)return;
- clearTimeout(mrityunjayaChipTimer);
+ const s=String(state||'IDLE').toUpperCase();
+ const allowed=['WORKING','IDLE','HEALING','DEGRADED','BLOCKED'];
+ const resolved=allowed.includes(s)?s:'IDLE';
+ chip.className='mrityunjayaChip state-'+resolved.toLowerCase();
+ chip.textContent='MRITYUNJAYA · '+resolved+(note?' · '+String(note).slice(0,72):'');
+}
+function mrityunjayaChip(state,note=''){
  const s=String(state||'').toUpperCase();
- chip.className='mrityunjayaChip';
- if(s==='HEALTHY'||s==='FAULT'||s==='COOLDOWN'){chip.textContent='';return}
- let label='MRUTYUNJAYA · '+s.replace('_',' ');
- if(s==='HEALING')chip.classList.add('healing');
- else if(s==='RECOVERED')chip.classList.add('recovered');
- else if(s==='SAFE_MODE')chip.classList.add('safe');
- else if(s==='FAILED')chip.classList.add('failed');
- chip.textContent=label+(note?' · '+String(note).slice(0,72):'');
- chip.classList.add('show');
- if(s==='RECOVERED')mrityunjayaChipTimer=setTimeout(()=>chip.classList.remove('show'),1800);
- else if(s==='FAILED'||s==='SAFE_MODE')mrityunjayaChipTimer=setTimeout(()=>chip.classList.remove('show'),5000);
+ if(s==='HEALING'){mrityunjayaOverrideState='HEALING';setSystemLight('HEALING',note);return}
+ if(s==='FAULT'||s==='COOLDOWN'){mrityunjayaOverrideState='DEGRADED';setSystemLight('DEGRADED',note);return}
+ if(s==='SAFE_MODE'||s==='FAILED'){mrityunjayaOverrideState='BLOCKED';setSystemLight('BLOCKED',note);return}
+ if(s==='RECOVERED'||s==='HEALTHY'){
+   mrityunjayaOverrideState='';
+   const active=mode==='WORKING'||mode==='SEARCH'||mode==='DHYAN'||mode==='TALKING'||mode==='LISTENING';
+   setSystemLight(active?'WORKING':'IDLE',s==='RECOVERED'?note:'');
+ }
 }
 window.onMrityunjayaState=raw=>{
  try{const d=typeof raw==='string'?JSON.parse(raw):raw||{};mrityunjayaChip(d.state,d.note||d.last_action||'');}

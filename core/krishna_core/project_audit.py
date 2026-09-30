@@ -249,7 +249,10 @@ class KrishnaProjectAudit:
             "mrityunjay_module":mrityunjay.is_file(),
             "mrityunjay_status_action":'"mrityunjay.status"' in orchestrator,
             "mrityunjay_heal_action":'"mrityunjay.heal"' in orchestrator,
-            "mrityunjay_agent":'"mrityunjay","autonomous bounded self-heal' in orchestrator,
+            "mrityunjay_agent":(
+                '"mrityunjay","autonomous bounded self-heal' in orchestrator
+                or '"mrityunjay","KRISHNA change, improvement, self-heal' in orchestrator
+            ),
             "event_attach":"self.mrityunjay.attach()" in orchestrator,
             "candidate_preview_narrow":"self.verify_parallel(candidate_root, narrow_checks, None, full=False)" in self_heal,
             "candidate_preview_full":"self.verify_parallel(candidate_root, checks, None, full=True)" in self_heal,
