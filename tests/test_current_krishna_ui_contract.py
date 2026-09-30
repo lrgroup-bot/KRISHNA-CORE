@@ -20,7 +20,9 @@ class CurrentKrishnaUIContractTests(unittest.TestCase):
         self.assertIn("showView('home')",menu)
         self.assertIn("showView('sudarshan')",menu)
         self.assertIn("showView('manibhadra')",menu)
-        self.assertIn("showView('plugins')",menu)
+        self.assertNotIn("showView('plugins')",menu)
+        self.assertEqual(menu.count("<button"),3)
+        self.assertRegex(self.html,r'<div class="nav bottomNav"[^>]*>\s*<button[^>]+showView\(\'plugins\'\)')
         self.assertNotIn("showView('workingGods')",menu)
         for hidden in ("kabach","garuda","garudanetra","brahmagyan","gyan","narad","specialists","developer","work","activity","system"):
             self.assertNotIn(f"showView('{hidden}')",menu)
@@ -28,7 +30,7 @@ class CurrentKrishnaUIContractTests(unittest.TestCase):
     def test_vanijya_does_not_expand_main_menu(self):
         m=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',self.html)
         self.assertIsNotNone(m)
-        self.assertEqual(m.group(1).count("<button"),4)
+        self.assertEqual(m.group(1).count("<button"),3)
         self.assertNotIn("showView('vanijya')",m.group(1))
         self.assertIn("RISHI VĀṆIJYA · Sales & Marketing Head",self.html)
 
