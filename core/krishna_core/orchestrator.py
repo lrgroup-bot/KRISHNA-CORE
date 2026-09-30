@@ -439,7 +439,7 @@ class Orchestrator:
             collaboration_engine=self.rishi_collaboration,
         )
         self.system_design_curriculum = SystemDesignCurriculum(
-            runtime_state / "system-design-curriculum",
+            self.agi.root / "brahmagyan" / "system-design-curriculum",
             self.memory,
         )
         self.science_atlas = ScienceAtlas(
@@ -464,7 +464,7 @@ class Orchestrator:
         self._register_shared_actions()
         self._register_agent_runtime()
         self.system_design_scheduler = SystemDesignLearningScheduler(
-            runtime_state / "system-design-curriculum" / "scheduler",
+            self.agi.root / "brahmagyan" / "system-design-curriculum" / "scheduler",
             lambda: self.dispatch_action(
                 "brahmagyan.system_design.background.tick",{},
                 project="KRISHNA",source="system",actor="system-design-learning-scheduler",
