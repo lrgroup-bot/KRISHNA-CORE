@@ -133,6 +133,7 @@ from .load_relief_integrations import LoadReliefIntegrationCatalog, StemkitOnDem
 from .event_semantics import EventSemantics
 from .creator_workflow import CreatorWorkflowPlanner
 from .free_cloud_health import FreeCloudHealthGovernor
+from .power_runtime import KrishnaPowerRuntime
 
 
 class Orchestrator:
@@ -198,6 +199,7 @@ class Orchestrator:
         self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
         self.social_channels = SocialChannelRegistry()
         self.zero_spend = ZeroSpendPolicy()
+        self.power_runtime = KrishnaPowerRuntime(runtime_state / "power-runtime")
         self.three_d_router = ThreeDModelRouter(zero_spend=self.zero_spend)
         self.system_one = SystemOneDecisionEngine()
         self.capability_fabric = CapabilityFabric(self.system_one)
@@ -349,6 +351,28 @@ class Orchestrator:
             self.lifecycle_bus,self.agi.policy,audit=self.memory.audit,
             permission_resolver=self.permissions.authorize,
             idempotency_db_path=self.db_path,
+        )
+        self.action_bus.register(
+            "project.work.route",
+            lambda payload,context:self.power_runtime.project_route(
+                str(payload.get("phase") or ""),
+                sensitive=bool(payload.get("sensitive",False)),
+                local_failed=bool(payload.get("local_failed",False)),
+                free_cloud_verified=bool(payload.get("free_cloud_verified",False)),
+                github_zero_cost_verified=bool(payload.get("github_zero_cost_verified",False)),
+            ),
+            description="Route project research/build/verification under local-first zero-spend policy",
+        )
+        self.action_bus.register(
+            "github.validation.gate",
+            lambda payload,context:self.power_runtime.github_gate(
+                repo_visibility=str(payload.get("repo_visibility") or ""),
+                runner=str(payload.get("runner") or ""),
+                zero_cost_proven=bool(payload.get("zero_cost_proven",False)),
+                isolated=bool(payload.get("isolated",False)),
+                trusted=bool(payload.get("trusted",False)),
+            ),
+            description="Decide whether GitHub validation is zero-spend and safe for this runner",
         )
         self.agent_runtime = AgentRuntime(self.action_bus)
         self.jobs = JobRuntime(
@@ -5774,11 +5798,11 @@ Project: {payload.get('project')}
             {"id":"backend","role":"backend","estimate_minutes":75,"depends_on":["architecture"],"privacy":"local_only"},
         ]
         if any(x in platforms for x in ("web","pc","desktop")):
-            tasks.append({"id":"frontend","role":"frontend","estimate_minutes":65,"depends_on":["architecture"],"privacy":"approved_cloud"})
+            tasks.append({"id":"frontend","role":"frontend","estimate_minutes":65,"depends_on":["architecture"],"privacy":"local_only"})
         if "android" in platforms:
-            tasks.append({"id":"android","role":"android","estimate_minutes":80,"depends_on":["architecture"],"privacy":"approved_cloud"})
+            tasks.append({"id":"android","role":"android","estimate_minutes":80,"depends_on":["architecture"],"privacy":"local_only"})
         if "ios" in platforms:
-            tasks.append({"id":"ios","role":"ios","estimate_minutes":80,"depends_on":["architecture"],"privacy":"approved_cloud"})
+            tasks.append({"id":"ios","role":"ios","estimate_minutes":80,"depends_on":["architecture"],"privacy":"local_only"})
         implementers=[x["id"] for x in tasks if x["id"]!="architecture"]
         tasks += [
             {"id":"integration","role":"integration","estimate_minutes":30,"depends_on":implementers,"privacy":"local_only","parallelizable":False},

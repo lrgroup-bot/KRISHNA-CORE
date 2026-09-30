@@ -1,0 +1,183 @@
+KRISHNA CANONICAL ARCHITECTURE + IMPROVEMENT HANDOVER
+====================================================
+Version: 1
+Owners/readers: KRISHNA, VISHWAKARMA, MRITYUNJAY, SUDARSHAN
+Human authority: OWNER
+
+PURPOSE
+-------
+This is the durable architecture truth and change handover ledger for KRISHNA.
+VISHWAKARMA must use it before planned improvements. MRITYUNJAY must use it when
+diagnosing regressions/self-heal so repairs preserve the intended architecture.
+
+AUTHORITY
+---------
+OWNER
+  -> KRISHNA (supervisor/orchestrator)
+     -> BRAHMAGYAN/Rishis (knowledge/research)
+     -> VISHWAKARMA (planned engineering/improvements)
+        -> Research Shishya (web/GitHub discovery; recommendation only)
+        -> Engineering Scheduler/Swarm (isolated implementation)
+        -> independent tests/reviewer/security/UI Guardian
+     -> MRITYUNJAY (failure detection, bounded self-heal/recovery)
+     -> SUDARSHAN (verified promotion authority)
+     -> Guardian (24/7 runtime restart/crash-loop protection)
+
+NON-NEGOTIABLE RULES
+--------------------
+1. Live KRISHNA is never a development workspace.
+2. Every mutating engineering task uses an isolated candidate/worktree.
+3. Research Shishya may search/read/analyse only; it cannot install/merge/promote.
+4. A discovered repo/tool/model is NEVER trusted merely because it is popular.
+5. Proposal must include source, license, maintenance/activity, security risk,
+   privacy impact, resource cost, free/paid status, expected benefit, integration
+   surface, alternatives, tests and rollback plan.
+6. Zero-spend/local-first policy remains authoritative. No paid action without
+   the owner's exact approval; existing hard zero-spend gates are not weakened.
+7. OWNER approval is required before VISHWAKARMA implements a research proposal.
+8. Frontend must be tested and shown before Windows EXE/package creation.
+9. VISHWAKARMA cannot approve/promote its own work.
+10. Independent verification + MRITYUNJAY regression/recovery check precede
+    SUDARSHAN promotion.
+11. Transactional backup + post-deploy health verification are mandatory.
+12. Failed post-deploy verification => rollback to last-known-good.
+13. Secrets/credentials never enter this ledger.
+14. Every approved/deployed architecture change must append a CHANGE RECORD below.
+15. MRITYUNJAY repairs toward the last VERIFIED architecture, not an unapproved idea.
+
+24/7 RUNTIME
+------------
+Guardian -> START_KRISHNA -> verified runtime
+  failure/event -> MRITYUNJAY -> diagnose -> isolated repair -> tests -> verify
+                -> transactional promotion -> post-check -> keep or rollback
+
+PLANNED IMPROVEMENT LOOP
+------------------------
+Research Shishya periodically searches authoritative web/GitHub sources
+  -> evidence-backed PROPOSAL
+  -> KRISHNA tells OWNER:
+     "Today we found <X>. It provides <capabilities>. For KRISHNA it could
+      improve <areas>. Risks/costs are <...>. Proposed integration is <...>."
+  -> WAIT FOR OWNER APPROVAL
+  -> if rejected: record REJECTED, no code change
+  -> if approved: KRISHNA assigns VISHWAKARMA
+  -> VISHWAKARMA creates isolated engineering mission/worktree
+  -> implement -> tests -> security -> frontend proof
+  -> OWNER frontend approval
+  -> release candidate -> independent verification -> MRITYUNJAY check
+  -> SUDARSHAN promotion -> transactional deploy -> health check
+  -> append VERIFIED CHANGE RECORD here
+  -> MRITYUNJAY can use record for future diagnosis/rollback/self-heal.
+
+RESEARCH SHISHYA OUTPUT CONTRACT
+--------------------------------
+PROPOSAL_ID:
+DATE_UTC:
+STATUS: PROPOSED | APPROVED | REJECTED | IMPLEMENTING | VERIFIED | ROLLED_BACK
+SOURCE_NAME:
+SOURCE_URL:
+SOURCE_COMMIT_OR_VERSION:
+LICENSE:
+WHAT_IT_DOES:
+KRISHNA_BENEFIT:
+EXPECTED_EFFICIENCY_GAIN:
+SECURITY_PRIVACY_RISK:
+LOCAL_RESOURCE_COST:
+MONEY_COST: MUST BE 0 UNLESS OWNER EXPLICITLY APPROVES OTHERWISE
+ALTERNATIVES_CHECKED:
+FILES_COMPONENTS_AFFECTED:
+TEST_PLAN:
+FRONTEND_IMPACT:
+ROLLBACK_PLAN:
+OWNER_DECISION:
+VISHWAKARMA_MISSION:
+PR:
+DEPLOYED_COMMIT:
+VERIFICATION_EVIDENCE:
+LAST_KNOWN_GOOD:
+MRITYUNJAY_RECOVERY_NOTES:
+
+CURRENT ARCHITECTURE TRUTH
+--------------------------
+Execution spine:
+Dashboard/Mobile/Agent/Job/MCP-A2A
+ -> Shared Action Bus
+ -> permissions/policy/audit
+ -> registered action
+ -> runtime
+ -> result/evidence/action receipt
+ -> desktop/mobile sync
+
+Engineering:
+Requirement/Mission
+ -> Engineering Scheduler
+ -> Engineering Swarm
+ -> isolated Git worktrees
+ -> Development Operator
+ -> tests/build/browser evidence
+ -> Independent Critic/Reviewer
+ -> Security checks
+ -> UI Guardian
+ -> MRITYUNJAY resilience check
+ -> SUDARSHAN/owner promotion gate
+ -> verified deployment
+
+Runtime safety:
+- Guardian: crash-loop protected 24/7 supervisor.
+- START_KRISHNA: source/runtime integrity reconciliation.
+- DEPLOY_KRISHNA_ONCE: clean-source, fetch/fast-forward, compile/tests/audit,
+  verified deployment.
+- PromotionManager: transactional backup, apply, post-check, rollback.
+- RuntimeIntegrity: deployed manifest/hash/source drift truth.
+- MRITYUNJAY: bounded event-driven self-heal; never directly edits live files.
+- VISHWAKARMA: planned improvement builder; no live write/auto-merge/promotion.
+- Windows packaging: blocked until frontend proof + explicit frontend approval.
+
+PROVIDER POLICY
+---------------
+Local-first/free-only. External coding/research systems are replaceable workers,
+not KRISHNA authorities. They cannot bypass Shared Action Bus, policy, tests,
+owner approval, MRITYUNJAY, SUDARSHAN or rollback.
+
+RESEARCH PRIORITIES
+-------------------
+Research Shishya should look for evidence-backed improvements in:
+- agent orchestration, skills, subagents and deterministic safety hooks;
+- context/RAG/memory efficiency and long-context regression;
+- local inference speed, quantization, routing and resource scheduling;
+- browser/computer-use reliability and visual verification;
+- testing, observability, tracing, self-heal and rollback;
+- software supply-chain security, provenance, SBOM/attestation;
+- mobile/desktop runtime efficiency and offline-first operation;
+- accessibility, frontend performance and robust UI state;
+- privacy/security hardening and secret isolation.
+
+CHANGE RECORDS (APPEND ONLY AFTER OWNER-APPROVED WORK)
+------------------------------------------------------
+No VISHWAKARMA change is considered architecture truth until STATUS=VERIFIED.
+
+
+BRAHMA DAILY COUNCIL + KARMA GOVERNANCE
+---------------------------------------
+Applies to ALL agents and shishya, active and inactive.
+BRAHMA is council chair and reports the daily council record to KRISHNA.
+BRAHMA reviews identity/role, active state, health, recent work, issues, KARMA
+trust state, improvement proposals, free alternatives and policy concerns.
+
+KARMA: GREEN trusted; YELLOW probation/review; ORANGE no mutation;
+RED no execution/quarantined; BLACK retired from active routing.
+Consequences are deterministic permissions/quarantine/retirement, not emotions.
+
+FREE-FIRST HARD PRIORITY
+------------------------
+Normal improvement work MUST search for and prefer FREE/₹0, local, open-source
+or genuinely non-billable free-quota solutions. Paid execution is NEVER
+automatic. Paid proposals are PAID_BLOCKED and may only be separately shown to
+OWNER for an explicit decision. ZeroSpendPolicy cannot be bypassed.
+
+DAILY GOVERNANCE LOOP
+---------------------
+BRAHMA inventories all agents -> council -> KARMA/health/work review -> research
+proposal review -> prioritize safe FREE/₹0 candidates -> report to KRISHNA ->
+KRISHNA briefs OWNER when useful -> OWNER decides -> only approved work enters
+VISHWAKARMA engineering.
