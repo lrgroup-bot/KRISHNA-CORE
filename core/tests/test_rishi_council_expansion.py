@@ -45,7 +45,9 @@ class ExpandedRishiCouncilTests(unittest.TestCase):
         self.assertIn("agriculture",RISHI_RESEARCH_CHARTERS["parashara"]["primary_subjects"])
         self.assertIn("constitutional law",RISHI_RESEARCH_CHARTERS["narada"]["primary_subjects"])
         self.assertIn("judicial precedent",RISHI_RESEARCH_CHARTERS["narada"]["primary_subjects"])
-        self.assertIn("business growth",RISHI_RESEARCH_CHARTERS["sukracharya"]["primary_subjects"])\n        self.assertIn("unit economics",RISHI_RESEARCH_CHARTERS["sukracharya"]["primary_subjects"])\n        self.assertIn("sales",RISHI_RESEARCH_CHARTERS["vanijya"]["primary_subjects"])
+        self.assertIn("business growth",RISHI_RESEARCH_CHARTERS["sukracharya"]["primary_subjects"])
+        self.assertIn("unit economics",RISHI_RESEARCH_CHARTERS["sukracharya"]["primary_subjects"])
+        self.assertIn("sales",RISHI_RESEARCH_CHARTERS["vanijya"]["primary_subjects"])
         self.assertIn("negotiation",RISHI_RESEARCH_CHARTERS["vanijya"]["primary_subjects"])
 
     def test_science_atlas_fields_route_to_new_specialists(self):
