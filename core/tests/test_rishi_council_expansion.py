@@ -17,13 +17,13 @@ class ExpandedRishiCouncilTests(unittest.TestCase):
     def setUp(self):
         self.council=RishiCouncil()
 
-    def test_council_expands_to_thirty_one_permanent_profiles(self):
+    def test_council_expands_to_thirty_two_permanent_profiles(self):
         ids={x["id"] for x in self.council.list()}
-        self.assertEqual(len(ids),31)
+        self.assertEqual(len(ids),32)
         for rid in (
             "aryabhata","brahmagupta","bhaskaracharya","madhava","varahamihira",
             "dhanvantari","nagarjuna","chanakya","baudhayana","pingala",
-            "shalihotra","parashara","narada","vanijya",
+            "shalihotra","parashara","narada","sukracharya","vanijya",
         ):
             self.assertIn(rid,ids)
 
@@ -45,7 +45,7 @@ class ExpandedRishiCouncilTests(unittest.TestCase):
         self.assertIn("agriculture",RISHI_RESEARCH_CHARTERS["parashara"]["primary_subjects"])
         self.assertIn("constitutional law",RISHI_RESEARCH_CHARTERS["narada"]["primary_subjects"])
         self.assertIn("judicial precedent",RISHI_RESEARCH_CHARTERS["narada"]["primary_subjects"])
-        self.assertIn("sales",RISHI_RESEARCH_CHARTERS["vanijya"]["primary_subjects"])
+        self.assertIn("business growth",RISHI_RESEARCH_CHARTERS["sukracharya"]["primary_subjects"])\n        self.assertIn("unit economics",RISHI_RESEARCH_CHARTERS["sukracharya"]["primary_subjects"])\n        self.assertIn("sales",RISHI_RESEARCH_CHARTERS["vanijya"]["primary_subjects"])
         self.assertIn("negotiation",RISHI_RESEARCH_CHARTERS["vanijya"]["primary_subjects"])
 
     def test_science_atlas_fields_route_to_new_specialists(self):
