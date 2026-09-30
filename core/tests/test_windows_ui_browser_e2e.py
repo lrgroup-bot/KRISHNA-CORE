@@ -21,7 +21,7 @@ class WindowsUIBrowserTests(unittest.TestCase):
                     ("brahmagyan","BRAHMAGYAN"),("gyan","Gyan-Bhandar"),("rishi","Rishi Council"),("amcc","aMCC"),
                     ("suryadev","Suryadev"),("chandradev","Chandradev"),("mrityunjaya","Mrityunjaya"),
                     ("ui_guardian","UI Guardian"),("developer","Developer"),("specialists","Specialists"),
-                    ("perfection","Project Perfection"),
+                    ("perfection","Project Perfection"),("vishvakarma","Vishvakarma"),
                 ]
                 systems = [{
                     "id":key,"name":name,"logo":"◈","state":"handling" if key=="chandradev" else "idle",
@@ -62,7 +62,7 @@ class WindowsUIBrowserTests(unittest.TestCase):
                     self.assertGreaterEqual(box["y"], 0)
                     self.assertLessEqual(box["y"] + box["height"], height)
                     self.assertTrue(page.locator("#opsInformer").is_visible())
-                    self.assertEqual(page.locator("#workingGodsMini .miniGodRow").count(),19)
+                    self.assertEqual(page.locator("#workingGodsMini .miniGodRow").count(),20)
                     self.assertTrue(page.locator(".sideFoot .opsVitals").is_visible())
                 self.assertTrue(page.locator(".bottomNav").is_visible())
                 page.get_by_role("button", name="⌘Plugins", exact=True).click()
