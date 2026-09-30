@@ -14,6 +14,12 @@ if(!(Test-Path -LiteralPath $networkConstantsScript)){throw "KRISHNA network con
 $networkConstants=Get-KrishnaNetworkConstants
 $CorePort=[int]$networkConstants.Core
 $DiscoveryPort=[int]$networkConstants.LanDiscovery
+$networkConstantsScript=Join-Path $PSScriptRoot "KRISHNA_NETWORK_CONSTANTS.ps1"
+if(!(Test-Path -LiteralPath $networkConstantsScript)){throw "KRISHNA network constants loader missing: $networkConstantsScript"}
+. $networkConstantsScript
+$networkConstants=Get-KrishnaNetworkConstants
+$CorePort=[int]$networkConstants.Core
+$DiscoveryPort=[int]$networkConstants.LanDiscovery
 $Source=[IO.Path]::GetFullPath($SourceRoot)
 $Runtime="E:\Krishna-The GOD"
 $Py="$Runtime\.venv\Scripts\python.exe"
