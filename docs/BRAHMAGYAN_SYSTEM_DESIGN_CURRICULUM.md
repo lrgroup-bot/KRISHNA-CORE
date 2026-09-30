@@ -4,7 +4,7 @@ Status: implemented curriculum + resource-gated scheduler
 Start date: 1 October 2026  
 Timezone: Asia/Kolkata  
 Learning windows: 02:30 IST and 14:30 IST  
-Maximum progress: one verified new module per day
+Maximum progress: two verified new modules per day (one per learning window)
 
 ## Source rule
 
@@ -33,42 +33,42 @@ Reading is not treated as verified learning. Every mission remains subject to BR
 - Gautama — mandatory evidence/trade-off/assumption review.
 - Veda Vyasa — mandatory synthesis, deduplication, provenance and reusable architecture knowledge maps.
 
-## 30-day curriculum
+## 15-day first-pass curriculum
 
-| Day | Date | Topic | Lead |
+| Day | Date / window | Topic | Lead |
 |---:|---|---|---|
-| 1 | 2026-10-01 | Scale from zero to millions | Bharadvaja |
-| 2 | 2026-10-02 | Back-of-the-envelope estimation | Aryabhata |
-| 3 | 2026-10-03 | System-design framework | Bharadvaja |
-| 4 | 2026-10-04 | Rate limiter | Jamadagni |
-| 5 | 2026-10-05 | Consistent hashing | Pingala |
-| 6 | 2026-10-06 | Distributed key-value store | Pingala |
-| 7 | 2026-10-07 | Distributed unique ID generator | Pingala |
-| 8 | 2026-10-08 | URL shortener | Vishvakarma |
-| 9 | 2026-10-09 | Web crawler | Vishwamitra |
-| 10 | 2026-10-10 | Notification system | Jamadagni |
-| 11 | 2026-10-11 | News feed | Chanakya |
-| 12 | 2026-10-12 | Chat system | Jamadagni |
-| 13 | 2026-10-13 | Search autocomplete | Panini |
-| 14 | 2026-10-14 | Video platform | Vishwamitra |
-| 15 | 2026-10-15 | Cloud drive / file sync | Jamadagni |
-| 16 | 2026-10-16 | Proximity service | Baudhayana |
-| 17 | 2026-10-17 | Nearby friends | Baudhayana |
-| 18 | 2026-10-18 | Maps | Baudhayana |
-| 19 | 2026-10-19 | Distributed message queue | Pingala |
-| 20 | 2026-10-20 | Metrics monitoring | Madhava |
-| 21 | 2026-10-21 | Event aggregation / stream processing | Madhava |
-| 22 | 2026-10-22 | Reservation system | Chanakya |
-| 23 | 2026-10-23 | Distributed email | Jamadagni |
-| 24 | 2026-10-24 | S3-like object storage | Jamadagni |
-| 25 | 2026-10-25 | Real-time leaderboard | Pingala |
-| 26 | 2026-10-26 | Payment system | Chanakya |
-| 27 | 2026-10-27 | Digital wallet | Chanakya |
-| 28 | 2026-10-28 | Stock exchange | Chanakya |
-| 29 | 2026-10-29 | Cross-cutting distributed-systems synthesis | Veda Vyasa |
-| 30 | 2026-10-30 | KRISHNA implementation-gap audit | Bharadvaja |
+| 1 | 2026-10-01 02:30 IST | Scale from zero to millions | Bharadvaja |
+| 1 | 2026-10-01 14:30 IST | Back-of-the-envelope estimation | Aryabhata |
+| 2 | 2026-10-02 02:30 IST | System-design framework | Bharadvaja |
+| 2 | 2026-10-02 14:30 IST | Rate limiter | Jamadagni |
+| 3 | 2026-10-03 02:30 IST | Consistent hashing | Pingala |
+| 3 | 2026-10-03 14:30 IST | Distributed key-value store | Pingala |
+| 4 | 2026-10-04 02:30 IST | Distributed unique ID generator | Pingala |
+| 4 | 2026-10-04 14:30 IST | URL shortener | Vishvakarma |
+| 5 | 2026-10-05 02:30 IST | Web crawler | Vishwamitra |
+| 5 | 2026-10-05 14:30 IST | Notification system | Jamadagni |
+| 6 | 2026-10-06 02:30 IST | News feed | Chanakya |
+| 6 | 2026-10-06 14:30 IST | Chat system | Jamadagni |
+| 7 | 2026-10-07 02:30 IST | Search autocomplete | Panini |
+| 7 | 2026-10-07 14:30 IST | Video platform | Vishwamitra |
+| 8 | 2026-10-08 02:30 IST | Cloud drive / file sync | Jamadagni |
+| 8 | 2026-10-08 14:30 IST | Proximity service | Baudhayana |
+| 9 | 2026-10-09 02:30 IST | Nearby friends | Baudhayana |
+| 9 | 2026-10-09 14:30 IST | Maps | Baudhayana |
+| 10 | 2026-10-10 02:30 IST | Distributed message queue | Pingala |
+| 10 | 2026-10-10 14:30 IST | Metrics monitoring | Madhava |
+| 11 | 2026-10-11 02:30 IST | Event aggregation / stream processing | Madhava |
+| 11 | 2026-10-11 14:30 IST | Reservation system | Chanakya |
+| 12 | 2026-10-12 02:30 IST | Distributed email | Jamadagni |
+| 12 | 2026-10-12 14:30 IST | S3-like object storage | Jamadagni |
+| 13 | 2026-10-13 02:30 IST | Real-time leaderboard | Pingala |
+| 13 | 2026-10-13 14:30 IST | Payment system | Chanakya |
+| 14 | 2026-10-14 02:30 IST | Digital wallet | Chanakya |
+| 14 | 2026-10-14 14:30 IST | Stock exchange | Chanakya |
+| 15 | 2026-10-15 02:30 IST | Cross-cutting distributed-systems synthesis | Veda Vyasa |
+| 15 | 2026-10-15 14:30 IST | KRISHNA implementation-gap audit | Bharadvaja |
 
-If a module misses its evidence gate, it is retried instead of skipped. The 14:30 window serves as a second opportunity when the 02:30 window could not run or verify because production was busy, CPU/RAM were above the BRAHMAGYAN limits, or evidence was insufficient. Once a module is verified for the day, no second new module runs that day.
+If a module misses its evidence gate, it is retried instead of skipped. Each window runs at most one bounded mission. The 14:30 window can advance to the second module only after the earlier module is verified; otherwise it retries the earliest unfinished module. Production work and the CPU/RAM resource gate always take priority, so missed work carries forward rather than competing with active workloads.
 
 ## Runtime flow
 
