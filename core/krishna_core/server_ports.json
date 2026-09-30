@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "krishna_core": 8766,
+  "mobile_companion": 8765,
+  "lan_discovery": 8767,
+  "policy": "KRISHNA live core uses the canonical port; acceptance/test runtimes may override KRISHNA_PORT only in isolated test processes."
+}

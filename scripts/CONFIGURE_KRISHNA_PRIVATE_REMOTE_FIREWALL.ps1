@@ -1,9 +1,17 @@
 param(
-  [int]$CorePort=8766,
-  [int]$DiscoveryPort=8767,
+  [int]$CorePort=0,
+  [int]$DiscoveryPort=0,
   [string]$TailscaleCIDR="100.64.0.0/10"
 )
 $ErrorActionPreference="Stop"
+
+$networkConstantsScript=Join-Path $PSScriptRoot "KRISHNA_NETWORK_CONSTANTS.ps1"
+if(!(Test-Path -LiteralPath $networkConstantsScript)){throw "KRISHNA network constants loader missing: $networkConstantsScript"}
+. $networkConstantsScript
+$networkConstants=Get-KrishnaNetworkConstants
+if($CorePort -le 0){$CorePort=[int]$networkConstants.Core}
+if($DiscoveryPort -le 0){$DiscoveryPort=[int]$networkConstants.LanDiscovery}
+if($CorePort -ne [int]$networkConstants.Core){throw ("KRISHNA Core firewall port must be canonical {0}; requested {1}" -f $networkConstants.Core,$CorePort)}
 
 $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
 $principal=New-Object Security.Principal.WindowsPrincipal($identity)
