@@ -25,6 +25,10 @@ class MrityunjayTests(unittest.TestCase):
             self.assertTrue(status["enabled"])
             self.assertIn("credentials/secrets", status["blocked_scope"])
             self.assertIn("transactional promotion", status["promotion_rule"])
+            self.assertEqual(status["light_contract"]["WORKING"]["color"], "green")
+            self.assertEqual(status["light_contract"]["IDLE"]["color"], "yellow")
+            self.assertEqual(status["light_contract"]["HEALING"]["color"], "blue")
+            self.assertEqual(status["light_contract"]["BLOCKED"]["color"], "red")
 
     def test_attach_subscribes_to_failure_events(self):
         with tempfile.TemporaryDirectory() as td:
@@ -75,12 +79,30 @@ class MrityunjayTests(unittest.TestCase):
             self.assertFalse(again["scheduled"])
             self.assertIn(again["reason"], {"cooldown", "busy"})
 
+    def test_light_priority_and_research_before_change(self):
+        with tempfile.TemporaryDirectory() as td:
+            runtime = MrityunjayRuntime(Path(td), _Bus(), enabled=True)
+            self.assertEqual(runtime.light()["state"], "IDLE")
+            self.assertEqual(runtime.light(working=True)["state"], "WORKING")
+            self.assertEqual(runtime.light(degraded=True)["state"], "DEGRADED")
+            self.assertEqual(runtime.light(blocked=True)["state"], "BLOCKED")
+            runtime.bind_research(lambda **kwargs: {"sources":["web","github"],"goal":kwargs["goal"]})
+            runtime.bind_change(lambda **kwargs: {"status":"verified_candidate","goal":kwargs["goal"]})
+            researched=runtime.improve(project="KRISHNA",goal="improve reliability",apply=False)
+            self.assertEqual(researched["mode"],"research-before-change")
+            self.assertIsNone(researched["change"])
+            changed=runtime.improve(project="KRISHNA",goal="improve reliability",apply=True)
+            self.assertEqual(changed["change"]["status"],"verified_candidate")
+
     def test_orchestrator_contract_registers_mrityunjay_actions_and_agent(self):
         source=(Path(__file__).resolve().parents[1]/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
         for token in (
             '"mrityunjay.status"',
             '"mrityunjay.heal"',
-            '"mrityunjay","autonomous bounded self-heal',
+            '"mrityunjay.improve"',
+            "self.mrityunjay.bind_research(self._mrityunjay_research_improvement)",
+            "self.mrityunjay.bind_change(self._mrityunjay_change_improvement)",
+            '"mrityunjay","KRISHNA change, improvement, self-heal',
             "self.mrityunjay.bind(self._mrityunjay_heal_event)",
             "self.mrityunjay.attach()",
             '"auto_apply":True',
