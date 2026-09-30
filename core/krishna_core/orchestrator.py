@@ -4817,7 +4817,44 @@ Project: {payload.get('project')}
         }
 
     def brahma_process_status(self):
-        return self.brahma_process_qc.status()
+        status=self.brahma_process_qc.status()
+        gods={str(x.get("id") or ""):x for x in status.get("gods") or []}
+        # SURYDEV has an independent authenticated external-node heartbeat. Only
+        # real learning activity makes it green; a merely connected worker stays red/idle.
+        try:
+            nodes=(self.suryadev.device_status() or {}).get("nodes") or []
+            active_nodes=[x for x in nodes if x.get("learning_green")]
+            if "suryadev" in gods:
+                god=gods["suryadev"]
+                if active_nodes:
+                    node=active_nodes[0]
+                    god.update({
+                        "active":True,"state":"working","color":"green",
+                        "detail":str(node.get("current_job_id") or node.get("learning_state") or "Learning from connected device"),
+                        "updated_at":float(node.get("last_seen") or time.time()),
+                    })
+                elif nodes and str(god.get("state") or "").lower() not in {"working","handling"}:
+                    node=nodes[0]
+                    god.update({
+                        "active":False,"state":"idle","color":"red",
+                        "detail":"Connected · "+str(node.get("learning_state") or "idle"),
+                        "updated_at":float(node.get("last_seen") or god.get("updated_at") or time.time()),
+                    })
+        except Exception:
+            pass
+        try:
+            m=self.mrityunjay.status()
+            if "mrityunjaya" in gods and m.get("busy"):
+                gods["mrityunjaya"].update({
+                    "active":True,"state":"working","color":"green",
+                    "detail":str(m.get("last_trigger") or "Self-heal is running"),
+                    "updated_at":time.time(),
+                })
+        except Exception:
+            pass
+        status["gods"]=[gods.get(str(x.get("id") or ""),x) for x in status.get("gods") or []]
+        status["latest_color"]="green" if any(bool(x.get("active")) for x in status["gods"]) else "red"
+        return status
 
     def _amcc_runtime_signals(self):
         snapshot=self.governor.snapshot()
