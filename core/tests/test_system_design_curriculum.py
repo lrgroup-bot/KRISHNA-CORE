@@ -67,6 +67,17 @@ class SystemDesignCurriculumTests(unittest.TestCase):
         self.assertEqual(assignment["id"], "v1-01-scale")
         self.assertEqual(assignment["attempt"], 2)
 
+    def test_schedule_assigns_two_modules_per_day(self):
+        curriculum = self.make_curriculum()
+        schedule = curriculum.schedule()
+        first, second, third = schedule["modules"][:3]
+        self.assertEqual(schedule["new_modules_per_day"], 2)
+        self.assertEqual(first["scheduled_date"], "2026-10-01")
+        self.assertEqual(second["scheduled_date"], "2026-10-01")
+        self.assertEqual(first["scheduled_window_ist"], "02:30")
+        self.assertEqual(second["scheduled_window_ist"], "14:30")
+        self.assertEqual(third["scheduled_date"], "2026-10-02")
+
     def test_rishi_council_routes_system_design_specialists(self):
         council = RishiCouncil()
         ids = [x["id"] for x in council.select(
@@ -78,11 +89,11 @@ class SystemDesignCurriculumTests(unittest.TestCase):
         self.assertIn("gautama", ids)
         self.assertIn("veda-vyasa", ids)
 
-    def test_scheduler_allows_retry_window_but_only_one_verified_module_per_day(self):
+    def test_scheduler_uses_two_independent_learning_windows_per_day(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         results = [
-            {"ran": False, "reason": "resource_gate"},
+            {"ran": True, "curriculum_module": {"status": "verified"}},
             {"ran": True, "curriculum_module": {"status": "verified"}},
         ]
 
