@@ -155,3 +155,29 @@ Research Shishya should look for evidence-backed improvements in:
 CHANGE RECORDS (APPEND ONLY AFTER OWNER-APPROVED WORK)
 ------------------------------------------------------
 No VISHWAKARMA change is considered architecture truth until STATUS=VERIFIED.
+
+
+BRAHMA DAILY COUNCIL + KARMA GOVERNANCE
+---------------------------------------
+Applies to ALL agents and shishya, active and inactive.
+BRAHMA is council chair and reports the daily council record to KRISHNA.
+BRAHMA reviews identity/role, active state, health, recent work, issues, KARMA
+trust state, improvement proposals, free alternatives and policy concerns.
+
+KARMA: GREEN trusted; YELLOW probation/review; ORANGE no mutation;
+RED no execution/quarantined; BLACK retired from active routing.
+Consequences are deterministic permissions/quarantine/retirement, not emotions.
+
+FREE-FIRST HARD PRIORITY
+------------------------
+Normal improvement work MUST search for and prefer FREE/₹0, local, open-source
+or genuinely non-billable free-quota solutions. Paid execution is NEVER
+automatic. Paid proposals are PAID_BLOCKED and may only be separately shown to
+OWNER for an explicit decision. ZeroSpendPolicy cannot be bypassed.
+
+DAILY GOVERNANCE LOOP
+---------------------
+BRAHMA inventories all agents -> council -> KARMA/health/work review -> research
+proposal review -> prioritize safe FREE/₹0 candidates -> report to KRISHNA ->
+KRISHNA briefs OWNER when useful -> OWNER decides -> only approved work enters
+VISHWAKARMA engineering.
