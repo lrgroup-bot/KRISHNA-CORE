@@ -89,6 +89,7 @@ from .mobile_runtime_manifest import MobileRuntimeManifest
 from .rishi_live_research import RishiLiveResearchExecutor
 from .science_atlas import ScienceAtlas
 from .rishi_learning import RishiLearningLedger, CouncilCollaborationEngine
+from .system_design_curriculum import SystemDesignCurriculum, SystemDesignLearningScheduler
 from .brahma_bot import BrahmaBot
 from .brahma_process_qc import BrahmaProcessQC
 from .grand_challenges import GrandChallengeRegistry
@@ -437,6 +438,10 @@ class Orchestrator:
             learning_ledger=self.rishi_learning,
             collaboration_engine=self.rishi_collaboration,
         )
+        self.system_design_curriculum = SystemDesignCurriculum(
+            self.agi.root / "brahmagyan" / "system-design-curriculum",
+            self.memory,
+        )
         self.science_atlas = ScienceAtlas(
             runtime_state / "science-atlas",
             self.agi.brahmagyan.council,
@@ -458,6 +463,13 @@ class Orchestrator:
         self._restore_projects()
         self._register_shared_actions()
         self._register_agent_runtime()
+        self.system_design_scheduler = SystemDesignLearningScheduler(
+            self.agi.root / "brahmagyan" / "system-design-curriculum" / "scheduler",
+            lambda: self.dispatch_action(
+                "brahmagyan.system_design.background.tick",{},
+                project="KRISHNA",source="system",actor="system-design-learning-scheduler",
+            )["result"],
+        )
         self.mrityunjay.bind(self._mrityunjay_heal_event)
         self.mrityunjay.attach()
         self._register_builtin_probes()
@@ -2505,6 +2517,64 @@ class Orchestrator:
             return {"ran":True,"mode":"science_atlas","node":node,"result":result,
                     "bootstrap":bootstrap}
 
+        def brahmagyan_system_design_status(payload,context):
+            view=str(payload.get("view") or "status").strip().lower()
+            result=self.system_design_curriculum.schedule() if view=="schedule" else self.system_design_curriculum.status()
+            if hasattr(self,"system_design_scheduler"):
+                result["scheduler"]=self.system_design_scheduler.status()
+            return result
+
+        def brahmagyan_system_design_background_tick(payload,context):
+            resources=self.governor.snapshot()
+            busy=bool(self.task_ledger.active()) or int(resources.get("active_jobs") or 0)>0
+            cpu=float(payload.get("cpu_percent") if payload.get("cpu_percent") is not None else (resources.get("cpu_percent") or resources.get("cpu") or 0))
+            ram=float(payload.get("memory_percent") if payload.get("memory_percent") is not None else (resources.get("memory_percent") or resources.get("memory") or 0))
+            decision=self.agi.brahmagyan.background_decision(cpu,ram,busy)
+            if not decision.get("allowed"):
+                return {"ran":False,"reason":"resource_gate","decision":decision,
+                        "curriculum":self.system_design_curriculum.status()}
+            assignment=self.system_design_curriculum.next_assignment()
+            if not assignment:
+                return {"ran":False,"reason":"curriculum_complete",
+                        "curriculum":self.system_design_curriculum.status()}
+            if assignment.get("not_before"):
+                return {"ran":False,"reason":"scheduled_not_started","assignment":assignment,
+                        "curriculum":self.system_design_curriculum.status()}
+            topic=f"System Design — {assignment['title']}"
+            question=assignment["research_instruction"]+"\nOfficial syllabus sources: "+", ".join(
+                x["url"] for x in (assignment.get("source_policy") or {}).get("official_index") or []
+            )
+            try:
+                result=self.rishi_live.run(
+                    "KRISHNA",topic,question,
+                    rishi_id=assignment["lead_rishi"],
+                    knowledge_track="general",
+                    stakes="normal",
+                    privacy="approved_cloud",
+                    source_limit=int(payload.get("source_limit") or 8),
+                    max_perspectives=int(payload.get("max_perspectives") or 6),
+                    max_claims=int(payload.get("max_claims") or 6),
+                    auto_propose=False,
+                    preferred_rishis=assignment["team"],
+                )
+                mission=result.get("mission") or {}
+                run=result.get("run") or {}
+                dossier=result.get("dossier") or {}
+                score=dossier.get("scorecard") or {}
+                curriculum_row=self.system_design_curriculum.record_result(
+                    assignment["id"],mission_id=mission.get("mission_id"),
+                    run_id=run.get("run_id"),scorecard=score,
+                )
+                return {"ran":True,"assignment":assignment,"research":result,
+                        "curriculum_module":curriculum_row}
+            except Exception as exc:
+                curriculum_row=self.system_design_curriculum.record_result(
+                    assignment["id"],error=f"{type(exc).__name__}: {exc}",
+                )
+                return {"ran":False,"reason":"research_failed",
+                        "error":f"{type(exc).__name__}: {exc}",
+                        "assignment":assignment,"curriculum_module":curriculum_row}
+
         def brahmagyan_background_check(payload,context):
             resources=self.governor.snapshot()
             cpu=float(resources.get("cpu_percent") or resources.get("cpu") or 0)
@@ -4366,6 +4436,19 @@ class Orchestrator:
         self.action_bus.register(
             "brahmagyan.science.background.tick",brahmagyan_science_background_tick,
             description="Run at most one resource-aware autonomous Science Atlas frontier mission",
+            mutating=True,permissions=("web.read","model.use","evidence.write","memory.write","runtime.read"),
+            sources=("system","job","pc"),
+        )
+
+        self.action_bus.register(
+            "brahmagyan.system_design.status",brahmagyan_system_design_status,
+            description="Inspect the Alex Xu/ByteByteGo Rishi curriculum status or 30-day schedule",
+            permissions=("runtime.read",),
+            sources=("pc","system","agent","job","mcp","a2a"),
+        )
+        self.action_bus.register(
+            "brahmagyan.system_design.background.tick",brahmagyan_system_design_background_tick,
+            description="Run at most one resource-gated system-design learning mission and store its evidence in BRAHMAGYAN",
             mutating=True,permissions=("web.read","model.use","evidence.write","memory.write","runtime.read"),
             sources=("system","job","pc"),
         )
