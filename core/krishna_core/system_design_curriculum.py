@@ -220,8 +220,10 @@ class SystemDesignCurriculum:
                     "last_error": None,
                     "updated_at": None,
                 })
-                row["day"] = idx + 1
-                row["scheduled_date"] = (self.start_date + timedelta(days=idx)).isoformat()
+                row["day"] = (idx // len(PREFERRED_WINDOWS_IST)) + 1
+                row["slot"] = (idx % len(PREFERRED_WINDOWS_IST)) + 1
+                row["scheduled_window_ist"] = PREFERRED_WINDOWS_IST[idx % len(PREFERRED_WINDOWS_IST)]
+                row["scheduled_date"] = (self.start_date + timedelta(days=idx // len(PREFERRED_WINDOWS_IST))).isoformat()
                 changed = True
             if changed:
                 self._save()
@@ -245,8 +247,10 @@ class SystemDesignCurriculum:
             state = self.state["modules"][module["id"]]
             rows.append({
                 **module,
-                "day": idx + 1,
+                "day": state["day"],
+                "slot": state["slot"],
                 "scheduled_date": state["scheduled_date"],
+                "scheduled_window_ist": state["scheduled_window_ist"],
                 "preferred_windows_ist": list(PREFERRED_WINDOWS_IST),
                 "status": state["status"],
                 "attempts": state["attempts"],
@@ -255,10 +259,11 @@ class SystemDesignCurriculum:
             "version": self.VERSION,
             "start_date": self.start_date.isoformat(),
             "timezone": "Asia/Kolkata",
-            "new_modules_per_day": 1,
+            "new_modules_per_day": len(PREFERRED_WINDOWS_IST),
             "preferred_windows_ist": list(PREFERRED_WINDOWS_IST),
-            "catch_up_rule": "missed or insufficiently verified modules carry forward; never skip ahead just to match the calendar",
-            "resource_rule": "run only when BRAHMAGYAN background gate permits: production idle, CPU < 50%, RAM < 70%",
+            "catch_up_rule": "missed or insufficiently verified modules carry forward; the next eligible window retries the earliest unfinished module before advancing",
+            "resource_rule": "run only when BRAHMAGYAN background gate permits; production work always has priority",
+            "completion_target": "30 modules across 15 calendar days at two bounded learning windows per day",
             "modules": rows,
             "source_policy": self.source_policy(),
         }
@@ -295,7 +300,9 @@ class SystemDesignCurriculum:
         return {
             **module,
             "day": state["day"],
+            "slot": state["slot"],
             "scheduled_date": state["scheduled_date"],
+            "scheduled_window_ist": state["scheduled_window_ist"],
             "today": today.isoformat(),
             "preferred_windows_ist": list(PREFERRED_WINDOWS_IST),
             "attempt": int(state.get("attempts") or 0) + 1,
@@ -403,8 +410,6 @@ class SystemDesignLearningScheduler:
             now = now.replace(tzinfo=self.tz)
         local = now.astimezone(self.tz)
         today = local.date().isoformat()
-        if self.state.get("last_verified_date") == today:
-            return None
         eligible = []
         for value in PREFERRED_WINDOWS_IST:
             hour, minute = (int(x) for x in value.split(":"))
@@ -470,7 +475,7 @@ class SystemDesignLearningScheduler:
             "running": bool(self._thread and self._thread.is_alive()),
             "poll_seconds": self.poll_seconds,
             "policy": (
-                "lightweight scheduler only; at most one verified module per local day; "
+                "lightweight scheduler only; at most one bounded mission per configured learning window; "
                 "actual web/model research is still blocked unless BRAHMAGYAN resource gates permit it"
             ),
             **self.state,
