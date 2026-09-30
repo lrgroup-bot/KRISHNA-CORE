@@ -13,15 +13,18 @@ from threading import RLock
 class BrahmaProcessQC:
     """Global KRISHNA process QC with a non-blocking recovery worker."""
 
-    VERSION="brahma-process-qc-v2"
+    VERSION="brahma-process-qc-v3"
     FAIL={"action.failed","AGENT_FAILED","MISSION_FAILED","TOOL_ERROR","TEST_FAILED","BUILD_FAILED","VERIFICATION_FAILED","QUEUE_FAILED"}
     WORK={"action.requested","MISSION_STARTED","AGENT_SPAWNED","BEFORE_TOOL","TEST_STARTED","BUILD_STARTED","VERIFICATION_STARTED","QUEUE_CLAIMED","ROLLBACK_STARTED"}
     DONE={"action.completed","MISSION_COMPLETED","AGENT_FINISHED","AFTER_TOOL","TEST_PASSED","BUILD_COMPLETED","VERIFICATION_PASSED","QUEUE_ACKED","ROLLBACK_COMPLETED","QUEUE_RECOVERED","SERVICE_RESTARTED"}
     GODS=(
         ("krishna","KRISHNA","ॐ"),("brahma","BRAHMA","🪷"),("sudarshan","Sudarshan","☸"),
-        ("hawkeye","Hawkeye","◉"),("kabach","KABACH","🛡"),("garuda","Garuda","◆"),
+        ("hawkeye","HAWKEYE","◉"),("kabach","KABACH","🛡"),("garuda","Garuda","◆"),
         ("garudanetra","Garudanetra","👁"),("narad","NARAD","♬"),("brahmagyan","BRAHMAGYAN","✦"),
         ("gyan","Gyan-Bhandar","▤"),("rishi","Rishi Council","△"),("amcc","aMCC","⚡"),
+        ("suryadev","Suryadev","☀"),("chandradev","Chandradev","◐"),("mrityunjaya","Mrityunjaya","♜"),
+        ("ui_guardian","UI Guardian","◇"),("developer","Developer","⌘"),("specialists","Specialists","✧"),
+        ("perfection","Project Perfection","◎"),("vishvakarma","Vishvakarma","⚒"),
     )
 
     def __init__(self,state_root,event_bus,memory=None):
@@ -40,8 +43,9 @@ class BrahmaProcessQC:
     @staticmethod
     def color(state):
         state=str(state or "idle").lower()
-        if state in {"working","handling"}:return "yellow"
-        if state in {"done","healthy","completed","fixed"}:return "green"
+        # Owner contract: green means actively working/handling; red means not active.
+        # Completion/error detail stays available on click instead of overloading the tiny status light.
+        if state in {"working","handling"}:return "green"
         return "red"
 
     @staticmethod
@@ -107,6 +111,14 @@ class BrahmaProcessQC:
         p=event.get("payload") if isinstance(event.get("payload"),dict) else {}
         text=" ".join((str(event.get("topic") or ""),str(event.get("source") or ""),str(p.get("action") or ""))).lower()
         for k,tokens in (
+            ("mrityunjaya",("mrityunjay","mrityunjaya","self_heal","self-heal")),
+            ("chandradev",("chandradev","chandra-dev","camera-qc")),
+            ("suryadev",("suryadev","surya-dev","screen-learner")),
+            ("ui_guardian",("ui_guardian","ui-guardian","ui.guardian")),
+            ("developer",("developer","development.","software_factory","engineering")),
+            ("specialists",("specialist","specialists","specialist_team")),
+            ("perfection",("project_perfection","project-perfection","perfection")),
+            ("vishvakarma",("vishvakarma","repair_shishya","repair-shishya")),
             ("brahmagyan",("brahmagyan",)),("garudanetra",("garudanetra",)),("hawkeye",("hawkeye","bhumiputra")),
             ("kabach",("kabach","privacy")),("narad",("narad",)),("garuda",("garuda",)),("gyan",("gyan",)),
             ("rishi",("rishi",)),("amcc",("amcc","cognition.")),("brahma",("brahma",)),("sudarshan",("sudarshan","shared-action-bus","action.")),
@@ -238,10 +250,13 @@ class BrahmaProcessQC:
         for god in gods:
             if god.get("id") in open_components and god.get("state") not in {"working","handling"}:
                 god["state"]="error";god["color"]="red"
-        overall="yellow" if latest in {"working","handling"} else ("red" if open_errors else self.color(latest))
+        overall="green" if latest in {"working","handling"} else "red"
+        for god in gods:
+            god["active"]=str(god.get("state") or "").lower() in {"working","handling"}
+            god["color"]="green" if god["active"] else "red"
         return {"agent":"BRAHMA","version":self.VERSION,"role":"global KRISHNA process QC + safe automatic recovery",
                 "attached":self._attached,"worker_running":bool(self._worker and self._worker.is_alive()),
                 "pending_qc":int(self._work.unfinished_tasks),"latest_state":latest,"latest_color":overall,
-                "color_contract":{"red":"idle or error","yellow":"working or handling","green":"completed or healthy"},
+                "color_contract":{"green":"actively working or handling","red":"idle, completed, or needs attention; open details for exact state"},
                 "gods":gods,"notifications":notes[-100:],"open_error_count":len(open_errors),"open_errors":list(open_errors.values())[-20:],
                 "krishna_discussion":callable(self.consult_krishna),"ready":self.load_error is None,"load_error":self.load_error}

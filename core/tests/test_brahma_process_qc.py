@@ -40,9 +40,16 @@ class BrahmaProcessQCTests(unittest.TestCase):
         qc,_,_=self.make_qc()
         self.assertEqual(qc.color("idle"),"red")
         self.assertEqual(qc.color("error"),"red")
-        self.assertEqual(qc.color("working"),"yellow")
-        self.assertEqual(qc.color("handling"),"yellow")
-        self.assertEqual(qc.color("done"),"green")
+        self.assertEqual(qc.color("working"),"green")
+        self.assertEqual(qc.color("handling"),"green")
+        self.assertEqual(qc.color("done"),"red")
+
+    def test_extended_internal_systems_are_in_the_live_orbit(self):
+        qc,_,_=self.make_qc()
+        ids={g["id"] for g in qc.status()["gods"]}
+        for system_id in ("suryadev","chandradev","mrityunjaya","ui_guardian","developer","specialists","perfection","vishvakarma"):
+            self.assertIn(system_id,ids)
+        self.assertEqual(len(ids),20)
 
     def test_non_mutating_action_failure_is_retried_once_and_marked_done(self):
         qc,bus,_=self.make_qc()
@@ -61,8 +68,8 @@ class BrahmaProcessQCTests(unittest.TestCase):
         self.assertTrue(qc.wait_until_idle(2))
         self.assertEqual(len(calls),1)
         status=qc.status()
-        self.assertEqual(status["latest_color"],"green")
-        self.assertEqual(next(g for g in status["gods"] if g["id"]=="brahma")["color"],"green")
+        self.assertEqual(status["latest_color"],"red")
+        self.assertEqual(next(g for g in status["gods"] if g["id"]=="brahma")["color"],"red")
         states=[x["state"] for x in status["notifications"]]
         self.assertIn("error",states)
         self.assertIn("handling",states)
@@ -115,12 +122,12 @@ class BrahmaProcessQCTests(unittest.TestCase):
             "action":"hawkeye.observe","project":"KRISHNA","spec":{"mutating":False}
         },source="shared-action-bus")
         hawkeye=next(g for g in qc.status()["gods"] if g["id"]=="hawkeye")
-        self.assertEqual((hawkeye["state"],hawkeye["color"]),("working","yellow"))
+        self.assertEqual((hawkeye["state"],hawkeye["color"]),("working","green"))
         bus.publish("action.completed",{
             "action":"hawkeye.observe","project":"KRISHNA","spec":{"mutating":False}
         },source="shared-action-bus")
         hawkeye=next(g for g in qc.status()["gods"] if g["id"]=="hawkeye")
-        self.assertEqual((hawkeye["state"],hawkeye["color"]),("done","green"))
+        self.assertEqual((hawkeye["state"],hawkeye["color"]),("done","red"))
 
 
 class BrahmaProcessQCWiringTests(unittest.TestCase):
@@ -142,12 +149,12 @@ class BrahmaProcessQCWiringTests(unittest.TestCase):
     def test_desktop_has_compact_overlay_notification_and_main_menu(self):
         root=Path(__file__).resolve().parents[2]
         text=(root/"core"/"web_validation.html").read_text(encoding="utf-8-sig")
-        self.assertIn(">Working Gods<",text)
+        self.assertIn(">KRISHNA Systems<",text)
         self.assertIn('id="workingGodsMini"',text)
         self.assertIn('id="brahmaNotify"',text)
         self.assertIn("status-red",text)
-        self.assertIn("status-yellow",text)
         self.assertIn("status-green",text)
+        self.assertIn("systemOrbitHead",text)
         self.assertIn("async function loadWorkingGods()",text)
         self.assertIn("'/api/working-gods'",text)
 

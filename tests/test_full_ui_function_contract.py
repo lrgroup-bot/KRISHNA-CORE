@@ -26,7 +26,6 @@ class FullUIFunctionContractTests(unittest.TestCase):
                 missing_id.append((tag,attrs[:120]))
                 continue
             control_id=m.group(1)
-            # A live control is referenced after its declaration or has an inline event.
             refs=len(re.findall(re.escape(control_id),self.html))
             inline=bool(re.search(r"\bon(?:input|change|keydown|keyup|click|submit)=",attrs,re.I))
             if refs<2 and not inline:
@@ -80,66 +79,38 @@ class FullUIFunctionContractTests(unittest.TestCase):
     def test_current_owner_surface_and_language_controls(self):
         for token in (
             'data-krishna-ui="2026.09-current"',
-            "MAIN MENU","KRISHNA","Sudarshan","MANIBHADRA","Plugins",
+            "MAIN MENU","KRISHNA","Sudarshan","Plugins",
             'id="input"','id="krishnaPopupInput"','id="attachInput"',
             'value="en-IN"','value="hi-IN"','value="or-IN"',
+            'id="workingGodsMini"','id="godDetailDialog"',
         ):
             self.assertIn(token,self.html)
         main=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',self.html)
         self.assertIsNotNone(main)
         menu=main.group(1)
-        self.assertEqual(menu.count("<button"),3)
-        self.assertIn("showView('manibhadra')",menu)
+        self.assertEqual(menu.count("<button"),2)
+        self.assertIn("showView('home')",menu)
+        self.assertIn("showView('sudarshan')",menu)
         self.assertNotIn("showView('plugins')",menu)
         self.assertRegex(self.html,r'<div class="nav bottomNav"[^>]*>\s*<button[^>]+showView\(\'plugins\'\)')
-        self.assertNotIn("showView('workingGods')",menu)
-        for forbidden in ("KABACH","Garuda","Garudanetra","BRAHMAGYAN","Gyan-Bhandar","NARAD","System"):
+        for forbidden in ("MANIBHADRA","VĀṆIJYA","VANIJYA","KABACH","Garuda","Garudanetra","BRAHMAGYAN","Gyan-Bhandar","NARAD","System"):
             self.assertNotIn(forbidden,menu)
 
-    def test_manibhadra_owner_crm_surface_is_live(self):
+    def test_lr_group_commerce_actions_are_not_registered(self):
         for token in (
-            'id="manibhadra"',"MANIBHADRA","Needs your attention","Sales pipeline",
-            "manibhadra.crm.dashboard","manibhadra.crm.records","manibhadra.ai.advice",
-            "money.investment_scenario","loadManibhadraCRM","manibhadraAddLead",
-            "manibhadraAddDeal","manibhadraScoutProduct",
-            'data-mani-page-button="overview"','data-mani-page-button="sales"',
-            'data-mani-page-button="market"','data-mani-page-button="records"',
-            'data-mani-page-button="connections"',"setManibhadraWorkspace",
+            "manibhadra.","vanijya.","vanik_netra.","marketplace.capabilities",
+            "ManibhadraCommerce","ManibhadraCRM","VanijyaSalesHead","VanikNetra",
         ):
-            self.assertIn(token,self.html)
+            self.assertNotIn(token,self.orchestrator)
+        for token in ("MANIBHADRA","VĀṆIJYA","VANIJYA","manibhadra.","vanijya.","vanik_netra."):
+            self.assertNotIn(token,self.html)
 
-    def test_vanijya_sales_head_is_live_inside_manibhadra_not_main_menu(self):
-        for token in (
-            "RISHI VĀṆIJYA · Sales & Marketing Head",
-            "Lead Researcher → SDR / Calling → Lead Qualifier",
-            "vanijya.dashboard","vanijya.products.sync","vanijya.sales_cycle","vanijya.autopilot.tick",
-            "loadVanijyaSales","vanijyaSyncProducts","vanijyaAutopilot","vanijyaSalesCycle",
-        ):
+    def test_live_system_orbit_includes_internal_workers(self):
+        for token in ("systemOrbitHead","miniGodRow","openGodDetail","row.dataset.label"):
             self.assertIn(token,self.html)
-        main=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',self.html)
-        self.assertIsNotNone(main)
-        self.assertEqual(main.group(1).count("<button"),3)
-        self.assertNotIn("showView('vanijya')",main.group(1))
-        self.assertIn('data-mani-page="sales"',self.html)
-        self.assertIn("INSIDE MANIBHADRA",self.html)
-
-    def test_vanijya_backend_actions_are_registered(self):
-        self.assertIn("self.vanijya.message_store = self.agi.narad_messages",self.orchestrator)
-        for action in (
-            "vanijya.status","vanijya.dashboard","vanijya.health","vanijya.health.verify",
-            "vanijya.manibhadra.request","vanijya.products.sync","vanijya.sales_cycle","vanijya.autopilot.tick",
-            "vanijya.team","vanijya.campaign.create",
-            "vanijya.hr.request","vanijya.hr.create","vanijya.hr.retire","vanijya.hr.plan","vanijya.hr.execute",
-            "vanijya.product.scout","vanijya.marketing.plan",
-            "vanijya.outreach.decide","vanijya.outreach.plan","vanijya.lead.qualify",
-            "vanijya.reply.ingest","vanijya.inbound.reply","vanijya.inbox.process","vanijya.outbound.plan","vanijya.narad.workflow",
-            "vanijya.crm.dashboard","vanijya.crm.upsert_lead","vanijya.crm.upsert_deal",
-            "vanijya.quote.create","vanijya.payment.request","vanijya.payment.upi_request","vanijya.payment.qr","vanijya.payment.verify",
-            "vanijya.pipeline.next","vanijya.automation.blueprint",
-            "manibhadra.expansion.status","manibhadra.expansion.providers",
-            "manibhadra.expansion.request_plan","manibhadra.expansion.plan",
-        ):
-            self.assertIn(f'"{action}"',self.orchestrator)
+        qc=(ROOT/"core"/"krishna_core"/"brahma_process_qc.py").read_text(encoding="utf-8")
+        for token in ("Suryadev","Chandradev","Mrityunjaya","UI Guardian","Developer","Specialists","Project Perfection","Vishvakarma"):
+            self.assertIn(token,qc)
 
     def test_no_server_fallback_to_legacy_dashboard(self):
         self.assertNotIn("WEB_VALIDATION if WEB_VALIDATION.exists() else DASHBOARD",self.server)

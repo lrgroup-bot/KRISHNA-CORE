@@ -6,6 +6,8 @@ The canonical installable Android artifact produced by GitHub Actions is:
 
 Package ID: `com.krishna.mobile`
 
+Release alignment: this APK is built against the KRISHNA core revision where LR Group commerce systems (MANIBHADRA, Vāṇijya and VANIK-NETRA) are no longer part of KRISHNA. Mobile remains conversation-first and connects only to KRISHNA Core.
+
 ## Build and verification gate
 
 The APK is uploaded only after the workflow completes all of these checks:

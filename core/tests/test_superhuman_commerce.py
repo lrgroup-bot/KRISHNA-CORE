@@ -8,8 +8,6 @@ from krishna_core.node_registry import NodeRegistry
 from krishna_core.node_execution import TrustedNodeExecutor
 from krishna_core.gmail_triage import GmailTriage
 from krishna_core.github_pr_review import GitHubPRReviewer
-from krishna_core.manibhadra_commerce import ManibhadraCommerce
-from krishna_core.marketplace_adapters import MarketplaceAdapterRegistry
 from krishna_core.narad.providers import NaradProviderHub
 from krishna_core.narad.runtime import NaradRuntime
 from krishna_core.automation_bus import AutomationBus
@@ -39,23 +37,6 @@ class SuperhumanCommerceTests(unittest.TestCase):
         m=t.classify({},{"category":"spam","confidence":0.999,"reasons":["model"]})
         self.assertEqual(m["recommended_action"],"trash")
         self.assertTrue(m["requires_owner_approval"])
-
-    def test_manibhadra_marketplace_seo_guardrails(self):
-        m=ManibhadraCommerce()
-        plan=m.listing_plan("amazon",{"name":"Steel Water Bottle","brand":"LRS","features":["Leak resistant","1 litre"]},
-                            ["steel bottle","best","cheapest","water bottle"])
-        self.assertLessEqual(len(plan["title"]),75)
-        self.assertNotIn("best",plan["search_terms"])
-        self.assertNotIn("cheapest",plan["search_terms"])
-        self.assertTrue(plan["publish_requires_owner_approval"])
-        offer=m.supplier_offer("Steel Water Bottle",seller_name="Supplier")
-        self.assertTrue(offer["requires_owner_approval_to_send"])
-
-    def test_marketplace_registry_tells_api_truth(self):
-        r=MarketplaceAdapterRegistry()
-        self.assertEqual(r.get("amazon","listing_put")["mode"],"official_api")
-        self.assertTrue(r.get("amazon","listing_put")["approval_required"])
-        self.assertEqual(r.get("meesho","seller_portal_write")["mode"],"authorized_browser")
 
     def test_compute_node_reuses_canonical_trusted_registry(self):
         with tempfile.TemporaryDirectory() as td:
@@ -177,17 +158,18 @@ class SuperhumanCommerceTests(unittest.TestCase):
 
 
 class IntegrationContractTests(unittest.TestCase):
-    def test_orchestrator_exposes_superhuman_and_manibhadra_actions(self):
+    def test_orchestrator_exposes_superhuman_actions_without_lr_commerce(self):
         root=Path(__file__).resolve().parents[2]
         text=(root/"core"/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
         for action in (
-            "superhuman.status","social.channels.status","social.channel","gmail.triage","money.zero_spend.status","money.zero_spend.decide","money.investment_scenario","manibhadra.status","manibhadra.research",
-            "manibhadra.evaluate","manibhadra.supplier_offer","manibhadra.listing_plan",
-            "marketplace.capabilities","compute.nodes.status","compute.nodes.configure","compute.nodes.plan","compute.nodes.run",
+            "superhuman.status","social.channels.status","social.channel","gmail.triage","money.zero_spend.status","money.zero_spend.decide","money.investment_scenario",
+            "compute.nodes.status","compute.nodes.configure","compute.nodes.plan","compute.nodes.run",
             "workflow.record.start","workflow.record.finish","github.pr.review",
             "application.security.threat_model","windows.sandbox.status","windows.sandbox.setup_plan","windows.sandbox.plan","windows.sandbox.run",
         ):
             self.assertIn(f'"{action}"',text)
+        for transferred in ("manibhadra.","vanijya.","vanik_netra.","marketplace.capabilities"):
+            self.assertNotIn(transferred,text)
 
 
 if __name__=="__main__":

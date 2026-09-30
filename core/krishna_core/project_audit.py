@@ -152,10 +152,10 @@ class KrishnaProjectAudit:
         menu=main.group(1) if main else ""
         buttons=menu.count("<button")
         bottom_plugins=('class="nav bottomNav"' in html and "showView('plugins')" in html)
-        correct=(buttons==3 and all(x in menu for x in ("showView('home')","showView('sudarshan')","showView('manibhadra')")) and "showView('plugins')" not in menu and "showView('workingGods')" not in menu and bottom_plugins)
+        correct=(buttons==2 and all(x in menu for x in ("showView('home')","showView('sudarshan')")) and "showView('manibhadra')" not in menu and "showView('vanijya')" not in menu and "showView('plugins')" not in menu and "showView('workingGods')" not in menu and bottom_plugins)
         forbidden=[x for x in ("Working Gods","KABACH","Garuda","Garudanetra","BRAHMAGYAN","Gyan-Bhandar","NARAD","System") if x in menu]
         self.add("ui","minimal MAIN MENU","PASS" if correct and not forbidden else "FAIL",
-                 "MAIN MENU is KRISHNA / Sudarshan / MANIBHADRA; Plugins is bottom navigation" if correct and not forbidden else "owner-visible menu contract mismatch",
+                 "MAIN MENU is KRISHNA / Sudarshan; Plugins is bottom navigation; LR commerce is absent" if correct and not forbidden else "owner-visible menu contract mismatch",
                  button_count=buttons,forbidden=forbidden)
 
         ids=set(re.findall(r'id="([^"]+)"',html))

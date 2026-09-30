@@ -109,8 +109,6 @@ from .self_heal import KrishnaSelfHealRuntime
 from .mrityunjay import MrityunjayRuntime
 from .superhuman_operator import SuperhumanOperatorPolicy
 from .gmail_triage import GmailTriage
-from .manibhadra_commerce import ManibhadraCommerce
-from .marketplace_adapters import MarketplaceAdapterRegistry
 from .workflow_recording import WorkflowRecorder
 from .skill_compiler import SkillCompiler
 from .node_registry import NodeRegistry
@@ -126,18 +124,9 @@ from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
 from .social_channels import SocialChannelRegistry
-from .affiliate_intent import AffiliateIntentEngine
 from .zero_spend_policy import ZeroSpendPolicy
 from .three_d_model_router import ThreeDModelRouter
-from .manibhadra_crm import ManibhadraCRM
-from .manibhadra_advisor import ManibhadraCloudAdvisor
-from .vanik_netra import VanikNetra
-from .vanik_netra_sources import FreeMarketSourceRegistry
-from .vanik_netra_store import VanikNetraStore
 from .narada_legal import NaradaLegalAdvisor
-from .vanijya_sales import VanijyaSalesHead
-from .commerce_expansion import CommerceExpansionRegistry
-from .commerce_expansion_adapters import CommerceExpansionAdapterRegistry
 from .system_one import SystemOneDecisionEngine
 from .capability_fabric import CapabilityFabric
 from .load_relief_integrations import LoadReliefIntegrationCatalog, StemkitOnDemand, StrixSandboxContract
@@ -200,8 +189,6 @@ class Orchestrator:
         self.engineering_worktree_root.mkdir(parents=True, exist_ok=True)
         self.superhuman = SuperhumanOperatorPolicy()
         self.gmail_triage = GmailTriage()
-        self.manibhadra = ManibhadraCommerce()
-        self.marketplaces = MarketplaceAdapterRegistry()
         self.skill_compiler = SkillCompiler(runtime_state / "skill-candidates")
         self.workflow_recorder = WorkflowRecorder(runtime_state / "workflow-recordings", self.skill_compiler)
         self.compute_nodes = NodeRegistry(runtime_state / "trusted-nodes.json")
@@ -210,24 +197,8 @@ class Orchestrator:
         self.application_security = ApplicationSecurityLoop()
         self.windows_worker_sandbox = WindowsWorkerSandbox(runtime_state / "windows-worker-sandbox")
         self.social_channels = SocialChannelRegistry()
-        self.affiliate_intent = AffiliateIntentEngine()
         self.zero_spend = ZeroSpendPolicy()
         self.three_d_router = ThreeDModelRouter(zero_spend=self.zero_spend)
-        self.manibhadra_crm = ManibhadraCRM(runtime_state / "manibhadra-crm.json")
-        self.manibhadra_advisor = ManibhadraCloudAdvisor(self.openrouter_free,self.direct_free)
-        self.vanijya = VanijyaSalesHead(
-            runtime_state / "vanijya-sales.json",
-            crm=self.manibhadra_crm,
-        )
-        self.commerce_expansion = CommerceExpansionRegistry()
-        self.commerce_expansion_adapters = CommerceExpansionAdapterRegistry()
-        self.vanik_netra_sources = FreeMarketSourceRegistry(runtime_state / "vanik-netra")
-        self.vanik_netra_store = VanikNetraStore(runtime_state / "vanik-netra" / "market.db")
-        self.vanik_netra = VanikNetra(
-            self.manibhadra_crm,
-            store=self.vanik_netra_store,
-            sources=self.vanik_netra_sources,
-        )
         self.system_one = SystemOneDecisionEngine()
         self.capability_fabric = CapabilityFabric(self.system_one)
         self.load_relief_integrations = LoadReliefIntegrationCatalog()
@@ -271,22 +242,6 @@ class Orchestrator:
                         "source_ids":["india_code","india_code_data_report","egazette","mha_new_criminal_laws","odisha_acts","odisha_rules","odisha_notifications","sebi_legal","rbi_master_directions","trai_directions"],
                     },
                     "policy":"evidence refresh only; a changed source triggers research and never auto-changes legal conclusions",
-                },
-                "owner_requirement","in_progress",
-            )
-        vanijya_watch_title = "Rishi Vanijya zero-spend sales planning"
-        if not any(x.get("title")==vanijya_watch_title for x in self.commitments.list("KRISHNA",True,500)):
-            self.commitments.add(
-                "KRISHNA",vanijya_watch_title,
-                {
-                    "goal":"Ask MANIBHADRA what product/service or existing opportunity Rishi Vanijya should market next without external send or spend",
-                    "autonomy":{
-                        "enabled":True,
-                        "operation":"vanijya_plan",
-                        "interval_seconds":21600,
-                        "goal":"Review MANIBHADRA products, CRM pipeline and zero-spend sales opportunities for Rishi Vanijya",
-                    },
-                    "policy":"read-only sales planning; no external message, payment, paid lead, paid ad or other outgoing spend",
                 },
                 "owner_requirement","in_progress",
             )
@@ -351,11 +306,9 @@ class Orchestrator:
             self.memory.audit("hawkeye_ruview","field_registration_failed",type(exc).__name__)
         self.observability = KrishnaObservability(runtime_state / "observability")
         self.ephemeral_workers = EphemeralWorkerRuntime(self.router,self.memory,self.kabach)
-        self.vanijya.bind_worker_runtime(self.ephemeral_workers)
         self.hawkeye_diagnostic.bind_worker_runtime(self.ephemeral_workers,self.governor)
         self.goal_evaluator = GoalEvaluator()
         self.agi = AGIKernel(Path(self.db_path).resolve().parent / "agi", self.memory, self.gyan_bhandar, self.verifier, self.reviewer, self.secure_vault)
-        self.vanijya.message_store = self.agi.narad_messages
         self.spark_x25 = SparkX25Manager(
             runtime_state / "spark-x25",
             self.agi.model_scout,
@@ -787,420 +740,64 @@ class Orchestrator:
                 approved=bool(context.get("approved",False)),
             )
 
-        def vanik_netra_status_action(payload,context):
-            return self.vanik_netra.status()
 
-        def vanik_netra_scan_action(payload,context):
-            bbox=payload.get("bbox") or {}
-            return self.vanik_netra.scan_area(
-                bbox,
-                area_key=str(payload.get("area_key") or "market-scan").strip() or "market-scan",
-                source=str(payload.get("source") or "overture"),
-                category=(str(payload.get("category") or "").strip() or None),
-                limit=int(payload.get("limit") or 1000),
-                min_confidence=float(payload.get("min_confidence") or 0),
-                persist=bool(payload.get("persist",True)),
-                local_path=(str(payload.get("local_path") or "").strip() or None),
-            )
 
-        def vanik_netra_stored_action(payload,context):
-            return self.vanik_netra.stored_area(
-                payload.get("bbox") or {},
-                category=(str(payload.get("category") or "").strip() or None),
-                limit=int(payload.get("limit") or 2000),
-            )
 
-        def vanik_netra_white_space_action(payload,context):
-            return self.vanik_netra.white_space(
-                payload.get("bbox") or {},
-                str(payload.get("target_category") or payload.get("category") or ""),
-                min_cell_businesses=int(payload.get("min_cell_businesses") or 3),
-                limit=int(payload.get("limit") or 100),
-            )
 
-        def vanik_netra_changes_action(payload,context):
-            return self.vanik_netra.change_report(
-                str(payload.get("area_key") or ""),
-                limit=int(payload.get("limit") or 200),
-            )
 
-        def vanik_netra_map_action(payload,context):
-            rows=payload.get("records")
-            if rows is None:
-                stored=self.vanik_netra.stored_area(
-                    payload.get("bbox") or {},
-                    category=(str(payload.get("category") or "").strip() or None),
-                    limit=int(payload.get("limit") or 1000),
-                )
-                rows=stored.get("records") or []
-            if not isinstance(rows,list):raise ValueError("records must be a list")
-            return self.vanik_netra.map_payload(rows,limit=int(payload.get("limit") or 1000))
 
-        def vanik_netra_normalize_action(payload,context):
-            return self.vanik_netra.normalize_place(payload.get("record") or payload)
 
-        def vanik_netra_analyze_action(payload,context):
-            rows=payload.get("rows") or []
-            if not isinstance(rows,list):raise ValueError("rows must be a list")
-            return self.vanik_netra.analyze_area(rows)
 
-        def vanik_netra_score_action(payload,context):
-            row=payload.get("record") or {}
-            place=row if isinstance(row,dict) and "business_id" in row and "primary_category" in row else self.vanik_netra.normalize_place(row)
-            return self.vanik_netra.opportunity_score(
-                place,
-                category_value=float(payload.get("category_value",0.5)),
-                demand_proxy=float(payload.get("demand_proxy",0.5)),
-                competition_opportunity=float(payload.get("competition_opportunity",0.5)),
-                ai_visibility_gap=payload.get("ai_visibility_gap"),
-            )
 
-        def vanik_netra_crm_import_action(payload,context):
-            row=payload.get("record") or {}
-            score=payload.get("score")
-            return self.vanik_netra.import_to_crm(row,score=None if score is None else float(score))
 
-        def vanijya_status_action(payload,context):
-            return self.vanijya.status()
 
-        def vanijya_dashboard_action(payload,context):
-            return self.vanijya.dashboard()
 
-        def vanijya_health_action(payload,context):
-            return self.vanijya.health()
 
-        def vanijya_health_verify_action(payload,context):
-            health=self.vanijya.health()
-            if not health.get("ok"):
-                raise RuntimeError("VANIJYA health verification failed: "+str(health.get("error") or "unknown"))
-            return {**health,"mrityunjay_watch":"armed"}
 
-        def vanijya_manibhadra_request_action(payload,context):
-            return self.vanijya.ask_manibhadra(
-                objective=str(payload.get("objective") or "find products or services worth marketing now")
-            )
 
-        def vanijya_product_sync_action(payload,context):
-            return self.vanijya.sync_manibhadra_products()
 
-        def vanijya_sales_cycle_action(payload,context):
-            return self.vanijya.sales_cycle(product=payload.get("product") or None)
 
-        def vanijya_autopilot_tick_action(payload,context):
-            plan=self.vanijya.autopilot_plan()
-            try:
-                advice=self.manibhadra_advisor.advise(
-                    "Rishi Vāṇijya asks MANIBHADRA: review current products, pipeline and attention queue. "
-                    "What new or improved product/service should Vāṇijya market next using only zero-spend routes, "
-                    "and which existing opportunity should be prioritized? Do not claim any external action was executed.",
-                    self.manibhadra_crm.dashboard(),
-                )
-            except Exception as exc:
-                advice={
-                    "status":"UNAVAILABLE",
-                    "reason":f"{type(exc).__name__}: {exc}",
-                    "paid_fallback":False,
-                    "next":"continue local sales queue and retry verified-free MANIBHADRA advisor later",
-                }
-            return {**plan,"manibhadra_advice":advice}
 
-        def vanijya_campaign_create_action(payload,context):
-            return self.vanijya.create_campaign(
-                payload.get("product") or {},
-                name=str(payload.get("name") or ""),
-                objective=str(payload.get("objective") or ""),
-                channels=payload.get("channels") or [],
-                audience=str(payload.get("audience") or ""),
-                geography=str(payload.get("geography") or ""),
-            )
 
-        def vanijya_hr_request_action(payload,context):
-            return self.vanijya.hr_request(
-                str(payload.get("requirement") or ""),
-                reason=str(payload.get("reason") or ""),
-                temporary=bool(payload.get("temporary",True)),
-            )
 
-        def vanijya_hr_create_action(payload,context):
-            return self.vanijya.hr_create_bot(
-                str(payload.get("request_id") or ""),
-                name=str(payload.get("name") or ""),
-                skills=payload.get("skills") or [],
-            )
 
-        def vanijya_hr_retire_action(payload,context):
-            return self.vanijya.hr_retire_bot(
-                str(payload.get("worker_id") or ""),
-                outcome=str(payload.get("outcome") or ""),
-                lessons=payload.get("lessons") or [],
-            )
 
-        def vanijya_outreach_decision_action(payload,context):
-            return self.vanijya.outreach_decision(
-                payload.get("lead") or {},
-                channel=str(payload.get("channel") or ""),
-                connector_state=str(payload.get("connector_state") or "WAITING_FOR_CONNECTION"),
-            )
 
-        def vanijya_lead_qualify_action(payload,context):
-            return self.vanijya.qualify_lead(
-                payload.get("lead") or {},
-                payload.get("signals") or {},
-            )
 
-        def vanijya_reply_ingest_action(payload,context):
-            return self.vanijya.ingest_reply(
-                lead_id=str(payload.get("lead_id") or ""),
-                provider=str(payload.get("provider") or ""),
-                text=str(payload.get("text") or ""),
-                thread_ref=str(payload.get("thread_ref") or ""),
-                sender=str(payload.get("sender") or ""),
-                metadata=payload.get("metadata") or {},
-            )
 
-        def vanijya_inbox_process_action(payload,context):
-            return self.vanijya.process_narad_inbox(limit=int(payload.get("limit") or 100))
 
-        def vanijya_outbound_plan_action(payload,context):
-            return self.vanijya.plan_outbound(
-                lead=payload.get("lead") or {},
-                channel=str(payload.get("channel") or ""),
-                connector_state=str(payload.get("connector_state") or "WAITING_FOR_CONNECTION"),
-                text=str(payload.get("text") or ""),
-                subject=str(payload.get("subject") or ""),
-                thread_ref=str(payload.get("thread_ref") or ""),
-                purpose=str(payload.get("purpose") or "sales"),
-            )
 
-        def vanijya_narad_workflow_action(payload,context):
-            lead=payload.get("lead") or {}
-            outbound=payload.get("outbound") or {}
-            if not (outbound.get("decision") or {}).get("allowed"):
-                return {"status":"BLOCKED","reason":"outreach_decision_not_allowed","outbound":outbound}
-            spec=self.vanijya.provider_payload(outbound,lead)
-            connections=(self.agi.narad_credentials.list() or {}).get("connections") or []
-            credential=next((
-                x for x in connections
-                if str(x.get("provider") or "").lower()==str(spec["provider"]).lower()
-                and bool(x.get("available"))
-            ),None)
-            if not credential:
-                return {
-                    "status":"WAITING_FOR_CONNECTION",
-                    "provider":spec["provider"],
-                    "operation":spec["operation"],
-                    "reason":"No available NARAD credential reference for provider",
-                }
-            provider_payload=dict(spec["payload"])
-            if spec["provider"]=="whatsapp":
-                phone_id=str(payload.get("phone_number_id") or "")
-                if not phone_id:
-                    return {"status":"WAITING_FOR_CONNECTION","provider":"whatsapp","reason":"phone_number_id not configured"}
-                provider_payload["phone_number_id"]=phone_id
-            workflow=self.agi.narad.create_workflow(
-                "VANIJYA sales outreach · "+str(lead.get("name") or lead.get("company") or lead.get("id") or "lead"),
-                {"type":"manual"},
-                [{
-                    "id":"send",
-                    "action":"provider_send",
-                    "provider":spec["provider"],
-                    "operation":spec["operation"],
-                    "credential_ref":credential["id"],
-                    "payload":provider_payload,
-                }],
-                permissions=["send_external"],
-            )
-            return {
-                "status":"DRAFT_WORKFLOW_CREATED",
-                "workflow":workflow,
-                "next":"verify in sandbox and promote through NARAD/Sudarshan before external side effect",
-                "auto_send_ready_after_connection_and_verified_workflow":True,
-            }
 
-        def vanijya_quote_action(payload,context):
-            return self.vanijya.quote(
-                lead_id=str(payload.get("lead_id") or ""),
-                product=payload.get("product") or {},
-                quantity=int(payload.get("quantity") or 1),
-                deal_id=str(payload.get("deal_id") or ""),
-                notes=str(payload.get("notes") or ""),
-                approved_discount_percent=float(payload.get("approved_discount_percent") or 0),
-            )
 
-        def vanijya_upi_request_action(payload,context):
-            return self.vanijya.upi_payment_request(
-                payee_vpa=str(payload.get("payee_vpa") or ""),
-                payee_name=str(payload.get("payee_name") or ""),
-                amount=payload.get("amount"),
-                invoice_id=str(payload.get("invoice_id") or ""),
-                note=str(payload.get("note") or ""),
-                deal_id=str(payload.get("deal_id") or ""),
-                lead_id=str(payload.get("lead_id") or ""),
-            )
 
-        def vanijya_payment_verify_action(payload,context):
-            return self.vanijya.verify_payment(
-                payload.get("request") or {},
-                payload.get("evidence") or {},
-            )
 
-        def commerce_expansion_status_action(payload,context):
-            return self.commerce_expansion.status()
 
-        def commerce_expansion_providers_action(payload,context):
-            return {
-                "providers":list(self.commerce_expansion_adapters.providers()),
-                "network_execution":False,
-                "credentials_stored":False,
-                "zero_spend":True,
-                "policy":"request contracts only; actual provider execution requires a separately connected and authorized official connector",
-            }
 
-        def commerce_expansion_request_plan_action(payload,context):
-            return self.commerce_expansion_adapters.plan(
-                str(payload.get("provider") or ""),
-                str(payload.get("operation") or ""),
-                payload.get("payload") or payload.get("params") or {},
-            )
 
-        def commerce_expansion_plan_action(payload,context):
-            return self.commerce_expansion.plan(
-                str(payload.get("module_id") or ""),
-                connected=bool(payload.get("connected",False)),
-                free_verified=bool(payload.get("free_verified",False)),
-            )
 
-        def vanijya_team_action(payload,context):
-            return {"head":self.vanijya.display_name,"agents":self.vanijya.team()}
 
-        def vanijya_hr_plan_action(payload,context):
-            return self.vanijya.hr_plan(
-                str(payload.get("requirement") or payload.get("task") or ""),
-                role_ids=payload.get("role_ids") or payload.get("roles"),
-                requested_count=int(payload.get("requested_count") or 1),
-            )
 
-        def vanijya_hr_execute_action(payload,context):
-            return self.vanijya.execute_hr_plan(
-                str(payload.get("project") or context.get("project") or "KRISHNA"),
-                str(payload.get("requirement") or payload.get("task") or ""),
-                role_ids=payload.get("role_ids") or payload.get("roles"),
-                requested_count=int(payload.get("requested_count") or 1),
-                privacy=str(payload.get("privacy") or "local_only"),
-            )
 
-        def vanijya_product_scout_action(payload,context):
-            category=str(payload.get("category") or payload.get("product") or "").strip()
-            request=self.vanijya.ask_manibhadra(
-                objective=("Find a lawful zero-spend sellable product/service opportunity"
-                           +((" in "+category) if category else "")
-                           +" with target customer, positioning, approved price/commission path, competition, fulfilment and realistic received-revenue path.")
-            )
-            research=manibhadra_research_action(
-                {
-                    "product":category or "best zero-spend sellable product or service opportunity",
-                    "project":str(payload.get("project") or context.get("project") or "KRISHNA"),
-                    "limit":int(payload.get("limit") or 8),
-                },
-                context,
-            )
-            return {"vanijya_request":request,"manibhadra_response":research}
 
-        def vanijya_marketing_plan_action(payload,context):
-            product=payload.get("product") or payload
-            plan=self.vanijya.marketing_plan(
-                product,
-                objective=str(payload.get("objective") or "generate qualified leads"),
-                manibhadra_checked=bool(payload.get("manibhadra_checked",False)),
-            )
-            return plan
 
-        def vanijya_outreach_plan_action(payload,context):
-            return self.vanijya.outreach_plan(
-                str(payload.get("channel") or ""),
-                payload.get("contact") or {},
-                purpose=str(payload.get("purpose") or ""),
-                body=str(payload.get("body") or payload.get("text") or ""),
-                subject=str(payload.get("subject") or ""),
-            )
 
-        def vanijya_inbound_reply_action(payload,context):
-            message=payload.get("message") or payload
-            return self.vanijya.reply_plan({
-                **message,
-                "intent":self.vanijya._reply_intent(
-                    str(message.get("text") or message.get("body") or message.get("snippet") or "")
-                ),
-            })
 
-        def vanijya_crm_dashboard_action(payload,context):
-            return self.manibhadra_crm.dashboard()
 
-        def vanijya_crm_upsert_lead_action(payload,context):
-            return self.manibhadra_crm.upsert_lead(payload.get("lead") or payload)
 
-        def vanijya_crm_upsert_deal_action(payload,context):
-            return self.manibhadra_crm.upsert_deal(payload.get("deal") or payload)
 
-        def vanijya_payment_qr_action(payload,context):
-            return self.vanijya.payment_qr_svg(payload.get("payment_request") or payload)
 
-        def vanijya_pipeline_next_action(payload,context):
-            return self.vanijya.pipeline_next(
-                str(payload.get("stage") or ""),
-                payment_verified=bool(payload.get("payment_verified",False)),
-            )
 
-        def vanijya_automation_blueprint_action(payload,context):
-            return self.vanijya.automation_blueprint()
 
-        def manibhadra_crm_dashboard_action(payload,context):
-            return self.manibhadra_crm.dashboard()
 
-        def manibhadra_crm_records_action(payload,context):
-            return self.manibhadra_crm.records()
 
-        def manibhadra_crm_upsert_lead_action(payload,context):
-            return self.manibhadra_crm.upsert_lead(payload.get("lead") or payload)
 
-        def manibhadra_crm_upsert_deal_action(payload,context):
-            return self.manibhadra_crm.upsert_deal(payload.get("deal") or payload)
 
-        def manibhadra_crm_move_deal_action(payload,context):
-            return self.manibhadra_crm.move_deal(
-                str(payload.get("deal_id") or ""),
-                str(payload.get("stage") or ""),
-            )
 
-        def manibhadra_crm_task_add_action(payload,context):
-            return self.manibhadra_crm.add_task(payload.get("task") or payload)
 
-        def manibhadra_crm_task_complete_action(payload,context):
-            return self.manibhadra_crm.complete_task(str(payload.get("task_id") or ""))
 
-        def manibhadra_crm_entity_upsert_action(payload,context):
-            return self.manibhadra_crm.upsert_entity(
-                str(payload.get("kind") or ""),
-                payload.get("record") or {},
-            )
 
-        def manibhadra_ai_advice_action(payload,context):
-            return self.manibhadra_advisor.advise(
-                str(payload.get("question") or "What should MANIBHADRA prioritize next?"),
-                self.manibhadra_crm.dashboard(),
-            )
 
-        def manibhadra_health_action(payload,context):
-            return {
-                **self.manibhadra_crm.health(),
-                "advisor":self.manibhadra_advisor.status(),
-            }
 
-        def manibhadra_health_verify_action(payload,context):
-            health=self.manibhadra_crm.health()
-            if not health.get("ok"):
-                raise RuntimeError("MANIBHADRA CRM health verification failed: "+str(health.get("error") or "unknown"))
-            return {**health,"advisor":self.manibhadra_advisor.status(),"mrityunjay_watch":"armed"}
 
         def zero_spend_status_action(payload,context):
             return self.zero_spend.status()
@@ -1243,72 +840,13 @@ class Orchestrator:
                 assumptions=payload.get("assumptions") or [],
             )
 
-        def manibhadra_status_action(payload,context):
-            return {
-                **self.manibhadra.status(),
-                "affiliate":self.affiliate_intent.status(),
-                "money_policy":self.zero_spend.status(),
-            }
 
-        def manibhadra_intent_action(payload,context):
-            return self.affiliate_intent.intent_summary(payload.get("signals") or [])
 
-        def manibhadra_referral_action(payload,context):
-            return self.affiliate_intent.referral_plan(
-                provider=str(payload.get("provider") or ""),
-                channel=str(payload.get("channel") or ""),
-                product_name=str(payload.get("product_name") or ""),
-                product_url=str(payload.get("product_url") or ""),
-                tracking_id=str(payload.get("tracking_id") or ""),
-                official_deep_link=str(payload.get("official_deep_link") or ""),
-                account_override=bool(payload.get("account_override",False)),
-                estimated_price=payload.get("estimated_price"),
-                commission_rate=payload.get("commission_rate"),
-            )
 
-        def manibhadra_evaluate_action(payload,context):
-            return self.manibhadra.evaluate(
-                str(payload.get("product") or ""),
-                demand=float(payload.get("demand") or 0),
-                margin=float(payload.get("margin") or 0),
-                competition=float(payload.get("competition") or 0),
-                return_risk=float(payload.get("return_risk") or 0),
-            )
 
-        def manibhadra_research_action(payload,context):
-            product=str(payload.get("product") or payload.get("category") or "").strip()
-            if not product:raise ValueError("product or category is required")
-            query=(
-                "product opportunity supplier demand competition pricing marketplace trends "
-                "Amazon Flipkart Meesho Alibaba global wholesale export demand RFQ distributors importers "+product
-            )
-            report=self.garuda.scout(
-                str(payload.get("project") or context.get("project") or "KRISHNA"),
-                query,
-                max(3,min(int(payload.get("limit") or 8),12)),
-            )
-            return {
-                "agent":"MANIBHADRA","product":product,
-                "research":report,
-                "next":"evaluate margin/demand/competition then request owner approval before supplier outreach or marketplace mutation",
-            }
 
-        def manibhadra_supplier_offer_action(payload,context):
-            return self.manibhadra.supplier_offer(
-                str(payload.get("product") or ""),
-                seller_name=str(payload.get("seller_name") or ""),
-                commission_percent=payload.get("commission_percent"),
-            )
 
-        def manibhadra_listing_action(payload,context):
-            return self.manibhadra.listing_plan(
-                str(payload.get("platform") or ""),
-                payload.get("product") or {},
-                payload.get("keywords") or [],
-            )
 
-        def marketplace_status_action(payload,context):
-            return {"operations":self.marketplaces.list()}
 
         def compute_nodes_status_action(payload,context):
             return self.compute_nodes.status()
@@ -3915,31 +3453,6 @@ class Orchestrator:
             description="Classify Gmail messages into reply/update/promotion/sales/spam/phishing buckets without mutating the mailbox",
             permissions=("provider.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
-        self.action_bus.register(
-            "vanik_netra.scan",vanik_netra_scan_action,
-            description="Scan a bounded area using a free/open VANIK-NETRA source and persist a local market snapshot",
-            mutating=True,permissions=("web.read","runtime.write"),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanik_netra.stored",vanik_netra_stored_action,
-            description="Read locally cached VANIK-NETRA market records inside a bounding box",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanik_netra.white_space",vanik_netra_white_space_action,
-            description="Estimate geographic white-space using commercial-density and target-category saturation proxies",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanik_netra.changes",vanik_netra_changes_action,
-            description="Read VANIK-NETRA opened/changed/removed business events between local area snapshots",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanik_netra.map",vanik_netra_map_action,
-            description="Build a bounded market-map point payload from local/open business records",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
 
         self.action_bus.register(
             "system_one.status",system_one_status_action,
@@ -3997,284 +3510,9 @@ class Orchestrator:
             permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
 
-        self.action_bus.register(
-            "vanik_netra.status",vanik_netra_status_action,
-            description="Read VANIK-NETRA market-intelligence capabilities, source policy and zero-spend guardrails",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanik_netra.normalize",vanik_netra_normalize_action,
-            description="Normalize a public/open business-place record into VANIK-NETRA canonical form",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanik_netra.analyze",vanik_netra_analyze_action,
-            description="Deduplicate and analyze bounded market-place records for category mix and digital gaps",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanik_netra.score",vanik_netra_score_action,
-            description="Score a bounded business opportunity using explicit deterministic market signals",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanik_netra.crm.import",vanik_netra_crm_import_action,
-            description="Import an owner-reviewed VANIK-NETRA business opportunity into local MANIBHADRA CRM; performs no outreach",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
 
-        self.action_bus.register(
-            "vanijya.status",vanijya_status_action,
-            description="Read Rishi Vanijya independent Sales & Marketing Head mission, permanent sales team and guardrails",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.team",vanijya_team_action,
-            description="Read Rishi Vanijya's eight permanent named sales-agent roles and responsibilities",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.hr.plan",vanijya_hr_plan_action,
-            description="Plan bounded KRISHNA Shishya manpower for a VANIJYA sales/marketing requirement",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.hr.execute",vanijya_hr_execute_action,
-            description="Execute bounded temporary VANIJYA sales Shishya workers and retire them after findings handover",
-            mutating=True,permissions=("worker.execute","model.use"),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.product.scout",vanijya_product_scout_action,
-            description="Ask MANIBHADRA/GARUDA for a current zero-spend product or service opportunity for VANIJYA to market",
-            permissions=("web.read","project.read"),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.marketing.plan",vanijya_marketing_plan_action,
-            description="Create a zero-spend marketing plan for a MANIBHADRA-approved product or service",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.outreach.plan",vanijya_outreach_plan_action,
-            description="Plan policy-bounded Gmail/email/WhatsApp outreach through NARAD with suppression and contact-basis checks",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.inbound.reply",vanijya_inbound_reply_action,
-            description="Classify inbound customer sales replies and route the correct VANIJYA agent without sending externally",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.crm.dashboard",vanijya_crm_dashboard_action,
-            description="Read the shared MANIBHADRA CRM through VANIJYA's sales view",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.crm.upsert_lead",vanijya_crm_upsert_lead_action,
-            description="Create or update a VANIJYA lead in the shared MANIBHADRA CRM",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.crm.upsert_deal",vanijya_crm_upsert_deal_action,
-            description="Create or update a VANIJYA deal in the shared MANIBHADRA CRM",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.payment.qr",vanijya_payment_qr_action,
-            description="Render an exact VANIJYA UPI payment payload locally as SVG when the free qrcode package is installed; QR is never payment proof",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.pipeline.next",vanijya_pipeline_next_action,
-            description="Compute the next VANIJYA sales stage; payment_pending cannot become won without verified payment",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.automation.blueprint",vanijya_automation_blueprint_action,
-            description="Read the end-to-end MANIBHADRA-to-verified-revenue VANIJYA automation contract",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
 
-        self.action_bus.register(
-            "vanijya.dashboard",vanijya_dashboard_action,
-            description="Read persistent VANIJYA sales campaigns, conversations, quotes, payments, workers and activity",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.health",vanijya_health_action,
-            description="Read VANIJYA persistent runtime health",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.health.verify",vanijya_health_verify_action,
-            description="Verify VANIJYA state health; failure enters shared action lifecycle watched by MRITYUNJAY",
-            permissions=("runtime.read",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.manibhadra.request",vanijya_manibhadra_request_action,
-            description="Ask MANIBHADRA for approved products/services, target customer profile and commercial facts for sales",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.products.sync",vanijya_product_sync_action,
-            description="Sync approved MANIBHADRA product records into VANIJYA marketing assignments",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.sales_cycle",vanijya_sales_cycle_action,
-            description="Create the next VANIJYA end-to-end sales workflow from an approved product or request one from MANIBHADRA",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.autopilot.tick",vanijya_autopilot_tick_action,
-            description="Build VANIJYA's next autonomous sales workload, sync MANIBHADRA products and ask the verified-free MANIBHADRA advisor what to market next; performs no external send or spend",
-            mutating=True,permissions=("project.write","model.use"),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.campaign.create",vanijya_campaign_create_action,
-            description="Create a zero-spend sales campaign for an approved product/service",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.hr.request",vanijya_hr_request_action,
-            description="Request a bounded sales/marketing shishya from HR with inherited zero-spend, consent and connector guardrails",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.hr.create",vanijya_hr_create_action,
-            description="Create a bounded sales bot manifest from an existing VANIJYA HR request",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.hr.retire",vanijya_hr_retire_action,
-            description="Retire a temporary VANIJYA sales bot while preserving outcomes and lessons",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.outreach.decide",vanijya_outreach_decision_action,
-            description="Fail-closed eligibility check before Gmail/email/WhatsApp outreach; blocks opt-outs and unconnected channels",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.lead.qualify",vanijya_lead_qualify_action,
-            description="Score a sales lead from explicit need, fit, engagement, timing and authority signals",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "vanijya.reply.ingest",vanijya_reply_ingest_action,
-            description="Record a customer reply, detect opt-out/intent and route the next sales agent/action",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.inbox.process",vanijya_inbox_process_action,
-            description="Process NARAD inbox messages that match VANIJYA sales threads, classify intent and route next sales action without duplicating provider messages",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.outbound.plan",vanijya_outbound_plan_action,
-            description="Create an audited VANIJYA outbound message plan and NARAD outbox record after outreach eligibility checks",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.narad.workflow",vanijya_narad_workflow_action,
-            description="Create a NARAD provider workflow for eligible VANIJYA Gmail/WhatsApp outreach; external side effects still require NARAD/Sudarshan verification",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.quote.create",vanijya_quote_action,
-            description="Create an exact truthful quote from MANIBHADRA product pricing and approved discount authority",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.payment.request",vanijya_upi_request_action,
-            description="Compatibility alias for exact receive-only VANIJYA UPI payment request; payment remains pending until trusted verification",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.payment.upi_request",vanijya_upi_request_action,
-            description="Build and persist an exact-amount receive-only UPI intent/QR payload from a configured merchant VPA; payment remains pending",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "vanijya.payment.verify",vanijya_payment_verify_action,
-            description="Mark a VANIJYA invoice paid only from trusted signed PSP/bank evidence with exact amount and transaction reference; verified linked deals move to won",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "manibhadra.expansion.status",commerce_expansion_status_action,
-            description="Read zero-spend readiness contracts for ONDC, eBay, Etsy, Google Merchant, Search Console, Pinterest, organic social, dropshipping, RFQ, importer discovery, UCP and Medusa",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.expansion.providers",commerce_expansion_providers_action,
-            description="List concrete official API/protocol request planners for future MANIBHADRA commerce modules; performs no network action",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.expansion.request_plan",commerce_expansion_request_plan_action,
-            description="Build a fail-closed official request contract for ONDC, eBay, Etsy, Google Merchant/Search Console, Pinterest, Medusa or UCP; stores no credentials and performs no network action",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.expansion.plan",commerce_expansion_plan_action,
-            description="Plan one future commerce expansion and fail closed on missing connection, paid route or unverified free eligibility",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
 
-        self.action_bus.register(
-            "manibhadra.crm.dashboard",manibhadra_crm_dashboard_action,
-            description="Read MANIBHADRA CRM decision dashboard",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.crm.records",manibhadra_crm_records_action,
-            description="Read MANIBHADRA CRM local records",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.crm.upsert_lead",manibhadra_crm_upsert_lead_action,
-            description="Create or update a MANIBHADRA CRM lead",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "manibhadra.crm.upsert_deal",manibhadra_crm_upsert_deal_action,
-            description="Create or update a MANIBHADRA CRM deal",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "manibhadra.crm.move_deal",manibhadra_crm_move_deal_action,
-            description="Move a MANIBHADRA CRM deal through the pipeline",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "manibhadra.crm.task.add",manibhadra_crm_task_add_action,
-            description="Add a MANIBHADRA CRM follow-up task",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "manibhadra.crm.task.complete",manibhadra_crm_task_complete_action,
-            description="Complete a MANIBHADRA CRM task",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "manibhadra.crm.entity.upsert",manibhadra_crm_entity_upsert_action,
-            description="Create or update MANIBHADRA customer, supplier or product records",
-            mutating=True,permissions=("project.write",),sources=("pc","system","agent","job"),
-        )
-        self.action_bus.register(
-            "manibhadra.ai.advice",manibhadra_ai_advice_action,
-            description="Run MANIBHADRA commerce advice on verified-free cloud AI using sanitized CRM summaries",
-            permissions=("runtime.read","model.use"),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.health",manibhadra_health_action,
-            description="Read MANIBHADRA CRM and cloud-advisor health",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.health.verify",manibhadra_health_verify_action,
-            description="Verify MANIBHADRA CRM health; failures enter the action.failed lifecycle watched by MRITYUNJAY",
-            permissions=("runtime.read",),sources=("pc","system","agent","job"),
-        )
         self.action_bus.register(
             "money.zero_spend.status",zero_spend_status_action,
             description="Read KRISHNA's non-overridable receive-only money policy",
@@ -4304,46 +3542,6 @@ class Orchestrator:
             "money.investment_scenario",investment_scenario_action,
             description="KRISHNA-only advisory ROI scenario; creates no spending authority and never guarantees returns",
             permissions=("runtime.read",),sources=("pc","system","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.intent",manibhadra_intent_action,
-            description="Summarize public/consented buyer-intent signals for product matching without private browsing surveillance",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.referral_plan",manibhadra_referral_action,
-            description="Create a compliant affiliate/referral link plan using connected tracking credentials and approved distribution channels",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.status",manibhadra_status_action,
-            description="Read MANIBHADRA commerce specialist capabilities and guardrails",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.evaluate",manibhadra_evaluate_action,
-            description="Score a product opportunity from bounded demand/margin/competition/return signals",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.research",manibhadra_research_action,
-            description="Use Garuda provenance-backed research to scout product/supplier/marketplace opportunities for MANIBHADRA",
-            permissions=("web.read","project.read"),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.supplier_offer",manibhadra_supplier_offer_action,
-            description="Draft a transparent supplier/reseller proposal; sending remains approval-gated",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "manibhadra.listing_plan",manibhadra_listing_action,
-            description="Create policy-bounded Amazon/Flipkart/Meesho listing and SEO plans",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
-        )
-        self.action_bus.register(
-            "marketplace.capabilities",marketplace_status_action,
-            description="Read verified marketplace adapter operation contracts",
-            permissions=("runtime.read",),sources=("pc","system","agent","job","mcp","a2a"),
         )
         self.action_bus.register(
             "compute.nodes.status",compute_nodes_status_action,
@@ -5491,17 +4689,7 @@ class Orchestrator:
             permissions=("code.read","candidate.write","git.push","tests.run","browser.read","browser.test","worker.execute","model.use","media.create"),
             actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead","repair.shadow","openrouter.free.*","direct.free.*"),
         )
-        self.agent_runtime.register(
-            "vanik-netra","market intelligence, POI fusion, competition analysis and opportunity scout",
-            permissions=("web.read","runtime.read","runtime.write","project.write","evidence.write"),
-            actions=("vanik_netra.*",),
-        )
 
-        self.agent_runtime.register(
-            "vanijya","independent Sales & Marketing Head for market-to-verified-revenue orchestration",
-            permissions=("runtime.read","project.read","project.write","web.read","model.use","worker.execute"),
-            actions=("vanijya.*",),
-        )
 
         self.agent_runtime.register(
             "narad","durable automation and provider workflow runtime",
@@ -5629,7 +4817,44 @@ Project: {payload.get('project')}
         }
 
     def brahma_process_status(self):
-        return self.brahma_process_qc.status()
+        status=self.brahma_process_qc.status()
+        gods={str(x.get("id") or ""):x for x in status.get("gods") or []}
+        # SURYDEV has an independent authenticated external-node heartbeat. Only
+        # real learning activity makes it green; a merely connected worker stays red/idle.
+        try:
+            nodes=(self.suryadev.device_status() or {}).get("nodes") or []
+            active_nodes=[x for x in nodes if x.get("learning_green")]
+            if "suryadev" in gods:
+                god=gods["suryadev"]
+                if active_nodes:
+                    node=active_nodes[0]
+                    god.update({
+                        "active":True,"state":"working","color":"green",
+                        "detail":str(node.get("current_job_id") or node.get("learning_state") or "Learning from connected device"),
+                        "updated_at":float(node.get("last_seen") or time.time()),
+                    })
+                elif nodes and str(god.get("state") or "").lower() not in {"working","handling"}:
+                    node=nodes[0]
+                    god.update({
+                        "active":False,"state":"idle","color":"red",
+                        "detail":"Connected · "+str(node.get("learning_state") or "idle"),
+                        "updated_at":float(node.get("last_seen") or god.get("updated_at") or time.time()),
+                    })
+        except Exception:
+            pass
+        try:
+            m=self.mrityunjay.status()
+            if "mrityunjaya" in gods and m.get("busy"):
+                gods["mrityunjaya"].update({
+                    "active":True,"state":"working","color":"green",
+                    "detail":str(m.get("last_trigger") or "Self-heal is running"),
+                    "updated_at":time.time(),
+                })
+        except Exception:
+            pass
+        status["gods"]=[gods.get(str(x.get("id") or ""),x) for x in status.get("gods") or []]
+        status["latest_color"]="green" if any(bool(x.get("active")) for x in status["gods"]) else "red"
+        return status
 
     def _amcc_runtime_signals(self):
         snapshot=self.governor.snapshot()
