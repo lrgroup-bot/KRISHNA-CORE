@@ -199,13 +199,6 @@ class Orchestrator:
         self.social_channels = SocialChannelRegistry()
         self.zero_spend = ZeroSpendPolicy()
         self.three_d_router = ThreeDModelRouter(zero_spend=self.zero_spend)
-            runtime_state / "vanijya-sales.json",
-            crm=self.manibhadra_crm,
-        )
-            self.manibhadra_crm,
-            store=self.vanik_netra_store,
-            sources=self.vanik_netra_sources,
-        )
         self.system_one = SystemOneDecisionEngine()
         self.capability_fabric = CapabilityFabric(self.system_one)
         self.load_relief_integrations = LoadReliefIntegrationCatalog()
