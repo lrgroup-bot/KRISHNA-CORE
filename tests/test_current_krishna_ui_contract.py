@@ -8,46 +8,46 @@ class CurrentKrishnaUIContractTests(unittest.TestCase):
         self.root=Path(__file__).resolve().parents[1]
         self.html=(self.root/"core"/"web_validation.html").read_text(encoding="utf-8")
         self.accept=(self.root/"scripts"/"ACCEPT_KRISHNA_RUNTIME.ps1").read_text(encoding="utf-8")
+        self.orchestrator=(self.root/"core"/"krishna_core"/"orchestrator.py").read_text(encoding="utf-8")
 
     def test_current_ui_has_explicit_version_marker(self):
         self.assertIn('name="krishna-ui-version" content="2026.09-current"',self.html)
         self.assertIn('data-krishna-ui="2026.09-current"',self.html)
 
-    def test_main_menu_contains_only_owner_visible_entries(self):
+    def test_main_menu_contains_only_krishna_and_sudarshan(self):
         m=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',self.html)
         self.assertIsNotNone(m)
         menu=m.group(1)
+        self.assertEqual(menu.count("<button"),2)
         self.assertIn("showView('home')",menu)
         self.assertIn("showView('sudarshan')",menu)
-        self.assertIn("showView('manibhadra')",menu)
-        self.assertNotIn("showView('plugins')",menu)
-        self.assertEqual(menu.count("<button"),3)
-        self.assertRegex(self.html,r'<div class="nav bottomNav"[^>]*>\s*<button[^>]+showView\(\'plugins\'\)')
-        self.assertNotIn("showView('workingGods')",menu)
-        for hidden in ("kabach","garuda","garudanetra","brahmagyan","gyan","narad","specialists","developer","work","activity","system"):
+        for hidden in ("manibhadra","vanijya","workingGods","kabach","garuda","garudanetra","brahmagyan","gyan","narad","specialists","developer","work","activity","system"):
             self.assertNotIn(f"showView('{hidden}')",menu)
 
-    def test_vanijya_does_not_expand_main_menu(self):
-        m=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',self.html)
-        self.assertIsNotNone(m)
-        self.assertEqual(m.group(1).count("<button"),3)
-        self.assertNotIn("showView('vanijya')",m.group(1))
-        self.assertIn("RISHI VĀṆIJYA · Sales & Marketing Head",self.html)
+    def test_plugins_live_at_sidebar_bottom(self):
+        self.assertRegex(self.html,r'<div class="nav bottomNav"[^>]*>\s*<button[^>]+showView\(\'plugins\'\)')
+        main=re.search(r'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">',self.html).group(1)
+        self.assertNotIn("showView('plugins')",main)
 
-    def test_manibhadra_is_clean_tabbed_owner_workspace(self):
+    def test_lr_group_commerce_is_absent_from_krishna(self):
+        for token in ("MANIBHADRA","VĀṆIJYA","VANIJYA","manibhadra.","vanijya.","vanik_netra."):
+            self.assertNotIn(token,self.html)
+            self.assertNotIn(token,self.orchestrator)
+        for name in (
+            "manibhadra_advisor.py","manibhadra_commerce.py","manibhadra_crm.py",
+            "vanijya_sales.py","vanik_netra.py","vanik_netra_sources.py","vanik_netra_store.py",
+            "commerce_expansion.py","commerce_expansion_adapters.py","marketplace_adapters.py","affiliate_intent.py",
+        ):
+            self.assertFalse((self.root/"core"/"krishna_core"/name).exists(),name)
+
+    def test_system_orbit_has_live_status_and_click_details(self):
         for token in (
-            'id="manibhadra-human-workspace-v2"',
-            'data-mani-page-button="overview"',
-            'data-mani-page-button="sales"',
-            'data-mani-page-button="market"',
-            'data-mani-page-button="records"',
-            'data-mani-page-button="connections"',
-            "function setManibhadraWorkspace(page)",
-            "Vāṇijya Sales",
-            "INSIDE MANIBHADRA",
+            'id="opsInformer"','id="workingGodsMini"','id="godDetailDialog"',
+            'class="systemOrbitHead"',"function openGodDetail(id)","data-label",
+            "Suryadev","Chandradev","Mrityunjaya","UI Guardian","Project Perfection",
         ):
             self.assertIn(token,self.html)
-        self.assertIn("setManibhadraWorkspace('sales');vanijyaSalesCycle()",self.html)
+        self.assertIn('"suryadev","Suryadev"',(self.root/"core"/"krishna_core"/"brahma_process_qc.py").read_text(encoding="utf-8"))
 
     def test_sudarshan_is_clean_conversation_workspace(self):
         self.assertIn("SUDARSHAN CLEAN CHAT MODE",self.html)
@@ -74,10 +74,8 @@ class CurrentKrishnaUIContractTests(unittest.TestCase):
 
     def test_runtime_acceptance_rejects_old_ui(self):
         for token in (
-            'Current KRISHNA UI',
-            '2026.09-current',
-            'Old or mismatched KRISHNA desktop design detected',
-            'SUDARSHAN CLEAN CHAT MODE',
+            'Current KRISHNA UI','2026.09-current','Old or mismatched KRISHNA desktop design detected',
+            'SUDARSHAN CLEAN CHAT MODE','$mainMenuButtonCount -eq 2',
         ):
             self.assertIn(token,self.accept)
 
