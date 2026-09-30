@@ -90,11 +90,14 @@ class SuperhumanCommerceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             r=PluginRegistry(td)
             by_id={x["id"]:x for x in r.list()}
-            for pid in ("gmail","google-drive","agentmarkup","windsurf","blackbox-ai","amazon-sp-api","flipkart-seller","meesho-seller","metricool","windsor-ai","shopify","semrush","agentmail","superhuman-mail"):
+            for pid in ("gmail","google-drive","agentmarkup","windsurf","blackbox-ai","metricool","windsor-ai","semrush","agentmail","superhuman-mail"):
                 self.assertIn(pid,by_id)
+            for retired in ("amazon-sp-api","amazon-associates","flipkart-seller","flipkart-affiliate","meesho-seller","alibaba-global","shopify"):
+                self.assertNotIn(retired,by_id)
             self.assertTrue(by_id["agentmarkup"]["free"])
             self.assertFalse(by_id["blackbox-ai"]["free"])
             self.assertFalse(by_id["blackbox-ai"]["enabled"])
+            self.assertEqual(by_id["gmail"]["runtime_state"],"setup_required")
 
     def test_zero_spend_policy_blocks_all_outgoing_money_even_with_owner_intent(self):
         z=ZeroSpendPolicy()
@@ -125,9 +128,9 @@ class SuperhumanCommerceTests(unittest.TestCase):
             r=PluginRegistry(td)
             with self.assertRaises(PermissionError):
                 r.set_enabled("blackbox-ai",True)
-            with self.assertRaises(PermissionError):
-                r.set_enabled("alibaba-global",True)
-            self.assertTrue(r.set_enabled("agentmarkup",True)["enabled"])
+            with self.assertRaises(RuntimeError):
+                r.set_enabled("agentmarkup",True)
+            self.assertTrue(r.set_enabled("ollama",True)["enabled"])
 
     def test_social_registry_separates_direct_and_connector_channels(self):
         s=SocialChannelRegistry()

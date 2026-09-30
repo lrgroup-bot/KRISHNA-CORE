@@ -990,6 +990,16 @@ dialog{width:min(440px,calc(100vw - 28px));max-height:85dvh;overflow:auto;border
 #home .panelInner{position:relative}
 @media(max-width:900px){.workingGodsOverlay{width:190px;right:7px;top:7px}.miniGodRow{grid-template-columns:16px 6px minmax(0,1fr)}.miniGodState{display:none}}
 
+
+.plugin{cursor:pointer;transition:transform .16s ease,border-color .16s ease}.plugin:hover{transform:translateY(-2px);border-color:rgba(87,216,239,.38)}
+.pluginRuntime{font-size:10px;margin-top:6px;color:#8fa2b6}.pluginRuntime.ready,.pluginRuntime.native_ready{color:#67e8a5}.pluginRuntime.policy_blocked{color:#ff9bab}.pluginRuntime.setup_required{color:#e7bd67}
+.pluginDetailDialog{width:min(720px,calc(100vw - 28px));border:1px solid rgba(87,216,239,.28);border-radius:22px;background:linear-gradient(155deg,rgba(8,25,37,.985),rgba(4,11,18,.99));color:#e8eef5;padding:0;box-shadow:0 34px 110px rgba(0,0,0,.68)}
+.pluginDetailDialog::backdrop{background:rgba(1,5,9,.72);backdrop-filter:blur(10px)}
+.pluginDetailInner{padding:22px}.pluginDetailHead{display:flex;gap:12px;align-items:flex-start}.pluginDetailIcon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:rgba(87,216,239,.08);border:1px solid rgba(87,216,239,.22);color:var(--cyan);font-weight:800}.pluginDetailIdentity{flex:1}.pluginDetailIdentity h2{margin:0 0 4px}.pluginDetailClose{border:0;background:transparent;color:#dbe7ef;font-size:24px;cursor:pointer}
+.pluginDetailGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:18px 0}.pluginDetailGrid>div{padding:11px;border:1px solid rgba(87,216,239,.12);border-radius:13px;background:rgba(87,216,239,.035)}.pluginDetailGrid span{display:block;color:#7f91a4;font-size:9px;letter-spacing:1px}.pluginDetailGrid b{display:block;margin-top:5px;font-size:12px;overflow-wrap:anywhere}
+.pluginPermissionList{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.pluginPermissionList span{font-size:10px;padding:5px 8px;border-radius:999px;background:rgba(87,216,239,.08);border:1px solid rgba(87,216,239,.12)}
+.pluginSetupBox{margin-top:14px;padding:12px;border-radius:13px;background:rgba(231,189,103,.055);border:1px solid rgba(231,189,103,.15);color:#cbd6df}.pluginDetailActions{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:18px}.pluginSearchRow{display:grid;grid-template-columns:1fr 180px;gap:8px;margin-bottom:14px}
+@media(max-width:760px){.pluginDetailGrid{grid-template-columns:1fr 1fr}.pluginSearchRow{grid-template-columns:1fr}}
 </style>
 <style id="krishna-ui-v5">
 /* KRISHNA UI v5: human-facing workspace stays calm; system tools become on-demand drawers. */
@@ -1246,6 +1256,18 @@ body{background:
   <input id="pluginCredentialInput" class="input" type="password" autocomplete="off" placeholder="Token / API key">
   <div class="dialogActions"><button class="ghost" value="cancel">Cancel</button><button id="pluginCredentialAccept" class="primary" value="accept">Connect</button></div>
  </form>
+</dialog>
+<dialog id="pluginDetailDialog" class="pluginDetailDialog" aria-labelledby="pluginDetailName">
+ <div class="pluginDetailInner">
+  <div class="pluginDetailHead"><span id="pluginDetailIcon" class="pluginDetailIcon">PL</span><div class="pluginDetailIdentity"><div id="pluginDetailKind" class="k">PLUGIN</div><h2 id="pluginDetailName">Plugin</h2><p id="pluginDetailDescription" class="panelSub" style="margin:4px 0 0"></p></div><button class="pluginDetailClose" type="button" onclick="closePluginDetail()" aria-label="Close plugin details">×</button></div>
+  <div class="pluginDetailGrid">
+   <div><span>STATUS</span><b id="pluginDetailStatus"></b></div><div><span>READINESS</span><b id="pluginDetailRuntime"></b></div><div><span>AUTH</span><b id="pluginDetailAuth"></b></div>
+   <div><span>RISK</span><b id="pluginDetailRisk"></b></div><div><span>COST</span><b id="pluginDetailCost"></b></div><div><span>ADAPTER</span><b id="pluginDetailAdapter"></b></div>
+  </div>
+  <div class="k">PERMISSIONS</div><div id="pluginDetailPermissions" class="pluginPermissionList"></div>
+  <div id="pluginDetailSetup" class="pluginSetupBox"></div>
+  <div class="pluginDetailActions"><button id="pluginDetailCredential" class="ghost" type="button"></button><button id="pluginDetailToggle" class="primary" type="button"></button></div>
+ </div>
 </dialog><div class="app">
 <aside class="side"><div class="brand">KRISHNA<small>ALMIGHTY · LOCAL COMMAND CORE</small></div>
 <div class="section">MAIN MENU</div><div class="nav mainMenuNav">
@@ -1471,7 +1493,20 @@ body{background:
 <div class="card" style="margin-top:14px"><div class="k">DEEP RESEARCH OUTPUT</div><pre id="brahmaOutput" class="log">Create or select a mission.</pre></div>
 </div></section>
 <section id="gyan" class="view panelView"><div class="panelInner"><h1 class="panelTitle">Gyan-Bhandar 🧠</h1><p class="panelSub">KRISHNA's evidence-backed memory fabric. Working, episodic, semantic, graph, skill and evidence memory remain separated by type, provenance and verification state.</p><div id="gyanPending" class="gyanPending"></div><div id="gyanInventory" class="grid" style="margin-bottom:14px"></div><div class="card"><div class="k">TOPIC / THEORY</div><div style="display:grid;grid-template-columns:1fr 180px;gap:8px;margin:10px 0"><input id="gyanTopic" class="input" placeholder="What knowledge should be recalled or strengthened?"><select id="gyanKind" class="select" onchange="loadGyan()"><option value="">All memory types</option><option value="working">Working</option><option value="episodic">Episodic</option><option value="semantic">Semantic</option><option value="graph">Graph</option><option value="skill">Skill</option><option value="evidence">Evidence</option></select></div><button class="primary" onclick="strengthenGyan()">STRENGTHEN WITH GARUDANETRA</button><button class="ghost" onclick="loadGyan()">RECALL MEMORY</button><button class="ghost" onclick="loadGyan(true)">SHOW SUPERSEDED</button></div><div id="gyanResults" style="margin-top:14px"></div></div></section>
-<section id="plugins" class="view panelView"><div class="panelInner"><div class="pluginTitleRow"><div><h1 class="panelTitle">Plugins</h1><p class="panelSub">Free/open-source first. Credentials stay encrypted on this Windows PC; KRISHNA never asks for a normal website password when OAuth or a token is the proper method.</p></div><span class="freeOnlyBadge">FREE / OSS CATALOG</span></div><div class="pluginResearchNote"><b>Curated from GitHub:</b> Ollama (MIT), Model Context Protocol reference servers (Apache-2.0/MIT transition), Activepieces community/core (MIT outside separate EE areas), plus KRISHNA's existing GitHub and PC connectors. The old OpenAI Retrieval Plugin is not auto-added because its normal runtime depends on paid API usage.</div><div class="addBox pluginAddBox"><input id="pluginName" class="input" placeholder="Plugin name"><select id="pluginKind" class="select"><option>connector</option><option>local</option><option>http</option><option>mcp</option><option>custom</option></select><select id="pluginAuth" class="select" aria-label="Authentication"><option value="none">No auth</option><option value="token">Access token</option><option value="api_key">API key</option><option value="oauth">OAuth</option><option value="local">Local</option></select><input id="pluginEndpoint" class="input" placeholder="Endpoint / identifier (optional)"><button class="primary" onclick="addPlugin()">Add plugin</button></div><div id="pluginsGrid" class="pluginGrid"></div></div></section>
+<section id="plugins" class="view panelView"><div class="panelInner">
+<div class="pluginTitleRow"><div><h1 class="panelTitle">Plugins</h1><p class="panelSub">Free/open-source first. Click any plugin card for status, permissions, authentication and setup. Credentials stay encrypted on this Windows PC.</p></div><span class="freeOnlyBadge">FREE / OSS CATALOG</span></div>
+<div class="pluginResearchNote"><b>KRISHNA rule:</b> Installed ≠ connected ≠ enabled. A plugin can enable only when its execution path is ready. Amazon, Flipkart, Meesho, Alibaba and Shopify integrations are intentionally excluded.</div>
+<div class="addBox pluginAddBox">
+ <input id="pluginName" class="input" placeholder="Plugin name">
+ <select id="pluginKind" class="select"><option value="http">HTTP API</option><option value="connector">Connector</option><option value="local">Local</option><option value="mcp">MCP</option><option value="custom">Custom</option></select>
+ <select id="pluginAuth" class="select" aria-label="Authentication"><option value="none">No auth</option><option value="token">Access token</option><option value="api_key">API key</option><option value="oauth">OAuth</option><option value="local">Local</option><option value="device">Device</option></select>
+ <input id="pluginEndpoint" class="input" placeholder="Endpoint / identifier (optional)">
+ <select id="pluginCost" class="select" aria-label="Plugin cost policy"><option value="free">Free / zero-spend</option><option value="paid">Paid / restricted</option></select>
+ <button class="primary" onclick="addPlugin()">Add plugin</button>
+</div>
+<div class="pluginSearchRow"><input id="pluginSearch" class="input" type="search" placeholder="Search plugins…" oninput="filterPlugins()"><select id="pluginStateFilter" class="select" onchange="filterPlugins()"><option value="">All readiness</option><option value="native_ready">Native ready</option><option value="ready">Ready</option><option value="setup_required">Setup required</option><option value="policy_blocked">Policy blocked</option></select></div>
+<div id="pluginsGrid" class="pluginGrid"></div>
+</div></section>
 <section id="specialists" class="view panelView"><div class="panelInner"><h1 class="panelTitle">Specialist Teams ✦</h1><p class="panelSub">KRISHNA assembles bounded specialists, then routes their output through Critic and an independent Verifier. Specialists never become decision authority.</p><div class="card"><textarea id="specialistTask" class="input" style="width:100%;min-height:80px" placeholder="Describe the work that needs a specialist team"></textarea><button class="primary" style="padding:10px 16px;margin-top:8px" onclick="selectSpecialists()">ASSEMBLE TEAM</button></div><div class="card" style="margin-top:12px"><div class="k">TEAM FLOW</div><div id="specialistFlow" class="v">KRISHNA → Planner → Specialists → Critic → Independent Verifier → KRISHNA Decision → Action</div><p id="specialistPolicy">Live mutation is not granted to specialist teams.</p></div><div id="specialistResults" class="grid" style="margin-top:12px"></div><div id="agencyResults" class="grid" style="margin-top:12px"></div></div></section>
 <section id="development" class="view panelView"><div class="panelInner"><h1 class="panelTitle">Autonomous Developer ⌬</h1><p class="panelSub">Git status, safe sync, candidate verification, real browser inspection and explicit API-contract checks.</p><div class="grid"><div class="card"><div class="k">PROJECT</div><div id="devProject" class="v">KRISHNA</div><button class="ghost" onclick="devStatus()">Git status</button><button class="ghost" onclick="devSync()">Safe sync</button></div><div class="card"><div class="k">FRONTEND URL</div><input id="devUrl" class="input" style="width:100%;margin-top:8px" placeholder="http://127.0.0.1:8766/web"><div class="k" style="margin-top:10px">EXPECTED API PATHS</div><input id="devApis" class="input" style="width:100%;margin-top:8px" placeholder="/api/status,/api/projects"></div><div class="card"><div class="k">CANDIDATE ROOT</div><input id="devCandidate" class="input" style="width:100%;margin-top:8px" placeholder="Candidate path"><div class="k" style="margin-top:10px">CHECKS</div><input id="devChecks" class="input" style="width:100%;margin-top:8px" value="python-tests"><button class="primary" style="padding:9px;margin-top:8px" onclick="devVerify()">VERIFY CANDIDATE</button></div></div><div class="card" style="margin-top:12px"><div class="k">DEVELOPMENT EVIDENCE</div><pre id="devOutput" class="log">Ready.</pre></div>
 <div class="card" style="margin-top:12px"><div class="k">UI GUARDIAN · GUI REGISTRY</div><div class="v">Stable / Candidate / Experimental / Rejected</div><p class="panelSub" style="margin:6px 0 12px">Objective browser checks run at 1920×1080, 1440×900, 1024×768 and 390×844 before a candidate can become Stable.</p><div class="taskActions"><button onclick="uiGuardianRegister()">REGISTER CURRENT URL</button><button onclick="loadUIRegistry()">REFRESH REGISTRY</button></div><div id="uiGuardianRegistry" style="margin-top:12px"></div></div></div></section>
@@ -1814,45 +1849,48 @@ function addMsg(role,text){const w=$('welcome');if(w)w.remove();const d=document
 async function createChatForProject(project,title){const p=project||'KRISHNA';return actionReq('chat.create',{project:p,title:title||'New Sudarshan chat'},{project:p})}
 async function newChat(){try{showView('sudarshan');const p=$('project').value||'KRISHNA',c=await createChatForProject(p,'New Sudarshan chat');chatId=c.chat_id;$('messages').innerHTML='<div id="welcome" class="welcome"><div class="orb">☸</div><h1>New conversation</h1><p>Start a task, ask a question, or work on '+escapeHtml(p)+'.</p></div>';await loadChats();await loadGeneralChats();await openChat(chatId)}catch(e){log(e.message)}}
 async function send(){const t=$('input').value.trim();if(!t)return;if(sending)return;if(!chatId)await newChat();if(!chatId)return;sending=true;document.querySelector('.send').disabled=true;$('input').value='';showView('sudarshan');addMsg('user',t);$('sudarshanState').textContent='KRISHNA WORKING';try{const d=await req('/api/core/chat',{message:t,project:$('project').value||'general',chat_id:chatId,source:'web',mode:'chat',attachment_ids:pendingAttachmentIds.slice(0,3)});pendingAttachmentIds=[];addMsg('assistant',d.reply||d.text||JSON.stringify(d));if(d.capability==='gita-gyan')renderGitaSessionControls('messages');$('sudarshanState').textContent=d.task_id?'TASK '+String(d.task_id).slice(0,8):'RESPONSE RECEIVED';log(d);await loadChats()}catch(e){$('sudarshanState').textContent='ERROR';addMsg('assistant','ERROR: '+e.message);log(e.message)}finally{sending=false;document.querySelector('.send').disabled=false}}
+let pluginCache=[];
+function pluginRuntimeLabel(p){return String(p.runtime_state||'setup_required').replaceAll('_',' ').toUpperCase()}
+function filterPlugins(){
+ const q=($('pluginSearch')?.value||'').trim().toLowerCase(),state=$('pluginStateFilter')?.value||'',box=$('pluginsGrid');
+ if(!box)return;box.innerHTML='';
+ pluginCache.filter(p=>{
+  if(state&&p.runtime_state!==state)return false;
+  if(!q)return true;
+  return [p.name,p.id,p.description,p.kind,p.adapter,...(p.permissions||[])].some(v=>String(v||'').toLowerCase().includes(q));
+ }).forEach(renderPluginCard);
+}
+function renderPluginCard(p){
+ const box=$('pluginsGrid'),row=document.createElement('div');row.className='card plugin'+(p.free?' freePlugin':'');row.tabIndex=0;row.setAttribute('role','button');row.setAttribute('aria-label','Open '+p.name+' plugin details');
+ row.innerHTML='<div class="pluginIcon"></div><div class="pluginBody"><div class="pluginHead"><div><div class="pluginName"></div><div class="pluginMeta"></div><div class="pluginRuntime"></div></div><div class="pluginBadges"></div></div><div class="desc"></div><div class="pluginSource"></div></div>';
+ row.querySelector('.pluginIcon').textContent=(p.name||'?').slice(0,2).toUpperCase();
+ row.querySelector('.pluginName').textContent=p.name;
+ row.querySelector('.pluginMeta').textContent=(p.kind||'custom')+' · '+(p.risk||'medium')+' risk · '+(p.enabled?'ENABLED':'DISABLED');
+ const runtime=row.querySelector('.pluginRuntime');runtime.className='pluginRuntime '+(p.runtime_state||'setup_required');runtime.textContent=pluginRuntimeLabel(p);
+ row.querySelector('.desc').textContent=p.description||'Custom KRISHNA plugin';
+ const badges=row.querySelector('.pluginBadges');
+ if(p.free){const b=document.createElement('span');b.textContent='FREE';b.className='pluginBadge free';badges.appendChild(b)}
+ if(p.license){const b=document.createElement('span');b.textContent=p.license;b.className='pluginBadge';badges.appendChild(b)}
+ row.querySelector('.pluginSource').textContent=p.source_url?('Source: '+p.source_url.replace(/^https?:\/\//,'')):'Source not verified';
+ row.onclick=()=>openPluginDetail(p.id);row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openPluginDetail(p.id)}};
+ box.appendChild(row);
+}
 async function loadPlugins(){
- try{
-  const d=await req('/api/plugins'),box=$('pluginsGrid');box.innerHTML='';
-  (d.plugins||[]).forEach(p=>{
-   const row=document.createElement('div');row.className='card plugin'+(p.free?' freePlugin':'');
-   row.innerHTML='<div class="pluginIcon"></div><div class="pluginBody"><div class="pluginHead"><div><div class="pluginName"></div><div class="pluginMeta"></div></div><div class="pluginBadges"></div></div><div class="desc"></div><div class="pluginSource"></div><div class="pluginActions"><button class="toggle"></button><button class="credentialBtn" type="button"></button></div></div>';
-   row.querySelector('.pluginIcon').textContent=(p.name||'?').slice(0,2).toUpperCase();
-   row.querySelector('.pluginName').textContent=p.name;
-   row.querySelector('.pluginMeta').textContent=p.kind+' · '+p.risk+' risk · '+(p.enabled?'ENABLED':'DISABLED');
-   row.querySelector('.desc').textContent=p.description||'Custom KRISHNA plugin';
-   const badges=row.querySelector('.pluginBadges');
-   if(p.free){const b=document.createElement('span');b.textContent='FREE';b.className='pluginBadge free';badges.appendChild(b)}
-   if(p.license){const b=document.createElement('span');b.textContent=p.license;b.className='pluginBadge';badges.appendChild(b)}
-   const source=row.querySelector('.pluginSource');
-   source.textContent=p.source_url?('Source: '+p.source_url.replace(/^https?:\/\//,'')):'Source not verified';
-   const toggle=row.querySelector('.toggle');toggle.textContent=p.enabled?'Disable':'Enable';
-   toggle.onclick=async()=>{
-     try{
-       const enabling=!p.enabled;
-       if(enabling){
-         const ok=await confirmAction('Enable plugin "'+p.name+'"? Its declared permissions and network access become available only through KRISHNA/Sudarshan policy.');
-         if(!ok)return;
-       }
-       await req('/api/plugins/enable',{id:p.id,enabled:enabling,approved:enabling,project:$('project')?.value||'KRISHNA'});
-       await loadPlugins()
-     }catch(e){log(e.message)}
-   };
-   const credential=row.querySelector('.credentialBtn');
-   if(p.auth_type==='token'||p.auth_type==='api_key'){
-     credential.textContent=p.credential_ref?'Replace credential':'Connect credential';
-     credential.onclick=()=>connectPluginCredential(p.id,p.name,p.auth_type);
-   }else if(p.auth_type==='oauth'){
-     credential.textContent='OAuth required';credential.disabled=true;credential.title='Use the provider’s official OAuth connector; KRISHNA does not collect account passwords.';
-   }else{
-     credential.textContent=p.auth_type==='local'?'Local · no login':'No credential';credential.disabled=true;
-   }
-   box.appendChild(row);
-  })
- }catch(e){log(e.message)}
+ try{const d=await req('/api/plugins');pluginCache=d.plugins||[];filterPlugins()}catch(e){log(e.message)}
+}
+function closePluginDetail(){const d=document.getElementById('pluginDetailDialog');if(d?.open)d.close()}
+function openPluginDetail(id){
+ const p=pluginCache.find(x=>x.id===id);if(!p)return;
+ $('pluginDetailDialog').dataset.pluginId=p.id;$('pluginDetailIcon').textContent=(p.name||'?').slice(0,2).toUpperCase();$('pluginDetailKind').textContent=(p.kind||'PLUGIN').toUpperCase()+(p.builtin?' · BUILT-IN':' · CUSTOM');$('pluginDetailName').textContent=p.name;$('pluginDetailDescription').textContent=p.description||'No description provided.';
+ $('pluginDetailStatus').textContent=p.enabled?'Enabled':'Disabled';$('pluginDetailRuntime').textContent=pluginRuntimeLabel(p);$('pluginDetailAuth').textContent=p.auth_type||'none';$('pluginDetailRisk').textContent=p.risk||'medium';$('pluginDetailCost').textContent=p.free?'Free / zero-spend':'Paid / restricted';$('pluginDetailAdapter').textContent=p.adapter||p.kind||'—';$('pluginDetailSetup').textContent=p.setup_hint||'No setup guidance.';
+ const perms=$('pluginDetailPermissions');perms.innerHTML='';(p.permissions||[]).forEach(x=>{const s=document.createElement('span');s.textContent=x;perms.appendChild(s)});if(!(p.permissions||[]).length){const s=document.createElement('span');s.textContent='No permissions declared';perms.appendChild(s)}
+ const cred=$('pluginDetailCredential');cred.hidden=false;cred.disabled=false;
+ if(p.auth_type==='token'||p.auth_type==='api_key'){cred.textContent=p.credential_ref?'Replace credential':'Connect credential';cred.onclick=()=>connectPluginCredential(p.id,p.name,p.auth_type)}
+ else if(p.auth_type==='oauth'){cred.textContent='OAuth setup required';cred.disabled=true}
+ else if(p.auth_type==='device'){cred.textContent='Device setup required';cred.disabled=true}
+ else{cred.textContent=p.auth_type==='local'?'Local · no credential':'No credential required';cred.disabled=true}
+ const toggle=$('pluginDetailToggle');toggle.textContent=p.enabled?'Disable plugin':p.can_enable?'Enable plugin':p.runtime_state==='policy_blocked'?'Policy blocked':'Setup required';toggle.disabled=!p.enabled&&!p.can_enable;toggle.onclick=async()=>{try{const enabling=!p.enabled;if(enabling&&!await confirmAction('Enable plugin "'+p.name+'"? KRISHNA will expose only its declared permissions through existing policy gates.'))return;await req('/api/plugins/enable',{id:p.id,enabled:enabling,approved:enabling,project:$('project')?.value||'KRISHNA'});await loadPlugins();openPluginDetail(p.id)}catch(e){log(e.message)}};
+ if(!$('pluginDetailDialog').open)$('pluginDetailDialog').showModal();
 }
 function requestPluginCredential(name,authType){
  const dialog=$('pluginCredentialDialog'),input=$('pluginCredentialInput'),label=$('pluginCredentialLabel'),help=$('pluginCredentialHelp');
@@ -1869,8 +1907,8 @@ async function connectPluginCredential(id,name,authType){
 async function addPlugin(){
  const name=$('pluginName').value.trim();if(!name)return;
  try{
-  const added=await req('/api/plugins/add',{name,kind:$('pluginKind').value,endpoint:$('pluginEndpoint').value.trim(),auth_type:$('pluginAuth').value,permissions:[],project_scope:['*'],risk:'medium',enabled:false,free:false});
-  $('pluginName').value='';$('pluginEndpoint').value='';log('Plugin added: '+added.name+' (disabled until explicitly enabled; cost/license not yet verified).');await loadPlugins()
+  const added=await req('/api/plugins/add',{name,kind:$('pluginKind').value,endpoint:$('pluginEndpoint').value.trim(),auth_type:$('pluginAuth').value,permissions:[],project_scope:['*'],risk:'medium',enabled:false,free:$('pluginCost').value==='free'});
+  $('pluginName').value='';$('pluginEndpoint').value='';log('Plugin added: '+added.name+' · '+String(added.runtime_state||'setup_required').replaceAll('_',' ')+'.');await loadPlugins()
  }catch(e){log(e.message)}
 }
 async function indexProject(){try{log(await req('/api/projects/index',{project:$('project').value}));showView('system')}catch(e){log(e.message);showView('system')}}

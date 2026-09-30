@@ -15,10 +15,43 @@ class PluginRegistryTests(unittest.TestCase):
             added=r.add({"name":"My Tool","kind":"mcp","permissions":["read"],"project_scope":["*"],"free":True})
             self.assertEqual(added["id"],"my-tool")
             self.assertFalse(added["enabled"])
-            self.assertTrue(r.set_enabled("my-tool",True)["enabled"])
+            with self.assertRaises(RuntimeError):
+                r.set_enabled("my-tool",True)
             self.assertEqual(r.set_credential("my-tool","vault-ref")["credential_ref"],"vault-ref")
             self.assertEqual(r.clear_credential("my-tool")["credential_ref"],"")
             self.assertTrue(r.remove("my-tool"))
+
+    def test_retired_marketplaces_are_purged_and_cannot_be_readded(self):
+        retired={"amazon-sp-api","amazon-associates","flipkart-seller","flipkart-affiliate","meesho-seller","alibaba-global","shopify"}
+        with tempfile.TemporaryDirectory() as td:
+            state=Path(td)/"plugins.json"
+            state.write_text('[{"id":"shopify","name":"Shopify","kind":"connector","free":true}]',encoding="utf-8")
+            r=PluginRegistry(Path(td))
+            ids={p["id"] for p in r.list()}
+            self.assertTrue(retired.isdisjoint(ids))
+            with self.assertRaises(PermissionError):
+                r.add({"name":"Amazon helper","kind":"http","endpoint":"https://example.com","free":True})
+
+    def test_only_ready_plugins_can_be_enabled(self):
+        with tempfile.TemporaryDirectory() as td:
+            r=PluginRegistry(Path(td))
+            self.assertTrue(r.set_enabled("ollama",True)["enabled"])
+            with self.assertRaises(RuntimeError):
+                r.set_enabled("gmail",True)
+            with self.assertRaises(PermissionError):
+                r.set_enabled("blackbox-ai",True)
+            added=r.add({"name":"Free HTTP","kind":"http","endpoint":"https://example.com","auth_type":"none","free":True})
+            self.assertEqual(added["runtime_state"],"ready")
+            self.assertTrue(r.set_enabled(added["id"],True)["enabled"])
+
+    def test_stale_incomplete_plugin_is_disabled_on_startup(self):
+        with tempfile.TemporaryDirectory() as td:
+            state=Path(td)/"plugins.json"
+            state.write_text('[{"id":"gmail","name":"Gmail","kind":"connector","auth_type":"oauth","permissions":[],"project_scope":["*"],"risk":"high","enabled":true,"builtin":true,"source_url":"https://developers.google.com/workspace/gmail/api/guides","license":"service-connector","free":true}]',encoding="utf-8")
+            r=PluginRegistry(Path(td))
+            gmail=next(x for x in r.list() if x["id"]=="gmail")
+            self.assertFalse(gmail["enabled"])
+            self.assertEqual(gmail["runtime_state"],"setup_required")
 
     def test_builtin_cannot_be_removed(self):
         with tempfile.TemporaryDirectory() as td:

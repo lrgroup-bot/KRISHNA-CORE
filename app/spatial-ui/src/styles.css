@@ -108,3 +108,105 @@ h2 { margin: 10px 0 8px; font-size: 28px; }
   .rf-layout { grid-template-columns: 1fr; }
   .rf-console__header { flex-direction: column; }
 }
+
+
+/* KRISHNA Plugin Marketplace */
+.plugins-surface { max-width: 1180px; }
+.plugins-header { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; }
+.plugin-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:22px 0 16px; }
+.plugin-stats article {
+  min-height:86px; display:grid; align-content:center; gap:4px; padding:14px 16px;
+  border:1px solid rgba(255,255,255,.08); border-radius:16px;
+  background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
+}
+.plugin-stats strong { font-size:25px; letter-spacing:-.03em; }
+.plugin-stats span { color:#8f9ab1; font-size:12px; }
+.plugin-toolbar { display:grid; grid-template-columns:minmax(0,1fr) 180px; gap:10px; margin-bottom:16px; }
+.plugin-toolbar input,.plugin-toolbar select,.plugin-connect-row input {
+  width:100%; border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:11px 12px;
+  background:rgba(4,6,10,.72); color:#eef2ff; outline:none;
+}
+.plugin-toolbar input:focus,.plugin-toolbar select:focus,.plugin-connect-row input:focus { border-color:rgba(157,167,255,.68); }
+.plugin-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.plugin-card {
+  min-height:210px; display:grid; align-content:start; gap:10px; padding:16px; text-align:left;
+  border:1px solid rgba(255,255,255,.08); border-radius:18px; color:#eef2ff; cursor:pointer;
+  background:
+    radial-gradient(circle at 0% 0%,rgba(101,92,242,.12),transparent 42%),
+    linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018));
+  box-shadow:inset 0 1px rgba(255,255,255,.045);
+  transition:transform .16s ease,border-color .16s ease,background .16s ease;
+}
+.plugin-card:hover { transform:translateY(-2px); border-color:rgba(157,167,255,.34); background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025)); }
+.plugin-card__top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.plugin-symbol {
+  width:38px; height:38px; display:grid; place-items:center; border-radius:12px;
+  background:rgba(101,92,242,.15); color:#b7b2ff; border:1px solid rgba(157,167,255,.18);
+}
+.plugin-symbol--large { width:52px; height:52px; border-radius:16px; flex:0 0 auto; }
+.plugin-state { padding:5px 8px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:.04em; color:#a9b3c8; background:rgba(255,255,255,.055); }
+.plugin-state--on { color:#7ef0bc; background:rgba(80,240,172,.11); }
+.plugin-card__desc { min-height:54px; color:#98a2b9; line-height:1.45; font-size:13px; }
+.plugin-card__meta { display:flex; gap:6px; flex-wrap:wrap; }
+.plugin-card__meta span,.plugin-permissions span {
+  padding:5px 8px; border-radius:999px; font-size:10px; color:#c7c3ff; background:rgba(133,126,255,.105);
+}
+.plugin-card__footer { display:flex; align-items:center; gap:7px; margin-top:auto; color:#8f99ad; font-size:11px; }
+.plugin-dot { width:7px; height:7px; border-radius:50%; background:#596274; box-shadow:0 0 0 3px rgba(255,255,255,.025); }
+.plugin-dot--ok { background:#50f0ac; box-shadow:0 0 12px rgba(80,240,172,.35); }
+.plugin-modal-backdrop {
+  position:fixed; inset:0; z-index:4000; display:grid; place-items:center; padding:24px;
+  background:rgba(2,4,8,.72); backdrop-filter:blur(14px);
+}
+.plugin-modal {
+  position:relative; width:min(760px,96vw); max-height:min(830px,92vh); overflow:auto; padding:24px;
+  border:1px solid rgba(157,167,255,.24); border-radius:24px;
+  background:
+    radial-gradient(circle at 12% 0%,rgba(101,92,242,.18),transparent 36%),
+    rgba(11,14,21,.98);
+  box-shadow:0 32px 100px rgba(0,0,0,.56),inset 0 1px rgba(255,255,255,.06);
+}
+.plugin-modal__close {
+  position:absolute; right:16px; top:14px; width:36px; height:36px; border:0; border-radius:50%;
+  background:rgba(255,255,255,.06); color:#eef2ff; font-size:24px; line-height:1; cursor:pointer;
+}
+.plugin-modal__hero { display:flex; gap:14px; padding-right:42px; align-items:flex-start; }
+.plugin-modal__hero h2 { margin-top:5px; }
+.plugin-detail-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; margin:18px 0; }
+.plugin-detail-grid article {
+  min-height:74px; display:grid; gap:6px; align-content:center; padding:12px;
+  border:1px solid rgba(255,255,255,.075); border-radius:14px; background:rgba(255,255,255,.025);
+}
+.plugin-detail-grid span,.plugin-detail-label { color:#8792a8; font-size:10px; text-transform:uppercase; letter-spacing:.08em; }
+.plugin-detail-grid strong { font-size:13px; overflow-wrap:anywhere; }
+.plugin-detail-section { display:grid; gap:8px; margin-top:14px; }
+.plugin-detail-section code {
+  display:block; overflow-wrap:anywhere; padding:10px 12px; border-radius:11px; color:#cdd3ff;
+  background:#06080d; border:1px solid rgba(255,255,255,.07);
+}
+.plugin-permissions { display:flex; gap:6px; flex-wrap:wrap; }
+.plugin-connect-box {
+  margin-top:16px; padding:14px; border:1px solid rgba(255,255,255,.08); border-radius:16px;
+  background:linear-gradient(145deg,rgba(92,220,242,.055),rgba(255,255,255,.02));
+}
+.plugin-connect-box .muted { margin:6px 0 11px; font-size:12px; }
+.plugin-connect-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; }
+.plugin-notice { color:#7ef0bc; }
+.plugin-warning { color:#f2c96f; }
+.plugin-error { color:#ff9cac; }
+.plugin-modal__actions { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:20px; }
+.plugin-link { text-decoration:none; display:inline-flex; align-items:center; }
+.kr-button--danger { background:#612638; }
+@media (max-width: 980px) {
+  .plugin-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .plugin-detail-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 700px) {
+  .plugins-header { flex-direction:column; }
+  .plugin-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .plugin-toolbar { grid-template-columns:1fr; }
+  .plugin-grid { grid-template-columns:1fr; }
+  .plugin-detail-grid { grid-template-columns:1fr 1fr; }
+  .plugin-connect-row { grid-template-columns:1fr; }
+  .plugin-modal { padding:20px; }
+}
