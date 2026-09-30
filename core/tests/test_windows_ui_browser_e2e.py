@@ -78,7 +78,7 @@ class WindowsUIBrowserTests(unittest.TestCase):
                 self.assertEqual(page.locator("#opsLoadText").inner_text(), "CPU —% · RAM —% · stale")
                 self.assertIn("idle", page.locator("#opsLoadDot").get_attribute("class"))
 
-                self.assertEqual(page.locator("#workingGodsMini .miniGodRow").count(),19)
+                self.assertEqual(page.locator("#workingGodsMini .miniGodRow").count(),20)
                 page.get_by_role("button",name="Show Chandradev details").click()
                 self.assertTrue(page.get_by_role("dialog",name="Chandradev").is_visible())
                 self.assertIn("PC visual quality-control",page.locator("#godDetailRole").inner_text())
