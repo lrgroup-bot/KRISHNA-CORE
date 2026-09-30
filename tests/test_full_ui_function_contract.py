@@ -106,11 +106,11 @@ class FullUIFunctionContractTests(unittest.TestCase):
             self.assertNotIn(token,self.html)
 
     def test_live_system_orbit_includes_internal_workers(self):
-        for token in (
-            "Suryadev","Chandradev","Mrityunjaya","UI Guardian","Developer","Specialists","Project Perfection",
-            "systemOrbitHead","miniGodRow","openGodDetail",
-        ):
+        for token in ("systemOrbitHead","miniGodRow","openGodDetail","row.dataset.label"):
             self.assertIn(token,self.html)
+        qc=(ROOT/"core"/"krishna_core"/"brahma_process_qc.py").read_text(encoding="utf-8")
+        for token in ("Suryadev","Chandradev","Mrityunjaya","UI Guardian","Developer","Specialists","Project Perfection"):
+            self.assertIn(token,qc)
 
     def test_no_server_fallback_to_legacy_dashboard(self):
         self.assertNotIn("WEB_VALIDATION if WEB_VALIDATION.exists() else DASHBOARD",self.server)
