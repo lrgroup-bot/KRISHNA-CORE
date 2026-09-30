@@ -34,7 +34,7 @@ class WindowsUIBrowserTests(unittest.TestCase):
                     route.fulfill(status=404, body="")
                 page.route("**/*", respond)
                 page.goto("http://desktop.test/")
-                for width, height in [(1280,720), (1366,768), (1440,900), (1920,1080)]:
+                for width, height in [(960,640), (1024,768), (1280,720), (1366,768), (1440,900), (1920,1080)]:
                     page.set_viewport_size({"width": width, "height": height})
                     page.get_by_role("button", name="☸Sudarshan", exact=True).click()
                     for selector in ["#input", 'button[aria-label="Send message"]']:
@@ -56,6 +56,9 @@ class WindowsUIBrowserTests(unittest.TestCase):
                     self.assertTrue(page.locator("#opsInformer").is_visible())
                     self.assertEqual(page.locator("#workingGodsMini .miniGodRow").count(),12)
                     self.assertTrue(page.locator(".sideFoot .opsVitals").is_visible())
+                self.assertTrue(page.locator(".bottomNav").is_visible())
+                page.get_by_role("button", name="⌘Plugins", exact=True).click()
+                self.assertTrue(page.locator("#plugins").is_visible())
                 page.get_by_role("button", name="◆MANIBHADRA", exact=True).click()
                 self.assertTrue(page.locator("#manibhadra .maniWorkspaceNav").is_visible())
                 self.assertTrue(page.locator('[data-mani-page="overview"]').is_visible())
