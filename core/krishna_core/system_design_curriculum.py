@@ -191,6 +191,7 @@ class SystemDesignCurriculum:
             "created_at": time.time(),
         }
         self._load()
+        self.start_date = date.fromisoformat(str(self.state.get("start_date") or self.start_date.isoformat()))
         self._ensure_modules()
 
     def _load(self):
