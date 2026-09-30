@@ -57,12 +57,14 @@ class MobileMrityunjayaContractTests(unittest.TestCase):
         self.assertIn("KrishnaPrivateCore.discoverLan",self.activity)
         self.assertIn("Private Core link rediscovered",self.activity)
 
-    def test_ui_is_hidden_when_healthy(self):
-        self.assertEqual(self.runtime["boundaries"]["mobile_healer_ui"],"hidden-unless-recovering")
+    def test_ui_has_persistent_operational_light(self):
         self.assertIn('id="mrityunjayaChip"',self.index)
         self.assertIn(".mrityunjayaChip{",self.index)
-        self.assertIn("opacity:0",self.index)
-        self.assertIn("MRUTYUNJAYA · ",self.index)
+        for state in ("state-working","state-idle","state-healing","state-degraded","state-blocked"):
+            self.assertIn(state,self.index)
+        for label in ("WORKING","IDLE","HEALING","DEGRADED","BLOCKED"):
+            self.assertIn(label,self.index)
+        self.assertIn("setSystemLight",self.index)
 
     def test_android_studio_test_hooks_exist_without_main_ui_button(self):
         self.assertIn("mrityunjayaStatus",self.activity)
