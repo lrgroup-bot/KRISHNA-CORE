@@ -16,6 +16,7 @@ RISHI_RESEARCH_CHARTERS = {
             "knowledge architecture","research synthesis","history of science","civilizations",
             "scriptures and textual traditions","literature","biography","ontology","knowledge graphs",
             "research provenance","scientific timelines","cross-domain synthesis",
+            "system architecture","distributed-systems knowledge maps","architecture decision records",
         ),
         "frontier_focus": (
             "connect verified findings across fields","preserve disagreement and version history",
@@ -46,6 +47,7 @@ RISHI_RESEARCH_CHARTERS = {
             "artificial intelligence","robotics","space technology","quantum technology",
             "frontier engineering","energy technology","emerging materials","inventions",
             "patents","autonomous systems","human-machine interfaces","future technologies",
+            "distributed systems","cloud architecture","internet-scale systems","service architecture",
         ),
         "frontier_focus": (
             "what has newly become technically possible","cross-field invention",
@@ -125,6 +127,7 @@ RISHI_RESEARCH_CHARTERS = {
             "logic","epistemology","statistics","probability","causality","scientific inference",
             "research methodology","replication","bias","fact checking","source independence",
             "argument analysis","evidence grading","meta-science",
+            "architecture trade-offs","assumption audits","capacity-estimation uncertainty",
         ),
         "frontier_focus": (
             "how we know","falsification","causal identification","replication failure",
@@ -140,6 +143,8 @@ RISHI_RESEARCH_CHARTERS = {
             "defensive cybersecurity","software security","AI security","system resilience",
             "failure analysis","incident response","disaster recovery","reliability engineering",
             "supply-chain security","data integrity","safety engineering","fault tolerance",
+            "distributed-systems reliability","rate limiting","backpressure","idempotency",
+            "observability","disaster recovery","message-delivery failure modes",
         ),
         "frontier_focus": (
             "how systems fail","adversarial testing","recovery","unexpected interaction risk",
@@ -155,6 +160,8 @@ RISHI_RESEARCH_CHARTERS = {
             "scientific method","experimental design","engineering methodology","testing",
             "benchmarking","simulation","education","learning science","knowledge transfer",
             "measurement design","research reproducibility","applied science",
+            "system design","capacity planning","architecture testing","load testing",
+            "performance benchmarking","design review methodology",
         ),
         "frontier_focus": (
             "how to test a hypothesis","better experiment design","benchmark construction",
@@ -300,7 +307,8 @@ RISHI_RESEARCH_CHARTERS = {
         "primary_subjects": (
             "linguistics","grammar","Sanskrit","Indian languages","phonetics","morphology",
             "syntax","semantics","NLP","language models","parsing","translation",
-            "computational linguistics","textual criticism",
+            "computational linguistics","textual criticism","search autocomplete",
+            "Unicode-aware indexing","query normalization",
         ),
         "frontier_focus": (
             "formal language structure","high-precision translation","machine parsing",
@@ -315,6 +323,7 @@ RISHI_RESEARCH_CHARTERS = {
         "primary_subjects": (
             "mathematics","scientific computing","numerical methods","computational astronomy",
             "orbital mechanics","trigonometry","algorithms","simulation","scientific software",
+            "back-of-the-envelope estimation","capacity estimation","latency modeling","throughput modeling",
         ),
         "frontier_focus": (
             "mathematical prediction","high-precision computation","orbital and dynamical models",
@@ -356,6 +365,7 @@ RISHI_RESEARCH_CHARTERS = {
         "primary_subjects": (
             "mathematical analysis","numerical analysis","series","approximation","signal processing",
             "time series","scientific computation","uncertainty propagation","spectral methods",
+            "metrics systems","stream processing","event aggregation","time-series databases",
         ),
         "frontier_focus": (
             "convergence","approximation quality","signal extraction","numerical stability",
@@ -412,6 +422,8 @@ RISHI_RESEARCH_CHARTERS = {
         "primary_subjects": (
             "economics","operations research","supply chains","logistics","resource allocation",
             "game theory","strategy","public systems","risk economics","industrial organization",
+            "distributed operations","queueing systems","reservation systems","payment architecture",
+            "capacity planning","workflow orchestration",
         ),
         "frontier_focus": (
             "robust resource allocation","system incentives","supply-chain resilience",
@@ -426,7 +438,8 @@ RISHI_RESEARCH_CHARTERS = {
         "primary_subjects": (
             "geometry","civil engineering","structural engineering","geodesy",
             "construction mathematics","spatial modeling","surveying","infrastructure",
-            "structural mechanics","transport geometry",
+            "structural mechanics","transport geometry","geospatial indexing","map tiling",
+            "proximity search","routing graphs",
         ),
         "frontier_focus": (
             "safe structures","geometric optimization","infrastructure resilience",
@@ -441,6 +454,8 @@ RISHI_RESEARCH_CHARTERS = {
         "primary_subjects": (
             "combinatorics","discrete mathematics","coding theory","information structures",
             "sequence analysis","compression","formal patterns","algorithmic representation",
+            "consistent hashing","distributed key-value stores","unique ID generation",
+            "message queues","tries","inverted indexes","partitioning",
         ),
         "frontier_focus": (
             "efficient representation","error-correcting structures","sequence algorithms",
