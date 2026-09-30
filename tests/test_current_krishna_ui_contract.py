@@ -47,7 +47,7 @@ class CurrentKrishnaUIContractTests(unittest.TestCase):
         ):
             self.assertIn(token,self.html)
         qc=(self.root/"core"/"krishna_core"/"brahma_process_qc.py").read_text(encoding="utf-8")
-        for token in ("Suryadev","Chandradev","Mrityunjaya","UI Guardian","Developer","Specialists","Project Perfection"):
+        for token in ("Suryadev","Chandradev","Mrityunjaya","UI Guardian","Developer","Specialists","Project Perfection","Vishvakarma"):
             self.assertIn(token,qc)
 
     def test_sudarshan_is_clean_conversation_workspace(self):
