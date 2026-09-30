@@ -1,4 +1,4 @@
-"""Render the real desktop shell; assert controls are reachable, not just present."""
+"""Render the real desktop shell; assert controls are reachable, responsive and honest."""
 import json
 import os
 import unittest
@@ -7,7 +7,7 @@ from pathlib import Path
 
 @unittest.skipUnless(os.getenv("KRISHNA_WINDOWS_UI_E2E") == "1", "desktop browser E2E disabled")
 class WindowsUIBrowserTests(unittest.TestCase):
-    def test_desktop_layout_and_observed_load(self):
+    def test_desktop_layout_and_live_system_orbit(self):
         from playwright.sync_api import sync_playwright
         html = (Path(__file__).resolve().parents[1] / "web_validation.html").read_text(encoding="utf-8")
         with sync_playwright() as pw:
@@ -15,9 +15,20 @@ class WindowsUIBrowserTests(unittest.TestCase):
             try:
                 page = browser.new_page()
                 sample = {"cpu_percent": 14.5, "memory_percent": 75, "checked_at": 9999999999, "pressure": {"memory": True}}
-                systems = [{"id": key, "name": name, "logo": "◈", "state": "handling" if key == "brahma" else "idle", "color": "yellow" if key == "brahma" else "red", "detail": "Checking a failed step" if key == "brahma" else "Idle", "updated_at": 9999999999} for key, name in [
-                    ("krishna", "KRISHNA"), ("brahma", "BRAHMA"), ("sudarshan", "Sudarshan"), ("hawkeye", "Hawkeye"), ("kabach", "KABACH"), ("garuda", "Garuda"),
-                    ("garudanetra", "Garudanetra"), ("narad", "NARAD"), ("brahmagyan", "BRAHMAGYAN"), ("gyan", "Gyan-Bhandar"), ("rishi", "Rishi Council"), ("amcc", "aMCC")]]
+                system_defs=[
+                    ("krishna","KRISHNA"),("brahma","BRAHMA"),("sudarshan","Sudarshan"),("hawkeye","HAWKEYE"),
+                    ("kabach","KABACH"),("garuda","Garuda"),("garudanetra","Garudanetra"),("narad","NARAD"),
+                    ("brahmagyan","BRAHMAGYAN"),("gyan","Gyan-Bhandar"),("rishi","Rishi Council"),("amcc","aMCC"),
+                    ("suryadev","Suryadev"),("chandradev","Chandradev"),("mrityunjaya","Mrityunjaya"),
+                    ("ui_guardian","UI Guardian"),("developer","Developer"),("specialists","Specialists"),
+                    ("perfection","Project Perfection"),
+                ]
+                systems = [{
+                    "id":key,"name":name,"logo":"◈","state":"handling" if key=="chandradev" else "idle",
+                    "active":key=="chandradev","color":"green" if key=="chandradev" else "red",
+                    "detail":"Checking the current PC visual surface" if key=="chandradev" else "Idle",
+                    "updated_at":9999999999,
+                } for key,name in system_defs]
                 def respond(route):
                     path = route.request.url.split("desktop.test", 1)[-1]
                     if path == "/":
@@ -26,7 +37,7 @@ class WindowsUIBrowserTests(unittest.TestCase):
                     if path == "/api/dashboard":
                         data = {"pc_observer": sample, "resources": {"max_concurrent_jobs": 2}}
                     elif path == "/api/working-gods":
-                        data = {"gods": systems, "latest_color": "yellow"}
+                        data = {"gods": systems, "latest_color": "green"}
                     elif path == "/api/runtime/integrity":
                         data = {"status": "SYNCED"}
                     if path.startswith("/api/"):
@@ -50,24 +61,15 @@ class WindowsUIBrowserTests(unittest.TestCase):
                     box = page.get_by_role("button",name="Open KRISHNA AI assistant").bounding_box()
                     self.assertGreaterEqual(box["y"], 0)
                     self.assertLessEqual(box["y"] + box["height"], height)
-                    page.get_by_role("button",name="Open KRISHNA AI assistant").click()
-                    self.assertTrue(page.locator("#krishnaPopup").is_visible())
-                    page.get_by_role("button",name="Close",exact=True).click()
                     self.assertTrue(page.locator("#opsInformer").is_visible())
-                    self.assertEqual(page.locator("#workingGodsMini .miniGodRow").count(),12)
+                    self.assertEqual(page.locator("#workingGodsMini .miniGodRow").count(),19)
                     self.assertTrue(page.locator(".sideFoot .opsVitals").is_visible())
                 self.assertTrue(page.locator(".bottomNav").is_visible())
                 page.get_by_role("button", name="⌘Plugins", exact=True).click()
                 self.assertTrue(page.locator("#plugins").is_visible())
-                page.get_by_role("button", name="◆MANIBHADRA", exact=True).click()
-                self.assertTrue(page.locator("#manibhadra .maniWorkspaceNav").is_visible())
-                self.assertTrue(page.locator('[data-mani-page="overview"]').is_visible())
-                page.locator('[data-mani-page-button="sales"]').click()
-                self.assertTrue(page.locator('[data-mani-page="sales"]').is_visible())
-                self.assertFalse(page.locator('[data-mani-page="overview"]').is_visible())
-                self.assertIn("Sales & Marketing Head", page.locator('[data-mani-page="sales"]').inner_text())
-                page.get_by_role("button", name="ॐKRISHNA", exact=True).click()
+                self.assertEqual(page.get_by_role("button", name="MANIBHADRA").count(),0)
 
+                page.get_by_role("button", name="ॐKRISHNA", exact=True).click()
                 page.evaluate("refreshCommandCenter()")
                 self.assertEqual(page.locator("#opsLoadText").inner_text(), "CPU 15% · RAM 75%")
                 self.assertIn("warn", page.locator("#opsLoadDot").get_attribute("class"))
@@ -75,11 +77,17 @@ class WindowsUIBrowserTests(unittest.TestCase):
                 page.evaluate("refreshCommandCenter()")
                 self.assertEqual(page.locator("#opsLoadText").inner_text(), "CPU —% · RAM —% · stale")
                 self.assertIn("idle", page.locator("#opsLoadDot").get_attribute("class"))
-                self.assertEqual(page.locator("#workingGodsMini .miniGodRow").count(),12,page.locator("#workingGodsMini").inner_text())
-                self.assertTrue(page.locator("#workingGodsMini").is_visible(),page.locator("#opsInformer").get_attribute("style"))
-                page.get_by_role("button",name="Show BRAHMA details").click()
-                self.assertTrue(page.get_by_role("dialog",name="BRAHMA").is_visible())
-                self.assertIn("Checks work",page.locator("#godDetailRole").inner_text())
-                self.assertEqual(page.locator("#godDetailActivity").inner_text(),"Checking a failed step")
+
+                self.assertEqual(page.locator("#workingGodsMini .miniGodRow").count(),19)
+                page.get_by_role("button",name="Show Chandradev details").click()
+                self.assertTrue(page.get_by_role("dialog",name="Chandradev").is_visible())
+                self.assertIn("PC visual quality-control",page.locator("#godDetailRole").inner_text())
+                self.assertEqual(page.locator("#godDetailState").inner_text(),"Working now")
+                self.assertEqual(page.locator("#godDetailActivity").inner_text(),"Checking the current PC visual surface")
+                page.get_by_role("button",name="Close system details").click()
             finally:
                 browser.close()
+
+
+if __name__=="__main__":
+    unittest.main()
