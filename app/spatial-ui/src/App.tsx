@@ -515,6 +515,10 @@ type PluginManifest = {
   license?: string;
   free?: boolean;
   credential_ref?: string;
+  runtime_state?: string;
+  adapter?: string;
+  setup_hint?: string;
+  can_enable?: boolean;
 };
 
 function PluginsPanel() {
@@ -678,10 +682,11 @@ function PluginsPanel() {
                 <span>{plugin.kind || 'custom'}</span>
                 <span>{plugin.auth_type || 'none'}</span>
                 <span>{plugin.free ? 'Free' : 'Paid / restricted'}</span>
+                <span>{String(plugin.runtime_state || 'setup_required').replaceAll('_', ' ')}</span>
               </div>
               <div className="plugin-card__footer">
-                <span className={connected ? 'plugin-dot plugin-dot--ok' : 'plugin-dot'} />
-                {connected ? 'Connected / no credential needed' : 'Connection required'}
+                <span className={(plugin.can_enable || plugin.enabled) ? 'plugin-dot plugin-dot--ok' : 'plugin-dot'} />
+                {plugin.enabled ? 'Enabled' : plugin.can_enable ? 'Ready to enable' : plugin.setup_hint || (connected ? 'Setup required' : 'Connection required')}
               </div>
             </button>
           );
@@ -713,6 +718,8 @@ function PluginsPanel() {
               <article><span>Cost policy</span><strong>{selected.free ? 'Free eligible' : 'Paid / restricted'}</strong></article>
               <article><span>Project scope</span><strong>{(selected.project_scope || ['*']).join(', ')}</strong></article>
               <article><span>Credential</span><strong>{selected.credential_ref ? 'Secure reference stored' : 'Not stored'}</strong></article>
+              <article><span>Readiness</span><strong>{String(selected.runtime_state || 'setup_required').replaceAll('_', ' ')}</strong></article>
+              <article><span>Adapter</span><strong>{selected.adapter || selected.kind || '—'}</strong></article>
             </div>
 
             <div className="plugin-detail-section">
@@ -779,6 +786,8 @@ function PluginsPanel() {
               </div>
             ) : null}
 
+            {selected.setup_hint ? <div className="plugin-connect-box"><strong>Runtime status</strong><p className="muted">{selected.setup_hint}</p></div> : null}
+
             {notice ? <p className="plugin-notice">{notice}</p> : null}
             {error ? <p className="plugin-error">{error}</p> : null}
 
@@ -791,10 +800,10 @@ function PluginsPanel() {
               <button
                 type="button"
                 className={selected.enabled ? 'kr-button kr-button--danger' : 'kr-button'}
-                disabled={busy === 'toggle' || (!selected.free && !selected.enabled)}
+                disabled={busy === 'toggle' || (!selected.enabled && !selected.can_enable)}
                 onClick={() => void togglePlugin(selected)}
               >
-                {busy === 'toggle' ? 'Updating…' : selected.enabled ? 'Disable plugin' : selected.free ? 'Enable plugin' : 'Owner approval / paid blocked'}
+                {busy === 'toggle' ? 'Updating…' : selected.enabled ? 'Disable plugin' : selected.can_enable ? 'Enable plugin' : selected.runtime_state === 'policy_blocked' ? 'Policy blocked' : 'Setup required'}
               </button>
             </div>
           </section>
