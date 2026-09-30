@@ -13,6 +13,49 @@ _SLUG = re.compile(r"^[a-z][a-z0-9_-]{1,63}$")
 _KINDS = {"builtin", "local", "http", "mcp", "connector", "custom"}
 _AUTH = {"none", "token", "api_key", "oauth", "device", "local"}
 _RISKS = {"low", "medium", "high", "critical"}
+_RETIRED_PLUGIN_IDS = {
+    "amazon-sp-api", "amazon-associates", "flipkart-seller", "flipkart-affiliate",
+    "meesho-seller", "alibaba-global", "shopify",
+}
+_RETIRED_PROVIDER_WORDS = ("amazon", "flipkart", "meesho", "alibaba", "shopify")
+_BUILTIN_RUNTIME = {
+    "pc": ("native_ready", "krishna-pc", "KRISHNA PC capabilities are provided by the local core and remain permission-gated."),
+    "github": ("native_ready", "github-core", "GitHub research and PR-review capabilities exist in KRISHNA; account write access remains separately authorized."),
+    "ollama": ("native_ready", "model-router", "Local Ollama execution is handled by KRISHNA ModelRouter."),
+    "mcp-servers": ("setup_required", "mcp-gateway", "KRISHNA's authenticated MCP gateway is ready; each external MCP server still needs an approved client/transport registration."),
+    "activepieces": ("setup_required", "narad-activepieces", "NARAD has an Activepieces webhook adapter; connect a verified self-hosted endpoint/token before enabling."),
+    "gmail": ("setup_required", "narad-gmail", "The Gmail API adapter is implemented; provider OAuth authorization must be connected before enabling."),
+    "google-drive": ("setup_required", "narad-google", "Drive/Sheets adapters are implemented; provider OAuth authorization must be connected before enabling."),
+    "agentmarkup": ("setup_required", "local-skill", "Install/verify the AgentMarkup local skill in the KRISHNA runtime before enabling."),
+    "windsurf": ("setup_required", "device-local", "Requires an explicitly authorized local IDE/device integration."),
+    "blackbox-ai": ("policy_blocked", "http", "Paid/non-free provider is blocked by KRISHNA zero-spend policy."),
+    "metricool": ("policy_blocked", "connector", "Paid/non-free provider is blocked by KRISHNA zero-spend policy."),
+    "canva": ("policy_blocked", "connector", "Paid/non-free provider is blocked by KRISHNA zero-spend policy."),
+    "windsor-ai": ("setup_required", "connector", "Free-plan connector requires a verified provider adapter and account authorization."),
+    "semrush": ("policy_blocked", "connector", "Paid/non-free provider is blocked by KRISHNA zero-spend policy."),
+    "agentmail": ("setup_required", "connector", "Requires a verified AgentMail connector and account authorization."),
+    "superhuman-mail": ("policy_blocked", "connector", "Paid/non-free provider is blocked by KRISHNA zero-spend policy."),
+}
+
+
+def _runtime_info(item) -> dict:
+    if item.builtin:
+        state, adapter, hint = _BUILTIN_RUNTIME.get(item.id, ("setup_required", item.kind, "A dedicated adapter must be verified before enabling."))
+    elif item.kind == "http":
+        if not item.endpoint:
+            state, adapter, hint = "setup_required", "http", "Add a valid HTTP(S) endpoint before enabling."
+        elif item.auth_type in {"oauth", "device"}:
+            state, adapter, hint = "setup_required", "http", "OAuth/device authentication requires a dedicated provider connector."
+        elif item.auth_type in {"token", "api_key"} and not item.credential_ref:
+            state, adapter, hint = "setup_required", "http", "Connect the API token/key before enabling."
+        else:
+            state, adapter, hint = "ready", "http", "Generic bounded HTTP execution is available."
+    else:
+        state, adapter, hint = "setup_required", item.kind, "Custom connector/local/MCP plugins require a registered adapter before enabling."
+    if not item.free:
+        state = "policy_blocked"
+        hint = "Paid/non-free plugin is blocked by KRISHNA zero-spend policy."
+    return {"runtime_state": state, "adapter": adapter, "setup_hint": hint, "can_enable": state in {"ready", "native_ready"}}
 
 
 @dataclass(slots=True)
@@ -39,6 +82,7 @@ class PluginManifest:
         data = asdict(self)
         data["permissions"] = list(self.permissions)
         data["project_scope"] = list(self.project_scope)
+        data.update(_runtime_info(self))
         return data
 
 
@@ -56,6 +100,7 @@ class PluginRegistry:
         self.lock = RLock()
         self._items: dict[str, PluginManifest] = {}
         self._load()
+        self._purge_retired()
         self._seed()
 
     def _load(self):
@@ -79,6 +124,21 @@ class PluginRegistry:
         tmp.write_text(json.dumps([x.public() for x in self._items.values()], indent=2), encoding="utf-8")
         tmp.replace(self.path)
 
+    def _purge_retired(self):
+        removed=False
+        for plugin_id in tuple(self._items):
+            if plugin_id in _RETIRED_PLUGIN_IDS:
+                self._items.pop(plugin_id, None)
+                removed=True
+        if removed:
+            self._save()
+
+    @staticmethod
+    def _assert_not_retired(data):
+        combined=" ".join(str(data.get(key) or "") for key in ("id","name","source_url","endpoint")).lower()
+        if any(word in combined for word in _RETIRED_PROVIDER_WORDS):
+            raise PermissionError("this marketplace/provider is intentionally excluded from KRISHNA plugins")
+
     def _seed(self):
         defaults = [
             {"id":"pc","name":"PC","description":"Local registered projects, browser inspection, logs and approved PC actions.","kind":"local","auth_type":"local","permissions":["projects.read","files.read","browser.inspect","logs.read"],"risk":"high","builtin":True,"source_url":"local://krishna-pc","license":"KRISHNA-local","free":True},
@@ -91,16 +151,9 @@ class PluginRegistry:
             {"id":"agentmarkup","name":"AgentMarkup","description":"MIT web-project skill for llms.txt, JSON-LD, markdown mirrors, AI crawler policy, headers and machine-readable site validation.","kind":"local","auth_type":"local","permissions":["web.metadata.read","web.metadata.write","build.run"],"risk":"medium","builtin":True,"source_url":"https://github.com/agentmarkup/agentmarkup","license":"MIT","free":True},
             {"id":"windsurf","name":"Windsurf / Devin Desktop","description":"Optional local IDE/agent surface. KRISHNA may learn workflow patterns from it, but it never becomes KRISHNA authority.","kind":"local","auth_type":"device","permissions":["code.read","code.suggest"],"risk":"medium","builtin":True,"source_url":"https://windsurf.com/editor","license":"proprietary-service","free":True},
             {"id":"blackbox-ai","name":"BLACKBOX AI","description":"Optional coding-agent API adapter. Disabled by default because current Agents API requires a paid/enterprise credential; KRISHNA must not silently spend.","kind":"http","auth_type":"api_key","permissions":["code.read","code.suggest","agent.run"],"risk":"high","builtin":True,"source_url":"https://www.blackbox.ai/agents","license":"proprietary-service","free":False},
-            {"id":"amazon-sp-api","name":"Amazon SP-API","description":"Official Amazon seller integration for catalog, listings, inventory and orders; marketplace mutations require owner approval.","kind":"connector","auth_type":"oauth","permissions":["commerce.read","commerce.write"],"risk":"high","builtin":True,"source_url":"https://github.com/amzn/selling-partner-api-sdk","license":"Apache-2.0 SDK / service terms","free":False},
-            {"id":"flipkart-seller","name":"Flipkart Seller API","description":"Official Flipkart Marketplace Seller API for listings, inventory and orders; marketplace mutations require owner approval.","kind":"connector","auth_type":"oauth","permissions":["commerce.read","commerce.write"],"risk":"high","builtin":True,"source_url":"https://seller.flipkart.com/api-docs/index.html","license":"service-connector","free":False},
-            {"id":"meesho-seller","name":"Meesho Seller Portal","description":"Authorized seller-portal/browser-assisted integration until a verified public seller API is configured; no scraping bypasses.","kind":"connector","auth_type":"device","permissions":["commerce.read","commerce.write"],"risk":"high","builtin":True,"source_url":"https://supplier.meesho.com","license":"service-connector","free":False},
-            {"id":"alibaba-global","name":"Alibaba.com Global Seller","description":"Global B2B seller/RFQ connector. Research may run without account access; listing/order writes remain disabled until owner connects and approves a verified seller membership/API.","kind":"connector","auth_type":"oauth","permissions":["commerce.read","commerce.write","rfq.read","rfq.reply"],"risk":"high","builtin":True,"source_url":"https://seller.alibaba.com","license":"service-connector","free":False},
-            {"id":"amazon-associates","name":"Amazon India Associates","description":"Affiliate product-link and earnings connector. Research is available while disconnected; tagged links require the owner's Associates tracking ID and approved site/social/app placement.","kind":"connector","auth_type":"oauth","permissions":["affiliate.read","affiliate.link"],"risk":"medium","builtin":True,"source_url":"https://affiliate-program.amazon.in","license":"service-connector","free":True},
-            {"id":"flipkart-affiliate","name":"Flipkart Affiliate","description":"Affiliate product/deep-link and reporting connector. Exact deep links require the owner's affiliate account connection.","kind":"connector","auth_type":"oauth","permissions":["affiliate.read","affiliate.link"],"risk":"medium","builtin":True,"source_url":"https://affiliate.flipkart.com","license":"service-connector","free":True},
             {"id":"metricool","name":"Metricool","description":"Optional social scheduling and analytics connector candidate for multiple brand/social channels.","kind":"connector","auth_type":"oauth","permissions":["social.read","social.schedule","social.publish"],"risk":"high","builtin":True,"source_url":"https://metricool.com","license":"proprietary-service","free":False},
             {"id":"canva","name":"Canva","description":"Optional creative connector for product images, social assets and campaign designs; KRISHNA approval policy still governs publishing.","kind":"connector","auth_type":"oauth","permissions":["design.read","design.write"],"risk":"medium","builtin":True,"source_url":"https://www.canva.com","license":"proprietary-service","free":False},
             {"id":"windsor-ai","name":"Windsor.ai","description":"Optional cross-channel marketing/analytics connector with a free plan; writes stay owner-approved and only supported provider actions may run.","kind":"connector","auth_type":"oauth","permissions":["marketing.read","marketing.write"],"risk":"high","builtin":True,"source_url":"https://windsor.ai","license":"proprietary-service","free":True},
-            {"id":"shopify","name":"Shopify","description":"Optional commerce connector for store catalog, inventory, orders and analytics.","kind":"connector","auth_type":"oauth","permissions":["commerce.read","commerce.write"],"risk":"high","builtin":True,"source_url":"https://www.shopify.com","license":"proprietary-service","free":False},
             {"id":"semrush","name":"Semrush","description":"Optional SEO/keyword/backlink research connector; never used as a paid fallback without owner approval.","kind":"connector","auth_type":"oauth","permissions":["seo.read"],"risk":"medium","builtin":True,"source_url":"https://www.semrush.com","license":"proprietary-service","free":False},
             {"id":"agentmail","name":"AgentMail","description":"Optional dedicated agent email inbox connector for two-way agent communication; separate from the owner's Gmail.","kind":"connector","auth_type":"oauth","permissions":["mail.read","mail.send","mail.modify"],"risk":"high","builtin":True,"source_url":"https://agentmail.to","license":"proprietary-service","free":True},
             {"id":"superhuman-mail","name":"Superhuman Mail","description":"Optional mail/calendar productivity connector candidate; owner account connection required.","kind":"connector","auth_type":"oauth","permissions":["mail.read","mail.draft","mail.send","calendar.read","calendar.write"],"risk":"high","builtin":True,"source_url":"https://superhuman.com","license":"proprietary-service","free":False},
@@ -152,6 +205,7 @@ class PluginRegistry:
             return [x.public() for x in sorted(self._items.values(), key=lambda p: (not p.builtin, p.name.lower()))]
 
     def add(self, data: dict) -> dict:
+        self._assert_not_retired(data)
         item = self._coerce(data)
         with self.lock:
             if item.id in self._items:
@@ -165,8 +219,12 @@ class PluginRegistry:
             item = self._items.get(plugin_id)
             if not item:
                 raise KeyError(plugin_id)
-            if bool(enabled) and not bool(item.free):
-                raise PermissionError("zero-spend policy blocks paid/non-free plugins")
+            if bool(enabled):
+                info=_runtime_info(item)
+                if not bool(item.free):
+                    raise PermissionError("zero-spend policy blocks paid/non-free plugins")
+                if not info["can_enable"]:
+                    raise RuntimeError("plugin setup is incomplete: "+info["setup_hint"])
             item.enabled = bool(enabled)
             item.updated_at = time.time()
             self._save()
