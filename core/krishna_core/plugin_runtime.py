@@ -102,6 +102,7 @@ class PluginRegistry:
         self._load()
         self._purge_retired()
         self._seed()
+        self._reconcile_runtime_state()
 
     def _load(self):
         if not self.path.exists():
@@ -131,6 +132,16 @@ class PluginRegistry:
                 self._items.pop(plugin_id, None)
                 removed=True
         if removed:
+            self._save()
+
+    def _reconcile_runtime_state(self):
+        changed=False
+        for item in self._items.values():
+            if item.enabled and not _runtime_info(item)["can_enable"]:
+                item.enabled=False
+                item.updated_at=time.time()
+                changed=True
+        if changed:
             self._save()
 
     @staticmethod
