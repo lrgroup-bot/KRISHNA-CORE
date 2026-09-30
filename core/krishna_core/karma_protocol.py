@@ -45,5 +45,5 @@ class KarmaProtocol:
         return {"agent":r.agent,"state":r.state,"score":r.score,
           "mutation_allowed":r.state in {"GREEN","YELLOW"},
           "independent_review_required":r.state!="GREEN",
-          "execution_allowed":r.state not in {"RED","BLACK"},
+          "execution_allowed":r.state in {"GREEN","YELLOW"},
           "retired":r.state=="BLACK"}
