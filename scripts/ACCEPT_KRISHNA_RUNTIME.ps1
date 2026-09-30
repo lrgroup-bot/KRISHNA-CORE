@@ -65,7 +65,10 @@ try{
       $uiHtml -match 'name="krishna-ui-version" content="2026\.09-current"' -and
       $mainMenu -match "showView\('home'\)" -and
       $mainMenu -match "showView\('sudarshan'\)" -and
-      $mainMenu -match "showView\('plugins'\)" -and
+      $mainMenu -match "showView\('manibhadra'\)" -and
+      $mainMenu -notmatch "showView\('plugins'\)" -and
+      $uiHtml -match 'class="nav bottomNav"' -and
+      $uiHtml -match "showView\('plugins'\)" -and
       $mainMenu -notmatch "showView\('workingGods'\)" -and
       $mainMenu -notmatch "showView\('(kabach|garuda|garudanetra|brahmagyan|gyan|narad|specialists|developer|work|activity|system)'\)" -and
       $uiHtml -match 'SUDARSHAN CLEAN CHAT MODE' -and
@@ -73,7 +76,7 @@ try{
       $uiHtml -match '#sudarshan \.holoRail\{\s*display:none !important;'
     )
     if($uiCurrent){
-      Add-Check "Current KRISHNA UI" "PASS" "2026.09 current design; minimal MAIN MENU + clean Sudarshan conversation workspace" @{version="2026.09-current";main_menu=$mainMenu;main_menu_button_count=$mainMenuButtonCount}
+      Add-Check "Current KRISHNA UI" "PASS" "2026.09 current design; KRISHNA + Sudarshan + MANIBHADRA main menu, Plugins bottom, clean Sudarshan conversation workspace" @{version="2026.09-current";main_menu=$mainMenu;main_menu_button_count=$mainMenuButtonCount}
     }else{
       Add-Check "Current KRISHNA UI" "FAIL" "Old or mismatched KRISHNA desktop design detected" @{version_marker=($uiHtml -match '2026\.09-current');main_menu=$mainMenu;main_menu_button_count=$mainMenuButtonCount}
     }
