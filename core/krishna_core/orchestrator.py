@@ -6010,7 +6010,9 @@ Project: {payload.get('project')}
 
     def promote_candidate(self, token, approved=False):
         item=self._promotion_candidates.get(token)
-        project=str((item or {}).get("project") or "KRISHNA")
+        if not item:
+            raise KeyError(token)
+        project=str(item.get("project") or "KRISHNA")
         receipt=self.dispatch_action(
             "promotion.apply",
             {"promotion_token":token},

@@ -1731,7 +1731,6 @@ async function gitaSessionControl(action,target='messages'){
   const text=d.text||d.generated_explanation||d.partha_line||d.reference||('Gita control: '+action);
   if(target==='popup'){popupMessage('assistant',text);renderGitaSessionControls('popup')}
   else{addMsg('assistant',text);renderGitaSessionControls('messages')}
-  if(d.performance)avatarState((d.avatar&&d.avatar.state)||'WISDOM');
  }catch(e){if(target==='popup')popupMessage('assistant','ERROR: '+e.message);else addMsg('assistant','ERROR: '+e.message)}
 }
 function renderGitaSessionControls(target='messages'){

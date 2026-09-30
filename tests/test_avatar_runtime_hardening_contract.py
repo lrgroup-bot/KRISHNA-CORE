@@ -26,6 +26,7 @@ class AvatarRuntimeHardeningContractTests(unittest.TestCase):
         self.assertIn('id="assistantOm"',self.web)
         self.assertIn('onclick="toggleKrishnaPopup(true)"',self.web)
         self.assertNotIn('id="krishnaAvatar"',self.web)
+        self.assertNotIn("avatarState(",self.web)
 
     def test_prepare_and_acceptance_use_full_production_readiness(self):
         self.assertIn("$Audit.production_ready",self.prepare)
