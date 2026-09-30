@@ -47,9 +47,9 @@ class BrahmaProcessQCTests(unittest.TestCase):
     def test_extended_internal_systems_are_in_the_live_orbit(self):
         qc,_,_=self.make_qc()
         ids={g["id"] for g in qc.status()["gods"]}
-        for system_id in ("suryadev","chandradev","mrityunjaya","ui_guardian","developer","specialists","perfection"):
+        for system_id in ("suryadev","chandradev","mrityunjaya","ui_guardian","developer","specialists","perfection","vishvakarma"):
             self.assertIn(system_id,ids)
-        self.assertEqual(len(ids),19)
+        self.assertEqual(len(ids),20)
 
     def test_non_mutating_action_failure_is_retried_once_and_marked_done(self):
         qc,bus,_=self.make_qc()
