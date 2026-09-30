@@ -90,7 +90,7 @@ class WindowsSystemTTS:
         if os.name!="nt":raise RuntimeError("Windows speech is unavailable on this platform")
         text=str(text or "").strip()
         if not text:raise ValueError("text is required")
-        output=Path(output_path).resolve();output.parent.mkdir(parents=True,exist_ok=True)
+        output=Path(output_path);output.parent.mkdir(parents=True,exist_ok=True)
         # Text and path travel through the child environment, never executable code.
         script="""$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Speech;
 $voice=New-Object System.Speech.Synthesis.SpeechSynthesizer;

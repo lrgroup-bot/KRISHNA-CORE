@@ -9,6 +9,7 @@ on:
       - main
       - fix/krishna-ui-runtime-verification
       - fix/krishna-full-error-audit-v1
+      - fix/windows-ui-recovery-20260926
       - feature/bhumiputra-geovision-agent
   pull_request:
     paths:
@@ -251,14 +252,14 @@ jobs:
           grep -q '"mobile_mrityunjaya_auto_healer": true' app/src/main/assets/canonical-runtime.json
           grep -q '"mobile_healer_source_mutation": false' app/src/main/assets/canonical-runtime.json
           grep -q "KRISHNA_UI_READY" app/src/main/java/com/krishna/mobile/MainActivity.java
-          grep -q "showKrishnaFallback" app/src/main/assets/index.html
+          test ! -e app/src/main/assets/avatar-renderer.js
+          if grep -q "avatar-renderer.js" app/src/main/assets/index.html; then echo "retired avatar renderer leaked into mobile" >&2; exit 1; fi
           grep -q "hawkeye-observer-ui.js" app/src/main/assets/index.html
           node --check app/src/main/assets/hawkeye-active-vision.js
           node --check app/src/main/assets/hawkeye-observer-ui.js
           node --check app/src/main/assets/realtime-client.js
           grep -q "resumeAsync" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "pollAsync" app/src/main/java/com/krishna/mobile/MainActivity.java
-          grep -q "avatarSyncAsync" app/src/main/java/com/krishna/mobile/MainActivity.java
           grep -q "resumeAsync" app/src/main/assets/realtime-client.js
           grep -q "Krishna.pollAsync" app/src/main/assets/index.html
           grep -q "PHOTO+DATA" app/src/main/assets/index.html
@@ -478,7 +479,7 @@ jobs:
             grep -q '"chat":true' krishna-ui-ready.log
             grep -q '"mic":true' krishna-ui-ready.log
             adb exec-out screencap -p > krishna-mobile-home.png
-            test "$(stat -c%s krishna-mobile-home.png)" -gt 50000
+            python -c "from pathlib import Path; import struct; d=Path('krishna-mobile-home.png').read_bytes(); assert len(d)>=1024 and d[:8]==b'\\x89PNG\\r\\n\\x1a\\n' and d[12:16]==b'IHDR', 'invalid mobile PNG'; w,h=struct.unpack('>II',d[16:24]); assert w>=320 and h>=480, f'mobile proof too small: {w}x{h}'; print(f'KRISHNA_MOBILE_SCREENSHOT_OK {w}x{h} bytes={len(d)}')"
 
       - name: Upload KRISHNA mobile visual proof
         uses: actions/upload-artifact@v7

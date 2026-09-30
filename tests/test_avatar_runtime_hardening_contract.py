@@ -13,7 +13,7 @@ class AvatarRuntimeHardeningContractTests(unittest.TestCase):
         cls.prepare=(ROOT/"scripts"/"PREPARE_KRISHNA_AVATAR.ps1").read_text(encoding="utf-8")
         cls.accept=(ROOT/"scripts"/"ACCEPT_KRISHNA_RUNTIME.ps1").read_text(encoding="utf-8")
         cls.mobile=(ROOT/"mobile_v3"/"MainActivity.java").read_text(encoding="utf-8")
-        cls.renderer=(ROOT/"mobile_v3"/"avatar-renderer.js").read_text(encoding="utf-8")
+        cls.mobile_index=(ROOT/"mobile_v3"/"index.html").read_text(encoding="utf-8")
 
     def test_server_promotes_only_complete_production_asset(self):
         self.assertIn('production.get("production_ready")',self.server)
@@ -22,12 +22,11 @@ class AvatarRuntimeHardeningContractTests(unittest.TestCase):
         self.assertIn('"active_ready":bool(active_report.get("production_ready"))',self.server)
         self.assertIn('"viseme_lipsync":False',self.server)
 
-    def test_desktop_uses_active_asset_and_real_viseme_target_updates(self):
-        self.assertIn("a.asset_pipeline?.active_asset",self.web)
-        self.assertIn("head.mtAvatar?.[key]",self.web)
-        self.assertNotIn("head.setValue(key,value,40)",self.web)
-        self.assertIn("__krishnaMotionNames",self.web)
-        self.assertIn("getMotionNames",self.web)
+    def test_desktop_opens_assistant_without_avatar_stage(self):
+        self.assertIn('id="assistantOm"',self.web)
+        self.assertIn('onclick="toggleKrishnaPopup(true)"',self.web)
+        self.assertNotIn('id="krishnaAvatar"',self.web)
+        self.assertNotIn("avatarState(",self.web)
 
     def test_prepare_and_acceptance_use_full_production_readiness(self):
         self.assertIn("$Audit.production_ready",self.prepare)
@@ -37,17 +36,13 @@ class AvatarRuntimeHardeningContractTests(unittest.TestCase):
         self.assertIn("$avatar.asset_pipeline.active_ready",self.accept)
         self.assertIn("$avatar.asset_pipeline.active_asset",self.accept)
 
-    def test_mobile_sync_validates_glb_v2_and_preserves_previous_avatar(self):
-        self.assertIn("avatar GLB header is incomplete",self.mobile)
-        self.assertIn("avatar GLB version",self.mobile)
-        self.assertIn("declared length does not match downloaded bytes",self.mobile)
-        self.assertIn("krishna.production.glb.bak",self.mobile)
-        self.assertIn("previous avatar restored",self.mobile)
+    def test_mobile_does_not_sync_avatar_on_launch(self):
+        self.assertNotIn("avatarSyncAsync",self.mobile)
 
-    def test_mobile_renderer_fails_to_visible_fallback_on_webgl_loss(self):
-        self.assertIn("webglcontextlost",self.renderer)
-        self.assertIn("disposeRenderer()",self.renderer)
-        self.assertIn("window.showKrishnaFallback?.(reason)",self.renderer)
+    def test_mobile_does_not_boot_avatar_renderer(self):
+        self.assertFalse((ROOT/"mobile_v3"/"avatar-renderer.js").exists())
+        self.assertNotIn("avatar-renderer.js",self.mobile_index)
+        self.assertNotIn("showKrishnaFallback",self.mobile_index)
 
 
 if __name__=="__main__":
