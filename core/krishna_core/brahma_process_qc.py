@@ -24,7 +24,7 @@ class BrahmaProcessQC:
         ("gyan","Gyan-Bhandar","▤"),("rishi","Rishi Council","△"),("amcc","aMCC","⚡"),
         ("suryadev","Suryadev","☀"),("chandradev","Chandradev","◐"),("mrityunjaya","Mrityunjaya","♜"),
         ("ui_guardian","UI Guardian","◇"),("developer","Developer","⌘"),("specialists","Specialists","✧"),
-        ("perfection","Project Perfection","◎"),
+        ("perfection","Project Perfection","◎"),("vishvakarma","Vishvakarma","⚒"),
     )
 
     def __init__(self,state_root,event_bus,memory=None):
@@ -118,6 +118,7 @@ class BrahmaProcessQC:
             ("developer",("developer","development.","software_factory","engineering")),
             ("specialists",("specialist","specialists","specialist_team")),
             ("perfection",("project_perfection","project-perfection","perfection")),
+            ("vishvakarma",("vishvakarma","repair_shishya","repair-shishya")),
             ("brahmagyan",("brahmagyan",)),("garudanetra",("garudanetra",)),("hawkeye",("hawkeye","bhumiputra")),
             ("kabach",("kabach","privacy")),("narad",("narad",)),("garuda",("garuda",)),("gyan",("gyan",)),
             ("rishi",("rishi",)),("amcc",("amcc","cognition.")),("brahma",("brahma",)),("sudarshan",("sudarshan","shared-action-bus","action.")),
