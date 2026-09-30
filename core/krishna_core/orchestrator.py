@@ -89,7 +89,7 @@ from .mobile_runtime_manifest import MobileRuntimeManifest
 from .rishi_live_research import RishiLiveResearchExecutor
 from .science_atlas import ScienceAtlas
 from .rishi_learning import RishiLearningLedger, CouncilCollaborationEngine
-from .system_design_curriculum import SystemDesignCurriculum
+from .system_design_curriculum import SystemDesignCurriculum, SystemDesignLearningScheduler
 from .brahma_bot import BrahmaBot
 from .brahma_process_qc import BrahmaProcessQC
 from .grand_challenges import GrandChallengeRegistry
@@ -463,6 +463,14 @@ class Orchestrator:
         self._restore_projects()
         self._register_shared_actions()
         self._register_agent_runtime()
+        self.system_design_scheduler = SystemDesignLearningScheduler(
+            runtime_state / "system-design-curriculum" / "scheduler",
+            lambda: self.dispatch_action(
+                "brahmagyan.system_design.background.tick",{},
+                project="KRISHNA",source="system",actor="system-design-learning-scheduler",
+            )["result"],
+        )
+        self.system_design_scheduler.start()
         self.mrityunjay.bind(self._mrityunjay_heal_event)
         self.mrityunjay.attach()
         self._register_builtin_probes()
@@ -2512,9 +2520,10 @@ class Orchestrator:
 
         def brahmagyan_system_design_status(payload,context):
             view=str(payload.get("view") or "status").strip().lower()
-            if view=="schedule":
-                return self.system_design_curriculum.schedule()
-            return self.system_design_curriculum.status()
+            result=self.system_design_curriculum.schedule() if view=="schedule" else self.system_design_curriculum.status()
+            if hasattr(self,"system_design_scheduler"):
+                result["scheduler"]=self.system_design_scheduler.status()
+            return result
 
         def brahmagyan_system_design_background_tick(payload,context):
             resources=self.governor.snapshot()
