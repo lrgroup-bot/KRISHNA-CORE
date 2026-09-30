@@ -256,6 +256,11 @@ class RepositoryErrorAudit(unittest.TestCase):
         self.assertIn("<span class=\"txt\">KRISHNA</span>",aside)
         self.assertIn("<span class=\"txt\">Sudarshan</span>",aside)
         self.assertIn("<span class=\"txt\">Plugins</span>",aside)
+        self.assertIn('class="nav bottomNav"',aside)
+        main=aside.split('<div class="nav mainMenuNav">',1)[1].split('<div class="sidebarWorkspace">',1)[0]
+        self.assertEqual(main.count("<button"),3)
+        self.assertIn("showView('manibhadra')",main)
+        self.assertNotIn("showView('plugins')",main)
         for hidden_runtime in ("KABACH","Garuda","Garudanetra","BRAHMAGYAN","Gyan-Bhandar","NARAD","Specialists","Developer","UI Guardian","Work progress","Activity","System","TOOLS"):
             self.assertNotIn(hidden_runtime,aside)
         self.assertIn('<span>PROJECTS</span>',aside)
