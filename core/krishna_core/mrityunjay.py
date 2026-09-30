@@ -244,6 +244,7 @@ class MrityunjayRuntime:
             "last_trigger": self.last_trigger,
             "last_result": self.last_result,
             "automatic_scope": "bounded reversible repair plus evidence-first improvement research; live changes require deterministic verification and transactional promotion",
+            "project_scope": "KRISHNA plus explicitly registered mutable LR Group projects; project boundaries and independent runtimes remain enforced",
             "change_protocol": [
                 "observe current behavior and objective evidence",
                 "research current web/GitHub evidence through GARUDA",
