@@ -470,7 +470,6 @@ class Orchestrator:
                 project="KRISHNA",source="system",actor="system-design-learning-scheduler",
             )["result"],
         )
-        self.system_design_scheduler.start()
         self.mrityunjay.bind(self._mrityunjay_heal_event)
         self.mrityunjay.attach()
         self._register_builtin_probes()
