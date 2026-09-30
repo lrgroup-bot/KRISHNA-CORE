@@ -1259,7 +1259,7 @@ body{background:
 </dialog>
 <dialog id="pluginDetailDialog" class="pluginDetailDialog" aria-labelledby="pluginDetailName">
  <div class="pluginDetailInner">
-  <div class="pluginDetailHead"><span id="pluginDetailIcon" class="pluginDetailIcon">PL</span><div class="pluginDetailIdentity"><div id="pluginDetailKind" class="k">PLUGIN</div><h2 id="pluginDetailName">Plugin</h2><p id="pluginDetailDescription" class="panelSub" style="margin:4px 0 0"></p></div><button class="pluginDetailClose" type="button" onclick="$('pluginDetailDialog').close()" aria-label="Close plugin details">×</button></div>
+  <div class="pluginDetailHead"><span id="pluginDetailIcon" class="pluginDetailIcon">PL</span><div class="pluginDetailIdentity"><div id="pluginDetailKind" class="k">PLUGIN</div><h2 id="pluginDetailName">Plugin</h2><p id="pluginDetailDescription" class="panelSub" style="margin:4px 0 0"></p></div><button class="pluginDetailClose" type="button" onclick="closePluginDetail()" aria-label="Close plugin details">×</button></div>
   <div class="pluginDetailGrid">
    <div><span>STATUS</span><b id="pluginDetailStatus"></b></div><div><span>READINESS</span><b id="pluginDetailRuntime"></b></div><div><span>AUTH</span><b id="pluginDetailAuth"></b></div>
    <div><span>RISK</span><b id="pluginDetailRisk"></b></div><div><span>COST</span><b id="pluginDetailCost"></b></div><div><span>ADAPTER</span><b id="pluginDetailAdapter"></b></div>
@@ -1878,6 +1878,7 @@ function renderPluginCard(p){
 async function loadPlugins(){
  try{const d=await req('/api/plugins');pluginCache=d.plugins||[];filterPlugins()}catch(e){log(e.message)}
 }
+function closePluginDetail(){const d=document.getElementById('pluginDetailDialog');if(d?.open)d.close()}
 function openPluginDetail(id){
  const p=pluginCache.find(x=>x.id===id);if(!p)return;
  $('pluginDetailDialog').dataset.pluginId=p.id;$('pluginDetailIcon').textContent=(p.name||'?').slice(0,2).toUpperCase();$('pluginDetailKind').textContent=(p.kind||'PLUGIN').toUpperCase()+(p.builtin?' · BUILT-IN':' · CUSTOM');$('pluginDetailName').textContent=p.name;$('pluginDetailDescription').textContent=p.description||'No description provided.';
