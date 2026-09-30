@@ -1,0 +1,42 @@
+name: KRISHNA Agentic Control Plane
+
+on:
+  pull_request:
+    paths:
+      - 'AGENTS.md'
+      - '.agents/**'
+      - '.github/agents/**'
+      - '.github/hooks/**'
+      - '.github/copilot-instructions.md'
+      - 'core/krishna_core/agentic_control_plane.py'
+      - 'scripts/AGENTIC_PRE_TOOL_GATE.py'
+      - 'tests/test_agentic_control_plane.py'
+      - 'docs/AGENTIC_ENGINEERING_CONTROL_PLANE.md'
+      - '.github/workflows/agentic-control-plane.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Compile additive agentic layer
+        run: |
+          python -m py_compile core/krishna_core/agentic_control_plane.py scripts/AGENTIC_PRE_TOOL_GATE.py tests/test_agentic_control_plane.py
+      - name: Validate hook JSON
+        run: python -m json.tool .github/hooks/krishna-safety.json > /dev/null
+      - name: Run additive control-plane tests
+        run: python -m unittest discover -s tests -p 'test_agentic_control_plane.py' -v
+      - name: Verify existing files were not replaced by this layer
+        run: |
+          test -f core/krishna_core/shared_action_bus.py
+          test -f core/krishna_core/engineering_swarm.py
+          test -f core/krishna_core/git_worktrees.py
+          test -f core/krishna_core/mrityunjay.py
+          test -f core/krishna_core/promotion_manager.py
