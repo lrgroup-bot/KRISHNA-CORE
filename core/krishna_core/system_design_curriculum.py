@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import time
+import threading
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import RLock
@@ -351,4 +352,125 @@ class SystemDesignCurriculum:
             "status_counts": counts,
             "next_assignment": self.next_assignment(),
             "source_policy": self.source_policy(),
+        }
+
+
+class SystemDesignLearningScheduler:
+    """Lightweight clock only; actual research remains resource-gated by BRAHMAGYAN."""
+
+    def __init__(self, state_root, run_tick, *, poll_seconds=900):
+        self.root = Path(state_root)
+        self.root.mkdir(parents=True, exist_ok=True)
+        self.path = self.root / "system-design-scheduler.json"
+        self.run_tick = run_tick
+        self.poll_seconds = max(300, int(poll_seconds))
+        self.tz = ZoneInfo("Asia/Kolkata")
+        self._stop = threading.Event()
+        self._thread = None
+        self._lock = RLock()
+        self.state = {
+            "version": 1,
+            "preferred_windows_ist": list(PREFERRED_WINDOWS_IST),
+            "last_window_key": None,
+            "last_verified_date": None,
+            "last_run_at": None,
+            "last_result": None,
+            "last_error": None,
+            "run_count": 0,
+        }
+        self._load()
+
+    def _load(self):
+        if not self.path.is_file():
+            self._save()
+            return
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                self.state.update(raw)
+        except Exception as exc:
+            self.state["last_error"] = f"state_load:{type(exc).__name__}: {exc}"
+
+    def _save(self):
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self.state, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, self.path)
+
+    def due_window(self, now=None):
+        now = now or datetime.now(self.tz)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=self.tz)
+        local = now.astimezone(self.tz)
+        today = local.date().isoformat()
+        if self.state.get("last_verified_date") == today:
+            return None
+        eligible = []
+        for value in PREFERRED_WINDOWS_IST:
+            hour, minute = (int(x) for x in value.split(":"))
+            candidate = local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if local >= candidate:
+                eligible.append((candidate, value))
+        if not eligible:
+            return None
+        _, window = eligible[-1]
+        key = f"{today}@{window}"
+        if self.state.get("last_window_key") == key:
+            return None
+        return {"key": key, "date": today, "window": window}
+
+    def run_once(self, *, now=None, force=False):
+        with self._lock:
+            due = self.due_window(now)
+            if not force and not due:
+                return {"status": "not_due", **self.status()}
+            local = (now or datetime.now(self.tz)).astimezone(self.tz)
+            due = due or {"key": f"{local.date().isoformat()}@forced", "date": local.date().isoformat(), "window": "forced"}
+            self.state["last_window_key"] = due["key"]
+            self.state["last_run_at"] = time.time()
+            self.state["run_count"] = int(self.state.get("run_count") or 0) + 1
+            try:
+                result = self.run_tick()
+                self.state["last_result"] = result
+                self.state["last_error"] = None
+                module = (result or {}).get("curriculum_module") or {}
+                if module.get("status") == "verified":
+                    self.state["last_verified_date"] = due["date"]
+                status = "completed"
+            except Exception as exc:
+                result = None
+                self.state["last_error"] = f"{type(exc).__name__}: {exc}"
+                status = "error"
+            self._save()
+            return {"status": status, "window": due, "result": result, "error": self.state.get("last_error")}
+
+    def start(self):
+        if self._thread and self._thread.is_alive():
+            return self.status()
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._loop, name="krishna-system-design-learning", daemon=True)
+        self._thread.start()
+        return self.status()
+
+    def stop(self):
+        self._stop.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=2)
+        return self.status()
+
+    def _loop(self):
+        while not self._stop.is_set():
+            if self.due_window():
+                self.run_once()
+            if self._stop.wait(self.poll_seconds):
+                break
+
+    def status(self):
+        return {
+            "running": bool(self._thread and self._thread.is_alive()),
+            "poll_seconds": self.poll_seconds,
+            "policy": (
+                "lightweight scheduler only; at most one verified module per local day; "
+                "actual web/model research is still blocked unless BRAHMAGYAN resource gates permit it"
+            ),
+            **self.state,
         }
