@@ -694,6 +694,26 @@ if _BACKGROUND_SERVICES_ENABLED and str(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_
     _brahma_consolidation_scheduler.start()
 
 
+def _system_design_learning_tick():
+    activity_state=activity_snapshot()
+    if str(activity_state.get("current_activity") or "Idle").strip().lower() != "idle":
+        return {"ran":False,"reason":"activity_busy","activity":activity_state.get("current_activity")}
+    snap=pc_observer.snapshot()
+    return orch.dispatch_action(
+        "brahmagyan.system_design.background.tick",
+        {
+            "cpu_percent":float(snap.get("cpu_percent") or 0.0),
+            "memory_percent":float(snap.get("memory_percent") or 0.0),
+        },
+        project="KRISHNA",source="system",actor="system-design-learning-scheduler",
+        permissions=("web.read","model.use","evidence.write","memory.write","runtime.read"),
+    ).get("result") or {}
+
+orch.system_design_scheduler.run_tick=_system_design_learning_tick
+if _BACKGROUND_SERVICES_ENABLED and str(os.getenv("KRISHNA_SYSTEM_DESIGN_RESEARCH_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
+    orch.system_design_scheduler.start()
+
+
 def shutdown_runtime_services():
     failures=[]
     services=(
@@ -701,6 +721,7 @@ def shutdown_runtime_services():
         ("narad_scheduler", _narad_scheduler.stop),
         ("science_frontier_scheduler", _science_frontier_scheduler.stop),
         ("brahma_consolidation_scheduler", _brahma_consolidation_scheduler.stop),
+        ("system_design_learning_scheduler", orch.system_design_scheduler.stop),
         ("long_context_scheduler", orch.long_context_scheduler.stop),
         ("worker_resilience", _worker_resilience.stop),
         ("pc_observer", pc_observer.stop),
@@ -1128,6 +1149,15 @@ class Handler(BaseHTTPRequestHandler):
             cid=str((query.get("collaboration_id") or [""])[0]).strip() or None
             try:return self._json(200,orch.brahmagyan_rishi_collaboration(cid))
             except KeyError:return self._json(404,{"error":"collaboration not found"})
+        if path == "/api/brahmagyan/system-design":
+            view=str((query.get("view") or ["status"])[0]).strip().lower()
+            if view not in {"status","schedule"}:return self._json(400,{"error":"view must be status or schedule"})
+            result=orch.dispatch_action(
+                "brahmagyan.system_design.status",{"view":view},
+                project="KRISHNA",source="pc",actor="brahmagyan-system-design-api",
+                permissions=("runtime.read",),
+            ).get("result") or {}
+            return self._json(200,result)
         if path == "/api/brahmagyan/science/status":
             query_text=str((query.get("query") or [""])[0]).strip()
             kind=str((query.get("kind") or [""])[0]).strip() or None
