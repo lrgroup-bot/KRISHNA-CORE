@@ -33,6 +33,7 @@ from .avatar_asset_pipeline import AvatarAssetInspector
 from .video_avatar import VideoAvatarFabric
 from .science_atlas import ScienceFrontierScheduler
 from .brahma_memory_intelligence import BrahmaConsolidationScheduler
+from .sukracharya_growth import SukracharyaScheduler
 from .windows_desktop_fabric import WindowsDesktopFabric
 from .android_test_fabric import AndroidTestFabric
 from .http_server_runtime import KrishnaThreadingHTTPServer
@@ -694,6 +695,19 @@ if _BACKGROUND_SERVICES_ENABLED and str(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_
     _brahma_consolidation_scheduler.start()
 
 
+_sukracharya_scheduler = SukracharyaScheduler(
+    lambda: orch.sukracharya.cycle(
+        company_id="lr-group",
+        privacy=str(os.getenv("KRISHNA_SUKRACHARYA_PRIVACY","approved_cloud") or "approved_cloud"),
+        queue_video=True,
+        share=True,
+    ),
+    interval_seconds=int(os.getenv("KRISHNA_SUKRACHARYA_RESEARCH_INTERVAL_SECONDS","21600")),
+)
+if _BACKGROUND_SERVICES_ENABLED and str(os.getenv("KRISHNA_SUKRACHARYA_RESEARCH_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
+    _sukracharya_scheduler.start()
+
+
 def shutdown_runtime_services():
     failures=[]
     services=(
@@ -701,6 +715,7 @@ def shutdown_runtime_services():
         ("narad_scheduler", _narad_scheduler.stop),
         ("science_frontier_scheduler", _science_frontier_scheduler.stop),
         ("brahma_consolidation_scheduler", _brahma_consolidation_scheduler.stop),
+        ("sukracharya_scheduler", _sukracharya_scheduler.stop),
         ("long_context_scheduler", orch.long_context_scheduler.stop),
         ("worker_resilience", _worker_resilience.stop),
         ("pc_observer", pc_observer.stop),
@@ -1065,6 +1080,15 @@ class Handler(BaseHTTPRequestHandler):
                 "nodes":orch.compute_nodes.status(),
                 "bridge":orch.external_observers.status(),
             })
+        if path == "/api/sukracharya/status":
+            return self._json(200,{
+                **orch.sukracharya.status(),
+                "scheduler":_sukracharya_scheduler.status(),
+            })
+        if path == "/api/sukracharya/plan":
+            focus=str((query.get("focus") or [""])[0]).strip()
+            company_id=str((query.get("company_id") or ["lr-group"])[0]).strip() or "lr-group"
+            return self._json(200,orch.sukracharya.research_plan(company_id=company_id,focus=focus))
         if path == "/api/suryadev/device/status":
             device,token=self._device_auth()
             if not _pairing.verify(device,token):
@@ -3745,6 +3769,21 @@ class Handler(BaseHTTPRequestHandler):
                 snap.get("cpu_percent") or 0.0,
                 snap.get("memory_percent") or 0.0,
             ))
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
+        if post_path == "/api/sukracharya/cycle":
+            client_ip=self.client_address[0]
+            if client_ip not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"Sukracharya manual cycle must run on KRISHNA PC"})
+            try:
+                return self._json(200,orch.sukracharya.cycle(
+                    company_id=str(data.get("company_id") or "lr-group"),
+                    focus=str(data.get("focus") or ""),
+                    privacy=str(data.get("privacy") or "approved_cloud"),
+                    queue_video=bool(data.get("queue_video",True)),
+                    share=bool(data.get("share",True)),
+                ))
+            except (ValueError,TypeError) as exc:return self._json(400,{"error":str(exc)})
             except RuntimeError as exc:return self._json(503,{"error":str(exc)})
 
         if post_path == "/api/brahmagyan/live/run":
