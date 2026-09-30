@@ -109,7 +109,7 @@ class FullUIFunctionContractTests(unittest.TestCase):
         for token in ("systemOrbitHead","miniGodRow","openGodDetail","row.dataset.label"):
             self.assertIn(token,self.html)
         qc=(ROOT/"core"/"krishna_core"/"brahma_process_qc.py").read_text(encoding="utf-8")
-        for token in ("Suryadev","Chandradev","Mrityunjaya","UI Guardian","Developer","Specialists","Project Perfection"):
+        for token in ("Suryadev","Chandradev","Mrityunjaya","UI Guardian","Developer","Specialists","Project Perfection","Vishvakarma"):
             self.assertIn(token,qc)
 
     def test_no_server_fallback_to_legacy_dashboard(self):
