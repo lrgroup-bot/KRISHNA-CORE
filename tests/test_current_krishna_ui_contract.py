@@ -43,11 +43,12 @@ class CurrentKrishnaUIContractTests(unittest.TestCase):
     def test_system_orbit_has_live_status_and_click_details(self):
         for token in (
             'id="opsInformer"','id="workingGodsMini"','id="godDetailDialog"',
-            'class="systemOrbitHead"',"function openGodDetail(id)","data-label",
-            "Suryadev","Chandradev","Mrityunjaya","UI Guardian","Project Perfection",
+            'class="systemOrbitHead"',"function openGodDetail(id)","row.dataset.label",
         ):
             self.assertIn(token,self.html)
-        self.assertIn('"suryadev","Suryadev"',(self.root/"core"/"krishna_core"/"brahma_process_qc.py").read_text(encoding="utf-8"))
+        qc=(self.root/"core"/"krishna_core"/"brahma_process_qc.py").read_text(encoding="utf-8")
+        for token in ("Suryadev","Chandradev","Mrityunjaya","UI Guardian","Developer","Specialists","Project Perfection"):
+            self.assertIn(token,qc)
 
     def test_sudarshan_is_clean_conversation_workspace(self):
         self.assertIn("SUDARSHAN CLEAN CHAT MODE",self.html)
