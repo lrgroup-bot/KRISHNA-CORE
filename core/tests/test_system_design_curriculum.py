@@ -89,6 +89,16 @@ class SystemDesignCurriculumTests(unittest.TestCase):
         self.assertIn("gautama", ids)
         self.assertIn("veda-vyasa", ids)
 
+    def test_server_owns_scheduler_lifecycle_and_status_api(self):
+        root = Path(__file__).resolve().parents[1]
+        server = (root / "krishna_core" / "server.py").read_text(encoding="utf-8")
+        orchestrator = (root / "krishna_core" / "orchestrator.py").read_text(encoding="utf-8")
+        self.assertIn("KRISHNA_SYSTEM_DESIGN_RESEARCH_ENABLED", server)
+        self.assertIn("orch.system_design_scheduler.start()", server)
+        self.assertIn("system_design_learning_scheduler", server)
+        self.assertIn('/api/brahmagyan/system-design', server)
+        self.assertNotIn("self.system_design_scheduler.start()", orchestrator)
+
     def test_scheduler_uses_two_independent_learning_windows_per_day(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
