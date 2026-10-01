@@ -3,11 +3,12 @@ from __future__ import annotations
 from contextlib import contextmanager
 from pathlib import Path
 import json,time,uuid
+from threading import RLock
 
 class KrishnaObservability:
     def __init__(self,state_root):
         self.root=Path(state_root);self.root.mkdir(parents=True,exist_ok=True)
-        self.log=self.root/"traces.jsonl"
+        self.log=self.root/"traces.jsonl";self._lock=RLock();self.max_bytes=10*1024*1024
 
     def event(self,component,operation,status="ok",metrics=None,evidence=None,*,trace_id=None,
               span_id=None,parent_span_id=None,mission_id=None,job_id=None,duration_ms=None):
@@ -18,7 +19,13 @@ class KrishnaObservability:
              "mission_id":str(mission_id or "") or None,"job_id":str(job_id or "") or None}
         if duration_ms is not None: row["duration_ms"]=max(0,int(duration_ms))
         # Raw prompts, camera frames, secrets and tool payloads are intentionally excluded.
-        with self.log.open("a",encoding="utf-8") as f:f.write(json.dumps(row,separators=(",",":"))+"\n")
+        line=json.dumps(row,separators=(",",":"))+"\n"
+        with self._lock:
+            if self.log.exists() and self.log.stat().st_size+len(line.encode("utf-8"))>self.max_bytes:
+                rotated=self.root/"traces.1.jsonl"
+                if rotated.exists():rotated.unlink()
+                self.log.replace(rotated)
+            with self.log.open("a",encoding="utf-8") as f:f.write(line)
         return row
 
     @contextmanager
