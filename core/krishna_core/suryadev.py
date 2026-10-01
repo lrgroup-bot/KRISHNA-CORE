@@ -20,6 +20,7 @@ import uuid
 from threading import RLock
 
 from .field_perception import FieldPerceptionPolicy
+from .suryadev_capacity import machine_snapshot, capacity_decision, browser_policy, recovery_policy
 
 
 class SuryadevAgent:
@@ -338,6 +339,13 @@ class SuryadevAgent:
             "charging": bool(payload.get("charging", False)),
             "thermal_state": self._text(payload.get("thermal_state") or "unknown", 60).lower(),
             "last_error": self._text(payload.get("last_error"), 1000),
+            "cpu_percent": float(payload.get("cpu_percent") or 0),
+            "ram_percent": float(payload.get("ram_percent") or 0),
+            "gpu_percent": float(payload.get("gpu_percent") or 0),
+            "vram_percent": float(payload.get("vram_percent") or 0),
+            "network_percent": float(payload.get("network_percent") or 0),
+            "active_workers": max(0, int(payload.get("active_workers") or 0)),
+            "free_disk_gb": float(payload.get("free_disk_gb") or 0),
         }
         with self._node_lock:
             rows = self._load_nodes()
@@ -358,6 +366,17 @@ class SuryadevAgent:
             "heartbeat_at": now,
             "stale_after_seconds": 150,
         }
+
+    def adaptive_worker_plan(self, payload):
+        payload=dict(payload or {})
+        snap=machine_snapshot(
+            cpu_percent=payload.get("cpu_percent",0),ram_percent=payload.get("ram_percent",0),
+            gpu_percent=payload.get("gpu_percent",0),vram_percent=payload.get("vram_percent",0),
+            network_percent=payload.get("network_percent",0),thermal_state=payload.get("thermal_state","unknown"),
+            free_disk_gb=payload.get("free_disk_gb",0),
+        )
+        decision=capacity_decision(snap,payload.get("active_workers",0),max_workers=payload.get("max_workers",256))
+        return {**decision,"snapshot":snap,"browser":browser_policy(),"recovery":recovery_policy()}
 
     def device_status(self, device_id=None):
         now = time.time()
