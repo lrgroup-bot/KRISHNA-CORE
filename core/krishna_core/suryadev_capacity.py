@@ -4,6 +4,7 @@ from __future__ import annotations
 
 TARGET_UTILIZATION=.80
 SOFT_LIMIT=.80
+SUSPEND_LIMIT=.85
 HARD_LIMIT=.90
 RECOVERY_LIMIT=.70
 
@@ -28,6 +29,9 @@ def capacity_decision(snapshot,current_workers,*,max_workers=256):
     if danger:
         target=max(1,int(current*.5)) if current else 0
         action="shed_load"
+    elif peak>=SUSPEND_LIMIT:
+        target=max(1,int(current*.75)) if current else 0
+        action="suspend_low_value"
     elif peak>=SOFT_LIMIT:
         target=max(1,current-1) if current else 0
         action="backoff"
@@ -39,7 +43,7 @@ def capacity_decision(snapshot,current_workers,*,max_workers=256):
     return {
         "action":action,"current_workers":current,"target_workers":target,
         "target_utilization":TARGET_UTILIZATION,
-        "rule":"expand gradually below 70%; hold near 70-80%; back off at 80%; shed aggressively at 90% or thermal danger",
+        "rule":"expand gradually below 70%; hold near 70-80%; back off at 80%; suspend low-value work at 85%; shed aggressively at 90% or thermal danger",
     }
 
 def browser_policy():
@@ -66,5 +70,8 @@ def recovery_policy():
         "resume_from_checkpoint":True,"requeue_unacknowledged_jobs":True,
         "duplicate_suppression":True,"exponential_backoff":True,
         "node_quarantine_after_repeated_failure":True,
+        "per_slot_crash_isolation":True,"resume_other_slots":True,
+        "stuck_job_timeout":True,"bounded_retry_budget":True,
+        "disk_space_guard":True,"network_backpressure":True,
         "never_exceed_hard_limit":HARD_LIMIT,
     }
