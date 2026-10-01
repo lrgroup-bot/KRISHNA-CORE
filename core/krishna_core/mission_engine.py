@@ -12,6 +12,7 @@ MISSION_STATES=(
 )
 _TERMINAL={"COMPLETED","FAILED","ROLLED_BACK","CANCELLED"}
 _INTERRUPTED={"PLANNING","RUNNING","VERIFYING","ROLLING_BACK"}
+_ALLOWED_TRANSITIONS={"QUEUED":{"PLANNING","RUNNING","WAITING","BLOCKED","ACTION_REQUIRED","CANCELLED","FAILED"},"PLANNING":{"RUNNING","WAITING","BLOCKED","ACTION_REQUIRED","VERIFYING","FAILED","CANCELLED"},"RUNNING":{"WAITING","BLOCKED","ACTION_REQUIRED","VERIFYING","FAILED","ROLLING_BACK","CANCELLED"},"WAITING":{"PLANNING","RUNNING","BLOCKED","ACTION_REQUIRED","VERIFYING","FAILED","CANCELLED"},"BLOCKED":{"WAITING","ACTION_REQUIRED","RUNNING","FAILED","CANCELLED"},"ACTION_REQUIRED":{"WAITING","RUNNING","BLOCKED","FAILED","CANCELLED"},"VERIFYING":{"RUNNING","WAITING","BLOCKED","COMPLETED","FAILED","ROLLING_BACK","CANCELLED"},"FAILED":{"ROLLING_BACK"},"ROLLING_BACK":{"ROLLED_BACK","FAILED"},"COMPLETED":set(),"ROLLED_BACK":set(),"CANCELLED":set()}
 
 class MissionEngine:
     """Durable authoritative mission ledger.
@@ -141,6 +142,8 @@ class MissionEngine:
         if status not in MISSION_STATES:raise ValueError("invalid mission status")
         row=self.get(mission_id)
         if not row:raise KeyError(mission_id)
+        previous=str(row.get("status") or "")
+        if status!=previous and status not in _ALLOWED_TRANSITIONS.get(previous,set()): raise ValueError(f"illegal mission transition: {previous}->{status}")
         now=time.time();started=row.get("started_at");completed=row.get("completed_at")
         if status in {"PLANNING","RUNNING"} and started is None:started=now
         if status in _TERMINAL:completed=now
