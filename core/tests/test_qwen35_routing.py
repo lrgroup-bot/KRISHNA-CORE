@@ -15,7 +15,6 @@ class QwenPcMobilePolicyIntegrationTests(unittest.TestCase):
             self.assertEqual(
                 ModelRouter.local_model_candidates(),
                 [
-                    "qwen3.5:4b",
                     "gemma3:4b",
                     "granite3.3:2b",
                     "smollm2:1.7b",
@@ -29,10 +28,9 @@ class QwenPcMobilePolicyIntegrationTests(unittest.TestCase):
             self.assertEqual(
                 ModelRouter.local_model_candidates("coding"),
                 [
-                    "qwen2.5-coder:7b",
-                    "qwen3.5:4b",
                     "gemma3:4b",
                     "granite3.3:2b",
+                    "smollm2:1.7b",
                 ],
             )
             self.assertEqual(
@@ -73,7 +71,7 @@ class QwenPcMobilePolicyIntegrationTests(unittest.TestCase):
     def test_coding_route_prioritizes_coder(self):
         router=ModelRouter()
         router._probe_json=lambda *_: (True, {
-            "models":[{"name":"qwen2.5-coder:7b"},{"name":"qwen3.5:4b"}]
+            "models":[{"name":"qwen2.5-coder:7b"},{"name":"qwen3.5:4b"},{"name":"gemma3:4b"}]
         })
         seen=[]
         def ask(provider,*_args,**_kwargs):
@@ -131,7 +129,7 @@ class QwenPcMobilePolicyIntegrationTests(unittest.TestCase):
         models=[p.model for p in router.providers if p.name.startswith("ollama")]
         self.assertEqual(models[0], "gemma3:4b")
         self.assertIn("gemma3:4b", models)
-        self.assertIn("qwen2.5:3b", models)
+        self.assertNotIn("qwen2.5:3b", models)
 
     def test_pc_qwen_installer_never_makes_mobile_depend_on_qwen(self):
         root=Path(__file__).resolve().parents[2]
