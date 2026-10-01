@@ -211,7 +211,8 @@ class FieldPerceptionPolicy:
     @classmethod
     def status(cls):
         return {
-            "owner":"HAWKEYE field perception",\n            "legacy_bhoomiputra_role":"compatibility adapter only; not a second field agent",
+            "owner":"HAWKEYE field perception",
+            "legacy_bhoomiputra_role":"compatibility adapter only; not a second field agent",
             "policy":"local-first privacy-bounded perception",
             "capabilities":cls.catalog(),
             "face_recognition":{
