@@ -49,7 +49,7 @@ def test_deep_subject_ontology_has_cross_domain_depth():
 
 def test_new_rishi_proposals_require_brahma_krishna_truth_debate(tmp_path):
     from krishna_core.brahmagyan import BrahmagyanRuntime
-    bg = BrahmagyanRuntime(tmp_path, None, None)
+    bg = BrahmagyanRuntime(tmp_path, None, type("M",(),{"audit":lambda *a,**k:None})())
     p = bg.propose_council_specialist("new frontier", "New Frontier Scholar", "No existing owner covers it deeply.")
     assert p["decision_status"] == "awaiting_brahma_krishna_truth_debate"
     assert p["governance"]["brahma_review_required"]
