@@ -429,7 +429,12 @@ class MemoryStore:
         if not topic or not lesson: raise ValueError("topic and lesson are required")
         fp=hashlib.sha256((topic.lower()+"|"+lesson.lower()).encode("utf-8","ignore")).hexdigest()
         now=time.time(); status="verified" if verified else "candidate"; confidence=max(0.0,min(float(confidence),1.0))
-        provenance_json=json.dumps(provenance or {},ensure_ascii=False,separators=(",",":"))
+        provenance=dict(provenance or {})
+        if verified:
+            gate=provenance.get("knowledge_law_gate")
+            if not isinstance(gate,dict) or gate.get("allowed") is not True:
+                raise ValueError("verified learning requires an allowed knowledge_law_gate provenance record")
+        provenance_json=json.dumps(provenance,ensure_ascii=False,separators=(",",":"))
         with self.lock:
             if supersedes:
                 prior=self.db.execute("SELECT status FROM learnings WHERE project=? AND fingerprint=?",(project,str(supersedes))).fetchone()
@@ -448,7 +453,7 @@ class MemoryStore:
                 (project,topic,lesson,self._pack_gyan(evidence or []),confidence,str(source or "sudarshan"),status,fp,memory_kind,provenance_json,now,now))
             self.db.commit()
         return {"project":project,"topic":topic,"lesson":lesson,"confidence":confidence,"source":source,"status":status,
-                "fingerprint":fp,"memory_kind":memory_kind,"provenance":provenance or {},"supersedes":supersedes}
+                "fingerprint":fp,"memory_kind":memory_kind,"provenance":provenance,"supersedes":supersedes}
 
     def learnings(self, project, limit=100, verified_only=False, memory_kind=None, include_superseded=False):
         with self.lock:
