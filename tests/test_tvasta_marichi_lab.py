@@ -76,3 +76,19 @@ def test_research_team_governor_expands_and_stops_on_information_gain():
     assert grow["action"] == "expand" and grow["delta"] == 10
     stop = research_team_decision(current=22, duplicate_ratio=.8, information_gain=.1)
     assert stop["action"] == "stop_expansion"
+
+def test_deep_research_deadline_is_sixty_seconds():
+    from krishna_core.research_deadline import deadline_plan, evidence_lane_priority
+    p=deadline_plan("deep question")
+    assert p["budget_seconds"] == 60
+    assert "contradictions" in p["parallel_lanes"]
+    assert p["slow_evidence_policy"].startswith("return unresolved")
+    fast=evidence_lane_priority(authority=1,relevance=1,freshness=1,independence=1,information_gain=1,latency_seconds=2)
+    slow=evidence_lane_priority(authority=1,relevance=1,freshness=1,independence=1,information_gain=1,latency_seconds=20)
+    assert fast > slow
+
+def test_live_topics_can_be_prewarmed_without_krishna_load():
+    from krishna_core.live_knowledge import prewarm_plan
+    p=prewarm_plan(["AI accelerators","rocket propulsion"])
+    assert p["krishna_load"] is False
+    assert "contradiction_index" in p["topics"][0]["prepare"]
