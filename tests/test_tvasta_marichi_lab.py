@@ -108,3 +108,19 @@ def test_api_first_acquisition_and_capacity():
     p=device_capacity_plan(queued_io_jobs=8,queued_visual_jobs=2)
     assert p["requested_nodes"] == 4
     assert p["purchase_required"] is False
+
+def test_research_fellowship_requires_evidence_and_examination():
+    from krishna_core.research_fellowship import new_fellow,promotion_review,permanence_review
+    f=new_fellow("marichi","rocket propulsion","Agnivega")
+    good={k:.9 for k in ("evidence_quality","replication","reasoning","correction_behavior","safety_reliability","collaboration","resource_efficiency")}
+    r=promotion_review(f,"intern_shishya",good)
+    assert r["approved"] is True
+    p=permanence_review(workload_ratio=.9,specialty_depth=.9,knowledge_continuity=.9,validated_output=.9,duplicate_ratio=.1,resource_value=.9)
+    assert p["recommended"] is True and p["probation_required"] is True
+
+def test_engineering_program_never_optimizes_cost_alone():
+    from krishna_core.research_programs import ROCKET_PROGRAM
+    assert "safety" in ROCKET_PROGRAM["optimization"]["maximize"]
+    assert "manufacturing_cost" in ROCKET_PROGRAM["optimization"]["minimize"]
+    assert ROCKET_PROGRAM["optimization"]["selection"].startswith("pareto_frontier")
+    assert "separately" in ROCKET_PROGRAM["readiness_policy"]
