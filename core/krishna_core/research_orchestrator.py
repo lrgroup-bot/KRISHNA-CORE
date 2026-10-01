@@ -11,6 +11,7 @@ from .brahmagyan_collectors import collector_team_plan
 from .knowledge_acquisition import acquisition_route
 from .live_knowledge import source_requirement_plan
 from .research_team_governor import research_team_decision
+from .knowledge_laws import LAWS
 
 def research_execution_plan(*, question, rishi_team, scientific=False, visual=False,
                             implementation=False, regulated=False, resource_pressure=0.0,
@@ -34,6 +35,7 @@ def research_execution_plan(*, question, rishi_team, scientific=False, visual=Fa
         "provenance_required":True,"atomic_claims_required":True,"contradiction_check_required":True,
         "freshness_check_required":True,"negative_evidence_required":True,
         "brahma_qc_required":True,"gyan_promotion_requires_verified_evidence":True,
+        "non_bypassable_laws":LAWS,
         "execution_rule":"run independent lanes concurrently under shared resource governance; synthesize only evidence completed by deadline and mark the rest unresolved",
     }
 
