@@ -398,7 +398,59 @@ class SukracharyaGrowthRishi:
                 pass
         return result
 
+    def retry_outbox(self, *, timeout=5, limit=20):
+        """Retry queued LR Group packets without creating another queued copy on failure."""
+        if not self.outbox_path.is_file():
+            return {"attempted": 0, "delivered": 0, "remaining": 0}
+        try:
+            rows = [
+                json.loads(line)
+                for line in self.outbox_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+        except Exception as exc:
+            return {"attempted": 0, "delivered": 0, "remaining": None, "error": str(exc)}
+        attempted = delivered = 0
+        remaining = []
+        for row in rows:
+            if attempted >= max(1, int(limit)):
+                remaining.append(row)
+                continue
+            packet = dict(row.get("packet") or {})
+            if not packet:
+                continue
+            attempted += 1
+            data = json.dumps(packet, ensure_ascii=False).encode("utf-8")
+            headers = {"content-type": "application/json"}
+            token = str(os.getenv("KRISHNA_LR_GROUP_ADVISORY_TOKEN") or "").strip()
+            if token:
+                headers["x-lr-group-advisory-token"] = token
+            req = request.Request(self.lr_group_url, data=data, headers=headers, method="POST")
+            try:
+                with request.urlopen(req, timeout=max(1, int(timeout))) as response:
+                    response.read()
+                    if 200 <= int(response.status) < 300:
+                        delivered += 1
+                    else:
+                        remaining.append(row)
+            except Exception as exc:
+                row["lastRetryAt"] = time.time()
+                row["error"] = str(exc)
+                remaining.append(row)
+        tmp = self.outbox_path.with_suffix(".tmp")
+        if remaining:
+            tmp.write_text(
+                "".join(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n" for row in remaining),
+                encoding="utf-8",
+            )
+            tmp.replace(self.outbox_path)
+        else:
+            self.outbox_path.unlink(missing_ok=True)
+            tmp.unlink(missing_ok=True)
+        return {"attempted": attempted, "delivered": delivered, "remaining": len(remaining)}
+
     def cycle(self, *, company_id="lr-group", focus="", privacy="approved_cloud", queue_video=True, share=True):
+        retry = self.retry_outbox() if share else {"attempted": 0, "delivered": 0, "remaining": 0, "skipped": True}
         plan = self.research_plan(company_id=company_id, focus=focus)
         video = self.queue_youtube_learning(focus=plan["focus"], limit=2) if queue_video else {"queued": 0, "jobs": []}
         result = self.run_research(company_id=company_id, focus=plan["focus"], privacy=privacy)
@@ -408,7 +460,7 @@ class SukracharyaGrowthRishi:
         self.state["last_cycle_at"] = time.time()
         self.state["focus_index"] = (int(self.state.get("focus_index") or 0) + 1) % len(GROWTH_FOCUS_ROTATION)
         self._save_state()
-        return {"plan": plan, "video_learning": video, "research": result, "packet": packet, "delivery": delivery}
+        return {"outbox_retry": retry, "plan": plan, "video_learning": video, "research": result, "packet": packet, "delivery": delivery}
 
     def status(self):
         return {
