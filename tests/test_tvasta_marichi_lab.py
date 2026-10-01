@@ -35,3 +35,14 @@ def test_lab_research_proposal_captures_discovery_fields(tmp_path):
     assert p["technology_maturity"] == "research prototype"
     assert p["collaborating_rishis"] == ["gautama", "bharadvaja"]
     assert p["what_else_can_this_become"]
+
+def test_deep_subject_ontology_has_cross_domain_depth():
+    from krishna_core.subject_ontology import SUBJECT_DEPTH, FRONTIER_AXES, find_subject, gap_report
+    assert "computing_digital_systems" in SUBJECT_DEPTH
+    assert "life_health_sciences" in SUBJECT_DEPTH
+    assert "aerospace_space" in SUBJECT_DEPTH
+    assert "earth_environment_agriculture" in SUBJECT_DEPTH
+    assert "what_else_can_this_become" in FRONTIER_AXES
+    assert any(x["specialty"] == "organoid intelligence" for x in find_subject("organoid intelligence computer"))
+    council_ids = [x["id"] for x in RishiCouncil().list()]
+    assert gap_report(council_ids) == []
