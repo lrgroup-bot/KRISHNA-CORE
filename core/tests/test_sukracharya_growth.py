@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from krishna_core.sukracharya_growth import (
@@ -133,6 +134,25 @@ class SukracharyaGrowthTests(unittest.TestCase):
     def test_seed_watchlist_exists_for_bootstrap(self):
         self.assertGreaterEqual(len(YOUTUBE_SEEDS), 3)
         self.assertTrue(all("youtube.com/watch" in x["url"] for x in YOUTUBE_SEEDS))
+
+
+    def test_outbox_retry_delivers_and_clears_queue(self):
+        packet = {"packetId": "retry-1", "schema": SUKRACHARYA_SCHEMA}
+        self.rishi._queue_outbox(packet, "offline")
+
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self): return b'{"ok":true,"duplicate":true}'
+
+        with patch("krishna_core.sukracharya_growth.request.urlopen", return_value=Response()):
+            result = self.rishi.retry_outbox()
+
+        self.assertEqual(result["attempted"], 1)
+        self.assertEqual(result["delivered"], 1)
+        self.assertEqual(result["remaining"], 0)
+        self.assertFalse(self.rishi.outbox_path.exists())
 
 
 if __name__ == "__main__":
