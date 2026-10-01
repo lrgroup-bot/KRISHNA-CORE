@@ -773,7 +773,21 @@ class BrahmagyanRuntime:
             "proposal_id":str(uuid.uuid4()),"domain":domain,"role":role,"reason":reason,
             "duplicate_candidates":overlaps,"status":"needs_duplication_review" if overlaps else "candidate",
             "created_at":self._now(),
-            "policy":"proposal only; permanent Rishi creation requires AI-HR duplication review plus Sudarshan authorization and code/runtime registration",
+            "governance":{
+                "brahma_review_required":True,
+                "krishna_review_required":True,
+                "truth_debate_required":True,
+                "gautama_evidence_review_required":True,
+                "duplicate_scope_review_required":True,
+                "shishya_first_required":True,
+                "human_owner_approval_required":False,
+            },
+            "decision_status":"awaiting_brahma_krishna_truth_debate",
+            "policy":(
+                "proposal only; no permanent Rishi may be added automatically. The uncovered subject is handled first by temporary Shishya. "
+                "Permanent Rishi creation requires BRAHMA and KRISHNA to examine evidence, argue opposing cases, test truth/duplication with Gautama, "
+                "and jointly approve the need before code/runtime registration."
+            ),
         }
         with self.lock:
             self.state["council_proposals"].append(proposal)
