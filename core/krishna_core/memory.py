@@ -472,6 +472,41 @@ class MemoryStore:
         return self.learn(project,replacement_topic,replacement_lesson,evidence,confidence,source,verified,
                           memory_kind,provenance,supersedes=fingerprint)
 
+    def invalidate_learning_tree(self, project, fingerprint, reason, source_ref=""):
+        """Downgrade a learning and every provenance-dependent descendant to needs_review."""
+        project=str(project or "").strip(); root=str(fingerprint or "").strip()
+        if not project or not root or not str(reason or "").strip(): raise ValueError("project, fingerprint and reason are required")
+        now=time.time(); affected=[]; frontier=[root]; seen=set()
+        with self.lock:
+            rows=self.db.execute("SELECT fingerprint,provenance,status FROM learnings WHERE project=?",(project,)).fetchall()
+            graph={}
+            for fp,prov,status in rows:
+                try: p=json.loads(prov or "{}")
+                except Exception: p={}
+                parents=set(str(x) for x in (p.get("derived_from") or p.get("parent_entities") or []) if str(x).strip())
+                if p.get("supersedes"): parents.add(str(p["supersedes"]))
+                for parent in parents: graph.setdefault(parent,set()).add(str(fp))
+            while frontier:
+                cur=frontier.pop()
+                if cur in seen: continue
+                seen.add(cur)
+                frontier.extend(x for x in graph.get(cur,set()) if x not in seen)
+            for fp in sorted(seen):
+                row=self.db.execute("SELECT provenance FROM learnings WHERE project=? AND fingerprint=?",(project,fp)).fetchone()
+                if not row: continue
+                try: prov=json.loads(row[0] or "{}")
+                except Exception: prov={}
+                history=list(prov.get("invalidation_history") or [])
+                history.append({"at":now,"root":root,"reason":str(reason),"source_ref":str(source_ref or "")})
+                prov["invalidation_history"]=history[-50:];prov["needs_review"]=True;prov["invalidated_by"]=root
+                self.db.execute("UPDATE learnings SET status='needs_review',provenance=?,updated_at=? WHERE project=? AND fingerprint=? AND status!='superseded'",
+                    (json.dumps(prov,ensure_ascii=False,separators=(",",":")),now,project,fp))
+                affected.append(fp)
+            self.db.execute("INSERT INTO audit(action,status,details,created_at) VALUES(?,?,?,?)",
+                ("gyan_invalidation","needs_review",json.dumps({"project":project,"root":root,"affected":affected,"reason":str(reason),"source_ref":str(source_ref or "")},ensure_ascii=False),now))
+            self.db.commit()
+        return {"project":project,"root":root,"affected":affected,"status":"needs_review","reason":str(reason)}
+
     def learning_inventory(self, project):
         kinds=("working","episodic","semantic","graph","skill","evidence")
         with self.lock:
