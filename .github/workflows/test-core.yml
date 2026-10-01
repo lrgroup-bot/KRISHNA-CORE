@@ -51,6 +51,7 @@ jobs:
           tests/test_owner_architecture_invariants.py
           tests/test_mission_completion_gate.py
           tests/test_krishna_observability_spans.py
+          tests/test_reality_routing.py
       - name: Canonical architecture truth audit
         run: python scripts/AUDIT_KRISHNA_ARCHITECTURE.py
 
