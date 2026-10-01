@@ -12,6 +12,7 @@ MISSION_STATES=(
 )
 _TERMINAL={"COMPLETED","FAILED","ROLLED_BACK","CANCELLED"}
 _INTERRUPTED={"PLANNING","RUNNING","VERIFYING","ROLLING_BACK"}
+_ALLOWED_TRANSITIONS={"QUEUED":{"PLANNING","RUNNING","WAITING","BLOCKED","ACTION_REQUIRED","CANCELLED","FAILED"},"PLANNING":{"RUNNING","WAITING","BLOCKED","ACTION_REQUIRED","VERIFYING","FAILED","CANCELLED"},"RUNNING":{"WAITING","BLOCKED","ACTION_REQUIRED","VERIFYING","FAILED","ROLLING_BACK","CANCELLED"},"WAITING":{"PLANNING","RUNNING","BLOCKED","ACTION_REQUIRED","VERIFYING","FAILED","CANCELLED"},"BLOCKED":{"WAITING","ACTION_REQUIRED","RUNNING","FAILED","CANCELLED"},"ACTION_REQUIRED":{"WAITING","RUNNING","BLOCKED","FAILED","CANCELLED"},"VERIFYING":{"RUNNING","WAITING","BLOCKED","COMPLETED","FAILED","ROLLING_BACK","CANCELLED"},"FAILED":{"ROLLING_BACK"},"ROLLING_BACK":{"ROLLED_BACK","FAILED"},"COMPLETED":set(),"ROLLED_BACK":set(),"CANCELLED":set()}
 
 class MissionEngine:
     """Durable authoritative mission ledger.
@@ -141,6 +142,8 @@ class MissionEngine:
         if status not in MISSION_STATES:raise ValueError("invalid mission status")
         row=self.get(mission_id)
         if not row:raise KeyError(mission_id)
+        previous=str(row.get("status") or "")
+        if status!=previous and status not in _ALLOWED_TRANSITIONS.get(previous,set()): raise ValueError(f"illegal mission transition: {previous}->{status}")
         now=time.time();started=row.get("started_at");completed=row.get("completed_at")
         if status in {"PLANNING","RUNNING"} and started is None:started=now
         if status in _TERMINAL:completed=now
@@ -150,6 +153,11 @@ class MissionEngine:
         step=row["current_step"] if current_step is None else str(current_step)
         prog=row["progress"] if progress is None else max(0.0,min(float(progress),1.0))
         verify=row["verification_status"] if verification_status is None else str(verification_status)
+        if status=="COMPLETED":
+            if row.get("status")!="VERIFYING":
+                raise ValueError("mission completion requires VERIFYING state")
+            if str(verify).lower()!="passed":
+                raise ValueError("mission completion requires passed verification")
         rb=row["rollback_point"] if rollback_point is None else rollback_point
         with self.lock:
             self.db.execute("""UPDATE missions SET status=?,started_at=?,completed_at=?,
