@@ -26,3 +26,19 @@ def test_video_popularity_is_not_evidence_authority():
     assert good["route_to_rishi"] is True
     assert "popularity" in good["rule"]
     assert source_adapter_policy()["access"].startswith("public/permitted")
+
+def test_parallel_lanes_and_visual_handoff_are_nonblocking():
+    from krishna_core.suryadev_handoff import simultaneous_lane_policy,chandradev_handoff
+    p=simultaneous_lane_policy()
+    assert p["parallel"] is True and p["single_shared_capacity_governor"] is True
+    h=chandradev_handoff(job_id="J1",source_ref="video:1",reason="physical_demonstration",
+                         visual_relevance=.9,timestamps=["12:10-13:20"])
+    assert h["handoff"] is True and h["blocking"] is False and h["continue_suryadev"] is True
+
+def test_brahma_can_read_suryadev_status(tmp_path):
+    from krishna_core.suryadev_ops import SuryadevOpsLog
+    log=SuryadevOpsLog(tmp_path)
+    log.emit("worker_started",worker_id="w1")
+    log.write_status(state="running",active_workers=7)
+    s=log.brahma_status()
+    assert s["agent"]=="SURYDEV" and s["active_workers"]==7
