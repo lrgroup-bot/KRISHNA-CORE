@@ -21,6 +21,7 @@ from threading import RLock
 
 from .field_perception import FieldPerceptionPolicy
 from .suryadev_capacity import machine_snapshot, capacity_decision, browser_policy, recovery_policy
+from .suryadev_scheduler import slot_plan, media_speed_plan, source_adapter_policy, evidence_quality_gate
 
 
 class SuryadevAgent:
@@ -376,7 +377,32 @@ class SuryadevAgent:
             free_disk_gb=payload.get("free_disk_gb",0),
         )
         decision=capacity_decision(snap,payload.get("active_workers",0),max_workers=payload.get("max_workers",256))
-        return {**decision,"snapshot":snap,"browser":browser_policy(),"recovery":recovery_policy()}
+        slots=slot_plan(
+            requested=payload.get("requested_slots",50),active=payload.get("active_workers",0),
+            resource_decision=decision,media_requested=payload.get("media_requested",0),
+            media_cap=payload.get("media_cap"),
+        )
+        return {**decision,"snapshot":snap,"slots":slots,"browser":browser_policy(),
+                "sources":source_adapter_policy(),"recovery":recovery_policy()}
+
+    def media_learning_plan(self, metrics):
+        metrics=dict(metrics or {})
+        speed=media_speed_plan(
+            speech_density=metrics.get("speech_density",.5),
+            technical_density=metrics.get("technical_density",.5),
+            visual_change=metrics.get("visual_change",.5),
+            transcript_confidence=metrics.get("transcript_confidence",.8),
+            evidence_criticality=metrics.get("evidence_criticality",.5),
+        )
+        quality=evidence_quality_gate(
+            authority=self._clamp(metrics.get("authority",.5)),
+            relevance=self._clamp(metrics.get("relevance",.5)),
+            independence=self._clamp(metrics.get("independence",.5)),
+            transcript_confidence=self._clamp(metrics.get("transcript_confidence",.8)),
+            contradiction_checked=bool(metrics.get("contradiction_checked")),
+            timestamped=bool(metrics.get("timestamped")),
+        )
+        return {"speed":speed,"evidence_gate":quality,"sources":source_adapter_policy()}
 
     def device_status(self, device_id=None):
         now = time.time()
