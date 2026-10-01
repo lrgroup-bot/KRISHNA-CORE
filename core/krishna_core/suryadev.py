@@ -22,6 +22,8 @@ from threading import RLock
 from .field_perception import FieldPerceptionPolicy
 from .suryadev_capacity import machine_snapshot, capacity_decision, browser_policy, recovery_policy
 from .suryadev_scheduler import slot_plan, media_speed_plan, source_adapter_policy, evidence_quality_gate
+from .suryadev_ops import SuryadevOpsLog
+from .suryadev_handoff import chandradev_handoff, simultaneous_lane_policy
 
 
 class SuryadevAgent:
@@ -75,6 +77,7 @@ class SuryadevAgent:
         self.council = council
         self.ui_reviewer = ui_reviewer
         self.memory = memory
+        self.ops = SuryadevOpsLog(self.root / "ops")
 
     @staticmethod
     def _text(value, limit=8000):
@@ -382,8 +385,13 @@ class SuryadevAgent:
             resource_decision=decision,media_requested=payload.get("media_requested",0),
             media_cap=payload.get("media_cap"),
         )
-        return {**decision,"snapshot":snap,"slots":slots,"browser":browser_policy(),
-                "sources":source_adapter_policy(),"recovery":recovery_policy()}
+        result={**decision,"snapshot":snap,"slots":slots,"browser":browser_policy(),
+                "sources":source_adapter_policy(),"recovery":recovery_policy(),
+                "parallel_lanes":simultaneous_lane_policy()}
+        self.ops.write_status(state="running",capacity=result,active_workers=payload.get("active_workers",0),
+                              current_job_id=payload.get("current_job_id",""))
+        self.ops.emit("capacity_plan",action=decision.get("action"),slots=slots,snapshot=snap)
+        return result
 
     def media_learning_plan(self, metrics):
         metrics=dict(metrics or {})
@@ -403,6 +411,19 @@ class SuryadevAgent:
             timestamped=bool(metrics.get("timestamped")),
         )
         return {"speed":speed,"evidence_gate":quality,"sources":source_adapter_policy()}
+
+    def visual_handoff(self, *, job_id, source_ref, reason, question="", timestamps=None,
+                       transcript_confidence=1.0, visual_relevance=0.0):
+        packet=chandradev_handoff(
+            job_id=job_id,source_ref=source_ref,reason=reason,question=question,
+            timestamps=timestamps,transcript_confidence=transcript_confidence,
+            visual_relevance=visual_relevance,
+        )
+        self.ops.emit("chandradev_handoff",**packet)
+        return packet
+
+    def brahma_operational_status(self):
+        return self.ops.brahma_status()
 
     def device_status(self, device_id=None):
         now = time.time()
