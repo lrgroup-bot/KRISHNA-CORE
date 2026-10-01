@@ -48,8 +48,8 @@ def test_deep_subject_ontology_has_cross_domain_depth():
     assert gap_report(council_ids) == []
 
 def test_new_rishi_proposals_require_brahma_krishna_truth_debate(tmp_path):
-    from krishna_core.brahmagyan import Brahmagyan
-    bg = Brahmagyan(tmp_path)
+    from krishna_core.brahmagyan import BrahmagyanRuntime
+    bg = BrahmagyanRuntime(tmp_path, None, None)
     p = bg.propose_council_specialist("new frontier", "New Frontier Scholar", "No existing owner covers it deeply.")
     assert p["decision_status"] == "awaiting_brahma_krishna_truth_debate"
     assert p["governance"]["brahma_review_required"]
@@ -92,3 +92,19 @@ def test_live_topics_can_be_prewarmed_without_krishna_load():
     p=prewarm_plan(["AI accelerators","rocket propulsion"])
     assert p["krishna_load"] is False
     assert "contradiction_index" in p["topics"][0]["prepare"]
+
+def test_brahmagyan_collectors_stream_and_redirect():
+    from krishna_core.brahmagyan_collectors import collector_team_plan, collection_decision
+    p=collector_team_plan(["tvasta","marichi","gautama"],contradictions=2,unresolved=1)
+    assert p["streaming_collection"] is True
+    assert "research_conductor" in p["roles"]
+    d=collection_decision(supported_sources=3,independent_sources=2)
+    assert d["action"] == "synthesize"
+
+def test_api_first_acquisition_and_capacity():
+    from krishna_core.knowledge_acquisition import acquisition_route, device_capacity_plan
+    assert acquisition_route(api_available=True)["mode"] == "public_api"
+    assert acquisition_route(visual_required=True)["worker"] == "CHANDRADEV"
+    p=device_capacity_plan(queued_io_jobs=8,queued_visual_jobs=2)
+    assert p["requested_nodes"] == 4
+    assert p["purchase_required"] is False
