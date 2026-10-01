@@ -53,7 +53,7 @@ class GyanBhandarAgent:
         provenance=dict(provenance or {})
         if verified:
             gate=knowledge_law_gate(
-                claim_type="verified",evidence_records=evidence,
+                claim_type=("evidence" if memory_kind=="evidence" else "verified"),evidence_records=evidence,
                 required_gates=set(provenance.get("required_gates") or ()),
                 high_impact=bool(provenance.get("high_impact")),
                 current_context=provenance.get("context",""),
