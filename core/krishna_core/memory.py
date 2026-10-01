@@ -475,8 +475,13 @@ class MemoryStore:
             row=self.db.execute("SELECT status,provenance FROM learnings WHERE project=? AND fingerprint=?",
                                 (project,fingerprint)).fetchone()
             if not row or row[0]=='superseded': raise KeyError(fingerprint)
-            if row[0]=='needs_review' and not isinstance(revalidation,dict):
-                raise ValueError("needs_review knowledge requires explicit revalidation evidence")
+            if row[0]=='needs_review':
+                if not isinstance(revalidation,dict):
+                    raise ValueError("needs_review knowledge requires explicit revalidation evidence")
+                evidence=list(revalidation.get("evidence_records") or [])
+                gate=revalidation.get("knowledge_law_gate")
+                if not evidence or not isinstance(gate,dict) or gate.get("allowed") is not True:
+                    raise ValueError("revalidation requires evidence_records and an allowed knowledge_law_gate")
             try: prov=json.loads(row[1] or "{}")
             except Exception: prov={}
             if row[0]=='needs_review':
