@@ -1,5 +1,6 @@
 name: Test KRISHNA Core
 on:
+  workflow_dispatch:
   push:
     paths: ['core/**', 'tests/**', 'scripts/**', '.github/workflows/test-core.yml']
   pull_request:
