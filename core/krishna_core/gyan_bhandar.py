@@ -93,6 +93,12 @@ class GyanBhandarAgent:
         self.memory.audit("gyan_bhandar_proposal","approved",approval_id)
         return {**out,"stored":True,"learning":stored}
 
+    def invalidate(self, project, fingerprint, reason, source_ref=""):
+        result=self.memory.invalidate_learning_tree(project,fingerprint,reason,source_ref)
+        self.memory.audit("gyan_bhandar_invalidation","propagated",
+                          f"{project}:{fingerprint}:{len(result['affected'])}:{reason}")
+        return {"agent":"Gyan-Bhandar",**result}
+
     def compact_storage(self):
         result=self.memory.compact_gyan_storage()
         self.memory.audit("gyan_bhandar_compact","completed",f"{result['records_compacted']} records; {result['bytes_saved']} bytes saved")
