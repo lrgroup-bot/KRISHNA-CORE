@@ -23,3 +23,23 @@ def test_invalidation_is_safe_when_repeated(tmp_path):
     a=m.invalidate_learning_tree("P",root["fingerprint"],"stale")
     b=m.invalidate_learning_tree("P",root["fingerprint"],"stale")
     assert a["affected"]==b["affected"]==[root["fingerprint"]]
+
+def test_needs_review_cannot_be_silently_reverified_or_overwritten(tmp_path):
+    import pytest
+    m=MemoryStore(str(tmp_path/"m.db"))
+    root=m.learn("P","source","A",[],.9,"paper",True,provenance={})
+    m.invalidate_learning_tree("P",root["fingerprint"],"retracted")
+    same=m.learn("P","source","A",[],.99,"paper",True,provenance={})
+    assert m.learnings("P",include_superseded=True)[0]["status"]=="needs_review"
+    with pytest.raises(ValueError,match="revalidation"):
+        m.verify_learning("P",root["fingerprint"])
+    assert m.verify_learning("P",root["fingerprint"],{"reviewer":"BRAHMA","evidence":["replacement-source"],"reason":"independently revalidated"})
+    row=m.learnings("P",verified_only=True)[0]
+    assert row["status"]=="verified" and row["provenance"]["revalidation_history"]
+
+def test_inventory_counts_needs_review(tmp_path):
+    m=MemoryStore(str(tmp_path/"m.db"))
+    x=m.learn("P","s","x",[],.9,"paper",True,provenance={})
+    m.invalidate_learning_tree("P",x["fingerprint"],"stale")
+    inv=m.learning_inventory("P")
+    assert inv["totals"]["needs_review"]==1
