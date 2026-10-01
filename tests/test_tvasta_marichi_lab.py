@@ -124,3 +124,13 @@ def test_engineering_program_never_optimizes_cost_alone():
     assert "manufacturing_cost" in ROCKET_PROGRAM["optimization"]["minimize"]
     assert ROCKET_PROGRAM["optimization"]["selection"].startswith("pareto_frontier")
     assert "separately" in ROCKET_PROGRAM["readiness_policy"]
+
+def test_suryadev_capacity_governor_expands_and_protects_node():
+    from krishna_core.suryadev_capacity import machine_snapshot,capacity_decision,browser_policy,recovery_policy
+    low=machine_snapshot(cpu_percent=35,ram_percent=40,gpu_percent=20,vram_percent=20,network_percent=10)
+    assert capacity_decision(low,10)["target_workers"] > 10
+    high=machine_snapshot(cpu_percent=92,ram_percent=75,gpu_percent=60,vram_percent=50,network_percent=30)
+    assert capacity_decision(high,20)["action"] == "shed_load"
+    assert capacity_decision(high,20)["target_workers"] < 20
+    assert browser_policy()["branded_chrome_required"] is False
+    assert recovery_policy()["resume_from_checkpoint"] is True
