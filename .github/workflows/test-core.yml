@@ -49,6 +49,7 @@ jobs:
           tests/test_gyan_knowledge_law_boundary.py
           tests/test_gyan_invalidation.py
           tests/test_owner_architecture_invariants.py
+          tests/test_mission_completion_gate.py
       - name: Canonical architecture truth audit
         run: python scripts/AUDIT_KRISHNA_ARCHITECTURE.py
 
