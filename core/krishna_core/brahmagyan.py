@@ -572,8 +572,8 @@ class BrahmagyanRuntime:
             if str(detail.get("verified_by") or "").strip().lower()!="gautama":
                 raise ValueError("L3 Source Verified requires Gautama evidence review")
         if target=="L4":
-            if self._independent_source_count(c)<2 and not str(detail.get("cross_check_notes") or "").strip():
-                raise ValueError("L4 Cross-checked requires independent evidence or explicit cross-check notes")
+            if self._independent_source_count(c)<2:
+                raise ValueError("L4 Cross-checked requires at least two independent source families")
             if str(detail.get("verified_by") or c.get("verified_by") or "").strip().lower()!="gautama":
                 raise ValueError("L4 Cross-checked requires Gautama review")
         if target=="L5" and not detail.get("application_notes"):
