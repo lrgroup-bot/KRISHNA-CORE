@@ -38,12 +38,12 @@ def reality_gate(records,*,intended_context="",high_impact=False):
     }
 
 def observation_escalation(*,digital_only=True,visual_ambiguity=False,physical_state_matters=False,
-                           measurement_required=False,consequence_severity="low"):
+                           measurement_required=False,consequence_severity="low",environment="pc"):
     need=bool(visual_ambiguity or physical_state_matters or measurement_required or
               str(consequence_severity).lower() in {"high","critical"})
     return {
         "needs_real_world_observation":need,
-        "preferred_worker":(("HAWKEYE" if str(environment).lower() in {"mobile","field","outdoor"} else "CHANDRADEV") if need else "SURYDEV",
+        "preferred_worker":(("HAWKEYE" if str(environment).lower() in {"mobile","field","outdoor"} else "CHANDRADEV") if need else "SURYDEV"),
         "human_or_instrument_confirmation":bool(measurement_required or str(consequence_severity).lower()=="critical"),
         "digital_only":bool(digital_only),"krishna_continuous_perception":False,
         "rule":"escalate when the answer depends on present physical state, visual ambiguity, measurement, or consequential context",
