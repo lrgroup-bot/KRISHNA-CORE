@@ -3,6 +3,7 @@ from collections import Counter
 from urllib.parse import urlparse
 import re, time, uuid, hashlib, json, zlib
 from pathlib import Path
+from .knowledge_laws import knowledge_law_gate
 
 class GyanBhandarAgent:
     """Evidence-backed knowledge curator. Stores and strengthens theory; KRISHNA remains decision authority."""
@@ -48,7 +49,21 @@ class GyanBhandarAgent:
 
     def store(self, project, topic, lesson, evidence=None, confidence=0.0, source="sudarshan", verified=False,
               memory_kind="semantic", provenance=None, supersedes=None):
-        item=self.memory.learn(project,topic,lesson,evidence or [],confidence,source,verified,memory_kind,provenance,supersedes)
+        evidence=list(evidence or [])
+        provenance=dict(provenance or {})
+        if verified:
+            gate=knowledge_law_gate(
+                claim_type="verified",evidence_records=evidence,
+                required_gates=set(provenance.get("required_gates") or ()),
+                high_impact=bool(provenance.get("high_impact")),
+                current_context=provenance.get("context",""),
+            )
+            if not gate["allowed"]:
+                self.memory.audit("gyan_bhandar_store","blocked_by_knowledge_law",
+                                  f"{project}:{topic}:{','.join(gate['violations'])}")
+                raise ValueError("verified Gyan blocked by knowledge laws: "+",".join(gate["violations"]))
+            provenance["knowledge_law_gate"]=gate
+        item=self.memory.learn(project,topic,lesson,evidence,confidence,source,verified,memory_kind,provenance,supersedes)
         self.memory.audit("gyan_bhandar_store","verified" if verified else "candidate",
             f"{project}:{item['fingerprint']}:{memory_kind}")
         return item
