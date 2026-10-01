@@ -150,6 +150,11 @@ class MissionEngine:
         step=row["current_step"] if current_step is None else str(current_step)
         prog=row["progress"] if progress is None else max(0.0,min(float(progress),1.0))
         verify=row["verification_status"] if verification_status is None else str(verification_status)
+        if status=="COMPLETED":
+            if row.get("status")!="VERIFYING":
+                raise ValueError("mission completion requires VERIFYING state")
+            if str(verify).lower()!="passed":
+                raise ValueError("mission completion requires passed verification")
         rb=row["rollback_point"] if rollback_point is None else rollback_point
         with self.lock:
             self.db.execute("""UPDATE missions SET status=?,started_at=?,completed_at=?,
