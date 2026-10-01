@@ -46,3 +46,14 @@ def test_deep_subject_ontology_has_cross_domain_depth():
     assert any(x["specialty"] == "organoid intelligence" for x in find_subject("organoid intelligence computer"))
     council_ids = [x["id"] for x in RishiCouncil().list()]
     assert gap_report(council_ids) == []
+
+def test_new_rishi_proposals_require_brahma_krishna_truth_debate(tmp_path):
+    from krishna_core.brahmagyan import Brahmagyan
+    bg = Brahmagyan(tmp_path)
+    p = bg.propose_council_specialist("new frontier", "New Frontier Scholar", "No existing owner covers it deeply.")
+    assert p["decision_status"] == "awaiting_brahma_krishna_truth_debate"
+    assert p["governance"]["brahma_review_required"]
+    assert p["governance"]["krishna_review_required"]
+    assert p["governance"]["truth_debate_required"]
+    assert p["governance"]["gautama_evidence_review_required"]
+    assert p["governance"]["shishya_first_required"]
