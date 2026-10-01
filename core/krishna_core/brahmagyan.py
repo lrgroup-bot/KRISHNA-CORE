@@ -830,10 +830,13 @@ class BrahmagyanRuntime:
         self.council.get(parent)
         specs=[str(x).strip() for x in (specialties or []) if str(x).strip()]
         requested=max(1,int(count or len(specs) or len(assignments or []) or 4))
-        max_total=max(1,int(os.getenv("KRISHNA_SHISHYA_MAX_PER_REQUEST","32")))
-        tree_nodes=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_TREE_NODES","64")),256))
+        # Shishya scale is mission-driven, not a fixed council constant. These are
+        # resource safety ceilings, not target team sizes; BRAHMA + AI-HR may approve
+        # additional waves when evidence diversity/coverage justifies them.
+        max_total=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_PER_REQUEST","128")),512))
+        tree_nodes=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_TREE_NODES","256")),1024))
         requested=min(requested,max_total,tree_nodes)
-        concurrency=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_CONCURRENT","8")),8))
+        concurrency=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_CONCURRENT","16")),64))
         if not specs:
             specs=[
                 "Primary Source Discovery",
@@ -872,7 +875,26 @@ class BrahmagyanRuntime:
                 "scope_inheritance":"descendants inherit parent project/privacy/permissions/safety; authority cannot expand",
                 "collapse_policy":"all descendant findings collapse upward into the parent Rishi; temporary identities are destroyed",
             },
-            "ephemeral":True,"approval_required":True,"authority":"Sudarshan + AI-HR + resource governor",
+            "ephemeral":True,"approval_required":True,
+            "authority":"BRAHMA + AI-HR discussion/argument + resource governor; Sudarshan executes the approved allocation",
+            "scale_governance":{
+                "fixed_eight_limit":False,
+                "mission_driven":True,
+                "brahma_review_required":True,
+                "ai_hr_review_required":True,
+                "discussion_and_argument_required":True,
+                "resource_review_required":True,
+                "diversity_before_quantity":True,
+                "expand_in_waves":True,
+                "expansion_reasons":[
+                    "uncovered specialty","independent replication","contradictory evidence",
+                    "new source class","cross-domain dependency","unresolved high-impact question",
+                ],
+                "stop_reasons":[
+                    "coverage complete","evidence saturation","duplicate outputs","diminishing information gain",
+                    "resource pressure","mission resolved","safety or permission boundary",
+                ],
+            },
             "preserve_before_retirement":[
                 "verified findings","supporting and contradicting evidence","successful methods","failed approaches",
                 "corrections","reusable skills","evaluation results","sources","provenance","unresolved questions",
@@ -881,8 +903,9 @@ class BrahmagyanRuntime:
             "retention_policy":"findings_and_provenance_only",
             "destruction_policy":"retire every Shishya immediately after verified handover; keep no live worker identity/state",
             "resource_policy":(
-                f"up to {concurrency} concurrent Shishyas per wave; up to {max_total} per request; "
-                "Rishi may request later waves while the mission remains active and resource budgets permit"
+                f"planned concurrency {concurrency} per wave and safety ceiling {max_total} per request; "
+                "these are configurable resource ceilings, not a fixed team size. BRAHMA and AI-HR review mission complexity, "
+                "specialty diversity, duplication, evidence gain and available CPU/GPU/RAM before approving expansion waves."
             ),
         }
 
