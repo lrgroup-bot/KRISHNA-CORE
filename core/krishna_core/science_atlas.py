@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .subject_ontology import find_subject, gap_report, FRONTIER_AXES
 
 import json
 import os
@@ -279,6 +280,18 @@ class ScienceAtlas:
             "rishis":[self.council.get(x) for x in ids],
             "safety":self.safety_mode(subject),
             "policy":"routing assigns modern KRISHNA research roles; it does not claim historical figures practiced these modern sciences",
+        }
+
+    def subject_depth(self, subject):
+        """Return ontology matches plus council ownership/gap diagnostics."""
+        matches=find_subject(subject)
+        council_ids=[row["id"] for row in self.council.list()]
+        return {
+            "subject":str(subject or ""),
+            "matches":matches[:25],
+            "frontier_axes":list(FRONTIER_AXES),
+            "ownership_gaps":gap_report(council_ids),
+            "policy":"expand depth through ontology/specialist cells before creating duplicate permanent Rishis",
         }
 
     def frontier_questions(self,subject,field=None,domain=None,limit=12):
