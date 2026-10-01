@@ -439,7 +439,11 @@ class MemoryStore:
             self.db.execute("""INSERT INTO learnings(project,topic,lesson,evidence,confidence,source,status,fingerprint,memory_kind,provenance,created_at,updated_at)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(project,fingerprint) DO UPDATE SET
                 evidence=excluded.evidence,confidence=MAX(learnings.confidence,excluded.confidence),source=excluded.source,
-                status=CASE WHEN learnings.status='verified' THEN 'verified' WHEN learnings.status='superseded' THEN 'superseded' ELSE excluded.status END,
+                status=CASE
+                    WHEN learnings.status='superseded' THEN 'superseded'
+                    WHEN learnings.status='needs_review' AND excluded.status='verified' THEN 'needs_review'
+                    WHEN learnings.status='verified' THEN 'verified'
+                    ELSE excluded.status END,
                 memory_kind=excluded.memory_kind,provenance=excluded.provenance,updated_at=excluded.updated_at""",
                 (project,topic,lesson,self._pack_gyan(evidence or []),confidence,str(source or "sudarshan"),status,fp,memory_kind,provenance_json,now,now))
             self.db.commit()
@@ -460,11 +464,25 @@ class MemoryStore:
                  "status":r[5],"fingerprint":r[6],"memory_kind":r[7],"provenance":json.loads(r[8] or "{}"),
                  "superseded_by":r[9],"superseded_at":r[10],"created_at":r[11],"updated_at":r[12]} for r in rows]
 
-    def verify_learning(self, project, fingerprint):
+    def verify_learning(self, project, fingerprint, revalidation=None):
+        """Verification of invalidated knowledge requires an explicit revalidation record."""
         with self.lock:
-            cur=self.db.execute("UPDATE learnings SET status='verified',updated_at=? WHERE project=? AND fingerprint=? AND status!='superseded'",
-                (time.time(),project,fingerprint)); self.db.commit()
-        if not cur.rowcount: raise KeyError(fingerprint)
+            row=self.db.execute("SELECT status,provenance FROM learnings WHERE project=? AND fingerprint=?",
+                                (project,fingerprint)).fetchone()
+            if not row or row[0]=='superseded': raise KeyError(fingerprint)
+            if row[0]=='needs_review' and not isinstance(revalidation,dict):
+                raise ValueError("needs_review knowledge requires explicit revalidation evidence")
+            try: prov=json.loads(row[1] or "{}")
+            except Exception: prov={}
+            if row[0]=='needs_review':
+                history=list(prov.get("revalidation_history") or [])
+                history.append({"at":time.time(),**dict(revalidation)})
+                prov["revalidation_history"]=history[-50:]
+                prov["needs_review"]=False
+                prov.pop("invalidated_by",None)
+            self.db.execute("UPDATE learnings SET status='verified',provenance=?,updated_at=? WHERE project=? AND fingerprint=?",
+                (json.dumps(prov,ensure_ascii=False,separators=(",",":")),time.time(),project,fingerprint))
+            self.db.commit()
         return True
 
     def supersede_learning(self, project, fingerprint, replacement_topic, replacement_lesson, evidence=None,
@@ -512,14 +530,15 @@ class MemoryStore:
         with self.lock:
             rows=self.db.execute("SELECT memory_kind,status,COUNT(*) FROM learnings WHERE project=? GROUP BY memory_kind,status",(project,)).fetchall()
             transient=self.db.execute("SELECT kind,COUNT(*) FROM memory WHERE project=? AND active=1 GROUP BY kind",(project,)).fetchall()
-        out={k:{"candidate":0,"verified":0,"superseded":0,"active_memory":0} for k in kinds}
+        out={k:{"candidate":0,"verified":0,"needs_review":0,"superseded":0,"active_memory":0} for k in kinds}
         for kind,status,count in rows:
-            if kind not in out: out[kind]={"candidate":0,"verified":0,"superseded":0,"active_memory":0}
+            if kind not in out: out[kind]={"candidate":0,"verified":0,"needs_review":0,"superseded":0,"active_memory":0}
             if status in out[kind]: out[kind][status]=int(count)
         for kind,count in transient:
             if kind in out: out[kind]["active_memory"]=int(count)
         return {"project":project,"kinds":out,"totals":{
-            "active_learnings":sum(v["candidate"]+v["verified"] for v in out.values()),
+            "active_learnings":sum(v["candidate"]+v["verified"]+v["needs_review"] for v in out.values()),
+            "needs_review":sum(v["needs_review"] for v in out.values()),
             "verified":sum(v["verified"] for v in out.values()),
             "superseded":sum(v["superseded"] for v in out.values()),
             "active_memory":sum(v["active_memory"] for v in out.values()),
