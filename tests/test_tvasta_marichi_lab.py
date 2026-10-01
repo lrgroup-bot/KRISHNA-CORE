@@ -57,3 +57,22 @@ def test_new_rishi_proposals_require_brahma_krishna_truth_debate(tmp_path):
     assert p["governance"]["truth_debate_required"]
     assert p["governance"]["gautama_evidence_review_required"]
     assert p["governance"]["shishya_first_required"]
+
+def test_shishya_scaling_is_not_fixed_to_eight(tmp_path, monkeypatch):
+    from krishna_core.brahmagyan import Brahmagyan
+    monkeypatch.setenv("KRISHNA_SHISHYA_MAX_CONCURRENT", "24")
+    bg = Brahmagyan(tmp_path)
+    m = bg.create_mission("KRISHNA", "deep computing research", "Map independent specialties")
+    plan = bg.shishya_plan(m["mission_id"], count=40)
+    assert plan["max_concurrent"] == 24
+    assert plan["requested_count"] == 40
+    assert plan["scale_governance"]["fixed_eight_limit"] is False
+    assert plan["scale_governance"]["brahma_review_required"]
+    assert plan["scale_governance"]["ai_hr_review_required"]
+
+def test_research_team_governor_expands_and_stops_on_information_gain():
+    from krishna_core.research_team_governor import research_team_decision
+    grow = research_team_decision(current=12, uncovered_specialties=7, contradictions=3)
+    assert grow["action"] == "expand" and grow["delta"] == 10
+    stop = research_team_decision(current=22, duplicate_ratio=.8, information_gain=.1)
+    assert stop["action"] == "stop_expansion"
