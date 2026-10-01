@@ -24,11 +24,14 @@ class ProviderGovernor:
         s["count"]+=1
         return {"allowed":True,"reason":"within_limits","provider":p}
 
-def provider_failure_action(status_code,attempt):
+def provider_failure_action(status_code,attempt,retry_after=None):
     attempt=max(0,int(attempt))
     if int(status_code)==429:
-        return {"retry":True,"backoff_seconds":min(300,2**min(attempt,8)),
-                "reduce_concurrency":True,"circuit_breaker":attempt>=5}
+        try: server_wait=max(0.0,min(3600.0,float(retry_after))) if retry_after is not None else None
+        except Exception: server_wait=None
+        wait=server_wait if server_wait is not None else min(300,2**min(attempt,8))
+        return {"retry":True,"backoff_seconds":wait,"reduce_concurrency":True,
+                "circuit_breaker":attempt>=5,"retry_after_honored":server_wait is not None}
     if 500<=int(status_code)<600:
         return {"retry":attempt<5,"backoff_seconds":min(60,2**min(attempt,6)),
                 "reduce_concurrency":False,"circuit_breaker":attempt>=5}
