@@ -52,3 +52,16 @@ def escalation_policy(*, affects_krishna=False, high_impact_conflict=False,
         "owner":"BRAHMA/BRAHMAGYAN",
         "policy":"routine discovery, source selection, watching, reading, Rishi/Shishya research and QC stay inside BRAHMAGYAN",
     }
+
+def prewarm_plan(topics, *, max_topics=50):
+    """Prepare likely-needed evidence before a user asks, reducing live latency."""
+    rows=[]
+    for topic in list(topics or [])[:max(1,min(int(max_topics),200))]:
+        name=str(topic or "").strip()
+        if not name:continue
+        rows.append({
+            "topic":name,
+            "prepare":["authoritative_sources","freshness_marker","claim_index","contradiction_index","video_transcript_index"],
+            "owner":"BRAHMAGYAN",
+        })
+    return {"topics":rows,"krishna_load":False,"policy":"precompute indexes; do not pre-generate conclusions without evidence"}
