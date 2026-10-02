@@ -33,8 +33,14 @@ class CodeBrain:
             else:
                 for m in re.finditer(r"(?m)^\s*(?:export\s+)?(?:async\s+)?(?:class|function|interface|enum|type)\s+([A-Za-z_$][\w$]*)",text):
                     name=m.group(1);nodes.append(CodeNode(f"{rel}:symbol:{name}","symbol",rel,name,text.count("\n",0,m.start())+1).as_dict())
-                for m in re.finditer(r"""(?m)^\s*import\s+.*?from\s+['"]([^'"]+)['"]""",text):
-                    edges.append({"source":rel,"target":m.group(1),"kind":"imports"})
+                patterns=(
+                    r"""(?m)^\s*import\s+.*?from\s+['"]([^'"]+)['"]""",
+                    r"""(?m)^\s*import\s+['"]([^'"]+)['"]""",
+                    r"""(?m)^\s*export\s+.*?from\s+['"]([^'"]+)['"]""",
+                )
+                for pattern in patterns:
+                    for m in re.finditer(pattern,text):
+                        edges.append({"source":rel,"target":m.group(1),"kind":"imports"})
         payload={"version":1,"root":str(root),"nodes":nodes,"edges":edges,"test_files":sorted(tests)}
         payload["digest"]=hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()
         return payload
