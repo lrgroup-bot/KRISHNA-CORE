@@ -5,16 +5,20 @@ from .idea_intake import IdeaIntake
 from .sudarshan_design_policy import SudarshanDesignPolicy
 from .sudarshan_design_engine import DesignJob, SudarshanDesignEngine
 from .vishvakarma_team import VishvakarmaTeam
+from .autonomous_project_lifecycle import AutonomousProjectLifecycle
+from .chandradev_real_use import ChandradevRealUseExam
 
 
 class SudarshanProjectOrchestrator:
-    def __init__(self, design_engine=None, engineering_intelligence=None):
+    def __init__(self, design_engine=None, engineering_intelligence=None, lifecycle_root=None):
         self.bootstrap=ProjectBootstrap()
         self.ideas=IdeaIntake()
         self.design_policy=SudarshanDesignPolicy()
         self.design_team=VishvakarmaTeam()
         self.design_engine=design_engine or SudarshanDesignEngine(".")
         self.engineering_intelligence=engineering_intelligence
+        self.autonomous_lifecycle=AutonomousProjectLifecycle(lifecycle_root) if lifecycle_root else None
+        self.chandradev_exam=ChandradevRealUseExam()
 
     def start(self,project_id,context):
         loaded=self.bootstrap.load(project_id,context)
@@ -22,6 +26,22 @@ class SudarshanProjectOrchestrator:
             return {"state":"BLOCKED_CONTEXT","missing":loaded["missing"],"owner":"Sudarshan"}
         baseline=self.bootstrap.baseline(loaded)
         return {"state":"DISCOVERY","project":project_id,"baseline":baseline,"next":"project-map-and-plan","owner":"Sudarshan"}
+
+    def discovery_complete(self,project_id,findings):
+        if self.autonomous_lifecycle is None:return {"state":"BLOCKED_LIFECYCLE_STATE"}
+        state=self.autonomous_lifecycle.record_discovery(project_id,findings)
+        return {"state":state["phase"],"next":"owner-discussion-and-live-prototype","owner":"Sudarshan"}
+
+    def freeze_after_owner_ui(self,project_id,prototype_url,spec_version,spec):
+        if self.autonomous_lifecycle is None:return {"state":"BLOCKED_LIFECYCLE_STATE"}
+        self.autonomous_lifecycle.approve_prototype(project_id,prototype_url,True)
+        state=self.autonomous_lifecycle.freeze(project_id,spec_version,spec)
+        return {"state":state["phase"],"silent_build":True,"owner":"Sudarshan"}
+
+    def final_real_use(self,project_id,steps):
+        report=self.chandradev_exam.evaluate(steps)
+        if self.autonomous_lifecycle is not None:self.autonomous_lifecycle.chandradev_result(project_id,report)
+        return report
 
     def prepare_engineering_task(self,project_id,root,task,*,requirements=(),failures=(),architecture_rules=()):
         if self.engineering_intelligence is None:
@@ -49,6 +69,8 @@ class SudarshanProjectOrchestrator:
             "design_team":True,
             "design_engine_bound":self.design_engine is not None,
             "engineering_intelligence_bound":self.engineering_intelligence is not None,
+            "autonomous_lifecycle_bound":self.autonomous_lifecycle is not None,
+            "chandradev_real_use":True,
         }
 
     def dispatch(self,task_type,checks,findings=None):
