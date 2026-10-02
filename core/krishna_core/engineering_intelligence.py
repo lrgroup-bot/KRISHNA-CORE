@@ -9,6 +9,7 @@ from .evolution_intelligence import EvolutionIntelligence
 from .competence_feedback import CompetenceFeedback
 from .otel_export import OTelGenAIExporter
 from .kabach_agent_eval import KabachAgentEvaluation
+from .architecture_policy import ArchitecturePolicy
 
 class EngineeringIntelligence:
     """One non-authoritative facade over deterministic engineering evidence.
@@ -20,7 +21,7 @@ class EngineeringIntelligence:
         self.state_root=Path(state_root).resolve();self.state_root.mkdir(parents=True,exist_ok=True)
         self.code=CodeBrain();self.context=ContextCompiler();self.lsp=LSPTruth();self.dap=DAPTruth()
         self.evolution=EvolutionIntelligence();self.competence=CompetenceFeedback()
-        self.otel=OTelGenAIExporter();self.kabach=KabachAgentEvaluation()
+        self.otel=OTelGenAIExporter();self.kabach=KabachAgentEvaluation();self.architecture=ArchitecturePolicy()
         self._truth={}
 
     def truth(self,project):
@@ -38,6 +39,13 @@ class EngineeringIntelligence:
 
     def requirement_status(self,project,requirement_id):
         return self.truth(project).requirement_status(requirement_id)
+
+    def architecture_check(self,index,rules=()):
+        return ArchitecturePolicy(rules).check(index)
+
+    def prepare_task(self,project,root,task,*,requirements=(),failures=(),architecture_rules=(),max_nodes=40):
+        index=self.index_project(project,root)
+        return {"index":index,"context":self.compile_context(project,task,code_index=index,requirements=requirements,failures=failures,max_nodes=max_nodes),"architecture":self.architecture_check(index,architecture_rules),"blast_radius":self.code.blast_radius(index,task)}
 
     def status(self):
         return {"owner":"KRISHNA","orchestrator":"Sudarshan","authority":False,"code_brain":True,"truth_graph_projects":len(self._truth),"lsp_languages":sorted(self.lsp.SERVERS),"dap_ready":False,"external_auto_install":False}
