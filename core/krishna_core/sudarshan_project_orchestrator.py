@@ -7,6 +7,7 @@ from .sudarshan_design_engine import DesignJob, SudarshanDesignEngine
 from .vishvakarma_team import VishvakarmaTeam
 from .autonomous_project_lifecycle import AutonomousProjectLifecycle
 from .chandradev_real_use import ChandradevRealUseExam
+from .chandradev_browser_bridge import ChandradevBrowserBridge
 
 
 class SudarshanProjectOrchestrator:
@@ -19,6 +20,7 @@ class SudarshanProjectOrchestrator:
         self.engineering_intelligence=engineering_intelligence
         self.autonomous_lifecycle=AutonomousProjectLifecycle(lifecycle_root) if lifecycle_root else None
         self.chandradev_exam=ChandradevRealUseExam()
+        self.chandradev_browser=ChandradevBrowserBridge()
 
     def start(self,project_id,context):
         loaded=self.bootstrap.load(project_id,context)
@@ -42,6 +44,22 @@ class SudarshanProjectOrchestrator:
         report=self.chandradev_exam.evaluate(steps)
         if self.autonomous_lifecycle is not None:self.autonomous_lifecycle.chandradev_result(project_id,report)
         return report
+
+    def final_from_browser_evidence(self,project_id,regression):
+        report=self.chandradev_browser.from_regression(regression)
+        if self.autonomous_lifecycle is not None:self.autonomous_lifecycle.chandradev_result(project_id,report)
+        return report
+
+    def completion_payload(self,project_id,acceptance,deploy_verified,runtime_verified,live_url=None):
+        failed=[k for k,v in acceptance.items() if v is not True]
+        if failed:return {"state":"REPAIR","failed":failed,"notify_owner":False}
+        if self.autonomous_lifecycle is None:return {"state":"BLOCKED_LIFECYCLE_STATE","notify_owner":False}
+        current=self.autonomous_lifecycle.status(project_id)
+        ch=current.get("chandradev") or {}
+        state=self.autonomous_lifecycle.complete(project_id,True,deploy_verified,runtime_verified,live_url=live_url,replay=ch.get("replay"))
+        ok=state["phase"]=="VERIFIED_COMPLETE"
+        return {"state":state["phase"],"notify_owner":ok,"live_url":(state.get("completion") or {}).get("live_url"),
+                "replay":(state.get("completion") or {}).get("replay"),"message":"Project completed and verified" if ok else "Project remains in repair"}
 
     def prepare_engineering_task(self,project_id,root,task,*,requirements=(),failures=(),architecture_rules=()):
         if self.engineering_intelligence is None:
