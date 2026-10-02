@@ -79,6 +79,23 @@ class FieldPerceptionPolicy:
             ),
         ),
         PerceptionCapability(
+            "visual-target-lock","tracking",
+            (
+                "natural-language visual target acquisition",
+                "session-local tracked target lock",
+                "visible clothing/color/object attribute matching",
+                "occlusion state and conservative reacquisition",
+                "camera framing/zoom follow hints",
+                "edge-reflex metadata handoff",
+            ),
+            (
+                "do not assign real-world identity from clothing or appearance",
+                "do not persist biometric identity embeddings",
+                "fail closed when multiple candidates are visually ambiguous",
+                "camera observation/framing only; no weapon or harmful actuation",
+            ),
+        ),
+        PerceptionCapability(
             "active-product-reading","object",
             (
                 "automatic best-target selection",

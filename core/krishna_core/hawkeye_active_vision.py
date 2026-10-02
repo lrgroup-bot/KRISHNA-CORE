@@ -5,7 +5,7 @@ from __future__ import annotations
 The mobile fast path remains deterministic and local. This runtime only decides
 what to do after the phone has already attempted target selection, autofocus/
 zoom/light recovery, target-crop OCR/barcode reads, and multi-frame consensus.
-It never makes the live scanner wait for a heavyweight model.
+It never makes the live scanner wait for a heavyweight model. Every proposed recovery or escalation requires explicit owner approval before execution.
 """
 
 from pathlib import Path
@@ -136,8 +136,9 @@ class HawkeyeActiveVisionRuntime:
         attempts = row["mobile_recovery_attempts"]
         if attempts < 4:
             return {
-                "status": "retry-mobile",
+                "status": "propose",
                 "route": "mobile-active-vision",
+                "owner_approval_required": True,
                 "actions": list(self.MOBILE_RECOVERY),
                 "reason": "deterministic mobile recovery has priority over heavyweight inference",
                 "packet": row,
@@ -146,47 +147,53 @@ class HawkeyeActiveVisionRuntime:
         text_len = len("".join(ch for ch in read["text"] if ch.isalnum()))
         if text_len < 8 and "pp_ocr_v6" in installed:
             return {
-                "status": "escalate",
+                "status": "propose",
                 "route": "pp_ocr_v6",
+                "owner_approval_required": True,
                 "reason": "mobile OCR remained insufficient after bounded automatic recovery",
                 "packet": row,
             }
 
         if row["pointing_available"] and "mobile_sam" in installed:
             return {
-                "status": "escalate",
+                "status": "propose",
                 "route": "mobile_sam",
+                "owner_approval_required": True,
                 "reason": "pointed target is ambiguous; point-prompt segmentation is available",
                 "packet": row,
             }
 
         if row["depth_available"]:
             return {
-                "status": "escalate",
+                "status": "propose",
                 "route": "depth_3d_pointing",
+                "owner_approval_required": True,
                 "reason": "depth-assisted target disambiguation is available on this device/session",
                 "packet": row,
             }
 
         if row["electronics_mode"] and "grounding_dino" in installed:
             return {
-                "status": "escalate",
+                "status": "propose",
                 "route": "grounding_dino",
+                "owner_approval_required": True,
                 "reason": "open-set electronics/component grounding requested after mobile read exhaustion",
                 "packet": row,
             }
 
         if "florence2" in installed:
             return {
-                "status": "escalate",
+                "status": "propose",
                 "route": "florence2",
+                "owner_approval_required": True,
                 "reason": "region-grounded semantic reading is available on KRISHNA PC",
                 "packet": row,
             }
 
         return {
-            "status": "fallback",
+            "status": "propose",
             "route": "existing-hawkeye-vision",
+            "owner_approval_required": True,
             "reason": "optional specialist models are not installed; use existing local/free-only Hawkeye vision without blocking the camera loop",
             "packet": row,
         }
@@ -206,7 +213,9 @@ class HawkeyeActiveVisionRuntime:
             "version": self.VERSION,
             "mobile_fast_path": "deterministic-local",
             "target_priority": list(self.TARGET_PRIORITY),
-            "automatic_recovery": list(self.MOBILE_RECOVERY),
+            "proposed_recovery": list(self.MOBILE_RECOVERY),
+            "execution_policy": "PROPOSE_ONLY_UNTIL_OWNER_APPROVAL",
+            "owner_approval_required": True,
             "optional_engines": self.OPTIONAL_ENGINES,
             "movement_instruction_default": False,
             "paid_dependency_required": False,
