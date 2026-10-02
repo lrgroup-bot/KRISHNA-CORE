@@ -91,3 +91,29 @@ def test_code_brain_extracts_common_js_ts_import_forms(tmp_path):
     idx=CodeBrain().index(tmp_path)
     targets={e["target"] for e in idx["edges"]}
     assert {"./x","./side","./y"}.issubset(targets)
+
+from krishna_core.autonomous_project_lifecycle import AutonomousProjectLifecycle
+from krishna_core.chandradev_real_use import ChandradevRealUseExam
+
+def test_autonomous_project_requires_owner_ui_gate_then_goes_silent(tmp_path):
+    life=AutonomousProjectLifecycle(tmp_path/"life");life.begin("demo","build a useful app")
+    life.record_discovery("demo",[{"classification":"KRISHNA_PROPOSAL","title":"offline mode"}])
+    try:
+        life.freeze("demo","v1",{"requirements":["R-1"]});assert False
+    except RuntimeError:pass
+    life.approve_prototype("demo","http://preview.local",True)
+    state=life.freeze("demo","v1",{"requirements":["R-1"]})
+    assert state["phase"]=="AUTONOMOUS_BUILD" and state["silent_build"] is True
+
+def test_workers_do_not_interrupt_owner(tmp_path):
+    life=AutonomousProjectLifecycle(tmp_path/"life");life.begin("demo","x")
+    assert life.interruption("demo","worker-7","question","financial_approval")["route"]=="SUDARSHAN"
+    assert life.interruption("demo","KRISHNA","approval required","financial_approval")["route"]=="OWNER"
+
+def test_chandradev_real_use_failure_routes_to_sudarshan():
+    exam=ChandradevRealUseExam()
+    report=exam.evaluate([{"action":"open","passed":True},{"action":"checkout","passed":False,"reason":"button obscured","evidence":"frame-12"}])
+    assert report["passed"] is False
+    assert report["findings"][0]["route"]=="SUDARSHAN_REPAIR"
+    replay=exam.replay(report["steps"])
+    assert replay[0]["passed"] is True and replay[1]["passed"] is False
