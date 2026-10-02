@@ -68,3 +68,20 @@ def test_engineering_intelligence_is_single_non_authoritative_facade(tmp_path):
     assert status["orchestrator"]=="Sudarshan"
     assert status["authority"] is False
     assert status["external_auto_install"] is False
+
+from krishna_core.architecture_policy import ArchitecturePolicy
+from krishna_core.sudarshan_project_orchestrator import SudarshanProjectOrchestrator
+
+def test_architecture_policy_blocks_forbidden_dependency():
+    idx={"edges":[{"source":"ui/login.py","target":"database","kind":"imports"}]}
+    result=ArchitecturePolicy([{"id":"ARCH-1","source":"^ui/","target":"database","allowed":False}]).check(idx)
+    assert result["passed"] is False and result["violations"][0]["rule"]=="ARCH-1"
+
+def test_sudarshan_prepares_engineering_context_and_blocks_architecture(tmp_path):
+    (tmp_path/"ui.py").write_text("import database\ndef login(): pass\n",encoding="utf-8")
+    svc=EngineeringIntelligence(tmp_path/"state")
+    s=SudarshanProjectOrchestrator(engineering_intelligence=svc)
+    ready=s.prepare_engineering_task("demo",tmp_path,"login")
+    assert ready["state"]=="READY_ENGINEERING_CONTEXT"
+    blocked=s.prepare_engineering_task("demo",tmp_path,"login",architecture_rules=[{"id":"NO-DB","source":"^ui.py$","target":"database","allowed":False}])
+    assert blocked["state"]=="BLOCKED_ARCHITECTURE_POLICY"
