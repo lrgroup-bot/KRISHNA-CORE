@@ -1,0 +1,139 @@
+from pathlib import Path
+from krishna_core.code_brain import CodeBrain
+from krishna_core.project_truth_graph import ProjectTruthGraph
+from krishna_core.context_compiler import ContextCompiler
+from krishna_core.engineering_truth import LSPTruth,DAPTruth
+from krishna_core.mission_replay import MissionReplayLedger
+from krishna_core.evolution_intelligence import EvolutionIntelligence
+from krishna_core.competence_feedback import CompetenceFeedback
+from krishna_core.otel_export import OTelGenAIExporter
+from krishna_core.kabach_agent_eval import KabachAgentEvaluation
+
+def test_code_brain_indexes_python_and_blast_radius(tmp_path):
+    (tmp_path/"a.py").write_text("import b\ndef login(x): return x\n",encoding="utf-8")
+    (tmp_path/"test_a.py").write_text("def test_login(): pass\n",encoding="utf-8")
+    idx=CodeBrain().index(tmp_path)
+    assert any(x["name"]=="login" for x in idx["nodes"])
+    assert "test_a.py" in idx["test_files"]
+    assert CodeBrain().blast_radius(idx,"login")["count"]>=1
+
+def test_truth_graph_requires_code_test_runtime_evidence():
+    g=ProjectTruthGraph()
+    for i,k in [("AUTH-001","requirement"),("auth.py","code"),("test-auth","test"),("run-1","runtime_evidence")]:g.add(i,k)
+    g.link("AUTH-001","auth.py","implemented_by");g.link("auth.py","test-auth","verified_by");g.link("test-auth","run-1","runtime_verified_by")
+    assert g.requirement_status("AUTH-001")["complete"] is True
+
+def test_context_compiler_is_bounded(tmp_path):
+    (tmp_path/"auth.py").write_text("def login(): pass\n",encoding="utf-8")
+    idx=CodeBrain().index(tmp_path)
+    out=ContextCompiler().compile("fix login",code_index=idx,max_nodes=1)
+    assert len(out["code"])<=1 and out["index_digest"]==idx["digest"]
+
+def test_lsp_and_dap_fail_closed(tmp_path):
+    assert LSPTruth().plan("not-a-language")["available"] is False
+    assert DAPTruth().plan("python",tmp_path)["ready"] is False
+
+def test_mission_replay_resume(tmp_path):
+    l=MissionReplayLedger(tmp_path/"replay.db");l.record("m1","s1",inputs={"a":1},result={"ok":1});l.record("m1","s2",state="failed")
+    assert l.resume_point("m1")["last_verified_step"]=="s1"
+
+def test_evolution_and_test_gap_contract(tmp_path):
+    (tmp_path/"a.py").write_text("def a(): pass\n",encoding="utf-8");b=CodeBrain().index(tmp_path)
+    (tmp_path/"a.py").write_text("def a(): pass\ndef b(): pass\n",encoding="utf-8");a=CodeBrain().index(tmp_path)
+    assert EvolutionIntelligence().compare(b,a)["symbols_added"]
+    assert EvolutionIntelligence().test_gaps(a,["a.py"])["heuristic"] is True
+
+def test_competence_feedback_finds_repeated_weakness():
+    rows=[{"agent":"repair","domain":"flutter","passed":False} for _ in range(3)]
+    assert CompetenceFeedback().weaknesses(rows)
+
+def test_otel_mapping_does_not_export_prompt_content():
+    s=OTelGenAIExporter().span({"agent":"worker","project":"p","mission":"m","verified":True,"prompt":"secret"})
+    assert "prompt" not in str(s)
+
+def test_kabach_eval_is_isolated_and_authorized():
+    p=KabachAgentEvaluation().plan("candidate")
+    assert p["production"] is False and p["requires_authorization"] is True
+
+from krishna_core.engineering_intelligence import EngineeringIntelligence
+
+def test_engineering_intelligence_is_single_non_authoritative_facade(tmp_path):
+    (tmp_path/"src.py").write_text("def build(): return True\n",encoding="utf-8")
+    svc=EngineeringIntelligence(tmp_path/"state")
+    idx=svc.index_project("demo",tmp_path)
+    ctx=svc.compile_context("demo","build",code_index=idx)
+    assert ctx["code"]
+    status=svc.status()
+    assert status["owner"]=="KRISHNA"
+    assert status["orchestrator"]=="Sudarshan"
+    assert status["authority"] is False
+    assert status["external_auto_install"] is False
+
+from krishna_core.architecture_policy import ArchitecturePolicy
+from krishna_core.sudarshan_project_orchestrator import SudarshanProjectOrchestrator
+
+def test_architecture_policy_blocks_forbidden_dependency():
+    idx={"edges":[{"source":"ui/login.py","target":"database","kind":"imports"}]}
+    result=ArchitecturePolicy([{"id":"ARCH-1","source":"^ui/","target":"database","allowed":False}]).check(idx)
+    assert result["passed"] is False and result["violations"][0]["rule"]=="ARCH-1"
+
+def test_sudarshan_prepares_engineering_context_and_blocks_architecture(tmp_path):
+    (tmp_path/"ui.py").write_text("import database\ndef login(): pass\n",encoding="utf-8")
+    svc=EngineeringIntelligence(tmp_path/"state")
+    s=SudarshanProjectOrchestrator(engineering_intelligence=svc)
+    ready=s.prepare_engineering_task("demo",tmp_path,"login")
+    assert ready["state"]=="READY_ENGINEERING_CONTEXT"
+    blocked=s.prepare_engineering_task("demo",tmp_path,"login",architecture_rules=[{"id":"NO-DB","source":"^ui.py$","target":"database","allowed":False}])
+    assert blocked["state"]=="BLOCKED_ARCHITECTURE_POLICY"
+
+def test_code_brain_extracts_common_js_ts_import_forms(tmp_path):
+    (tmp_path/"app.ts").write_text("import x from './x'\nimport './side'\nexport { y } from './y'\n",encoding="utf-8")
+    idx=CodeBrain().index(tmp_path)
+    targets={e["target"] for e in idx["edges"]}
+    assert {"./x","./side","./y"}.issubset(targets)
+
+from krishna_core.autonomous_project_lifecycle import AutonomousProjectLifecycle
+from krishna_core.chandradev_real_use import ChandradevRealUseExam
+
+def test_autonomous_project_requires_owner_ui_gate_then_goes_silent(tmp_path):
+    life=AutonomousProjectLifecycle(tmp_path/"life");life.begin("demo","build a useful app")
+    life.record_discovery("demo",[{"classification":"KRISHNA_PROPOSAL","title":"offline mode"}])
+    try:
+        life.freeze("demo","v1",{"requirements":["R-1"]});assert False
+    except RuntimeError:pass
+    life.approve_prototype("demo","http://preview.local",True)
+    state=life.freeze("demo","v1",{"requirements":["R-1"]})
+    assert state["phase"]=="AUTONOMOUS_BUILD" and state["silent_build"] is True
+
+def test_workers_do_not_interrupt_owner(tmp_path):
+    life=AutonomousProjectLifecycle(tmp_path/"life");life.begin("demo","x")
+    assert life.interruption("demo","worker-7","question","financial_approval")["route"]=="SUDARSHAN"
+    assert life.interruption("demo","KRISHNA","approval required","financial_approval")["route"]=="OWNER"
+
+def test_chandradev_real_use_failure_routes_to_sudarshan():
+    exam=ChandradevRealUseExam()
+    report=exam.evaluate([{"action":"open","passed":True},{"action":"checkout","passed":False,"reason":"button obscured","evidence":"frame-12"}])
+    assert report["passed"] is False
+    assert report["findings"][0]["route"]=="SUDARSHAN_REPAIR"
+    replay=exam.replay(report["steps"])
+    assert replay[0]["passed"] is True and replay[1]["passed"] is False
+
+from krishna_core.chandradev_browser_bridge import ChandradevBrowserBridge
+
+def test_browser_regression_becomes_chandradev_replay_without_camera_claim():
+    regression={"available":True,"routes":[{"route":"/","url":"http://local/","passed":True,"findings":[]}],
+      "edges":[{"action":"click","name":"Checkout","source":"/","target":"/checkout","final_url":"http://local/checkout","passed":True,"findings":[],"state_match":True}]}
+    report=ChandradevBrowserBridge().from_regression(regression)
+    assert report["passed"] is True and len(report["replay"])==2
+    assert report["physical_camera_claim"] is False
+
+def test_completion_notifies_owner_only_after_chandradev_and_runtime(tmp_path):
+    s=SudarshanProjectOrchestrator(lifecycle_root=tmp_path/"life")
+    s.autonomous_lifecycle.begin("demo","x")
+    s.autonomous_lifecycle.record_discovery("demo",[])
+    s.autonomous_lifecycle.approve_prototype("demo","http://preview",True)
+    s.autonomous_lifecycle.freeze("demo","v1",{"requirements":["R-1"]})
+    s.final_from_browser_evidence("demo",{"available":True,"routes":[{"route":"/","url":"http://live/","passed":True,"findings":[]}],"edges":[]})
+    result=s.completion_payload("demo",{"functional":True},True,True,"http://live/")
+    assert result["state"]=="VERIFIED_COMPLETE" and result["notify_owner"] is True
+    assert result["live_url"]=="http://live/" and result["replay"]

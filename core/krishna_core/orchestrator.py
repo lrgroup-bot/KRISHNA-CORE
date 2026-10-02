@@ -85,6 +85,7 @@ from .ephemeral_workers import EphemeralWorkerRuntime
 from .agi_kernel import AGIKernel
 from .requirements_ledger import RequirementsLedger
 from .architecture_truth import ArchitectureTruthAudit
+from .engineering_intelligence import EngineeringIntelligence
 from .mobile_runtime_manifest import MobileRuntimeManifest
 from .rishi_live_research import RishiLiveResearchExecutor
 from .science_atlas import ScienceAtlas
@@ -145,6 +146,7 @@ class Orchestrator:
         self.software_factory = SoftwareFactory(self.memory,self.commitments)
         runtime_state = Path(self.db_path).resolve().parent / ".krishna_state"
         self.project_brain = ProjectBrain(self.memory,runtime_state / "project-brain")
+        self.engineering_intelligence = EngineeringIntelligence(runtime_state / "engineering-intelligence")
         self.lab = LabBot(runtime_state / "lab-bot")
         self.gita_gyan = GitaGyan(runtime_state / "gita-gyan")
         self.gita_performance = GitaPerformanceEngine(self.gita_gyan)
