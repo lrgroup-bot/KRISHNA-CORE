@@ -9,10 +9,18 @@ class HawkeyeAutonomousInvestigationTests(unittest.TestCase):
             d=HawkeyeOwnerDiscussion(td);p=d.propose("Add depth sensor","Better metric geometry",["Use phone depth","Skip"],category="new_sensor")
             self.assertTrue(p["owner_approval_required"]);self.assertEqual(p["status"],"PENDING")
             self.assertEqual(d.decide(p["proposal_id"],True)["status"],"APPROVED")
-    def test_safe_recovery_and_physical_request_separated(self):
-        p=HawkeyeActiveInvestigator.recommend({"quality":.2,"occluded":True})
-        self.assertEqual(p["automatic"][0]["action"],"improve_image")
-        self.assertEqual(p["discussion"][0]["action"],"new_viewpoint")
+    def test_every_action_requires_discussion(self):
+        p=HawkeyeActiveInvestigator.recommend({"quality":.2,"occluded":True,"previous_episode":True})
+        self.assertEqual(p["automatic"],[])
+        self.assertEqual(p["execution_policy"],"PROPOSE_ONLY_UNTIL_OWNER_APPROVAL")
+        self.assertEqual({x["action"] for x in p["discussion"]},{"improve_image","new_viewpoint","compare_previous"})
+
+    def test_even_zero_cost_capability_waits_for_owner(self):
+        with tempfile.TemporaryDirectory() as td:
+            d=HawkeyeOwnerDiscussion(td)
+            p=d.propose("Retry OCR","Text was unclear",["Retry","Skip"],category="routine",cost="₹0")
+            self.assertTrue(p["owner_approval_required"])
+            self.assertEqual(p["status"],"PENDING")
     def test_episode_excludes_identity_kind(self):
         with tempfile.TemporaryDirectory() as td:
             m=HawkeyeSpatialEpisodeMemory(td);e=m.record("workshop",objects=[{"kind":"machine","label":"motor"},{"kind":"face_identity","label":"x"}])
