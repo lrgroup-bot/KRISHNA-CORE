@@ -117,3 +117,23 @@ def test_chandradev_real_use_failure_routes_to_sudarshan():
     assert report["findings"][0]["route"]=="SUDARSHAN_REPAIR"
     replay=exam.replay(report["steps"])
     assert replay[0]["passed"] is True and replay[1]["passed"] is False
+
+from krishna_core.chandradev_browser_bridge import ChandradevBrowserBridge
+
+def test_browser_regression_becomes_chandradev_replay_without_camera_claim():
+    regression={"available":True,"routes":[{"route":"/","url":"http://local/","passed":True,"findings":[]}],
+      "edges":[{"action":"click","name":"Checkout","source":"/","target":"/checkout","final_url":"http://local/checkout","passed":True,"findings":[],"state_match":True}]}
+    report=ChandradevBrowserBridge().from_regression(regression)
+    assert report["passed"] is True and len(report["replay"])==2
+    assert report["physical_camera_claim"] is False
+
+def test_completion_notifies_owner_only_after_chandradev_and_runtime(tmp_path):
+    s=SudarshanProjectOrchestrator(lifecycle_root=tmp_path/"life")
+    s.autonomous_lifecycle.begin("demo","x")
+    s.autonomous_lifecycle.record_discovery("demo",[])
+    s.autonomous_lifecycle.approve_prototype("demo","http://preview",True)
+    s.autonomous_lifecycle.freeze("demo","v1",{"requirements":["R-1"]})
+    s.final_from_browser_evidence("demo",{"available":True,"routes":[{"route":"/","url":"http://live/","passed":True,"findings":[]}],"edges":[]})
+    result=s.completion_payload("demo",{"functional":True},True,True,"http://live/")
+    assert result["state"]=="VERIFIED_COMPLETE" and result["notify_owner"] is True
+    assert result["live_url"]=="http://live/" and result["replay"]
