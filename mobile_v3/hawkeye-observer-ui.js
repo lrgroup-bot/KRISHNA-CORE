@@ -1042,10 +1042,16 @@
     }catch(e){state.recorder=null;if(btn){btn.classList.remove("recording");btn.textContent="REC+DATA";}if(typeof reply==="function")reply("Recording: "+e.message,"bad");}
   }
 
-  function toggleTargetLock(){
+  function toggleTargetLock(forceRelease=false){
     const btn=byId("cameraLock");
+    if(forceRelease){
+      state.lockedTrackingId=null;state.descriptorLockQuery="";state.descriptorLockState="UNLOCKED";
+      if(btn){btn.classList.remove("active");btn.textContent="LOCK";}
+      if(typeof reply==="function")reply("HAWKEYE target lock released.","good");
+      return;
+    }
     if(state.lockedTrackingId!==null){
-      state.lockedTrackingId=null;
+      state.lockedTrackingId=null;state.descriptorLockQuery="";state.descriptorLockState="UNLOCKED";
       if(btn){btn.classList.remove("active");btn.textContent="LOCK";}
       if(typeof reply==="function")reply("HAWKEYE target lock released.","good");
       return;
