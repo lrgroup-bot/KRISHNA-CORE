@@ -313,3 +313,111 @@ Art & Creativity Engine
 
 DESIGN LAW
 A coloring page should be able to become a conversation, a story, a learning activity or an original creation. The goal is not to manufacture identical neat pictures; it is to progressively give the child more control, imagination and ways to express what they know.
+
+
+======================================================================
+RESEARCH EXPANSION NOTES - 2026-10-02 LATE NIGHT
+======================================================================
+
+STATUS
+These are design/research findings to preserve for later discussion. They are not claims of implementation. Continue expanding only with genuinely valuable findings.
+
+DIGITAL -> PHYSICAL LEARNING WORLD
+The platform should routinely turn digital prompts into physical action. Young-child learning can combine activity, movement, rhythm, repetition, manipulation, exploration, experimentation, imagination, art, craft, music and interaction with real-world materials.
+
+RHYTHM & MOVEMENT LEARNING
+Explore a Rhythm & Movement Engine:
+- "1,2,3,4 - now do it with me"
+- imitation and follow-the-leader dance
+- child creates a movement sequence and Krishna copies it
+- rhythmic counting
+- repeated groups/multiplication through beats
+- syllables/phonological awareness through clapping
+- direction/position concepts through gestures
+- movement patterns such as ABAB
+- movement + memory + rule-switch games
+Camera/pose estimation may be used only with appropriate parent permission and should provide playful coaching rather than harsh scoring.
+
+CHILD LEADS SOMETIMES
+Do not keep AI permanently in teacher role. Frequently reverse roles:
+AI teaches -> child imitates -> child invents -> AI copies -> child corrects AI -> child explains.
+This adds agency, creativity, reasoning and humour.
+
+CHILD INTERACTION ENGINE
+Krishna should be warm, patient, gentle, playful and responsive like an excellent caregiver/teacher without claiming to actually be the child's mother or replacing family relationships.
+Behavior adapts to age, activity, recent success/failure, attempts, response time, help requests and parent preferences.
+Possible responses:
+- struggling -> simplify / concrete example / hint
+- bored -> switch modality
+- too easy -> increase challenge
+- tired -> end gracefully
+- successful after effort -> specific process feedback
+Never shame mistakes.
+
+INTERACTION SAFETY
+Do not design emotional dependency. Krishna must never use manipulative attachment language such as implying the child should prefer AI to parents/friends, asking the child not to leave, or claiming to be the child's real parent/best/only friend.
+
+HUMAN CONNECTION ROUTER
+AI should deliberately route some activities back to people:
+- "Go get Mama/Papa for this one."
+- "Ask Dadi/Dada how they learned this."
+- teach a parent something
+- build something with sibling/friend
+- interview an older family member
+AI should strengthen human relationships rather than replace them.
+
+INTEREST GRAPH
+Privately model changing interests such as space, animals, cricket, cars, drawing, dance and preferred activity formats such as stories, movement, puzzles, experiments and building.
+Use this to select an entry point into curriculum, not to trap the child in one topic.
+
+FUN ROUTER
+For the same learning objective choose among:
+Story
+Dance
+Song
+Puzzle
+Experiment
+Game
+Drawing
+Building
+Role-play
+Outdoor mission
+Conversation
+Competition
+Teach-Krishna
+Mystery
+Selection should optimize learning and healthy voluntary participation, not raw watch time.
+
+AI STORY CURRICULUM ENGINE
+Keep curriculum objective fixed while adapting presentation to age, language, interest, current mastery and suitable modality.
+Example: fractions + age 8 + cooking interest + physical preference -> Krishna's Pizza Kitchen -> divide food/model -> halves/quarters -> compare -> real-world roti mission -> explain -> delayed recall.
+
+HEALTHY ENGAGEMENT
+Do not optimize engagement as minutes watched. Prefer evidence such as voluntary participation, successful learning, persistence, curiosity, creation, real-world activity and healthy return-to-learn. The platform should be comfortable telling the child that the activity is finished for today.
+
+MYSTERY MISSION
+Use occasional surprise learning missions without gambling/loot-box mechanics. Surprise is the type of learning activity, not a variable virtual prize.
+
+SHARED READING / STORY PARTNER
+Explore parent-child-AI shared reading:
+- pause and predict
+- child acts a character
+- ask comprehension questions naturally
+- connect story to child's world
+- invite parent participation
+- later delayed recall
+AI supplements parent/child reading rather than replacing the human reader.
+
+UNPLUGGED CODING / ALGORITHM PLAY
+Use physical/playful sequencing before or alongside coding:
+- child gives Krishna commands: forward, left, jump, repeat
+- Krishna follows literally
+- child debugs the sequence
+- later introduce loops, conditions and decomposition
+Humour can come from literal execution of imperfect instructions.
+
+LEARNING PREFERENCE MODEL
+Measure which modalities produce both engagement AND later learning/retention for this child. Do not label children permanently as a fixed "visual/auditory learner." Continue exposing them to varied modes.
+
+CORE PRINCIPLE
+We do not want children addicted to our technology. We want them excited about what the technology helps them discover, create, understand and do in the real world.
