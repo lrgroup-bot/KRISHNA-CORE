@@ -1,0 +1,53 @@
+KIDS PLATFORM - AI LEARNING GROWTHSCAN / PARENT VIDEO ASSESSMENT
+Date: 2026-10-02
+Status: Product concept to be designed before implementation
+
+PURPOSE
+Parents record short guided videos of their child performing age-appropriate learning activities. AI analyzes only observable educational evidence, identifies demonstrated strengths and skills needing practice, recommends specific next activities, stores longitudinal evidence in the Parent Dashboard, and (only with explicit parent opt-in) sends a concise progress summary through WhatsApp.
+
+CORE FLOW
+Parent starts Learning Check -> guided recording -> AI extracts observable learning evidence -> low-confidence observations are not scored -> baseline Learning Graph updated -> personalized improvement plan -> full report in Parent Dashboard -> optional WhatsApp summary -> adaptive child activities -> comparable reassessment -> progress comparison -> next plan.
+
+EXAMPLE AGE 2-4: A FOR APPLE
+Teach A for Apple. Later ask A for...? Then test in different ways: select apple among objects; say Apple aloud; identify apple without text; identify which object starts with A; repeat on another day to test retention. Watching alone is NOT mastery.
+
+VIDEO CHECK ACTIVITIES
+Familiar-object vocabulary; simple instruction comprehension; colours/shapes; counting/quantity; picture description; age-appropriate speaking/listening; reading aloud when appropriate; curriculum tasks for older children; real-world/project demonstrations.
+
+EVIDENCE LADDER
+Exposure -> correct after demonstration -> correct with hints -> independent correct -> independent transfer -> delayed recall -> retained/mastered after repeated evidence.
+
+PARENT DASHBOARD
+Show observable progress: vocabulary demonstrated; listening/instruction tasks; speaking samples; reading evidence; number/counting evidence; mathematics concepts; curriculum mastery; projects/creativity; retention; strengths; developing skills; recommended 7/14/30-day activities; evidence clips where appropriate and consented.
+
+WHATSAPP
+Explicit parent opt-in only. Send concise summaries, not sensitive raw video. Full evidence remains in Parent Dashboard.
+
+SAFETY / TRUST
+Parent controls assessment. Obtain camera/audio/WhatsApp consent. Minimize raw child-video retention and provide deletion controls. Strip unnecessary GPS/EXIF. Never diagnose autism, ADHD, speech/developmental disorders, IQ, intelligence, or medical/mental-health conditions from consumer video. Report observable performance only. ASR uncertainty is not a child error. Do not penalize accents. Low-confidence AI -> retry, parent confirmation, qualified human review, or not scored. Parent can review/correct AI observations.
+
+LEARNING ENGINE
+GrowthScan -> baseline -> Learning Graph -> Adaptive Path -> activities -> continuous Learning Proof -> reassessment -> progress comparison -> dashboard -> WhatsApp -> next plan.
+
+PLAYFUL MATHEMATICS TEACHING
+Use CONCRETE -> PICTORIAL -> ABSTRACT.
+Example 2+3: child physically combines 2 objects and 3 objects; then sees/draws the groups; only then reveal 2+3=5. Explicitly connect the representations.
+
+Use toys, fruit, blocks, fingers, household objects, drag/drop virtual manipulatives, number bonds, ten frames, bar models, body movement, songs/rhymes, stories, treasure hunts, shopkeeper/money games, cooking/measurement, sports scoring, puzzles, child-teaches-Krishna, funny deliberate mistakes by Krishna, and real-world missions away from the screen.
+
+FUNNY TEACHER PATTERN
+Make Krishna/avatar the confused/funny student, never the child.
+Example:
+Krishna: I have 3 laddus. You gave me 2 more. Now I have 32 laddus!
+Child: No! Five!
+Krishna: Ohhh! Show me how.
+Child moves 3 + 2 objects together.
+System records conceptual evidence.
+
+Never humiliate children for mistakes. Humour belongs to the character/situation.
+
+MEASUREMENT
+Do not report watched minutes as learning. Measure: learn -> recall -> use -> explain -> transfer -> delayed recall -> retain.
+
+LONG-TERM GOAL
+Turn passive screen time into measurable learning, real-world activity, creation and parent-visible growth while maintaining strict child privacy and safety.
