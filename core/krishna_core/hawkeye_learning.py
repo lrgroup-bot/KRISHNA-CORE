@@ -39,6 +39,8 @@ class HawkeyeLearningRuntime:
         "temporal": "What changed compared with 5 seconds, 5 minutes or previous sessions?",
         "reasoner": "What conclusions are supported by multiple independent sources?",
         "diagnostic": "What fault hypotheses are supported, what test should come next, and was the repair verified?",
+        "spatial": "Where is the observation, has this place been seen before, and is spatial alignment supported?",
+        "investigator": "What evidence is missing and what bounded next observation would reduce uncertainty?",
     }
 
     RESEARCH_FIELDS = {
@@ -48,6 +50,8 @@ class HawkeyeLearningRuntime:
         "temporal": ("change detection", "tracking", "temporal models", "sequence analysis", "memory"),
         "reasoner": ("evidence fusion", "uncertainty", "provenance", "causal reasoning", "verification"),
         "diagnostic": ("electronics diagnostics", "vehicle diagnostics", "machine condition monitoring", "acoustic diagnostics", "circuit analysis", "fault isolation", "repair verification"),
+        "spatial": ("visual place recognition", "loop closure", "visual inertial odometry", "SLAM", "3D scene graphs", "episodic spatial memory"),
+        "investigator": ("active perception", "next best view", "evidence acquisition", "uncertainty reduction", "sensor scheduling"),
     }
 
     ALLOWED_EVIDENCE_STATES = {"candidate", "replicated", "verified", "rejected"}
