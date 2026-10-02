@@ -2,7 +2,7 @@ KRISHNA OWNER HARDWARE INVENTORY
 ===============================
 Purpose: Persistent source-of-truth inventory for hardware/electronics already owned by the owner.
 Rule: When the owner identifies or adds hardware, append/update it here rather than creating another inventory file.
-Last updated: 2026-09-28
+Last updated: 2026-10-02
 
 COMPUTER COMPONENTS
 -------------------
@@ -224,6 +224,36 @@ GAME / MEDIA CONSOLES
    - Action: Verify currently installed HDD capacity and firmware from PS3 System Information; original 80GB drive may have been upgraded
 
 
+
+
+
+NETWORK / POWER EQUIPMENT — NEWLY IDENTIFIED
+--------------------------------------------
+16. Ubiquiti PoE power injector / switching power supply
+   - Status: Owned
+   - Brand: Ubiquiti
+   - Exact model: TO VERIFY from a clearer label photo
+   - Device type: PoE injector / Ethernet power supply
+   - Visible features: Ubiquiti branding, reset button, mains-powered enclosure
+   - Potential KRISHNA/LR Group use: power compatible Ubiquiti access points/bridges/cameras, network test bench, PoE experiments, edge-node power where voltage/pinout compatibility is confirmed
+   - Safety note: Treat as potentially passive PoE until the exact model, output voltage and pinout are verified. Do not connect the PoE output to arbitrary PCs, switches or unknown Ethernet devices.
+   - Action: Photograph the label and ports clearly; verify output voltage/current, passive-vs-802.3af/at behavior, LAN/POE port labeling and working condition before deployment
+
+MOTORS / COOLING / ELECTROMECHANICAL
+------------------------------------
+17. Huayang small AC motor
+   - Status: Owned
+   - Brand: Huayang
+   - Exact model: TO VERIFY from clearer label/photo
+   - Input: approximately 220-240V AC, 50/60Hz
+   - Approximate input power visible on label: about 9W
+   - Approximate output power visible on label: about 1.4W
+   - Insulation class: Class B
+   - Device type: small mains AC motor, likely used in fan/blower/appliance applications
+   - Potential KRISHNA/LR Group use: enclosure ventilation, small exhaust/blower project, workshop cooling experiments, Vishvakarma hardware projects
+   - Not suitable for: direct connection to PC/Raspberry Pi/low-voltage electronics
+   - Safety note: Mains-voltage device; any reuse requires proper enclosure, insulation, fuse and suitably rated relay/SSR if electronically controlled
+   - Action: Photograph the full motor assembly and label more clearly; measure shaft/fan arrangement and verify current draw and working condition before reuse
 
 
 INVENTORY POLICY
