@@ -1,6 +1,7 @@
 import tempfile,unittest
 from pathlib import Path
 from krishna_core.hawkeye_autonomous_investigation import HawkeyeOwnerDiscussion,HawkeyeActiveInvestigator,HawkeyeSpatialEpisodeMemory,HawkeyeMultiSensorFusion
+from krishna_core.hawkeye_learning import HawkeyeLearningRuntime
 
 class HawkeyeAutonomousInvestigationTests(unittest.TestCase):
     def test_owner_gated_capability_waits(self):
@@ -16,6 +17,11 @@ class HawkeyeAutonomousInvestigationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             m=HawkeyeSpatialEpisodeMemory(td);e=m.record("workshop",objects=[{"kind":"machine","label":"motor"},{"kind":"face_identity","label":"x"}])
             self.assertEqual(len(e["objects"]),1);self.assertEqual(e["objects"][0]["kind"],"machine")
+    def test_learning_has_spatial_and_investigator_missions(self):
+        with tempfile.TemporaryDirectory() as td:
+            names={x["specialist"] for x in HawkeyeLearningRuntime(td).daily_missions()}
+            self.assertIn("spatial",names);self.assertIn("investigator",names)
+
     def test_fusion_does_not_claim_measurement(self):
         x=HawkeyeMultiSensorFusion.fuse([{"source":"camera","confidence":.8,"quality":.9},{"source":"depth","confidence":.9,"quality":.8}])
         self.assertGreater(x["confidence"],.7);self.assertFalse(x["measured_claim"])
