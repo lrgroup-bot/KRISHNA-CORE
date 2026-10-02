@@ -85,3 +85,9 @@ def test_sudarshan_prepares_engineering_context_and_blocks_architecture(tmp_path
     assert ready["state"]=="READY_ENGINEERING_CONTEXT"
     blocked=s.prepare_engineering_task("demo",tmp_path,"login",architecture_rules=[{"id":"NO-DB","source":"^ui.py$","target":"database","allowed":False}])
     assert blocked["state"]=="BLOCKED_ARCHITECTURE_POLICY"
+
+def test_code_brain_extracts_common_js_ts_import_forms(tmp_path):
+    (tmp_path/"app.ts").write_text("import x from './x'\nimport './side'\nexport { y } from './y'\n",encoding="utf-8")
+    idx=CodeBrain().index(tmp_path)
+    targets={e["target"] for e in idx["edges"]}
+    assert {"./x","./side","./y"}.issubset(targets)
