@@ -30,6 +30,16 @@ class HawkeyeAutonomousInvestigationTests(unittest.TestCase):
             names={x["specialist"] for x in HawkeyeLearningRuntime(td).daily_missions()}
             self.assertIn("spatial",names);self.assertIn("investigator",names)
 
+    def test_learning_candidate_never_auto_promotes(self):
+        with tempfile.TemporaryDirectory() as td:
+            l=HawkeyeLearningRuntime(td)
+            finding=l.record_finding(specialist="investigator",title="better evidence acquisition",claim="candidate",source_url="https://example.com")
+            cand=l.propose_candidate(specialist="investigator",finding_ids=[finding["finding_id"]],change_summary="proposal only",benchmark_plan=["sandbox test"],rollback_plan="discard sandbox")
+            out=l.evaluate_candidate(cand["candidate_id"],baseline_score=.5,candidate_score=.8,security_passed=True,license_passed=True)
+            self.assertEqual(out["status"],"verified-awaiting-owner-discussion")
+            self.assertTrue(out["owner_discussion_required"])
+            self.assertFalse(out["owner_approved"])
+
     def test_fusion_does_not_claim_measurement(self):
         x=HawkeyeMultiSensorFusion.fuse([{"source":"camera","confidence":.8,"quality":.9},{"source":"depth","confidence":.9,"quality":.8}])
         self.assertGreater(x["confidence"],.7);self.assertFalse(x["measured_claim"])
