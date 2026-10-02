@@ -83,6 +83,7 @@ class HawkeyeLearningRuntime:
                     "cross-check important claims with independent sources",
                     "do not treat body language, gaze or physiology as proof of deception or private mental state",
                     "do not modify production code from research results",
+                    "convert useful discoveries into owner discussion proposals; never enable, install, execute or promote them automatically",
                 ],
             }
             for name, question in self.SPECIALISTS.items()
@@ -139,6 +140,8 @@ class HawkeyeLearningRuntime:
             "rollback_plan": str(rollback_plan).strip(),
             "status": "sandbox-only",
             "production_modified": False,
+            "owner_discussion_required": True,
+            "owner_approved": False,
             "created_at": time.time(),
         }
         (self.candidates / f"{candidate_id}.json").write_text(
@@ -165,7 +168,7 @@ class HawkeyeLearningRuntime:
             "eligible_for_promotion_review": eligible,
             "evaluated_at": time.time(),
         }
-        row["status"] = "verified-candidate" if eligible else "rejected-or-needs-work"
+        row["status"] = "verified-awaiting-owner-discussion" if eligible else "rejected-or-needs-work"
         row["production_modified"] = False
         path.write_text(json.dumps(row, indent=2, sort_keys=True), encoding="utf-8")
         return row
