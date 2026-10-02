@@ -8,12 +8,13 @@ from .vishvakarma_team import VishvakarmaTeam
 
 
 class SudarshanProjectOrchestrator:
-    def __init__(self, design_engine=None):
+    def __init__(self, design_engine=None, engineering_intelligence=None):
         self.bootstrap=ProjectBootstrap()
         self.ideas=IdeaIntake()
         self.design_policy=SudarshanDesignPolicy()
         self.design_team=VishvakarmaTeam()
         self.design_engine=design_engine or SudarshanDesignEngine(".")
+        self.engineering_intelligence=engineering_intelligence
 
     def start(self,project_id,context):
         loaded=self.bootstrap.load(project_id,context)
@@ -21,6 +22,14 @@ class SudarshanProjectOrchestrator:
             return {"state":"BLOCKED_CONTEXT","missing":loaded["missing"],"owner":"Sudarshan"}
         baseline=self.bootstrap.baseline(loaded)
         return {"state":"DISCOVERY","project":project_id,"baseline":baseline,"next":"project-map-and-plan","owner":"Sudarshan"}
+
+    def prepare_engineering_task(self,project_id,root,task,*,requirements=(),failures=(),architecture_rules=()):
+        if self.engineering_intelligence is None:
+            return {"state":"BLOCKED_ENGINEERING_INTELLIGENCE","owner":"Sudarshan"}
+        prepared=self.engineering_intelligence.prepare_task(project_id,root,task,requirements=requirements,failures=failures,architecture_rules=architecture_rules)
+        if not prepared["architecture"]["passed"]:
+            return {"state":"BLOCKED_ARCHITECTURE_POLICY","owner":"Sudarshan","prepared":prepared}
+        return {"state":"READY_ENGINEERING_CONTEXT","owner":"Sudarshan","prepared":prepared}
 
     def design_plan(self,task_type,*,reference_image=False,existing_ui=False,agentic_browser=False,topic=""):
         return self.design_engine.plan(DesignJob(
@@ -39,6 +48,7 @@ class SudarshanProjectOrchestrator:
             "design_policy":True,
             "design_team":True,
             "design_engine_bound":self.design_engine is not None,
+            "engineering_intelligence_bound":self.engineering_intelligence is not None,
         }
 
     def dispatch(self,task_type,checks,findings=None):
