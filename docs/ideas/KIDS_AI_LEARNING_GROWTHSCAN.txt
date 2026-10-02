@@ -51,3 +51,132 @@ Do not report watched minutes as learning. Measure: learn -> recall -> use -> ex
 
 LONG-TERM GOAL
 Turn passive screen time into measurable learning, real-world activity, creation and parent-visible growth while maintaining strict child privacy and safety.
+
+
+======================================================================
+DEEP LEARNING DESIGN EXPANSION - 2026-10-02
+======================================================================
+
+PRODUCT PRINCIPLE
+Do not optimize for how long a child watches. Optimize for what the child can understand, do, explain, create, transfer and remember that they could not do before.
+
+CORE EDUCATIONAL LOOP
+OBSERVE -> PREDICT -> TRY -> FAIL SAFELY -> THINK -> HINT -> SOLVE -> EXPLAIN -> CREATE -> TEACH -> APPLY -> REMEMBER.
+
+CAPABILITIES TO DEVELOP
+Knowledge; reasoning; memory; attention/self-control; problem solving; communication; creativity; metacognition; independent learning. Do not reduce this to an IQ score or make medical/developmental diagnoses.
+
+COGNITIVE SKILLS ENGINE
+Add a layer beside the Learning Proof Engine to plan and observe age-appropriate reasoning, working-memory, flexible thinking, problem solving, explanation, creativity and metacognitive activities.
+
+WHY ENGINE
+After selected answers ask "How did you know?" or "Can you show another way?" Assess reasoning, not only final answers.
+
+PREDICTION ENGINE
+Before explanations/experiments ask what the child expects. Record Prediction -> Observation -> Explanation -> Correction.
+
+KRISHNA IS WRONG MODE
+Krishna occasionally makes an intentional conceptual mistake and asks the child to find and prove the error. Humour is on Krishna/situation, never the child.
+
+TEACH KRISHNA MODE
+After learning, child explains a concept using speech, drawings, objects, writing or video. Krishna asks useful follow-up questions. Explanation becomes learning evidence.
+
+MULTIPLE SOLUTION MODE
+Ask children to solve suitable problems in several ways, compare methods and discover relationships rather than memorize one procedure.
+
+REAL-WORLD MATHEMATICS
+Connect mathematics to kitchen measurements, shopping/money, cricket scores, household shapes, room measurement, cooking, construction, travel and everyday quantities.
+
+WORLD DETECTIVE
+Send children away from the screen to find shapes, quantities, colours, patterns, measurements and physical examples in their environment; optionally verify with parent/camera consent.
+
+STORY MATHEMATICS
+Use stories, local objects, role play, puppets/characters, manipulatives and movement. Move from CONCRETE -> PICTORIAL -> ABSTRACT and explicitly connect each representation.
+
+CURIOUS QUESTION BOX
+Let children ask "why/how/what if" questions. Use questions to expand the Learning Graph without publicly ranking curiosity.
+
+WHAT-HAPPENS-IF MODE
+Use small investigations to discover patterns and rules: science predictions, number patterns, odd/even relationships, material experiments and other safe age-appropriate exploration.
+
+MEMORY ENGINE
+Use spaced retrieval invisibly through natural questions and varied contexts. Re-test after delays and distinguish recent performance from retained knowledge.
+
+KNOWLEDGE CONNECTIONS
+Deliberately reconnect old knowledge in new situations (fractions while cooking, measurement while building, percentages while shopping, etc.) to measure transfer.
+
+CREATIVITY ENGINE
+Train idea generation, variation, evaluation and improvement. Example: design several different houses, then one that floats, then explain and improve it.
+
+INVENTOR MODE
+Give real problems. Child proposes, draws/builds, explains, tests, identifies failure modes, improves and considers cost/material constraints as age-appropriate.
+
+EXECUTIVE-FUNCTION PLAY
+Examples: reverse-rule games, multi-step Memory Delivery, sorting-rule switches and increasingly complex instructions. Treat results as activity observations, not clinical assessment.
+
+PRODUCTIVE STRUGGLE + HINT LADDER
+Do not immediately reveal solutions.
+Hint 1: recall related knowledge.
+Hint 2: visual clue.
+Hint 3: decompose problem.
+Hint 4: solve first step together.
+Then solution if necessary.
+Record independent versus hint-assisted success.
+
+MEANINGFUL FEEDBACK
+Avoid empty praise. Prefer specific feedback such as:
+"You tried three methods."
+"You noticed your own mistake."
+"You remembered this from last week."
+"You kept working when the first idea failed."
+
+AGE 1-3
+Parent is part of the interface. Prioritize real-world parent-child play: naming, pointing, matching, stacking, movement, songs, sounds, sorting and hide/find. Screen acts mainly as an activity director.
+
+AGE 3-7
+Stories, characters, movement, manipulatives, drawing, singing, role play, short puzzles, treasure hunts, sorting, building and simple experiments. Strong play-learning period.
+
+AGE 7-13
+Shift toward missions/projects: paper bridges, imaginary shop, measure a room, weather station, short documentary, simple coding, plant-growth graph, experiments and collaborative challenges. Build a meaningful portfolio.
+
+AGE 14-18
+Use a mature mentor/challenger experience. Real projects, simulations, entrepreneurship, coding, debate, engineering, research, budgeting and community problems. Reduce childish presentation unless chosen by the teenager.
+
+GROWTHSCAN EXPANSION
+Guided assessments may collect observable evidence from age-appropriate activities for instruction following, memory tasks, problem-solving approach, explanation, mathematical reasoning, vocabulary, reading, persistence during a task and creative responses. Report observations only; do not diagnose or label intelligence/personality.
+
+PARENT ACTION REPORT
+Do not lead with arbitrary scores. Show:
+- What was observed
+- Demonstrated strength
+- Developing skill
+- Specific activity to try
+- Suggested reassessment time
+- Evidence/confidence
+Allow parent to request recheck when context affected performance.
+
+EVIDENCE CONFIDENCE
+A skill claim should become stronger when supported across independent sources: app activity, spoken answer, GrowthScan, real-world task/parent confirmation and delayed recall. One quiz alone = low evidence.
+
+REAL-WORLD XP
+Reward meaningful off-screen activity more than passive screen time: reading a real book, measuring ingredients, building, explaining, outdoor observation, safe experiments and teaching another person.
+
+SYSTEM ARCHITECTURE
+GrowthScan
+-> Learning Graph
+-> Cognitive Skills Engine
+-> Adaptive Teacher
+-> Play & Mission Engine
+-> Real-World Engine
+-> Learning Proof Engine
+-> Memory Engine
+-> Creation Engine
+-> Competition Engine
+-> Achievement Portfolio
+-> Parent Intelligence
+-> Teacher/School Intelligence
+
+DESIGN LAW
+The child should increasingly become the explorer, problem solver, creator and teacher. Krishna should be guide, curious friend, challenger and sometimes the deliberately confused student.
+
+MORE RESEARCH AND IMPLEMENTATION IDEAS ARE STILL REQUIRED. This document is a living product-design note, not a claim that these systems are already implemented.
