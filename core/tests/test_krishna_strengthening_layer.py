@@ -54,3 +54,17 @@ def test_otel_mapping_does_not_export_prompt_content():
 def test_kabach_eval_is_isolated_and_authorized():
     p=KabachAgentEvaluation().plan("candidate")
     assert p["production"] is False and p["requires_authorization"] is True
+
+from krishna_core.engineering_intelligence import EngineeringIntelligence
+
+def test_engineering_intelligence_is_single_non_authoritative_facade(tmp_path):
+    (tmp_path/"src.py").write_text("def build(): return True\n",encoding="utf-8")
+    svc=EngineeringIntelligence(tmp_path/"state")
+    idx=svc.index_project("demo",tmp_path)
+    ctx=svc.compile_context("demo","build",code_index=idx)
+    assert ctx["code"]
+    status=svc.status()
+    assert status["owner"]=="KRISHNA"
+    assert status["orchestrator"]=="Sudarshan"
+    assert status["authority"] is False
+    assert status["external_auto_install"] is False
