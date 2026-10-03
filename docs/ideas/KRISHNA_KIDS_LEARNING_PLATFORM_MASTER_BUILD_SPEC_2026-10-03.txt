@@ -1,0 +1,1142 @@
+KRISHNA KIDS LEARNING PLATFORM — MASTER BUILD SPEC
+Consolidated: 2026-10-03
+
+Purpose: Future app architecture, pedagogy, child safety, GrowthScan,
+Learning Proof, interaction design, research directions, and implementation.
+
+STATUS: DESIGN/BUILD SPEC. Nothing here is claimed implemented in the KRISHNA
+repository unless separately verified.
+
+============================================================
+CORE PRODUCT DIRECTION
+============================================================
+
+Build a protected adaptive learning system that uses stories, art, rhythm,
+movement, creativity, and real-world missions as teaching modalities —
+not a child-focused social feed or unrestricted AI companion.
+
+============================================================
+CONSOLIDATED LEARNING ARCHITECTURE
+============================================================
+
+GrowthScan baseline
+    ↓
+Learning Graph + mastery confidence
+    ↓
+Interest Graph / Fun Router selects an appropriate modality
+    ↓
+Scaffolded teaching + diagnostic questions
+    ↓
+Child explains, creates, demonstrates, or teaches back
+    ↓
+New-context transfer task
+    ↓
+Delayed recall
+    ↓
+Learning Proof
+    ↓
+Parent-facing next activity / recommendation
+
+Existing systems consolidated:
+- GrowthScan
+- Learning Proof
+- Cognitive Skills
+- Art & Creativity
+- Rhythm & Movement
+- Child Interaction
+- Interest Graph
+- Fun Router
+- Story Curriculum
+- Human Connection
+
+Art, dance, music, stories, humour, movement, and creativity should plug into
+this common learning loop rather than becoming isolated mini-games.
+
+============================================================
+STRONGEST EVIDENCE-BACKED ADDITIONS
+============================================================
+
+1. ACCESSIBILITY CONTRACT
+
+Every important activity should support multiple ways to receive information
+and multiple ways to respond.
+
+Possible input:
+- Hear
+- Read
+- Watch
+- Demonstration
+- Visual/manipulative
+
+Possible response:
+- Speak
+- Touch
+- Draw
+- Move
+- Type
+- Arrange objects
+
+Important rule:
+Difficulty with speech, reading, colour recognition, or motor control must not
+automatically be interpreted as lack of conceptual understanding.
+
+Research direction:
+CAST Universal Design for Learning (UDL) 3.0 supports multiple means of
+representation, engagement, action, and expression.
+
+2. MULTILINGUAL LEARNING BRIDGE
+
+Allow children to understand and reason in their home language first and
+gradually bridge to another language such as English.
+
+Example:
+Odia explanation
+→ Odia + English keywords
+→ bilingual task
+→ English application when appropriate
+
+Important:
+Do not confuse English-language proficiency with mathematics, science, logic,
+or conceptual ability.
+
+Research direction:
+UNESCO guidance supports education in languages children understand.
+
+3. TEACHING ORCHESTRATOR
+
+Combine:
+- Worked examples
+- Guided practice
+- Gradual removal of hints
+- Independent attempts
+- Hinge/diagnostic questions
+- Misconception-specific remediation
+- Concrete → visual → abstract representations
+- Spaced revisiting
+
+The system should adapt the teaching method, not merely make questions easier
+or harder.
+
+4. CONTRAST & TRANSFER ENGINE
+
+Learning Proof should test whether a child can use knowledge outside the exact
+format in which it was taught.
+
+Use:
+- Correct examples
+- Near-misses
+- Counterexamples
+- Different representations
+- Different contexts
+- "What changed?"
+- "Why?"
+- "Can you use this somewhere else?"
+
+A repeated memorized response should not be treated as robust mastery.
+
+5. PROBABILISTIC MASTERY MODEL
+
+Track evidence for each skill over time rather than marking a skill mastered
+after one correct answer.
+
+Potential evidence:
+- Independent answer
+- Hint level required
+- Explanation quality
+- Transfer performance
+- Delayed recall
+- Repeated success across contexts
+
+Bayesian Knowledge Tracing / pyBKT can be investigated as an initial technical
+prototype, but its probability estimate should never replace richer Learning
+Proof evidence.
+
+6. CURRICULUM TRUTH GATE
+
+Generative AI should not freely determine educational truth.
+
+Before an AI-generated activity is shown, lock:
+- Learning objective
+- Approved facts
+- Correct-answer logic
+- Misconception map
+- Safety constraints
+- Source/provenance
+- Content version
+
+Then AI may personalize:
+- Story
+- Characters
+- Examples
+- Humour
+- Presentation
+- Difficulty/scaffolding within approved limits
+
+Calculations and deterministic answers should be validated programmatically
+where possible.
+
+If validation fails:
+→ use a reviewed fallback activity/template.
+
+7. AGE-GATED CHILD INTERACTION
+
+The AI may be:
+- Warm
+- Patient
+- Funny
+- Encouraging
+- Curious
+- Supportive
+
+But it should clearly remain an AI learning companion.
+
+It should NOT:
+- Claim to literally be the child's mother/father
+- Pretend to be human
+- Encourage secrecy from parents
+- Create exclusivity ("only I understand you")
+- Pressure the child to return
+- Create emotional dependency
+
+Human Connection should strengthen relationships with parents, teachers,
+siblings, friends, and real-world activities rather than replace them.
+
+8. EPHEMERAL GROWTHSCAN VAULT
+
+For camera/microphone-based learning:
+- Prefer on-device/local processing where feasible.
+- Extract only the structured learning evidence actually required.
+- Delete temporary raw audio/video after processing by default.
+- Retain raw media only when a parent deliberately chooses to save it.
+- Separate permissions for camera, microphone, portfolio storage, and sharing.
+- Keep audit/provenance records without unnecessarily retaining biometric media.
+
+India's child-data and parental-consent requirements must be incorporated into
+the final legal/privacy design.
+
+9. SAFE COLLABORATION LAYER
+
+If social/collaborative features are introduced:
+
+Prefer:
+- Private-by-default child profiles
+- Parent-approved groups
+- Teacher/school groups
+- Finite galleries
+- Constructive feedback
+- Collaborative missions
+- Controlled competitions
+
+Avoid:
+- Open stranger messaging
+- Adult-to-child direct messaging
+- Infinite public feeds
+- Public popularity rankings
+- Follower-count pressure
+- Engagement-at-any-cost mechanics
+
+10. EVIDENCE & ARGUMENT ENGINE
+
+Teach children not only to provide an answer, but to distinguish:
+- Claim: what someone says is true
+- Evidence: the observation, data, text, calculation, or source supporting it
+- Reasoning: why that evidence supports the claim
+- Uncertainty: what is not yet known
+
+Age progression:
+
+Ages 3-7:
+- "What did you see?"
+- "What do you think happened?"
+- Select the picture or observation supporting the answer.
+
+Ages 7-13:
+- Build Claim -> Evidence -> Because explanations.
+- Compare two explanations.
+- Revise a claim when new evidence appears.
+
+Ages 14-18:
+- Check source reliability.
+- Identify missing evidence.
+- Consider alternative explanations and counterevidence.
+- Check citations produced by AI.
+- State confidence and uncertainty instead of pretending certainty.
+
+Example science activity:
+
+Claim:
+"Plants grow faster because they like music."
+
+Child designs a fair test:
+- Same type of plant
+- Same soil, water, light, and container
+- Music for one group
+- No music for another group
+- Record growth consistently
+- Decide whether the results support the claim
+
+This engine also applies to:
+- Mathematics: "Which steps prove this answer?"
+- Stories: "What in the story supports your idea?"
+- Online media: "Are likes or popularity evidence that something is true?"
+- AI literacy: "Which approved source supports Krishna's answer?"
+
+Important interaction pattern:
+Krishna may occasionally present a safe, curriculum-bounded unsupported claim
+so the child learns to respond: "How do you know?" The purpose is evidence
+reasoning, not persuading the child toward political, religious, commercial,
+or personal beliefs.
+
+Research direction:
+The National Academies K-12 science framework and NGSS treat constructing
+explanations and engaging in argument from evidence as central scientific
+practices. UNESCO and UNICEF AI/media-literacy work emphasizes critical
+thinking and information literacy so children can evaluate AI-generated
+information rather than automatically trusting it.
+
+============================================================
+IMPLEMENTATION CONTRACT — ACTIVITY
+============================================================
+
+Each generated learning activity should eventually carry structured metadata
+similar to:
+
+objective_id
+age_band
+approved_source_ids
+input_modes
+response_modes
+correct_answer_logic
+misconception_routes
+hint_ladder
+transfer_task
+safety_flags
+required_permissions
+maximum_duration
+reviewed_fallback_id
+
+Purpose:
+The Fun Router, Story Curriculum, Interest Graph, or other personalization
+systems must not accidentally change the educational objective.
+
+============================================================
+IMPLEMENTATION CONTRACT — LEARNING PROOF
+============================================================
+
+Each Learning Proof record should eventually contain fields similar to:
+
+skill_id
+activity_version
+response_mode
+independent_or_hint_level
+explanation_evidence
+claim_identified
+evidence_selected
+evidence_relevant
+reasoning_connected
+alternative_considered
+claim_revised
+source_checked
+uncertainty_expressed
+transfer_context
+delayed_recall_days
+confidence
+source_or_assessor
+raw_media_retained = false
+
+This provides better evidence than simply storing:
+"question answered correctly."
+
+============================================================
+EXPERIMENTAL IDEAS WORTH CONTROLLED PROTOTYPES
+============================================================
+
+A. DANCE WITH KRISHNA
+
+Possible interaction:
+"Ready? 1, 2, 3, 4 — clap with me!"
+"Great! Now turn."
+"Now hands up."
+"Now can you remember all three?"
+
+Possible technology:
+On-device pose landmarks / MediaPipe-style pose estimation.
+
+Rules:
+- Detect broad actions only.
+- Do not judge body shape.
+- Do not judge appearance.
+- Do not penalize physical disability.
+- Provide alternative interaction modes.
+- Validate child accuracy before using it for assessment.
+
+B. ADAPTIVE HUMOUR
+
+Humour can be used to maintain interest without humiliating the child.
+
+Patterns:
+- Krishna makes a harmless silly mistake.
+- Child corrects Krishna.
+- Exaggerated funny example.
+- Character gets confused.
+- Child becomes the teacher.
+
+Never ridicule the child's mistake.
+
+C. AI-GENERATED STORY WRAPPERS
+
+Story Curriculum may personalize:
+- Character
+- Setting
+- Child interest
+- Mission
+- Dialogue
+- Humour
+
+But only AFTER the Curriculum Truth Gate has locked educational facts,
+objectives, and answer logic.
+
+D. ODIA CHILD SPEECH
+
+Investigate Indic speech-recognition systems such as AI4Bharat models.
+
+Before assessment use:
+- Benchmark using consented child speech.
+- Test different ages.
+- Test Odia accents/dialects.
+- Test noisy home environments.
+- Measure confidence.
+
+Critical rule:
+Low speech-recognition confidence must NEVER automatically become a wrong
+learning answer.
+
+Instead:
+"Krishna couldn't hear that clearly. Show me / tap / say it again."
+
+E. AUTOMATED AI EVALUATION
+
+Investigate reproducible model-evaluation tooling, including NIST Dioptra-style
+evaluation approaches, for:
+- Hallucination testing
+- Curriculum truth testing
+- Safety regression
+- Bias testing
+- Prompt regression
+- Model/version comparison
+
+============================================================
+IDEAS TO REJECT OR HEAVILY RESTRICT
+============================================================
+
+Do not implement as default:
+
+- "Mother AI" identity or emotionally dependent companion behaviour
+- AI claiming to be human
+- Secret relationships between AI and child
+- IQ diagnosis from GrowthScan
+- Personality diagnosis from limited interaction
+- Developmental/medical diagnosis from ordinary platform activity
+- Emotion detection from facial expression or voice treated as fact
+- Permanent "visual learner", "auditory learner", etc. labels
+- Mastery based on one quiz
+- Mastery based only on speed
+- Mastery based only on an AI confidence score
+- Raw child camera/video retention by default
+- Engagement-pressure streaks
+- Loot-box mechanics
+- Infinite child feeds
+- Open child profiles
+- Stranger contact
+- Public popularity metrics
+- Adult-to-child open DMs
+- Generative AI freely inventing curriculum facts or correct answers
+
+============================================================
+RECOMMENDED FIRST BUILD / TEST SLICE
+============================================================
+
+Start narrow.
+
+Example:
+Early number sense OR fractions.
+
+Languages:
+Odia + English.
+
+Build/test:
+
+1. Reviewed learning objectives.
+2. Approved facts and correct-answer logic.
+3. Misconception map.
+4. Three learning modalities:
+   - Story
+   - Art/manipulative
+   - Rhythm/movement
+5. Scaffold fading.
+6. Diagnostic/hinge-question routing.
+7. Child explanation/teach-back.
+8. New-context transfer task.
+9. Delayed recall.
+10. Minimal Learning Proof.
+11. Parent-facing next recommendation.
+12. No public social feature.
+13. No default retention of raw camera footage.
+
+Primary success question:
+
+Does personalization produce independently demonstrated,
+transferable, and remembered learning?
+
+Do NOT optimize merely for:
+- Screen time
+- Number of taps
+- Video completion
+- Daily engagement
+- Streak length
+
+============================================================
+RESEARCH SOURCES / DIRECTIONS TO RETAIN
+============================================================
+
+Trustworthy areas/sources reviewed for this design direction include:
+
+- CAST — Universal Design for Learning (UDL) Guidelines 3.0
+- UNESCO — multilingual / mother-language education guidance
+- Institute of Education Sciences (IES) — learning and teaching practice guidance
+- National Academies / NGSS — science practices and argument from evidence
+- UNESCO — media and information literacy for AI-generated information
+- UNICEF — AI and children guidance
+- NIST — Generative AI risk management / evaluation work
+- Government of India — Digital Personal Data Protection framework/rules
+- MediaPipe — pose/landmark technology for controlled movement prototypes
+- AI4Bharat — Indic speech/language technology
+- pyBKT — Bayesian Knowledge Tracing research/prototyping implementation
+
+Exact regulatory and technical requirements should be re-checked against the
+current official source before production release.
+
+============================================================
+DESIGN PRINCIPLE
+============================================================
+
+FUN IS THE DELIVERY SYSTEM.
+LEARNING PROOF IS THE OUTCOME.
+
+The child may:
+play,
+dance,
+draw,
+laugh,
+talk,
+create,
+explore,
+build,
+listen to stories,
+and teach Krishna.
+
+But underneath every experience the platform should know:
+
+WHAT are we teaching?
+WHY are we teaching it?
+WHAT evidence shows understanding?
+Can the child explain it?
+Can the child use it somewhere new?
+Can the child remember it later?
+What should happen next?
+
+============================================================
+11. DIALOGIC READING ORCHESTRATOR
+============================================================
+
+Purpose:
+Convert passive story narration into structured, child-led conversation,
+especially for younger children, while strengthening oral language,
+comprehension, vocabulary, sequencing, explanation, and independent retelling.
+
+EVIDENCE-BACKED CORE
+
+Interactive/dialogic reading should not simply mean that Krishna reads a story
+and asks occasional quiz questions.
+
+The interaction should repeatedly invite the child to:
+- Describe what they see.
+- Predict what might happen next.
+- Recall an earlier event.
+- Explain why something happened.
+- Connect the story to real life.
+- Retell events in their own words.
+- Change or extend the story.
+
+Recommended interaction loop:
+
+Krishna prompts
+    ↓
+Child responds
+    ↓
+Krishna listens for meaning
+    ↓
+Krishna acknowledges the useful idea
+    ↓
+Krishna expands it by one idea, word, relationship, or richer phrase
+    ↓
+Child repeats, revises, explains, or continues
+    ↓
+Krishna gradually gives the child more control of the story
+
+The goal is conversation, not interrogation.
+
+Avoid a rapid sequence of disconnected questions such as:
+"What colour is this?"
+"What is this?"
+"How many?"
+"What happened?"
+
+Prefer connected conversational turns where each response influences the next
+prompt.
+
+AGE-SPECIFIC PATTERN
+
+Ages 3-7:
+- Picture description
+- "What do you think happens next?"
+- Character/action naming
+- Simple why questions
+- Event ordering
+- Personal connections
+- Child completes repeated phrases
+- Short independent retelling
+
+Ages 7-13:
+- Character motives
+- Cause and effect
+- Evidence from the story
+- Alternative endings
+- Summarisation
+- Vocabulary from context
+- Compare two characters or decisions
+- Child retells from another character's viewpoint
+
+Ages 14-18:
+- Theme and interpretation
+- Evidence-supported interpretation
+- Perspective and reliability
+- Author choices
+- Alternative explanations
+- Source/context checking for nonfiction
+- Critical comparison with AI-generated summaries or interpretations
+
+MULTILINGUAL BRIDGE
+
+The child may answer in the home language.
+
+Example:
+
+Story presented partly in English
+    ↓
+Child explains meaning in Odia
+    ↓
+Krishna confirms the concept
+    ↓
+Krishna introduces one useful English word/phrase
+    ↓
+Child uses it naturally in the next story turn
+
+Do not reduce story comprehension/mastery simply because the child used Odia
+instead of English.
+
+PARENT-CHILD MODE
+
+The system may provide optional private caregiver prompts such as:
+
+"Ask her why the rabbit went back."
+"Let him tell you what he thinks happens next."
+"Can you connect this part to something you did together?"
+
+When healthy parent-child conversation is already happening, AI prompting
+should fade rather than compete for the child's attention.
+
+Krishna should help create human conversation, not become the preferred
+relationship.
+
+LEARNING PROOF
+
+Do not treat story completion or video completion as evidence of comprehension.
+
+Possible Learning Proof:
+- Unaided retelling later
+- Correct event sequencing
+- Explaining a cause
+- Explaining a character's decision
+- Using new vocabulary in another context
+- Creating a changed ending that preserves story logic
+- Connecting the lesson to a real-world situation
+- Answering a transfer question after a delay
+
+Suggested fields:
+
+dialogic_turns_completed
+child_initiated_turns
+vocabulary_used_in_context
+event_sequence_evidence
+causal_explanation_evidence
+prediction_and_revision
+independent_retelling
+real_world_connection
+alternative_ending_reasoning
+home_language_response
+bridged_language_term
+delayed_story_recall
+
+Do NOT use:
+- Accent
+- Speaking speed
+- Loudness
+- Apparent confidence
+- Facial-expression interpretation
+- ASR confidence
+
+as direct evidence of comprehension.
+
+If speech recognition is uncertain, offer another response mode rather than
+marking the answer wrong.
+
+READING-INSTRUCTION BOUNDARY
+
+Dialogic reading supports oral language, vocabulary and comprehension, but it
+must not replace explicit instruction required for learning to decode written
+words.
+
+Keep separate learning pathways for:
+- Phonemic awareness
+- Letter-sound relationships / phonics
+- Word decoding
+- Reading fluency
+- Oral language
+- Vocabulary
+- Comprehension
+
+These pathways can interact, but one should not be assumed to prove another.
+
+EXPERIMENTAL EXTENSION — CONTEXTUAL CAREGIVER PROMPTS
+
+Controlled prototype:
+
+Generate caregiver conversation prompts using:
+- Current story
+- Approved learning objective
+- Child's age band
+- Home language
+- Previously approved interests
+- Safe everyday experiences
+
+Example:
+
+Instead of:
+"What colour is the bus?"
+
+Possible contextual prompt:
+"Yesterday you travelled in a bus. Ask your child what was different between
+that bus and the bus in this story."
+
+This may increase meaningful parent-child conversation, but adaptive generated
+caregiver prompts should remain a controlled experimental feature until they
+are validated.
+
+SAFETY / HUMAN-CONNECTION RULES
+
+- Do not use story conversations to elicit unnecessary private information.
+- Do not encourage secrets between Krishna and the child.
+- Do not present Krishna as a human parent or best friend.
+- Do not reward excessive conversation duration.
+- Do not create endless story loops designed only to retain attention.
+- Offer natural stopping points.
+- Encourage reading with parents, grandparents, siblings, teachers, and peers.
+- Keep generated story facts behind the Curriculum Truth Gate.
+- Apply the Safe Collaboration Layer before any story is shared with others.
+
+RESEARCH DIRECTION
+
+Evidence to retain for future implementation review:
+- What Works Clearinghouse research on dialogic reading / interactive shared
+  reading and preschool oral-language outcomes.
+- Education Endowment Foundation guidance on communication, language, and
+  interactive reading.
+- Evidence-based early-literacy guidance separating oral-language development
+  from explicit decoding/phonics instruction.
+- Preliminary research on AI-generated/contextual prompts for parent-child
+  shared reading should be treated as experimental rather than established
+  evidence.
+
+CORE PRINCIPLE
+
+DO NOT JUST READ TO THE CHILD.
+BUILD A CONVERSATION IN WHICH THE CHILD GRADUALLY BECOMES THE STORYTELLER,
+EXPLAINER, QUESTIONER, AND CREATOR.
+
+============================================================
+12. SCREEN-TO-WORLD TRANSFER BRIDGE
+============================================================
+
+Purpose:
+Make digital teaching produce real-world understanding, not just screen-specific
+tapping, swiping, imitation, or video familiarity.
+
+AGE ARCHITECTURE
+
+12-17 months:
+- No independent digital curriculum.
+- Prioritize caregiver-child interaction, songs, shared books, physical play,
+  and real-world exploration.
+- Krishna primarily prompts the caregiver and then withdraws.
+
+18-36 months:
+- Very short caregiver-guided digital demonstrations.
+- Immediately transition from screen to physical activity.
+- Require adult co-use rather than independent consumption.
+- Use real objects, repetition, and deliberate stopping points.
+
+3+ years:
+- Interactive digital lessons may become more substantial.
+- Keep real-world transfer missions inside Learning Proof.
+- Screen performance alone should not establish robust mastery when the concept
+  can reasonably be demonstrated outside the screen.
+
+CORE LOOP
+
+1. SEE — briefly demonstrate one concept or action.
+2. DO TOGETHER — child and caregiver perform it physically.
+3. FIND ANOTHER — apply it using another real-world object/context.
+4. SAY / SHOW — child explains, points, builds, moves, draws, or demonstrates.
+5. SCREEN STOPS — pause instead of autoplaying another lesson.
+
+EXAMPLES
+
+- Show a cup inside a box; then put a spoon inside another container.
+- Find red on screen; then find two red objects in the room.
+- Demonstrate a two-beat clap; then reproduce it away from the screen.
+- Show a simple block structure; then build with safe physical objects.
+- Teach big/small digitally; then compare safe household objects.
+
+LEARNING PROOF FIELDS
+
+copied_screen_example
+performed_with_real_object
+applied_to_different_object
+completed_with_caregiver
+explained_real_world_example
+performed_later_without_screen
+transfer_context
+caregiver_confirmation
+raw_media_retained = false
+
+A tap, swipe, video completion, or repeated screen answer alone is not proof of
+real-world mastery.
+
+TODDLER EXPERIENCE RULES
+
+Do not use:
+- Autoplay or infinite activity sequences
+- Engagement-pressure streaks
+- Artificial urgency or variable-reward loops
+- AI emotional soothing designed to prolong use
+- Language such as "Krishna misses you; come back"
+
+Prefer:
+- Natural stopping points
+- Caregiver participation
+- Physical exploration
+- Short sessions
+- Human conversation
+- Easy parent-controlled exit
+
+CAMERA POLICY
+
+Camera verification is unnecessary by default. Prefer caregiver confirmation,
+later child demonstration, or simple structured evidence.
+
+If explicitly enabled:
+- Obtain appropriate parental permission.
+- Prefer local/on-device processing.
+- Extract only required learning evidence.
+- Delete temporary raw footage by default.
+- Never infer developmental or medical conditions.
+
+EXPERIMENTAL: SAFE OBJECT-AWARE MISSIONS
+
+Parents may optionally declare safe objects such as cups, paper, crayons,
+large blocks, spoons, leaves, balls, and books.
+
+Generated physical missions must pass:
+Age Safety Gate
+-> choking/sharp/hot/electrical/chemical/fall hazard check
+-> adult-supervision check
+-> cultural/household appropriateness check
+-> Curriculum Truth Gate
+-> approved mission.
+
+Never direct young children toward medicines, electrical sockets, appliances,
+flames, roads, heights, sharp objects, chemicals, unknown plants/animals, or
+other hazardous materials.
+
+GROWTHSCAN INTEGRATION
+
+Track separately:
+screen_recognition
+guided_physical_performance
+independent_physical_performance
+cross_object_transfer
+delayed_real_world_recall
+
+Do not collapse these into one mastery score.
+
+CORE PRINCIPLE
+
+SCREEN -> HUMAN -> OBJECT -> ACTION -> EXPLANATION -> LATER RECALL
+
+The screen starts the learning experience.
+The real world should complete it.
+
+============================================================
+END OF SCREEN-TO-WORLD TRANSFER BRIDGE
+============================================================
+
+============================================================
+13. TRUSTED-HUMAN SAFETY HANDOFF PROTOCOL
+============================================================
+Risk signal -> minimal safety triage -> safe parent/guardian selection ->
+urgent WhatsApp alert -> delivery/read acknowledgement -> parent checks child
+-> action acknowledged -> follow-up.
+
+Default: the platform does not automatically call police, 112, 1098, or other
+government services. Alert the responsible human first. For immediate danger,
+show appropriate official emergency options to the responsible human.
+
+If a parent/guardian may be the source of danger, do not send the disclosure
+to that person; use another pre-approved safe adult/safeguarding path.
+
+WhatsApp states: DELIVERED / READ / PARENT_ACKNOWLEDGED / CHILD_CHECKED.
+If unacknowledged, route to another pre-approved trusted adult.
+
+Krishna must receive calmly, avoid interrogation, never promise secrecy,
+identify itself as AI, support a human handoff, and never encourage exclusivity.
+Sensitive disclosures are not GrowthScan weaknesses, badges, or routine
+analytics. Risk classifiers are safety signals, never diagnoses.
+
+============================================================
+14. PORTABLE, VERIFIABLE LEARNING PROOF
+============================================================
+Use auditable internal evidence events; investigate xAPI-compatible events and
+Open Badges 3.0-style credentials for substantial verified achievements.
+
+Possible fields:
+pseudonymous_child_id, skill_uri, action_demonstrated, activity_version,
+curriculum_source_ids, independence_level, hint_level, language_and_modality,
+transfer_context, retention_interval, assessor_or_model_version, evidence_hash,
+confidence_and_validation, consent_scope, retention_until, supersedes_event_id.
+
+Two layers:
+1. Internal granular evidence, retries, revisions, transfer, delayed recall.
+2. External credentials only for meaningful verified achievements.
+
+Never credential screen time, login streaks, likes, obedience, or repetitive
+tapping. No raw video/voice/address in portable credentials. Parent controls
+sharing/export. Support correction/revocation/deletion.
+
+Open-source candidate: Learning Locker/xAPI ecosystem, subject to security,
+maintenance, privacy, and compatibility review.
+
+============================================================
+15. CREATIVE PROCESS STUDIO + AUTHORSHIP LEDGER
+============================================================
+IMAGINE -> MULTIPLY IDEAS -> COMPARE -> CHOOSE WITH REASON -> MAKE -> TEST ->
+IMPROVE -> EXPLAIN.
+
+Learning Proof:
+initial_child_idea, distinct_ideas_generated, constraints_understood,
+idea_selected_with_reason, feedback_considered, meaningful_revision_made,
+process_explained, authorship_provenance.
+
+AI should not produce the finished work before the child tries.
+Track: child_created / ai_suggested / child_accepted_or_rejected /
+child_transformed.
+
+Do not score artistic realism, handwriting beauty, cultural style, expensive
+materials, or similarity to popular examples. Automated originality scoring
+across languages/cultures is experimental and not high-stakes evidence.
+
+============================================================
+16. KNOWLEDGE CALIBRATION ENGINE
+============================================================
+Teach knowing vs thinking vs guessing vs needing help.
+
+Ages 3-7: SURE / MAYBE / NEED HELP.
+Ages 7-13: KNOW / THINK / GUESS / DON'T KNOW YET.
+Ages 14-18: confidence range + what evidence would change the answer.
+
+Correct+unsure -> consolidate/retrieve later.
+Wrong+confident -> conflicting evidence, retry, delayed recheck.
+Wrong+unsure -> smallest useful hint.
+Don't know -> support help-seeking; never punish.
+
+Fields: confidence_before, correctness, confidence_after_feedback,
+help_requested, reason_or_evidence, independent_recheck.
+
+Confidence is task-specific, not a personality/diagnostic label. Krishna must
+model uncertainty; AI confidence is not proof.
+
+============================================================
+17. TEACH-KRISHNA REVERSE-TUTOR MODE
+============================================================
+Child studies verified source -> teaches Krishna -> Krishna asks WHY/HOW ->
+Krishna demonstrates its interpreted model -> child detects gaps -> revises ->
+Curriculum Truth Gate validates -> independent transfer.
+
+Fields:
+concepts_taught, relationships_explained, why_how_questions_answered,
+agent_error_detected, explanation_revised, source_consulted,
+novel_case_transferred, independent_recheck.
+
+Do not award mastery for verbosity. The teachable AI is a simulation and must
+never imply loneliness, dependency, abandonment fear, or emotional harm.
+LLM follow-up questions are experimental; facts/misconceptions remain
+curriculum-controlled.
+
+============================================================
+18. PREDICTION-FIRST LEARNING LOOP
+============================================================
+ATTEMPT -> TIMELY INSTRUCTION -> COMPARE WITH EVIDENCE -> REVISE -> TRANSFER.
+
+Ages 3-7: playful physical prediction then quick demonstration.
+Ages 7-13: one/two possible methods; compare critical features.
+Ages 14-18: alternatives, assumptions, constraints, trade-offs before formal
+instruction.
+
+Fields:
+initial_prediction, initial_reason, strategies_attempted,
+critical_feature_noticed, model_revised_after_evidence,
+canonical_method_learned, new_case_transferred, delayed_recheck.
+
+Initial errors are ungraded. Always offer a starting-point hint and end/fade
+the attempt if frustration rises. Fun Router selection of prediction-first vs
+instruction-first is experimental and must be validated with delayed transfer.
+
+============================================================
+19. EMBODIED CONCEPT GESTURE ENGINE
+============================================================
+Use movement that represents meaning, not decorative movement counted as
+learning. Examples: balance equality, gather/separate arithmetic, imaginary
+roti fractions, body number line, geometry tracing/rotation/symmetry,
+meaning-linked vocabulary actions, safe science motion representations.
+
+Sequence: real object -> concept gesture -> diagram/symbol -> fade gesture ->
+transfer without motion prompt.
+
+Fields:
+concept_gesture_interpreted, concept_gesture_produced,
+gesture_and_explanation_aligned, symbol_used_without_gesture,
+transferred_without_motion_prompt.
+
+Movement is optional; touch, eye gaze, objects, drawing, or speech can provide
+equivalent proof. Motor performance never reduces subject mastery.
+Speech/gesture mismatch may prompt clarification only, never diagnosis.
+
+============================================================
+20. MASTER TARGET APP LEARNING LOOP
+============================================================
+Parent/child setup + consent
+-> age/language/accessibility configuration
+-> GrowthScan baseline
+-> Learning Graph
+-> Curriculum Truth Gate
+-> Teaching Orchestrator
+-> Fun Router chooses safe modality
+-> prediction/attempt where useful
+-> scaffolded instruction
+-> story/art/music/movement/real-world activity
+-> dialogic/evidence questioning
+-> child explanation or Teach-Krishna
+-> contrast + transfer
+-> screen-to-world mission
+-> sampled calibration check
+-> delayed recall
+-> Learning Proof
+-> mastery update
+-> parent recommendation
+-> portable credential only for substantial verified achievement.
+
+FUN IS THE DELIVERY SYSTEM.
+HUMAN AGENCY IS THE SAFETY BOUNDARY.
+TRANSFER + RETENTION + EXPLANATION ARE CORE LEARNING PROOF.
+
+============================================================
+21. FUTURE APP BUILD PRIORITY
+============================================================
+PHASE 1 FOUNDATION:
+identity separation; consent; age bands; Odia/Hindi/English; Accessibility
+Contract; Curriculum Truth Gate; Learning Graph; Learning Proof; safety handoff.
+
+PHASE 2 CORE PEDAGOGY:
+scaffold fading; hinge questions; retrieval/delayed recall; Contrast & Transfer;
+Prediction-First; Calibration; Dialogic Reading; Evidence & Argument.
+
+PHASE 3 PLAYFUL MODALITIES:
+Story Curriculum; Creative Process Studio; rhythm/music; concept gestures;
+dance prototypes; real-world/off-screen missions.
+
+PHASE 4 ADVANCED ADAPTATION:
+probabilistic mastery; Teach-Krishna; Fun Router; safe interest-informed
+presentation; caregiver prompts; safe object-aware missions.
+
+PHASE 5 PORTABILITY/COLLABORATION:
+parent portfolio; xAPI-style export; verified credentials; safe school/team
+collaboration; controlled competitions; no public popularity mechanics.
+
+PHASE 6 VALIDATION:
+test learning gain, transfer, delayed retention, accessibility, language
+fairness, safety false positives/negatives, privacy, parent comprehension,
+healthy stopping behaviour, and model/version regressions.
+Never release merely because engagement increased.
+
+============================================================
+22. RESEARCH / OPEN-SOURCE WATCHLIST
+============================================================
+Evidence/standards: CAST UDL; UNESCO multilingual/AI/media literacy; UNICEF AI
+and children; IES/WWC; EEF; National Academies/NGSS; NIST GenAI evaluation;
+OECD creative thinking; Government of India child privacy/safety; xAPI;
+Open Badges.
+
+Candidates: MediaPipe (pose/landmarks); AI4Bharat (Indic/Odia speech/language);
+pyBKT (knowledge tracing); Learning Locker/xAPI ecosystem.
+
+Before adoption review license, maintenance, security, privacy, offline
+capability, child-data exposure, dependencies, provenance, accessibility, and
+language support.
+
+============================================================
+23. FINAL PRODUCT PRINCIPLES
+============================================================
+1. Teach, not merely entertain.
+2. Personalize presentation without changing educational truth.
+3. Do not confuse language, ASR, motor ability, or speed with understanding.
+4. Require stronger evidence than one correct answer.
+5. Test transfer and delayed recall.
+6. Let children explain, create, challenge, predict, revise, and teach.
+7. Move learning into the physical world.
+8. Strengthen human relationships rather than replacing them.
+9. Keep AI visibly AI.
+10. Never engineer emotional dependency.
+11. Minimize child data.
+12. Camera/mic data ephemeral by default.
+13. Protect safety disclosures.
+14. Parents control sharing/export.
+15. Accessibility in every activity.
+16. Validate multilingual performance.
+17. Reward honest uncertainty/help-seeking.
+18. No infinite-engagement optimization.
+19. Preserve child authorship.
+20. Make Learning Proof auditable.
+
+============================================================
+END OF MASTER BUILD SPEC
+============================================================
