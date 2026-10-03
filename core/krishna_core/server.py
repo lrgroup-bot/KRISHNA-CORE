@@ -461,6 +461,7 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     WEB_VALIDATION = _BUNDLE_ROOT / "web_validation.html"
     DESIGN_STUDIO = _BUNDLE_ROOT / "design_studio.html"
     VISUAL_EDITOR = _BUNDLE_ROOT / "visual_editor.html"
+    ORCHESTRATION_CONTROL = _BUNDLE_ROOT / "orchestration_control.html"
     AVATAR_B64 = _BUNDLE_ROOT / "avatar" / "krishna_child_360.webp.b64"
     # The private child avatar is owner/runtime data and is deliberately never
     # bundled into KRISHNA.exe. Frozen and source runtimes use the same E: asset.
@@ -474,6 +475,7 @@ else:
     WEB_VALIDATION = _CORE_ROOT / "web_validation.html"
     DESIGN_STUDIO = _CORE_ROOT / "design_studio.html"
     VISUAL_EDITOR = _CORE_ROOT / "visual_editor.html"
+    ORCHESTRATION_CONTROL = _CORE_ROOT / "orchestration_control.html"
     AVATAR_B64 = _REPO_ROOT / "avatar" / "krishna_child_360.webp.b64"
     AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
     AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"
@@ -895,6 +897,10 @@ class Handler(BaseHTTPRequestHandler):
             if not VISUAL_EDITOR.exists():
                 return self._json(404, {"error": "visual editor unavailable"})
             return self._html(200, VISUAL_EDITOR.read_text(encoding="utf-8"))
+        if path == "/orchestration":
+            if not ORCHESTRATION_CONTROL.exists():
+                return self._json(404, {"error": "orchestration control room unavailable"})
+            return self._html(200, ORCHESTRATION_CONTROL.read_text(encoding="utf-8"))
         if path.startswith("/assets/avatar-engine/"):
             rel=path[len("/assets/avatar-engine/"):]
             asset=avatar_engine_file(rel)
