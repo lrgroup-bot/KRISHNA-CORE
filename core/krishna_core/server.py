@@ -37,6 +37,7 @@ from .windows_desktop_fabric import WindowsDesktopFabric
 from .android_test_fabric import AndroidTestFabric
 from .http_server_runtime import KrishnaThreadingHTTPServer
 from .hawkeye_media_sync import HawkeyeMediaSyncStore
+from .lr_mail_gateway import LRMailGateway
 
 # HTTP regression/acceptance subprocesses exercise API contracts deterministically.
 # They must not simultaneously start autonomous schedulers, filesystem observers,
@@ -199,6 +200,7 @@ _worker_resilience = WorkerResilienceSupervisor(
 if _BACKGROUND_SERVICES_ENABLED:
     _worker_resilience.start()
 _hawkeye_media_sync = HawkeyeMediaSyncStore(RUNTIME_ROOT)
+_lr_mail_gateway = LRMailGateway()
 _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".krishna_state", Path(__file__).resolve().parents[2] / "external" / "agency-agents")
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
 _requirements = RequirementsLedger()
@@ -1527,6 +1529,30 @@ class Handler(BaseHTTPRequestHandler):
                 "uptime_seconds": int(time.time() - started),
                 "deployment_integrity": _integrity.status(),
             })
+        if path == "/api/lr-mail/status":
+            return self._json(200,_lr_mail_gateway.status())
+        if path == "/api/lr-mail/summary":
+            raw=(query.get("limit") or ["100"])[0]
+            try:limit=max(1,min(int(raw),100))
+            except (TypeError,ValueError):return self._json(400,{"error":"limit must be an integer"})
+            try:return self._json(200,_lr_mail_gateway.summary(limit))
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+        if path == "/api/lr-mail/messages":
+            raw_limit=(query.get("limit") or ["50"])[0]
+            raw_position=(query.get("position") or ["0"])[0]
+            text=str((query.get("text") or [""])[0])[:500]
+            try:
+                limit=max(1,min(int(raw_limit),100));position=max(0,int(raw_position))
+            except (TypeError,ValueError):return self._json(400,{"error":"invalid mail list cursor/limit"})
+            try:return self._json(200,_lr_mail_gateway.list(limit,position,text))
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+        if path == "/api/lr-mail/message":
+            message_id=str((query.get("id") or [""])[0]).strip()
+            if not message_id:return self._json(400,{"error":"id is required"})
+            try:return self._json(200,_lr_mail_gateway.get(message_id))
+            except ValueError as exc:return self._json(400,{"error":str(exc)})
+            except RuntimeError as exc:return self._json(503,{"error":str(exc)})
+
         if path == "/api/mobile/connection":
             return self._json(200, {**mobile_link_state(),"remote_policy":_remote_policy.status()})
         if path == "/api/mobile/bootstrap":
