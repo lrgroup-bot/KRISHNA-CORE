@@ -87,6 +87,7 @@ from .requirements_ledger import RequirementsLedger
 from .architecture_truth import ArchitectureTruthAudit
 from .mobile_runtime_manifest import MobileRuntimeManifest
 from .rishi_live_research import RishiLiveResearchExecutor
+from .sukracharya_growth import SukracharyaGrowthRishi
 from .science_atlas import ScienceAtlas
 from .rishi_learning import RishiLearningLedger, CouncilCollaborationEngine
 from .brahma_bot import BrahmaBot
@@ -436,6 +437,12 @@ class Orchestrator:
             self.memory,
             learning_ledger=self.rishi_learning,
             collaboration_engine=self.rishi_collaboration,
+        )
+        self.sukracharya = SukracharyaGrowthRishi(
+            runtime_state / "sukracharya-growth",
+            rishi_live=self.rishi_live,
+            suryadev=self.suryadev,
+            memory=self.memory,
         )
         self.science_atlas = ScienceAtlas(
             runtime_state / "science-atlas",

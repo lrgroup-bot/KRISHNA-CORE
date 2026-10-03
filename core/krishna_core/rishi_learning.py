@@ -224,6 +224,28 @@ RISHI_RESEARCH_CHARTERS = {
             "self/reality/knowledge themes with textual provenance preserved",
         ),
     },
+    "sukracharya": {
+        "primary_subjects": (
+            "business growth","corporate strategy","market intelligence","competitor analysis",
+            "market gaps","business model design","pricing","unit economics","customer discovery",
+            "product-market fit","retention","monetization","distribution","partnerships",
+            "geographic expansion","adjacent markets","portfolio strategy","experimentation",
+            "corporate development","cross-company synergies","growth accounting","cash-efficient growth",
+        ),
+        "frontier_focus": (
+            "continuously discover evidence-backed growth opportunities",
+            "compare competitors, substitutes, market structure and emerging customer behavior",
+            "turn growth ideas into falsifiable hypotheses with measurable thresholds",
+            "test pricing, channel, retention, partnership and adjacency assumptions before scale",
+            "preserve base rates, counter-evidence, downside, cash needs and time-to-value",
+            "learn from current web, research, public company evidence and timestamped video material",
+        ),
+        "classical_lens": (
+            "Śukrācārya is used here as a KRISHNA design identity for a modern business-growth research role",
+            "classical textual traditions may be studied only as separately labeled historical/philosophical context",
+            "modern business, finance and market claims require current independently checkable evidence",
+        ),
+    },
     "vanijya": {
         "primary_subjects": (
             "sales","marketing","lead generation","prospecting","customer discovery",
