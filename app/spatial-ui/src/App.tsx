@@ -394,6 +394,82 @@ function DesignPanel() {
   );
 }
 
+type SukracharyaStatus = {
+  name?: string;
+  version?: string;
+  role?: string;
+  authority?: string;
+  youtube_dynamic_discovery?: boolean;
+  debate_team?: string[];
+  focus_rotation?: string[];
+  state?: { cycles?: number; last_cycle_at?: number | null };
+  scheduler?: { running?: boolean; interval_seconds?: number; last_run_at?: number | null; last_error?: string | null };
+};
+
+function SukracharyaPanel() {
+  const [status, setStatus] = useState<SukracharyaStatus | null>(null);
+  const [error, setError] = useState('');
+  const [running, setRunning] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  const refresh = async () => {
+    try {
+      const response = await fetch('/api/sukracharya/status', { cache: 'no-store' });
+      const data = await response.json() as SukracharyaStatus & { error?: string };
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      setStatus(data);
+      setError('');
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  useEffect(() => { void refresh(); }, []);
+
+  const runCycle = async () => {
+    setRunning(true); setNotice(''); setError('');
+    try {
+      const response = await fetch('/api/sukracharya/cycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company_id: 'lr-group', queue_video: true, share: true }),
+      });
+      const data = await response.json() as { error?: string; delivery?: { delivered?: boolean; queued?: boolean } };
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      setNotice(data.delivery?.delivered ? 'Research shared with LR Group.' : data.delivery?.queued ? 'Research complete; LR Group delivery queued.' : 'Research cycle complete.');
+      await refresh();
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const intervalHours = status?.scheduler?.interval_seconds ? Math.round(status.scheduler.interval_seconds / 3600) : null;
+  return (
+    <section className="panel-content">
+      <div className="eyebrow">RISHI COUNCIL · BUSINESS GROWTH</div>
+      <h2>{status?.name ?? 'Rishi Śukrācārya'}</h2>
+      <p className="muted">KRISHNA research advisor for business growth. Findings go to LR Group for independent cross-functional debate; this Rishi has no LR Group execution authority.</p>
+      <div className="bento">
+        <article className="card"><strong>Research</strong><span>{status?.scheduler?.running ? `Continuous · every ~${intervalHours ?? '—'}h` : 'Scheduler not running'} · cycles: {status?.state?.cycles ?? '—'}</span></article>
+        <article className="card"><strong>YouTube + Web</strong><span>{status?.youtube_dynamic_discovery ? 'Dynamic discovery enabled' : 'Awaiting runtime'} · video claims require independent verification.</span></article>
+        <article className="card"><strong>LR Group Bridge</strong><span>Advisory-only · debate team: {status?.debate_team?.length ?? '—'} Rishis before company-side review.</span></article>
+      </div>
+      <div className="status-strip">
+        <span>Authority: {status?.authority ?? 'advisory-only'}</span>
+        <span>Focus areas: {status?.focus_rotation?.length ?? '—'}</span>
+        <span>Last cycle: {status?.state?.last_cycle_at ? new Date(status.state.last_cycle_at * 1000).toLocaleString() : 'not yet'}</span>
+      </div>
+      <button type="button" className="kr-button" disabled={running} onClick={() => void runCycle()}>
+        {running ? 'Researching…' : 'Run research cycle'}
+      </button>
+      {notice ? <p className="plugin-notice">{notice}</p> : null}
+      {error ? <p className="plugin-error">Śukrācārya: {error}</p> : null}
+    </section>
+  );
+}
+
 function NaradPanel() {
   return (
     <section className="panel-content">
@@ -827,6 +903,7 @@ export default function App() {
     sudarshan: SudarshanPanel,
     narad: NaradPanel,
     design: DesignPanel,
+    sukracharya: SukracharyaPanel,
     graph: NeuralGraphPanel,
     avatar: AvatarPanel,
     terminal: TerminalPanel,
@@ -861,6 +938,7 @@ export default function App() {
             event.api.addPanel({ id: 'action-graph', component: 'graph', title: 'Action Graph' });
             event.api.addPanel({ id: 'narad', component: 'narad', title: 'Automations' });
             event.api.addPanel({ id: 'design-intelligence', component: 'design', title: 'Design Intelligence' });
+            event.api.addPanel({ id: 'sukracharya-growth', component: 'sukracharya', title: 'Rishi Śukrācārya' });
             event.api.addPanel({ id: 'avatar-stage', component: 'avatar', title: 'Avatar / Spatial' });
             event.api.addPanel({ id: 'terminal', component: 'terminal', title: 'Terminal' });
             event.api.addPanel({ id: 'plugins', component: 'plugins', title: 'Plugins' });
