@@ -1137,6 +1137,350 @@ language support.
 19. Preserve child authorship.
 20. Make Learning Proof auditable.
 
+
+============================================================
+24. QUESTION FORGE + WONDER LEDGER
+============================================================
+Teach question generation as a skill: NOTICE -> GENERATE -> IMPROVE -> CHOOSE
+-> INVESTIGATE -> EVALUATE -> BRANCH TO A NEW QUESTION.
+
+Use open cues such as "What might happen if...?", "Why could these be
+different?", "How could we test...?", and "What evidence would change your
+idea?" Do not instantly answer every curiosity; sometimes help the child
+investigate through observation, trusted sources, experiments, or a responsible
+adult.
+
+Integrate recurring themes with Interest Graph, off-screen missions, Story
+Curriculum, and Curriculum Truth Gate. Offer family Wonder Walks.
+
+Learning Proof:
+knowledge_gap_identified, questions_generated, question_type,
+question_improved, investigation_method_chosen, source_or_observation_used,
+answer_evaluated, new_question_generated.
+
+Do not equate number of questions, fluency, shyness, or speech mode with
+curiosity. Automated question-quality scoring and cross-language equivalence
+remain experimental.
+
+============================================================
+25. RETENTION-TARGETED MEMORY SCHEDULER
+============================================================
+Track durable concepts with difficulty/stability, estimated retrievability,
+and next recheck time. Review using varied representations rather than
+identical flashcards.
+
+Use Learning Proof results such as independent success, hint level, transfer,
+and relearning rather than requiring young children to self-rate memory.
+
+Fields:
+concept_id, last_retrieval_at, elapsed_days, independent_result, hint_level,
+retrieval_modality, transfer_variant, estimated_stability,
+estimated_retrievability, next_recheck_at, scheduler_version.
+
+FSRS may be prototyped behind an experiment flag; it is not assumed
+child-validated. Compare against fixed scheduling using delayed independent
+recall and transfer. Optimize retained learning per minute and comfort, not
+daily engagement. No overdue guilt, streak pressure, or artificial review
+backlogs.
+
+============================================================
+26. REPRESENTATION BRIDGE FOR MATHEMATICS
+============================================================
+ACT -> DRAW -> CONNECT -> SYMBOLIZE -> TRANSLATE BOTH DIRECTIONS -> VARY ->
+TRANSFER -> RESTORE SUPPORT IF NEEDED.
+
+Require children to map concrete objects, visual representations, and symbols
+to the same mathematical structure. Examples include counters, household
+objects, bars, arrays, number lines, diagrams, equations, and spoken/tactile
+representations.
+
+Learning Proof:
+concrete_model_created, visual_model_created, symbolic_expression_created,
+cross_representation_mapping_explained, reverse_translation_completed,
+irrelevant_surface_features_ignored, novel_context_transferred,
+support_restored_if_needed.
+
+Concrete tasks must not require sight or precise dragging; support tactile,
+spoken, large-target, keyboard, MathML/braille-compatible, and equivalent
+routes. Never label children as fixed visual/kinaesthetic learners.
+
+============================================================
+27. CHILD-OWNED MISSION CONTROL LOOP
+============================================================
+CHOOSE GOAL -> PICTURE SUCCESS -> PLAN 2-5 STEPS -> PREPARE -> PREDICT ONE
+OBSTACLE -> DO -> PAUSE/CHECK -> ADJUST -> VERIFY -> BRIEF REFLECTION.
+
+Krishna should fade from modelled planning to shared, prompted, independent,
+and transferred performance. During the DO phase, Krishna becomes quiet unless
+asked, required for safety, or at an agreed checkpoint.
+
+Learning Proof:
+child_selected_goal, success_criterion_defined, steps_generated,
+materials_prepared, obstacle_predicted, help_requested_appropriately,
+checkpoint_used, plan_adjusted, outcome_verified, strategy_transferred,
+adult_support_level.
+
+Do not convert task difficulty into medical/developmental labels or a permanent
+executive-function score. If independence weakens, restore a scaffold.
+
+============================================================
+28. SPATIAL REASONING STUDIO
+============================================================
+Build explicit activities for rotation, reflection, perspective, folding,
+composition/decomposition, navigation, maps, diagrams, scale, shadows, and
+multiple viewpoints.
+
+Progression:
+MANIPULATE -> DESCRIBE -> PREDICT -> MENTALLY TRANSFORM -> SKETCH/ENCODE ->
+EXPLAIN INVARIANT -> APPLY ELSEWHERE.
+
+Every digital spatial activity should have an optional off-screen equivalent
+using movement, drawing, blocks, paper folding, safe household materials, or
+local navigation.
+
+Learning Proof:
+spatial_relation_understood, transformation_predicted,
+rotation_or_reflection_discriminated, perspective_changed,
+shape_composed_or_decomposed, map_created_or_followed, spatial_language_used,
+physical_to_diagram_translation, novel_context_transferred, support_modality.
+
+Never create a permanent "spatial intelligence" ranking or infer future STEM
+ability. Public open-source spatial-game repositories may be engineering
+references only after licence, asset provenance, accessibility, and curriculum
+review.
+
+============================================================
+29. OFFLINE LEARNING MESH + CONTENT CAPSULES
+============================================================
+Make learning fully usable with poor/no internet. Create signed Learning
+Capsules organized by board/grade/subject/unit, language/voice pack, age band,
+accessibility alternatives, media tier, activity/assessment versions,
+curriculum provenance, licences, safety review, capsule hash, and version.
+
+Deployment:
+- Single Android device
+- Home PC/server over local Wi-Fi
+- School/community LAN hub
+- USB/SSD transfer
+- Intermittent synchronization
+
+Synchronize immutable Learning Proof events rather than copying databases.
+
+Sync fields:
+pseudonymous_child_id, device_id, event_id, event_timestamp, activity_version,
+capsule_version, evidence_summary, mastery_or_memory_update, consent_scope,
+media_present_boolean, supersedes_event_id, sync_state.
+
+Rules:
+duplicate event_id -> ignore;
+correction -> append superseding event;
+mastery conflicts -> recompute from evidence;
+deleted/expired media -> never restore;
+preserve historical curriculum/activity version;
+failed sync -> encrypted local retry queue.
+
+Kolibri is a useful offline-first architecture/reference candidate. Prototype
+one Odia/English mathematics capsule, Android learner, local server, and
+disconnect/reconnect cycle before considering broader adoption.
+
+============================================================
+30. GROWTHSCAN LEARNING-RESPONSIVENESS PASS
+============================================================
+Replace selected one-shot checks with dynamic assessment:
+
+INDEPENDENT ATTEMPT -> STANDARDIZED GRADUATED HELP -> NEAR TRANSFER WITH HELP
+REMOVED -> DELAYED RETENTION.
+
+Prompt ladder:
+rephrase -> feature cue -> strategy cue -> partial example -> full model.
+
+Store:
+independent_performance, prompt_level, strategy_adopted, near_transfer,
+delayed_recheck.
+
+Start with selected early decoding/phonological and concrete mathematics
+skills. Use expert-authored, versioned prompt ladders rather than improvised
+LLM assessment prompts.
+
+Report:
+- independent mastery
+- responsive with support
+- transfer observed
+
+Never IQ, fixed ability, diagnosis, or mastery based on success after a full
+model. Require later unprompted evidence.
+
+============================================================
+31. DRAW-COMPARE-REVISE REASONING LOOP
+============================================================
+PREDICT/DRAW -> LABEL -> EXPLAIN -> COMPARE WITH EVIDENCE/REFERENCE ->
+MARK MISMATCH -> REVISE -> TRANSFER.
+
+Use drawing/model construction for systems and relationships such as water
+cycles, plants, circuits, fractions, story causality, shadows, forces, and
+ecosystems. Preserve the initial model and revision so conceptual change is
+visible.
+
+Learning Proof:
+initial_model, key_elements_identified, relationships_represented,
+verbal_explanation, evidence_compared, mismatch_noticed, model_revision,
+revision_reason, novel_context_modelled, support_modality.
+
+Assess conceptual relationships, not artistic quality. Accept movable shapes,
+tactile objects, arrows, voice-described relationships, or assisted placement.
+Computer vision may experimentally suggest clarification questions but must not
+autonomously determine mastery.
+
+============================================================
+32. MISCONCEPTION REPAIR PROTOCOL
+============================================================
+ELICIT -> MATCH REVIEWED MISCONCEPTION PATTERN -> STATE NEUTRALLY -> REFUTE ->
+REPLACE WITH CORRECT MODEL -> DEMONSTRATE -> CHILD CONTRASTS OLD/NEW ->
+TRANSFER -> DELAYED RECHECK.
+
+Use a subject-expert-reviewed misconception bank with age, language,
+curriculum source, and correction evidence. Never let an LLM invent a
+misconception or declare that a child has one from a single ambiguous answer.
+
+Learning Proof:
+diagnostic_item_id, initial_explanation, misconception_pattern_id,
+match_confidence, refutation_version, replacement_model_explained,
+counterevidence_used, near_transfer_result, delayed_recheck_result,
+misconception_recurred.
+
+AI may suggest candidate patterns only to a reviewed rules layer. Validate
+false matches across Odia/Hindi/English, ASR, age, and response modes.
+
+============================================================
+33. RHYTHM-LANGUAGE BRIDGE
+============================================================
+HEAR/COPY BEAT -> SPEAK ON BEAT -> CLAP/STEP/TAP SYLLABLES -> CONTRAST
+RHYME/ONSET/SYLLABLE -> CHANGE SOUND -> REMOVE RHYTHM -> APPLY TO NEW WORD ->
+DELAYED RECHECK.
+
+Use rhythm as a scaffold for explicit sound-language practice, not as generic
+"music makes children smarter" training. It does not replace phonics,
+vocabulary, oral language, or reading instruction.
+
+Learning Proof:
+target_language, sound_unit, rhythm_cue_type, beat_synchronized,
+syllables_segmented, rhyme_or_onset_discriminated, sound_manipulated,
+performed_without_rhythm, novel_word_transferred, delayed_language_recheck.
+
+Odia, Hindi, and English require language-specific phonology content, not blind
+translation. Poor beat synchronization never reduces language mastery or
+becomes a developmental label. Support clap/step/tap/percussion/switch/visual
+pulse/haptic pulse/spoken routes.
+
+============================================================
+34. INSPECTABLE + CORRECTABLE GROWTHSCAN
+============================================================
+Every learner-model inference should be explainable and contestable.
+
+"Why this activity?" should show age-appropriate supporting Learning Proof,
+mastery estimate, uncertainty, model version, and proposed next check.
+
+Correction choices may include:
+"I already knew this."
+"I used help."
+"The microphone misunderstood me."
+"This was hard for another reason."
+"Don't personalize from this."
+
+Corrections append audit events rather than rewriting history. Suspend
+contested evidence from personalization until a short recheck.
+
+Separate observations from AI inference. Never infer IQ, personality,
+pathology, fixed learning style, or emotional state. Give parents fuller
+provenance while giving children an age-appropriate voice and controls.
+
+Learning benefit remains experimental; initially treat this as a safety,
+trust, agency, and data-quality mechanism.
+
+============================================================
+35. CONFUSION-SET PRACTICE SEQUENCER
+============================================================
+After concepts are initially taught, mix small reviewed sets of confusable
+concepts/strategies so the child must decide which one applies.
+
+Examples:
+perimeter vs area;
+multiplication vs repeated addition vs division;
+subtraction strategies;
+mass vs weight;
+evaporation vs boiling.
+
+Loop:
+teach clearly -> identify 2-3 confusable categories -> mix brief problems ->
+ask which idea/strategy fits and why -> compare near neighbors -> fade
+classification prompt -> delayed novel example.
+
+Learning Proof:
+confusion_set_id, candidate_concepts, strategy_selected, selection_reason,
+diagnostic_feature_identified, solution_result, classification_prompt_level,
+near_neighbor_discriminated, novel_example_transferred, delayed_mixed_result.
+
+Do not interleave before initial understanding. Do not randomly mix unrelated
+curriculum or increase difficulty to prolong engagement. Retention Scheduler
+decides WHEN to revisit; this sequencer decides WHICH nearby alternatives must
+be discriminated.
+
+============================================================
+36. PORTABLE INTERACTIVE ACTIVITY PACKAGES
+============================================================
+Add an optional H5P-compatible import/export adapter so reviewed activities can
+move between authoring tools, web playback, and Offline Learning Capsules.
+
+H5P packages may carry activity data, media, dependencies, library metadata,
+and interactive structure. Start with a strict allowlist of reviewed,
+accessible activity types.
+
+Attach Krishna metadata:
+activity_version, curriculum_source, board_grade, language, age_band,
+media_licences, accessibility_status, reviewer_signature.
+
+Normalize useful xAPI interactions into immutable Learning Proof events, but
+calculate mastery using Krishna's own rules. Completion/clicks/quiz scores are
+not automatically mastery.
+
+Security:
+- signed/approved packages
+- allowlisted libraries and file types
+- sandboxed execution
+- no arbitrary external scripts/network calls
+- package-size limits
+- dependency/version validation
+- exact activity/content-library versions preserved with evidence
+
+Accessibility:
+avoid drag-only interactions; require keyboard, touch, screen-reader, speech,
+or equivalent alternatives. Verify licences separately for code, content
+libraries, and imported media.
+
+First prototype:
+one Odia/English mathematics activity that runs online/offline, survives
+export/import, retains accessibility/language metadata, emits normalized
+Learning Proof, rejects unapproved dependencies, works across required access
+modes, and synchronizes without duplicate evidence.
+
+============================================================
+37. UPDATED IMPLEMENTATION PRINCIPLE
+============================================================
+The expanded platform now separates several different adaptive decisions:
+
+Learning Graph / BKT-like model -> WHAT appears learned and what may come next.
+Retention Scheduler -> WHEN durable knowledge should be rechecked.
+Confusion-Set Sequencer -> WHICH nearby alternatives should be discriminated.
+Fun Router -> HOW the learning is presented safely.
+Dynamic GrowthScan -> HOW MUCH structured help unlocks performance.
+Learning Proof -> WHAT evidence actually supports the conclusion.
+Curriculum Truth Gate -> WHAT content is permitted to count as educational truth.
+Offline Capsules/H5P adapter -> HOW reviewed learning content is transported.
+Inspectable GrowthScan -> HOW child/parent can understand and correct inference.
+
+None of these layers should optimize for maximum screen time, emotional
+attachment, streaks, popularity, or compulsive return behaviour.
+
 ============================================================
 END OF MASTER BUILD SPEC
 ============================================================
