@@ -274,6 +274,21 @@ ROBOTICS / RC / MOBILE PLATFORMS
    - Safety note: Do not connect a new battery/charger/controller until battery voltage, charging-jack polarity, motor voltage/current and original PCB wiring are identified
    - Action: Open the battery/electronics compartment, photograph the PCB/battery/motor wiring and labels, identify voltage/polarity, then bench-test steering and drive motors individually before deciding the final rover conversion
 
+19. MERCUSYS MW305R 300 Mbps Wireless N Router
+   - Status: Owned
+   - Brand: MERCUSYS
+   - Model: MW305R
+   - Device type: 2.4 GHz Wireless N router
+   - Wireless class: Up to 300 Mbps (802.11n)
+   - Ethernet ports observed: 1x WAN + 4x LAN
+   - Ethernet class: 10/100 Mbps Fast Ethernet
+   - Power input: DC barrel jack; exact adapter voltage/current TO VERIFY from adapter/label
+   - Reset: Rear reset pinhole/button
+   - Potential KRISHNA/HAWKEYE use: isolated secondary/test Wi-Fi network for ESP32/IoT devices, RC rover experiments, sensors and hardware test bench
+   - Potential LR Group use: low-bandwidth lab/legacy network or temporary device-isolation network
+   - Limitation: 100 Mbps wired interfaces and 2.4 GHz Wireless N make it unsuitable for the main KRISHNA/LR Group high-speed server, CCTV aggregation or large-file-transfer backbone
+   - Action: Verify power adapter, firmware version, working condition, Wi-Fi stability and factory-reset/update status before deployment
+
 INVENTORY POLICY
 ----------------
 - Do not assume unknown specifications; mark them TO VERIFY.
