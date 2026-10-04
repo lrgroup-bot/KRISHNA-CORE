@@ -2,7 +2,7 @@ KRISHNA OWNER HARDWARE INVENTORY
 ===============================
 Purpose: Persistent source-of-truth inventory for hardware/electronics already owned by the owner.
 Rule: When the owner identifies or adds hardware, append/update it here rather than creating another inventory file.
-Last updated: 2026-10-02
+Last updated: 2026-10-04
 
 COMPUTER COMPONENTS
 -------------------
@@ -255,6 +255,24 @@ MOTORS / COOLING / ELECTROMECHANICAL
    - Safety note: Mains-voltage device; any reuse requires proper enclosure, insulation, fuse and suitably rated relay/SSR if electronically controlled
    - Action: Photograph the full motor assembly and label more clearly; measure shaft/fan arrangement and verify current draw and working condition before reuse
 
+ROBOTICS / RC / MOBILE PLATFORMS
+--------------------------------
+18. RAYS Recreation off-road RC toy car / rover chassis
+   - Status: Owned
+   - Brand marking: RAYS Recreation
+   - Exact model: TO VERIFY from body/receiver/battery-compartment label
+   - Device type: Toy-grade remote-controlled off-road vehicle / potential robotics donor platform
+   - Chassis features observed: four-wheel off-road layout, large treaded tyres/wheels, independent-style suspension links/springs, geared drive assemblies, plastic frame, ON/OFF switch and DC charging/input jack
+   - Front/roof module: Appears to be an LED/spotlight assembly; confirm before treating it as a camera or sensor
+   - Existing electronics: Receiver/control PCB, motor voltage, steering method, radio frequency and battery chemistry/capacity are TO VERIFY
+   - Mechanical condition: Used; one wheel/tyre area appears incomplete or displaced in the photos and should be inspected before powered testing
+   - Potential KRISHNA/HAWKEYE use: low-cost mobile inspection rover for workshop/rack/under-table observation after conversion and testing
+   - Reusable parts: chassis, suspension, wheels/tyres, gearboxes, DC motors, switch, wiring, lamp housing and mechanical linkages subject to inspection
+   - Possible conversion path: ESP32/ESP32-CAM or similar controller + appropriate motor driver + rechargeable battery system + camera/light + optional ultrasonic/ToF obstacle sensor
+   - Control concept: KRISHNA/HAWKEYE -> Wi-Fi/controller -> rover movement + camera/light/sensor feedback
+   - Limitation: Toy-grade drivetrain and plastic gears; payload, steering precision, motor current and continuous-duty capability must be measured before assigning a production role
+   - Safety note: Do not connect a new battery/charger/controller until battery voltage, charging-jack polarity, motor voltage/current and original PCB wiring are identified
+   - Action: Open the battery/electronics compartment, photograph the PCB/battery/motor wiring and labels, identify voltage/polarity, then bench-test steering and drive motors individually before deciding the final rover conversion
 
 INVENTORY POLICY
 ----------------
