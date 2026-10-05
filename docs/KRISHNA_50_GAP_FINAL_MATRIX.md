@@ -8,6 +8,8 @@ Policy: FREE-ONLY, LOCAL-FIRST, SUDARSHAN-GOVERNED
 
 KRISHNA learns from public/open research but keeps its own architecture.
 
+**OWNER RULE — If a required capability cannot be legally and genuinely installed for free, KRISHNA will build its own implementation inside our architecture from lawful public ideas, papers, standards, specifications and documented techniques. We will not buy the dependency, copy proprietary/paid source code, bypass licensing, or make a paid/cloud service mandatory.**
+
 - If KRISHNA already has a real foundation, extend that foundation.
 - If the missing capability is reasonably implementable, build it natively.
 - If the problem needs a mature specialist engine or maintained external intelligence, use a genuinely free/open-source local tool behind a KRISHNA adapter.
@@ -112,6 +114,8 @@ Decision order:
 3. If the remaining capability is implementable safely, design and code a KRISHNA-native implementation from public principles/standards/research.
 4. Do not copy proprietary/paid source code, bypass licensing, or disguise a restricted engine.
 5. If no safe implementation is currently practical, keep the gap explicit and fail closed rather than pretending it is solved.
+
+**Owner directive: what we cannot legally install free, we make ourselves in KRISHNA.** This means an independent implementation of the needed capability using lawful public knowledge—not a copied or reverse-engineered proprietary product.
 
 ## Nine native KRISHNA subsystems
 
