@@ -17,13 +17,13 @@ const SYSTEMS = {
   brahmagyan:{name:'BRAHMAGYAN',mark:'BG',role:'Deep-learning and Rishi research coordinator. Moves findings through evidence, cross-checking and maturity before trusted storage.',view:'brahmagyan',api:'/api/brahmagyan/status'},
   gyan:{name:'Gyan-Bhandar',mark:'GB',role:'Evidence-backed knowledge store. Keeps working, episodic, semantic, graph, skill and evidence memory separated.',view:'gyan',api:'/api/gyan-bhandar/inventory?project=KRISHNA'},
   rishi:{name:'Rishi Council',mark:'RI',role:'Domain specialists used for deep questions and independent review. Specialists advise; they do not become action authority.',view:'brahmagyan',api:'/api/brahmagyan/council'},
-  amcc:{name:'aMCC',mark:'AM',role:'Adaptive effort controller. Chooses how much reasoning, checking and persistence a task needs; it never grants permission.',view:'system',api:null},
+  amcc:{name:'aMCC',mark:'AM',role:'Adaptive effort controller. Chooses how much reasoning, checking and persistence a task needs; it never grants permission.',view:'system',api:'/api/amcc/status?limit=50'},
   suryadev:{name:'Suryadev',mark:'SY',role:'Screen and audio learning worker. Captures structured learning from approved video, audio, OCR and ASR tasks.',view:'workingGods',api:'/api/suryadev/status'},
   chandradev:{name:'Chandradev',mark:'CH',role:'Independent visual QC. Watches screen/camera evidence, cross-checks results and can require a QC debate before release.',view:'workingGods',api:'/api/chandradev/status'},
-  mrityunjaya:{name:'Mrityunjaya',mark:'MR',role:'Self-heal and recovery worker. Diagnoses, prepares a candidate repair, tests it and rolls back when proof fails.',view:'workingGods',api:null},
+  mrityunjaya:{name:'Mrityunjaya',mark:'MR',role:'Self-heal and recovery worker. Diagnoses, prepares a candidate repair, tests it and rolls back when proof fails.',view:'workingGods',api:'/api/mrityunjay/status'},
   ui_guardian:{name:'UI Guardian',mark:'UI',role:'Frontend verifier. Checks interaction, responsive layout, accessibility and visual regression before UI promotion.',view:'uiGuardian',api:'/api/ui-guardian/registry'},
   developer:{name:'Developer',mark:'DV',role:'Bounded engineering worker. Creates candidate code and tests; successful editing alone never means completion.',view:'development',api:'/api/software-factory/workers/status'},
-  specialists:{name:'Specialists',mark:'SP',role:'Narrow expert workers selected for a task. Their output is reviewed before KRISHNA can use it.',view:'specialists',api:null},
+  specialists:{name:'Specialists',mark:'SP',role:'Narrow expert workers selected for a task. Their output is reviewed before KRISHNA can use it.',view:'specialists',api:'/api/specialists'},
   perfection:{name:'Project Perfection',mark:'PP',role:'Release proof pipeline. Requires evidence, tests, browser verification and safe promotion instead of assuming a change works.',view:'work',api:'/api/project-perfection/status'},
   vishvakarma:{name:'Vishvakarma',mark:'VI',role:'Engineering and repair specialist for evidence-led diagnosis, repair guidance and verified engineering learning.',view:'specialists',api:'/api/design/status'}
 };
