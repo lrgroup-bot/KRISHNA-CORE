@@ -6,6 +6,7 @@ on:
       - work/spatial-command-os-20261005
     paths:
       - scripts/apply_authority_transport_phase2b.py
+      - scripts/patch_authority_a2a_fallback_phase2b.py
       - core/tests/test_authority_transport_contract.py
       - .github/workflows/authority-transport-phase2b.yml
   workflow_dispatch:
@@ -35,7 +36,9 @@ jobs:
           test "${GITHUB_REF_NAME}" = "work/spatial-command-os-20261005"
           echo "SOURCE/SHADOW authority convergence only."
       - name: Apply transport convergence patch
-        run: python scripts/apply_authority_transport_phase2b.py
+        run: |
+          python scripts/apply_authority_transport_phase2b.py
+          python scripts/patch_authority_a2a_fallback_phase2b.py
       - name: Run authority lease adversarial tests
         working-directory: core
         run: python -m unittest tests.test_authority_lease -v
