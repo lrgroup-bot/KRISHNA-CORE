@@ -52,7 +52,9 @@ test('all upper KRISHNA systems open an owner-readable operational dashboard', a
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(apiFixture(url.pathname))});
   });
 
-  await page.goto('/spatial/operational-preview.html');
+  await page.goto('http://127.0.0.1:4173/spatial/operational-preview.html');
+  await page.locator('#candidate').waitFor({state:'visible'});
+  await page.waitForFunction(() => document.querySelector('#candidate')?.contentWindow?.document?.readyState === 'complete');
   const legacy = page.frame({url:/legacy-dashboard\.html/});
   expect(legacy).toBeTruthy();
   await legacy.waitForFunction(() => window.KRISHNA_OPERATIONAL_UI?.systems?.length === 20);
