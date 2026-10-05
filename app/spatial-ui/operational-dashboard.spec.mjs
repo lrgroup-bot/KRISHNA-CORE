@@ -9,15 +9,15 @@ const systems = [
   ['perfection','Project Perfection'],['vishvakarma','Vishvakarma'],
 ];
 
-const stateFor = id => id === 'krishna' ? 'working' : id === 'chandradev' ? 'error' : id === 'brahma' ? 'done' : 'idle';
+const stateFor = id => id === 'krishna' ? 'working' : id === 'chandradev' ? 'error' : id === 'brahma' ? 'done' : id === 'mrityunjaya' ? 'healing' : 'idle';
 
 const processSnapshot = {
-  version:'browser-fixture-v1',
+  version:'browser-fixture-v2',
   latest_state:'working',
   gods: systems.map(([id,name]) => ({
     id,name,logo:'◇',state:stateFor(id),
-    color: stateFor(id)==='working' ? 'green' : 'red',
-    detail: id==='krishna' ? 'Coordinating the owner request' : id==='chandradev' ? 'Visual QC debate requires attention' : id==='brahma' ? 'Last QC completed' : 'Idle',
+    color: stateFor(id)==='working' ? 'green' : 'yellow',
+    detail: id==='krishna' ? 'Coordinating the owner request' : id==='chandradev' ? 'Visual QC debate requires attention' : id==='brahma' ? 'Last QC completed' : id==='mrityunjaya' ? 'Verifying recovery candidate' : 'Idle',
     updated_at: 1791208800,
   })),
   notifications:[
@@ -45,7 +45,7 @@ function apiFixture(pathname){
   return {};
 }
 
-test('all upper KRISHNA systems open an owner-readable operational dashboard', async ({page}) => {
+test('KRISHNA Spatial Command OS keeps all upper systems professional and owner-readable', async ({page}) => {
   await page.route('**/api/**', async route => {
     const request=route.request();
     const url=new URL(request.url());
@@ -57,17 +57,25 @@ test('all upper KRISHNA systems open an owner-readable operational dashboard', a
   await page.waitForFunction(() => document.querySelector('#candidate')?.contentWindow?.document?.readyState === 'complete');
   const legacy = page.frame({url:/legacy-dashboard\.html/});
   expect(legacy).toBeTruthy();
-  await legacy.waitForFunction(() => window.KRISHNA_OPERATIONAL_UI?.systems?.length === 20);
+  await legacy.waitForFunction(() => window.KRISHNA_OPERATIONAL_UI?.version === '2026.10-spatial-command-os-v1');
   await expect(legacy.locator('#workingGodsMini .miniGodRow')).toHaveCount(20);
+  await expect(legacy.locator('#opHomeDeck')).toBeVisible();
+  await expect(legacy.locator('#opHomeDeck')).toContainText('One command. Verified execution.');
 
   for (const [id,name] of systems) {
     const button=legacy.locator(`#workingGodsMini .miniGodRow[data-god-id="${id}"]`);
     await expect(button).toBeVisible();
+    await expect(button.locator('.miniGodName')).toBeVisible();
+    await expect(button.locator('.miniGodName')).toHaveText(name);
+    await expect(button.locator('.miniGodState')).toBeVisible();
     await button.click();
     await expect(legacy.locator('#godDetailDialog')).toHaveAttribute('open','');
     await expect(legacy.locator('#godDetailName')).toHaveText(name);
+    await expect(legacy.locator('#opPurpose')).not.toBeEmpty();
     await expect(legacy.locator('#opWorking')).not.toBeEmpty();
+    await expect(legacy.locator('#opProgressLabel')).not.toBeEmpty();
     await expect(legacy.locator('#opDone')).not.toBeEmpty();
+    await expect(legacy.locator('#opProblems')).not.toBeEmpty();
     await expect(legacy.locator('#opNext')).not.toBeEmpty();
     await expect(legacy.locator('#opApproval')).not.toBeEmpty();
     await legacy.locator('#godDetailDialog .opClose').click();
@@ -86,9 +94,11 @@ test('all upper KRISHNA systems open an owner-readable operational dashboard', a
   await legacy.locator('#workingGodsMini .miniGodRow[data-god-id="chandradev"]').click();
   await expect(legacy.locator('#godDetailRole')).toContainText('Independent visual QC');
   await expect(legacy.locator('#opHealthBadge')).toContainText(/attention|debate/i);
+  await expect(legacy.locator('#opProblems')).toContainText(/debate/i);
   await legacy.locator('#godDetailDialog .opClose').click();
 
   await expect(legacy.locator('#workingGodsMini .miniGodRow[data-god-id="hawkeye"] .godLight')).toHaveClass(/op-ready/);
+  await expect(legacy.locator('#workingGodsMini .miniGodRow[data-god-id="mrityunjaya"] .godLight')).toHaveClass(/op-healing/);
   await expect(legacy.locator('#workingGodsMini .miniGodRow[data-god-id="chandradev"] .godLight')).toHaveClass(/op-attention/);
 
   for (const helper of ['File','Plugin','Project','Investigate','Research']) {
@@ -98,5 +108,5 @@ test('all upper KRISHNA systems open an owner-readable operational dashboard', a
   await expect(legacy.locator('.composerWrap .send')).toHaveText('RUN');
   await expect(legacy.locator('#input')).toHaveAttribute('placeholder','Tell KRISHNA what you want done…');
 
-  await page.screenshot({path:'operational-dashboard-candidate.png',fullPage:true});
+  await page.screenshot({path:'spatial-command-os-candidate.png',fullPage:true});
 });
