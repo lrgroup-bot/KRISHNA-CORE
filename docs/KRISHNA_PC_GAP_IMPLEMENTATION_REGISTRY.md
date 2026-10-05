@@ -279,3 +279,176 @@ When KRISHNA actively manages multiple independent LR company/service repositori
 
 Acceptance benchmark:
 Use at least three real but read-only LR service repos. Require deterministic cross-repo links, local-only analysis, evidence locations, and measurable unique information not obtainable from KRISHNA's native project graph. Otherwise reject as duplicate.
+
+
+## GAP-011 — Property-based / generative invariant testing
+
+Status: PLANNED_PC
+Priority: HIGH
+Candidate: HypothesisWorks/hypothesis
+Gap owner: Verification Engine + Project Perfection
+
+Why missing:
+Example-based unit tests cover inputs humans remembered to write. Property-based testing generates many valid/invalid edge cases, shrinks failures to a minimal counterexample, and can replay discovered failures. This is complementary to mutation testing: mutation asks whether tests catch broken code; property testing searches the input/state space for cases that break invariants.
+
+PC placement:
+- E:\\Krishna-The GOD\\tools\\property-testing\\
+- E:\\Krishna-The GOD\\state\\verification\\hypothesis\\
+- E:\\Krishna-The GOD\\reports\\verification\\property\\
+
+Acceptance tests:
+1. Define invariants for high-risk pure functions and parsers.
+2. Seed at least one hidden edge-case bug and prove Hypothesis finds and shrinks it.
+3. Convert critical discovered counterexamples into permanent explicit regression fixtures; do not rely only on Hypothesis's internal example database.
+4. Bound examples/deadlines/resources under Resource Governor.
+5. No generated input may trigger external side effects without a fake/sandbox adapter.
+6. Record seed/profile/version and a reproducible failure representation where supported.
+7. Start only on critical modules changed by a proposal; no uncontrolled whole-repo fuzz storm.
+
+Gap closed when:
+Critical deterministic components have property/invariant tests that discover edge cases beyond hand-written examples and preserve important failures as permanent regression evidence.
+
+## GAP-012 — Deterministic concurrency / race exploration
+
+Status: RESEARCH_MORE / PLANNED_PC
+Priority: HIGH for Shared Action Bus, worker/event/job runtimes
+Candidates:
+- lucaswiman/frontrun
+- ChidcGithub/Threadcheck
+- Getego/pytest-deterministic-lab (beta/reference only)
+
+Why missing:
+KRISHNA has locks, SQLite transactions, idempotency and recovery tests, but ordinary tests may not explore dangerous thread/task interleavings. Python's evolving free-threading ecosystem increases the importance of explicit race analysis.
+
+Decision:
+Do not install a young race detector blindly. First build KRISHNA-native deterministic concurrency fixtures around critical invariants; benchmark candidate tools in isolation.
+
+Acceptance tests:
+- Concurrent duplicate action submissions never execute a side effect twice.
+- Approval/promotion cannot race ahead of verification.
+- Event/job state transitions remain valid under competing updates.
+- Lock-protected state shows no reported race in supported detector.
+- Intentionally unsafe fixture is detected and replayable.
+- Every reported interleaving includes enough evidence to reproduce.
+- Tool limitations (threads vs asyncio vs processes) are displayed explicitly.
+
+Gap closed when:
+Critical concurrency invariants survive bounded schedule/interleaving exploration and a seeded race is reliably detected.
+
+## GAP-013 — Fault injection / resilience testing
+
+Status: PLANNED_NATIVE_THEN_PC
+Priority: HIGH
+Candidate reference: teilomillet/ordeal
+Gap owner: Mrityunjaya + Verification + Recovery
+
+Why missing:
+KRISHNA tests success/failure paths, but needs systematic injected failures at boundaries: disk full/write failure, SQLite busy/locked, timeout, malformed provider response, killed worker, partial file operation, browser crash, network unavailable and restart between durable action states.
+
+Native-first rule:
+Implement fault seams in existing adapters before considering a chaos framework. Never inject faults into live production state.
+
+Acceptance tests:
+- Inject failure before side effect -> safe retry allowed.
+- Inject unknown outcome after side effect boundary -> fail closed/no duplicate execution.
+- Kill/restart between action states -> durable state recovers correctly.
+- Simulate disk/database/browser/network failures in disposable environment.
+- Verify rollback/cleanup evidence.
+- Every injected fault has stable ID, expected invariant and observed result.
+
+Gap closed when:
+KRISHNA can intentionally break its own disposable execution environment and prove core safety/recovery invariants remain true.
+
+## GAP-014 — Software supply-chain provenance and malicious dependency gate
+
+Status: PLANNED_PC
+Priority: CRITICAL before future third-party installations
+Candidates:
+- google/osv-scanner for vulnerability inventory
+- sigstore tooling / SLSA provenance verification
+- homeofe/supply-chain-guard as a candidate to benchmark, not automatically trust
+
+Gap owner: KABACH + Installer/Dependency Audit
+
+Why missing:
+Current SBOM/dependency inventory does not by itself prove that an artifact came from the claimed build/repository, nor comprehensively detect known-malicious packages, dependency confusion, compromised install hooks or unpinned CI actions.
+
+Policy:
+Every new external KRISHNA tool should itself pass the supply-chain gate before entering E:\\Krishna-The GOD\\tools.
+
+Acceptance tests:
+1. Generate/consume SBOM and map direct/transitive dependencies.
+2. Verify artifact checksum and provenance/attestation when upstream provides it.
+3. Detect a seeded known-vulnerable dependency.
+4. Detect an intentionally unpinned or suspicious CI/dependency fixture where supported.
+5. Offline scan mode must clearly report intelligence freshness and unavailable checks; never equate unavailable with clean.
+6. Networked enrichment is opt-in and must disclose exactly what package/repo identifiers leave the machine.
+7. Fail closed on incomplete critical inventory.
+8. Pin scanner version and verify the scanner's own provenance before trusting its result.
+
+Gap closed when:
+KRISHNA can answer WHAT is installed, WHERE it came from, WHAT exact version/hash is running, WHAT security intelligence was checked, and which checks were unavailable.
+
+## GAP-015 — Async/thread/resource leak verification
+
+Status: PLANNED_PC
+Priority: MEDIUM-HIGH
+Candidate: deepankarm/pyleak plus native tracemalloc/process metrics
+Gap owner: Verification + Resource Governor
+
+Why missing:
+A test can pass while leaving background threads, asyncio tasks, handles or growing memory behind. Long-running KRISHNA services need post-test quiescence checks.
+
+Acceptance tests:
+- Seed leaked asyncio task -> detected.
+- Seed leaked thread -> detected.
+- Verify clean worker returns to expected task/thread baseline.
+- Repeated lifecycle test shows bounded memory/file-handle growth.
+- Allowlist only explicitly persistent infrastructure.
+- Capture stack/location for leaked task/thread where available.
+- No false 'clean' if measurement was unavailable.
+
+Gap closed when:
+Critical long-running runtimes prove post-test quiescence and bounded resource growth across repeated start/work/stop cycles.
+
+## GAP-016 — Performance regression budgets
+
+Status: PLANNED_NATIVE
+Priority: MEDIUM-HIGH
+Gap owner: Project Perfection + Resource Governor
+
+Why missing:
+Functional correctness can regress latency, memory or CPU enough to make KRISHNA unusable, especially on the current resource-constrained machine.
+
+Acceptance tests:
+- Establish versioned baseline for selected critical operations.
+- Compare candidate vs baseline with warmup/repetition and robust statistic, not one timing.
+- Track wall time plus peak memory where practical.
+- Separate environmental noise from material regression.
+- Use percentage + absolute threshold to avoid tiny-number noise.
+- Performance gate applies only to stable benchmark scenarios.
+- Store hardware/runtime context with result.
+
+Gap closed when:
+A candidate repair cannot silently introduce a material performance/resource regression in critical paths.
+
+## GAP-017 — API/schema/database migration compatibility
+
+Status: PLANNED_NATIVE
+Priority: HIGH before LR multi-service expansion
+Gap owner: Architecture Intelligence + Verification
+
+Why missing:
+Structural snapshot detects removed public nodes, but not yet request/response schema compatibility, persisted-state migration safety or forward/backward compatibility.
+
+Acceptance tests:
+- Old valid API fixture remains accepted where compatibility is promised.
+- Removed/renamed required field is classified as breaking.
+- Database/state migration runs on disposable copy and preserves invariants/counts.
+- Migration rollback/recovery behavior is explicitly tested.
+- Old binary/new data and new binary/old data compatibility policy is declared per component.
+- Destructive migration requires explicit owner gate and backup evidence.
+- Schema delta is machine-readable and linked to blast radius.
+
+Gap closed when:
+KRISHNA can distinguish safe additive evolution from breaking API/persisted-state changes before promotion.
