@@ -54,12 +54,10 @@ test('KRISHNA Spatial Command OS keeps all upper systems professional and owner-
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(apiFixture(url.pathname))});
   });
 
-  await page.goto('http://127.0.0.1:4173/spatial/operational-preview.html',{waitUntil:'domcontentloaded'});
+  await page.goto('http://127.0.0.1:4173/operational-preview.html',{waitUntil:'domcontentloaded'});
   await expect(page.locator('#candidate')).toBeVisible();
-  await expect(page.locator('#candidate')).toHaveAttribute('src','/spatial/legacy-dashboard.html');
+  await expect(page.locator('#candidate')).toHaveAttribute('src','legacy-dashboard.html');
 
-  // Wait on Playwright's frame registry instead of reading iframe.contentWindow.document
-  // from the parent page. The latter can hang while the legacy dashboard has live loops.
   await expect.poll(
     () => page.frames().some(frame => /legacy-dashboard\.html/.test(frame.url())),
     {timeout:15_000,message:'legacy KRISHNA dashboard iframe should navigate'}
