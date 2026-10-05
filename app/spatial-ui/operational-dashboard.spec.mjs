@@ -42,6 +42,9 @@ function apiFixture(pathname){
   if(pathname==='/api/kabach/projects') return {projects:['KRISHNA']};
   if(pathname==='/api/brahmagyan/status') return {status:'ready',mission_count:2,curiosity_queued:0};
   if(pathname==='/api/narad/status') return {status:'ready',dead_letters:0};
+  if(pathname==='/api/amcc/status') return {status:'ready',mode:'balanced',evaluations:7};
+  if(pathname==='/api/mrityunjay/status') return {status:'ready',busy:false,last_trigger:null};
+  if(pathname==='/api/specialists') return {status:'ready',active:0,registered:12};
   return {};
 }
 
@@ -100,7 +103,7 @@ test('KRISHNA Spatial Command OS keeps all upper systems professional and owner-
 
   await legacy.locator('#workingGodsMini .miniGodRow[data-god-id="amcc"]').click();
   await expect(legacy.locator('#godDetailRole')).toContainText('Adaptive effort controller');
-  await expect(legacy.locator('#opTechnicalJson')).toContainText('No separate detailed telemetry endpoint');
+  await expect(legacy.locator('#opTechnicalJson')).toContainText('"mode": "balanced"');
   await legacy.locator('#godDetailDialog .opClose').click();
 
   await legacy.locator('#workingGodsMini .miniGodRow[data-god-id="chandradev"]').click();
