@@ -26,7 +26,7 @@ class DirectAuthorityContractTests(unittest.TestCase):
 
     def test_worker_approval_consumes_exact_lease(self):
         src=text("core/krishna_core/orchestrator.py")
-        section=block(src,"    def request_ephemeral_workers", "    def run_ephemeral_workers")
+        section=block(src,"    def request_ephemeral_workers(self,", "    def run_ephemeral_workers(self,")
         self.assertIn("authority_lease=None",section)
         self.assertIn('action="software_factory.workers.approve"',section)
         self.assertIn("self.authority.consume(",section)
@@ -34,8 +34,8 @@ class DirectAuthorityContractTests(unittest.TestCase):
 
     def test_gyan_destructive_archive_and_restore_consume_lease(self):
         src=text("core/krishna_core/orchestrator.py")
-        archive=block(src,"    def gyan_archive_file", "    def gyan_restore_file")
-        restore=block(src,"    def gyan_restore_file", "    def gyan_archive_status")
+        archive=block(src,"    def gyan_archive_file(self,", "    def gyan_restore_file(self,")
+        restore=block(src,"    def gyan_restore_file(self,", "    def gyan_archive_status(self,")
         self.assertIn('action="gyan.archive.remove_original"',archive)
         self.assertIn("authority_lease=None",archive)
         self.assertIn('action="gyan.archive.restore"',restore)
@@ -46,7 +46,7 @@ class DirectAuthorityContractTests(unittest.TestCase):
     def test_development_wrappers_forward_authority_lease(self):
         src=text("core/krishna_core/orchestrator.py")
         for name in ("development_commit","development_push","development_sync"):
-            section=block(src,f"    def {name}","\n    def ")
+            section=block(src,f"    def {name}(self,","\n    def ")
             self.assertIn("authority_lease=None",section,name)
             self.assertIn("authority_lease=authority_lease",section,name)
 
