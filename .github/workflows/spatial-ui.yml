@@ -4,12 +4,15 @@ on:
   pull_request:
     paths:
       - "app/spatial-ui/**"
+      - "core/tests/test_operational_dashboard_ui.py"
       - ".github/workflows/spatial-ui.yml"
   push:
     branches:
       - "fix/krishna-ui-runtime-verification"
+      - "fix/krishna-dashboard-operational-ui"
     paths:
       - "app/spatial-ui/**"
+      - "core/tests/test_operational_dashboard_ui.py"
       - ".github/workflows/spatial-ui.yml"
 
 permissions:
@@ -30,9 +33,18 @@ jobs:
           cache-dependency-path: app/spatial-ui/package.json
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Check operational dashboard JavaScript
+        run: node --check public/operational-dashboard.js
       - name: Build
         run: npm run build
-      - name: Verify output
+      - name: Verify candidate output
         run: |
           test -f dist/index.html
           test -d dist/assets
+          test -f dist/legacy-dashboard.html
+          test -f dist/operational-dashboard.css
+          test -f dist/operational-dashboard.js
+          test -f dist/operational-preview.html
+      - name: Verify owner-readable dashboard contract
+        working-directory: ../..
+        run: python -m pytest -q core/tests/test_operational_dashboard_ui.py
