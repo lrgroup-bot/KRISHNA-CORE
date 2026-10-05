@@ -77,12 +77,23 @@ def repair_canonical_ui() -> None:
 
 def remove_frontend_self_approval() -> None:
     app = SPATIAL_APP.read_text(encoding="utf-8")
+
+    # The frontend may describe a request, but it must never manufacture the
+    # executable approval bit itself. Remove each known caller-supplied path
+    # explicitly so source drift fails loudly instead of being silently changed.
     app = replace_once(
         app,
         "          approved: true,\n",
         "",
-        "remove caller-supplied frontend approval",
+        "remove Wi-Fi caller-supplied approval",
     )
+    app = replace_once(
+        app,
+        ", approved: true, project: 'KRISHNA'",
+        ", project: 'KRISHNA'",
+        "remove plugin caller-supplied approval",
+    )
+
     SPATIAL_APP.write_text(app, encoding="utf-8")
 
 
