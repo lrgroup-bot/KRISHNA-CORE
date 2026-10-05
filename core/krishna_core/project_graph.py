@@ -190,6 +190,82 @@ class ProjectGraph:
             }
 
 
+
+    def structural_snapshot(self) -> dict:
+        """Create a deterministic, versioned architecture baseline."""
+        import hashlib
+        import json
+        with self._lock:
+            payload = self.snapshot()
+            public_nodes = sorted(
+                node["name"] for node in payload["nodes"]
+                if bool(node.get("metadata", {}).get("public"))
+                or bool(node.get("metadata", {}).get("api"))
+                or node.get("kind", "").lower() in {"api", "public_api"}
+            )
+            canonical = {
+                "schema_version": 1,
+                "nodes": payload["nodes"],
+                "edges": payload["edges"],
+                "public_nodes": public_nodes,
+            }
+            encoded = json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            return {**canonical, "sha256": hashlib.sha256(encoded).hexdigest()}
+
+    @staticmethod
+    def structural_diff(before: dict, after: dict) -> dict:
+        """Compare approved/current snapshots without hiding inherited debt."""
+        def node_map(snapshot):
+            return {row["name"]: row for row in snapshot.get("nodes", [])}
+
+        def edge_set(snapshot):
+            return {
+                (row["source"], row["relation"], row["target"])
+                for row in snapshot.get("edges", [])
+            }
+
+        bnodes, anodes = node_map(before), node_map(after)
+        bedges, aedges = edge_set(before), edge_set(after)
+        bpublic = set(before.get("public_nodes", []))
+        apublic = set(after.get("public_nodes", []))
+
+        added_nodes = sorted(set(anodes) - set(bnodes))
+        removed_nodes = sorted(set(bnodes) - set(anodes))
+        changed_nodes = sorted(
+            name for name in set(bnodes) & set(anodes)
+            if bnodes[name] != anodes[name]
+        )
+        added_edges = sorted(aedges - bedges)
+        removed_edges = sorted(bedges - aedges)
+        removed_public = sorted(bpublic - apublic)
+        added_public = sorted(apublic - bpublic)
+
+        def edges(rows):
+            return [
+                {"source": source, "relation": relation, "target": target}
+                for source, relation, target in rows
+            ]
+
+        breaking = bool(removed_public)
+        changed = bool(
+            added_nodes or removed_nodes or changed_nodes
+            or added_edges or removed_edges or added_public or removed_public
+        )
+        return {
+            "changed": changed,
+            "before_sha256": before.get("sha256"),
+            "after_sha256": after.get("sha256"),
+            "added_nodes": added_nodes,
+            "removed_nodes": removed_nodes,
+            "changed_nodes": changed_nodes,
+            "added_edges": edges(added_edges),
+            "removed_edges": edges(removed_edges),
+            "added_public": added_public,
+            "removed_public": removed_public,
+            "breaking_public_change": breaking,
+            "policy": "delta only: inherited structure remains baseline; new and removed structure is explicit",
+        }
+
     def cycles(self, relations: Iterable[str] | None = None) -> dict:
         """Return deterministic dependency cycles with edge evidence."""
         with self._lock:
