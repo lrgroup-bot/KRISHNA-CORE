@@ -59,7 +59,7 @@ class AuthorityTransportContractTests(unittest.TestCase):
         src=text("core/krishna_core/server.py")
         routes=[
             "/api/mobile/testing/run",
-            "/api/desktop/run",
+            "/api/desktop/rpa/run",
             "/api/garudanetra/session/start",
             "/api/garudanetra/replay",
             "/api/narad/dead-letters/retry",
@@ -70,11 +70,11 @@ class AuthorityTransportContractTests(unittest.TestCase):
             "/api/plugins/remove",
             "/api/plugins/execute",
             "/api/action-bus/rollback",
-            "/api/protocol/mcp/call",
+            "/api/protocols/mcp/call",
             "/api/gyan-bhandar/acl/grant",
             "/api/gyan-bhandar/acl/revoke",
             "/api/gyan-bhandar/replica/snapshot",
-            "/api/gyan-bhandar/encrypted/put",
+            "/api/gyan-bhandar/encrypted/store",
             "/api/work/promotion/apply",
         ]
         for route in routes:
