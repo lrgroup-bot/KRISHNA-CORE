@@ -142,14 +142,51 @@ class ProjectGraph:
             order = lambda x: (-x["score"], x["distance"], x["name"])
             impacted.sort(key=order)
             tests.sort(key=order)
+            known_seeds = [name for name in seed_list if name in self._nodes]
+            unknown_seeds = [name for name in seed_list if name not in self._nodes]
+            graph_nodes = set(self._nodes)
+            referenced_nodes = set(self._edges)
+            referenced_nodes.update(
+                target for pairs in self._edges.values() for _, target in pairs
+            )
+            dangling_nodes = sorted(referenced_nodes - graph_nodes)
+            total_referenced = len(referenced_nodes)
+            classified_ratio = (
+                (total_referenced - len(dangling_nodes)) / total_referenced
+                if total_referenced else 1.0
+            )
+            seed_ratio = len(known_seeds) / len(seed_list) if seed_list else 0.0
+            confidence = seed_ratio * classified_ratio
+            if unknown_seeds:
+                confidence_label = "INSUFFICIENT"
+            elif dangling_nodes:
+                confidence_label = "PARTIAL"
+            else:
+                confidence_label = "GRAPH_COMPLETE_FOR_KNOWN_EDGES"
             return {
                 "seeds": seed_list,
+                "known_seeds": known_seeds,
+                "unknown_seeds": unknown_seeds,
                 "depth": max(0, int(depth)),
                 "impacted": impacted,
                 "tests": tests,
                 "impact_count": len(impacted),
                 "test_count": len(tests),
-                "evidence_policy": "proven graph edges only; missing relationships remain unknown",
+                "graph_evidence": {
+                    "referenced_nodes": total_referenced,
+                    "registered_nodes": len(graph_nodes),
+                    "dangling_nodes": dangling_nodes,
+                    "classified_ratio": round(classified_ratio, 6),
+                },
+                "confidence": round(confidence, 6),
+                "confidence_label": confidence_label,
+                "safe_to_claim_no_impact": (
+                    not unknown_seeds and not dangling_nodes and not impacted
+                ),
+                "evidence_policy": (
+                    "proven graph edges only; zero discovered impact is not proof of safety "
+                    "when seeds or referenced nodes are unknown"
+                ),
             }
 
 
