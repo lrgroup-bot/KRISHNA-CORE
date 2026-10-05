@@ -1,0 +1,66 @@
+name: KRISHNA Authority Transport Phase 2B
+
+on:
+  push:
+    branches:
+      - work/spatial-command-os-20261005
+    paths:
+      - scripts/apply_authority_transport_phase2b.py
+      - core/tests/test_authority_transport_contract.py
+      - .github/workflows/authority-transport-phase2b.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: krishna-authority-transport-phase2b
+  cancel-in-progress: false
+
+jobs:
+  authority-transport-convergence:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout isolated KRISHNA source branch
+        uses: actions/checkout@v4
+        with:
+          ref: work/spatial-command-os-20261005
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+      - name: Confirm no runtime deploy or live unlock
+        shell: bash
+        run: |
+          test "${GITHUB_REF_NAME}" = "work/spatial-command-os-20261005"
+          echo "SOURCE/SHADOW authority convergence only."
+      - name: Apply transport convergence patch
+        run: python scripts/apply_authority_transport_phase2b.py
+      - name: Run authority lease adversarial tests
+        working-directory: core
+        run: python -m unittest tests.test_authority_lease -v
+      - name: Run transport contract tests
+        working-directory: core
+        run: python -m unittest tests.test_authority_transport_contract -v
+      - name: Run Shared Action Bus regression
+        working-directory: core
+        run: python -m unittest tests.test_shared_action_bus -v
+      - name: Compile modified runtime modules
+        run: python -m py_compile core/krishna_core/agent_runtime.py core/krishna_core/dispatch_runtime.py core/krishna_core/protocol_gateway.py core/krishna_core/orchestrator.py core/krishna_core/server.py
+      - name: Check patch integrity
+        shell: bash
+        run: |
+          git diff --check
+          git status --short
+      - name: Commit verified SOURCE-only transport transformation
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No transport transformation to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add core/krishna_core/agent_runtime.py core/krishna_core/dispatch_runtime.py core/krishna_core/protocol_gateway.py core/krishna_core/orchestrator.py core/krishna_core/server.py
+          git commit -m "fix: converge all execution transports on authority leases"
+          git push origin HEAD:work/spatial-command-os-20261005
