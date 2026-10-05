@@ -1,0 +1,109 @@
+name: KRISHNA Authority Lease Phase 2
+
+on:
+  push:
+    branches:
+      - work/spatial-command-os-20261005
+    paths:
+      - core/krishna_core/authority_lease.py
+      - core/tests/test_authority_lease.py
+      - scripts/apply_authority_lease_phase2.py
+      - .github/workflows/authority-lease-phase2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: krishna-authority-lease-phase2
+  cancel-in-progress: false
+
+jobs:
+  authority-source-hardening:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout isolated KRISHNA branch
+        uses: actions/checkout@v4
+        with:
+          ref: work/spatial-command-os-20261005
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Confirm SOURCE-only safety boundary
+        shell: bash
+        run: |
+          test "${GITHUB_REF_NAME}" = "work/spatial-command-os-20261005"
+          echo "No deployment and no live-action unlock in this workflow."
+
+      - name: Apply authority lease enforcement patch
+        run: python scripts/apply_authority_lease_phase2.py
+
+      - name: Run lease adversarial unit suite
+        working-directory: core
+        run: python -m unittest tests.test_authority_lease -v
+
+      - name: Run Shared Action Bus regression
+        working-directory: core
+        run: python -m unittest tests.test_shared_action_bus -v
+
+      - name: Prove boolean forgery is blocked and exact lease is one-time
+        working-directory: core
+        run: |
+          python - <<'PY'
+          import tempfile
+          from pathlib import Path
+          from krishna_core.authority_lease import AuthorityLeaseGate
+          from krishna_core.automation_bus import AutomationBus
+          from krishna_core.policy_kernel import PolicyKernel
+          from krishna_core.shared_action_bus import SharedActionBus
+
+          root=Path(tempfile.mkdtemp(prefix='krishna-authority-integration-'))
+          gate=AuthorityLeaseGate(root/'authority', initially_locked=False)
+          bus=SharedActionBus(AutomationBus(),PolicyKernel(root),authority_gate=gate)
+          calls=[]
+          bus.register('danger.apply',lambda payload,ctx:calls.append(dict(payload)) or {'ok':True},
+                       mutating=True,requires_approval=True,sources=('pc',))
+          payload={'target':'candidate-A','digest':'abc'}
+
+          try:
+              bus.dispatch('danger.apply',payload,source='pc',actor='owner',approved=True)
+              raise AssertionError('forged approved=True unexpectedly executed')
+          except PermissionError:
+              pass
+          assert calls == []
+
+          lease=gate.request(action='danger.apply',payload=payload,project='KRISHNA',source='pc',actor='owner')
+          gate.decide(lease['lease_id'],approved=True,approved_by='Partha')
+          out=bus.dispatch('danger.apply',payload,source='pc',actor='owner',authority_lease=lease['lease_id'])
+          assert out['status']=='completed' and len(calls)==1
+
+          try:
+              bus.dispatch('danger.apply',payload,source='pc',actor='owner',authority_lease=lease['lease_id'])
+              raise AssertionError('replayed authority lease unexpectedly executed')
+          except PermissionError:
+              pass
+          assert len(calls)==1
+          print('authority integration adversarial proof: PASS')
+          PY
+
+      - name: Check patch integrity
+        shell: bash
+        run: |
+          git diff --check
+          git status --short
+
+      - name: Commit verified SOURCE-only authority transformation
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No source transformation to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add core/krishna_core/shared_action_bus.py core/krishna_core/sudarshan_control.py core/krishna_core/job_runtime.py core/krishna_core/orchestrator.py core/krishna_core/server.py
+          git commit -m "fix: enforce scoped one-time authority leases"
+          git push origin HEAD:work/spatial-command-os-20261005
