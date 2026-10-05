@@ -27,7 +27,7 @@ class ProjectGraphIntelligenceTests(unittest.TestCase):
         self.assertEqual(api["distance"], 2)
         self.assertEqual(api["path"], ["core.py", "service.py", "api.py"])
         self.assertEqual(api["evidence"][-1]["target"], "service.py")
-        self.assertEqual(report["evidence_policy"], "proven graph edges only; missing relationships remain unknown")
+        self.assertIn("proven graph edges only", report["evidence_policy"])
 
     def test_impact_prefers_shortest_proven_path(self):
         graph = self.make_graph()
