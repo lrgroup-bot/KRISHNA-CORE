@@ -120,6 +120,7 @@ from .chandradev_camera import ChandradevOsmoCameraAdapter, OSMO_ACTION_ORIGINAL
 from .vision_adapter import VisionAdapter
 from .external_observer_bridge import ExternalObserverBridge
 from .auth_handoff import AuthenticationHandoffGate
+from .authority_lease import AuthorityLeaseGate
 from .github_pr_review import GitHubPRReviewer
 from .application_security import ApplicationSecurityLoop
 from .windows_worker_sandbox import WindowsWorkerSandbox
@@ -144,6 +145,7 @@ class Orchestrator:
         self.requirements = RequirementsLedger()
         self.software_factory = SoftwareFactory(self.memory,self.commitments)
         runtime_state = Path(self.db_path).resolve().parent / ".krishna_state"
+        self.authority = AuthorityLeaseGate(runtime_state / "authority", audit=self.memory.audit, initially_locked=True)
         self.project_brain = ProjectBrain(self.memory,runtime_state / "project-brain")
         self.lab = LabBot(runtime_state / "lab-bot")
         self.gita_gyan = GitaGyan(runtime_state / "gita-gyan")
@@ -348,7 +350,7 @@ class Orchestrator:
         self.action_bus = SharedActionBus(
             self.lifecycle_bus,self.agi.policy,audit=self.memory.audit,
             permission_resolver=self.permissions.authorize,
-            idempotency_db_path=self.db_path,
+            idempotency_db_path=self.db_path,authority_gate=self.authority,
         )
         self.agent_runtime = AgentRuntime(self.action_bus)
         self.jobs = JobRuntime(
@@ -4820,10 +4822,10 @@ class Orchestrator:
         return receipt.get("result") or receipt
 
     def dispatch_action(self,action,payload=None,project="KRISHNA",source="pc",actor="owner",
-                        approved=False,permissions=(),idempotency_key=None):
+                        approved=False,permissions=(),idempotency_key=None,authority_lease=None):
         return self.sudarshan.action(
             action,payload,project=project,source=source,actor=actor,approved=approved,
-            permissions=permissions,idempotency_key=idempotency_key,
+            permissions=permissions,idempotency_key=idempotency_key,authority_lease=authority_lease,
         )
 
     def _brahma_qc_retry(self,envelope):

@@ -131,11 +131,12 @@ class SharedActionBus:
     """
 
     def __init__(self,event_bus,policy,audit:Callable|None=None,permission_resolver:Callable|None=None,
-                 history_limit=500,idempotency_db_path=None):
+                 history_limit=500,idempotency_db_path=None,authority_gate=None):
         self.event_bus=event_bus
         self.policy=policy
         self.audit=audit
         self.permission_resolver=permission_resolver
+        self.authority_gate=authority_gate
         self.history_limit=max(50,int(history_limit))
         self._lock=RLock()
         self._handlers:dict[str,tuple[SharedActionSpec,Callable]]={}
@@ -245,7 +246,7 @@ class SharedActionBus:
             return None
 
     def dispatch(self,action,payload=None,*,project="KRISHNA",source="pc",actor="owner",
-                 approved=False,permissions=(),idempotency_key=None)->dict:
+                 approved=False,permissions=(),idempotency_key=None,authority_lease=None)->dict:
         name=str(action or "").strip()
         source=str(source or "pc").strip().lower()
         project=str(project or "KRISHNA").strip() or "KRISHNA"
@@ -258,7 +259,7 @@ class SharedActionBus:
         action_id=str(uuid.uuid4())
         envelope={
             "action_id":action_id,"action":name,"project":project,"source":source,"actor":actor,
-            "approved":bool(approved),"permissions":list(permissions or []),
+            "approved":False,"permissions":list(permissions or []),
             "payload":self._safe_payload(payload),"created_at":self._now(),
         }
         if source not in spec.sources:
@@ -272,10 +273,34 @@ class SharedActionBus:
                 row={**envelope,"status":"blocked","reason":str(reason or "permission_denied"),"spec":spec.as_dict()}
                 self._record(row);self._publish("action.blocked",row)
                 raise PermissionError(str(reason or "action permission denied"))
+        # A caller-supplied boolean is intent, never executable authority.  When
+        # KRISHNA is configured with the persistent authority gate, any action whose
+        # contract requires approval (or any caller attempting to assert approval)
+        # must present a one-time lease bound to this exact action envelope.
+        effective_approved=bool(approved) if self.authority_gate is None else False
+        authority_receipt=None
+        if self.authority_gate is not None and (spec.requires_approval or bool(approved) or authority_lease):
+            try:
+                authority_receipt=self.authority_gate.consume(
+                    authority_lease,action=name,payload=payload,project=project,source=source,actor=actor,
+                )
+                effective_approved=True
+            except PermissionError as exc:
+                row={**envelope,"status":"blocked","reason":str(exc),"spec":spec.as_dict()}
+                self._record(row);self._publish("action.blocked",row)
+                raise
+        envelope["approved"]=effective_approved
+        if authority_receipt:
+            envelope["authority"]={
+                "lease_id":authority_receipt.get("lease_id"),
+                "scope_fingerprint":authority_receipt.get("scope_fingerprint"),
+                "approved_by":authority_receipt.get("approved_by"),
+            }
+        context={**envelope,"spec":spec.as_dict()}
         # Low-risk state mutations can be marked mutating for audit without forcing
         # an approval dialog. PolicyKernel approval is invoked when this action's
         # contract explicitly requires approval.
-        decision=self.policy.action(name,mutating=bool(spec.requires_approval),approved=bool(approved))
+        decision=self.policy.action(name,mutating=bool(spec.requires_approval),approved=effective_approved)
         if not decision.allowed:
             row={**envelope,"status":"blocked","reason":decision.reason,"policy":decision.as_dict(),"spec":spec.as_dict()}
             self._record(row);self._publish("action.blocked",row)
@@ -342,7 +367,7 @@ class SharedActionBus:
             with self._lock:self._idempotent[str(idempotency_key)]=cached
         return row
 
-    def rollback(self,action_id,*,source="pc",actor="owner",approved=False)->dict:
+    def rollback(self,action_id,*,source="pc",actor="owner",approved=False,authority_lease=None)->dict:
         with self._lock:
             original=next((dict(x) for x in reversed(self._history) if x.get("action_id")==action_id),None)
         if not original:
@@ -350,11 +375,11 @@ class SharedActionBus:
         spec_name=(original.get("spec") or {}).get("rollback_action")
         if not spec_name:
             raise ValueError("action has no registered rollback")
-        if not approved:
+        if self.authority_gate is None and not approved:
             raise PermissionError("rollback requires explicit approval")
         return self.dispatch(
             spec_name,{"original_action":original},project=original.get("project") or "KRISHNA",
-            source=source,actor=actor,approved=True,
+            source=source,actor=actor,approved=approved,authority_lease=authority_lease,
             idempotency_key=f"rollback:{action_id}",
         )
 
@@ -367,6 +392,7 @@ class SharedActionBus:
             "registered_actions":len(self.list()),
             "recent_actions":len(self.recent(self.history_limit)),
             "durable_idempotency":self._idempotency_store is not None,
+            "authority_lease":self.authority_gate.status() if self.authority_gate is not None else {"configured":False},
             "actions":self.list(),
             "policy":"all UI/mobile/agent actions should resolve to a registered shared action; no raw shell dispatch",
         }

@@ -23,7 +23,7 @@ class JobRuntime:
         except Exception:pass
 
     def submit(self,action,payload=None,*,project="KRISHNA",actor="job-runtime",
-               permissions=(),approved=False,idempotency_key=None,mission_id=None,
+               permissions=(),approved=False,idempotency_key=None,authority_lease=None,mission_id=None,
                max_retries=2,resource_budget=None):
         task=self.task_ledger.create(project,f"action:{action}")
         task_id=task["task_id"]
@@ -65,7 +65,7 @@ class JobRuntime:
                 self.budgets.assert_allowed(mission_id)
             receipt=self.action_bus.dispatch(
                 action,payload,project=project,source="job",actor=actor,
-                approved=approved,permissions=permissions,
+                approved=approved,permissions=permissions,authority_lease=authority_lease,
                 idempotency_key=idempotency_key or (f"mission:{mission_id}" if mission_id else "job:"+task_id),
             )
             if self.queue and queue_row:self.queue.ack(queue_row["queue_id"],receipt,worker_id=self.worker_id)

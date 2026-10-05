@@ -1482,6 +1482,8 @@ class Handler(BaseHTTPRequestHandler):
                 "context_governor":{"max_items":orch.agi.context.max_items,"max_chars":orch.agi.context.max_chars},
                 "media":orch.agi.media.status(),
             })
+        if path == "/api/authority/status":
+            return self._json(200,orch.authority.status())
         if path == "/health":
             return self._json(200, {
                 "ok": True,
@@ -1850,6 +1852,44 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
 
+        if post_path == "/api/authority/lease/request":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"authority leases may be requested only on the KRISHNA PC"})
+            action=str(data.get("action") or "").strip()
+            if not action:return self._json(400,{"error":"action is required"})
+            if action not in {x.get("name") for x in orch.action_bus.list()}:
+                return self._json(404,{"error":"shared action not registered"})
+            try:
+                row=orch.authority.request(
+                    action=action,payload=data.get("payload") or {},
+                    project=str(data.get("project") or "KRISHNA"),
+                    source=str(data.get("source") or "pc"),actor=str(data.get("actor") or "owner"),
+                    reason=str(data.get("reason") or ""),ttl_seconds=data.get("ttl_seconds"),
+                )
+                return self._json(201,row)
+            except (ValueError,RuntimeError) as exc:return self._json(400,{"error":str(exc)})
+
+        if post_path == "/api/authority/lease/decide":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"authority decisions must be made on the KRISHNA PC"})
+            lease_id=str(data.get("lease_id") or "").strip()
+            if not lease_id:return self._json(400,{"error":"lease_id is required"})
+            try:return self._json(200,orch.authority.decide(lease_id,approved=bool(data.get("approved",False)),approved_by="Partha"))
+            except KeyError:return self._json(404,{"error":"authority lease not found"})
+            except (ValueError,PermissionError,RuntimeError) as exc:return self._json(409,{"error":str(exc)})
+
+        if post_path == "/api/authority/kill-switch/engage":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"kill switch is local-owner only"})
+            return self._json(200,orch.authority.engage_kill_switch(str(data.get("reason") or "owner safety lock")))
+
+        if post_path == "/api/authority/kill-switch/disarm":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"kill switch is local-owner only"})
+            if str(data.get("confirm") or "") != "PARTHA_DISARM_KRISHNA":
+                return self._json(403,{"error":"explicit Partha disarm confirmation required"})
+            return self._json(200,orch.authority.disarm_kill_switch(approved_by="Partha",reason=str(data.get("reason") or "controlled readiness test")))
+
         if post_path == "/api/hawkeye/ruview/wifi/connect":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"RuView Wi-Fi credentials may be entered only on the KRISHNA PC"})
@@ -1866,7 +1906,7 @@ class Handler(BaseHTTPRequestHandler):
                         "wait_seconds":int(data.get("wait_seconds") or 15),
                     },
                     project="KRISHNA",source="pc",actor="hawkeye-ruview-pc",
-                    approved=bool(data.get("approved",False)),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),
                     permissions=("network.configure","secret.write"),
                 )
                 return self._json(200,receipt["result"])
@@ -3027,7 +3067,7 @@ class Handler(BaseHTTPRequestHandler):
                 out=orch.dispatch_action(
                     action,data.get("payload") or {},project=str(data.get("project") or "KRISHNA"),
                     source="pc",actor=str(data.get("actor") or "ui"),
-                    approved=bool(data.get("approved",False)),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),
                     permissions=data.get("permissions") or [],
                     idempotency_key=str(data.get("idempotency_key") or "").strip() or None,
                 )
@@ -3112,7 +3152,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(202,orch.sudarshan.job(
                     action,data.get("payload") or {},project=str(data.get("project") or "KRISHNA"),
                     actor=str(data.get("actor") or "ui-job"),permissions=data.get("permissions") or [],
-                    approved=bool(data.get("approved",False)),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),
                     idempotency_key=str(data.get("idempotency_key") or "").strip() or None,
                 ))
             except KeyError as exc:return self._json(404,{"error":str(exc)})
@@ -3131,7 +3171,7 @@ class Handler(BaseHTTPRequestHandler):
                     actor=str(data.get("actor") or "ui"),
                     agent_id=str(data.get("agent_id") or "").strip() or None,
                     permissions=data.get("permissions") or [],
-                    approved=bool(data.get("approved",False)),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),
                     idempotency_key=str(data.get("idempotency_key") or "").strip() or None,
                 ))
             except KeyError as exc:return self._json(404,{"error":str(exc)})

@@ -55,10 +55,11 @@ class SudarshanControlPlane:
         return verdict
 
     def action(self,action,payload=None,*,project="KRISHNA",source="pc",actor="sudarshan",
-               approved=False,permissions=(),idempotency_key=None,evidence=None,checks=None):
+               approved=False,permissions=(),idempotency_key=None,authority_lease=None,evidence=None,checks=None):
         receipt=self.action_bus.dispatch(
             action,payload,project=project,source=source,actor=actor,
             approved=approved,permissions=permissions,idempotency_key=idempotency_key,
+            authority_lease=authority_lease,
         )
         verdict=self.verify_receipt(receipt,evidence=evidence,checks=checks)
         receipt["verification"]=verdict
@@ -68,10 +69,10 @@ class SudarshanControlPlane:
         return receipt
 
     def job(self,action,payload=None,*,project="KRISHNA",actor="sudarshan-job",
-            permissions=(),approved=False,idempotency_key=None,evidence=None,checks=None):
+            permissions=(),approved=False,idempotency_key=None,authority_lease=None,evidence=None,checks=None):
         row=self.jobs.submit(
             action,payload,project=project,actor=actor,permissions=permissions,
-            approved=approved,idempotency_key=idempotency_key,
+            approved=approved,idempotency_key=idempotency_key,authority_lease=authority_lease,
         )
         receipt=row["action"]
         verdict=self.verify_receipt(receipt,evidence=evidence,checks=checks)
@@ -106,5 +107,5 @@ class SudarshanControlPlane:
             "owner":"Sudarshan Control Plane",
             "entry":"Shared Action Bus / JobRuntime",
             "exit":"IndependentCriticVerifier",
-            "policy":"delegated capabilities enter through permissioned actions/jobs and leave through independent verification",
+            "policy":"delegated capabilities enter through permissioned actions/jobs, consequential execution requires scoped authority leases, and results leave through independent verification",
         }
