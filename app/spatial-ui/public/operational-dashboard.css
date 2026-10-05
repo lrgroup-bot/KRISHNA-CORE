@@ -1,0 +1,44 @@
+/* KRISHNA operational dashboard layer — owner-readable, local-only, no remote assets. */
+:root{
+  --op-bg:#07131c;--op-panel:#0a1d28;--op-panel-2:#0e2734;--op-line:rgba(127,213,229,.22);
+  --op-text:#edf7f8;--op-muted:#91adb7;--op-gold:#e8c870;--op-green:#55e3a2;--op-amber:#e9bd5c;
+  --op-blue:#63cde9;--op-red:#ff6f7f;--op-grey:#778892;
+}
+#opsInformer{min-height:76px!important;max-height:90px!important}
+#workingGodsMini{gap:9px!important;padding:4px 4px 8px!important;align-items:stretch!important}
+#workingGodsMini .miniGodRow{
+  flex:0 0 72px!important;width:72px!important;height:58px!important;min-width:72px!important;padding:5px 5px 4px!important;
+  display:grid!important;grid-template-rows:30px 13px!important;place-items:center!important;border-radius:13px!important;
+  background:linear-gradient(155deg,#173b49 0%,#0c2530 50%,#06151e 100%)!important;
+  border:1px solid rgba(144,225,238,.28)!important;color:var(--op-text)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -5px 10px rgba(0,0,0,.26),0 6px 0 #031017,0 10px 18px rgba(0,0,0,.32)!important;
+  transform:translateY(0) perspective(220px) rotateX(0deg)!important;transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease!important;
+}
+#workingGodsMini .miniGodRow:hover,#workingGodsMini .miniGodRow:focus-visible{
+  transform:translateY(-2px) perspective(220px) rotateX(2deg)!important;border-color:rgba(232,200,112,.62)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -5px 10px rgba(0,0,0,.22),0 7px 0 #031017,0 13px 25px rgba(0,0,0,.4)!important;outline:none!important;
+}
+#workingGodsMini .miniGodRow:active{transform:translateY(4px)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 2px 0 #031017,0 5px 11px rgba(0,0,0,.3)!important}
+#workingGodsMini .miniGodLogo{position:static!important;width:38px!important;height:28px!important;display:grid!important;place-items:center!important;border-radius:9px!important;
+  font:900 12px/1 Inter,Segoe UI,sans-serif!important;letter-spacing:.06em!important;color:#fff!important;background:linear-gradient(145deg,rgba(100,211,233,.22),rgba(232,200,112,.11))!important;border:1px solid rgba(255,255,255,.08)!important;text-shadow:0 1px 2px #000!important}
+#workingGodsMini .miniGodName{position:static!important;width:64px!important;height:auto!important;overflow:hidden!important;clip:auto!important;white-space:nowrap!important;text-overflow:ellipsis!important;text-align:center!important;font:700 8px/1.15 Inter,Segoe UI,sans-serif!important;letter-spacing:.035em!important;color:#bcd3da!important}
+#workingGodsMini .miniGodState{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important}
+#workingGodsMini .godLight{right:5px!important;top:5px!important;width:7px!important;height:7px!important}
+.godLight.status-green,.godLight.op-working{background:var(--op-green)!important;box-shadow:0 0 10px rgba(85,227,162,.72)!important}
+.godLight.status-yellow,.godLight.op-ready,.godLight.op-waiting{background:var(--op-amber)!important;box-shadow:0 0 9px rgba(233,189,92,.58)!important}
+.godLight.op-healing{background:var(--op-blue)!important;box-shadow:0 0 10px rgba(99,205,233,.65)!important}
+.godLight.status-red,.godLight.op-attention{background:var(--op-red)!important;box-shadow:0 0 10px rgba(255,111,127,.58)!important}
+.godLight.op-unknown{background:var(--op-grey)!important;box-shadow:none!important}
+.orbitDot.idle{background:var(--op-amber)!important;box-shadow:0 0 8px rgba(233,189,92,.55)!important}
+
+#godDetailDialog.godDetailDialog{width:min(920px,calc(100vw - 26px))!important;max-height:90dvh!important;border-radius:22px!important;background:linear-gradient(155deg,#0b202b 0%,#06131c 100%)!important;border:1px solid rgba(124,213,229,.32)!important;color:var(--op-text)!important}
+#godDetailDialog .godDetailInner{padding:20px!important;gap:14px!important}
+.opHead{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center}.opIdentity{min-width:0}.opIdentity h2{margin:0;font-size:23px}.opIdentity p{margin:4px 0 0;color:var(--op-muted);line-height:1.45}.opClose{border:0;background:transparent;color:#dcecf0;font-size:27px;cursor:pointer}
+#godDetailLogo{width:54px!important;height:54px!important;display:grid!important;place-items:center!important;border-radius:15px!important;background:linear-gradient(145deg,#173b49,#071821)!important;border:1px solid rgba(232,200,112,.34)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 7px 0 #030d13,0 12px 24px rgba(0,0,0,.36)!important;font:900 15px/1 Inter,Segoe UI,sans-serif!important;letter-spacing:.06em!important;color:#fff!important}
+.opStatusRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.opBadge{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid var(--op-line);border-radius:999px;background:rgba(255,255,255,.035);font-size:11px;font-weight:800;letter-spacing:.06em}.opBadge i{width:8px;height:8px;border-radius:50%}.opBadge.working i,.opBadge.done i{background:var(--op-green)}.opBadge.ready i,.opBadge.waiting i{background:var(--op-amber)}.opBadge.attention i{background:var(--op-red)}.opBadge.unknown i{background:var(--op-grey)}
+.opGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.opCard{min-height:118px;padding:13px;border:1px solid var(--op-line);border-radius:15px;background:linear-gradient(145deg,rgba(20,49,63,.72),rgba(7,24,33,.72))}.opCard h3{margin:0 0 8px;color:#8fb3bd;font-size:9px;letter-spacing:.13em}.opCard .opValue{font-size:14px;line-height:1.48;color:#e6f1f3;white-space:pre-wrap}.opCard small{display:block;margin-top:7px;color:var(--op-muted);line-height:1.35}.opDoneList{display:grid;gap:5px}.opDoneItem{padding:6px 8px;border-radius:8px;background:rgba(85,227,162,.06);border:1px solid rgba(85,227,162,.12);font-size:11px;line-height:1.35}
+.opMeta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.opMeta>div{padding:10px;border:1px solid var(--op-line);border-radius:12px;background:rgba(255,255,255,.025)}.opMeta span{display:block;color:var(--op-muted);font-size:8px;letter-spacing:.11em;margin-bottom:5px}.opMeta b{font-size:11px;overflow-wrap:anywhere}.opProgress{height:7px;margin-top:7px;border-radius:999px;background:#041017;overflow:hidden}.opProgress>i{display:block;height:100%;background:linear-gradient(90deg,var(--op-blue),var(--op-green));border-radius:999px}
+.opActions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}.opActions button{padding:9px 12px;border-radius:10px;border:1px solid rgba(124,213,229,.27);background:#103342;color:#e6f4f6;cursor:pointer}.opActions button.primary{border-color:rgba(232,200,112,.4);background:linear-gradient(145deg,#1a4655,#102d38)}
+.opTechnical{border:1px solid var(--op-line);border-radius:12px;background:rgba(0,0,0,.14);padding:9px 11px}.opTechnical summary{cursor:pointer;color:#8eaab4;font-size:10px}.opTechnical pre{max-height:260px;overflow:auto;font:10px/1.4 Consolas,monospace;white-space:pre-wrap;color:#b7cbd1}
+.composeFoot .tools .tool[data-op-hidden="true"]{display:none!important}.composeFoot .tools{gap:6px!important}.composeFoot .tools::before{content:'COMMAND';font:800 8px/1 Inter,Segoe UI,sans-serif;letter-spacing:.12em;color:#708c96;align-self:center;margin-right:2px}.composer textarea{min-height:58px!important}.composer .send{width:42px!important;height:42px!important;border-radius:13px!important;box-shadow:0 4px 0 #041018!important}
+@media(max-width:760px){#workingGodsMini .miniGodRow{flex-basis:64px!important;width:64px!important;min-width:64px!important}.opGrid{grid-template-columns:1fr}.opMeta{grid-template-columns:1fr 1fr}#godDetailDialog .godDetailInner{padding:14px!important}.opIdentity h2{font-size:19px}}
