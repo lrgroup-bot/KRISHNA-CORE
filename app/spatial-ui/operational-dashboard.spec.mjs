@@ -47,6 +47,9 @@ function apiFixture(pathname){
 
 test('KRISHNA Spatial Command OS keeps all upper systems professional and owner-readable', async ({page}) => {
   test.setTimeout(60_000);
+  page.on('console', msg => console.log('BROWSER',msg.type(),msg.text()));
+  page.on('pageerror', error => console.log('PAGEERROR',error.message));
+  page.on('requestfailed', request => console.log('REQUESTFAILED',request.url(),request.failure()?.errorText||''));
 
   await page.route('**/api/**', async route => {
     const request=route.request();
@@ -55,16 +58,17 @@ test('KRISHNA Spatial Command OS keeps all upper systems professional and owner-
   });
 
   await page.goto('http://127.0.0.1:4173/operational-preview.html',{waitUntil:'domcontentloaded'});
-  await expect(page.locator('#candidate')).toBeVisible();
-  await expect(page.locator('#candidate')).toHaveAttribute('src','legacy-dashboard.html');
+  const candidate=page.locator('#candidate');
+  await expect(candidate).toBeVisible();
+  await expect(candidate).toHaveAttribute('src','legacy-dashboard.html');
+  await expect(candidate).toHaveAttribute('data-spatial-ready','1',{timeout:15_000});
 
-  await expect.poll(
-    () => page.frames().some(frame => /legacy-dashboard\.html/.test(frame.url())),
-    {timeout:15_000,message:'legacy KRISHNA dashboard iframe should navigate'}
-  ).toBe(true);
   const legacy = page.frames().find(frame => /legacy-dashboard\.html/.test(frame.url()));
   expect(legacy).toBeTruthy();
-  await legacy.waitForFunction(() => window.KRISHNA_OPERATIONAL_UI?.version === '2026.10-spatial-command-os-v1',null,{timeout:15_000});
+  await expect.poll(
+    () => legacy.evaluate(() => window.KRISHNA_OPERATIONAL_UI?.version || ''),
+    {timeout:5_000,message:'Spatial Command OS overlay should expose its version'}
+  ).toBe('2026.10-spatial-command-os-v1');
 
   await expect(legacy.locator('#workingGodsMini .miniGodRow')).toHaveCount(20);
   await expect(legacy.locator('#opHomeDeck')).toBeVisible();
