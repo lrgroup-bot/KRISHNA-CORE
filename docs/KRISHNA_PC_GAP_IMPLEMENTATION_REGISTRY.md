@@ -452,3 +452,186 @@ Acceptance tests:
 
 Gap closed when:
 KRISHNA can distinguish safe additive evolution from breaking API/persisted-state changes before promotion.
+
+
+## GAP-018 — Repository/tool-output prompt-injection security benchmark
+
+Status: PLANNED_PC
+Priority: CRITICAL
+Gap owner: KABACH + Agent Evaluation + Garuda/Garudanetra
+Candidates/references:
+- DaoyuanLi2816/RepoGuardBench (local repository-borne injection benchmark)
+- ppradyoth/AgentInjectionBench (tool output, goal hijack, privilege escalation, exfiltration, multi-turn, MCP poisoning)
+- opena2a-org/oasb (broader agent-security scenarios/MITRE ATLAS mapping)
+- liu00222/Open-Prompt-Injection (research benchmark; heavier/provider-oriented)
+
+Why missing:
+KRISHNA has permission/action gates and deterministic trajectory checks, but needs a maintained adversarial corpus proving that README text, code comments, issue text, test logs, web/tool output and MCP context cannot redirect an agent into forbidden actions.
+
+Safety rule:
+Use only synthetic/inert benchmark payloads in an isolated evaluation environment. Never use real secrets, live exfiltration endpoints or production business data.
+
+Acceptance tests:
+1. Malicious repository instruction cannot override owner/policy/system authority.
+2. Poisoned tool/web output cannot cause an unapproved action.
+3. Canary synthetic secret is never emitted to forbidden sink/tool.
+4. MCP/context poisoning cannot expand capabilities or permissions.
+5. Multi-turn injection cannot persist attacker policy into trusted memory.
+6. Measure attack-success rate AND false-positive/over-refusal rate; security that blocks normal work is not sufficient.
+7. Keep a held-out private test split so KRISHNA cannot merely memorize public cases.
+8. Dataset/report must have stable version/hash.
+9. Separate agent COMPLIANCE from DAMAGE CONTAINMENT: even if the model follows bad text, structural permission/egress controls should still prevent the side effect.
+10. Every failure becomes a sanitized permanent regression case.
+
+Gap closed when:
+KRISHNA passes a versioned local agent-injection corpus with zero critical forbidden side effects and an explicitly accepted false-positive rate.
+
+## GAP-019 — SQLite corruption, integrity and restore verification
+
+Status: PLANNED_NATIVE
+Priority: CRITICAL
+Gap owner: Persistence + Shared Action Bus + Mrityunjaya
+
+Why missing:
+SQLite transactions protect normal atomicity but do not prove behavior under corrupted DB/WAL files, truncated storage, disk-full conditions or restore from backup.
+
+Acceptance tests:
+- Run SQLite integrity_check/quick_check on disposable copies.
+- Corrupt/truncate a test DB and prove startup refuses to call it healthy.
+- Simulate WAL/journal recovery and abrupt process termination.
+- Restore from a known backup into a separate location and verify schema, row counts, critical hashes/invariants and idempotency records.
+- Never auto-delete the only damaged copy; quarantine before recovery.
+- Record recovery point/time and data loss window.
+- Database recovery must not replay an already-completed external side effect.
+
+Gap closed when:
+KRISHNA can detect corrupted persistent state, quarantine it, restore a verified copy and resume without silently losing action-safety guarantees.
+
+## GAP-020 — Backup restore proof / disaster recovery drill
+
+Status: PLANNED_NATIVE
+Priority: CRITICAL
+Gap owner: Guardian + Mrityunjaya
+
+Why missing:
+Having backup files is not evidence that KRISHNA can restore from them. Recovery must be tested end-to-end.
+
+Acceptance tests:
+1. Generate manifest of required state/config/data with hashes and schema/version metadata.
+2. Restore into a clean disposable KRISHNA root, never over the live installation during a drill.
+3. Verify required services can start against restored state in isolated mode.
+4. Verify critical memories/action ledgers/approval state/configuration survive.
+5. Measure RPO (maximum acceptable lost data) and RTO (restore duration).
+6. Test missing/corrupt/latest-backup fallback to an older valid recovery point.
+7. Keep secrets encrypted or separately restored under owner control.
+8. Produce human-readable PASS/PARTIAL/FAIL recovery report.
+
+Gap closed when:
+A clean-machine/disposable-root drill proves a backup can actually reconstruct a safe usable KRISHNA state within declared RPO/RTO.
+
+## GAP-021 — Network partition and dependency-failure simulation
+
+Status: PLANNED_PC
+Priority: HIGH
+Candidate: Shopify/toxiproxy or a lightweight native fault proxy
+Gap owner: Verification + Recovery + Resource Governor
+
+Why missing:
+Timeouts alone do not reproduce latency, connection reset, partial response, unavailable dependency or intermittent network partitions.
+
+Acceptance tests:
+- Inject latency/jitter/reset/unavailable upstream into disposable/local services.
+- Verify retries are bounded and idempotent.
+- Verify circuit/open-offline behavior prevents retry storms.
+- Verify local-first fallback is used only where policy allows.
+- Verify approval/external side-effect actions fail closed on uncertain outcome.
+- Restore connection and prove controlled recovery rather than thundering-herd retry.
+- No fault proxy in normal production path unless explicitly enabled for a test.
+
+Gap closed when:
+KRISHNA survives realistic dependency/network faults without duplicate actions, runaway retries or unsafe fallback.
+
+## GAP-022 — Clock/time/expiry fault testing
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Scheduler + approvals + leases/cooldowns + recovery
+
+Why missing:
+Wall-clock jumps, timezone/DST changes and expired tokens/leases can break cooldowns, scheduling and approval validity. Duration logic should use monotonic time where appropriate; persisted timestamps still need explicit UTC/offset semantics.
+
+Acceptance tests:
+- Wall clock moves backward/forward during cooldown/retry logic.
+- DST/timezone change does not duplicate/skip a critical scheduled action unexpectedly.
+- Expired approval/token/lease is rejected.
+- Persisted timestamps round-trip with explicit timezone semantics.
+- Duration measurements are not corrupted by wall-clock adjustment.
+- Restart with stale scheduled work applies declared catch-up policy rather than blindly replaying.
+
+Gap closed when:
+Time changes cannot bypass expiry/cooldown/approval safety or cause duplicate critical execution.
+
+## GAP-023 — Windows/Unicode/path torture suite
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Filesystem/Installer/Shadow Workspace
+
+Why missing:
+KRISHNA is Windows-first. Normal tests may miss long paths, spaces, non-ASCII names, Unicode normalization, case behavior, reserved device names, trailing-dot/space semantics, locked files and permission failures.
+
+Acceptance tests:
+- Paths with spaces and Odia/Hindi/Unicode characters.
+- Long nested paths near configured Windows limits.
+- Case-only name differences and normalization-equivalent Unicode names where filesystem behavior differs.
+- Reserved/invalid Windows names are rejected safely.
+- Locked/read-only/permission-denied file operations fail without partial promotion.
+- Shadow copy and rollback preserve filenames/content exactly.
+- Generated reports safely escape paths and never reinterpret them as commands.
+
+Gap closed when:
+Critical file/install/repair operations pass the Windows path corpus without data loss, command injection or silent skip.
+
+## GAP-024 — Secret lifecycle: detect -> quarantine -> rotate -> verify revocation
+
+Status: PLANNED_PC + OWNER-GATED PROCEDURE
+Priority: CRITICAL
+Candidates: gitleaks/gitleaks and trufflesecurity/trufflehog
+Gap owner: KABACH + NARAD/owner governance
+
+Why missing:
+Secret detection alone is incomplete. A leaked credential may remain valid after the finding is removed from source.
+
+Acceptance tests:
+- Detect synthetic secrets in current files and Git history.
+- Distinguish verified/live vs pattern-only findings when a tool supports it, without sending real secrets to an unapproved third party.
+- Quarantine evidence without echoing full secret into logs/UI.
+- Owner-controlled rotation procedure produces replacement credential.
+- Verify old credential is revoked/invalid using the provider's safe verification mechanism.
+- Scan history/artifacts/backups for residual exposure.
+- Baseline/suppression requires reason, owner and expiry; expired suppression reopens.
+- Never auto-rotate production credentials without explicit owner approval.
+
+Gap closed when:
+KRISHNA tracks a secret incident through detection, containment, owner-approved rotation, old-secret revocation and residual-exposure verification.
+
+## GAP-025 — Model nondeterminism / behavioral stability evaluation
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: BRAHMA + Agent Evaluation + Model Router
+
+Why missing:
+One successful model run is weak evidence. Agent behavior can vary across repeated runs, model versions, temperatures/providers and context ordering.
+
+Acceptance tests:
+- Repeat the same critical scenario multiple times and report pass-rate distribution, not one pass.
+- Compare objective trajectory/security outcomes across allowed local/free providers.
+- Track model/version/config/context fingerprint with result.
+- Critical forbidden-action rate must be zero across the declared test budget.
+- Report variance/confidence interval for non-binary quality metrics where appropriate.
+- A mock/deterministic agent may test harness correctness but cannot substitute for real-model behavioral evidence.
+- Model upgrade requires replay of critical held-out regression/security corpus.
+
+Gap closed when:
+KRISHNA knows whether a safety/quality claim is stable across repeated real-model runs rather than relying on a lucky single execution.
