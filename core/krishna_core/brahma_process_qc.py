@@ -13,7 +13,7 @@ from threading import RLock
 class BrahmaProcessQC:
     """Global KRISHNA process QC with a non-blocking recovery worker."""
 
-    VERSION="brahma-process-qc-v3"
+    VERSION="brahma-process-qc-v4"
     FAIL={"action.failed","AGENT_FAILED","MISSION_FAILED","TOOL_ERROR","TEST_FAILED","BUILD_FAILED","VERIFICATION_FAILED","QUEUE_FAILED"}
     WORK={"action.requested","MISSION_STARTED","AGENT_SPAWNED","BEFORE_TOOL","TEST_STARTED","BUILD_STARTED","VERIFICATION_STARTED","QUEUE_CLAIMED","ROLLBACK_STARTED"}
     DONE={"action.completed","MISSION_COMPLETED","AGENT_FINISHED","AFTER_TOOL","TEST_PASSED","BUILD_COMPLETED","VERIFICATION_PASSED","QUEUE_ACKED","ROLLBACK_COMPLETED","QUEUE_RECOVERED","SERVICE_RESTARTED"}
@@ -35,7 +35,7 @@ class BrahmaProcessQC:
         self._work=queue.Queue(maxsize=200);self._stop=threading.Event();self._worker=None
         now=time.time()
         self.state={"version":self.VERSION,"latest_state":"idle","notifications":[],"open_errors":{},"gods":{
-            k:{"id":k,"name":n,"logo":logo,"state":"idle","color":"red","detail":"Idle","updated_at":now}
+            k:{"id":k,"name":n,"logo":logo,"state":"idle","color":"yellow","detail":"Ready","updated_at":now}
             for k,n,logo in self.GODS
         }}
         self.load_error=None;self._load()
@@ -43,10 +43,12 @@ class BrahmaProcessQC:
     @staticmethod
     def color(state):
         state=str(state or "idle").lower()
-        # Owner contract: green means actively working/handling; red means not active.
-        # Completion/error detail stays available on click instead of overloading the tiny status light.
-        if state in {"working","handling"}:return "green"
-        return "red"
+        # Owner-facing contract: status colors communicate meaning, not merely activity.
+        if state in {"working","running","active"}:return "green"
+        if state in {"handling","healing","recovering","repairing"}:return "blue"
+        if state in {"waiting","waiting_approval","approval","needs_owner","paused"}:return "amber"
+        if state in {"error","failed","blocked","offline","unavailable"}:return "red"
+        return "yellow"
 
     @staticmethod
     def compact(value,limit=1200):
@@ -61,7 +63,7 @@ class BrahmaProcessQC:
             self.state.setdefault("notifications",[]);self.state.setdefault("open_errors",{})
             gods=self.state.setdefault("gods",{})
             for k,n,logo in self.GODS:
-                gods.setdefault(k,{"id":k,"name":n,"logo":logo,"state":"idle","color":"red","detail":"Idle","updated_at":time.time()})
+                gods.setdefault(k,{"id":k,"name":n,"logo":logo,"state":"idle","color":"yellow","detail":"Ready","updated_at":time.time()})
         except Exception as exc:self.load_error=f"{type(exc).__name__}: {exc}"
 
     def _save(self):
@@ -250,10 +252,10 @@ class BrahmaProcessQC:
         for god in gods:
             if god.get("id") in open_components and god.get("state") not in {"working","handling"}:
                 god["state"]="error";god["color"]="red"
-        overall="green" if latest in {"working","handling"} else "red"
+        overall=self.color(latest)
         for god in gods:
-            god["active"]=str(god.get("state") or "").lower() in {"working","handling"}
-            god["color"]="green" if god["active"] else "red"
+            god["active"]=str(god.get("state") or "").lower() in {"working","handling","healing","recovering","repairing"}
+            god["color"]=self.color(god.get("state"))
         return {"agent":"BRAHMA","version":self.VERSION,"role":"global KRISHNA process QC + safe automatic recovery",
                 "attached":self._attached,"worker_running":bool(self._worker and self._worker.is_alive()),
                 "pending_qc":int(self._work.unfinished_tasks),"latest_state":latest,"latest_color":overall,
