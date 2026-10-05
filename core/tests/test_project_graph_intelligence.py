@@ -135,5 +135,49 @@ class ProjectGraphIntelligenceTests(unittest.TestCase):
         self.assertTrue(report["safe_to_claim_no_impact"])
 
 
+    def test_structural_snapshot_is_deterministic(self):
+        graph = ProjectGraph()
+        graph.upsert_node("api", "api", {"public": True})
+        graph.upsert_node("core", "module")
+        graph.link("api", "core")
+        first = graph.structural_snapshot()
+        second = graph.structural_snapshot()
+        self.assertEqual(first["sha256"], second["sha256"])
+        self.assertEqual(first["schema_version"], 1)
+        self.assertEqual(first["public_nodes"], ["api"])
+
+    def test_structural_diff_separates_added_edges(self):
+        before_graph = ProjectGraph()
+        before_graph.upsert_node("api", "api", {"public": True})
+        before_graph.upsert_node("core", "module")
+        before = before_graph.structural_snapshot()
+
+        after_graph = ProjectGraph()
+        after_graph.upsert_node("api", "api", {"public": True})
+        after_graph.upsert_node("core", "module")
+        after_graph.link("api", "core")
+        after = after_graph.structural_snapshot()
+
+        delta = ProjectGraph.structural_diff(before, after)
+        self.assertTrue(delta["changed"])
+        self.assertEqual(
+            delta["added_edges"],
+            [{"source": "api", "relation": "depends_on", "target": "core"}],
+        )
+        self.assertFalse(delta["breaking_public_change"])
+
+    def test_structural_diff_flags_removed_public_contract(self):
+        before_graph = ProjectGraph()
+        before_graph.upsert_node("v1/orders", "api", {"public": True})
+        before = before_graph.structural_snapshot()
+
+        after_graph = ProjectGraph()
+        after = after_graph.structural_snapshot()
+
+        delta = ProjectGraph.structural_diff(before, after)
+        self.assertEqual(delta["removed_public"], ["v1/orders"])
+        self.assertTrue(delta["breaking_public_change"])
+
+
 if __name__ == "__main__":
     unittest.main()
