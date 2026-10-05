@@ -41,15 +41,15 @@ class AgentProtocolGateway:
         }
 
     def mcp_call(self,tool_name,args=None,*,principal="mcp-client",project="KRISHNA",
-                 permissions=(),approved=False,request_id=None):
+                 permissions=(),approved=False,request_id=None,authority_lease=None):
         if self.control_plane:
             return self.control_plane.action(
                 tool_name,args or {},project=project,source="mcp",actor=principal,
-                permissions=permissions,approved=approved,idempotency_key=request_id,
+                permissions=permissions,approved=approved,idempotency_key=request_id,authority_lease=authority_lease,
             )
         return self.action_bus.dispatch(
             tool_name,args or {},project=project,source="mcp",actor=principal,
-            permissions=permissions,approved=approved,idempotency_key=request_id,
+            permissions=permissions,approved=approved,idempotency_key=request_id,authority_lease=authority_lease,
         )
 
     def a2a_dispatch(self,message):
@@ -63,6 +63,7 @@ class AgentProtocolGateway:
                 project=str(msg.get("project") or "KRISHNA"),
                 approved=bool(msg.get("approved",False)),
                 idempotency_key=str(msg.get("request_id") or "").strip() or None,
+                authority_lease=msg.get("authority_lease"),
             )
         if self.control_plane:
             return self.control_plane.action(
@@ -70,12 +71,14 @@ class AgentProtocolGateway:
                 source="a2a",actor=str(msg.get("principal") or "a2a-peer"),
                 permissions=msg.get("permissions") or [],approved=bool(msg.get("approved",False)),
                 idempotency_key=str(msg.get("request_id") or "").strip() or None,
+                authority_lease=msg.get("authority_lease"),
             )
         return self.action_bus.dispatch(
             action,msg.get("payload") or {},project=str(msg.get("project") or "KRISHNA"),
             source="a2a",actor=str(msg.get("principal") or "a2a-peer"),
             permissions=msg.get("permissions") or [],approved=bool(msg.get("approved",False)),
             idempotency_key=str(msg.get("request_id") or "").strip() or None,
+            authority_lease=msg.get("authority_lease"),
         )
 
     def status(self):

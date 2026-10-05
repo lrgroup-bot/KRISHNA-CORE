@@ -14,29 +14,29 @@ class DispatchRuntime:
         return self.status()
 
     def dispatch(self,target,action,payload=None,*,project="KRISHNA",actor="owner",
-                 agent_id=None,permissions=(),approved=False,idempotency_key=None):
+                 agent_id=None,permissions=(),approved=False,idempotency_key=None,authority_lease=None):
         target=str(target or "action").strip().lower()
         if target not in self.TARGETS:raise ValueError(f"unsupported dispatch target: {target}")
         if target=="action":
             if self.control_plane:
                 return self.control_plane.action(
                     action,payload,project=project,source="pc",actor=actor,
-                    permissions=permissions,approved=approved,idempotency_key=idempotency_key,
+                    permissions=permissions,approved=approved,idempotency_key=idempotency_key,authority_lease=authority_lease,
                 )
             return self.action_bus.dispatch(
                 action,payload,project=project,source="pc",actor=actor,
-                permissions=permissions,approved=approved,idempotency_key=idempotency_key,
+                permissions=permissions,approved=approved,idempotency_key=idempotency_key,authority_lease=authority_lease,
             )
         if target=="agent":
             if not agent_id:raise ValueError("agent_id is required for agent dispatch")
             return self.agents.dispatch(
                 agent_id,action,payload,project=project,approved=approved,
-                idempotency_key=idempotency_key,
+                idempotency_key=idempotency_key,authority_lease=authority_lease,
             )
         if self.control_plane:
             return self.control_plane.job(
                 action,payload,project=project,actor=actor,permissions=permissions,
-                approved=approved,idempotency_key=idempotency_key,
+                approved=approved,idempotency_key=idempotency_key,authority_lease=authority_lease,
             )
         return self.jobs.submit(
             action,payload,project=project,actor=actor,permissions=permissions,

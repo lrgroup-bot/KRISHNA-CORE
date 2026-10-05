@@ -1874,6 +1874,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403,{"error":"authority decisions must be made on the KRISHNA PC"})
             lease_id=str(data.get("lease_id") or "").strip()
             if not lease_id:return self._json(400,{"error":"lease_id is required"})
+            if bool(data.get("approved",False)) and str(data.get("confirm") or "") != "PARTHA_APPROVE_LEASE":
+                return self._json(403,{"error":"explicit Partha lease approval confirmation required"})
             try:return self._json(200,orch.authority.decide(lease_id,approved=bool(data.get("approved",False)),approved_by="Partha"))
             except KeyError:return self._json(404,{"error":"authority lease not found"})
             except (ValueError,PermissionError,RuntimeError) as exc:return self._json(409,{"error":str(exc)})
@@ -1949,7 +1951,7 @@ class Handler(BaseHTTPRequestHandler):
                     "mobile.test.run",
                     {"instruction":data.get("instruction"),"profile":data.get("profile") or "flash"},
                     project=str(data.get("project") or "KRISHNA"),source="pc",actor="mobile-test-fabric",
-                    approved=bool(data.get("approved",False)),permissions=("mobile.test","device.control"),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),permissions=("mobile.test","device.control"),
                 )
                 return self._json(200,receipt["result"])
             except ValueError as exc:return self._json(400,{"error":str(exc)})
@@ -1975,7 +1977,7 @@ class Handler(BaseHTTPRequestHandler):
                     "desktop.rpa.run",
                     {"workflow":data.get("workflow"),"variables":data.get("variables"),"task":data.get("task")},
                     project=str(data.get("project") or "KRISHNA"),source="pc",actor="desktop-fabric",
-                    approved=bool(data.get("approved",False)),permissions=("desktop.control",),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),permissions=("desktop.control",),
                 )
                 return self._json(200,receipt["result"])
             except (ValueError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
@@ -2052,7 +2054,7 @@ class Handler(BaseHTTPRequestHandler):
                     token=str(promotion_info.get("promotion_token") or "")
                     if not token:raise RuntimeError("verified design candidate has no promotion token")
                     try:
-                        live=orch.promote_candidate(token,approved=True)
+                        live=orch.promote_candidate(token,approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"))
                         apply_result={**live,"requested":True,"applied":bool(live.get("promoted"))}
                         if live.get("promoted"):
                             post_verify=orch.project_perfection.verify_design_candidate(
@@ -2181,7 +2183,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400,{"error":"frontend_url or live Garudanetra session is required for post-apply verification"})
             checks=list(data.get("checks") or policy.verification_checks or [])
             try:
-                live=orch.promote_candidate(token,approved=True)
+                live=orch.promote_candidate(token,approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"))
                 if not live.get("promoted"):
                     return self._json(409,{**live,"applied":False,"reason":live.get("reason") or "promotion failed"})
                 post=orch.project_perfection.post_apply_verify(
@@ -2252,7 +2254,7 @@ class Handler(BaseHTTPRequestHandler):
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
             payload={"project":project,"url":str(data.get("url") or "").strip(),"mode":str(data.get("mode") or "private").strip().lower()}
             try:
-                receipt=orch.dispatch_action("garudanetra.start",payload,project=project,source="pc",actor="legacy-http",approved=bool(data.get("persistent_approved",False)))
+                receipt=orch.dispatch_action("garudanetra.start",payload,project=project,source="pc",actor="legacy-http",approved=bool(data.get("persistent_approved",False)),authority_lease=data.get("authority_lease"))
                 mark("GARUDANETRA LIVE",f'{project}: {payload["mode"]}: {payload["url"][:120]}')
                 return self._json(201,receipt["result"])
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
@@ -2264,7 +2266,7 @@ class Handler(BaseHTTPRequestHandler):
             steps=data.get("steps")
             if steps is not None and not isinstance(steps,list):return self._json(400,{"error":"steps must be an array"})
             try:
-                receipt=orch.dispatch_action("garudanetra.replay",{"session_id":sid,"steps":steps},project="KRISHNA",source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
+                receipt=orch.dispatch_action("garudanetra.replay",{"session_id":sid,"steps":steps},project="KRISHNA",source="pc",actor="legacy-http",approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"))
                 return self._json(200,receipt["result"])
             except KeyError as exc:return self._json(404,{"error":str(exc)})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
@@ -2387,13 +2389,13 @@ class Handler(BaseHTTPRequestHandler):
         if post_path == "/api/narad/dead-letters/retry":
             letter_id=str(data.get("letter_id") or "").strip()
             if not letter_id:return self._json(400,{"error":"letter_id is required"})
-            receipt=orch.dispatch_action("narad.dead_letter.retry",{"letter_id":letter_id},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
+            receipt=orch.dispatch_action("narad.dead_letter.retry",{"letter_id":letter_id},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"))
             return self._json(200,receipt["result"])
 
         if post_path == "/api/narad/checkpoints/resume":
             run_id=str(data.get("run_id") or "").strip()
             if not run_id:return self._json(400,{"error":"run_id is required"})
-            receipt=orch.dispatch_action("narad.checkpoint.resume",{"run_id":run_id},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
+            receipt=orch.dispatch_action("narad.checkpoint.resume",{"run_id":run_id},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"))
             return self._json(200,receipt["result"])
 
         if post_path == "/api/narad/scheduler/tick":
@@ -2412,13 +2414,13 @@ class Handler(BaseHTTPRequestHandler):
         if post_path == "/api/narad/workflows/promote":
             wid=str(data.get("workflow_id") or "").strip(); state=str(data.get("state") or "").strip()
             if not wid or not state:return self._json(400,{"error":"workflow_id and state are required"})
-            receipt=orch.dispatch_action("narad.workflow.promote",{"workflow_id":wid,"state":state,"verified":bool(data.get("verified",False))},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
+            receipt=orch.dispatch_action("narad.workflow.promote",{"workflow_id":wid,"state":state,"verified":bool(data.get("verified",False))},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"))
             return self._json(200,receipt["result"])
 
         if post_path == "/api/narad/workflows/execute":
             wid=str(data.get("workflow_id") or "").strip()
             if not wid:return self._json(400,{"error":"workflow_id is required"})
-            receipt=orch.dispatch_action("narad.workflow.execute",{"workflow_id":wid,"context":data.get("context") or {}},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)))
+            receipt=orch.dispatch_action("narad.workflow.execute",{"workflow_id":wid,"context":data.get("context") or {}},source="pc",actor="legacy-http",approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"))
             return self._json(200,receipt["result"])
 
         if post_path == "/api/mobile/pair/request":
@@ -2711,7 +2713,7 @@ class Handler(BaseHTTPRequestHandler):
                 receipt=orch.dispatch_action(
                     "plugin.enable",{"id":str(data.get("id") or "").strip(),"enabled":bool(data.get("enabled",True))},
                     project=str(data.get("project") or "KRISHNA"),source="pc",actor="plugins-ui",
-                    approved=bool(data.get("approved",False)),permissions=("plugin.write",),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),permissions=("plugin.write",),
                 )
                 return self._json(200,receipt["result"])
             except KeyError:return self._json(404,{"error":"plugin not found"})
@@ -2753,7 +2755,7 @@ class Handler(BaseHTTPRequestHandler):
                 receipt=orch.dispatch_action(
                     "plugin.remove",{"id":str(data.get("id") or "").strip()},
                     project=str(data.get("project") or "KRISHNA"),source="pc",actor="plugins-ui",
-                    approved=bool(data.get("approved",False)),permissions=("plugin.write",),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),permissions=("plugin.write",),
                 )
                 return self._json(200,receipt["result"])
             except KeyError:return self._json(404,{"error":"plugin not found"})
@@ -3089,7 +3091,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403,{"error":"direct Shared Action Bus rollback is local-PC only"})
             action_id=str(data.get("action_id") or "").strip()
             if not action_id:return self._json(400,{"error":"action_id is required"})
-            try:return self._json(200,orch.rollback_dispatched_action(action_id,source="pc",actor="ui",approved=bool(data.get("approved",False))))
+            try:return self._json(200,orch.rollback_dispatched_action(action_id,source="pc",actor="ui",approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease")))
             except KeyError as exc:return self._json(404,{"error":str(exc)})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except ValueError as exc:return self._json(400,{"error":str(exc)})
@@ -3187,7 +3189,7 @@ class Handler(BaseHTTPRequestHandler):
                 tool,data.get("args") or {},principal=str(data.get("principal") or "mcp-client"),
                 project=str(data.get("project") or "KRISHNA"),
                 permissions=data.get("permissions") or [],approved=bool(data.get("approved",False)),
-                request_id=str(data.get("request_id") or "").strip() or None,
+                request_id=str(data.get("request_id") or "").strip() or None,authority_lease=data.get("authority_lease"),
             ))
             except KeyError as exc:return self._json(404,{"error":str(exc)})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
@@ -3707,7 +3709,7 @@ class Handler(BaseHTTPRequestHandler):
                 }
                 receipt=orch.dispatch_action(
                     "plugin.execute",payload,project=payload["project"],source="pc",actor="plugins-ui",
-                    approved=bool(data.get("approved",False)),permissions=("plugin.execute","network.external"),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),permissions=("plugin.execute","network.external"),
                 )
                 return self._json(200,receipt["result"])
             except KeyError:return self._json(404,{"error":"plugin not found"})
@@ -3973,7 +3975,7 @@ class Handler(BaseHTTPRequestHandler):
                     "gyan.acl.grant",
                     {"project":data.get("project") or "KRISHNA","principal":data.get("principal"),"permissions":data.get("permissions") or []},
                     project=str(data.get("project") or "KRISHNA"),source="pc",actor="gyan-security",
-                    approved=bool(data.get("approved",False)),permissions=("memory.admin",),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),permissions=("memory.admin",),
                 )
                 return self._json(200,receipt["result"])
             except ValueError as exc:return self._json(400,{"error":str(exc)})
@@ -3985,7 +3987,7 @@ class Handler(BaseHTTPRequestHandler):
                     "gyan.acl.revoke",
                     {"project":data.get("project") or "KRISHNA","principal":data.get("principal")},
                     project=str(data.get("project") or "KRISHNA"),source="pc",actor="gyan-security",
-                    approved=bool(data.get("approved",False)),permissions=("memory.admin",),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),permissions=("memory.admin",),
                 )
                 return self._json(200,receipt["result"])
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
@@ -4007,7 +4009,7 @@ class Handler(BaseHTTPRequestHandler):
                 receipt=orch.dispatch_action(
                     "gyan.replica.snapshot",{"label":data.get("label") or "gyan"},
                     project="KRISHNA",source="pc",actor="gyan-security",
-                    approved=bool(data.get("approved",False)),permissions=("memory.admin","filesystem.write"),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),permissions=("memory.admin","filesystem.write"),
                 )
                 return self._json(201,receipt["result"])
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
@@ -4019,7 +4021,7 @@ class Handler(BaseHTTPRequestHandler):
                     "gyan.encrypted.put",
                     {"record_id":data.get("record_id"),"payload":data.get("payload") or {},"project":data.get("project") or "KRISHNA"},
                     project=str(data.get("project") or "KRISHNA"),source="pc",actor="gyan-security",
-                    approved=bool(data.get("approved",False)),permissions=("memory.admin","memory.write"),
+                    approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease"),permissions=("memory.admin","memory.write"),
                 )
                 return self._json(201,receipt["result"])
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
@@ -4207,7 +4209,7 @@ class Handler(BaseHTTPRequestHandler):
                     action_name=action,
                     components=data.get("components") or [],
                     approved=bool(data.get("approved", False)),
-                    amcc_signals=data.get("amcc") or {},
+                    amcc_signals=data.get("amcc") or {},authority_lease=data.get("authority_lease"),
                 )
                 return self._json(200, out)
             except KeyError as exc:
@@ -4228,7 +4230,7 @@ class Handler(BaseHTTPRequestHandler):
         if post_path == "/api/work/promotion/apply":
             token=str(data.get("promotion_token","")).strip()
             if not token: return self._json(400,{"error":"promotion_token is required"})
-            try: return self._json(200,orch.promote_candidate(token,approved=bool(data.get("approved",False))))
+            try: return self._json(200,orch.promote_candidate(token,approved=bool(data.get("approved",False)),authority_lease=data.get("authority_lease")))
             except KeyError as exc: return self._json(404,{"error":str(exc)})
             except PermissionError as exc: return self._json(403,{"error":str(exc)})
             except (ValueError,RuntimeError) as exc: return self._json(409,{"error":str(exc)})

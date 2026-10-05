@@ -1385,7 +1385,7 @@ class Orchestrator:
                 "project":project,
                 "reason":str(payload.get("reason") or "autonomous repair"),
                 "self_heal":result,
-                "auto_apply":bool(payload.get("auto_apply",True)),
+                "auto_apply":bool(payload.get("auto_apply",False)),
                 "verified":bool(result.get("verified")),
                 "live_project_modified":False,
                 "rolled_back":bool(result.get("rolled_back")),
@@ -1396,9 +1396,11 @@ class Orchestrator:
                 wrapped["status"]="healthy"
                 wrapped["verified"]=True
                 return wrapped
-            if not token or not bool(payload.get("auto_apply",True)):
+            if not token or not bool(payload.get("auto_apply",False)):
                 wrapped["status"]=result.get("status") or "incomplete"
                 return wrapped
+            if not bool(context.get("approved",False)):
+                raise PermissionError("MRITYUNJAY live auto-apply requires a scoped owner authority lease")
 
             apply_payload={
                 "promotion_token":token,
@@ -4810,13 +4812,13 @@ class Orchestrator:
                 "reason":reason,
                 "evidence":dict(evidence or {}),
                 "frontend_url":frontend_url,
-                "auto_apply":True,
+                "auto_apply":False,
                 "max_rounds":2,
             },
             project=project,
             source="system",
             actor="mrityunjay",
-            approved=True,
+            approved=False,
             permissions=("runtime.read","candidate.write","tests.run","browser.test","model.use","live.write"),
         )
         return receipt.get("result") or receipt
@@ -5019,8 +5021,8 @@ Project: {payload.get('project')}
     def sudarshan_status(self):
         return self.sudarshan.status()
 
-    def rollback_dispatched_action(self,action_id,source="pc",actor="owner",approved=False):
-        return self.action_bus.rollback(action_id,source=source,actor=actor,approved=approved)
+    def rollback_dispatched_action(self,action_id,source="pc",actor="owner",approved=False,authority_lease=None):
+        return self.action_bus.rollback(action_id,source=source,actor=actor,approved=approved,authority_lease=authority_lease)
 
     def close(self):
         """Release every database owned by this runtime, including durable mission state."""
@@ -5220,7 +5222,7 @@ Project: {payload.get('project')}
                 })
             raise
 
-    def run_managed_goal(self, project, goal, action_name=None, components=None, approved=False, amcc_signals=None):
+    def run_managed_goal(self, project, goal, action_name=None, components=None, approved=False, amcc_signals=None, authority_lease=None):
         receipt = self.dispatch_action(
             "work.managed.run",
             {
@@ -5230,7 +5232,7 @@ Project: {payload.get('project')}
                 "components": components or [],
                 "amcc": amcc_signals or {},
             },
-            project=project, source="pc", actor="work-console", approved=approved,
+            project=project, source="pc", actor="work-console", approved=approved, authority_lease=authority_lease,
         )
         return receipt["result"]
 
@@ -5312,7 +5314,7 @@ Project: {payload.get('project')}
         return result
 
 
-    def promote_candidate(self, token, approved=False):
+    def promote_candidate(self, token, approved=False, authority_lease=None):
         item=self._promotion_candidates.get(token)
         if not item:
             raise KeyError(token)
@@ -5320,7 +5322,7 @@ Project: {payload.get('project')}
         receipt=self.dispatch_action(
             "promotion.apply",
             {"promotion_token":token},
-            project=project,source="pc",actor="promotion-manager",approved=approved,
+            project=project,source="pc",actor="promotion-manager",approved=approved,authority_lease=authority_lease,
         )
         return receipt["result"]
 

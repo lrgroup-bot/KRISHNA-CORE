@@ -43,7 +43,7 @@ class AgentRuntime:
             if pattern.endswith(".*") and action.startswith(pattern[:-1]):return True
         return False
 
-    def dispatch(self,agent_id,action,payload=None,*,project="KRISHNA",approved=False,idempotency_key=None):
+    def dispatch(self,agent_id,action,payload=None,*,project="KRISHNA",approved=False,idempotency_key=None,authority_lease=None):
         item=self._agents.get(str(agent_id))
         if not item:raise KeyError(f"agent not registered: {agent_id}")
         if not item.enabled:raise PermissionError(f"agent disabled: {agent_id}")
@@ -52,11 +52,11 @@ class AgentRuntime:
         if self.control_plane:
             return self.control_plane.action(
                 action,payload,project=project,source="agent",actor=item.agent_id,
-                approved=approved,permissions=item.permissions,idempotency_key=idempotency_key,
+                approved=approved,permissions=item.permissions,idempotency_key=idempotency_key,authority_lease=authority_lease,
             )
         return self.action_bus.dispatch(
             action,payload,project=project,source="agent",actor=item.agent_id,
-            approved=approved,permissions=item.permissions,idempotency_key=idempotency_key,
+            approved=approved,permissions=item.permissions,idempotency_key=idempotency_key,authority_lease=authority_lease,
         )
 
     def list(self):
