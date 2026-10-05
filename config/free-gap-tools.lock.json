@@ -26,13 +26,14 @@
       "role": "complementary local static-rule evidence"
     },
     {
-      "id": "mutmut",
+      "id": "cosmic-ray",
       "gap": "GAP-006",
-      "version": "3.8.0",
-      "license": "BSD-3-Clause",
+      "version": "8.7.0",
+      "license": "MIT",
       "install": "python-venv",
-      "package": "mutmut==3.8.0",
-      "role": "Python mutation engine for disposable workspaces only"
+      "package": "cosmic-ray==8.7.0",
+      "role": "Windows-capable Python mutation engine candidate for disposable workspaces only",
+      "provenance": "PyPI Trusted Publishing attestation from sixty-north/cosmic-ray release workflow"
     },
     {
       "id": "stryker-js",
