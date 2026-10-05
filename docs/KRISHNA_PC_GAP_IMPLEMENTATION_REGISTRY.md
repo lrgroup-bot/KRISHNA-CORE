@@ -156,3 +156,126 @@ A gap may change from INSTALLED_UNVERIFIED to VERIFIED only when all mandatory a
 12. Present evidence to owner before enabling it in normal workflows.
 
 Last research basis: CodeQL, Joern, Uber ADR, Agent Health, Phoenix, Promptfoo, Archify and KRISHNA native architecture-intelligence comparison.
+
+
+## GAP-006 — Mutation testing / test-strength measurement
+
+Status: PLANNED_PC
+Priority: HIGH
+Gap owner: Verification Engine + Project Perfection
+Candidates:
+- Python: mutmut
+- JavaScript/TypeScript: Stryker
+Research reference: anvesx/repo-analyser uses mutation testing specifically to answer whether tests are behaviorally meaningful rather than merely passing.
+
+Why missing:
+KRISHNA currently checks compilation, unit/integration tests, browser E2E, architecture truth and regression evidence. Those prove that the present implementation passes its tests, but they do not prove the tests fail when behavior is subtly broken.
+
+PC placement proposal:
+- E:\\Krishna-The GOD\\tools\\mutation\\
+- E:\\Krishna-The GOD\\state\\analysis\\mutation\\
+- E:\\Krishna-The GOD\\reports\\verification\\mutation\\
+
+Integration:
+Project Perfection identifies a high-risk changed/hotspot component -> mutation adapter selects a bounded target -> tool mutates only disposable shadow/worktree -> existing tests run -> surviving mutants become TEST_GAP evidence.
+Never mutate canonical/live source.
+
+Acceptance tests:
+1. Seed a function with meaningful tests; common mutants must be killed.
+2. Remove/weakly assert one behavior; at least one relevant mutant must survive and be reported.
+3. Confirm all mutations occur only in disposable/shadow state.
+4. Confirm timeout/hung mutants are bounded and cleaned up.
+5. Capture killed/survived/timeout/error counts and exact mutated location.
+6. Establish baseline mutation score per critical component, not one vanity repo-wide score.
+7. Run only bounded targets by default to control CPU/time.
+8. A surviving mutant must create a verification/test-gap finding, never an automatic production patch.
+
+Gap closed when:
+KRISHNA can demonstrate that tests detect deliberately introduced behavioral faults in critical changed code, with bounded local resource use and no live-source mutation.
+
+## GAP-007 — Structural/API drift snapshots
+
+Status: PLANNED_NATIVE_OR_PC
+Priority: HIGH
+Gap owner: Architecture Intelligence
+Research reference: simonrueba/ariadne tracks public API surface snapshots, coupling/instability and structural drift and can deny new cycles/API growth.
+
+Why missing:
+KRISHNA can inspect current graph cycles, rules and blast radius, but it does not yet persist a canonical architecture/API baseline and explain exactly what structural contract changed between approved states.
+
+Preferred implementation:
+Native lightweight snapshot/diff in ProjectGraph/ArchitectureTruth first. Do not install Ariadne unless its compiler-grade SCIP symbol/reference graph demonstrates unique value.
+
+Acceptance tests:
+1. Snapshot nodes, edges, public/API-marked symbols and selected coupling metrics at approved baseline.
+2. Add an edge -> diff reports it.
+3. Remove/rename a public API -> diff reports breaking/removal evidence.
+4. Introduce a cycle -> delta gate identifies it as newly introduced rather than inherited.
+5. Pre-existing debt remains visible but does not masquerade as a new regression.
+6. Snapshot has deterministic schema/version/hash.
+7. Owner can distinguish CURRENT DEBT vs NEW DRIFT.
+
+Gap closed when:
+Every proposed architecture-affecting change can show Before -> Delta -> After and identify newly introduced structural risk separately from inherited risk.
+
+## GAP-008 — Hermetic fake-home agent evaluation
+
+Status: PLANNED_NATIVE
+Priority: MEDIUM-HIGH
+Gap owner: Agent Evaluation + Shadow Workspace
+Research reference: GoogleCloudPlatform/evalbench runs agent CLIs with isolated fake HOME/config directories so evaluations do not contaminate the real machine.
+
+Why missing:
+KRISHNA has shadow project workspaces, but agent/CLI evaluation should also isolate HOME-level state such as config files, caches, MCP settings and credentials references.
+
+Proposed PC layout:
+- E:\\Krishna-The GOD\\workspace\\agent-eval\\<run-id>\\home\\
+- E:\\Krishna-The GOD\\workspace\\agent-eval\\<run-id>\\repo\\
+- E:\\Krishna-The GOD\\reports\\agent-eval\\
+
+Acceptance tests:
+1. Evaluation writes HOME/config/cache only inside run sandbox.
+2. Real user/KRISHNA HOME files remain byte-identical.
+3. No real credentials are copied; use synthetic fixtures.
+4. Parallel runs receive different homes.
+5. Failed/cancelled runs clean disposable state according to retention policy.
+6. Required evidence can be retained while sensitive/transient state is deleted.
+7. Network/egress policy remains governed by KABACH.
+
+Gap closed when:
+Agent evaluation can run realistic CLI/tool scenarios without changing the real KRISHNA/user configuration environment.
+
+## GAP-009 — Inherited-vs-new finding gate
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Architecture Intelligence + Verification
+Research reference: fallow-rs/fallow supports change gates that distinguish inherited findings from newly introduced findings.
+
+Why useful:
+A repository with existing technical debt should not make every future change impossible, but KRISHNA must prevent new debt from being silently added.
+
+Acceptance tests:
+- Baseline known findings with stable fingerprints.
+- Same inherited finding remains visible but does not count as newly introduced.
+- New cycle/boundary violation/security/test-gap is NEW and can block promotion.
+- Fixed inherited finding becomes RESOLVED.
+- Changed fingerprint/location is conservatively re-evaluated, not silently inherited.
+- Baseline updates require verified evidence/owner-controlled policy.
+
+Gap closed when:
+Verification reports NEW / INHERITED / RESOLVED findings separately and promotion policy can fail on NEW critical regressions without hiding old debt.
+
+## GAP-010 — Cross-repository service/dataflow graph
+
+Status: RESEARCH_MORE
+Priority: MEDIUM
+Candidate reference: enola-labs/enola
+Why not install now:
+KRISHNA's current architecture intelligence is repository/project oriented. LR Universe will eventually need verified cross-repo relationships such as frontend route -> API -> service -> DB/topic, but installing another graph engine now would be premature.
+
+Re-open trigger:
+When KRISHNA actively manages multiple independent LR company/service repositories and needs impact analysis across repository boundaries.
+
+Acceptance benchmark:
+Use at least three real but read-only LR service repos. Require deterministic cross-repo links, local-only analysis, evidence locations, and measurable unique information not obtainable from KRISHNA's native project graph. Otherwise reject as duplicate.
