@@ -853,3 +853,266 @@ Acceptance tests:
 
 Gap closed when:
 Derived retrieval state is disposable and verifiably synchronized with canonical provenance-bearing knowledge.
+
+
+## GAP-035 — Decision confidence calibration / abstention
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: BRAHMA QC + Critic + Agent Evaluation
+
+Why missing:
+A confidence number is useful only if it predicts correctness and drives an appropriate abstain/escalate policy. Professional-looking but non-diagnostic evidence can increase agent commitment without increasing truth.
+
+Acceptance:
+- confidence bins compared with empirical correctness;
+- Brier/ECE or appropriate calibration metric for probabilistic outputs;
+- explicit ABSTAIN/NEED_MORE_EVIDENCE state;
+- fabricated/relevant-looking but non-informative evidence must not increase action authority;
+- calibration tracked per task class/model/version;
+- high-risk actions require evidence/authority gates independent of model confidence.
+
+## GAP-036 — Evidence aging and decision revalidation
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Evidence Engine + Policy Kernel
+
+Invariant:
+A decision proof has a validity window and dependency versions. Approval of X at time T does not approve materially changed X at execution time.
+
+Acceptance:
+- evidence/approval carries relevant hashes/versions/timestamps;
+- stale evidence forces revalidation;
+- action payload/resource/policy change invalidates approval;
+- execution verifies exact approved boundary immediately before side effect;
+- replayable proof shows approved-vs-executed equivalence.
+
+Research reference: Agent Action Boundary Benchmark.
+
+## GAP-037 — Long-horizon goal-drift stress testing
+
+Status: PLANNED_PC
+Priority: HIGH
+Candidates: jhammant/agent-drift; RaunoArike/goal-drift-evals; inherited-drift research
+Gap owner: Agent Evaluation + Policy Kernel
+
+Acceptance:
+- multi-turn escalating pressure;
+- long-context competing objectives;
+- inherited/previous-agent trajectory pressure;
+- original owner objective/policy remains authoritative;
+- forbidden action rate, drift onset and containment reported;
+- no paid-provider dependency required for KRISHNA's canonical test path; local/free adapters preferred.
+
+## GAP-038 — Runaway tool loop / denial-of-wallet-resource guard
+
+Status: PLANNED_NATIVE
+Priority: CRITICAL
+Gap owner: Resource Governor + Agent Runtime + Shared Action Bus
+
+Why missing:
+Individual tool calls may be valid while aggregate behavior becomes a runaway retry/poll loop.
+
+Acceptance:
+- per-session/action-family count and rate budgets;
+- repeated identical failure fingerprint triggers circuit break;
+- exponential/backoff policy where appropriate;
+- CPU/time/token/network/tool-call budgets;
+- owner-visible reason for stop;
+- critical recovery actions have bounded emergency exceptions, never unlimited loops;
+- seeded runaway loop is stopped deterministically.
+
+Research reference: Agent Threat Rules ATR-2026-00553.
+
+## GAP-039 — Multi-agent collusion / correlated-verifier resistance
+
+Status: RESEARCH_MORE / PLANNED_PC
+Priority: MEDIUM-HIGH
+Candidate: ColludeBench concepts; Multi-Agent Verification research
+Gap owner: Rishi Council + Critic
+
+Invariant:
+More agents are not automatically more independent evidence. Same model, prompt, source corpus or shared context can create correlated errors/collusion.
+
+Acceptance:
+- record verifier/model/source independence;
+- quorum weights independence, not raw headcount;
+- shared-origin agents cannot manufacture corroboration;
+- adversarial scenarios test tacit coordination and common-mode error;
+- minority dissent/evidence is preserved;
+- high-risk approval still remains owner/policy gated regardless of council consensus.
+
+## GAP-040 — Causal-claim execution grounding
+
+Status: PLANNED_PC / RESEARCH_MORE
+Priority: MEDIUM
+Candidate/reference: causalverify/causalverify
+Gap owner: BRAHMAGYAN + Research/Evidence Engine
+
+Why useful:
+Correlation/reasoning prose should not become a causal business/system claim without an explicit estimand, assumptions, data and executable/statistical verification where appropriate.
+
+Acceptance:
+- distinguish descriptive/correlational/causal claim types;
+- causal claims record assumptions/confounders/estimand;
+- analysis code/data hash linked to result;
+- counterexample/sensitivity check where applicable;
+- inability to identify causal effect becomes UNKNOWN, not a confident narrative.
+
+## GAP-041 — Self-improvement holdout and rollback gate
+
+Status: PLANNED_NATIVE
+Priority: CRITICAL
+Gap owner: Mrityunjaya + BRAHMA + Project Perfection
+
+Invariant:
+KRISHNA may propose learning/self-improvement, but the same examples used to create the improvement cannot be the evidence that proves it improved.
+
+Acceptance:
+- train/learn/fix evidence separated from held-out evaluation;
+- baseline vs candidate evaluated on same frozen hidden corpus;
+- no regression on critical safety/security suites;
+- statistical/noise-aware improvement threshold;
+- candidate configuration/version is reversible;
+- failed improvement rolls back;
+- no autonomous promotion to production without existing approval policy;
+- test-corpus contamination/leakage recorded.
+
+## GAP-042 — Fresh-session resumability / handoff proof
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Task Ledger + Agent Runtime + Project Perfection
+Reference: tmusser/agent-workflow-bench
+
+Why missing:
+A long task is not robust if only the current agent/context understands what happened.
+
+Acceptance:
+- fresh agent/session can reconstruct objective, constraints, completed work, evidence, failures and next safe step from durable artifacts;
+- claims distinguish functional-green from fully verified/bench-ready;
+- hidden contracts are not inferred as passed from public checks;
+- stale workspace/version mismatch blocks blind continuation;
+- resume requires no secret chain-of-thought, only explicit durable evidence.
+
+## GAP-043 — Harness-vs-model regression isolation
+
+Status: PLANNED_NATIVE
+Priority: MEDIUM-HIGH
+Gap owner: Model Router + Agent Evaluation
+
+Why useful:
+When performance changes, KRISHNA should know whether the model changed, the orchestration/harness changed, or both.
+
+Acceptance:
+- matched-model A/B of old/new harness;
+- matched-harness A/B of old/new model where possible;
+- track tokens/tool calls/wall time/diff size/resource cost;
+- fixed scenario/version fingerprints;
+- avoid attributing improvement to model when engine changed simultaneously.
+
+## GAP-044 — Step-level trajectory hijack localization
+
+Status: PLANNED_PC
+Priority: HIGH
+Candidate/reference: Asif-0209/AgentDrift
+Gap owner: Agent Evaluation + KABACH
+
+Acceptance:
+- label benign/injection-point/hijacked/failed-injection steps;
+- identify first corrupted step and downstream propagation;
+- hard negatives to control false positives;
+- tool/action consequence linked to step;
+- integrate only as evaluation evidence, not a second runtime authority.
+
+## GAP-045 — Specification gaming / proxy-objective detection
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Policy Kernel + Project Perfection + LR decision systems
+
+Why missing:
+An optimizer can maximize a metric while violating the real objective (e.g. close tickets by rejecting users, reduce errors by disabling checks).
+
+Acceptance:
+- every optimization target has protected constraints and anti-metrics;
+- improvement requires no degradation beyond limits on protected outcomes;
+- adversarial fixtures reward metric gaming and verify KRISHNA rejects them;
+- owner objective remains explicit and versioned;
+- metric changes require review rather than silent self-modification.
+
+## GAP-046 — Resource/economic attack accounting
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Resource Governor + Finance/owner gates
+
+Acceptance:
+- every agent task gets bounded resource envelope;
+- cumulative cost/time/storage/network/tool usage attributed by task/agent;
+- abnormal acceleration triggers stop/review;
+- free-tier quota exhaustion treated as resource failure, never justification for paid fallback;
+- attacker-controlled content cannot increase budget/paid authority;
+- forecast remaining budget/quota before long workflows.
+
+## GAP-047 — Self-verification independence score
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Critic + BRAHMA QC
+
+Why missing:
+Generator and verifier can share the same blind spot. Verification strength depends on independence of model/provider/prompt/evidence/method, not merely a second invocation.
+
+Acceptance:
+- record generator/verifier identity and shared dependencies;
+- objective deterministic checks outrank LLM agreement;
+- correlated verifier evidence is labeled;
+- high-risk claims require independent method/source where feasible;
+- multiple weak correlated verifiers do not become strong proof by voting.
+
+## GAP-048 — Governance kill-switch / authority lease expiry
+
+Status: PLANNED_NATIVE
+Priority: CRITICAL
+Gap owner: Policy Kernel + Owner Control
+
+Acceptance:
+- owner can globally pause external side effects;
+- authority grants are scoped and expire;
+- restart does not resurrect expired authority;
+- emergency stop is local and does not require cloud;
+- read/diagnose mode remains available where safe;
+- pending actions after pause require revalidation/reapproval.
+
+## GAP-049 — Verification artifact integrity / tamper evidence
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Evidence Engine + Project Perfection
+
+Acceptance:
+- critical evidence bundle has manifest/hash;
+- artifact refers to exact code/config/model/tool versions;
+- post-verification mutation invalidates proof;
+- missing artifact is UNKNOWN/FAIL, never assumed pass;
+- optionally timestamp/sign high-value release evidence;
+- reproducibility command/procedure stored without secrets.
+
+## GAP-050 — Gap Registry self-audit / retirement
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Architecture Intelligence
+
+Purpose:
+Prevent this registry itself from becoming stale cargo-cult work.
+
+Acceptance:
+- each gap has owner/status/last-reviewed/upstream/version/reopen trigger;
+- periodic audit compares gap against current KRISHNA capabilities;
+- duplicate/obsolete gaps are retired with reason;
+- installed tools without unique measurable value are removable;
+- license/security changes reopen verification;
+- registry can report CRITICAL unverified gaps and VERIFIED closures separately.
