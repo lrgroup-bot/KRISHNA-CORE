@@ -59,7 +59,7 @@ jobs:
         run: |
           npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/krishna-ui-preview.log 2>&1 &
           for i in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:4173/spatial/operational-preview.html >/dev/null; then
+            if curl --fail --silent http://127.0.0.1:4173/operational-preview.html | grep -q "candidateState"; then
               exit 0
             fi
             sleep 1
@@ -73,6 +73,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: krishna-operational-dashboard-candidate
-          path: app/spatial-ui/operational-dashboard-candidate.png
+          path: app/spatial-ui/spatial-command-os-candidate.png
           if-no-files-found: warn
           retention-days: 7
