@@ -152,6 +152,136 @@ class ProjectGraph:
                 "evidence_policy": "proven graph edges only; missing relationships remain unknown",
             }
 
+
+    def cycles(self, relations: Iterable[str] | None = None) -> dict:
+        """Return deterministic dependency cycles with edge evidence."""
+        with self._lock:
+            allowed = None if relations is None else {str(x) for x in relations}
+            adjacency: Dict[str, List[Tuple[str, str]]] = {}
+            for source, pairs in self._edges.items():
+                for relation, target in pairs:
+                    if allowed is None or relation in allowed:
+                        adjacency.setdefault(source, []).append((relation, target))
+
+            found: dict[tuple[str, ...], dict] = {}
+            visiting: list[str] = []
+            active: set[str] = set()
+            visited: set[str] = set()
+
+            def canonical(nodes: list[str]) -> tuple[str, ...]:
+                body = nodes[:-1]
+                rotations = [tuple(body[i:] + body[:i]) for i in range(len(body))]
+                return min(rotations)
+
+            def walk(node: str):
+                if node in visited:
+                    return
+                active.add(node); visiting.append(node)
+                for relation, target in sorted(adjacency.get(node, [])):
+                    if target in active:
+                        start = visiting.index(target)
+                        cycle_nodes = visiting[start:] + [target]
+                        key = canonical(cycle_nodes)
+                        edges = []
+                        for left, right in zip(cycle_nodes, cycle_nodes[1:]):
+                            rel = next(
+                                rel for rel, candidate in sorted(adjacency.get(left, []))
+                                if candidate == right
+                            )
+                            edges.append({"source": left, "relation": rel, "target": right})
+                        found[key] = {"nodes": cycle_nodes, "edges": edges}
+                    elif target not in visited:
+                        walk(target)
+                visiting.pop(); active.discard(node); visited.add(node)
+
+            nodes = set(adjacency)
+            nodes.update(target for pairs in adjacency.values() for _, target in pairs)
+            for node in sorted(nodes):
+                walk(node)
+            rows = [found[key] for key in sorted(found)]
+            return {
+                "cycle_count": len(rows),
+                "cycles": rows,
+                "relations": sorted(allowed) if allowed is not None else None,
+                "passed": not rows,
+                "evidence_policy": "reported cycles require a closed path of proven graph edges",
+            }
+
+    def check_architecture_rules(self, rules: Iterable[dict]) -> dict:
+        """Evaluate explicit dependency-boundary rules against proven graph edges.
+
+        Supported rules:
+        - deny: source_kind/source_prefix -> target_kind/target_prefix
+        - allow_only: matching sources may depend only on listed target kinds/prefixes
+
+        Unknown nodes are not silently classified; they are reported separately.
+        """
+        with self._lock:
+            normalized = [dict(rule) for rule in rules]
+            violations = []
+            unknown_edges = []
+
+            def matches(node: ProjectNode | None, name: str, rule: dict, side: str) -> bool:
+                kind = rule.get(f"{side}_kind")
+                prefix = rule.get(f"{side}_prefix")
+                if kind is not None and (node is None or node.kind != str(kind)):
+                    return False
+                if prefix is not None and not name.startswith(str(prefix)):
+                    return False
+                return kind is not None or prefix is not None
+
+            for source, pairs in sorted(self._edges.items()):
+                source_node = self._nodes.get(source)
+                for relation, target in sorted(pairs):
+                    target_node = self._nodes.get(target)
+                    edge = {"source": source, "relation": relation, "target": target}
+                    if source_node is None or target_node is None:
+                        unknown_edges.append({
+                            **edge,
+                            "missing_nodes": [
+                                name for name, node in ((source, source_node), (target, target_node))
+                                if node is None
+                            ],
+                        })
+                    for index, rule in enumerate(normalized):
+                        mode = str(rule.get("mode") or "deny").lower()
+                        if not matches(source_node, source, rule, "source"):
+                            continue
+                        if mode == "deny":
+                            if matches(target_node, target, rule, "target"):
+                                violations.append({
+                                    "rule_index": index,
+                                    "rule": rule,
+                                    "edge": edge,
+                                    "reason": "forbidden_dependency",
+                                })
+                        elif mode == "allow_only":
+                            allowed_kinds = {str(x) for x in rule.get("target_kinds") or []}
+                            allowed_prefixes = tuple(str(x) for x in rule.get("target_prefixes") or [])
+                            allowed = (
+                                (target_node is not None and target_node.kind in allowed_kinds)
+                                or (bool(allowed_prefixes) and target.startswith(allowed_prefixes))
+                            )
+                            if not allowed:
+                                violations.append({
+                                    "rule_index": index,
+                                    "rule": rule,
+                                    "edge": edge,
+                                    "reason": "dependency_outside_allowlist",
+                                })
+                        else:
+                            raise ValueError(f"unsupported architecture rule mode: {mode}")
+
+            return {
+                "passed": not violations and not unknown_edges,
+                "rule_count": len(normalized),
+                "violations": violations,
+                "violation_count": len(violations),
+                "unknown_edges": unknown_edges,
+                "unknown_edge_count": len(unknown_edges),
+                "policy": "fail closed: violations and unclassified graph edges require review",
+            }
+
     def change_hotspots(self, commits: Iterable[Iterable[str]], limit: int = 50) -> dict:
         """Score files/components that repeatedly change with other files.
 
