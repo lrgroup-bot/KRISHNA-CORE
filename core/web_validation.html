@@ -1209,23 +1209,26 @@ body{background:
 .systemOrbitHead{display:grid;gap:3px;padding:0 8px 0 4px;white-space:nowrap}
 .systemOrbitHead>span{font-size:9px;letter-spacing:.16em;font-weight:900;color:#b9d4dc}
 .systemOrbitHead small{display:flex;align-items:center;gap:5px;color:#6f8f99;font-size:8px;text-transform:uppercase;letter-spacing:.08em}
-.orbitDot{width:6px;height:6px;border-radius:50%;display:inline-block}.orbitDot.active{background:#53f0a5;box-shadow:0 0 10px rgba(83,240,165,.7)}.orbitDot.idle{background:#da5d66}
+.orbitDot{width:6px;height:6px;border-radius:50%;display:inline-block}.orbitDot.active{background:#53f0a5;box-shadow:0 0 10px rgba(83,240,165,.7)}.orbitDot.idle{background:#e6c66f;box-shadow:0 0 8px rgba(230,198,111,.35)}
 .projectHomeMini{
  min-width:0!important;display:flex!important;align-items:center!important;gap:7px!important;overflow-x:auto!important;overflow-y:hidden!important;
  padding:2px 4px 5px!important;scrollbar-width:thin;scrollbar-color:rgba(119,215,231,.2) transparent;
 }
 .miniGodRow{
- position:relative!important;flex:0 0 42px!important;width:42px!important;height:42px!important;min-width:42px!important;
- display:grid!important;place-items:center!important;padding:0!important;border-radius:13px!important;
+ position:relative!important;flex:0 0 auto!important;min-width:132px!important;height:46px!important;
+ display:grid!important;grid-template-columns:26px minmax(72px,1fr) auto!important;align-items:center!important;gap:7px!important;
+ padding:0 10px!important;border-radius:13px!important;
  border:1px solid rgba(119,215,231,.14)!important;background:rgba(8,24,34,.78)!important;color:var(--kr-text)!important;
  box-shadow:inset 0 1px 0 rgba(255,255,255,.035)!important;cursor:pointer!important;transition:.16s ease!important;
 }
 .miniGodRow:hover,.miniGodRow:focus-visible{transform:translateY(-2px)!important;border-color:rgba(230,198,111,.42)!important;background:rgba(15,38,49,.94)!important;outline:none!important}
-.miniGodLogo{font-size:18px!important;line-height:1!important}.miniGodName,.miniGodState{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important}
+.miniGodLogo{font-size:17px!important;line-height:1!important}.miniGodName{display:block!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:10px!important;font-weight:800!important;letter-spacing:.01em!important}.miniGodState{display:block!important;max-width:72px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:8px!important;color:#91aeb8!important;text-transform:uppercase!important}
 .miniGodRow .godLight{position:absolute!important;right:5px!important;top:5px!important;width:7px!important;height:7px!important;border-radius:50%!important;border:1px solid rgba(255,255,255,.16)!important}
 .godLight.status-green{background:#53f0a5!important;box-shadow:0 0 10px rgba(83,240,165,.72)!important}
+.godLight.status-yellow{background:#e6c66f!important;box-shadow:0 0 9px rgba(230,198,111,.38)!important}
+.godLight.status-blue{background:#63a9ff!important;box-shadow:0 0 9px rgba(99,169,255,.38)!important}
+.godLight.status-amber{background:#f1a94d!important;box-shadow:0 0 9px rgba(241,169,77,.38)!important}
 .godLight.status-red{background:#cb4f5a!important;box-shadow:0 0 7px rgba(203,79,90,.28)!important}
-.godLight.status-yellow{background:#cb4f5a!important;box-shadow:0 0 7px rgba(203,79,90,.28)!important}
 .workingGodsGrid{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))!important;gap:10px!important}
 .workingGodCard{border:1px solid var(--kr-line)!important;border-radius:15px!important;background:rgba(8,24,34,.64)!important;padding:13px!important}
 .godDetailDialog{
@@ -1341,12 +1344,12 @@ body{background:
 <section id="sudarshan" class="view chatView">
 <div class="sudarshanBar"><span class="miniCore">☸</span><button class="ghost" onclick="newChat()">＋ New</button><button class="ghost" onclick="loadChats()">↻ Chats</button><button class="ghost legacyChatAction" onclick="renameCurrentChat()">✎ Rename</button><button class="ghost legacyChatAction" onclick="moveCurrentChat()">◇ Move</button><button class="ghost danger legacyChatAction" onclick="deleteCurrentChat()">× Delete</button><button class="ghost" onclick="loadTasks()">▷ Work</button><span class="spacer"></span><span id="sudarshanState" class="workChip">READY</span></div>
 <div class="sudarshanDeck">
-<aside class="holoRail left"><div class="holoPanel"><div class="k">PROJECT</div><div id="holoProject" class="hv">KRISHNA</div></div><div class="holoPanel"><div class="k">KRISHNA CORE</div><div id="holoCoreState" class="hv">CHECKING</div></div><div class="holoPanel"><div class="k">QUICK TOOLS</div><button class="ghost" onclick="investigate()">⌕ Investigate</button><button class="ghost" onclick="research()">⌁ Research</button><button class="ghost" onclick="inspectUI()">▣ Inspect UI</button></div></aside>
+<aside class="holoRail left"><div class="holoPanel"><div class="k">PROJECT</div><div id="holoProject" class="hv">KRISHNA</div></div><div class="holoPanel"><div class="k">KRISHNA CORE</div><div id="holoCoreState" class="hv">CHECKING</div></div><div class="holoPanel"><div class="k">OWNER TOOLS</div><button class="ghost" onclick="inspectUI()">▣ Inspect UI</button></div></aside>
 <div class="sudarshanCenter"><div id="messages" class="messages"><div id="welcome" class="welcome"><div class="orb">☸</div><h1>Sudarshan</h1><p>KRISHNA's spatial work console. Conversations, files, tools and verified work remain in one project context.</p><div style="margin-top:20px"><button class="new" style="display:inline-block;margin:0" onclick="newChat()">＋ New Sudarshan chat</button></div></div></div></div>
 <aside class="holoRail right"><div class="holoPanel"><div class="k">ACTIVE WORK</div><div id="holoTaskCount" class="hv">0 active</div><button class="ghost" onclick="showView('work');loadTasks()">Open ledger</button></div><div class="holoPanel"><div class="k">VERIFICATION</div><div class="hv">Evidence → Test → Browser → Promote</div></div><div class="holoPanel"><div class="k">SYSTEM LOAD</div><div id="holoLoad" class="hv">CHECKING</div></div></aside>
 </div></section>
 <section id="workingGods" class="view panelView"><div class="panelInner">
-<h1 class="panelTitle">KRISHNA Systems</h1><p class="panelSub">Live internal systems. Green = working now. Red = idle or not active. Select any system to see its latest activity and exact state.</p>
+<h1 class="panelTitle">KRISHNA Systems</h1><p class="panelSub">Live internal systems. WORKING = green. IDLE/READY = gold. HEALING/RECOVERING = blue. WAITING FOR PARTHA = amber. BLOCKED/ERROR = red. Select any system to see its latest activity and exact state.</p>
 <div id="workingGodsGrid" class="workingGodsGrid"></div>
 <div class="brahmaFeed"><div class="brahmaFeedHead">🪷 BRAHMA QC · ERROR → HANDLING → DONE</div><div id="brahmaFeedRows" class="brahmaFeedRows"></div></div>
 </div></section>
@@ -1526,7 +1529,7 @@ body{background:
 <div class="card"><div class="k">MOBILE PAIRING</div><div id="mobilePairingState" class="v">CHECKING</div><div id="mobilePairingList" style="margin-top:8px"></div></div></div>
 <div class="card" style="margin-top:12px"><div class="k">FREE / CLOUD MODEL GATEWAY</div><div class="addBox" style="margin-top:8px"><input id="gatewayName" class="input" placeholder="Gateway name"><input id="gatewayUrl" class="input" placeholder="https://gateway.example/v1"><input id="gatewayModel" class="input" placeholder="Model"><input id="gatewayKey" class="input" type="password" autocomplete="off" placeholder="API key · encrypted with Windows DPAPI"><label class="workspaceMeta"><input id="gatewayFreeOnly" type="checkbox" checked> free-only · never paid fallback</label><button class="primary" onclick="registerModelGateway()">Connect gateway</button></div><div id="modelGatewayList" style="margin-top:10px"></div></div>
 <div class="card" style="margin-top:12px"><button class="ghost" onclick="runAll()">Run API checks</button><div id="testState" class="v">NOT RUN</div><div id="tests" class="tests"></div></div><div class="card" style="margin-top:12px"><div class="k">TOOL OUTPUT</div><div id="log" class="log">Ready.</div></div></div></section>
-<div class="composerWrap"><div class="composer"><textarea id="input" rows="2" placeholder="Command KRISHNA through Sudarshan…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea><div class="composeFoot"><div class="tools"><button class="tool" onclick="document.getElementById('attachInput').click()">＋ File</button><input id="attachInput" type="file" style="display:none" onchange="uploadAttachment(this)"><button class="tool" onclick="showView('plugins')">＋ Plugin</button><button class="tool" onclick="focusProjectSidebar()">◇ Project</button><button class="tool" onclick="investigate()">⌕ Investigate</button><button class="tool" onclick="research()">⌁ Research</button></div><div><span class="hint">Enter to send · Shift+Enter for line</span> <button class="send" onclick="send()">↑</button></div></div></div></div>
+<div class="composerWrap"><div class="composer"><textarea id="input" rows="2" placeholder="Command KRISHNA through Sudarshan…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea><div class="composeFoot"><div class="tools"><button class="tool" onclick="document.getElementById('attachInput').click()">＋ File</button><input id="attachInput" type="file" style="display:none" onchange="uploadAttachment(this)"><button class="tool" onclick="showView('plugins')">＋ Plugin</button><button class="tool" onclick="focusProjectSidebar()">◇ Project</button></div><div><span class="hint">Enter to send · Shift+Enter for line</span> <button class="send" onclick="send()">↑</button></div></div></div></div>
 </main></div>
 <script>
 let chatId=null,projects=[],sending=false,noticeTimer,pendingAttachmentIds=[];const $=id=>document.getElementById(id);

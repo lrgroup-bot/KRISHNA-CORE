@@ -138,7 +138,6 @@ function HawkeyeRfPanel() {
           auth,
           cipher: 'AES',
           remember,
-          approved: true,
         }),
       });
       const data = await response.json() as { error?: string };
@@ -588,7 +587,7 @@ function PluginsPanel() {
       const response = await fetch('/api/plugins/enable', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: plugin.id, enabled: !plugin.enabled, approved: true, project: 'KRISHNA' }),
+        body: JSON.stringify({ id: plugin.id, enabled: !plugin.enabled, project: 'KRISHNA' }),
       });
       const data = await response.json() as PluginManifest & { error?: string };
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
