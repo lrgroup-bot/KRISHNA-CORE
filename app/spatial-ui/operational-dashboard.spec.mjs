@@ -46,18 +46,28 @@ function apiFixture(pathname){
 }
 
 test('KRISHNA Spatial Command OS keeps all upper systems professional and owner-readable', async ({page}) => {
+  test.setTimeout(60_000);
+
   await page.route('**/api/**', async route => {
     const request=route.request();
     const url=new URL(request.url());
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(apiFixture(url.pathname))});
   });
 
-  await page.goto('http://127.0.0.1:4173/spatial/operational-preview.html');
-  await page.locator('#candidate').waitFor({state:'visible'});
-  await page.waitForFunction(() => document.querySelector('#candidate')?.contentWindow?.document?.readyState === 'complete');
-  const legacy = page.frame({url:/legacy-dashboard\.html/});
+  await page.goto('http://127.0.0.1:4173/spatial/operational-preview.html',{waitUntil:'domcontentloaded'});
+  await expect(page.locator('#candidate')).toBeVisible();
+  await expect(page.locator('#candidate')).toHaveAttribute('src','/spatial/legacy-dashboard.html');
+
+  // Wait on Playwright's frame registry instead of reading iframe.contentWindow.document
+  // from the parent page. The latter can hang while the legacy dashboard has live loops.
+  await expect.poll(
+    () => page.frames().some(frame => /legacy-dashboard\.html/.test(frame.url())),
+    {timeout:15_000,message:'legacy KRISHNA dashboard iframe should navigate'}
+  ).toBe(true);
+  const legacy = page.frames().find(frame => /legacy-dashboard\.html/.test(frame.url()));
   expect(legacy).toBeTruthy();
-  await legacy.waitForFunction(() => window.KRISHNA_OPERATIONAL_UI?.version === '2026.10-spatial-command-os-v1');
+  await legacy.waitForFunction(() => window.KRISHNA_OPERATIONAL_UI?.version === '2026.10-spatial-command-os-v1',null,{timeout:15_000});
+
   await expect(legacy.locator('#workingGodsMini .miniGodRow')).toHaveCount(20);
   await expect(legacy.locator('#opHomeDeck')).toBeVisible();
   await expect(legacy.locator('#opHomeDeck')).toContainText('One command. Verified execution.');
