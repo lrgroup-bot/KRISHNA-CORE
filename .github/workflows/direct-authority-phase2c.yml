@@ -1,0 +1,66 @@
+name: KRISHNA Direct Authority Phase 2C
+
+on:
+  push:
+    branches:
+      - work/spatial-command-os-20261005
+    paths:
+      - scripts/apply_direct_authority_phase2c.py
+      - core/tests/test_direct_authority_contract.py
+      - .github/workflows/direct-authority-phase2c.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: krishna-direct-authority-phase2c
+  cancel-in-progress: false
+
+jobs:
+  direct-authority-hardening:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout isolated KRISHNA source branch
+        uses: actions/checkout@v4
+        with:
+          ref: work/spatial-command-os-20261005
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+      - name: Confirm SOURCE-only safety boundary
+        shell: bash
+        run: |
+          test "${GITHUB_REF_NAME}" = "work/spatial-command-os-20261005"
+          echo "No runtime deployment or action unlock in Phase 2C."
+      - name: Apply direct authority patch
+        run: python scripts/apply_direct_authority_phase2c.py
+      - name: Run authority lease adversarial suite
+        working-directory: core
+        run: python -m unittest tests.test_authority_lease -v
+      - name: Run direct authority contracts
+        working-directory: core
+        run: python -m unittest tests.test_direct_authority_contract -v
+      - name: Run transport and Shared Action Bus regressions
+        working-directory: core
+        run: python -m unittest tests.test_authority_transport_contract tests.test_shared_action_bus -v
+      - name: Compile modified modules
+        run: python -m py_compile core/krishna_core/orchestrator.py core/krishna_core/server.py
+      - name: Check patch integrity
+        shell: bash
+        run: |
+          git diff --check
+          git status --short
+      - name: Commit verified SOURCE-only direct authority transformation
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No direct authority transformation to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add core/krishna_core/orchestrator.py core/krishna_core/server.py
+          git commit -m "fix: require authority leases for direct mutations"
+          git push origin HEAD:work/spatial-command-os-20261005
