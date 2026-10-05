@@ -5,6 +5,7 @@ import unittest
 CORE = Path(__file__).resolve().parents[1]
 HTML = (CORE / "web_validation.html").read_text(encoding="utf-8")
 SERVER = (CORE / "krishna_core" / "server.py").read_text(encoding="utf-8")
+QC = (CORE / "krishna_core" / "brahma_process_qc.py").read_text(encoding="utf-8")
 
 
 class OwnerSystemDashboardContractTests(unittest.TestCase):
@@ -26,6 +27,14 @@ class OwnerSystemDashboardContractTests(unittest.TestCase):
         self.assertIn("return {label:'HEALING',color:'blue'}", HTML)
         self.assertIn("return {label:'WAITING FOR PARTHA',color:'amber'}", HTML)
         self.assertIn("return {label:'BLOCKED',color:'red'}", HTML)
+
+    def test_backend_status_colors_match_owner_language(self):
+        self.assertIn('return "green"', QC)
+        self.assertIn('return "blue"', QC)
+        self.assertIn('return "amber"', QC)
+        self.assertIn('return "red"', QC)
+        self.assertIn('return "yellow"', QC)
+        self.assertNotIn('god["color"]="green" if god["active"] else "red"', QC)
 
     def test_sudarshan_composer_does_not_expose_manual_research_modes(self):
         marker = 'class="composerWrap"'
