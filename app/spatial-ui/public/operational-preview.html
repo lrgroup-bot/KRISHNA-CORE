@@ -18,14 +18,24 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02070b;col
 (() => {
   const frame=document.getElementById('candidate');
   const state=document.getElementById('candidateState');
-  frame.addEventListener('load',()=>{
+  let decorated=false;
+  const decorate=()=>{
+    if(decorated)return;
     try{
       const doc=frame.contentDocument;
-      if(!doc||!doc.documentElement)throw new Error('candidate document unavailable');
+      if(!doc||!doc.documentElement)return;
+      decorated=true;
       const css=doc.createElement('link');css.rel='stylesheet';css.href='operational-dashboard.css?v=20261005-spatial-command-os-v1';doc.head.appendChild(css);
-      const js=doc.createElement('script');js.src='operational-dashboard.js?v=20261005-spatial-command-os-v1';js.onload=()=>{state.hidden=true};js.onerror=()=>{state.innerHTML='<b>Spatial Command OS failed to load</b><small>The preserved dashboard has not been promoted. Check the spatial UI build before retrying.</small>'};doc.body.appendChild(js);
-    }catch(error){state.innerHTML='<b>Candidate preview unavailable</b><small>'+String(error.message||error)+'</small>'}
-  });
+      const js=doc.createElement('script');js.src='operational-dashboard.js?v=20261005-spatial-command-os-v1';
+      js.onload=()=>{state.hidden=true;frame.dataset.spatialReady='1'};
+      js.onerror=()=>{decorated=false;state.innerHTML='<b>Spatial Command OS failed to load</b><small>The preserved dashboard has not been promoted. Check the spatial UI build before retrying.</small>'};
+      doc.body.appendChild(js);
+    }catch(error){decorated=false;state.innerHTML='<b>Candidate preview unavailable</b><small>'+String(error.message||error)+'</small>'}
+  };
+  frame.addEventListener('load',decorate);
+  try{
+    if(frame.contentDocument?.readyState==='complete'||frame.contentDocument?.readyState==='interactive')queueMicrotask(decorate);
+  }catch(_){/* load listener remains authoritative */}
 })();
 </script>
 </body>
