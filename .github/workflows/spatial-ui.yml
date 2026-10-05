@@ -51,3 +51,28 @@ jobs:
       - name: Verify owner-readable dashboard contract
         working-directory: .
         run: python -m pytest -q core/tests/test_operational_dashboard_ui.py
+      - name: Install browser test dependency
+        run: |
+          npm install --no-save --no-audit --no-fund @playwright/test@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start candidate preview
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/krishna-ui-preview.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/spatial/operational-preview.html >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/krishna-ui-preview.log
+          exit 1
+      - name: Click every operational system dashboard in Chromium
+        run: npx playwright test operational-dashboard.spec.mjs --reporter=line
+      - name: Upload candidate screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: krishna-operational-dashboard-candidate
+          path: app/spatial-ui/operational-dashboard-candidate.png
+          if-no-files-found: warn
+          retention-days: 7
