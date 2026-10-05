@@ -1857,8 +1857,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403,{"error":"authority leases may be requested only on the KRISHNA PC"})
             action=str(data.get("action") or "").strip()
             if not action:return self._json(400,{"error":"action is required"})
-            if action not in {x.get("name") for x in orch.action_bus.list()}:
-                return self._json(404,{"error":"shared action not registered"})
+            allowed_actions={x.get("name") for x in orch.action_bus.list()} | set(getattr(orch,"direct_authority_actions",()))
+            if action not in allowed_actions:
+                return self._json(404,{"error":"authority action not registered"})
             try:
                 row=orch.authority.request(
                     action=action,payload=data.get("payload") or {},
@@ -3947,7 +3948,8 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError,KeyError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/software-factory/workers/approve":
-            try:return self._json(200,orch.request_ephemeral_workers(str(data.get("project") or ""),str(data.get("manager") or ""),str(data.get("role") or ""),int(data.get("count") or 1),str(data.get("reason") or ""),data.get("hr_snapshot"),True))
+            try:return self._json(200,orch.request_ephemeral_workers(str(data.get("project") or ""),str(data.get("manager") or ""),str(data.get("role") or ""),int(data.get("count") or 1),str(data.get("reason") or ""),data.get("hr_snapshot"),True,authority_lease=data.get("authority_lease")))
+            except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,KeyError,TypeError) as exc:return self._json(400,{"error":str(exc)})
 
         if post_path == "/api/software-factory/workers/run":
@@ -4030,7 +4032,7 @@ class Handler(BaseHTTPRequestHandler):
         if post_path == "/api/gyan-bhandar/archive":
             project=str(data.get("project") or "KRISHNA").strip(); source_path=str(data.get("source_path") or "").strip()
             if not source_path:return self._json(400,{"error":"source_path is required"})
-            try:return self._json(201,orch.gyan_archive_file(project,source_path,str(data.get("topic") or ""),bool(data.get("remove_original",False))))
+            try:return self._json(201,orch.gyan_archive_file(project,source_path,str(data.get("topic") or ""),bool(data.get("remove_original",False)),authority_lease=data.get("authority_lease")))
             except KeyError:return self._json(404,{"error":"project not registered"})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
@@ -4038,7 +4040,7 @@ class Handler(BaseHTTPRequestHandler):
             digest=str(data.get("sha256") or "").strip(); destination=str(data.get("destination") or "").strip()
             project=str(data.get("project") or "KRISHNA").strip() or "KRISHNA"
             if not digest or not destination:return self._json(400,{"error":"sha256 and destination are required"})
-            try:return self._json(200,orch.gyan_restore_file(digest,destination,project,bool(data.get("approved",False))))
+            try:return self._json(200,orch.gyan_restore_file(digest,destination,project,bool(data.get("approved",False)),authority_lease=data.get("authority_lease")))
             except KeyError:return self._json(404,{"error":"project not registered"})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
             except (ValueError,FileNotFoundError) as exc:return self._json(400,{"error":str(exc)})
@@ -4137,20 +4139,20 @@ class Handler(BaseHTTPRequestHandler):
 
         if post_path == "/api/development/git/commit":
             project=str(data.get("project","")).strip()
-            try:return self._json(200,orch.development_commit(project,str(data.get("message","KRISHNA verified change")),data.get("files") or [],bool(data.get("approved",False))))
+            try:return self._json(200,orch.development_commit(project,str(data.get("message","KRISHNA verified change")),data.get("files") or [],bool(data.get("approved",False)),authority_lease=data.get("authority_lease")))
             except KeyError:return self._json(404,{"error":"project not registered"})
             except (ValueError,PermissionError) as exc:return self._json(403 if isinstance(exc,PermissionError) else 400,{"error":str(exc)})
 
         if post_path == "/api/development/git/push":
             project=str(data.get("project","")).strip()
-            try:return self._json(200,orch.development_push(project,bool(data.get("approved",False))))
+            try:return self._json(200,orch.development_push(project,bool(data.get("approved",False)),authority_lease=data.get("authority_lease")))
             except KeyError:return self._json(404,{"error":"project not registered"})
             except PermissionError as exc:return self._json(403,{"error":str(exc)})
 
         if post_path == "/api/development/sync":
             project=str(data.get("project","")).strip()
             if not project:return self._json(400,{"error":"project is required"})
-            try:return self._json(200,orch.development_sync(project,bool(data.get("approved",False))))
+            try:return self._json(200,orch.development_sync(project,bool(data.get("approved",False)),authority_lease=data.get("authority_lease")))
             except KeyError:return self._json(404,{"error":"project not registered"})
 
         if post_path == "/api/development/stage":

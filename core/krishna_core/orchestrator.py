@@ -146,6 +146,11 @@ class Orchestrator:
         self.software_factory = SoftwareFactory(self.memory,self.commitments)
         runtime_state = Path(self.db_path).resolve().parent / ".krishna_state"
         self.authority = AuthorityLeaseGate(runtime_state / "authority", audit=self.memory.audit, initially_locked=True)
+        self.direct_authority_actions=frozenset({
+            "software_factory.workers.approve",
+            "gyan.archive.restore",
+            "gyan.archive.remove_original",
+        })
         self.project_brain = ProjectBrain(self.memory,runtime_state / "project-brain")
         self.lab = LabBot(runtime_state / "lab-bot")
         self.gita_gyan = GitaGyan(runtime_state / "gita-gyan")
@@ -5400,7 +5405,8 @@ Project: {payload.get('project')}
         if not policy:raise KeyError(project)
         return Path(policy.root).resolve()
 
-    def gyan_archive_file(self, project, source_path, topic="", remove_original=False):
+    def gyan_archive_file(self, project, source_path, topic="", remove_original=False, authority_lease=None):
+        raw_source=str(source_path)
         root=self._gyan_scope_root(project)
         source=Path(source_path).resolve()
         try:source.relative_to(root)
@@ -5408,9 +5414,21 @@ Project: {payload.get('project')}
         if remove_original:
             if project!="KRISHNA":self.projects.assert_mutable(project,"gyan_archive_remove_original")
             if not settings.allow_actions:raise PermissionError("KRISHNA_ALLOW_ACTIONS is disabled")
+            self.authority.consume(
+                authority_lease,action="gyan.archive.remove_original",
+                payload={"project":project,"source_path":raw_source,"topic":topic,"remove_original":True},
+                project=project,source="pc",actor="gyan-http",
+            )
         return self.gyan_bhandar.archive_file(project,source,topic,remove_original)
 
-    def gyan_restore_file(self, sha256, destination, project="KRISHNA", approved=False):
+    def gyan_restore_file(self, sha256, destination, project="KRISHNA", approved=False, authority_lease=None):
+        raw_destination=str(destination)
+        self.authority.consume(
+            authority_lease,action="gyan.archive.restore",
+            payload={"sha256":str(sha256),"destination":raw_destination,"project":project},
+            project=project,source="pc",actor="gyan-http",
+        )
+        approved=True
         root=self._gyan_scope_root(project)
         destination=Path(destination).resolve()
         try:destination.relative_to(root)
@@ -5863,9 +5881,16 @@ Project: {payload.get('project')}
         if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)
         return self.software_factory.plan(project,goal,deadline_hours,start_at,end_at)
 
-    def request_ephemeral_workers(self,project,manager,role,count,reason,hr_snapshot=None,approve=False):
+    def request_ephemeral_workers(self,project,manager,role,count,reason,hr_snapshot=None,approve=False,authority_lease=None):
         if project!="KRISHNA" and not self.projects.get(project):raise KeyError(project)
-        return self.software_factory.worker_request(project,manager,role,count,reason,hr_snapshot or {},bool(approve))
+        snapshot=hr_snapshot or {}
+        if approve:
+            self.authority.consume(
+                authority_lease,action="software_factory.workers.approve",
+                payload={"project":project,"manager":manager,"role":role,"count":int(count),"reason":reason,"hr_snapshot":snapshot},
+                project=project,source="pc",actor="software-factory-http",
+            )
+        return self.software_factory.worker_request(project,manager,role,count,reason,snapshot,bool(approve))
 
     def run_ephemeral_workers(self,project,request,task):
         receipt=self.dispatch_action(
@@ -5970,8 +5995,8 @@ Project: {payload.get('project')}
         self.memory.audit("development_sync","completed" if result.get("ok") else "blocked",project)
         return result
 
-    def development_sync(self, project, approved=False):
-        receipt=self.dispatch_action("development.sync",{"project":project},project=project,source="pc",actor="developer-ui",approved=approved)
+    def development_sync(self, project, approved=False, authority_lease=None):
+        receipt=self.dispatch_action("development.sync",{"project":project},project=project,source="pc",actor="developer-ui",approved=approved,authority_lease=authority_lease)
         return receipt["result"]
 
     def _development_stage_impl(self, project, files):
@@ -6005,8 +6030,8 @@ Project: {payload.get('project')}
         self.memory.audit("development_commit","completed" if result.get("ok") else "failed",project)
         return result
 
-    def development_commit(self, project, message, files, approved=False):
-        receipt=self.dispatch_action("development.git.commit",{"project":project,"message":message,"files":files},project=project,source="pc",actor="developer-ui",approved=approved)
+    def development_commit(self, project, message, files, approved=False, authority_lease=None):
+        receipt=self.dispatch_action("development.git.commit",{"project":project,"message":message,"files":files},project=project,source="pc",actor="developer-ui",approved=approved,authority_lease=authority_lease)
         return receipt["result"]
 
     def _development_push_impl(self, project, approved=False):
@@ -6019,8 +6044,8 @@ Project: {payload.get('project')}
         self.memory.audit("development_push","completed" if result.get("ok") else "failed",project)
         return result
 
-    def development_push(self, project, approved=False):
-        receipt=self.dispatch_action("development.git.push",{"project":project},project=project,source="pc",actor="developer-ui",approved=approved)
+    def development_push(self, project, approved=False, authority_lease=None):
+        receipt=self.dispatch_action("development.git.push",{"project":project},project=project,source="pc",actor="developer-ui",approved=approved,authority_lease=authority_lease)
         return receipt["result"]
 
     def _development_verify_impl(self, project, candidate_root, checks, frontend_url=None,
