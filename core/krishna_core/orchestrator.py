@@ -4913,8 +4913,8 @@ Project: {payload.get('project')}
                 elif nodes and str(god.get("state") or "").lower() not in {"working","handling"}:
                     node=nodes[0]
                     god.update({
-                        "active":False,"state":"idle","color":"red",
-                        "detail":"Connected · "+str(node.get("learning_state") or "idle"),
+                        "active":False,"state":"idle","color":"yellow",
+                        "detail":"Connected · "+str(node.get("learning_state") or "ready"),
                         "updated_at":float(node.get("last_seen") or god.get("updated_at") or time.time()),
                     })
         except Exception:
@@ -4930,7 +4930,8 @@ Project: {payload.get('project')}
         except Exception:
             pass
         status["gods"]=[gods.get(str(x.get("id") or ""),x) for x in status.get("gods") or []]
-        status["latest_color"]="green" if any(bool(x.get("active")) for x in status["gods"]) else "red"
+        active=[x for x in status["gods"] if bool(x.get("active"))]
+        status["latest_color"]=str((active[0] if active else {"color":"yellow"}).get("color") or "yellow")
         return status
 
     def _amcc_runtime_signals(self):
