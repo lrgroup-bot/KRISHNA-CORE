@@ -635,3 +635,221 @@ Acceptance tests:
 
 Gap closed when:
 KRISHNA knows whether a safety/quality claim is stable across repeated real-model runs rather than relying on a lucky single execution.
+
+
+## GAP-026 — Non-malleable memory provenance and authority
+
+Status: PLANNED_NATIVE
+Priority: CRITICAL
+Gap owner: BRAHMAGYAN + Gyan-Bhandar + BRAHMA QC + Policy Kernel
+Research references:
+- iluxu/memory-integrity-benchmark
+- OWASP/www-project-agent-memory-guard
+- memory-security research on provenance/lineage laundering
+
+Core invariant:
+Transformation does not upgrade authority. Summarizing, repeating, embedding, retrieving, quoting, reformatting or passing content through a trusted agent/tool must preserve the least-trusted relevant origin unless an explicit verified promotion process supplies independent evidence.
+
+Required memory fields/concepts:
+- origin/source identity and source class
+- ingestion channel
+- observed_at / valid_at / expires_at where relevant
+- provenance/derivation parents
+- factual confidence
+- authority/permission class (separate from confidence)
+- verification/corroboration evidence
+- risk label
+- promotion history
+- supersedes/conflicts_with links
+
+Acceptance tests:
+1. Untrusted web/repository/tool text cannot become policy merely by being summarized by KRISHNA.
+2. Repetition of the same source does not count as independent corroboration.
+3. A trusted tool echoing an untrusted claim does not launder its origin.
+4. Derived summaries retain lineage to all material source records.
+5. High factual confidence never grants execution/approval authority.
+6. Procedural instructions from memory cannot expand agent permissions.
+7. Memory promotion requires explicit rule/evidence and leaves an audit trail.
+8. Poisoned memory can be selectively quarantined/forgotten without deleting unrelated valid memory.
+9. Retrieval returns authority/provenance metadata with content.
+10. Unknown/missing provenance fails closed for high-risk use.
+
+Gap closed when:
+Every persisted/retrieved knowledge item carries durable provenance and an authority class that cannot be silently upgraded by transformation or repetition.
+
+## GAP-027 — Memory poisoning benchmark and selective repair
+
+Status: PLANNED_PC
+Priority: CRITICAL
+Candidates:
+- iluxu/memory-integrity-benchmark
+- Digital-Trust-Lab/mp-bench
+- OWASP Agent Memory Guard benchmark corpus
+Gap owner: Agent Evaluation + BRAHMAGYAN security
+
+Why separate from GAP-026:
+GAP-026 is the native control model. GAP-027 is adversarial proof that the model works.
+
+Acceptance tests:
+- Observation poisoning
+- summary poisoning
+- repeated-content/corroboration laundering
+- previous-agent-output poisoning
+- policy/procedure injection
+- retrieval-time sleeper payload
+- benign-memory false-positive corpus
+- write -> retrieve -> action consequence tracking
+- selective repair/quarantine and post-repair retest
+- held-out private cases
+
+Metrics:
+write acceptance, poisoned retrieval rate, unauthorized action rate, containment rate, selective repair success, benign false-positive rate.
+
+## GAP-028 — RAG claim faithfulness and citation attribution
+
+Status: PLANNED_NATIVE_THEN_PC
+Priority: HIGH
+Candidates/reference metrics: Ragas faithfulness, DeepEval faithfulness/context metrics
+Gap owner: BRAHMA QC + Evidence Engine
+
+Why missing:
+A response can contain a citation yet the cited passage may not support the exact claim. Retrieval relevance and answer faithfulness are different problems.
+
+Native-first implementation target:
+claim -> cited evidence span -> support verdict -> unsupported/contradicted/unknown.
+Do not treat an LLM judge as ground truth; deterministic exact evidence checks and source metadata should be used where possible, with judge-based evaluation clearly labeled.
+
+Acceptance tests:
+1. Fully supported atomic claims pass.
+2. Correct source but wrong cited passage fails attribution.
+3. Unsupported added detail is flagged even if nearby claims are supported.
+4. Contradictory retrieved sources are surfaced rather than silently averaged.
+5. Citation target must exist and match stored source/version/hash.
+6. Stale/expired evidence is labeled.
+7. Judge disagreement/uncertainty is retained, not rounded into certainty.
+8. Important claims can require independent-source corroboration.
+
+Gap closed when:
+KRISHNA can show which exact evidence supports each material claim and refuses to present unsupported claims as verified knowledge.
+
+## GAP-029 — Source independence / corroboration graph
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Evidence Engine + BRAHMAGYAN
+
+Why missing:
+Ten websites copying one original report are not ten independent confirmations. Corroboration must account for common origin and derivation.
+
+Acceptance tests:
+- Same URL/domain duplicate does not increase independence.
+- Syndicated/copied article linked to common source counts as dependent evidence.
+- Agent summaries derived from same source remain one provenance family.
+- Independent primary sources increase corroboration.
+- Unknown dependence is labeled UNKNOWN, not independent by default.
+- Confidence calculation exposes both evidence count and independent provenance-family count.
+
+Gap closed when:
+KRISHNA distinguishes repeated evidence from genuinely independent corroboration.
+
+## GAP-030 — Contradiction and temporal knowledge handling
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Gyan-Bhandar + BRAHMA QC
+
+Why missing:
+Knowledge changes. A newer claim should not silently overwrite an older claim when both may have different validity periods or evidence quality.
+
+Acceptance tests:
+- Contradictory claims coexist with conflict links.
+- Newer timestamp alone does not automatically make a weaker source authoritative.
+- Superseded facts retain history/provenance.
+- Query can request current-as-of time and receive temporally valid evidence.
+- Expired/stale facts are not silently returned as current.
+- Unresolved contradiction is surfaced to KRISHNA/user for high-impact decisions.
+
+Gap closed when:
+Knowledge updates preserve history and distinguish CURRENT / SUPERSEDED / CONFLICTED / STALE / UNKNOWN.
+
+## GAP-031 — Retrieval poisoning / sleeper-document evaluation
+
+Status: PLANNED_PC
+Priority: HIGH
+Candidates/reference:
+- NVIDIA/garak retrieval-time sleeper poisoning proposal
+- prompt-security/RAG_Poisoning_POC
+- samkorn/rag-poisoning-architecture-bench
+
+Why useful:
+A malicious document can remain dormant in the corpus and activate only when an innocent query retrieves it. Write-time screening alone is therefore insufficient.
+
+Acceptance tests:
+- Poisoned document is stored in isolated test corpus.
+- Benign query retrieves it.
+- Retrieved instructions remain data, never authority.
+- Answer remains grounded in trusted evidence.
+- Tool/action policy is unchanged by retrieved text.
+- Compare clean vs poisoned corpus with identical model/query/config.
+- Measure retrieval contamination, answer corruption and forbidden-action rate separately.
+
+## GAP-032 — Event/message loss, duplication and out-of-order delivery
+
+Status: PLANNED_NATIVE
+Priority: CRITICAL
+Gap owner: Shared Action Bus + Event Bus + workers
+
+Why missing:
+Durable idempotency covers action execution, but distributed/multi-worker growth requires explicit tests for duplicated, delayed, missing and out-of-order events.
+
+Acceptance tests:
+- Duplicate event does not duplicate irreversible action.
+- Out-of-order completion cannot precede required approval/verification state.
+- Lost notification is recoverable from durable authoritative state.
+- Consumer restart resumes from declared checkpoint.
+- Poison/dead-letter event is isolated without blocking unrelated work.
+- Event ID/correlation/causation chain survives retries.
+- At-least-once delivery semantics are explicit where exactly-once is impossible.
+
+Gap closed when:
+Correctness derives from durable state/idempotency rather than assuming perfect message delivery.
+
+## GAP-033 — Multi-agent partial-failure and stale-plan detection
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Orchestrator + Rishi Council + Agent Runtime
+
+Why missing:
+A multi-agent plan can become invalid when one worker fails, returns stale evidence or another worker changes the underlying state.
+
+Acceptance tests:
+- One specialist timeout/failure does not let consensus pretend it participated.
+- Evidence version/hash changes invalidate dependent stale recommendations.
+- Plan execution revalidates preconditions immediately before action.
+- Conflicting specialist outputs remain visible with provenance.
+- Quorum/consensus rules cannot convert missing evidence into agreement.
+- Restarted worker cannot submit an obsolete result as current without version check.
+
+Gap closed when:
+Partial failure or stale evidence cannot silently become a valid council/agent decision.
+
+## GAP-034 — Cache/vector-index consistency and rebuild proof
+
+Status: PLANNED_NATIVE
+Priority: HIGH
+Gap owner: Memory/RAG + Gyan-Bhandar
+
+Why missing:
+Caches and vector indexes are derived state. They can become stale/corrupt and disagree with canonical records.
+
+Acceptance tests:
+- Delete/update canonical source -> stale derived entry is invalidated.
+- Index record carries canonical source ID/version/hash.
+- Mismatch is detected at retrieval.
+- Full index/cache rebuild from canonical state produces equivalent retrievable corpus within declared tolerance.
+- Corrupt derived index can be discarded/rebuilt without losing canonical knowledge.
+- Cache hit never bypasses provenance/expiry/authority checks.
+
+Gap closed when:
+Derived retrieval state is disposable and verifiably synchronized with canonical provenance-bearing knowledge.
