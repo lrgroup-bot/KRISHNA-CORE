@@ -33,7 +33,13 @@ class AuthorityTransportContractTests(unittest.TestCase):
         self.assertIn("authority_lease=None",src)
         self.assertGreaterEqual(src.count("authority_lease=authority_lease"),2)
         a2a=block(src,"    def a2a_dispatch", "    def status")
-        self.assertGreaterEqual(a2a.count('msg.get("authority_lease")'),3)
+        agent_branch=block(a2a,"        if agent_id:","        if self.control_plane:")
+        control_branch=block(a2a,"        if self.control_plane:","        return self.action_bus.dispatch(")
+        fallback_branch=block(a2a,"        return self.action_bus.dispatch(")
+        lease_expr='authority_lease=msg.get("authority_lease")'
+        self.assertIn(lease_expr,agent_branch,"A2A agent route must forward the exact authority lease")
+        self.assertIn(lease_expr,control_branch,"A2A Sudarshan route must forward the exact authority lease")
+        self.assertIn(lease_expr,fallback_branch,"A2A direct action-bus fallback must forward the exact authority lease")
 
     def test_orchestrator_owner_wrappers_accept_lease(self):
         src=text("core/krishna_core/orchestrator.py")
@@ -61,7 +67,7 @@ class AuthorityTransportContractTests(unittest.TestCase):
             "/api/mobile/testing/run",
             "/api/desktop/rpa/run",
             "/api/garudanetra/session/start",
-            "/api/garudanetra/replay",
+            "/api/garudanetra/session/replay",
             "/api/narad/dead-letters/retry",
             "/api/narad/checkpoints/resume",
             "/api/narad/workflows/promote",
