@@ -105,11 +105,12 @@ def test_home_command_deck_summarizes_system_state():
     assert ".opHomeDeck" in css
 
 
-def test_preview_is_same_origin_and_keeps_verified_dashboard_untouched():
+def test_preview_is_portable_and_keeps_verified_dashboard_untouched():
     preview = _read(PREVIEW)
     assert LEGACY.is_file()
-    assert 'src="/spatial/legacy-dashboard.html"' in preview
-    assert "/spatial/operational-dashboard.css" in preview
-    assert "/spatial/operational-dashboard.js" in preview
+    assert 'src="legacy-dashboard.html"' in preview
+    assert "operational-dashboard.css" in preview
+    assert "operational-dashboard.js" in preview
+    assert "src=\"/spatial/legacy-dashboard.html\"" not in preview
     assert "verified dashboard is preserved" in preview.lower()
     assert "has not been promoted" in preview.lower()
