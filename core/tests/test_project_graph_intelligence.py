@@ -62,5 +62,54 @@ class ProjectGraphIntelligenceTests(unittest.TestCase):
         self.assertEqual(rows["a.py"]["cochange_weight"], 1)
 
 
+    def test_cycles_return_closed_edge_evidence(self):
+        graph = ProjectGraph()
+        for name in ("a", "b", "c"):
+            graph.upsert_node(name, "module")
+        graph.link("a", "b")
+        graph.link("b", "c")
+        graph.link("c", "a")
+        report = graph.cycles()
+        self.assertFalse(report["passed"])
+        self.assertEqual(report["cycle_count"], 1)
+        self.assertEqual(len(report["cycles"][0]["edges"]), 3)
+        self.assertEqual(report["cycles"][0]["nodes"][0], report["cycles"][0]["nodes"][-1])
+
+    def test_architecture_deny_rule_reports_exact_edge(self):
+        graph = ProjectGraph()
+        graph.upsert_node("ui/home", "ui")
+        graph.upsert_node("db/store", "storage")
+        graph.link("ui/home", "db/store")
+        report = graph.check_architecture_rules([
+            {"mode": "deny", "source_kind": "ui", "target_kind": "storage"}
+        ])
+        self.assertFalse(report["passed"])
+        self.assertEqual(report["violation_count"], 1)
+        self.assertEqual(
+            report["violations"][0]["edge"],
+            {"source": "ui/home", "relation": "depends_on", "target": "db/store"},
+        )
+
+    def test_architecture_allow_only_rule_accepts_declared_layer(self):
+        graph = ProjectGraph()
+        graph.upsert_node("ui/home", "ui")
+        graph.upsert_node("api/public", "api")
+        graph.link("ui/home", "api/public")
+        report = graph.check_architecture_rules([
+            {"mode": "allow_only", "source_kind": "ui", "target_kinds": ["api"]}
+        ])
+        self.assertTrue(report["passed"])
+        self.assertEqual(report["violation_count"], 0)
+
+    def test_architecture_rules_fail_closed_on_unknown_nodes(self):
+        graph = ProjectGraph()
+        graph.upsert_node("known", "module")
+        graph.link("known", "missing")
+        report = graph.check_architecture_rules([])
+        self.assertFalse(report["passed"])
+        self.assertEqual(report["unknown_edge_count"], 1)
+        self.assertEqual(report["unknown_edges"][0]["missing_nodes"], ["missing"])
+
+
 if __name__ == "__main__":
     unittest.main()
