@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "policy": "FREE_ONLY_LOCAL_FIRST_SUDARSHAN_GOVERNED",
+  "generated_on": "2026-10-05",
+  "note": "External tools are isolated evidence instruments only. Installation does not close a gap. No paid/restricted tool is permitted by this manifest.",
+  "tools": [
+    {
+      "id": "joern",
+      "gap": "GAP-001",
+      "version": "4.0.647",
+      "license": "Apache-2.0",
+      "platform": "windows-x86_64",
+      "filename": "joern-cli-windows-x86_64.zip",
+      "url": "https://github.com/joernio/joern/releases/download/v4.0.647/joern-cli-windows-x86_64.zip",
+      "sha256": "de8e014d7b419c98ad0ff784d92fbb6a26c5c078a58594191ed4a0873f3281bf",
+      "runtime_requirement": "JDK 21 recommended by upstream",
+      "role": "read-only code-property-graph/dataflow evidence"
+    },
+    {
+      "id": "semgrep-ce",
+      "gap": "GAP-001",
+      "version": "1.179.0",
+      "license": "LGPL-2.1-or-later",
+      "install": "python-venv",
+      "package": "semgrep==1.179.0",
+      "role": "complementary local static-rule evidence"
+    },
+    {
+      "id": "mutmut",
+      "gap": "GAP-006",
+      "version": "3.8.0",
+      "license": "BSD-3-Clause",
+      "install": "python-venv",
+      "package": "mutmut==3.8.0",
+      "role": "Python mutation engine for disposable workspaces only"
+    },
+    {
+      "id": "stryker-js",
+      "gap": "GAP-006",
+      "version": "10.0.0",
+      "license": "Apache-2.0",
+      "install": "isolated-npm-project",
+      "package": "@stryker-mutator/core@10.0.0",
+      "role": "JavaScript/TypeScript mutation engine for disposable workspaces only"
+    },
+    {
+      "id": "hypothesis",
+      "gap": "GAP-011",
+      "version": "6.168.3",
+      "license": "MPL-2.0",
+      "install": "python-venv",
+      "package": "hypothesis==6.168.3",
+      "role": "property-based input generation/shrinking"
+    },
+    {
+      "id": "osv-scanner",
+      "gap": "GAP-014",
+      "version": "2.6.0",
+      "license": "Apache-2.0",
+      "platform": "windows-amd64",
+      "filename": "osv-scanner_windows_amd64.exe",
+      "url": "https://github.com/google/osv-scanner/releases/download/v2.6.0/osv-scanner_windows_amd64.exe",
+      "sha256": "e0ed7644118b717b028c249ee9d3515024e55e8510747ca08906eb96765354d6",
+      "role": "local dependency vulnerability evidence"
+    },
+    {
+      "id": "toxiproxy-cli",
+      "gap": "GAP-021",
+      "version": "2.12.0",
+      "license": "MIT",
+      "platform": "windows-amd64",
+      "filename": "toxiproxy-cli-windows-amd64.exe",
+      "url": "https://github.com/Shopify/toxiproxy/releases/download/v2.12.0/toxiproxy-cli-windows-amd64.exe",
+      "checksums_url": "https://github.com/Shopify/toxiproxy/releases/download/v2.12.0/checksums.txt",
+      "role": "test-only network fault injection control"
+    },
+    {
+      "id": "toxiproxy-server",
+      "gap": "GAP-021",
+      "version": "2.12.0",
+      "license": "MIT",
+      "platform": "windows-amd64",
+      "filename": "toxiproxy-server-windows-amd64.exe",
+      "url": "https://github.com/Shopify/toxiproxy/releases/download/v2.12.0/toxiproxy-server-windows-amd64.exe",
+      "checksums_url": "https://github.com/Shopify/toxiproxy/releases/download/v2.12.0/checksums.txt",
+      "role": "test-only network fault injection server; never auto-start"
+    },
+    {
+      "id": "gitleaks",
+      "gap": "GAP-024",
+      "version": "8.30.1",
+      "license": "MIT",
+      "platform": "windows-x64",
+      "filename": "gitleaks_8.30.1_windows_x64.zip",
+      "url": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_windows_x64.zip",
+      "sha256": "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e",
+      "role": "local secret-detection evidence; no commercial Action/service dependency"
+    }
+  ],
+  "optional": [
+    {
+      "id": "archify",
+      "gap": "GAP-004",
+      "default_install": false,
+      "reason": "Presentation only; evaluate after native Sudarshan/Architecture Intelligence evidence is stable."
+    }
+  ]
+}
