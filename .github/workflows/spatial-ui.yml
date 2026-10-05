@@ -46,8 +46,8 @@ jobs:
           test -f dist/operational-dashboard.js
           test -f dist/operational-preview.html
       - name: Install UI contract test dependency
-        working-directory: ../..
+        working-directory: .
         run: python -m pip install --disable-pip-version-check pytest
       - name: Verify owner-readable dashboard contract
-        working-directory: ../..
+        working-directory: .
         run: python -m pytest -q core/tests/test_operational_dashboard_ui.py
