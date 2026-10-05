@@ -13,7 +13,7 @@ $ProgressPreference = "SilentlyContinue"
 
 # KRISHNA free-only external-tool staging.
 # This script intentionally:
-# - installs/downloads only the pinned free/open-source instruments in config/free-gap-tools.lock.json;
+# - installs/downloads only pinned free/open-source instruments from config/free-gap-tools.lock.json;
 # - keeps every tool under E:\Krishna-The GOD by default;
 # - does NOT add anything to global PATH;
 # - does NOT start Toxiproxy or any other service;
@@ -75,6 +75,8 @@ function Expand-ZipClean([string]$Archive, [string]$Destination) {
         Write-Host "Already staged: $Destination"
         return
     }
+    $parent = Split-Path -Parent $Destination
+    Ensure-Dir $parent
     $tmp = "$Destination.extracting"
     Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
     Ensure-Dir $tmp
@@ -138,7 +140,7 @@ Ensure-Dir $env:npm_config_cache
 
 $qualifier = Split-Path -Qualifier $Root
 if ($qualifier) {
-    $driveName = $qualifier.TrimEnd('\').TrimEnd(':')
+    $driveName = $qualifier.Substring(0, 1)
     $drive = Get-PSDrive -Name $driveName -ErrorAction SilentlyContinue
     if ($drive) {
         $freeGB = [math]::Round($drive.Free / 1GB, 2)
@@ -251,14 +253,14 @@ if (-not $DownloadOnly) {
     Write-Step "Isolated Python instruments"
     $bootstrapPython = Resolve-BootstrapPython
     if (-not $bootstrapPython) {
-        foreach ($id in @("hypothesis","mutmut","semgrep-ce")) {
+        foreach ($id in @("hypothesis", "cosmic-ray", "semgrep-ce")) {
             if ($id -eq "semgrep-ce" -and $SkipSemgrep) { continue }
             Record-Result $id "SKIPPED" "" "Python not found"
         }
         Write-Warning "Python not found; isolated Python tools were not installed."
     } else {
         Write-Host "Bootstrap Python: $bootstrapPython"
-        foreach ($id in @("hypothesis", "mutmut", "semgrep-ce")) {
+        foreach ($id in @("hypothesis", "cosmic-ray", "semgrep-ce")) {
             if ($id -eq "semgrep-ce" -and $SkipSemgrep) {
                 Record-Result $id "SKIPPED_BY_OWNER" "" "-SkipSemgrep"
                 continue
@@ -314,12 +316,18 @@ if (-not $DownloadOnly) {
 }
 
 Write-Step "Write installation receipt"
+$gitCommit = $null
+$git = Get-Command git.exe -ErrorAction SilentlyContinue
+if (-not $git) { $git = Get-Command git -ErrorAction SilentlyContinue }
+if ($git) {
+    try { $gitCommit = (& $git.Source -C $repoRoot rev-parse HEAD 2>$null | Select-Object -First 1) } catch { $gitCommit = $null }
+}
 $receipt = [ordered]@{
     schema_version = 1
     policy = $manifest.policy
     timestamp_utc = [DateTime]::UtcNow.ToString("o")
     root = $Root
-    repo_commit = (& git -C $repoRoot rev-parse HEAD 2>$null | Select-Object -First 1)
+    repo_commit = $gitCommit
     download_only = [bool]$DownloadOnly
     results = @($results)
     authority = "NONE: external tools are evidence instruments; Sudarshan/Policy Kernel/Shared Action Bus remain authoritative"
