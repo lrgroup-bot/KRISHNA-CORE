@@ -111,5 +111,29 @@ class ProjectGraphIntelligenceTests(unittest.TestCase):
         self.assertEqual(report["unknown_edges"][0]["missing_nodes"], ["missing"])
 
 
+    def test_impact_confidence_refuses_unknown_seed_safety_claim(self):
+        graph = self.make_graph()
+        report = graph.impact(["missing.py"])
+        self.assertEqual(report["confidence_label"], "INSUFFICIENT")
+        self.assertEqual(report["unknown_seeds"], ["missing.py"])
+        self.assertFalse(report["safe_to_claim_no_impact"])
+
+    def test_impact_confidence_reports_dangling_graph_nodes(self):
+        graph = ProjectGraph()
+        graph.upsert_node("api.py", "module")
+        graph.link("api.py", "unregistered.py")
+        report = graph.impact(["api.py"])
+        self.assertEqual(report["confidence_label"], "PARTIAL")
+        self.assertEqual(report["graph_evidence"]["dangling_nodes"], ["unregistered.py"])
+        self.assertFalse(report["safe_to_claim_no_impact"])
+
+    def test_zero_impact_is_claimable_only_for_complete_known_graph(self):
+        graph = ProjectGraph()
+        graph.upsert_node("isolated.py", "module")
+        report = graph.impact(["isolated.py"])
+        self.assertEqual(report["confidence_label"], "GRAPH_COMPLETE_FOR_KNOWN_EDGES")
+        self.assertTrue(report["safe_to_claim_no_impact"])
+
+
 if __name__ == "__main__":
     unittest.main()
