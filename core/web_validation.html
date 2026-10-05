@@ -1248,6 +1248,70 @@ body{background:
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
 </style>
+
+<style id="krishna-owner-system-dashboard-v1">
+/* Owner-facing system rail: professional 3D instrument keys on desktop, compact on mobile. */
+.opsInformer{min-height:76px!important;max-height:92px!important}
+.projectHomeMini{gap:9px!important}
+.miniGodRow{
+ flex:0 0 auto!important;width:auto!important;min-width:118px!important;height:52px!important;
+ display:grid!important;grid-template-columns:32px minmax(0,1fr)!important;grid-template-rows:1fr 1fr!important;
+ column-gap:8px!important;row-gap:0!important;place-items:stretch!important;align-items:center!important;
+ padding:7px 12px 7px 9px!important;border-radius:15px!important;
+ border:1px solid rgba(119,215,231,.18)!important;
+ background:linear-gradient(145deg,rgba(23,49,62,.92),rgba(6,18,27,.96))!important;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.08),inset 0 -10px 24px rgba(0,0,0,.18),0 8px 20px rgba(0,0,0,.24)!important;
+ transform:perspective(500px) translateZ(0)!important;
+}
+.miniGodRow:hover,.miniGodRow:focus-visible{
+ transform:perspective(500px) translateY(-3px) translateZ(8px)!important;
+ border-color:rgba(230,198,111,.55)!important;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 13px 28px rgba(0,0,0,.34),0 0 22px rgba(119,215,231,.08)!important;
+}
+.miniGodLogo{
+ grid-row:1 / 3!important;grid-column:1!important;align-self:center!important;justify-self:center!important;
+ width:30px;height:30px;display:grid!important;place-items:center!important;border-radius:10px!important;
+ font-size:18px!important;color:#f1d786!important;
+ background:radial-gradient(circle at 32% 24%,rgba(255,255,255,.16),transparent 30%),linear-gradient(145deg,rgba(230,198,111,.12),rgba(119,215,231,.06))!important;
+ border:1px solid rgba(230,198,111,.2)!important;text-shadow:0 2px 8px rgba(230,198,111,.25)!important;
+}
+.miniGodName{
+ position:static!important;width:auto!important;height:auto!important;overflow:hidden!important;clip:auto!important;
+ grid-column:2!important;grid-row:1!important;align-self:end!important;white-space:nowrap!important;text-overflow:ellipsis!important;
+ font-size:9px!important;line-height:1.2!important;font-weight:850!important;letter-spacing:.08em!important;color:#e8f2f4!important;text-transform:uppercase!important;
+}
+.miniGodState{
+ position:static!important;width:auto!important;height:auto!important;overflow:hidden!important;clip:auto!important;
+ grid-column:2!important;grid-row:2!important;align-self:start!important;white-space:nowrap!important;
+ font-size:7px!important;line-height:1.25!important;font-weight:750!important;letter-spacing:.09em!important;color:#7f9aa4!important;text-transform:uppercase!important;
+}
+.miniGodRow .godLight{right:6px!important;top:6px!important}
+.godLight.status-green{background:#53f0a5!important;box-shadow:0 0 10px rgba(83,240,165,.72)!important}
+.godLight.status-yellow{background:#e6c66f!important;box-shadow:0 0 10px rgba(230,198,111,.45)!important}
+.godLight.status-blue{background:#5aaeff!important;box-shadow:0 0 10px rgba(90,174,255,.5)!important}
+.godLight.status-amber{background:#ffad45!important;box-shadow:0 0 10px rgba(255,173,69,.52)!important}
+.godLight.status-red{background:#ef5b67!important;box-shadow:0 0 10px rgba(239,91,103,.48)!important}
+
+/* Universal owner-readable operational dashboard. */
+.systemDashShell{display:grid;gap:14px;max-width:1280px;margin:0 auto;padding-bottom:28px}
+.systemDashHero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;padding:18px;border:1px solid var(--kr-line-strong);border-radius:20px;background:linear-gradient(145deg,rgba(16,39,52,.78),rgba(5,15,23,.74));box-shadow:var(--kr-shadow)}
+.systemDashLogo{width:58px;height:58px;display:grid;place-items:center;border-radius:18px;font-size:28px;color:var(--kr-gold);border:1px solid rgba(230,198,111,.28);background:radial-gradient(circle at 32% 24%,rgba(255,255,255,.15),transparent 28%),linear-gradient(145deg,rgba(230,198,111,.12),rgba(119,215,231,.07));box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 12px 28px rgba(0,0,0,.24)}
+.systemDashIdentity h1{margin:0;font-size:25px;letter-spacing:.02em}.systemDashIdentity p{margin:5px 0 0;color:var(--kr-muted);line-height:1.45;max-width:760px}
+.systemDashState{display:flex;align-items:center;gap:8px;border:1px solid var(--kr-line);border-radius:999px;padding:8px 11px;font-size:10px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;background:rgba(5,15,23,.62)}
+.systemDashState i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.systemDashActions{display:flex;gap:8px;flex-wrap:wrap}.systemDashActions button{border:1px solid var(--kr-line-strong);border-radius:10px;background:rgba(12,35,47,.72);color:#dff0f3;padding:8px 11px;cursor:pointer}.systemDashActions button:hover{border-color:rgba(230,198,111,.45)}
+.systemDashStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.systemDashStat{padding:13px;border:1px solid var(--kr-line);border-radius:14px;background:rgba(7,22,31,.62)}.systemDashStat span{display:block;color:#78939d;font-size:8px;font-weight:850;letter-spacing:.12em;margin-bottom:7px}.systemDashStat b{font-size:12px;color:#e3eef1;line-height:1.35}
+.systemDashGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.systemDashCard{min-height:132px;padding:15px;border:1px solid var(--kr-line);border-radius:16px;background:linear-gradient(145deg,rgba(12,31,42,.66),rgba(5,15,23,.58))}.systemDashCard h3{margin:0 0 10px;font-size:9px;letter-spacing:.13em;color:#87a9b4}.systemDashCard p{margin:0;color:#d8e7ea;font-size:12px;line-height:1.55;white-space:pre-wrap}.systemDashHistory{display:grid;gap:6px}.systemDashHistory div{padding:8px 9px;border-radius:9px;background:rgba(119,215,231,.045);border:1px solid rgba(119,215,231,.08);font-size:10px;color:#a9c0c7}
+.systemDashAdvanced{border:1px solid var(--kr-line);border-radius:14px;background:rgba(4,13,20,.66);overflow:hidden}.systemDashAdvanced summary{cursor:pointer;padding:11px 13px;color:#8da8b1;font-size:9px;letter-spacing:.1em}.systemDashAdvanced pre{max-height:280px;overflow:auto;margin:0;padding:13px;border-top:1px solid var(--kr-line);font:10px/1.5 Consolas,monospace;color:#9fb8c0;white-space:pre-wrap}
+.workingGodCard{cursor:pointer!important;transition:transform .16s ease,border-color .16s ease!important}.workingGodCard:hover{transform:translateY(-2px);border-color:rgba(230,198,111,.35)!important}
+@media(max-width:900px){.systemDashStats{grid-template-columns:repeat(2,minmax(0,1fr))}.systemDashGrid{grid-template-columns:1fr}}
+@media(max-width:820px){
+ .miniGodRow{flex-basis:42px!important;width:42px!important;min-width:42px!important;height:42px!important;padding:0!important;display:grid!important;grid-template-columns:1fr!important;grid-template-rows:1fr!important;place-items:center!important}
+ .miniGodLogo{grid-column:1!important;grid-row:1!important;width:28px;height:28px}.miniGodName,.miniGodState{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important}
+ .systemDashHero{grid-template-columns:auto minmax(0,1fr)}.systemDashState{grid-column:1 / -1;justify-self:start}.systemDashStats{grid-template-columns:1fr 1fr}
+}
+</style>
+
 </head><body data-krishna-ui="2026.09-current"><div id="notice" role="status" aria-live="polite"></div><dialog id="actionDialog" aria-labelledby="dialogLabel"><form method="dialog"><label id="dialogLabel" for="dialogInput"></label><input id="dialogInput" class="input" autocomplete="off"><div class="dialogActions"><button class="ghost" value="cancel">Cancel</button><button id="dialogAccept" class="primary" value="accept">Continue</button></div></form></dialog>
 <dialog id="pluginCredentialDialog" class="credentialDialog" aria-labelledby="pluginCredentialLabel">
  <form method="dialog">
@@ -1298,6 +1362,30 @@ body{background:
  <p id="godDetailRole"></p><div class="godDetailMeta"><div><span>CURRENT STATE</span><b id="godDetailState"></b></div><div><span>LAST UPDATE</span><b id="godDetailUpdated"></b></div></div>
  <h3>WHAT IS GOING ON</h3><p id="godDetailActivity"></p><div class="godDetailActions"><button id="godDetailOpen" type="button" hidden>Open workspace</button></div>
 </div></dialog>
+<section id="systemDashboard" class="view panelView" aria-label="KRISHNA system operational dashboard"><div class="panelInner">
+ <div class="systemDashShell">
+  <div class="systemDashHero">
+   <div id="systemDashLogo" class="systemDashLogo">◈</div>
+   <div class="systemDashIdentity"><h1 id="systemDashName">System</h1><p id="systemDashRole">Live KRISHNA subsystem.</p></div>
+   <div id="systemDashState" class="systemDashState"><i class="godLight status-yellow"></i><span>IDLE</span></div>
+  </div>
+  <div class="systemDashActions"><button type="button" onclick="updateGodDetail()">↻ Refresh live data</button><button id="systemDashOpen" type="button">Open native workspace</button><button id="systemDashAsk" type="button">Ask KRISHNA about this</button></div>
+  <div class="systemDashStats">
+   <div class="systemDashStat"><span>NOW</span><b id="systemDashNow">Waiting for live data</b></div>
+   <div class="systemDashStat"><span>HEALTH</span><b id="systemDashHealth">Checking</b></div>
+   <div class="systemDashStat"><span>LAST UPDATE</span><b id="systemDashUpdated">Checking</b></div>
+   <div class="systemDashStat"><span>LIVE SOURCE</span><b id="systemDashSource">/api/working-gods</b></div>
+  </div>
+  <div class="systemDashGrid">
+   <article class="systemDashCard"><h3>CURRENT WORK</h3><p id="systemDashCurrent">No active work reported.</p></article>
+   <article class="systemDashCard"><h3>LATEST RESULT</h3><p id="systemDashResult">No result reported yet.</p></article>
+   <article class="systemDashCard"><h3>PROBLEMS</h3><p id="systemDashProblems">No problem reported.</p></article>
+   <article class="systemDashCard"><h3>NEEDS PARTHA</h3><p id="systemDashOwner">Nothing requested.</p></article>
+  </div>
+  <article class="systemDashCard"><h3>RECENT ACTIVITY</h3><div id="systemDashHistory" class="systemDashHistory"><div>No recent activity reported.</div></div></article>
+  <details class="systemDashAdvanced"><summary>ADVANCED · LIVE BACKEND EVIDENCE</summary><pre id="systemDashRaw">Waiting for live backend data…</pre></details>
+ </div>
+</div></section>
 <div id="liveWork" class="liveWork" hidden>
  <div class="liveHead"><div><strong>👁 GARUDANETRA · <span id="liveMode">PRIVATE</span></strong><small id="liveState">READY</small></div>
  <div class="liveControls"><button onclick="garudaControl('pause')">PAUSE</button><button onclick="garudaControl('takeover')">TAKE CONTROL</button><button onclick="garudaControl('continue')">CONTINUE</button><button onclick="garudaControl('stop')">STOP</button><button onclick="toggleGarudaExpand()">EXPAND</button><button onclick="toggleLiveWork()">CLOSE</button></div></div>
@@ -1341,12 +1429,12 @@ body{background:
 <section id="sudarshan" class="view chatView">
 <div class="sudarshanBar"><span class="miniCore">☸</span><button class="ghost" onclick="newChat()">＋ New</button><button class="ghost" onclick="loadChats()">↻ Chats</button><button class="ghost legacyChatAction" onclick="renameCurrentChat()">✎ Rename</button><button class="ghost legacyChatAction" onclick="moveCurrentChat()">◇ Move</button><button class="ghost danger legacyChatAction" onclick="deleteCurrentChat()">× Delete</button><button class="ghost" onclick="loadTasks()">▷ Work</button><span class="spacer"></span><span id="sudarshanState" class="workChip">READY</span></div>
 <div class="sudarshanDeck">
-<aside class="holoRail left"><div class="holoPanel"><div class="k">PROJECT</div><div id="holoProject" class="hv">KRISHNA</div></div><div class="holoPanel"><div class="k">KRISHNA CORE</div><div id="holoCoreState" class="hv">CHECKING</div></div><div class="holoPanel"><div class="k">QUICK TOOLS</div><button class="ghost" onclick="investigate()">⌕ Investigate</button><button class="ghost" onclick="research()">⌁ Research</button><button class="ghost" onclick="inspectUI()">▣ Inspect UI</button></div></aside>
+<aside class="holoRail left"><div class="holoPanel"><div class="k">PROJECT</div><div id="holoProject" class="hv">KRISHNA</div></div><div class="holoPanel"><div class="k">KRISHNA CORE</div><div id="holoCoreState" class="hv">CHECKING</div></div><div class="holoPanel"><div class="k">AUTOMATION</div><div class="hv">KRISHNA selects investigation, research and verification automatically from your command.</div></div></aside>
 <div class="sudarshanCenter"><div id="messages" class="messages"><div id="welcome" class="welcome"><div class="orb">☸</div><h1>Sudarshan</h1><p>KRISHNA's spatial work console. Conversations, files, tools and verified work remain in one project context.</p><div style="margin-top:20px"><button class="new" style="display:inline-block;margin:0" onclick="newChat()">＋ New Sudarshan chat</button></div></div></div></div>
 <aside class="holoRail right"><div class="holoPanel"><div class="k">ACTIVE WORK</div><div id="holoTaskCount" class="hv">0 active</div><button class="ghost" onclick="showView('work');loadTasks()">Open ledger</button></div><div class="holoPanel"><div class="k">VERIFICATION</div><div class="hv">Evidence → Test → Browser → Promote</div></div><div class="holoPanel"><div class="k">SYSTEM LOAD</div><div id="holoLoad" class="hv">CHECKING</div></div></aside>
 </div></section>
 <section id="workingGods" class="view panelView"><div class="panelInner">
-<h1 class="panelTitle">KRISHNA Systems</h1><p class="panelSub">Live internal systems. Green = working now. Red = idle or not active. Select any system to see its latest activity and exact state.</p>
+<h1 class="panelTitle">KRISHNA Systems</h1><p class="panelSub">Live KRISHNA systems. Green = working, gold = ready/idle, blue = healing, amber = waiting for Partha, red = blocked/error. Select any system for its operational dashboard.</p>
 <div id="workingGodsGrid" class="workingGodsGrid"></div>
 <div class="brahmaFeed"><div class="brahmaFeedHead">🪷 BRAHMA QC · ERROR → HANDLING → DONE</div><div id="brahmaFeedRows" class="brahmaFeedRows"></div></div>
 </div></section>
@@ -1526,7 +1614,7 @@ body{background:
 <div class="card"><div class="k">MOBILE PAIRING</div><div id="mobilePairingState" class="v">CHECKING</div><div id="mobilePairingList" style="margin-top:8px"></div></div></div>
 <div class="card" style="margin-top:12px"><div class="k">FREE / CLOUD MODEL GATEWAY</div><div class="addBox" style="margin-top:8px"><input id="gatewayName" class="input" placeholder="Gateway name"><input id="gatewayUrl" class="input" placeholder="https://gateway.example/v1"><input id="gatewayModel" class="input" placeholder="Model"><input id="gatewayKey" class="input" type="password" autocomplete="off" placeholder="API key · encrypted with Windows DPAPI"><label class="workspaceMeta"><input id="gatewayFreeOnly" type="checkbox" checked> free-only · never paid fallback</label><button class="primary" onclick="registerModelGateway()">Connect gateway</button></div><div id="modelGatewayList" style="margin-top:10px"></div></div>
 <div class="card" style="margin-top:12px"><button class="ghost" onclick="runAll()">Run API checks</button><div id="testState" class="v">NOT RUN</div><div id="tests" class="tests"></div></div><div class="card" style="margin-top:12px"><div class="k">TOOL OUTPUT</div><div id="log" class="log">Ready.</div></div></div></section>
-<div class="composerWrap"><div class="composer"><textarea id="input" rows="2" placeholder="Command KRISHNA through Sudarshan…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea><div class="composeFoot"><div class="tools"><button class="tool" onclick="document.getElementById('attachInput').click()">＋ File</button><input id="attachInput" type="file" style="display:none" onchange="uploadAttachment(this)"><button class="tool" onclick="showView('plugins')">＋ Plugin</button><button class="tool" onclick="focusProjectSidebar()">◇ Project</button><button class="tool" onclick="investigate()">⌕ Investigate</button><button class="tool" onclick="research()">⌁ Research</button></div><div><span class="hint">Enter to send · Shift+Enter for line</span> <button class="send" onclick="send()">↑</button></div></div></div></div>
+<div class="composerWrap"><div class="composer"><textarea id="input" rows="2" placeholder="Command KRISHNA through Sudarshan…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea><div class="composeFoot"><div class="tools"><button class="tool" onclick="document.getElementById('attachInput').click()">＋ File</button><input id="attachInput" type="file" style="display:none" onchange="uploadAttachment(this)"><button class="tool" onclick="showView('plugins')">＋ Plugin</button><button class="tool" onclick="focusProjectSidebar()">◇ Project</button></div><div><span class="hint">Enter to send · Shift+Enter for line</span> <button class="send" onclick="send()">↑</button></div></div></div></div>
 </main></div>
 <script>
 let chatId=null,projects=[],sending=false,noticeTimer,pendingAttachmentIds=[];const $=id=>document.getElementById(id);
@@ -1730,7 +1818,7 @@ function confirmAction(message){return requestDialog(message,'',true)}
 async function req(path,payload,signal){const o={headers:{Accept:'application/json','X-Krishna-Device':'sudarshan-web'}};if(signal)o.signal=signal;if(payload!==undefined){o.method='POST';o.headers['Content-Type']='application/json';o.body=JSON.stringify(payload)}const r=await fetch(path,o);let d={};try{d=await r.json()}catch(e){d={error:'invalid JSON'}}if(!r.ok)throw new Error((d&&d.error)||('HTTP '+r.status));return d}
 async function actionReq(action,payload,options={}){const d=await req('/api/action-bus/dispatch',{action,payload:payload||{},project:options.project||($('project')?.value||'KRISHNA'),actor:'sudarshan-web',approved:!!options.approved,permissions:options.permissions||[],idempotency_key:options.idempotency_key||null});if(d.action_id){document.body.dataset.lastActionId=d.action_id;document.body.dataset.lastActionStatus=d.status||'completed'}return d.result!==undefined?d.result:d}
 function log(x){$('log').textContent=typeof x==='string'?x:JSON.stringify(x,null,2);if(typeof x==='string'){$('notice').textContent=x;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{$('notice').textContent=''},6000)}}
-function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.body.dataset.view=id;const titles={home:'Almighty Core',sudarshan:'Sudarshan',workingGods:'Working Gods',projects:'Projects',kabach:'KABACH',garuda:'Garuda',garudanetra:'Garudanetra',brahmagyan:'BRAHMAGYAN',gyan:'Gyan-Bhandar',narad:'NARAD',plugins:'Plugins',specialists:'Specialists',development:'Developer',uiGuardian:'UI Guardian',work:'Work progress',activity:'Activity',system:'System'};$('pageTitle').textContent=titles[id]||id;const composer=document.querySelector('.composerWrap');if(composer)composer.style.display=id==='sudarshan'?'block':'none';document.querySelectorAll('.nav button').forEach(x=>{const active=x.getAttribute('onclick')==="showView('"+id+"')";x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});if(id==='workingGods')loadWorkingGods();if(id==='work'){loadTasks();loadCommitments();}if(id==='uiGuardian')loadUIGuardian();if(id==='plugins')loadPlugins();if(id==='projects')renderProjects();if(id==='brahmagyan')loadBrahmagyan();if(id==='gyan'){loadGyanInventory();loadGyan();loadGyanPending()}if(id==='narad')loadNarad();if(id==='garuda')refreshGaruda();if(id==='garudanetra')loadGarudanetra();if(id==='kabach')loadKabach();if(id==='development')loadUIRegistry()}
+function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.body.dataset.view=id;const titles={home:'Almighty Core',sudarshan:'Sudarshan',workingGods:'Working Gods',projects:'Projects',kabach:'KABACH',garuda:'Garuda',garudanetra:'Garudanetra',brahmagyan:'BRAHMAGYAN',gyan:'Gyan-Bhandar',narad:'NARAD',plugins:'Plugins',specialists:'Specialists',development:'Developer',uiGuardian:'UI Guardian',work:'Work progress',activity:'Activity',system:'System',systemDashboard:'System dashboard'};$('pageTitle').textContent=titles[id]||id;const composer=document.querySelector('.composerWrap');if(composer)composer.style.display=id==='sudarshan'?'block':'none';document.querySelectorAll('.nav button').forEach(x=>{const active=x.getAttribute('onclick')==="showView('"+id+"')";x.classList.toggle('active',active);if(active)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});if(id==='workingGods')loadWorkingGods();if(id==='work'){loadTasks();loadCommitments();}if(id==='uiGuardian')loadUIGuardian();if(id==='plugins')loadPlugins();if(id==='projects')renderProjects();if(id==='brahmagyan')loadBrahmagyan();if(id==='gyan'){loadGyanInventory();loadGyan();loadGyanPending()}if(id==='narad')loadNarad();if(id==='garuda')refreshGaruda();if(id==='garudanetra')loadGarudanetra();if(id==='kabach')loadKabach();if(id==='development')loadUIRegistry()}
 function applySystemLight(light){
  const state=String(light?.state||'IDLE').toUpperCase(),dot=$('systemLightDot'),label=$('systemLightText');
  if(dot)dot.className='opsDot state-'+state.toLowerCase();
@@ -1950,56 +2038,81 @@ const godRoles={
  vishvakarma:['Repair and engineering specialist for evidence-led electronics diagnosis and verified repair learning.','specialists']
 }
 let workingGodsSnapshot=null,selectedGodId=null,workingGodsFetchError=false;
-function openGodDetail(id){
- selectedGodId=id;
- const dialog=$('godDetailDialog');
- updateGodDetail();
- if(dialog&&!dialog.open)dialog.showModal();
+const godStatusEndpoints={
+ krishna:'/api/dashboard',brahma:'/api/brahma/status',sudarshan:'/api/sudarshan/runtime',
+ hawkeye:'/api/hawkeye/status',kabach:'/api/kabach/privacy/status',garuda:'/api/garuda/status',
+ garudanetra:'/api/garudanetra/sessions',narad:'/api/narad/status',brahmagyan:'/api/brahmagyan/status',
+ gyan:'/api/gyan-bhandar/inventory?project=KRISHNA',amcc:'/api/amcc/status?limit=50',
+ suryadev:'/api/suryadev/status',chandradev:'/api/chandradev/status',mrityunjaya:'/api/mrityunjay/status',
+ ui_guardian:'/api/ui-guardian/registry?project=KRISHNA',specialists:'/api/specialists',
+ perfection:'/api/project-perfection/status',vishvakarma:'/api/design/status'
+};
+function godVisualState(g){
+ const s=String(g?.state||'idle').toLowerCase();
+ if(g?.active||['working','handling','running','active'].includes(s))return {label:'WORKING',color:'green'};
+ if(['healing','recovering','repairing'].includes(s))return {label:'HEALING',color:'blue'};
+ if(['waiting','waiting_approval','approval','needs_owner','paused'].includes(s))return {label:'WAITING FOR PARTHA',color:'amber'};
+ if(['error','failed','blocked','offline','unavailable'].includes(s))return {label:'BLOCKED',color:'red'};
+ if(['done','completed','fixed','verified'].includes(s))return {label:'READY · LAST WORK COMPLETE',color:'yellow'};
+ return {label:'IDLE · READY',color:'yellow'};
 }
-function updateGodDetail(){
- const g=(workingGodsSnapshot?.gods||[]).find(x=>x.id===selectedGodId);if(!g)return;
+function backendProblem(data){
+ if(!data||typeof data!=='object')return '';
+ const direct=data.error||data.last_error||data.failure||data.blocked_reason;
+ if(direct)return String(direct);
+ if(data.healthy===false||data.ok===false)return 'Backend reports that this system needs attention.';
+ return '';
+}
+function backendOwnerNeed(data,g){
+ const s=String(data?.status||data?.state||g?.state||'').toLowerCase();
+ if(s.includes('approval')||s.includes('waiting')||s.includes('blocked'))return 'Review is required before this system can continue.';
+ return 'Nothing requested from Partha.';
+}
+async function openGodDetail(id){
+ selectedGodId=id;showView('systemDashboard');await updateGodDetail();
+}
+async function updateGodDetail(){
+ const g=(workingGodsSnapshot?.gods||[]).find(x=>x.id===selectedGodId);
+ if(!g){$('systemDashName').textContent='System unavailable';$('systemDashCurrent').textContent='This system is not present in the live KRISHNA registry.';return}
  const [role,view]=godRoles[g.id]||['A KRISHNA system component.','workingGods'];
- $('godDetailLogo').textContent=g.logo||'◈';$('godDetailName').textContent=g.name||g.id;
- $('godDetailRole').textContent=role;
- const state=String(g.state||'idle').toLowerCase();
- $('godDetailState').textContent=state==='working'||state==='handling'?'Working now':state==='error'?'Idle · needs attention':state==='done'||state==='completed'||state==='fixed'?'Idle · last work completed':'Idle · no active work';
- $('godDetailUpdated').textContent=g.updated_at?new Date(g.updated_at*1000).toLocaleString():'Not reported';
- const detail=String(g.detail||'').trim();
- const latest=(workingGodsSnapshot?.notifications||[]).filter(n=>n.component===g.id).at(-1);
- let activity=state==='idle'&&(!detail||detail.toLowerCase()==='idle')?'No recent work is recorded for this system.':detail||'No activity details have been reported.';
- if(latest?.detail==='ConnectionAbortedError'||latest?.detail?.includes('ConnectionAbortedError'))activity=g.id==='brahma'?'BRAHMA recorded an interrupted connection and is handling the reported error.':'A connection closed before the task finished. The error is recorded for review.';
- else if(latest?.detail==='action.requested')activity='A task was requested and this system is working on it.';
- $('godDetailActivity').textContent=workingGodsFetchError?'Live update unavailable. Last report: '+activity:activity;
- const open=$('godDetailOpen');open.hidden=!view;open.textContent=view==='home'?'Talk to KRISHNA':'Open '+(g.name||'system');open.onclick=()=>{const d=$('godDetailDialog');if(d.open)d.close();if(view==='home'){showView('home');toggleKrishnaPopup(true)}else showView(view)};
+ const visual=godVisualState(g),endpoint=godStatusEndpoints[g.id]||'/api/working-gods';
+ $('systemDashLogo').textContent=g.logo||'◈';$('systemDashName').textContent=g.name||g.id;$('systemDashRole').textContent=role;
+ const stateBox=$('systemDashState');stateBox.querySelector('i').className='godLight status-'+visual.color;stateBox.querySelector('span').textContent=visual.label;
+ $('systemDashNow').textContent=visual.label;$('systemDashUpdated').textContent=g.updated_at?new Date(g.updated_at*1000).toLocaleString():'Not reported';
+ $('systemDashSource').textContent=endpoint;$('systemDashCurrent').textContent=g.active?(String(g.detail||'Work is active.')):'No active work reported. '+(String(g.detail||'').trim()&&!['idle','ready'].includes(String(g.detail).trim().toLowerCase())?String(g.detail):'');
+ const notes=(workingGodsSnapshot?.notifications||[]).filter(n=>n.component===g.id).slice(-8).reverse();
+ $('systemDashResult').textContent=notes[0]?.detail||notes[0]?.title||(visual.label.startsWith('READY')?String(g.detail||'Last work completed.'):'No completed result has been reported yet.');
+ const history=$('systemDashHistory');history.replaceChildren();
+ if(!notes.length){const d=document.createElement('div');d.textContent='No recent activity reported.';history.appendChild(d)}
+ notes.forEach(n=>{const d=document.createElement('div');const when=n.updated_at||n.time||n.timestamp;d.textContent=(when?new Date(Number(when)*1000).toLocaleString()+' · ':'')+(n.title||n.state||'Activity')+(n.detail?' — '+n.detail:'');history.appendChild(d)});
+ $('systemDashHealth').textContent=visual.color==='red'?'Needs attention':'Healthy / reporting';
+ $('systemDashProblems').textContent=visual.color==='red'?(String(g.detail||'System reports a blocked/error state.')):'No problem reported by the common live-status feed.';
+ $('systemDashOwner').textContent=visual.color==='amber'?'Review/approval is required before work can continue.':'Nothing requested from Partha.';
+ const open=$('systemDashOpen');open.hidden=!view||view==='workingGods';open.textContent=view==='home'?'Open KRISHNA':'Open '+(g.name||'system')+' workspace';open.onclick=()=>view==='home'?(showView('home'),toggleKrishnaPopup(true)):showView(view);
+ $('systemDashAsk').onclick=()=>{showView('home');toggleKrishnaPopup(true);const input=$('krishnaPopupInput');if(input){input.value='Explain '+(g.name||g.id)+' in simple language: what it is doing now, what it completed, any problems, and whether you need anything from me.';input.focus()}};
+ let raw={common_status:g,notifications:notes};
+ try{const dedicated=await req(endpoint);raw.dedicated_status=dedicated;const problem=backendProblem(dedicated);if(problem){$('systemDashProblems').textContent=problem;$('systemDashHealth').textContent='Needs attention'}$('systemDashOwner').textContent=backendOwnerNeed(dedicated,g)}catch(e){raw.dedicated_status_unavailable=String(e?.message||e);$('systemDashHealth').textContent=visual.color==='red'?'Needs attention':'Common status available · dedicated telemetry unavailable'}
+ $('systemDashRaw').textContent=JSON.stringify(raw,null,2);
 }
 function godRowElement(g,compact=false){
- const row=document.createElement(compact?'button':'div');
- if(compact){
-  row.className='miniGodRow';row.type='button';row.dataset.godId=g.id;row.dataset.label=g.name||g.id;
-  row.title=(g.name||g.id)+' · '+(g.active?'WORKING':String(g.state||'IDLE').toUpperCase());
-  row.setAttribute('aria-label','Show '+(g.name||g.id)+' details');row.onclick=()=>openGodDetail(g.id);
-  const logo=document.createElement('span');logo.className='miniGodLogo';logo.textContent=g.logo||'•';
-  const light=document.createElement('i');light.className='godLight status-'+(g.color||'red');
-  const name=document.createElement('span');name.className='miniGodName';name.textContent=g.name||g.id;
-  const state=document.createElement('span');state.className='miniGodState';state.textContent=g.state||'idle';
-  row.append(logo,light,name,state);
- }else{
-  row.className='workingGodCard';
-  const top=document.createElement('div');top.className='workingGodTop';
-  const logo=document.createElement('span');logo.className='workingGodLogo';logo.textContent=g.logo||'•';
-  const light=document.createElement('i');light.className='godLight status-'+(g.color||'red');
-  const name=document.createElement('span');name.className='workingGodName';name.textContent=g.name||g.id;
-  const state=document.createElement('span');state.className='workingGodState';state.textContent=g.state||'idle';
-  const detail=document.createElement('div');detail.className='workingGodDetail';detail.textContent=g.detail||'';
-  top.append(logo,light,name,state);row.append(top,detail);
- }
+ const row=document.createElement(compact?'button':'div'),visual=godVisualState(g);
+ row.dataset.godId=g.id;row.dataset.label=g.name||g.id;row.title=(g.name||g.id)+' · '+visual.label;
+ row.setAttribute('aria-label','Open '+(g.name||g.id)+' operational dashboard');row.onclick=()=>openGodDetail(g.id);
+ if(compact){row.className='miniGodRow';row.type='button'}
+ else{row.className='workingGodCard';row.tabIndex=0;row.setAttribute('role','button');row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openGodDetail(g.id)}}}
+ const logo=document.createElement('span');logo.className=compact?'miniGodLogo':'workingGodLogo';logo.textContent=g.logo||'•';
+ const light=document.createElement('i');light.className='godLight status-'+visual.color;
+ const name=document.createElement('span');name.className=compact?'miniGodName':'workingGodName';name.textContent=g.name||g.id;
+ const state=document.createElement('span');state.className=compact?'miniGodState':'workingGodState';state.textContent=visual.label;
+ if(compact)row.append(logo,light,name,state);
+ else{const top=document.createElement('div');top.className='workingGodTop';const detail=document.createElement('div');detail.className='workingGodDetail';detail.textContent=g.detail||'No active work reported.';top.append(logo,light,name,state);row.append(top,detail)}
  return row;
 }
 async function loadWorkingGods(){
  try{
   const d=await req('/api/working-gods');workingGodsSnapshot=d;workingGodsFetchError=false;setBrahmaLight(d.latest_color||'red');
   const mini=$('workingGodsMini');if(mini){const focused=mini.contains(document.activeElement)?document.activeElement.dataset.godId:null;mini.replaceChildren();(d.gods||[]).forEach(g=>mini.appendChild(godRowElement(g,true)));if(focused)Array.from(mini.children).find(x=>x.dataset.godId===focused)?.focus({preventScroll:true})}
-  if($('godDetailDialog')?.open)updateGodDetail();
+  if(document.body.dataset.view==='systemDashboard'&&selectedGodId)updateGodDetail();
   const grid=$('workingGodsGrid');if(grid){grid.replaceChildren();(d.gods||[]).forEach(g=>grid.appendChild(godRowElement(g,false)))}
   const feed=$('brahmaFeedRows');if(feed){
    feed.replaceChildren();
