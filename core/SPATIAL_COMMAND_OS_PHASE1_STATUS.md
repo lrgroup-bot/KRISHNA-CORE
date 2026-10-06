@@ -74,3 +74,9 @@ Phase 1 is not a release verdict. Still required before deployment or controlled
 Do not merge, deploy, or unlock actions based on Phase 1 alone. Promotion remains subject to the handover rule:
 
 `SOURCE -> TEST -> VERIFY -> DEPLOY -> RUNTIME TEST`
+
+## Verification retrigger — 2026-10-06
+
+- Full regression retriggered for the latest AuthorityLease source head `26b125d5ea21f925243ad938267b24b7422b915f`.
+- No tests may be skipped and no assertions may be weakened to obtain a green result.
+- Promotion remains blocked until the complete cross-platform regression and security gates are green.
