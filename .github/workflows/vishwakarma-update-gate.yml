@@ -1,0 +1,31 @@
+name: KRISHNA VISHWAKARMA Update Gate
+on:
+  push:
+    branches: [feature/vishwakarma-verified-updates]
+  pull_request:
+    paths:
+      - "core/krishna_core/vishwakarma.py"
+      - "core/tests/test_vishwakarma.py"
+      - "docs/VISHWAKARMA_VERIFIED_UPDATE_PROTOCOL.md"
+      - ".github/workflows/vishwakarma-update-gate.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Compile VISHWAKARMA
+        run: python -m py_compile core/krishna_core/vishwakarma.py core/tests/test_vishwakarma.py
+      - name: Test VISHWAKARMA gates
+        env:
+          PYTHONPATH: core
+        run: python -m unittest -v core.tests.test_vishwakarma
+      - name: Enforce frontend-before-EXE contract
+        run: |
+          grep -q "exe_before_frontend_approval: bool = False" core/krishna_core/vishwakarma.py
+          grep -q "frontend_required: bool = True" core/krishna_core/vishwakarma.py
+          grep -q "auto_merge: bool = False" core/krishna_core/vishwakarma.py
