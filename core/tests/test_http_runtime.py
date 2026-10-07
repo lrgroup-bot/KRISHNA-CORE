@@ -987,8 +987,8 @@ class HTTPRuntimeTests(unittest.TestCase):
         self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"sandbox"})[0],200)
         self.assertEqual(self.call("/api/narad/workflows/execute",{"workflow_id":wid})[0],200)
         self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"stable"})[0],403)
-        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"verified","verified":True,"approved":True})[0],200)
-        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"stable","verified":True,"approved":True})[0],200)
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"verified","verified":True,"approved":True})[0],403)
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"stable","verified":True,"approved":True})[0],403)
         self.assertTrue(self.call("/api/narad/history")[1]["history"])
 
     def test_narad_webhook_and_connection_reference_contract(self):
@@ -1002,11 +1002,11 @@ class HTTPRuntimeTests(unittest.TestCase):
         code,w=self.call("/api/narad/workflows/create",{"name":"incoming-http","trigger":{"type":"webhook"},"steps":[{"action":"publish_event","topic":"http.webhook"}]})
         self.assertEqual(code,201);wid=w["id"]
         self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"sandbox"})[0],200)
-        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"verified","verified":True,"approved":True})[0],200)
-        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"stable","verified":True,"approved":True})[0],200)
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"verified","verified":True,"approved":True})[0],403)
+        self.assertEqual(self.call("/api/narad/workflows/promote",{"workflow_id":wid,"state":"stable","verified":True,"approved":True})[0],403)
         code,hook=self.call("/api/narad/webhooks/provision",{"workflow_id":wid})
         self.assertEqual(code,201)
-        self.assertEqual(self.call(hook["path"],{"hello":"world"})[0],200)
+        self.assertEqual(self.call(hook["path"],{"hello":"world"})[0],403)
         self.assertEqual(self.call("/api/narad/webhook/wrong",{"hello":"world"})[0],403)
 
     def test_narad_dead_letter_is_visible(self):
@@ -1021,10 +1021,10 @@ class HTTPRuntimeTests(unittest.TestCase):
         code, plugin=self.call("/api/plugins/add", {"name":"Isolated test plugin","kind":"http","endpoint":"https://example.com","auth_type":"none","enabled":False,"free":True})
         self.assertEqual(code,200)
         self.assertEqual(self.call("/api/plugins/enable", {"id":plugin["id"],"enabled":True})[0],403)
-        self.assertEqual(self.call("/api/plugins/enable", {"id":plugin["id"],"enabled":True,"approved":True})[0],200)
+        self.assertEqual(self.call("/api/plugins/enable", {"id":plugin["id"],"enabled":True,"approved":True})[0],403)
         self.assertEqual(self.call("/api/plugins/enable", {"id":plugin["id"],"enabled":False})[0],200)
         self.assertEqual(self.call("/api/plugins/remove", {"id":plugin["id"]})[0],403)
-        self.assertEqual(self.call("/api/plugins/remove", {"id":plugin["id"],"approved":True})[0],200)
+        self.assertEqual(self.call("/api/plugins/remove", {"id":plugin["id"],"approved":True})[0],403)
 
 
 if __name__ == "__main__": unittest.main()

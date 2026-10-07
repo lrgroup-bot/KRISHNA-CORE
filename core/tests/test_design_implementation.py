@@ -34,7 +34,9 @@ class DesignImplementationGuardTests(unittest.TestCase):
         end=server.index('if post_path == "/api/project-perfection/visual-intent":',start)
         block=server[start:end]
         self.assertIn('project.design.implement',block)
-        self.assertIn('promote_candidate(token,approved=True)',block)
+        self.assertIn('promote_candidate(',block)
+        self.assertIn('approved=bool(data.get("approved",False))',block)
+        self.assertIn('authority_lease=data.get("authority_lease")',block)
         self.assertIn('verify_design_candidate(',block)
         self.assertIn('orch.promotions.rollback(',block)
         self.assertIn('rolled_back_post_verify',block)

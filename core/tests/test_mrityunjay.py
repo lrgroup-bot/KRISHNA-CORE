@@ -105,7 +105,7 @@ class MrityunjayTests(unittest.TestCase):
             '"mrityunjay","KRISHNA change, improvement, self-heal',
             "self.mrityunjay.bind(self._mrityunjay_heal_event)",
             "self.mrityunjay.attach()",
-            '"auto_apply":True',
+            "enabled=bool(settings.allow_actions)",
         ):
             self.assertIn(token, source)
 

@@ -443,7 +443,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                 self.assertEqual("waiting_approval", waiting["status"])
                 self.assertEqual("action_selection", waiting["phase"])
                 with self.assertRaises(KeyError):
-                    orch.run_managed_goal("demo", "repair app", action_name="patch", approved=True)
+                    orch.run_managed_goal("demo", "repair app", action_name="patch")
                 self.assertEqual("live", live.read_text(encoding="utf-8"))
             finally:
                 orch.close()
@@ -467,7 +467,7 @@ class KrishnaCapabilityTests(unittest.TestCase):
                     lambda workspace: ((workspace / "app.txt").read_text(encoding="utf-8") == "fixed", "shadow fixed"),
                 )
                 orch.router.route = lambda prompt, privacy="local_only": {"provider": "test", "text": "0.5|observed"}
-                result = orch.run_managed_goal("demo", "repair app", action_name="patch", approved=True)
+                result = orch.run_managed_goal("demo", "repair app", action_name="patch")
                 self.assertEqual("verified", result["status"])
                 self.assertEqual("promotion_ready", result["phase"])
                 self.assertTrue(result["detail"]["promotion_ready"])
