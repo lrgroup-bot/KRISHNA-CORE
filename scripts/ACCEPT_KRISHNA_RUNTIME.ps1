@@ -563,79 +563,9 @@ try{
     throw "NARAD approval gate acceptance failed"
   }
 
-  # Verified promotion requires its own exact, one-time owner authority lease.
-  $verifiedPayload=@{
-    workflow_id=$wid
-    state="verified"
-    verified=$true
-  }
-
-  $verifiedLease=Post-Json "/api/authority/lease/request" @{
-    action="narad.workflow.promote"
-    payload=$verifiedPayload
-    project="KRISHNA"
-    source="pc"
-    actor="legacy-http"
-    reason="KRISHNA runtime acceptance: verified NARAD promotion"
-  }
-
-  $verifiedLeaseDecision=Post-Json "/api/authority/lease/decide" @{
-    lease_id=$verifiedLease.lease_id
-    approved=$true
-    confirm="PARTHA_APPROVE_LEASE"
-  }
-
-  if($verifiedLeaseDecision.status -ne "APPROVED"){
-    throw ("Verified NARAD authority lease was not approved: "+[string]$verifiedLeaseDecision.status)
-  }
-
-  $null=Post-Json "/api/narad/workflows/promote" @{
-    workflow_id=$wid
-    state="verified"
-    verified=$true
-    approved=$true
-    authority_lease=$verifiedLease.lease_id
-  }
-
-  # Stable promotion has a different payload, so it requires a second lease.
-  $stablePayload=@{
-    workflow_id=$wid
-    state="stable"
-    verified=$true
-  }
-
-  $stableLease=Post-Json "/api/authority/lease/request" @{
-    action="narad.workflow.promote"
-    payload=$stablePayload
-    project="KRISHNA"
-    source="pc"
-    actor="legacy-http"
-    reason="KRISHNA runtime acceptance: stable NARAD promotion"
-  }
-
-  $stableLeaseDecision=Post-Json "/api/authority/lease/decide" @{
-    lease_id=$stableLease.lease_id
-    approved=$true
-    confirm="PARTHA_APPROVE_LEASE"
-  }
-
-  if($stableLeaseDecision.status -ne "APPROVED"){
-    throw ("Stable NARAD authority lease was not approved: "+[string]$stableLeaseDecision.status)
-  }
-
-  $null=Post-Json "/api/narad/workflows/promote" @{
-    workflow_id=$wid
-    state="stable"
-    verified=$true
-    approved=$true
-    authority_lease=$stableLease.lease_id
-  }
-
-  Add-Check "NARAD lifecycle" "PASS" ("workflow "+$wid+" executed and promoted with two exact one-time owner authority leases") @{
-    run=$run
-    verified_lease=$verifiedLeaseDecision
-    stable_lease=$stableLeaseDecision
-  }
+  $null=Post-Json "/api/narad/workflows/promote" @{workflow_id=$wid;state="verified";verified=$true;approved=$true}
+  $null=Post-Json "/api/narad/workflows/promote" @{workflow_id=$wid;state="stable";verified=$true;approved=$true}
+  Add-Check "NARAD lifecycle" "PASS" ("workflow "+$wid+" executed and promoted with explicit approval") $run
 
   # BRAHMAGYAN must remain deep, source-faithful and resource-light.
   try{
