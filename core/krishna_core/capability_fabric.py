@@ -68,6 +68,7 @@ class CapabilityFabric:
 
     def route(self, capability, *, sensitive=False, mobile=False, prefer_free=True,
               heavy=False, context=None):
+        context=dict(context or {})
         rows=[
             x for x in self._providers.values()
             if x.enabled and x.capability==str(capability)
@@ -85,20 +86,43 @@ class CapabilityFabric:
         options=[x.provider_id for x in rows]
         if self.system_one and len(options)>1:
             decision=self.system_one.choose({
-                **dict(context or {}),"capability":capability,"sensitive":sensitive,
+                **context,"capability":capability,"sensitive":sensitive,
                 "mobile":mobile,"heavy":heavy,
             },options)
             selected=decision["choice"]
         else:
             decision=None
             selected=options[0]
-        return {
+        result={
             "selected":selected,
             "provider":next(x.as_dict() for x in rows if x.provider_id==selected),
             "candidates":[x.as_dict() for x in rows],
             "decision":decision,
             "authority":"provider recommendation only; Sudarshan/PolicyKernel governs execution",
         }
+        # Existing Shared Action Bus `capability.route` already passes a context
+        # object.  Enrich that response for knowledge capabilities instead of
+        # adding a second API/action surface.
+        if str(capability)=="knowledge.research" and str(context.get("topic") or "").strip():
+            kinds=context.get("kinds")
+            if kinds is not None and not isinstance(kinds,(list,tuple,set)):
+                raise ValueError("knowledge context kinds must be an array")
+            result["knowledge_plan"]=self._gyan_sagar().research_plan(
+                str(context["topic"]),
+                rishi_id=context.get("rishi_id"),
+                kinds=kinds or (),
+                max_sources=int(context.get("max_sources") or 12),
+            )
+            result["execution"]="plan only; network/browser work remains behind Shared Action Bus and approved adapters"
+        elif str(capability)=="knowledge.rights" and str(context.get("requested_mode") or "").strip():
+            result["rights_decision"]=self._gyan_sagar().rights_decision(
+                context["requested_mode"],
+                license_id=str(context.get("license_id") or ""),
+                source_default_max_mode=str(context.get("source_default_max_mode") or "read"),
+                commercial_context=bool(context.get("commercial_context",True)),
+                explicit_permission=bool(context.get("explicit_permission",False)),
+            ).public()
+        return result
 
     def _gyan_sagar(self):
         # Lazy import/instantiation prevents source-catalog discovery from adding
