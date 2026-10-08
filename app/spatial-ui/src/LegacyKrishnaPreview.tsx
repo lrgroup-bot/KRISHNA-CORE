@@ -21,17 +21,27 @@ export default function LegacyKrishnaPreview() {
         doc.head.appendChild(link);
       }
 
-      const old = doc.getElementById('krishna-brahmand-script');
-      if (old) old.remove();
-      const script = doc.createElement('script');
-      script.id = 'krishna-brahmand-script';
-      script.src = `/spatial/krishna-brahmand.js?v=${Date.now()}`;
-      script.onload = () => setState('ready');
-      script.onerror = () => {
-        setError('KRISHNA Brahmand enhancement script failed to load.');
+      ['krishna-brahmand-data-script', 'krishna-brahmand-main-script'].forEach((id) => doc.getElementById(id)?.remove());
+
+      const dataScript = doc.createElement('script');
+      dataScript.id = 'krishna-brahmand-data-script';
+      dataScript.src = `/spatial/krishna-brahmand-data.js?v=${Date.now()}`;
+      dataScript.onerror = () => {
+        setError('KRISHNA Brahmand pipeline data failed to load.');
         setState('error');
       };
-      doc.body.appendChild(script);
+      dataScript.onload = () => {
+        const mainScript = doc.createElement('script');
+        mainScript.id = 'krishna-brahmand-main-script';
+        mainScript.src = `/spatial/krishna-brahmand-main.js?v=${Date.now()}`;
+        mainScript.onload = () => setState('ready');
+        mainScript.onerror = () => {
+          setError('KRISHNA Brahmand enhancement runtime failed to load.');
+          setState('error');
+        };
+        doc.body.appendChild(mainScript);
+      };
+      doc.body.appendChild(dataScript);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
       setState('error');
