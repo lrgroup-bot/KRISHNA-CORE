@@ -1,19 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Background, Controls, MarkerType, ReactFlow, type Edge, type Node } from '@xyflow/react';
-import { Activity, BrainCircuit, Network, RefreshCw, ShieldCheck, X } from 'lucide-react';
+import { Activity, ArrowRight, BrainCircuit, CheckCircle2, CircleAlert, Clock3, Network, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 import './pipeline.css';
 
 type AgentState = 'working' | 'healing' | 'blocked' | 'verified' | 'quiet' | 'unverified';
 type JsonMap = Record<string, unknown>;
-
-type AgentDefinition = {
-  id: string;
-  label: string;
-  role: string;
-  endpoint?: string;
-  position: { x: number; y: number };
-};
+type AgentDefinition = { id: string; label: string; role: string; endpoint?: string; position: { x: number; y: number } };
 
 const AGENTS: AgentDefinition[] = [
   { id: 'krishna', label: 'KRISHNA', role: 'Authority · conversation · orchestration', endpoint: '/api/status', position: { x: 620, y: 300 } },
@@ -34,164 +27,53 @@ const AGENTS: AgentDefinition[] = [
 ];
 
 const LINKS: Array<[string, string]> = [
-  ['krishna', 'sudarshan'],
-  ['krishna', 'brahma'], ['brahma', 'brahmagyan'], ['brahma', 'rishi-council'], ['brahma', 'gyan-bhandar'],
-  ['krishna', 'garudanetra'], ['garudanetra', 'hawkeye'], ['garudanetra', 'suryadev'], ['garudanetra', 'chandradev'],
-  ['krishna', 'kabach'], ['kabach', 'mrityunjaya'], ['sudarshan', 'ui-guardian'], ['sudarshan', 'vishwakarma'], ['sudarshan', 'narad'],
-  ['mrityunjaya', 'sudarshan'], ['ui-guardian', 'krishna'], ['vishwakarma', 'sudarshan'], ['narad', 'krishna'],
+  ['krishna','sudarshan'], ['krishna','brahma'], ['brahma','brahmagyan'], ['brahma','rishi-council'], ['brahma','gyan-bhandar'],
+  ['krishna','garudanetra'], ['garudanetra','hawkeye'], ['garudanetra','suryadev'], ['garudanetra','chandradev'],
+  ['krishna','kabach'], ['kabach','mrityunjaya'], ['sudarshan','ui-guardian'], ['sudarshan','vishwakarma'], ['sudarshan','narad'],
+  ['mrityunjaya','sudarshan'], ['ui-guardian','krishna'], ['vishwakarma','sudarshan'], ['narad','krishna'],
 ];
+const STATE_COLOR: Record<AgentState,string> = { working:'#45BDF5', healing:'#F4B860', blocked:'#FA7E85', verified:'#53E7A3', quiet:'#708694', unverified:'#6B7280' };
 
-const STATE_COLOR: Record<AgentState, string> = {
-  working: '#45BDF5', healing: '#F4B860', blocked: '#FA7E85', verified: '#53E7A3', quiet: '#708694', unverified: '#6B7280',
-};
+function statusText(value: unknown) { return typeof value === 'string' ? value.toLowerCase() : ''; }
+function ownerText(task: JsonMap) { return [task.assigned_specialist,task.assignedSpecialist,task.specialist,task.agent,task.owner,task.worker,task.assignee].filter((v)=>typeof v==='string').join(' ').toLowerCase(); }
+function deriveTaskState(task: JsonMap): AgentState { const status=statusText(task.status); if(['working','running','executing','verifying','queued'].includes(status))return'working'; if(['healing','recovering','retrying'].includes(status))return'healing'; if(['blocked','failed','error','waiting_approval'].includes(status))return'blocked'; if(['verified','done','completed','complete','passed'].includes(status))return'verified'; return'quiet'; }
+function agentMatches(agent: AgentDefinition, task: JsonMap) { const owner=ownerText(task).replaceAll('_',' ').replaceAll('-',' '); const aliases=[agent.id,agent.label].map((v)=>v.toLowerCase().replaceAll('_',' ').replaceAll('-',' ')); return Boolean(owner)&&aliases.some((alias)=>owner.includes(alias)); }
+function taskLabel(task: JsonMap) { return String(task.title ?? task.name ?? task.summary ?? task.id ?? task.task_id ?? 'Task'); }
 
-function statusText(value: unknown): string {
-  return typeof value === 'string' ? value.toLowerCase() : '';
+export default function AgentUniverse({ open, onClose }: { open:boolean; onClose:()=>void }) {
+  const [tasks,setTasks]=useState<JsonMap[]>([]); const [coreOnline,setCoreOnline]=useState(false); const [mrityunjayaBusy,setMrityunjayaBusy]=useState(false); const [selectedId,setSelectedId]=useState('krishna'); const [snapshot,setSnapshot]=useState<unknown>(null); const [snapshotError,setSnapshotError]=useState(''); const [loadingSnapshot,setLoadingSnapshot]=useState(false); const [lastRefresh,setLastRefresh]=useState<number|null>(null);
+
+  const refresh=useCallback(async()=>{ const [healthResult,taskResult,statusResult]=await Promise.allSettled([
+    fetch('/health',{cache:'no-store'}).then(async(r)=>r.ok?r.json():Promise.reject(new Error(`HTTP ${r.status}`))),
+    fetch('/api/tasks?project=KRISHNA&limit=300',{cache:'no-store'}).then(async(r)=>r.ok?r.json():Promise.reject(new Error(`HTTP ${r.status}`))),
+    fetch('/api/status',{cache:'no-store'}).then(async(r)=>r.ok?r.json():Promise.reject(new Error(`HTTP ${r.status}`))),
+  ]); if(healthResult.status==='fulfilled'){const value=healthResult.value as JsonMap;setCoreOnline(value.ok===true&&value.core==='ONLINE')}else setCoreOnline(false); if(taskResult.status==='fulfilled'){const value=taskResult.value as JsonMap;setTasks(Array.isArray(value.tasks)?value.tasks as JsonMap[]:[])}else setTasks([]); if(statusResult.status==='fulfilled'){const value=statusResult.value as JsonMap;const mr=value.mrityunjay as JsonMap|undefined;setMrityunjayaBusy(Boolean(mr?.busy))}else setMrityunjayaBusy(false); setLastRefresh(Date.now()); },[]);
+  useEffect(()=>{if(!open)return;void refresh();const timer=window.setInterval(()=>void refresh(),3500);return()=>window.clearInterval(timer)},[open,refresh]);
+
+  const agentStates=useMemo(()=>{const map=new Map<string,AgentState>();AGENTS.forEach((agent)=>{const matched=tasks.filter((task)=>agentMatches(agent,task));const states=matched.map(deriveTaskState);let state:AgentState='quiet';if(states.includes('blocked'))state='blocked';else if(states.includes('healing'))state='healing';else if(states.includes('working'))state='working';else if(states.includes('verified'))state='verified';if(agent.id==='krishna')state=coreOnline?(tasks.some((task)=>deriveTaskState(task)==='working')?'working':'verified'):'unverified';if(agent.id==='sudarshan'&&tasks.some((task)=>deriveTaskState(task)==='working'))state='working';if(agent.id==='mrityunjaya'&&mrityunjayaBusy)state='healing';map.set(agent.id,state)});return map},[coreOnline,mrityunjayaBusy,tasks]);
+  const stats=useMemo(()=>{const output={working:0,healing:0,blocked:0,verified:0};agentStates.forEach((state)=>{if(state==='working')output.working++;else if(state==='healing')output.healing++;else if(state==='blocked')output.blocked++;else if(state==='verified')output.verified++});return output},[agentStates]);
+
+  const nodes=useMemo<Node[]>(()=>AGENTS.map((agent)=>{const state=agentStates.get(agent.id)??'unverified';const selected=selectedId===agent.id;const color=STATE_COLOR[state];const matched=tasks.filter((task)=>agentMatches(agent,task));return{id:agent.id,position:agent.position,data:{label:<div className="agent-node-inner"><span>{agent.label}</span><small>{agent.role}</small><b style={{color}}>{state.toUpperCase()}</b>{matched.length?<i>{matched.length} task{matched.length===1?'':'s'}</i>:null}</div>},style:{width:agent.id==='krishna'||agent.id==='sudarshan'?230:205,border:`1.5px solid ${selected?'#EDCB83':color}`,background:agent.id==='krishna'?'linear-gradient(145deg,rgba(237,203,131,.16),rgba(7,25,38,.96))':'rgba(7,24,36,.91)',color:'#E9F3F8',borderRadius:16,padding:0,boxShadow:state==='working'?`0 0 30px ${color}55`:selected?'0 0 24px rgba(237,203,131,.24)':'0 10px 28px rgba(0,0,0,.28)'}}}),[agentStates,selectedId,tasks]);
+  const edges=useMemo<Edge[]>(()=>LINKS.map(([source,target])=>{const sourceState=agentStates.get(source)??'unverified';const targetState=agentStates.get(target)??'unverified';const active=['working','healing'].includes(sourceState)||['working','healing'].includes(targetState);const blocked=sourceState==='blocked'||targetState==='blocked';const healing=sourceState==='healing'||targetState==='healing';const color=blocked?'#FA7E85':healing?'#F4B860':active?'#45BDF5':'rgba(104,157,178,.36)';return{id:`agent-${source}-${target}`,source,target,animated:active,className:active?'pipeline-flow-active':undefined,style:{stroke:color,strokeWidth:active?2.6:1.35},markerEnd:{type:MarkerType.ArrowClosed,color}}}),[agentStates]);
+
+  const selected=AGENTS.find((agent)=>agent.id===selectedId)??AGENTS[0]; const selectedTasks=tasks.filter((task)=>agentMatches(selected,task)); const upstream=LINKS.filter(([,target])=>target===selected.id).map(([source])=>AGENTS.find((agent)=>agent.id===source)).filter(Boolean) as AgentDefinition[]; const downstream=LINKS.filter(([source])=>source===selected.id).map(([,target])=>AGENTS.find((agent)=>agent.id===target)).filter(Boolean) as AgentDefinition[];
+
+  useEffect(()=>{if(!open)return;setSnapshot(null);setSnapshotError('');if(!selected.endpoint)return;let cancelled=false;setLoadingSnapshot(true);fetch(selected.endpoint,{cache:'no-store'}).then(async(response)=>{const body=await response.text();if(!response.ok)throw new Error(`HTTP ${response.status}${body?` · ${body.slice(0,140)}`:''}`);try{return JSON.parse(body) as unknown}catch{throw new Error('Endpoint returned non-JSON data')}}).then((data)=>{if(!cancelled)setSnapshot(data)}).catch((reason:unknown)=>{if(!cancelled)setSnapshotError(reason instanceof Error?reason.message:String(reason))}).finally(()=>{if(!cancelled)setLoadingSnapshot(false)});return()=>{cancelled=true}},[open,selected]);
+  if(!open)return null;
+
+  const selectedState=agentStates.get(selected.id)??'unverified'; const endpointCheck=selected.endpoint?(loadingSnapshot?'CHECKING':snapshotError?'FAILED':snapshot?'VERIFIED':'NO DATA'):'NOT MAPPED';
+  return <div className="pipeline-overlay" role="dialog" aria-modal="true" aria-label="KRISHNA Intelligence Universe"><div className="pipeline-shell agent-universe-shell">
+    <header className="pipeline-header"><div><span className="pipeline-kicker">INTERNAL INTELLIGENCE MAP</span><h2><Network size={20}/> KRISHNA Intelligence Universe</h2><p>Live task-derived movement. Click a node to inspect its exact dashboard, work, dependencies and verification signals.</p></div><div className="pipeline-header-actions"><button type="button" onClick={()=>void refresh()} title="Refresh intelligence map"><RefreshCw size={17}/></button><button type="button" onClick={onClose} title="Close"><X size={19}/></button></div></header>
+    <div className="pipeline-live-strip"><div><Activity/><span>Working</span><strong>{stats.working}</strong></div><div><RefreshCw/><span>Healing</span><strong>{stats.healing}</strong></div><div><CircleAlert/><span>Blocked</span><strong>{stats.blocked}</strong></div><div><CheckCircle2/><span>Verified/online</span><strong>{stats.verified}</strong></div><div><WorkflowMini/><span>Ledger tasks</span><strong>{tasks.length}</strong></div></div>
+    <div className="pipeline-grid deep-grid"><div className="pipeline-canvas"><ReactFlow nodes={nodes} edges={edges} fitView minZoom={.35} maxZoom={1.7} nodesDraggable={false} onNodeClick={(_,node)=>setSelectedId(node.id)} proOptions={{hideAttribution:true}}><Background color="#17425d" gap={28} size={1}/><Controls position="bottom-right"/></ReactFlow><div className="pipeline-legend"><span><i className="state working"/>Working</span><span><i className="state verified"/>Verified/online</span><span><i className="state healing"/>Healing</span><span><i className="state blocked"/>Blocked</span><span><i className="state quiet"/>Quiet/unobserved</span></div></div>
+      <aside className="pipeline-inspector"><div className="inspector-title"><BrainCircuit size={18}/><div><span>SELECTED INTELLIGENCE</span><h3>{selected.label}</h3></div></div><p className="inspector-role">{selected.role}</p>
+        <div className="inspector-stat"><Activity size={15}/><span>Pipeline state</span><strong style={{color:STATE_COLOR[selectedState]}}>{selectedState.toUpperCase()}</strong></div><div className="inspector-stat"><ShieldCheck size={15}/><span>Mapped tasks</span><strong>{selectedTasks.length}</strong></div><div className="inspector-stat"><CheckCircle2 size={15}/><span>Dedicated endpoint</span><strong className={snapshotError?'tone-red':snapshot?'tone-green':''}>{endpointCheck}</strong></div><div className="inspector-stat"><Clock3 size={15}/><span>Graph refresh</span><strong>{lastRefresh?new Date(lastRefresh).toLocaleTimeString():'—'}</strong></div>
+        <section className="inspector-section"><h4>PIPELINE RELATIONSHIPS</h4><div className="relationship-row"><span>INPUT FROM</span><b>{upstream.length?upstream.map((agent)=>agent.label).join(' · '):'Owner / KRISHNA'}</b></div><div className="relationship-row"><span>OUTPUT TO</span><b>{downstream.length?downstream.map((agent)=>agent.label).join(' · '):'KRISHNA / result'}</b></div></section>
+        <section className="inspector-section"><h4>WHAT TO CHECK</h4><div className="check-grid"><CheckItem label="Task ownership mapped" ok={selectedTasks.length>0} neutral={selectedTasks.length===0}/><CheckItem label="Dedicated telemetry endpoint" ok={Boolean(snapshot)} neutral={!selected.endpoint}/><CheckItem label="No blocked work" ok={selectedState!=='blocked'} neutral={selectedState==='unverified'}/><CheckItem label="Data fresh" ok={Boolean(lastRefresh&&Date.now()-lastRefresh<12000)} neutral={!lastRefresh}/></div></section>
+        <section className="inspector-section"><h4>CURRENT TASK TELEMETRY</h4>{selectedTasks.length?selectedTasks.slice(0,8).map((task,index)=><div className="inspector-task" key={String(task.id??task.task_id??index)}><b>{taskLabel(task)}</b><span>{String(task.status??'unknown')}</span></div>):<p>No ledger task is currently attributed to this agent.</p>}</section>
+        <section className="inspector-section"><h4>AGENT DASHBOARD</h4>{loadingSnapshot?<p>Loading verified endpoint…</p>:snapshotError?<p className="pipeline-error">{snapshotError}</p>:snapshot?<details><summary>Open exact backend telemetry</summary><pre>{JSON.stringify(snapshot,null,2)}</pre></details>:<p>{selected.endpoint?'No snapshot returned.':'No dedicated endpoint mapped. Task telemetry remains available.'}</p>}</section>
+      </aside></div></div></div>;
 }
 
-function ownerText(task: JsonMap): string {
-  const candidates = [task.assigned_specialist, task.assignedSpecialist, task.specialist, task.agent, task.owner, task.worker, task.assignee];
-  return candidates.filter((value) => typeof value === 'string').join(' ').toLowerCase();
-}
-
-function deriveTaskState(task: JsonMap): AgentState {
-  const status = statusText(task.status);
-  if (['working', 'running', 'executing', 'verifying', 'queued'].includes(status)) return 'working';
-  if (['healing', 'recovering', 'retrying'].includes(status)) return 'healing';
-  if (['blocked', 'failed', 'error'].includes(status)) return 'blocked';
-  if (['verified', 'done', 'completed', 'complete', 'passed'].includes(status)) return 'verified';
-  return 'quiet';
-}
-
-function agentMatches(agent: AgentDefinition, task: JsonMap): boolean {
-  const owner = ownerText(task).replaceAll('_', ' ').replaceAll('-', ' ');
-  const candidates = [agent.id, agent.label].map((value) => value.toLowerCase().replaceAll('_', ' ').replaceAll('-', ' '));
-  return Boolean(owner) && candidates.some((candidate) => owner.includes(candidate));
-}
-
-export default function AgentUniverse({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [tasks, setTasks] = useState<JsonMap[]>([]);
-  const [coreOnline, setCoreOnline] = useState(false);
-  const [mrityunjayaBusy, setMrityunjayaBusy] = useState(false);
-  const [selectedId, setSelectedId] = useState('krishna');
-  const [snapshot, setSnapshot] = useState<unknown>(null);
-  const [snapshotError, setSnapshotError] = useState('');
-  const [loadingSnapshot, setLoadingSnapshot] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState<number | null>(null);
-
-  const refresh = useCallback(async () => {
-    const [healthResult, taskResult, statusResult] = await Promise.allSettled([
-      fetch('/health', { cache: 'no-store' }).then(async (response) => response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))),
-      fetch('/api/tasks?project=KRISHNA&limit=200', { cache: 'no-store' }).then(async (response) => response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))),
-      fetch('/api/status', { cache: 'no-store' }).then(async (response) => response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))),
-    ]);
-    if (healthResult.status === 'fulfilled') {
-      const value = healthResult.value as JsonMap;
-      setCoreOnline(value.ok === true && value.core === 'ONLINE');
-    } else setCoreOnline(false);
-    if (taskResult.status === 'fulfilled') {
-      const value = taskResult.value as JsonMap;
-      setTasks(Array.isArray(value.tasks) ? value.tasks as JsonMap[] : []);
-    } else setTasks([]);
-    if (statusResult.status === 'fulfilled') {
-      const value = statusResult.value as JsonMap;
-      const mrityunjay = value.mrityunjay as JsonMap | undefined;
-      setMrityunjayaBusy(Boolean(mrityunjay?.busy));
-    } else setMrityunjayaBusy(false);
-    setLastRefresh(Date.now());
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), 4000);
-    return () => window.clearInterval(timer);
-  }, [open, refresh]);
-
-  const agentStates = useMemo(() => {
-    const map = new Map<string, AgentState>();
-    AGENTS.forEach((agent) => {
-      const matched = tasks.filter((task) => agentMatches(agent, task));
-      const states = matched.map(deriveTaskState);
-      let state: AgentState = 'quiet';
-      if (states.includes('blocked')) state = 'blocked';
-      else if (states.includes('healing')) state = 'healing';
-      else if (states.includes('working')) state = 'working';
-      else if (states.includes('verified')) state = 'verified';
-      if (agent.id === 'krishna') state = coreOnline ? (tasks.some((task) => deriveTaskState(task) === 'working') ? 'working' : 'verified') : 'unverified';
-      if (agent.id === 'sudarshan' && tasks.some((task) => deriveTaskState(task) === 'working')) state = 'working';
-      if (agent.id === 'mrityunjaya' && mrityunjayaBusy) state = 'healing';
-      map.set(agent.id, state);
-    });
-    return map;
-  }, [coreOnline, mrityunjayaBusy, tasks]);
-
-  const nodes = useMemo<Node[]>(() => AGENTS.map((agent) => {
-    const state = agentStates.get(agent.id) ?? 'unverified';
-    const selected = selectedId === agent.id;
-    const color = STATE_COLOR[state];
-    const matched = tasks.filter((task) => agentMatches(agent, task));
-    return {
-      id: agent.id,
-      position: agent.position,
-      data: { label: <div className="agent-node-inner"><span>{agent.label}</span><small>{agent.role}</small><b style={{ color }}>{state.toUpperCase()}</b>{matched.length ? <i>{matched.length} task{matched.length === 1 ? '' : 's'}</i> : null}</div> },
-      style: {
-        width: agent.id === 'krishna' || agent.id === 'sudarshan' ? 230 : 205,
-        border: `1.5px solid ${selected ? '#EDCB83' : color}`,
-        background: agent.id === 'krishna' ? 'linear-gradient(145deg,rgba(237,203,131,.16),rgba(7,25,38,.96))' : 'rgba(7,24,36,.94)',
-        color: '#E9F3F8', borderRadius: 16, padding: 0,
-        boxShadow: state === 'working' ? `0 0 26px ${color}55` : selected ? '0 0 22px rgba(237,203,131,.24)' : '0 8px 24px rgba(0,0,0,.28)',
-      },
-    };
-  }), [agentStates, selectedId, tasks]);
-
-  const edges = useMemo<Edge[]>(() => LINKS.map(([source, target]) => {
-    const sourceState = agentStates.get(source) ?? 'unverified';
-    const targetState = agentStates.get(target) ?? 'unverified';
-    const active = ['working', 'healing'].includes(sourceState) || ['working', 'healing'].includes(targetState);
-    const color = active ? '#45BDF5' : 'rgba(104,157,178,.42)';
-    return {
-      id: `agent-${source}-${target}`, source, target, animated: active,
-      className: active ? 'pipeline-flow-active' : undefined,
-      style: { stroke: color, strokeWidth: active ? 2.6 : 1.4 },
-      markerEnd: { type: MarkerType.ArrowClosed, color },
-    };
-  }), [agentStates]);
-
-  const selected = AGENTS.find((agent) => agent.id === selectedId) ?? AGENTS[0];
-  const selectedTasks = tasks.filter((task) => agentMatches(selected, task));
-
-  useEffect(() => {
-    if (!open) return;
-    setSnapshot(null); setSnapshotError('');
-    if (!selected.endpoint) return;
-    let cancelled = false;
-    setLoadingSnapshot(true);
-    fetch(selected.endpoint, { cache: 'no-store' })
-      .then(async (response) => {
-        const body = await response.text();
-        if (!response.ok) throw new Error(`HTTP ${response.status}${body ? ` · ${body.slice(0, 140)}` : ''}`);
-        try { return JSON.parse(body) as unknown; } catch { throw new Error('Endpoint returned non-JSON data'); }
-      })
-      .then((data) => { if (!cancelled) setSnapshot(data); })
-      .catch((reason: unknown) => { if (!cancelled) setSnapshotError(reason instanceof Error ? reason.message : String(reason)); })
-      .finally(() => { if (!cancelled) setLoadingSnapshot(false); });
-    return () => { cancelled = true; };
-  }, [open, selected]);
-
-  if (!open) return null;
-
-  return <div className="pipeline-overlay" role="dialog" aria-modal="true" aria-label="KRISHNA Intelligence Universe">
-    <div className="pipeline-shell agent-universe-shell">
-      <header className="pipeline-header"><div><span className="pipeline-kicker">INTERNAL INTELLIGENCE MAP</span><h2><Network size={20} /> KRISHNA Intelligence Universe</h2><p>Live task-derived activity. Quiet nodes are not claimed healthy unless their own endpoint verifies them.</p></div><div className="pipeline-header-actions"><button type="button" onClick={() => void refresh()} title="Refresh intelligence map"><RefreshCw size={17} /></button><button type="button" onClick={onClose} title="Close"><X size={19} /></button></div></header>
-      <div className="pipeline-grid">
-        <div className="pipeline-canvas"><ReactFlow nodes={nodes} edges={edges} fitView minZoom={0.35} maxZoom={1.7} nodesDraggable={false} onNodeClick={(_, node) => setSelectedId(node.id)} proOptions={{ hideAttribution: true }}><Background color="#17425d" gap={28} size={1} /><Controls position="bottom-right" /></ReactFlow><div className="pipeline-legend"><span><i className="state working" />Working</span><span><i className="state verified" />Verified/online</span><span><i className="state healing" />Healing</span><span><i className="state blocked" />Blocked</span><span><i className="state quiet" />Quiet/unobserved</span></div></div>
-        <aside className="pipeline-inspector"><div className="inspector-title"><BrainCircuit size={18} /><div><span>SELECTED INTELLIGENCE</span><h3>{selected.label}</h3></div></div><p className="inspector-role">{selected.role}</p><div className="inspector-stat"><Activity size={15} /><span>Pipeline state</span><strong style={{ color: STATE_COLOR[agentStates.get(selected.id) ?? 'unverified'] }}>{(agentStates.get(selected.id) ?? 'unverified').toUpperCase()}</strong></div><div className="inspector-stat"><ShieldCheck size={15} /><span>Mapped tasks</span><strong>{selectedTasks.length}</strong></div>
-          <section className="inspector-section"><h4>CURRENT TASK TELEMETRY</h4>{selectedTasks.length ? selectedTasks.slice(0, 8).map((task, index) => <div className="inspector-task" key={String(task.id ?? task.task_id ?? index)}><b>{String(task.title ?? task.name ?? task.id ?? task.task_id ?? 'Task')}</b><span>{String(task.status ?? 'unknown')}</span></div>) : <p>No active ledger task is currently attributed to this agent.</p>}</section>
-          <section className="inspector-section"><h4>AGENT DASHBOARD SNAPSHOT</h4>{loadingSnapshot ? <p>Loading verified endpoint…</p> : snapshotError ? <p className="pipeline-error">{snapshotError}</p> : snapshot ? <pre>{JSON.stringify(snapshot, null, 2)}</pre> : <p>{selected.endpoint ? 'No snapshot returned.' : 'No dedicated endpoint mapped yet. Task telemetry remains available.'}</p>}</section>
-          <div className="inspector-foot">Last graph refresh: {lastRefresh ? new Date(lastRefresh).toLocaleTimeString() : '—'}</div>
-        </aside>
-      </div>
-    </div>
-  </div>;
-}
+function CheckItem({label,ok,neutral}:{label:string;ok:boolean;neutral?:boolean}){return <div className={`check-item ${neutral?'neutral':ok?'ok':'bad'}`}>{neutral?<Clock3 size={13}/>:ok?<CheckCircle2 size={13}/>:<CircleAlert size={13}/>}<span>{label}</span></div>}
+function WorkflowMini(){return <ArrowRight size={16}/>}
