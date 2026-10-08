@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Bot, BriefcaseBusiness, Cpu, Gauge, Globe2, MessageSquareText, PackageOpen, PlugZap, Smartphone, Sun, Workflow } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Bot, BriefcaseBusiness, Cpu, Gauge, Globe2, MessageSquareText, PlugZap, Smartphone, Sun, Workflow } from 'lucide-react';
 
 type JsonMap = Record<string, unknown>;
 export type MainView = 'krishna' | 'sudarshan' | 'lr-universe' | 'projects' | 'chats' | 'plugins';
@@ -98,13 +98,13 @@ export default function LiveSidebar({ active, onSelect }: Props) {
     ['krishna', 'KRISHNA', <Bot size={17} />],
     ['sudarshan', 'Sudarshan', <Workflow size={17} />],
     ['lr-universe', 'LR Universe Dashboard', <Globe2 size={17} />],
-  ] as Array<[MainView, string, JSX.Element]>, []);
+  ] as Array<[MainView, string, ReactNode]>, []);
 
   const detail = useMemo(() => [
     ['projects', `Projects${state.projects ? ` · ${state.projects}` : ''}`, <BriefcaseBusiness size={16} />],
     ['chats', `Chats${state.chats ? ` · ${state.chats}` : ''}`, <MessageSquareText size={16} />],
     ['plugins', 'Plugins', <PlugZap size={16} />],
-  ] as Array<[MainView, string, JSX.Element]>, [state.chats, state.projects]);
+  ] as Array<[MainView, string, ReactNode]>, [state.chats, state.projects]);
 
   return <aside className="live-sidebar">
     <div className="live-brand"><span>ॐ</span><div><strong>KRISHNA</strong><small>ALMIGHTY · LOCAL COMMAND CORE</small></div></div>
