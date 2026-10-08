@@ -1,0 +1,55 @@
+/* Ambient motion layer for the preserved KRISHNA dashboard.
+   Structure and controls remain unchanged; only depth/motion are added. */
+html[data-krishna-brahmand-preview="1"] .card,
+html[data-krishna-brahmand-preview="1"] .projectTile,
+html[data-krishna-brahmand-preview="1"] .plugin,
+html[data-krishna-brahmand-preview="1"] .holoPanel,
+html[data-krishna-brahmand-preview="1"] .projectChatPanel,
+html[data-krishna-brahmand-preview="1"] .glassWell{
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,filter .18s ease!important;
+  animation:krLiveFloat 10s ease-in-out infinite;
+  will-change:transform;
+}
+html[data-krishna-brahmand-preview="1"] .card:nth-child(2n),
+html[data-krishna-brahmand-preview="1"] .projectTile:nth-child(2n),
+html[data-krishna-brahmand-preview="1"] .plugin:nth-child(2n){animation-delay:-2.4s}
+html[data-krishna-brahmand-preview="1"] .card:nth-child(3n),
+html[data-krishna-brahmand-preview="1"] .projectTile:nth-child(3n),
+html[data-krishna-brahmand-preview="1"] .plugin:nth-child(3n){animation-delay:-4.8s}
+html[data-krishna-brahmand-preview="1"] .card:hover,
+html[data-krishna-brahmand-preview="1"] .projectTile:hover,
+html[data-krishna-brahmand-preview="1"] .plugin:hover,
+html[data-krishna-brahmand-preview="1"] .holoPanel:hover{
+  transform:translateY(-3px) translateZ(10px)!important;
+  border-color:rgba(105,215,238,.32)!important;
+  box-shadow:0 22px 56px rgba(0,0,0,.28),0 0 24px rgba(105,215,238,.055)!important;
+}
+html[data-krishna-brahmand-preview="1"] .view.active,
+html[data-krishna-brahmand-preview="1"] .kb-view.active{
+  animation:krViewEnter .3s cubic-bezier(.2,.8,.2,1);
+}
+html[data-krishna-brahmand-preview="1"] dialog[open],
+html[data-krishna-brahmand-preview="1"] .krishnaPopup:not([hidden]),
+html[data-krishna-brahmand-preview="1"] .liveWork:not([hidden]){
+  animation:krSurfaceEnter .24s cubic-bezier(.2,.8,.2,1);
+}
+html[data-krishna-brahmand-preview="1"] .statusDot.on,
+html[data-krishna-brahmand-preview="1"] .opsDot.good,
+html[data-krishna-brahmand-preview="1"] .opsDot.state-working,
+html[data-krishna-brahmand-preview="1"] .godLight.status-green{
+  animation:krStatusPulse 2.1s ease-in-out infinite;
+}
+@keyframes krLiveFloat{0%,100%{translate:0 0}50%{translate:0 -2px}}
+@keyframes krViewEnter{from{opacity:0;transform:translateY(8px) scale(.997)}to{opacity:1;transform:none}}
+@keyframes krSurfaceEnter{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes krStatusPulse{0%,100%{filter:brightness(1);opacity:.88}50%{filter:brightness(1.28);opacity:1}}
+@media(prefers-reduced-motion:reduce){
+  html[data-krishna-brahmand-preview="1"] .card,
+  html[data-krishna-brahmand-preview="1"] .projectTile,
+  html[data-krishna-brahmand-preview="1"] .plugin,
+  html[data-krishna-brahmand-preview="1"] .holoPanel,
+  html[data-krishna-brahmand-preview="1"] .projectChatPanel,
+  html[data-krishna-brahmand-preview="1"] .glassWell,
+  html[data-krishna-brahmand-preview="1"] .view.active,
+  html[data-krishna-brahmand-preview="1"] .kb-view.active{animation:none!important;transform:none!important}
+}
