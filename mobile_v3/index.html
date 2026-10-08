@@ -191,6 +191,8 @@ function classifyAssistantPhrase(phrase){
  const s=String(phrase||'').toLowerCase();
  if(/photo|picture|selfie|capture me|take my|फोटो|तस्वीर|ଫଟୋ|ମୋ ଫଟୋ/.test(s))return'photographer';
  if(/\bdekh\b|dekho|देख|ଦେଖ|watch|see|look|camera|hawkeye/.test(s))return'hawkeye';
+ if(/\b(lock|track|follow)\b.*\b(person|shirt|jacket|car|truck|bike|dog|cat|object|bag|backpack|machine)\b/.test(s))return'hawkeye';
+ if(/\b(unlock|release)\b.*\b(target|lock)\b/.test(s))return'hawkeye';
  return'chat';
 }
 function strippedAssistantText(phrase){
@@ -273,8 +275,16 @@ window.listen=()=>{if(busy)return;
 window.onAssistantCommand=(requestedMode,phrase)=>{
  const direct=requestedMode||classifyAssistantPhrase(phrase);
  if(direct==='hawkeye'){
-   setMode('WORKING','KRISHNA IS LOOKING');
-   startFieldScan('automatic live visual check',false);
+   const visual=strippedAssistantText(phrase);
+   if(/\b(unlock|release)\b.*\b(target|lock)\b/i.test(visual)){
+     if(window.HawkeyeObserverUI&&HawkeyeObserverUI.toggleTargetLock)HawkeyeObserverUI.toggleTargetLock(true);
+     return;
+   }
+   const wantsLock=/\b(lock|track|follow)\b/i.test(visual);
+   setMode('WORKING',wantsLock?'HAWKEYE TARGET SEARCH':'KRISHNA IS LOOKING');
+   Promise.resolve(startFieldScan(wantsLock?visual:'automatic live visual check',false)).then(()=>{
+     if(wantsLock&&window.HawkeyeObserverUI&&HawkeyeObserverUI.lockByDescription)setTimeout(()=>HawkeyeObserverUI.lockByDescription(visual),420);
+   });
    return;
  }
  if(direct==='photographer'){
