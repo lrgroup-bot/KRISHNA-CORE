@@ -4,6 +4,7 @@ import 'dockview-react/dist/styles/dockview.css';
 import '@xyflow/react/dist/style.css';
 import '@xterm/xterm/css/xterm.css';
 import './styles.css';
+import './pipeline-live.css';
 import App from './App';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
