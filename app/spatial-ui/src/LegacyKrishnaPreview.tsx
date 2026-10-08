@@ -3,7 +3,9 @@ import { useCallback, useRef, useState } from 'react';
 type PreviewWindow = Window & {
   __KRISHNA_BRAHMAND_MAIN__?: boolean;
   __KRISHNA_BRAHMAND_PREVIEW__?: boolean;
+  __KRISHNA_OWNER_UI__?: boolean;
   KRISHNA_BRAHMAND_DATA?: { nodes?: Record<string, unknown> };
+  LR_UNIVERSE_SOURCE_DATA?: Record<string, unknown>;
   KRISHNA_BRAHMAND_PREFLIGHT?: {
     ok?: boolean;
     failed?: Array<{ name?: string; detail?: string }>;
@@ -31,15 +33,11 @@ export default function LegacyKrishnaPreview() {
         '.mainMenuNav', '.side', '.sideFoot', '.opsVitals', 'main.main',
       ];
       const missingLegacy = requiredLegacySelectors.filter((selector) => !doc.querySelector(selector));
-      if (missingLegacy.length) {
-        throw new Error(`Legacy KRISHNA base mismatch. Missing: ${missingLegacy.join(', ')}`);
-      }
+      if (missingLegacy.length) throw new Error(`Legacy KRISHNA base mismatch. Missing: ${missingLegacy.join(', ')}`);
 
-      // Hot reloads can leave the old runtime guard behind even after the script tag
-      // is replaced. Reset the preview-only guards so the additive layer can boot
-      // again against the already-loaded legacy dashboard.
       delete win.__KRISHNA_BRAHMAND_MAIN__;
       delete win.__KRISHNA_BRAHMAND_PREVIEW__;
+      delete win.__KRISHNA_OWNER_UI__;
       delete win.KRISHNA_BRAHMAND_PREFLIGHT;
 
       const ensureStyle = (id: string, href: string) => {
@@ -52,11 +50,14 @@ export default function LegacyKrishnaPreview() {
       };
       ensureStyle('krishna-brahmand-style', '/spatial/krishna-brahmand.css');
       ensureStyle('krishna-live-motion-style', '/spatial/krishna-live-motion.css');
+      ensureStyle('krishna-owner-ui-style', '/spatial/krishna-owner-ui.css');
 
       [
         'krishna-brahmand-data-script',
         'krishna-brahmand-normalize-script',
+        'lr-universe-source-script',
         'krishna-brahmand-main-script',
+        'krishna-owner-ui-script',
         'krishna-brahmand-preflight-script',
       ].forEach((id) => doc.getElementById(id)?.remove());
 
@@ -69,7 +70,7 @@ export default function LegacyKrishnaPreview() {
         doc.body.appendChild(script);
       });
 
-      const waitForBrahmandDom = () => new Promise<void>((resolve, reject) => {
+      const waitForOwnerDom = () => new Promise<void>((resolve, reject) => {
         const started = win.performance.now();
         const check = () => {
           const ready = Boolean(
@@ -77,17 +78,14 @@ export default function LegacyKrishnaPreview() {
             doc.getElementById('kbNavBrahmand') &&
             doc.querySelector('.kb-core-shell') &&
             doc.getElementById('brahmand') &&
-            doc.getElementById('kbSuryaCard') &&
-            doc.getElementById('kbMobileCard')
+            doc.getElementById('lrUniverse') &&
+            doc.getElementById('kbOwnerLoad') &&
+            doc.getElementById('kbMobileCard') &&
+            doc.getElementById('kbBrowserToggle') &&
+            doc.getElementById('kbBrowserDrawer')
           );
-          if (ready) {
-            resolve();
-            return;
-          }
-          if (win.performance.now() - started > 2500) {
-            reject(new Error('KRISHNA Brahmand runtime loaded but did not inject its DOM within 2.5 seconds.'));
-            return;
-          }
+          if (ready) return resolve();
+          if (win.performance.now() - started > 3500) return reject(new Error('KRISHNA owner UI loaded but did not inject its DOM within 3.5 seconds.'));
           win.setTimeout(check, 50);
         };
         check();
@@ -95,28 +93,24 @@ export default function LegacyKrishnaPreview() {
 
       void (async () => {
         let runtimeError = '';
-        const onRuntimeError = (event: ErrorEvent) => {
-          runtimeError = event.message || 'Unknown browser runtime error';
-        };
+        const onRuntimeError = (event: ErrorEvent) => { runtimeError = event.message || 'Unknown browser runtime error'; };
         win.addEventListener('error', onRuntimeError);
         try {
           await loadScript('krishna-brahmand-data-script', '/spatial/krishna-brahmand-data.js');
           await loadScript('krishna-brahmand-normalize-script', '/spatial/krishna-brahmand-normalize.js');
+          await loadScript('lr-universe-source-script', '/spatial/lr-universe-source-data.js');
           await loadScript('krishna-brahmand-main-script', '/spatial/krishna-brahmand-main.js');
+          await loadScript('krishna-owner-ui-script', '/spatial/krishna-owner-ui.js');
           try {
-            await waitForBrahmandDom();
+            await waitForOwnerDom();
           } catch (reason) {
             const base = reason instanceof Error ? reason.message : String(reason);
             throw new Error(runtimeError ? `${base} Browser error: ${runtimeError}` : base);
           }
-
           await loadScript('krishna-brahmand-preflight-script', '/spatial/krishna-brahmand-preflight.js');
           const preflight = win.KRISHNA_BRAHMAND_PREFLIGHT;
-          if (preflight && preflight.ok === false) {
-            const failed = preflight.failed
-              ?.map((item) => item.detail ? `${item.name}: ${item.detail}` : item.name)
-              .filter(Boolean)
-              .join(', ') || 'unknown checks';
+          if (preflight?.ok === false) {
+            const failed = preflight.failed?.map((item) => item.detail ? `${item.name}: ${item.detail}` : item.name).filter(Boolean).join(', ') || 'unknown checks';
             throw new Error(`KRISHNA Brahmand preflight failed: ${failed}`);
           }
           setState('ready');
@@ -135,13 +129,7 @@ export default function LegacyKrishnaPreview() {
 
   return (
     <div className="legacy-preview-shell">
-      <iframe
-        ref={frameRef}
-        className="legacy-preview-frame"
-        src="/legacy-dashboard-preview"
-        title="KRISHNA Brahmand frontend preview"
-        onLoad={inject}
-      />
+      <iframe ref={frameRef} className="legacy-preview-frame" src="/legacy-dashboard-preview" title="KRISHNA Brahmand frontend preview" onLoad={inject} />
       {state === 'loading' ? <div className="legacy-preview-status">Loading KRISHNA frontend…</div> : null}
       {state === 'error' ? <div className="legacy-preview-status legacy-preview-error">{error}</div> : null}
     </div>
