@@ -19,11 +19,11 @@ class VisionAdapter:
     never performs cloud fallback.
     """
 
-    DEFAULT_MODEL="qwen2.5vl:7b"
-    DEFAULT_FALLBACKS=("qwen3.5:4b","gemma3:4b")
-    DEFAULT_FAST_MODEL="qwen3.5:4b"
-    DEFAULT_FAST_FALLBACKS=("gemma3:4b","qwen2.5vl:7b")
-    DISABLED_MODEL_PREFIXES=()
+    DEFAULT_MODEL="gemma3:4b"
+    DEFAULT_FALLBACKS=()
+    DEFAULT_FAST_MODEL="gemma3:4b"
+    DEFAULT_FAST_FALLBACKS=()
+    DISABLED_MODEL_PREFIXES=("qwen",)
 
     @classmethod
     def model_allowed(cls,model):
