@@ -34,6 +34,20 @@ class CapabilityFabric:
         self.system_one=system_one
         self._lock=RLock()
         self._providers:dict[str,CapabilityProvider]={}
+        # RISHI GYAN-SAGAR is a routing/rights fabric, not another resident
+        # crawler.  Registering these capabilities therefore adds no idle worker
+        # or network load.  Actual browsing/API calls remain behind KRISHNA's
+        # action, permission and browser/connector gates.
+        self.register(
+            "rishi-gyan-sagar","knowledge.research","hybrid",free_only=True,
+            resident=False,sensitive_allowed=False,heavy=False,
+            notes="rights-aware scholarly/books/standards/patents/code/source routing for BRAHMAGYAN",
+        )
+        self.register(
+            "rishi-rights-gate","knowledge.rights","local",free_only=True,
+            resident=False,sensitive_allowed=True,heavy=False,
+            notes="separates read/index/archive/train permissions before Gyan-Bhandar ingestion",
+        )
 
     def register(self, provider_id, capability, location, *, free_only,
                  resident=False, enabled=True, sensitive_allowed=False,
