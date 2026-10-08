@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .rishi_gyan_sagar import RishiGyanSagar
 from .rishi_deep_sources import RishiDeepSourceExpansion
+from .rishi_training_policy import training_policy
 
 
 class GyanBhandarAgent:
@@ -104,6 +105,10 @@ class GyanBhandarAgent:
             source_default_max_mode=source_default_max_mode,
             commercial_context=commercial_context,explicit_permission=explicit_permission,
         )
+        strict=training_policy(
+            gate["rights"],license_id=license_id,explicit_permission=explicit_permission
+        )
+        gate={**gate,"rights":strict,"allowed":bool(gate["allowed"] and strict.get("allowed"))}
         result={**gate,"sha256":digest,"bytes":src.stat().st_size,
                 "training_allowed":bool(gate["allowed"] and gate["rights"].get("training_allowed") is True),
                 "next_action":"candidate may enter a separately approved training corpus" if gate["allowed"] and gate["rights"].get("training_allowed") is True else "keep out of training corpus"}
