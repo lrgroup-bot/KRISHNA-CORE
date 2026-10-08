@@ -4,6 +4,10 @@ from urllib.parse import urlparse
 import re, time, uuid, hashlib, json, zlib
 from pathlib import Path
 
+from .rishi_gyan_sagar import RishiGyanSagar
+from .rishi_deep_sources import RishiDeepSourceExpansion
+
+
 class GyanBhandarAgent:
     """Evidence-backed knowledge curator. Stores and strengthens theory; KRISHNA remains decision authority."""
     def __init__(self, memory, garuda):
@@ -11,6 +15,9 @@ class GyanBhandarAgent:
         state=Path(self.memory.db.execute("PRAGMA database_list").fetchone()[2]).resolve().parent/".krishna_state"
         self.archive_root=state/"gyan_archive"; self.archive_root.mkdir(parents=True,exist_ok=True)
         self.archive_index=self.archive_root/"index.jsonl"
+        self.rights_index=self.archive_root/"rights.jsonl"
+        self.knowledge_rights=RishiGyanSagar()
+        self.deep_sources=RishiDeepSourceExpansion()
 
     def archive_file(self, project, source_path, topic="", remove_original=False):
         src=Path(source_path).resolve()
@@ -27,6 +34,83 @@ class GyanBhandarAgent:
         self.memory.audit("gyan_file_archive","completed",f"{project}:{digest}:{record['original_bytes']}->{record['archive_bytes']}")
         return {k:v for k,v in record.items() if k!="archive"}
 
+    def _knowledge_source_policy(self,source_id,source_default_max_mode="read"):
+        sid=str(source_id or "").strip().lower()
+        if not sid:
+            return {"id":"unknown","default_max_mode":str(source_default_max_mode or "read"),
+                    "per_item_rights_required":True,"family":"unknown"}
+        try:return self.knowledge_rights.source(sid)
+        except KeyError:
+            try:return self.deep_sources.source(sid)
+            except KeyError:
+                return {"id":sid,"default_max_mode":str(source_default_max_mode or "read"),
+                        "per_item_rights_required":True,"family":"unregistered"}
+
+    def knowledge_rights_gate(self,requested_mode,*,source_id="",license_id="",source_default_max_mode="read",
+                              commercial_context=True,explicit_permission=False):
+        policy=self._knowledge_source_policy(source_id,source_default_max_mode)
+        decision=self.knowledge_rights.rights_decision(
+            requested_mode,
+            license_id=str(license_id or ""),
+            source_default_max_mode=str(policy.get("default_max_mode") or source_default_max_mode or "read"),
+            commercial_context=bool(commercial_context),
+            explicit_permission=bool(explicit_permission),
+        )
+        problems=[]
+        mode=str(requested_mode or "").strip().lower()
+        if mode in {"archive","train"} and bool(policy.get("per_item_rights_required",True)) and not str(license_id or "").strip() and not explicit_permission:
+            problems.append("item licence/rights statement is required before full-content archival or training")
+        allowed=bool(decision.allowed) and not problems
+        return {"allowed":allowed,"source_id":policy.get("id") or source_id,"source_policy":policy,
+                "rights":decision.public(),"problems":problems,
+                "policy":"external Rishi corpus content must pass this gate before full-content archive/train promotion"}
+
+    def archive_knowledge_file(self,project,source_path,*,topic="",source_id="",license_id="",
+                               source_default_max_mode="read",source_url="",identifier="",authors=None,
+                               commercial_context=True,explicit_permission=False,remove_original=False,provenance=None):
+        gate=self.knowledge_rights_gate(
+            "archive",source_id=source_id,license_id=license_id,
+            source_default_max_mode=source_default_max_mode,
+            commercial_context=commercial_context,explicit_permission=explicit_permission,
+        )
+        if not gate["allowed"]:
+            self.memory.audit("gyan_knowledge_archive","rights_blocked",
+                              f"{project}:{gate['source_id']}:{gate['rights'].get('reason')}:{'; '.join(gate['problems'])}")
+            raise PermissionError("knowledge archive blocked by rights gate: "+
+                                  "; ".join(gate["problems"] or [gate["rights"].get("reason") or "rights not verified"]))
+        archived=self.archive_file(project,source_path,topic,remove_original=remove_original)
+        rights_record={
+            "sha256":archived["sha256"],"project":str(project),"topic":str(topic or archived.get("name") or "")[:240],
+            "source_id":gate["source_id"],"source_url":str(source_url or "")[:2000],
+            "identifier":str(identifier or "")[:500],"authors":[str(x)[:300] for x in (authors or [])],
+            "license_id":str(license_id or "")[:200],"requested_mode":"archive","rights":gate["rights"],
+            "source_policy":{"id":gate["source_policy"].get("id"),"family":gate["source_policy"].get("family"),
+                             "default_max_mode":gate["source_policy"].get("default_max_mode"),
+                             "per_item_rights_required":gate["source_policy"].get("per_item_rights_required")},
+            "provenance":dict(provenance or {}),"created_at":time.time(),
+        }
+        with self.rights_index.open("a",encoding="utf-8") as h:
+            h.write(json.dumps(rights_record,ensure_ascii=False,separators=(",",":"))+"\n")
+        self.memory.audit("gyan_knowledge_archive","completed",f"{project}:{gate['source_id']}:{archived['sha256']}")
+        return {**archived,"knowledge_source":rights_record,"rights_verified":True}
+
+    def training_candidate_gate(self,source_path,*,source_id="",license_id="",source_default_max_mode="read",
+                                commercial_context=True,explicit_permission=False):
+        src=Path(source_path).resolve()
+        if not src.is_file():raise FileNotFoundError(str(src))
+        digest=hashlib.sha256(src.read_bytes()).hexdigest()
+        gate=self.knowledge_rights_gate(
+            "train",source_id=source_id,license_id=license_id,
+            source_default_max_mode=source_default_max_mode,
+            commercial_context=commercial_context,explicit_permission=explicit_permission,
+        )
+        result={**gate,"sha256":digest,"bytes":src.stat().st_size,
+                "training_allowed":bool(gate["allowed"] and gate["rights"].get("training_allowed") is True),
+                "next_action":"candidate may enter a separately approved training corpus" if gate["allowed"] and gate["rights"].get("training_allowed") is True else "keep out of training corpus"}
+        self.memory.audit("gyan_training_candidate","allowed" if result["training_allowed"] else "blocked",
+                          f"{gate['source_id']}:{digest}:{gate['rights'].get('reason')}")
+        return result
+
     def restore_file(self, sha256, destination):
         digest=str(sha256).lower().strip()
         if not re.fullmatch(r"[0-9a-f]{64}",digest):raise ValueError("invalid sha256")
@@ -39,8 +123,14 @@ class GyanBhandarAgent:
 
     def archive_status(self):
         files=list(self.archive_root.glob("*.zlib"))
+        rights_records=0
+        if self.rights_index.is_file():
+            try:
+                with self.rights_index.open("r",encoding="utf-8") as h:rights_records=sum(1 for line in h if line.strip())
+            except OSError:rights_records=0
         return {"agent":"Gyan-Bhandar","files":len(files),"compressed_bytes":sum(x.stat().st_size for x in files),
-            "policy":"content-addressed SHA-256 archive; duplicate files stored once; originals are retained unless explicit removal is requested"}
+            "rights_verified_knowledge_records":rights_records,
+            "policy":"content-addressed SHA-256 archive; external Rishi corpus content uses a separate rights gate/index; duplicate files stored once; originals are retained unless explicit removal is requested"}
 
     @staticmethod
     def _terms(text):
