@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRISHNA Diagnostics</title>
+<style>
+:root{color-scheme:dark;--bg:#030910;--panel:#081722;--line:#244454;--text:#e8f2f5;--muted:#84a3af;--good:#55e39e;--bad:#f87582;--warn:#e8c977}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% 0,#0d2636,var(--bg) 55%);color:var(--text);font:13px Inter,Segoe UI,Arial;padding:24px}main{max-width:980px;margin:auto}h1{font-size:24px;margin:0 0 4px}p{color:var(--muted)}.bar{display:flex;gap:8px;margin:18px 0;flex-wrap:wrap}button,a{border:1px solid var(--line);background:#0b1d29;color:#cbe0e7;border-radius:9px;padding:8px 11px;text-decoration:none;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{border:1px solid var(--line);background:linear-gradient(145deg,rgba(9,29,42,.9),rgba(4,14,21,.88));border-radius:14px;padding:14px;min-width:0}.head{display:flex;align-items:center;gap:8px}.dot{width:8px;height:8px;border-radius:50%;background:var(--warn)}.dot.good{background:var(--good);box-shadow:0 0 9px #55e39e88}.dot.bad{background:var(--bad);box-shadow:0 0 9px #f8758288}.name{font-weight:750}.state{margin-left:auto;font-size:10px;color:var(--warn)}.state.good{color:var(--good)}.state.bad{color:var(--bad)}pre{margin:10px 0 0;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word;font:11px/1.45 Consolas,monospace;color:#92b1bc;background:#02090e;border-radius:9px;padding:10px}.note{margin-top:14px;padding:10px;border:1px solid #6b5625;background:#2a210f66;border-radius:10px;color:#d9c788}@media(max-width:720px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<h1>KRISHNA Frontend + Backend Diagnostics</h1>
+<p>This page checks the Vite preview and both local services without requiring you to open each port manually.</p>
+<div class="bar"><button id="run">Run checks</button><a href="/spatial/">Open frontend</a></div>
+<div id="grid" class="grid"></div>
+<div class="note">If KRISHNA Core is offline, start it on port 8766. LR Universe live data requires its separate service on port 8788. The frontend itself can still render while either backend is offline.</div>
+</main>
+<script>
+const checks=[
+ ['Frontend source','/legacy-dashboard-preview','text'],
+ ['KRISHNA health','/health','json'],
+ ['KRISHNA status','/api/status','json'],
+ ['Garudanetra fabric','/api/garudanetra/fabric','json'],
+ ['Garudanetra sessions','/api/garudanetra/sessions','json'],
+ ['LR Universe health','/lr-universe-api/health','json'],
+];
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function run(){
+ const grid=document.getElementById('grid');grid.innerHTML='';
+ for(const [name,url,kind] of checks){
+  const card=document.createElement('section');card.className='card';card.innerHTML=`<div class="head"><i class="dot"></i><span class="name">${esc(name)}</span><span class="state">CHECKING</span></div><pre>${esc(url)}</pre>`;grid.appendChild(card);
+  const dot=card.querySelector('.dot'),state=card.querySelector('.state'),pre=card.querySelector('pre');
+  try{
+   const start=performance.now();const r=await fetch(url,{cache:'no-store'});const ms=Math.round(performance.now()-start);let body;
+   if(kind==='json'){try{body=await r.json()}catch{body={error:'Response was not JSON',status:r.status,text:(await r.text()).slice(0,800)}}}else{body=(await r.text()).slice(0,800)}
+   const ok=r.ok && !(body&&typeof body==='object'&&body.ok===false);dot.className='dot '+(ok?'good':'bad');state.className='state '+(ok?'good':'bad');state.textContent=(ok?'OK ':'FAIL ')+r.status+' · '+ms+' ms';pre.textContent=typeof body==='string'?body:JSON.stringify(body,null,2);
+  }catch(e){dot.className='dot bad';state.className='state bad';state.textContent='UNREACHABLE';pre.textContent=e instanceof Error?e.message:String(e);}
+ }
+}
+document.getElementById('run').onclick=run;run();
+</script>
+</body>
+</html>
