@@ -3,16 +3,21 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Development-only same-origin bridge to the already-running local KRISHNA core.
-// API calls still go to the live core, but the visual base is read directly from
-// this branch's core/web_validation.html so KRISHNA_SPATIAL_UI_DEFAULT cannot
-// accidentally swap the preview iframe to the React spatial frontend.
 const coreProxy = {
   target: 'http://127.0.0.1:8766',
   changeOrigin: true,
   configure: (proxy: { on: (event: string, handler: (req: { setHeader: (name: string, value: string) => void }) => void) => void }) => {
     proxy.on('proxyReq', (req) => req.setHeader('origin', 'http://127.0.0.1:8766'));
   },
+};
+
+// Read-only development bridge to the separately running LR Universe/LR_Group
+// service. The prefix is stripped before forwarding. No write endpoints are
+// introduced here; backend policy remains authoritative on port 8788.
+const lrUniverseProxy = {
+  target: 'http://127.0.0.1:8788',
+  changeOrigin: true,
+  rewrite: (path: string) => path.replace(/^\/lr-universe-api/, '') || '/',
 };
 
 const legacyDashboardPath = fileURLToPath(new URL('../../core/web_validation.html', import.meta.url));
@@ -41,6 +46,14 @@ function legacyDashboardPreview(): Plugin {
 export default defineConfig({
   base: '/spatial/',
   plugins: [react(), legacyDashboardPreview()],
-  server: { proxy: { '/health': coreProxy, '/api': coreProxy, '/v1': coreProxy, '/orchestration': coreProxy } },
+  server: {
+    proxy: {
+      '/health': coreProxy,
+      '/api': coreProxy,
+      '/v1': coreProxy,
+      '/orchestration': coreProxy,
+      '/lr-universe-api': lrUniverseProxy,
+    },
+  },
   build: { outDir: 'dist', sourcemap: false, emptyOutDir: true },
 });
