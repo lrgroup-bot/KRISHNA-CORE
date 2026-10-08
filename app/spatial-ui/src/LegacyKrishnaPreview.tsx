@@ -1,5 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 
+type PreviewWindow = Window & {
+  KRISHNA_BRAHMAND_PREFLIGHT?: { ok?: boolean; failed?: Array<{ name?: string; detail?: string }> };
+};
+
 export default function LegacyKrishnaPreview() {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -9,43 +13,58 @@ export default function LegacyKrishnaPreview() {
     try {
       const frame = frameRef.current;
       const doc = frame?.contentDocument;
-      const win = frame?.contentWindow as (Window & { KRISHNA_BRAHMAND_DATA?: { nodes?: Record<string, Record<string, unknown>> } }) | null;
+      const win = frame?.contentWindow as PreviewWindow | null;
       if (!doc?.head || !doc.body || !win) throw new Error('Legacy dashboard document is not accessible.');
 
+      setState('loading');
+      setError('');
       doc.documentElement.dataset.krishnaBrahmandPreview = '1';
 
-      if (!doc.getElementById('krishna-brahmand-style')) {
+      const ensureStyle = (id: string, href: string) => {
+        if (doc.getElementById(id)) return;
         const link = doc.createElement('link');
-        link.id = 'krishna-brahmand-style';
+        link.id = id;
         link.rel = 'stylesheet';
-        link.href = '/spatial/krishna-brahmand.css';
+        link.href = href;
         doc.head.appendChild(link);
-      }
-
-      ['krishna-brahmand-data-script', 'krishna-brahmand-main-script'].forEach((id) => doc.getElementById(id)?.remove());
-
-      const dataScript = doc.createElement('script');
-      dataScript.id = 'krishna-brahmand-data-script';
-      dataScript.src = `/spatial/krishna-brahmand-data.js?v=${Date.now()}`;
-      dataScript.onerror = () => {
-        setError('KRISHNA Brahmand pipeline data failed to load.');
-        setState('error');
       };
-      dataScript.onload = () => {
-        const nodes = win.KRISHNA_BRAHMAND_DATA?.nodes;
-        if (nodes) Object.entries(nodes).forEach(([id, definition]) => { definition.id = id; });
+      ensureStyle('krishna-brahmand-style', '/spatial/krishna-brahmand.css');
+      ensureStyle('krishna-live-motion-style', '/spatial/krishna-live-motion.css');
 
-        const mainScript = doc.createElement('script');
-        mainScript.id = 'krishna-brahmand-main-script';
-        mainScript.src = `/spatial/krishna-brahmand-main.js?v=${Date.now()}`;
-        mainScript.onload = () => setState('ready');
-        mainScript.onerror = () => {
-          setError('KRISHNA Brahmand enhancement runtime failed to load.');
+      [
+        'krishna-brahmand-data-script',
+        'krishna-brahmand-normalize-script',
+        'krishna-brahmand-main-script',
+        'krishna-brahmand-preflight-script',
+      ].forEach((id) => doc.getElementById(id)?.remove());
+
+      const loadScript = (id: string, src: string) => new Promise<void>((resolve, reject) => {
+        const script = doc.createElement('script');
+        script.id = id;
+        script.src = `${src}?v=${Date.now()}`;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`${src} failed to load.`));
+        doc.body.appendChild(script);
+      });
+
+      void (async () => {
+        try {
+          await loadScript('krishna-brahmand-data-script', '/spatial/krishna-brahmand-data.js');
+          await loadScript('krishna-brahmand-normalize-script', '/spatial/krishna-brahmand-normalize.js');
+          await loadScript('krishna-brahmand-main-script', '/spatial/krishna-brahmand-main.js');
+          await new Promise((resolve) => win.setTimeout(resolve, 80));
+          await loadScript('krishna-brahmand-preflight-script', '/spatial/krishna-brahmand-preflight.js');
+          const preflight = win.KRISHNA_BRAHMAND_PREFLIGHT;
+          if (preflight && preflight.ok === false) {
+            const failed = preflight.failed?.map((item) => item.name).filter(Boolean).join(', ') || 'unknown checks';
+            throw new Error(`KRISHNA Brahmand preflight failed: ${failed}`);
+          }
+          setState('ready');
+        } catch (reason) {
+          setError(reason instanceof Error ? reason.message : String(reason));
           setState('error');
-        };
-        doc.body.appendChild(mainScript);
-      };
-      doc.body.appendChild(dataScript);
+        }
+      })();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
       setState('error');
