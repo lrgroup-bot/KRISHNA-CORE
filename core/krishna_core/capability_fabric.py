@@ -34,9 +34,10 @@ class CapabilityFabric:
         self.system_one=system_one
         self._lock=RLock()
         self._providers:dict[str,CapabilityProvider]={}
+        self._rishi_gyan_sagar=None
         # RISHI GYAN-SAGAR is a routing/rights fabric, not another resident
-        # crawler.  Registering these capabilities therefore adds no idle worker
-        # or network load.  Actual browsing/API calls remain behind KRISHNA's
+        # crawler. Registering these capabilities therefore adds no idle worker
+        # or network load. Actual browsing/API calls remain behind KRISHNA's
         # action, permission and browser/connector gates.
         self.register(
             "rishi-gyan-sagar","knowledge.research","hybrid",free_only=True,
@@ -97,6 +98,49 @@ class CapabilityFabric:
             "candidates":[x.as_dict() for x in rows],
             "decision":decision,
             "authority":"provider recommendation only; Sudarshan/PolicyKernel governs execution",
+        }
+
+    def _gyan_sagar(self):
+        # Lazy import/instantiation prevents source-catalog discovery from adding
+        # start-up work to KRISHNA. The object itself is pure policy/planning and
+        # performs no network I/O.
+        if self._rishi_gyan_sagar is None:
+            from .rishi_gyan_sagar import RishiGyanSagar
+            self._rishi_gyan_sagar=RishiGyanSagar()
+        return self._rishi_gyan_sagar
+
+    def knowledge_plan(self, topic, *, rishi_id=None, kinds=None, max_sources=12):
+        route=self.route("knowledge.research")
+        if not route.get("selected"):
+            return {"route":route,"plan":None}
+        plan=self._gyan_sagar().research_plan(topic,rishi_id=rishi_id,kinds=kinds,max_sources=max_sources)
+        return {"route":route,"plan":plan,
+                "execution":"source plan only; execute selected requests through Shared Action Bus/browser/connectors"}
+
+    def knowledge_request(self, source_id, query, *, email="", api_key_ref=""):
+        route=self.route("knowledge.research")
+        if not route.get("selected"):
+            return {"route":route,"request":None}
+        request=self._gyan_sagar().request_plan(source_id,query,email=email,api_key_ref=api_key_ref)
+        return {"route":route,"request":request,
+                "execution":"request contract only; network execution remains permission-gated"}
+
+    def knowledge_rights(self, requested_mode, *, license_id="", source_default_max_mode="read",
+                         commercial_context=True, explicit_permission=False):
+        route=self.route("knowledge.rights",sensitive=True)
+        if not route.get("selected"):
+            return {"route":route,"decision":None}
+        decision=self._gyan_sagar().rights_decision(
+            requested_mode,license_id=license_id,source_default_max_mode=source_default_max_mode,
+            commercial_context=commercial_context,explicit_permission=explicit_permission,
+        )
+        return {"route":route,"decision":decision.public()}
+
+    def knowledge_status(self):
+        return {
+            "route":self.route("knowledge.research"),
+            "rights_route":self.route("knowledge.rights",sensitive=True),
+            "sagar":self._gyan_sagar().source_status(),
         }
 
     def status(self):
