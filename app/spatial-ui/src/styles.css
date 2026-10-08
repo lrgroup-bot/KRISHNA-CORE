@@ -212,8 +212,8 @@ h2 { margin: 10px 0 8px; font-size: 28px; }
 }
 
 /* Universe owner-first shell: two navigation choices, no secondary dock tab rail. */
-.app-shell:has(.universe-home) .dv-tabs-and-actions-container { display:none !important; }
-.app-shell:has(.universe-home) .sidebar { background:linear-gradient(180deg,#06121e,#030910);border-right:1px solid #294758; }
-.app-shell:has(.universe-home) .brand {color:#ebca82;letter-spacing:.17em;}
-.app-shell:has(.universe-home) .nav-item--active {border:1px solid #d7b773;background:#142938;color:#f4e0b4;}
-.app-shell:has(.universe-home) .workspace {min-height:0;}
+.app-shell .dv-tabs-and-actions-container { display:none !important; }
+.app-shell .sidebar { background:linear-gradient(180deg,#06121e,#030910);border-right:1px solid #294758; }
+.app-shell .brand {color:#ebca82;letter-spacing:.17em;}
+.app-shell .nav-item--active {border:1px solid #d7b773;background:#142938;color:#f4e0b4;}
+.app-shell .workspace {min-height:0;}
