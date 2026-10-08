@@ -5,6 +5,7 @@ type PreviewWindow = Window & {
   __KRISHNA_BRAHMAND_PREVIEW__?: boolean;
   __KRISHNA_OWNER_UI__?: boolean;
   __KRISHNA_PREVIEW_API_COMPAT__?: boolean;
+  __KRISHNA_OWNER_HOTFIX__?: boolean;
   KRISHNA_BRAHMAND_DATA?: { nodes?: Record<string, unknown> };
   LR_UNIVERSE_SOURCE_DATA?: Record<string, unknown>;
   KRISHNA_BRAHMAND_PREFLIGHT?: {
@@ -40,6 +41,7 @@ export default function LegacyKrishnaPreview() {
       delete win.__KRISHNA_BRAHMAND_PREVIEW__;
       delete win.__KRISHNA_OWNER_UI__;
       delete win.__KRISHNA_PREVIEW_API_COMPAT__;
+      delete win.__KRISHNA_OWNER_HOTFIX__;
       delete win.KRISHNA_BRAHMAND_PREFLIGHT;
 
       const ensureStyle = (id: string, href: string) => {
@@ -53,6 +55,7 @@ export default function LegacyKrishnaPreview() {
       ensureStyle('krishna-brahmand-style', '/spatial/krishna-brahmand.css');
       ensureStyle('krishna-live-motion-style', '/spatial/krishna-live-motion.css');
       ensureStyle('krishna-owner-ui-style', '/spatial/krishna-owner-ui.css');
+      ensureStyle('krishna-owner-hotfix-style', '/spatial/krishna-owner-hotfix.css');
 
       [
         'krishna-brahmand-data-script',
@@ -61,6 +64,7 @@ export default function LegacyKrishnaPreview() {
         'krishna-preview-api-compat-script',
         'krishna-brahmand-main-script',
         'krishna-owner-ui-script',
+        'krishna-owner-hotfix-script',
         'krishna-brahmand-preflight-script',
       ].forEach((id) => doc.getElementById(id)?.remove());
 
@@ -105,6 +109,7 @@ export default function LegacyKrishnaPreview() {
           await loadScript('krishna-preview-api-compat-script', '/spatial/krishna-preview-api-compat.js');
           await loadScript('krishna-brahmand-main-script', '/spatial/krishna-brahmand-main.js');
           await loadScript('krishna-owner-ui-script', '/spatial/krishna-owner-ui.js');
+          await loadScript('krishna-owner-hotfix-script', '/spatial/krishna-owner-hotfix.js');
           try {
             await waitForOwnerDom();
           } catch (reason) {
