@@ -47,6 +47,21 @@ class RishiGyanSagarCapabilityTests(unittest.TestCase):
         self.assertIn("dcs", ids)
         self.assertIn("Shared Action Bus", out["execution"])
 
+    def test_shared_route_can_return_bounded_source_request_contract(self):
+        out = CapabilityFabric().route(
+            "knowledge.research",
+            context={
+                "topic": "research datasets",
+                "rishi_id": "bharadvaja",
+                "source_id": "datacite",
+                "query": "battery recycling dataset",
+                "max_sources": 10,
+            },
+        )
+        self.assertEqual(out["request_plan"]["source_id"],"datacite")
+        self.assertIn("query=battery+recycling+dataset",out["request_plan"]["url"])
+        self.assertIn("Shared Action Bus",out["execution"])
+
     def test_shared_capability_route_returns_rights_decision(self):
         out = CapabilityFabric().route(
             "knowledge.rights",
@@ -60,6 +75,22 @@ class RishiGyanSagarCapabilityTests(unittest.TestCase):
         self.assertEqual(out["selected"], "rishi-rights-gate")
         self.assertTrue(out["rights_decision"]["allowed"])
         self.assertTrue(out["rights_decision"]["attribution_required"])
+
+    def test_shared_rights_route_requires_extra_review_for_cc_by_training(self):
+        out = CapabilityFabric().route(
+            "knowledge.rights",
+            sensitive=True,
+            context={
+                "requested_mode": "train",
+                "license_id": "CC-BY-4.0",
+                "source_default_max_mode": "index",
+            },
+        )
+        decision=out["rights_decision"]
+        self.assertFalse(decision["allowed"])
+        self.assertFalse(decision["training_allowed"])
+        self.assertTrue(decision["review_required"])
+        self.assertIn("separate model-training rights review",decision["training_policy"])
 
     def test_capability_fabric_can_build_bounded_request_contract(self):
         out = CapabilityFabric().knowledge_request("openalex", "solid state battery")
@@ -79,6 +110,7 @@ class RishiGyanSagarCapabilityTests(unittest.TestCase):
         out = CapabilityFabric().knowledge_status()
         self.assertEqual(out["route"]["selected"], "rishi-gyan-sagar")
         self.assertGreaterEqual(out["sagar"]["source_count"], 25)
+        self.assertGreater(out["total_source_count"],out["sagar"]["source_count"])
 
 
 if __name__ == "__main__":
