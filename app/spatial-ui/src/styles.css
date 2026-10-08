@@ -210,3 +210,10 @@ h2 { margin: 10px 0 8px; font-size: 28px; }
   .plugin-connect-row { grid-template-columns:1fr; }
   .plugin-modal { padding:20px; }
 }
+
+/* Universe owner-first shell: two navigation choices, no secondary dock tab rail. */
+.app-shell:has(.universe-home) .dv-tabs-and-actions-container { display:none !important; }
+.app-shell:has(.universe-home) .sidebar { background:linear-gradient(180deg,#06121e,#030910);border-right:1px solid #294758; }
+.app-shell:has(.universe-home) .brand {color:#ebca82;letter-spacing:.17em;}
+.app-shell:has(.universe-home) .nav-item--active {border:1px solid #d7b773;background:#142938;color:#f4e0b4;}
+.app-shell:has(.universe-home) .workspace {min-height:0;}
