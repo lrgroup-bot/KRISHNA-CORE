@@ -9,7 +9,8 @@ export default function LegacyKrishnaPreview() {
     try {
       const frame = frameRef.current;
       const doc = frame?.contentDocument;
-      if (!doc?.head || !doc.body) throw new Error('Legacy dashboard document is not accessible.');
+      const win = frame?.contentWindow as (Window & { KRISHNA_BRAHMAND_DATA?: { nodes?: Record<string, Record<string, unknown>> } }) | null;
+      if (!doc?.head || !doc.body || !win) throw new Error('Legacy dashboard document is not accessible.');
 
       doc.documentElement.dataset.krishnaBrahmandPreview = '1';
 
@@ -31,6 +32,9 @@ export default function LegacyKrishnaPreview() {
         setState('error');
       };
       dataScript.onload = () => {
+        const nodes = win.KRISHNA_BRAHMAND_DATA?.nodes;
+        if (nodes) Object.entries(nodes).forEach(([id, definition]) => { definition.id = id; });
+
         const mainScript = doc.createElement('script');
         mainScript.id = 'krishna-brahmand-main-script';
         mainScript.src = `/spatial/krishna-brahmand-main.js?v=${Date.now()}`;
