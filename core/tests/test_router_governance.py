@@ -159,41 +159,31 @@ class FreeCloudDefaultTests(unittest.TestCase):
 
 
 class QwenPcRolePolicyTests(unittest.TestCase):
-    def test_qwen_is_owner_approved_pc_general_default(self):
-        with patch.dict(os.environ,{},clear=True):
-            candidates=ModelRouter.local_model_candidates()
-        self.assertTrue(candidates)
-        self.assertEqual(candidates[0],"qwen3.5:4b")
-        self.assertIn("gemma3:4b",candidates)
-
-    def test_explicit_pc_qwen_environment_is_honored(self):
-        with patch.dict(os.environ,{
-            "KRISHNA_LOCAL_MODEL":"qwen3.5:4b",
-            "KRISHNA_LOCAL_FALLBACK_MODELS":"qwen2.5:3b,qwen2.5vl:7b,gemma3:4b",
-        },clear=True):
-            candidates=ModelRouter.local_model_candidates()
-        self.assertEqual(candidates[0],"qwen3.5:4b")
-        self.assertIn("qwen2.5:3b",candidates)
-        self.assertIn("qwen2.5vl:7b",candidates)
-
-    def test_explicit_qwen_request_reaches_pc_ollama(self):
-        router=ModelRouter()
-        calls=[]
-        router._ollama_generate=lambda model,prompt: calls.append((model,prompt)) or "ok"
-        self.assertEqual(router.local("hello","qwen3.5:4b"),"ok")
-        self.assertEqual(calls,[("qwen3.5:4b","hello")])
-
-    def test_qwen_family_is_allowed_on_pc(self):
-        self.assertTrue(ModelRouter.local_model_allowed("qwen3.5:4b"))
-        self.assertTrue(ModelRouter.local_model_allowed("library/qwen2.5vl:7b"))
+    def test_qwen_family_is_disabled_on_pc(self):
+        self.assertFalse(ModelRouter.local_model_allowed("qwen3.5:4b"))
+        self.assertFalse(ModelRouter.local_model_allowed("library/qwen2.5vl:7b"))
         self.assertTrue(ModelRouter.local_model_allowed("gemma3:4b"))
 
-    def test_one_shot_local_model_passes_keep_alive_to_ollama(self):
+    def test_qwen_environment_cannot_bypass_owner_policy(self):
+        with patch.dict(os.environ,{
+            "KRISHNA_LOCAL_MODEL":"qwen3.5:4b",
+            "KRISHNA_LOCAL_FALLBACK_MODELS":"qwen2.5:3b,gemma3:4b",
+        },clear=True):
+            candidates=ModelRouter.local_model_candidates()
+        self.assertNotIn("qwen3.5:4b",candidates)
+        self.assertNotIn("qwen2.5:3b",candidates)
+        self.assertEqual(candidates[0],"gemma3:4b")
+
+    def test_explicit_qwen_request_fails_closed(self):
         router=ModelRouter()
-        calls=[]
+        with self.assertRaisesRegex(RuntimeError,"disabled by owner policy"):
+            router.local("hello","qwen3.5:4b")
+
+    def test_non_qwen_one_shot_passes_keep_alive(self):
+        router=ModelRouter();calls=[]
         router._ollama_generate=lambda model,prompt,keep_alive=None: calls.append((model,prompt,keep_alive)) or "ok"
-        self.assertEqual(router.local("repair","qwen2.5-coder:7b",task="coding",keep_alive=0),"ok")
-        self.assertEqual(calls,[("qwen2.5-coder:7b","repair",0)])
+        self.assertEqual(router.local("repair","gemma3:4b",task="coding",keep_alive=0),"ok")
+        self.assertEqual(calls,[("gemma3:4b","repair",0)])
 
 
 if __name__=="__main__":

@@ -429,7 +429,12 @@ class MemoryStore:
         if not topic or not lesson: raise ValueError("topic and lesson are required")
         fp=hashlib.sha256((topic.lower()+"|"+lesson.lower()).encode("utf-8","ignore")).hexdigest()
         now=time.time(); status="verified" if verified else "candidate"; confidence=max(0.0,min(float(confidence),1.0))
-        provenance_json=json.dumps(provenance or {},ensure_ascii=False,separators=(",",":"))
+        provenance=dict(provenance or {})
+        if verified:
+            gate=provenance.get("knowledge_law_gate")
+            if not isinstance(gate,dict) or gate.get("allowed") is not True:
+                raise ValueError("verified learning requires an allowed knowledge_law_gate provenance record")
+        provenance_json=json.dumps(provenance,ensure_ascii=False,separators=(",",":"))
         with self.lock:
             if supersedes:
                 prior=self.db.execute("SELECT status FROM learnings WHERE project=? AND fingerprint=?",(project,str(supersedes))).fetchone()
@@ -439,12 +444,16 @@ class MemoryStore:
             self.db.execute("""INSERT INTO learnings(project,topic,lesson,evidence,confidence,source,status,fingerprint,memory_kind,provenance,created_at,updated_at)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(project,fingerprint) DO UPDATE SET
                 evidence=excluded.evidence,confidence=MAX(learnings.confidence,excluded.confidence),source=excluded.source,
-                status=CASE WHEN learnings.status='verified' THEN 'verified' WHEN learnings.status='superseded' THEN 'superseded' ELSE excluded.status END,
+                status=CASE
+                    WHEN learnings.status='superseded' THEN 'superseded'
+                    WHEN learnings.status='needs_review' AND excluded.status='verified' THEN 'needs_review'
+                    WHEN learnings.status='verified' THEN 'verified'
+                    ELSE excluded.status END,
                 memory_kind=excluded.memory_kind,provenance=excluded.provenance,updated_at=excluded.updated_at""",
                 (project,topic,lesson,self._pack_gyan(evidence or []),confidence,str(source or "sudarshan"),status,fp,memory_kind,provenance_json,now,now))
             self.db.commit()
         return {"project":project,"topic":topic,"lesson":lesson,"confidence":confidence,"source":source,"status":status,
-                "fingerprint":fp,"memory_kind":memory_kind,"provenance":provenance or {},"supersedes":supersedes}
+                "fingerprint":fp,"memory_kind":memory_kind,"provenance":provenance,"supersedes":supersedes}
 
     def learnings(self, project, limit=100, verified_only=False, memory_kind=None, include_superseded=False):
         with self.lock:
@@ -460,11 +469,30 @@ class MemoryStore:
                  "status":r[5],"fingerprint":r[6],"memory_kind":r[7],"provenance":json.loads(r[8] or "{}"),
                  "superseded_by":r[9],"superseded_at":r[10],"created_at":r[11],"updated_at":r[12]} for r in rows]
 
-    def verify_learning(self, project, fingerprint):
+    def verify_learning(self, project, fingerprint, revalidation=None):
+        """Verification of invalidated knowledge requires an explicit revalidation record."""
         with self.lock:
-            cur=self.db.execute("UPDATE learnings SET status='verified',updated_at=? WHERE project=? AND fingerprint=? AND status!='superseded'",
-                (time.time(),project,fingerprint)); self.db.commit()
-        if not cur.rowcount: raise KeyError(fingerprint)
+            row=self.db.execute("SELECT status,provenance FROM learnings WHERE project=? AND fingerprint=?",
+                                (project,fingerprint)).fetchone()
+            if not row or row[0]=='superseded': raise KeyError(fingerprint)
+            if row[0]=='needs_review':
+                if not isinstance(revalidation,dict):
+                    raise ValueError("needs_review knowledge requires explicit revalidation evidence")
+                evidence=list(revalidation.get("evidence_records") or [])
+                gate=revalidation.get("knowledge_law_gate")
+                if not evidence or not isinstance(gate,dict) or gate.get("allowed") is not True:
+                    raise ValueError("revalidation requires evidence_records and an allowed knowledge_law_gate")
+            try: prov=json.loads(row[1] or "{}")
+            except Exception: prov={}
+            if row[0]=='needs_review':
+                history=list(prov.get("revalidation_history") or [])
+                history.append({"at":time.time(),**dict(revalidation)})
+                prov["revalidation_history"]=history[-50:]
+                prov["needs_review"]=False
+                prov.pop("invalidated_by",None)
+            self.db.execute("UPDATE learnings SET status='verified',provenance=?,updated_at=? WHERE project=? AND fingerprint=?",
+                (json.dumps(prov,ensure_ascii=False,separators=(",",":")),time.time(),project,fingerprint))
+            self.db.commit()
         return True
 
     def supersede_learning(self, project, fingerprint, replacement_topic, replacement_lesson, evidence=None,
@@ -472,19 +500,55 @@ class MemoryStore:
         return self.learn(project,replacement_topic,replacement_lesson,evidence,confidence,source,verified,
                           memory_kind,provenance,supersedes=fingerprint)
 
+    def invalidate_learning_tree(self, project, fingerprint, reason, source_ref=""):
+        """Downgrade a learning and every provenance-dependent descendant to needs_review."""
+        project=str(project or "").strip(); root=str(fingerprint or "").strip()
+        if not project or not root or not str(reason or "").strip(): raise ValueError("project, fingerprint and reason are required")
+        now=time.time(); affected=[]; frontier=[root]; seen=set()
+        with self.lock:
+            rows=self.db.execute("SELECT fingerprint,provenance,status FROM learnings WHERE project=?",(project,)).fetchall()
+            graph={}
+            for fp,prov,status in rows:
+                try: p=json.loads(prov or "{}")
+                except Exception: p={}
+                parents=set(str(x) for x in (p.get("derived_from") or p.get("parent_entities") or []) if str(x).strip())
+                if p.get("supersedes"): parents.add(str(p["supersedes"]))
+                for parent in parents: graph.setdefault(parent,set()).add(str(fp))
+            while frontier:
+                cur=frontier.pop()
+                if cur in seen: continue
+                seen.add(cur)
+                frontier.extend(x for x in graph.get(cur,set()) if x not in seen)
+            for fp in sorted(seen):
+                row=self.db.execute("SELECT provenance FROM learnings WHERE project=? AND fingerprint=?",(project,fp)).fetchone()
+                if not row: continue
+                try: prov=json.loads(row[0] or "{}")
+                except Exception: prov={}
+                history=list(prov.get("invalidation_history") or [])
+                history.append({"at":now,"root":root,"reason":str(reason),"source_ref":str(source_ref or "")})
+                prov["invalidation_history"]=history[-50:];prov["needs_review"]=True;prov["invalidated_by"]=root
+                self.db.execute("UPDATE learnings SET status='needs_review',provenance=?,updated_at=? WHERE project=? AND fingerprint=? AND status!='superseded'",
+                    (json.dumps(prov,ensure_ascii=False,separators=(",",":")),now,project,fp))
+                affected.append(fp)
+            self.db.execute("INSERT INTO audit(action,status,details,created_at) VALUES(?,?,?,?)",
+                ("gyan_invalidation","needs_review",json.dumps({"project":project,"root":root,"affected":affected,"reason":str(reason),"source_ref":str(source_ref or "")},ensure_ascii=False),now))
+            self.db.commit()
+        return {"project":project,"root":root,"affected":affected,"status":"needs_review","reason":str(reason)}
+
     def learning_inventory(self, project):
         kinds=("working","episodic","semantic","graph","skill","evidence")
         with self.lock:
             rows=self.db.execute("SELECT memory_kind,status,COUNT(*) FROM learnings WHERE project=? GROUP BY memory_kind,status",(project,)).fetchall()
             transient=self.db.execute("SELECT kind,COUNT(*) FROM memory WHERE project=? AND active=1 GROUP BY kind",(project,)).fetchall()
-        out={k:{"candidate":0,"verified":0,"superseded":0,"active_memory":0} for k in kinds}
+        out={k:{"candidate":0,"verified":0,"needs_review":0,"superseded":0,"active_memory":0} for k in kinds}
         for kind,status,count in rows:
-            if kind not in out: out[kind]={"candidate":0,"verified":0,"superseded":0,"active_memory":0}
+            if kind not in out: out[kind]={"candidate":0,"verified":0,"needs_review":0,"superseded":0,"active_memory":0}
             if status in out[kind]: out[kind][status]=int(count)
         for kind,count in transient:
             if kind in out: out[kind]["active_memory"]=int(count)
         return {"project":project,"kinds":out,"totals":{
-            "active_learnings":sum(v["candidate"]+v["verified"] for v in out.values()),
+            "active_learnings":sum(v["candidate"]+v["verified"]+v["needs_review"] for v in out.values()),
+            "needs_review":sum(v["needs_review"] for v in out.values()),
             "verified":sum(v["verified"] for v in out.values()),
             "superseded":sum(v["superseded"] for v in out.values()),
             "active_memory":sum(v["active_memory"] for v in out.values()),

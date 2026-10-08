@@ -572,8 +572,8 @@ class BrahmagyanRuntime:
             if str(detail.get("verified_by") or "").strip().lower()!="gautama":
                 raise ValueError("L3 Source Verified requires Gautama evidence review")
         if target=="L4":
-            if self._independent_source_count(c)<2 and not str(detail.get("cross_check_notes") or "").strip():
-                raise ValueError("L4 Cross-checked requires independent evidence or explicit cross-check notes")
+            if self._independent_source_count(c)<2:
+                raise ValueError("L4 Cross-checked requires at least two independent source families")
             if str(detail.get("verified_by") or c.get("verified_by") or "").strip().lower()!="gautama":
                 raise ValueError("L4 Cross-checked requires Gautama review")
         if target=="L5" and not detail.get("application_notes"):
@@ -773,7 +773,21 @@ class BrahmagyanRuntime:
             "proposal_id":str(uuid.uuid4()),"domain":domain,"role":role,"reason":reason,
             "duplicate_candidates":overlaps,"status":"needs_duplication_review" if overlaps else "candidate",
             "created_at":self._now(),
-            "policy":"proposal only; permanent Rishi creation requires AI-HR duplication review plus Sudarshan authorization and code/runtime registration",
+            "governance":{
+                "brahma_review_required":True,
+                "krishna_review_required":True,
+                "truth_debate_required":True,
+                "gautama_evidence_review_required":True,
+                "duplicate_scope_review_required":True,
+                "shishya_first_required":True,
+                "human_owner_approval_required":False,
+            },
+            "decision_status":"awaiting_brahma_krishna_truth_debate",
+            "policy":(
+                "proposal only; no permanent Rishi may be added automatically. The uncovered subject is handled first by temporary Shishya. "
+                "Permanent Rishi creation requires BRAHMA and KRISHNA to examine evidence, argue opposing cases, test truth/duplication with Gautama, "
+                "and jointly approve the need before code/runtime registration."
+            ),
         }
         with self.lock:
             self.state["council_proposals"].append(proposal)
@@ -816,10 +830,13 @@ class BrahmagyanRuntime:
         self.council.get(parent)
         specs=[str(x).strip() for x in (specialties or []) if str(x).strip()]
         requested=max(1,int(count or len(specs) or len(assignments or []) or 4))
-        max_total=max(1,int(os.getenv("KRISHNA_SHISHYA_MAX_PER_REQUEST","32")))
-        tree_nodes=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_TREE_NODES","64")),256))
+        # Shishya scale is mission-driven, not a fixed council constant. These are
+        # resource safety ceilings, not target team sizes; BRAHMA + AI-HR may approve
+        # additional waves when evidence diversity/coverage justifies them.
+        max_total=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_PER_REQUEST","128")),512))
+        tree_nodes=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_TREE_NODES","256")),1024))
         requested=min(requested,max_total,tree_nodes)
-        concurrency=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_CONCURRENT","8")),8))
+        concurrency=max(1,min(int(os.getenv("KRISHNA_SHISHYA_MAX_CONCURRENT","16")),64))
         if not specs:
             specs=[
                 "Primary Source Discovery",
@@ -858,7 +875,26 @@ class BrahmagyanRuntime:
                 "scope_inheritance":"descendants inherit parent project/privacy/permissions/safety; authority cannot expand",
                 "collapse_policy":"all descendant findings collapse upward into the parent Rishi; temporary identities are destroyed",
             },
-            "ephemeral":True,"approval_required":True,"authority":"Sudarshan + AI-HR + resource governor",
+            "ephemeral":True,"approval_required":True,
+            "authority":"BRAHMA + AI-HR discussion/argument + resource governor; Sudarshan executes the approved allocation",
+            "scale_governance":{
+                "fixed_eight_limit":False,
+                "mission_driven":True,
+                "brahma_review_required":True,
+                "ai_hr_review_required":True,
+                "discussion_and_argument_required":True,
+                "resource_review_required":True,
+                "diversity_before_quantity":True,
+                "expand_in_waves":True,
+                "expansion_reasons":[
+                    "uncovered specialty","independent replication","contradictory evidence",
+                    "new source class","cross-domain dependency","unresolved high-impact question",
+                ],
+                "stop_reasons":[
+                    "coverage complete","evidence saturation","duplicate outputs","diminishing information gain",
+                    "resource pressure","mission resolved","safety or permission boundary",
+                ],
+            },
             "preserve_before_retirement":[
                 "verified findings","supporting and contradicting evidence","successful methods","failed approaches",
                 "corrections","reusable skills","evaluation results","sources","provenance","unresolved questions",
@@ -867,8 +903,9 @@ class BrahmagyanRuntime:
             "retention_policy":"findings_and_provenance_only",
             "destruction_policy":"retire every Shishya immediately after verified handover; keep no live worker identity/state",
             "resource_policy":(
-                f"up to {concurrency} concurrent Shishyas per wave; up to {max_total} per request; "
-                "Rishi may request later waves while the mission remains active and resource budgets permit"
+                f"planned concurrency {concurrency} per wave and safety ceiling {max_total} per request; "
+                "these are configurable resource ceilings, not a fixed team size. BRAHMA and AI-HR review mission complexity, "
+                "specialty diversity, duplication, evidence gain and available CPU/GPU/RAM before approving expansion waves."
             ),
         }
 

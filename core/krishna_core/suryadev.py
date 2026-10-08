@@ -20,6 +20,10 @@ import uuid
 from threading import RLock
 
 from .field_perception import FieldPerceptionPolicy
+from .suryadev_capacity import machine_snapshot, capacity_decision, browser_policy, recovery_policy
+from .suryadev_scheduler import slot_plan, media_speed_plan, source_adapter_policy, evidence_quality_gate
+from .suryadev_ops import SuryadevOpsLog
+from .suryadev_handoff import chandradev_handoff, simultaneous_lane_policy
 
 
 class SuryadevAgent:
@@ -73,6 +77,7 @@ class SuryadevAgent:
         self.council = council
         self.ui_reviewer = ui_reviewer
         self.memory = memory
+        self.ops = SuryadevOpsLog(self.root / "ops")
 
     @staticmethod
     def _text(value, limit=8000):
@@ -338,6 +343,13 @@ class SuryadevAgent:
             "charging": bool(payload.get("charging", False)),
             "thermal_state": self._text(payload.get("thermal_state") or "unknown", 60).lower(),
             "last_error": self._text(payload.get("last_error"), 1000),
+            "cpu_percent": float(payload.get("cpu_percent") or 0),
+            "ram_percent": float(payload.get("ram_percent") or 0),
+            "gpu_percent": float(payload.get("gpu_percent") or 0),
+            "vram_percent": float(payload.get("vram_percent") or 0),
+            "network_percent": float(payload.get("network_percent") or 0),
+            "active_workers": max(0, int(payload.get("active_workers") or 0)),
+            "free_disk_gb": float(payload.get("free_disk_gb") or 0),
         }
         with self._node_lock:
             rows = self._load_nodes()
@@ -358,6 +370,60 @@ class SuryadevAgent:
             "heartbeat_at": now,
             "stale_after_seconds": 150,
         }
+
+    def adaptive_worker_plan(self, payload):
+        payload=dict(payload or {})
+        snap=machine_snapshot(
+            cpu_percent=payload.get("cpu_percent",0),ram_percent=payload.get("ram_percent",0),
+            gpu_percent=payload.get("gpu_percent",0),vram_percent=payload.get("vram_percent",0),
+            network_percent=payload.get("network_percent",0),thermal_state=payload.get("thermal_state","unknown"),
+            free_disk_gb=payload.get("free_disk_gb",0),
+        )
+        decision=capacity_decision(snap,payload.get("active_workers",0),max_workers=payload.get("max_workers",256))
+        slots=slot_plan(
+            requested=payload.get("requested_slots",50),active=payload.get("active_workers",0),
+            resource_decision=decision,media_requested=payload.get("media_requested",0),
+            media_cap=payload.get("media_cap"),
+        )
+        result={**decision,"snapshot":snap,"slots":slots,"browser":browser_policy(),
+                "sources":source_adapter_policy(),"recovery":recovery_policy(),
+                "parallel_lanes":simultaneous_lane_policy()}
+        self.ops.write_status(state="running",capacity=result,active_workers=payload.get("active_workers",0),
+                              current_job_id=payload.get("current_job_id",""))
+        self.ops.emit("capacity_plan",action=decision.get("action"),slots=slots,snapshot=snap)
+        return result
+
+    def media_learning_plan(self, metrics):
+        metrics=dict(metrics or {})
+        speed=media_speed_plan(
+            speech_density=metrics.get("speech_density",.5),
+            technical_density=metrics.get("technical_density",.5),
+            visual_change=metrics.get("visual_change",.5),
+            transcript_confidence=metrics.get("transcript_confidence",.8),
+            evidence_criticality=metrics.get("evidence_criticality",.5),
+        )
+        quality=evidence_quality_gate(
+            authority=self._clamp(metrics.get("authority",.5)),
+            relevance=self._clamp(metrics.get("relevance",.5)),
+            independence=self._clamp(metrics.get("independence",.5)),
+            transcript_confidence=self._clamp(metrics.get("transcript_confidence",.8)),
+            contradiction_checked=bool(metrics.get("contradiction_checked")),
+            timestamped=bool(metrics.get("timestamped")),
+        )
+        return {"speed":speed,"evidence_gate":quality,"sources":source_adapter_policy()}
+
+    def visual_handoff(self, *, job_id, source_ref, reason, question="", timestamps=None,
+                       transcript_confidence=1.0, visual_relevance=0.0):
+        packet=chandradev_handoff(
+            job_id=job_id,source_ref=source_ref,reason=reason,question=question,
+            timestamps=timestamps,transcript_confidence=transcript_confidence,
+            visual_relevance=visual_relevance,
+        )
+        self.ops.emit("chandradev_handoff",**packet)
+        return packet
+
+    def brahma_operational_status(self):
+        return self.ops.brahma_status()
 
     def device_status(self, device_id=None):
         now = time.time()

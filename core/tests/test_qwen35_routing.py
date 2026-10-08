@@ -15,13 +15,11 @@ class QwenPcMobilePolicyIntegrationTests(unittest.TestCase):
             self.assertEqual(
                 ModelRouter.local_model_candidates(),
                 [
-                    "qwen3.5:4b",
                     "gemma3:4b",
                     "granite3.3:2b",
                     "smollm2:1.7b",
                     "llama3.2:1b",
                     "deepseek-r1:1.5b",
-                    "qwen2.5:3b",
                 ],
             )
 
@@ -30,15 +28,14 @@ class QwenPcMobilePolicyIntegrationTests(unittest.TestCase):
             self.assertEqual(
                 ModelRouter.local_model_candidates("coding"),
                 [
-                    "qwen2.5-coder:7b",
-                    "qwen3.5:4b",
                     "gemma3:4b",
                     "granite3.3:2b",
+                    "smollm2:1.7b",
                 ],
             )
             self.assertEqual(
                 ModelRouter.local_model_candidates("implementation")[0],
-                "qwen2.5-coder:7b",
+                "gemma3:4b",
             )
 
     def test_general_router_selects_qwen35_when_installed(self):
@@ -54,7 +51,7 @@ class QwenPcMobilePolicyIntegrationTests(unittest.TestCase):
             status=router.local_model_status()
         self.assertTrue(status["available"])
         self.assertEqual(status["task"], "general")
-        self.assertEqual(status["selected_model"], "qwen3.5:4b")
+        self.assertEqual(status["selected_model"], "gemma3:4b")
 
     def test_coding_router_selects_qwen25_coder_when_installed(self):
         router=ModelRouter()
@@ -69,25 +66,25 @@ class QwenPcMobilePolicyIntegrationTests(unittest.TestCase):
             status=router.local_model_status("coding")
         self.assertTrue(status["available"])
         self.assertEqual(status["task"], "coding")
-        self.assertEqual(status["selected_model"], "qwen2.5-coder:7b")
+        self.assertEqual(status["selected_model"], "gemma3:4b")
 
     def test_coding_route_prioritizes_coder(self):
         router=ModelRouter()
         router._probe_json=lambda *_: (True, {
-            "models":[{"name":"qwen2.5-coder:7b"},{"name":"qwen3.5:4b"}]
+            "models":[{"name":"qwen2.5-coder:7b"},{"name":"qwen3.5:4b"},{"name":"gemma3:4b"}]
         })
         seen=[]
         def ask(provider,*_args,**_kwargs):
             seen.append(provider)
-            if provider=="ollama-model:qwen2.5-coder:7b":
+            if provider=="ollama-model:gemma3:4b":
                 return "coder-ok"
             raise RuntimeError("unexpected provider")
         router._governed_ask=ask
         with patch.dict(os.environ, {}, clear=True):
             out=router.route("repair this code",privacy="local_only",task="implementation")
-        self.assertEqual(out["model"], "qwen2.5-coder:7b")
+        self.assertEqual(out["model"], "gemma3:4b")
         self.assertEqual(out["task"], "coding")
-        self.assertEqual(seen[0], "ollama-model:qwen2.5-coder:7b")
+        self.assertEqual(seen[0], "ollama-model:gemma3:4b")
 
     def test_role_status_keeps_mobile_qwen_free_and_paid_cloud_off(self):
         router=ModelRouter()
@@ -100,8 +97,8 @@ class QwenPcMobilePolicyIntegrationTests(unittest.TestCase):
         })
         with patch.dict(os.environ, {}, clear=True):
             status=router.role_status()
-        self.assertEqual(status["pc"]["general"]["selected_model"], "qwen3.5:4b")
-        self.assertEqual(status["pc"]["coding"]["selected_model"], "qwen2.5-coder:7b")
+        self.assertEqual(status["pc"]["general"]["selected_model"], "gemma3:4b")
+        self.assertEqual(status["pc"]["coding"]["selected_model"], "gemma3:4b")
         self.assertFalse(status["mobile"]["qwen_runtime"])
         self.assertFalse(status["cloud"]["automatic_paid_fallback"])
         self.assertEqual(status["cloud"]["coding"][0], "openrouter-free:coding")
@@ -130,9 +127,9 @@ class QwenPcMobilePolicyIntegrationTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             router=LegacyModelRouter()
         models=[p.model for p in router.providers if p.name.startswith("ollama")]
-        self.assertEqual(models[0], "qwen3.5:4b")
+        self.assertEqual(models[0], "gemma3:4b")
         self.assertIn("gemma3:4b", models)
-        self.assertIn("qwen2.5:3b", models)
+        self.assertNotIn("qwen2.5:3b", models)
 
     def test_pc_qwen_installer_never_makes_mobile_depend_on_qwen(self):
         root=Path(__file__).resolve().parents[2]

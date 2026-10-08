@@ -45,6 +45,11 @@ class DurableQueue:
             )""")
             self.db.execute("CREATE INDEX IF NOT EXISTS idx_durable_queue_state ON durable_queue(state,created_at)")
             self.db.execute("CREATE INDEX IF NOT EXISTS idx_durable_queue_mission ON durable_queue(mission_id,state)")
+            # A non-empty idempotency key identifies one logical queue submission.
+            # Partial UNIQUE preserves the existing ability to enqueue ordinary jobs without a key.
+            self.db.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uq_durable_queue_idempotency
+                               ON durable_queue(idempotency_key)
+                               WHERE idempotency_key IS NOT NULL AND idempotency_key!=''""")
             self.db.commit()
 
     @staticmethod
@@ -79,7 +84,19 @@ class DurableQueue:
         action=str(action or "").strip()
         if not action:raise ValueError("queue action is required")
         now=time.time();qid=str(uuid.uuid4())
+        idem=str(idempotency_key or "").strip() or None
         with self.lock:
+            if idem:
+                existing=self.db.execute("SELECT * FROM durable_queue WHERE idempotency_key=?",(idem,)).fetchone()
+                if existing:
+                    prior=self._row(existing)
+                    same=(prior["action"]==action and prior["mission_id"]==mission_id and
+                          prior["project"]==str(project or "KRISHNA") and prior["actor"]==str(actor or "job-runtime") and
+                          prior["payload"]==dict(payload or {}) and prior["permissions"]==list(permissions or []) and
+                          prior["approved"]==bool(approved))
+                    if not same:
+                        raise ValueError("queue idempotency key already used for different work")
+                    replay=dict(prior);replay["idempotent_replay"]=True;return replay
             self.db.execute("""INSERT INTO durable_queue(
               queue_id,mission_id,action,payload,project,actor,permissions,approved,
               idempotency_key,state,retry_count,max_retries,lease_owner,lease_expires_at,
@@ -87,7 +104,7 @@ class DurableQueue:
             ) VALUES(?,?,?,?,?,?,?,?,?,'pending',0,?,?,?,?,?,?,?,?)""",(
               qid,mission_id,action,json.dumps(dict(payload or {})),str(project or "KRISHNA"),
               str(actor or "job-runtime"),json.dumps(list(permissions or [])),1 if approved else 0,
-              idempotency_key,max(0,int(max_retries)),None,None,now,now,None,None,None,
+              idem,max(0,int(max_retries)),None,None,now,now,None,None,None,
             ))
             self.db.commit()
         row=self.get(qid);self._emit("QUEUE_ENQUEUED",row);return row

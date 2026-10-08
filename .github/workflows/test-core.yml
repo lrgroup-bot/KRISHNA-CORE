@@ -1,5 +1,6 @@
 name: Test KRISHNA Core
 on:
+  workflow_dispatch:
   push:
     paths: ['core/**', 'tests/**', 'scripts/**', '.github/workflows/test-core.yml']
   pull_request:
@@ -11,6 +12,7 @@ concurrency:
 jobs:
   core-tests:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -19,6 +21,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
+      - name: Install core test runner
+        run: python -m pip install --disable-pip-version-check pytest
       - name: Compile all Python sources
         run: python -m compileall -q core tests
       - name: Parse PowerShell scripts
@@ -36,6 +40,19 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Repository contracts
         run: python -m unittest discover -s tests -v
+      - name: BRAHMAGYAN and SURYADEV hard-gate regressions
+        working-directory: core
+        run: >-
+          python -m pytest -q
+          tests/test_suryadev_scaling.py
+          tests/test_research_orchestrator.py
+          tests/test_knowledge_laws.py
+          tests/test_gyan_knowledge_law_boundary.py
+          tests/test_gyan_invalidation.py
+          tests/test_owner_architecture_invariants.py
+          tests/test_mission_completion_gate.py
+          tests/test_krishna_observability_spans.py
+          tests/test_reality_routing.py
       - name: Canonical architecture truth audit
         run: python scripts/AUDIT_KRISHNA_ARCHITECTURE.py
 
