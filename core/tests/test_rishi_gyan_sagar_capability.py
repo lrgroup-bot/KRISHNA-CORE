@@ -31,6 +31,36 @@ class RishiGyanSagarCapabilityTests(unittest.TestCase):
         self.assertIn("pmc", ids)
         self.assertIn("Shared Action Bus", out["execution"])
 
+    def test_shared_capability_route_returns_knowledge_plan_from_context(self):
+        out = CapabilityFabric().route(
+            "knowledge.research",
+            context={
+                "topic": "Sanskrit grammar and classical texts",
+                "rishi_id": "panini",
+                "max_sources": 10,
+            },
+        )
+        self.assertEqual(out["selected"], "rishi-gyan-sagar")
+        self.assertEqual(out["knowledge_plan"]["lead_rishi"], "panini")
+        ids = {x["id"] for x in out["knowledge_plan"]["sources"]}
+        self.assertIn("sarit", ids)
+        self.assertIn("dcs", ids)
+        self.assertIn("Shared Action Bus", out["execution"])
+
+    def test_shared_capability_route_returns_rights_decision(self):
+        out = CapabilityFabric().route(
+            "knowledge.rights",
+            sensitive=True,
+            context={
+                "requested_mode": "archive",
+                "license_id": "CC-BY-4.0",
+                "source_default_max_mode": "index",
+            },
+        )
+        self.assertEqual(out["selected"], "rishi-rights-gate")
+        self.assertTrue(out["rights_decision"]["allowed"])
+        self.assertTrue(out["rights_decision"]["attribution_required"])
+
     def test_capability_fabric_can_build_bounded_request_contract(self):
         out = CapabilityFabric().knowledge_request("openalex", "solid state battery")
         self.assertEqual(out["route"]["selected"], "rishi-gyan-sagar")
