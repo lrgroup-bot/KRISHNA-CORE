@@ -26,6 +26,15 @@ export default function LegacyKrishnaPreview() {
       setError('');
       doc.documentElement.dataset.krishnaBrahmandPreview = '1';
 
+      const requiredLegacySelectors = [
+        '#home', '#assistantOm', '#sudarshan', '#projects', '#plugins',
+        '.mainMenuNav', '.side', '.sideFoot', '.opsVitals', 'main.main',
+      ];
+      const missingLegacy = requiredLegacySelectors.filter((selector) => !doc.querySelector(selector));
+      if (missingLegacy.length) {
+        throw new Error(`Legacy KRISHNA base mismatch. Missing: ${missingLegacy.join(', ')}`);
+      }
+
       // Hot reloads can leave the old runtime guard behind even after the script tag
       // is replaced. Reset the preview-only guards so the additive layer can boot
       // again against the already-loaded legacy dashboard.
@@ -129,7 +138,7 @@ export default function LegacyKrishnaPreview() {
       <iframe
         ref={frameRef}
         className="legacy-preview-frame"
-        src="/dashboard?krishna_brahmand_preview=1"
+        src="/legacy-dashboard-preview"
         title="KRISHNA Brahmand frontend preview"
         onLoad={inject}
       />
