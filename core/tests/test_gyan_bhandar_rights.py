@@ -84,6 +84,15 @@ class GyanBhandarRightsTests(unittest.TestCase):
         self.assertTrue(out["training_allowed"])
         self.assertEqual(len(out["sha256"]),64)
 
+    def test_cc_by_archive_does_not_mean_automatic_model_training(self):
+        out=self.gyan.training_candidate_gate(
+            self.sample,source_id="doaj",license_id="CC-BY-4.0"
+        )
+        self.assertFalse(out["training_allowed"])
+        self.assertFalse(out["allowed"])
+        self.assertTrue(out["rights"]["review_required"])
+        self.assertIn("separate model-training rights review",out["rights"]["training_policy"])
+
     def test_mit_code_license_does_not_auto_authorize_model_training(self):
         out=self.gyan.training_candidate_gate(
             self.sample,source_id="github",license_id="MIT"
@@ -99,6 +108,15 @@ class GyanBhandarRightsTests(unittest.TestCase):
         )
         self.assertTrue(out["rights_verified"])
         self.assertEqual(out["knowledge_source"]["provenance"]["permission_record"],"contract-123")
+
+    def test_explicit_training_permission_can_pass_strict_gate(self):
+        out=self.gyan.training_candidate_gate(
+            self.sample,source_id="unregistered-source",license_id="",
+            explicit_permission=True,
+        )
+        self.assertTrue(out["training_allowed"])
+        self.assertTrue(out["rights"]["training_allowed"])
+        self.assertEqual(out["rights"]["training_policy"],"explicit permission recorded")
 
 
 if __name__ == "__main__":
