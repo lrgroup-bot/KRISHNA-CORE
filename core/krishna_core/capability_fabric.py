@@ -35,6 +35,7 @@ class CapabilityFabric:
         self._lock=RLock()
         self._providers:dict[str,CapabilityProvider]={}
         self._rishi_gyan_sagar=None
+        self._rishi_deep_sources=None
         # RISHI GYAN-SAGAR is a routing/rights fabric, not another resident
         # crawler. Registering these capabilities therefore adds no idle worker
         # or network load. Actual browsing/API calls remain behind KRISHNA's
@@ -101,13 +102,13 @@ class CapabilityFabric:
             "authority":"provider recommendation only; Sudarshan/PolicyKernel governs execution",
         }
         # Existing Shared Action Bus `capability.route` already passes a context
-        # object.  Enrich that response for knowledge capabilities instead of
+        # object. Enrich that response for knowledge capabilities instead of
         # adding a second API/action surface.
         if str(capability)=="knowledge.research" and str(context.get("topic") or "").strip():
             kinds=context.get("kinds")
             if kinds is not None and not isinstance(kinds,(list,tuple,set)):
                 raise ValueError("knowledge context kinds must be an array")
-            result["knowledge_plan"]=self._gyan_sagar().research_plan(
+            result["knowledge_plan"]=self._merged_knowledge_plan(
                 str(context["topic"]),
                 rishi_id=context.get("rishi_id"),
                 kinds=kinds or (),
@@ -133,11 +134,35 @@ class CapabilityFabric:
             self._rishi_gyan_sagar=RishiGyanSagar()
         return self._rishi_gyan_sagar
 
+    def _deep_sources(self):
+        if self._rishi_deep_sources is None:
+            from .rishi_deep_sources import RishiDeepSourceExpansion
+            self._rishi_deep_sources=RishiDeepSourceExpansion()
+        return self._rishi_deep_sources
+
+    def _merged_knowledge_plan(self,topic,*,rishi_id=None,kinds=(),max_sources=12):
+        limit=max(1,min(int(max_sources),30))
+        base=self._gyan_sagar().research_plan(topic,rishi_id=rishi_id,kinds=kinds,max_sources=limit)
+        extra=self._deep_sources().research_plan(
+            topic,rishi_id=base.get("lead_rishi") or rishi_id,kinds=kinds,max_sources=limit,
+        )
+        merged=[];seen=set()
+        for row in sorted(list(base.get("sources") or [])+list(extra),key=lambda x:(-int(x.get("score") or 0),str(x.get("priority") or "P9"),str(x.get("name") or ""))):
+            sid=str(row.get("id") or "")
+            if not sid or sid in seen:continue
+            seen.add(sid);merged.append(row)
+            if len(merged)>=limit:break
+        out=dict(base)
+        out["sources"]=merged
+        out["source_fabrics"]=["rishi-gyan-sagar","rishi-deep-sources"]
+        out["available_source_count"]=self._gyan_sagar().source_status()["source_count"]+self._deep_sources().status()["source_count"]
+        return out
+
     def knowledge_plan(self, topic, *, rishi_id=None, kinds=None, max_sources=12):
         route=self.route("knowledge.research")
         if not route.get("selected"):
             return {"route":route,"plan":None}
-        plan=self._gyan_sagar().research_plan(topic,rishi_id=rishi_id,kinds=kinds,max_sources=max_sources)
+        plan=self._merged_knowledge_plan(topic,rishi_id=rishi_id,kinds=kinds or (),max_sources=max_sources)
         return {"route":route,"plan":plan,
                 "execution":"source plan only; execute selected requests through Shared Action Bus/browser/connectors"}
 
@@ -145,7 +170,10 @@ class CapabilityFabric:
         route=self.route("knowledge.research")
         if not route.get("selected"):
             return {"route":route,"request":None}
-        request=self._gyan_sagar().request_plan(source_id,query,email=email,api_key_ref=api_key_ref)
+        try:
+            request=self._gyan_sagar().request_plan(source_id,query,email=email,api_key_ref=api_key_ref)
+        except KeyError:
+            request=self._deep_sources().request_plan(source_id,query,email=email,api_key_ref=api_key_ref)
         return {"route":route,"request":request,
                 "execution":"request contract only; network execution remains permission-gated"}
 
@@ -161,10 +189,15 @@ class CapabilityFabric:
         return {"route":route,"decision":decision.public()}
 
     def knowledge_status(self):
+        base=self._gyan_sagar().source_status()
+        deep=self._deep_sources().status()
         return {
             "route":self.route("knowledge.research"),
             "rights_route":self.route("knowledge.rights",sensitive=True),
-            "sagar":self._gyan_sagar().source_status(),
+            "sagar":base,
+            "deep_sources":deep,
+            "total_source_count":int(base["source_count"])+int(deep["source_count"]),
+            "policy":"one Rishi knowledge capability; multiple curated source catalogs; no duplicate authority plane",
         }
 
     def status(self):
