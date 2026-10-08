@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { DockviewReact, themeDark } from 'dockview-react';
+import UniverseHome from './UniverseHome';
 import { Background, Controls, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import { Canvas } from '@react-three/fiber';
 import { Terminal } from '@xterm/xterm';
@@ -308,21 +309,7 @@ function HawkeyeRfPanel() {
 }
 
 function KrishnaHome() {
-  return (
-    <section className="panel-content">
-      <div className="eyebrow">KRISHNA CORE</div>
-      <h1>One authority. Verified execution.</h1>
-      <p className="muted">
-        Internal agents, research, browser control, automation and diagnostics stay behind KRISHNA and Sudarshan.
-      </p>
-      <div className="bento">
-        <article className="card"><ShieldCheck /><strong>Policy</strong><span>Permissioned actions and independent verification.</span></article>
-        <article className="card"><Workflow /><strong>Action Graph</strong><span>Jobs, agents and tools share one execution spine.</span></article>
-        <article className="card"><Boxes /><strong>Local-first</strong><span>Private evidence and credentials remain local by default.</span></article>
-      </div>
-      <HawkeyeRfPanel />
-    </section>
-  );
+  return <UniverseHome />;
 }
 
 function SudarshanPanel() {
@@ -814,8 +801,8 @@ function PluginsPanel() {
 
 export default function App() {
   const dockApi = useRef<any>(null);
-  const [activeNav, setActiveNav] = useState<'krishna' | 'sudarshan' | 'plugins'>('krishna');
-  const focusPanel = (panelId: string, nav: 'krishna' | 'sudarshan' | 'plugins') => {
+  const [activeNav, setActiveNav] = useState<'krishna' | 'sudarshan'>('krishna');
+  const focusPanel = (panelId: string, nav: 'krishna' | 'sudarshan') => {
     const panel = dockApi.current?.getPanel?.(panelId);
     panel?.api?.setActive?.();
     setActiveNav(nav);
@@ -843,10 +830,7 @@ export default function App() {
           <button type="button" className={activeNav === 'sudarshan' ? 'nav-item nav-item--active' : 'nav-item'} onClick={() => focusPanel('sudarshan-work', 'sudarshan')}>
             <Workflow size={18} /><span>Sudarshan</span>
           </button>
-          <div className="nav-spacer" />
-          <button type="button" className={activeNav === 'plugins' ? 'nav-item nav-item--active' : 'nav-item'} onClick={() => focusPanel('plugins', 'plugins')}>
-            <PlugZap size={18} /><span>Plugins</span>
-          </button>
+
         </nav>
       </aside>
       <main className="workspace">
@@ -857,12 +841,7 @@ export default function App() {
             dockApi.current = event.api;
             event.api.addPanel({ id: 'krishna-home', component: 'krishna', title: 'KRISHNA' });
             event.api.addPanel({ id: 'sudarshan-work', component: 'sudarshan', title: 'Sudarshan' });
-            event.api.addPanel({ id: 'action-graph', component: 'graph', title: 'Action Graph' });
-            event.api.addPanel({ id: 'narad', component: 'narad', title: 'Automations' });
-            event.api.addPanel({ id: 'design-intelligence', component: 'design', title: 'Design Intelligence' });
-            event.api.addPanel({ id: 'avatar-stage', component: 'avatar', title: 'Avatar / Spatial' });
-            event.api.addPanel({ id: 'terminal', component: 'terminal', title: 'Terminal' });
-            event.api.addPanel({ id: 'plugins', component: 'plugins', title: 'Plugins' });
+
           }}
         />
       </main>
