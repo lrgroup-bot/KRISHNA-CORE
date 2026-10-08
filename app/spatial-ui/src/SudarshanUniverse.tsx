@@ -1,150 +1,53 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Background, Controls, MarkerType, ReactFlow, type Edge, type Node } from '@xyflow/react';
-import { Activity, CheckCircle2, CircleAlert, Network, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Activity, CheckCircle2, CircleAlert, Clock3, Network, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 import './pipeline.css';
 
 type JsonMap = Record<string, unknown>;
 type PipelineState = 'pending' | 'working' | 'verified' | 'healing' | 'blocked' | 'failed' | 'unknown';
+const STATUS_COLOR: Record<PipelineState,string> = { pending:'#708694',working:'#45BDF5',verified:'#53E7A3',healing:'#F4B860',blocked:'#FA7E85',failed:'#FA7E85',unknown:'#6B7280' };
 
-const STATUS_COLOR: Record<PipelineState, string> = {
-  pending: '#708694', working: '#45BDF5', verified: '#53E7A3', healing: '#F4B860', blocked: '#FA7E85', failed: '#FA7E85', unknown: '#6B7280',
-};
+function stateOf(task: JsonMap): PipelineState { const raw=String(task.status??'').toLowerCase(); if(['working','running','executing','queued','verifying'].includes(raw))return'working'; if(['verified','done','completed','complete','passed'].includes(raw))return'verified'; if(['healing','recovering','retrying'].includes(raw))return'healing'; if(['blocked','waiting_approval'].includes(raw))return'blocked'; if(['failed','error'].includes(raw))return'failed'; if(['pending','waiting','ready','idle'].includes(raw))return'pending'; return'unknown'; }
+function idOf(task: JsonMap,index:number){return String(task.id??task.task_id??task.taskId??`task-${index}`)}
+function titleOf(task: JsonMap,index:number){return String(task.title??task.name??task.summary??task.description??`Task ${index+1}`)}
+function ownerOf(task: JsonMap){return String(task.assigned_specialist??task.assignedSpecialist??task.specialist??task.agent??task.owner??task.worker??task.assignee??'Unassigned')}
+function progressOf(task:JsonMap,state:PipelineState){const value=task.progress??task.progress_percent??task.percent;const numeric=typeof value==='number'?value:typeof value==='string'?Number(value):NaN;if(Number.isFinite(numeric))return Math.max(0,Math.min(100,numeric));if(state==='verified')return 100;return null}
+function dependenciesOf(task:JsonMap){const raw=task.dependencies??task.depends_on??task.dependency_ids??task.dependsOn;return Array.isArray(raw)?raw.map(String).filter(Boolean):[]}
+function logsOf(task:JsonMap){const raw=task.logs??task.log??task.events??task.history;return Array.isArray(raw)?raw.slice(-8).map((v)=>typeof v==='string'?v:JSON.stringify(v)):[]}
+function evidenceOf(task:JsonMap){return task.verification??task.verification_evidence??task.evidence??task.receipt??task.test_results??task.tests??null}
+function blockerOf(task:JsonMap){const value=task.blocker??task.blocked_reason??task.error??task.failure??task.reason;return value==null?'':typeof value==='string'?value:JSON.stringify(value)}
 
-function stateOf(task: JsonMap): PipelineState {
-  const raw = String(task.status ?? '').toLowerCase();
-  if (['working', 'running', 'executing', 'queued', 'verifying'].includes(raw)) return 'working';
-  if (['verified', 'done', 'completed', 'complete', 'passed'].includes(raw)) return 'verified';
-  if (['healing', 'recovering', 'retrying'].includes(raw)) return 'healing';
-  if (['blocked', 'waiting_approval'].includes(raw)) return 'blocked';
-  if (['failed', 'error'].includes(raw)) return 'failed';
-  if (['pending', 'waiting', 'ready', 'idle'].includes(raw)) return 'pending';
-  return 'unknown';
-}
+export default function SudarshanUniverse(){
+  const [tasks,setTasks]=useState<JsonMap[]>([]); const [projectGraph,setProjectGraph]=useState<unknown>(null); const [selectedId,setSelectedId]=useState<string|null>(null); const [error,setError]=useState(''); const [lastRefresh,setLastRefresh]=useState<number|null>(null);
+  const refresh=useCallback(async()=>{setError('');const [tasksResult,graphResult]=await Promise.allSettled([
+    fetch('/api/tasks?project=KRISHNA&limit=300',{cache:'no-store'}).then(async(response)=>{const text=await response.text();if(!response.ok)throw new Error(`Tasks HTTP ${response.status}`);return JSON.parse(text) as JsonMap}),
+    fetch('/api/project-graph',{cache:'no-store'}).then(async(response)=>{const text=await response.text();if(!response.ok)throw new Error(`Project graph HTTP ${response.status}`);return JSON.parse(text) as unknown}),
+  ]);if(tasksResult.status==='fulfilled'){const list=Array.isArray(tasksResult.value.tasks)?tasksResult.value.tasks as JsonMap[]:[];setTasks(list);setSelectedId((current)=>current&&list.some((task,index)=>idOf(task,index)===current)?current:(list[0]?idOf(list[0],0):null))}else{setTasks([]);setError(tasksResult.reason instanceof Error?tasksResult.reason.message:String(tasksResult.reason))}if(graphResult.status==='fulfilled')setProjectGraph(graphResult.value);else setProjectGraph(null);setLastRefresh(Date.now())},[]);
+  useEffect(()=>{void refresh();const timer=window.setInterval(()=>void refresh(),3000);return()=>window.clearInterval(timer)},[refresh]);
 
-function idOf(task: JsonMap, index: number): string {
-  return String(task.id ?? task.task_id ?? task.taskId ?? `task-${index}`);
-}
+  const nodes=useMemo<Node[]>(()=>tasks.map((task,index)=>{const id=idOf(task,index);const state=stateOf(task);const color=STATUS_COLOR[state];const progress=progressOf(task,state);const column=index%4;const row=Math.floor(index/4);return{id,position:{x:45+column*280,y:65+row*180},data:{label:<div className="task-node-inner"><div><span>{ownerOf(task)}</span><b style={{color}}>{state.toUpperCase()}</b></div><strong>{titleOf(task,index)}</strong><small>{progress==null?'Progress unavailable':`${progress}% complete`}</small>{progress!=null?<i><em style={{width:`${progress}%`,background:color}}/></i>:null}</div>},style:{width:245,border:`1.5px solid ${selectedId===id?'#EDCB83':color}`,borderRadius:14,padding:0,background:'rgba(7,23,35,.91)',color:'#E9F3F8',boxShadow:state==='working'?`0 0 25px ${color}55`:'0 10px 28px rgba(0,0,0,.28)'}}}),[selectedId,tasks]);
+  const taskIds=useMemo(()=>new Set(nodes.map((node)=>node.id)),[nodes]);
+  const edges=useMemo<Edge[]>(()=>{const result:Edge[]=[];tasks.forEach((task,index)=>{const id=idOf(task,index);const state=stateOf(task);const active=state==='working'||state==='healing';const color=state==='blocked'||state==='failed'?'#FA7E85':state==='healing'?'#F4B860':active?'#45BDF5':STATUS_COLOR[state];dependenciesOf(task).forEach((dependencyId)=>{if(!taskIds.has(dependencyId))return;result.push({id:`e-${dependencyId}-${id}`,source:dependencyId,target:id,animated:active,className:active?'pipeline-flow-active':undefined,style:{stroke:color,strokeWidth:active?2.5:1.7},markerEnd:{type:MarkerType.ArrowClosed,color}})})});return result},[taskIds,tasks]);
+  const selectedEntry=useMemo(()=>{if(!selectedId)return null;const index=tasks.findIndex((task,taskIndex)=>idOf(task,taskIndex)===selectedId);return index>=0?{task:tasks[index],index}:null},[selectedId,tasks]);
+  const counts=useMemo(()=>{const output={working:0,verified:0,healing:0,blocked:0};tasks.forEach((task)=>{const state=stateOf(task);if(state==='working')output.working++;else if(state==='verified')output.verified++;else if(state==='healing')output.healing++;else if(state==='blocked'||state==='failed')output.blocked++});return output},[tasks]);
+  const stateById=useMemo(()=>{const map=new Map<string,PipelineState>();tasks.forEach((task,index)=>map.set(idOf(task,index),stateOf(task)));return map},[tasks]);
 
-function titleOf(task: JsonMap, index: number): string {
-  return String(task.title ?? task.name ?? task.summary ?? task.description ?? `Task ${index + 1}`);
-}
+  const selectedTask=selectedEntry?.task; const deps=selectedTask?dependenciesOf(selectedTask):[]; const dependents=selectedId?tasks.map((task,index)=>({task,id:idOf(task,index)})).filter(({task})=>dependenciesOf(task).includes(selectedId)):[]; const logs=selectedTask?logsOf(selectedTask):[]; const evidence=selectedTask?evidenceOf(selectedTask):null; const blocker=selectedTask?blockerOf(selectedTask):''; const allDepsVerified=deps.length>0&&deps.every((id)=>stateById.get(id)==='verified');
 
-function ownerOf(task: JsonMap): string {
-  return String(task.assigned_specialist ?? task.assignedSpecialist ?? task.specialist ?? task.agent ?? task.owner ?? task.worker ?? task.assignee ?? 'Unassigned');
-}
-
-function progressOf(task: JsonMap, state: PipelineState): number | null {
-  const value = task.progress ?? task.progress_percent ?? task.percent;
-  const numeric = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  if (Number.isFinite(numeric)) return Math.max(0, Math.min(100, numeric));
-  if (state === 'verified') return 100;
-  return null;
-}
-
-function dependenciesOf(task: JsonMap): string[] {
-  const raw = task.dependencies ?? task.depends_on ?? task.dependency_ids ?? task.dependsOn;
-  if (!Array.isArray(raw)) return [];
-  return raw.map(String).filter(Boolean);
-}
-
-export default function SudarshanUniverse() {
-  const [tasks, setTasks] = useState<JsonMap[]>([]);
-  const [projectGraph, setProjectGraph] = useState<unknown>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [error, setError] = useState('');
-  const [lastRefresh, setLastRefresh] = useState<number | null>(null);
-
-  const refresh = useCallback(async () => {
-    setError('');
-    const [tasksResult, graphResult] = await Promise.allSettled([
-      fetch('/api/tasks?project=KRISHNA&limit=300', { cache: 'no-store' }).then(async (response) => {
-        const text = await response.text();
-        if (!response.ok) throw new Error(`Tasks HTTP ${response.status}`);
-        return JSON.parse(text) as JsonMap;
-      }),
-      fetch('/api/project-graph', { cache: 'no-store' }).then(async (response) => {
-        const text = await response.text();
-        if (!response.ok) throw new Error(`Project graph HTTP ${response.status}`);
-        return JSON.parse(text) as unknown;
-      }),
-    ]);
-    if (tasksResult.status === 'fulfilled') {
-      const list = Array.isArray(tasksResult.value.tasks) ? tasksResult.value.tasks as JsonMap[] : [];
-      setTasks(list);
-      setSelectedId((current) => current && list.some((task, index) => idOf(task, index) === current) ? current : (list[0] ? idOf(list[0], 0) : null));
-    } else {
-      setTasks([]);
-      setError(tasksResult.reason instanceof Error ? tasksResult.reason.message : String(tasksResult.reason));
-    }
-    if (graphResult.status === 'fulfilled') setProjectGraph(graphResult.value);
-    else setProjectGraph(null);
-    setLastRefresh(Date.now());
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), 3500);
-    return () => window.clearInterval(timer);
-  }, [refresh]);
-
-  const nodes = useMemo<Node[]>(() => tasks.map((task, index) => {
-    const id = idOf(task, index);
-    const state = stateOf(task);
-    const color = STATUS_COLOR[state];
-    const progress = progressOf(task, state);
-    const column = index % 4;
-    const row = Math.floor(index / 4);
-    return {
-      id,
-      position: { x: 45 + column * 280, y: 65 + row * 180 },
-      data: { label: <div className="task-node-inner"><div><span>{ownerOf(task)}</span><b style={{ color }}>{state.toUpperCase()}</b></div><strong>{titleOf(task, index)}</strong><small>{progress == null ? 'Progress unavailable' : `${progress}% complete`}</small>{progress != null ? <i><em style={{ width: `${progress}%`, background: color }} /></i> : null}</div> },
-      style: { width: 245, border: `1.5px solid ${selectedId === id ? '#EDCB83' : color}`, borderRadius: 14, padding: 0, background: 'rgba(7,23,35,.95)', color: '#E9F3F8', boxShadow: state === 'working' ? `0 0 22px ${color}55` : '0 8px 24px rgba(0,0,0,.28)' },
-    };
-  }), [selectedId, tasks]);
-
-  const taskIds = useMemo(() => new Set(nodes.map((node) => node.id)), [nodes]);
-  const edges = useMemo<Edge[]>(() => {
-    const result: Edge[] = [];
-    tasks.forEach((task, index) => {
-      const id = idOf(task, index);
-      const state = stateOf(task);
-      const active = state === 'working' || state === 'healing';
-      const color = active ? '#45BDF5' : STATUS_COLOR[state];
-      dependenciesOf(task).forEach((dependencyId) => {
-        if (!taskIds.has(dependencyId)) return;
-        result.push({
-          id: `e-${dependencyId}-${id}`, source: dependencyId, target: id, animated: active,
-          className: active ? 'pipeline-flow-active' : undefined,
-          style: { stroke: color, strokeWidth: active ? 2.5 : 1.7 }, markerEnd: { type: MarkerType.ArrowClosed, color },
-        });
-      });
-    });
-    return result;
-  }, [taskIds, tasks]);
-
-  const selectedEntry = useMemo(() => {
-    if (!selectedId) return null;
-    const index = tasks.findIndex((task, taskIndex) => idOf(task, taskIndex) === selectedId);
-    return index >= 0 ? { task: tasks[index], index } : null;
-  }, [selectedId, tasks]);
-
-  const counts = useMemo(() => {
-    const output = { working: 0, verified: 0, healing: 0, blocked: 0 };
-    tasks.forEach((task) => {
-      const state = stateOf(task);
-      if (state === 'working') output.working++;
-      else if (state === 'verified') output.verified++;
-      else if (state === 'healing') output.healing++;
-      else if (state === 'blocked' || state === 'failed') output.blocked++;
-    });
-    return output;
-  }, [tasks]);
-
-  return <section className="sudarshan-universe">
-    <header className="sudarshan-header"><div><span className="pipeline-kicker">AUTONOMOUS EXECUTION · VERIFIED DELIVERY</span><h1>SUDARSHAN <em>PIPELINE</em></h1><p>Real task ledger visualization. Dependency arrows appear only when dependencies are present in backend task data.</p></div><button type="button" onClick={() => void refresh()}><RefreshCw size={17} />Refresh</button></header>
-    <div className="sudarshan-statbar"><div><Activity size={16} /><span>Working</span><strong>{counts.working}</strong></div><div><CheckCircle2 size={16} /><span>Verified</span><strong>{counts.verified}</strong></div><div><RefreshCw size={16} /><span>Healing</span><strong>{counts.healing}</strong></div><div><CircleAlert size={16} /><span>Blocked/failed</span><strong>{counts.blocked}</strong></div><div><ShieldCheck size={16} /><span>Total ledger</span><strong>{tasks.length}</strong></div></div>
-    {error ? <div className="pipeline-error sudarshan-error">{error}</div> : null}
-    <div className="sudarshan-grid"><div className="pipeline-canvas sudarshan-canvas">{nodes.length ? <ReactFlow nodes={nodes} edges={edges} fitView minZoom={0.35} maxZoom={1.8} nodesDraggable onNodeClick={(_, node) => setSelectedId(node.id)} proOptions={{ hideAttribution: true }}><Background color="#17425d" gap={28} size={1} /><Controls position="bottom-right" /></ReactFlow> : <div className="pipeline-empty"><Network size={38} /><h3>No KRISHNA task ledger entries</h3><p>The pipeline will populate from /api/tasks when Sudarshan has real work.</p></div>}</div><aside className="pipeline-inspector sudarshan-inspector"><div className="inspector-title"><Network size={18} /><div><span>PIPELINE INSPECTOR</span><h3>{selectedEntry ? titleOf(selectedEntry.task, selectedEntry.index) : 'Select a task'}</h3></div></div>{selectedEntry ? <><div className="inspector-stat"><Activity size={15} /><span>Status</span><strong style={{ color: STATUS_COLOR[stateOf(selectedEntry.task)] }}>{stateOf(selectedEntry.task).toUpperCase()}</strong></div><div className="inspector-stat"><ShieldCheck size={15} /><span>Owner</span><strong>{ownerOf(selectedEntry.task)}</strong></div><section className="inspector-section"><h4>DEPENDENCIES</h4>{dependenciesOf(selectedEntry.task).length ? dependenciesOf(selectedEntry.task).map((dep) => <div className="inspector-task" key={dep}><b>{dep}</b><span>required</span></div>) : <p>No dependency IDs are exposed for this task.</p>}</section><section className="inspector-section"><h4>LIVE TASK RECORD</h4><pre>{JSON.stringify(selectedEntry.task, null, 2)}</pre></section></> : <p className="inspector-role">Click any task node to inspect its exact backend record.</p>}<section className="inspector-section"><h4>PROJECT GRAPH SOURCE</h4>{projectGraph ? <details><summary>View backend project graph snapshot</summary><pre>{JSON.stringify(projectGraph, null, 2)}</pre></details> : <p>Project graph endpoint unavailable or empty.</p>}</section><div className="inspector-foot">Last refresh: {lastRefresh ? new Date(lastRefresh).toLocaleTimeString() : '—'}</div></aside></div>
+  return <section className="sudarshan-universe"><header className="sudarshan-header"><div><span className="pipeline-kicker">AUTONOMOUS EXECUTION · VERIFIED DELIVERY</span><h1>SUDARSHAN <em>PIPELINE</em></h1><p>Real task ledger visualization. Animated flow means actual working/healing status; no verification is invented by the UI.</p></div><button type="button" onClick={()=>void refresh()}><RefreshCw size={17}/>Refresh</button></header>
+    <div className="sudarshan-statbar"><div><Activity size={16}/><span>Working</span><strong>{counts.working}</strong></div><div><CheckCircle2 size={16}/><span>Verified</span><strong>{counts.verified}</strong></div><div><RefreshCw size={16}/><span>Healing</span><strong>{counts.healing}</strong></div><div><CircleAlert size={16}/><span>Blocked/failed</span><strong>{counts.blocked}</strong></div><div><ShieldCheck size={16}/><span>Total ledger</span><strong>{tasks.length}</strong></div></div>
+    {error?<div className="pipeline-error sudarshan-error">{error}</div>:null}
+    <div className="sudarshan-grid"><div className="pipeline-canvas sudarshan-canvas">{nodes.length?<ReactFlow nodes={nodes} edges={edges} fitView minZoom={.35} maxZoom={1.8} nodesDraggable onNodeClick={(_,node)=>setSelectedId(node.id)} proOptions={{hideAttribution:true}}><Background color="#17425d" gap={28} size={1}/><Controls position="bottom-right"/></ReactFlow>:<div className="pipeline-empty"><Network size={38}/><h3>No KRISHNA task ledger entries</h3><p>The pipeline will populate from /api/tasks when Sudarshan has real work.</p></div>}</div>
+      <aside className="pipeline-inspector sudarshan-inspector"><div className="inspector-title"><Network size={18}/><div><span>PIPELINE INSPECTOR</span><h3>{selectedEntry?titleOf(selectedEntry.task,selectedEntry.index):'Select a task'}</h3></div></div>{selectedEntry?<><div className="inspector-stat"><Activity size={15}/><span>Status</span><strong style={{color:STATUS_COLOR[stateOf(selectedEntry.task)]}}>{stateOf(selectedEntry.task).toUpperCase()}</strong></div><div className="inspector-stat"><UserRound size={15}/><span>Owner</span><strong>{ownerOf(selectedEntry.task)}</strong></div><div className="inspector-stat"><Clock3 size={15}/><span>Updated</span><strong>{String(selectedEntry.task.updated_at??selectedEntry.task.updated??selectedEntry.task.timestamp??'—')}</strong></div>
+        <section className="inspector-section"><h4>WHAT TO CHECK</h4><div className="check-grid"><CheckTask label="Owner assigned" ok={ownerOf(selectedEntry.task)!=='Unassigned'}/><CheckTask label="Dependencies satisfied" ok={allDepsVerified} neutral={deps.length===0}/><CheckTask label="Verification evidence present" ok={Boolean(evidence)} neutral={stateOf(selectedEntry.task)!=='verified'}/><CheckTask label="No blocking error" ok={!blocker} neutral={stateOf(selectedEntry.task)==='pending'}/></div></section>
+        <section className="inspector-section"><h4>DEPENDENCIES</h4>{deps.length?deps.map((dep)=><div className="inspector-task" key={dep}><b>{dep}</b><span>{stateById.get(dep)??'missing'}</span></div>):<p>No dependency IDs are exposed for this task.</p>}{dependents.length?<><h4 className="inspector-subheading">DOWNSTREAM</h4>{dependents.map(({task,id})=><div className="inspector-task" key={id}><b>{titleOf(task,0)}</b><span>{stateOf(task)}</span></div>)}</>:null}</section>
+        {blocker?<section className="inspector-section"><h4>BLOCKER / ERROR</h4><p className="pipeline-error">{blocker}</p></section>:null}
+        <section className="inspector-section"><h4>LIVE LOGS</h4>{logs.length?logs.map((log,index)=><div className="pipeline-log" key={index}>› {log}</div>):<p>No logs are embedded in this task record.</p>}</section>
+        <section className="inspector-section"><h4>VERIFICATION EVIDENCE</h4>{evidence?<details><summary>Open verification/test evidence</summary><pre>{JSON.stringify(evidence,null,2)}</pre></details>:<p>No verification evidence is embedded in the task record.</p>}</section>
+        <section className="inspector-section"><h4>EXACT TASK RECORD</h4><details><summary>Open raw backend record</summary><pre>{JSON.stringify(selectedEntry.task,null,2)}</pre></details></section></>:<p className="inspector-role">Click any task node to inspect its exact backend record.</p>}
+        <section className="inspector-section"><h4>PROJECT GRAPH SOURCE</h4>{projectGraph?<details><summary>View backend project graph snapshot</summary><pre>{JSON.stringify(projectGraph,null,2)}</pre></details>:<p>Project graph endpoint unavailable or empty.</p>}</section><div className="inspector-foot">Last refresh: {lastRefresh?new Date(lastRefresh).toLocaleTimeString():'—'}</div></aside></div>
   </section>;
 }
+
+function CheckTask({label,ok,neutral}:{label:string;ok:boolean;neutral?:boolean}){return <div className={`check-item ${neutral?'neutral':ok?'ok':'bad'}`}>{neutral?<Clock3 size={13}/>:ok?<CheckCircle2 size={13}/>:<CircleAlert size={13}/>}<span>{label}</span></div>}
