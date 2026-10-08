@@ -4,6 +4,7 @@ type PreviewWindow = Window & {
   __KRISHNA_BRAHMAND_MAIN__?: boolean;
   __KRISHNA_BRAHMAND_PREVIEW__?: boolean;
   __KRISHNA_OWNER_UI__?: boolean;
+  __KRISHNA_PREVIEW_API_COMPAT__?: boolean;
   KRISHNA_BRAHMAND_DATA?: { nodes?: Record<string, unknown> };
   LR_UNIVERSE_SOURCE_DATA?: Record<string, unknown>;
   KRISHNA_BRAHMAND_PREFLIGHT?: {
@@ -38,6 +39,7 @@ export default function LegacyKrishnaPreview() {
       delete win.__KRISHNA_BRAHMAND_MAIN__;
       delete win.__KRISHNA_BRAHMAND_PREVIEW__;
       delete win.__KRISHNA_OWNER_UI__;
+      delete win.__KRISHNA_PREVIEW_API_COMPAT__;
       delete win.KRISHNA_BRAHMAND_PREFLIGHT;
 
       const ensureStyle = (id: string, href: string) => {
@@ -56,6 +58,7 @@ export default function LegacyKrishnaPreview() {
         'krishna-brahmand-data-script',
         'krishna-brahmand-normalize-script',
         'lr-universe-source-script',
+        'krishna-preview-api-compat-script',
         'krishna-brahmand-main-script',
         'krishna-owner-ui-script',
         'krishna-brahmand-preflight-script',
@@ -99,6 +102,7 @@ export default function LegacyKrishnaPreview() {
           await loadScript('krishna-brahmand-data-script', '/spatial/krishna-brahmand-data.js');
           await loadScript('krishna-brahmand-normalize-script', '/spatial/krishna-brahmand-normalize.js');
           await loadScript('lr-universe-source-script', '/spatial/lr-universe-source-data.js');
+          await loadScript('krishna-preview-api-compat-script', '/spatial/krishna-preview-api-compat.js');
           await loadScript('krishna-brahmand-main-script', '/spatial/krishna-brahmand-main.js');
           await loadScript('krishna-owner-ui-script', '/spatial/krishna-owner-ui.js');
           try {
