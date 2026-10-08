@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Activity, ArrowUp, BrainCircuit, CircleDot, Mic, ShieldCheck, Sparkles, Workflow } from 'lucide-react';
+import { Activity, ArrowUp, BrainCircuit, CircleDot, Mic, Network, ShieldCheck, Sparkles, Workflow } from 'lucide-react';
+import AgentUniverse from './AgentUniverse';
 import './universe.css';
 
 type ChatLine = { role: 'user' | 'krishna'; text: string };
@@ -18,9 +19,9 @@ function NeuralMotion({ working }: { working: boolean }) {
     let raf = 0;
     let alive = true;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const dots = Array.from({ length: 68 }, (_, i) => {
+    const dots = Array.from({ length: 82 }, (_, i) => {
       const angle = i * Math.PI * (3 - Math.sqrt(5));
-      const radius = Math.sqrt((i + 0.5) / 68) * 0.44;
+      const radius = Math.sqrt((i + 0.5) / 82) * 0.44;
       return { x: 0.5 + Math.cos(angle) * radius, y: 0.5 + Math.sin(angle) * radius, size: i % 9 === 0 ? 2.5 : 1.5 };
     });
     const draw = () => {
@@ -35,10 +36,15 @@ function NeuralMotion({ working }: { working: boolean }) {
       const time = reduced ? 0 : frame * (working ? 0.023 : 0.009);
       const points = dots.map((dot, i) => {
         const drift = reduced ? 0 : Math.sin(time + i * 0.7) * (working ? 0.018 : 0.008);
-        const pull = 0.045 * Math.max(0, 1 - Math.hypot(dot.x - target.current.x, dot.y - target.current.y) * 2);
-        return { x: (dot.x + drift + (target.current.x - 0.5) * pull) * width, y: (dot.y + Math.cos(time + i) * drift + (target.current.y - 0.5) * pull) * height, size: dot.size * dpr };
+        const distanceFromPointer = Math.hypot(dot.x - target.current.x, dot.y - target.current.y);
+        const pull = 0.055 * Math.max(0, 1 - distanceFromPointer * 2.2);
+        return {
+          x: (dot.x + drift + (target.current.x - 0.5) * pull) * width,
+          y: (dot.y + Math.cos(time + i) * drift + (target.current.y - 0.5) * pull) * height,
+          size: dot.size * dpr,
+        };
       });
-      const link = scale * 0.135;
+      const link = scale * 0.13;
       points.forEach((p, i) => {
         for (let j = i + 1; j < points.length; j++) {
           const q = points[j], distance = Math.hypot(p.x - q.x, p.y - q.y);
@@ -74,7 +80,9 @@ export default function UniverseHome() {
   const [chatId, setChatId] = useState<string | undefined>();
   const [error, setError] = useState('');
   const [voice, setVoice] = useState(false);
+  const [showUniverse, setShowUniverse] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     let mounted = true;
     const refresh = async () => {
@@ -98,7 +106,9 @@ export default function UniverseHome() {
     const timer = window.setInterval(() => void refresh(), 12000);
     return () => { mounted = false; window.clearInterval(timer); };
   }, []);
+
   useEffect(() => { bottom.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [lines]);
+
   const send = async (event: FormEvent) => {
     event.preventDefault();
     const value = message.trim();
@@ -118,14 +128,16 @@ export default function UniverseHome() {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally { setBusy(false); }
   };
+
   return <section className="universe-home">
-    <header className="universe-header"><div><div className="universe-eyebrow">AUTONOMOUS INTELLIGENCE · LOCAL FIRST</div><h1>KRISHNA <em>UNIVERSE</em></h1><p>Understand · Reason · Research · Plan · Guide · Learn</p></div><div className={'universe-core-status ' + (core ? 'online' : 'offline')}><span className="universe-light" />{core ? 'CORE ONLINE' : 'CORE UNVERIFIED'}</div></header>
-    <div className="universe-body"><div className="universe-stage"><div className="universe-orbit"><NeuralMotion working={busy} /><div className="universe-avatar" aria-label="Avatar placeholder; 3D Bala Krishna integration pending">ॐ</div></div><div className="universe-stage-title"><Sparkles size={17} /> {busy ? 'KRISHNA IS THINKING' : 'KRISHNA · COGNITIVE CORE'}</div><p>Move your pointer across the neural dots to interact with the living intelligence field.</p></div>
-    <aside className="universe-insights"><h2><Activity size={16} /> LIVE INTELLIGENCE</h2><div><ShieldCheck size={16} /> Core <strong>{core ? 'Online' : 'Unverified'}</strong></div><div><BrainCircuit size={16} /> Authority <strong>KRISHNA</strong></div><div><Workflow size={16} /> Execution <strong>Sudarshan</strong></div><div><CircleDot size={16} /> Active tasks <strong>{core ? tasks.length : '—'}</strong></div><p>{healthError || (core ? 'Connected to the KRISHNA core.' : 'Connect through the core origin to use live AI.')}</p></aside></div>
+    <header className="universe-header"><div><div className="universe-eyebrow">AUTONOMOUS INTELLIGENCE · LOCAL FIRST</div><h1>KRISHNA <em>UNIVERSE</em></h1><p>Understand · Reason · Research · Plan · Guide · Learn</p></div><div className="universe-header-actions"><button type="button" className="universe-map-button" onClick={() => setShowUniverse(true)}><Network size={16} /> Intelligence Universe</button><div className={'universe-core-status ' + (core ? 'online' : 'offline')}><span className="universe-light" />{core ? 'CORE ONLINE' : 'CORE UNVERIFIED'}</div></div></header>
+    <div className="universe-body"><div className="universe-stage"><div className="universe-orbit"><NeuralMotion working={busy} /><div className="universe-avatar" aria-label="Avatar placeholder; 3D Bala Krishna integration pending">ॐ</div></div><div className="universe-stage-title"><Sparkles size={17} /> {busy ? 'KRISHNA IS THINKING' : 'KRISHNA · COGNITIVE CORE'}</div><p>Move your pointer across the living neural field. Open Intelligence Universe to inspect internal agent pipelines.</p></div>
+    <aside className="universe-insights"><h2><Activity size={16} /> LIVE INTELLIGENCE</h2><div><ShieldCheck size={16} /> Core <strong>{core ? 'Online' : 'Unverified'}</strong></div><div><BrainCircuit size={16} /> Authority <strong>KRISHNA</strong></div><div><Workflow size={16} /> Execution <strong>Sudarshan</strong></div><div><CircleDot size={16} /> Active tasks <strong>{core ? tasks.length : '—'}</strong></div><button type="button" className="universe-open-map" onClick={() => setShowUniverse(true)}><Network size={15} /> Open live pipeline map</button><p>{healthError || (core ? 'Connected to the KRISHNA core.' : 'Connect through the core origin to use live AI.')}</p></aside></div>
     <section className="universe-chat"><div className="universe-chat-heading"><span>✦ CONVERSATION WITH KRISHNA</span><span>{busy ? 'Processing request…' : 'Local intelligence interface'}</span></div><div className="universe-messages" aria-live="polite">{lines.length ? lines.map((line, index) => <div className={'universe-line ' + line.role} key={index}><strong>{line.role === 'user' ? 'YOU' : 'KRISHNA'}</strong><p>{line.text}</p></div>) : <p className="universe-empty">Ask a question, start research, or describe a project for Sudarshan.</p>}<div ref={bottom} /></div>
     {error ? <div className="universe-error" role="alert">{error} — your message was not confirmed. Retry if appropriate.</div> : null}
     <form onSubmit={send}><label className="universe-sr" htmlFor="universe-message">Message to KRISHNA</label><textarea id="universe-message" value={message} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Talk to KRISHNA…" rows={2} disabled={busy} /><button type="button" className="universe-voice" onClick={() => setVoice(v => !v)} aria-pressed={voice} title="Voice integration status"><Mic size={19} /></button><button type="submit" disabled={!message.trim() || busy} aria-label="Send to KRISHNA"><ArrowUp size={20} /></button></form>
     {voice ? <p className="universe-note">Voice input is not wired in this release. Use text chat until the existing voice API is verified.</p> : null}</section>
-    <footer className="universe-footer">Neural motion is an interactive visualization, not physical motion tracking. 3D GLB and skeletal joint controls require separate rigging and camera permissions.</footer>
+    <footer className="universe-footer">Neural motion is an interactive visualization, not physical motion tracking. Agent pipeline status is task-derived unless a dedicated endpoint verifies it.</footer>
+    <AgentUniverse open={showUniverse} onClose={() => setShowUniverse(false)} />
   </section>;
 }
