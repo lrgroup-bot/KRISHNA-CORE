@@ -1,0 +1,179 @@
+/* Owner-requested final polish: clean full-screen Sudarshan, always-discoverable
+   chat/project overflow menus, and stronger live pipeline flow. */
+
+/* Sudarshan should use the complete available desktop workspace, not a narrow card. */
+html[data-krishna-brahmand-preview="1"] #sudarshan.chatView{
+  width:100%!important;
+  max-width:none!important;
+  height:100dvh!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:8px 12px 0!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+  background:radial-gradient(circle at 50% 20%,rgba(87,216,239,.045),transparent 34%);
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan .sudarshanBar{
+  width:100%!important;
+  max-width:none!important;
+  min-height:42px!important;
+  flex:0 0 auto!important;
+  margin:0!important;
+  padding:3px 54px 7px 2px!important;
+  gap:5px!important;
+  border-bottom:1px solid rgba(105,215,238,.10)!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan .sudarshanBar .legacyChatAction{
+  display:none!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan .sudarshanDeck{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  gap:0!important;
+  padding:0!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan .holoRail{
+  display:none!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan .sudarshanCenter{
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:100%!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan .sudarshanCenter:before{
+  inset:10% 14% 12%!important;
+  opacity:.55!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan .messages{
+  width:min(1120px,100%)!important;
+  max-width:none!important;
+  flex:1 1 auto!important;
+  min-height:0!important;
+  margin:0 auto!important;
+  padding:22px 28px 146px!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  scroll-padding-bottom:150px!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan .welcome{
+  padding-top:clamp(70px,14vh,150px)!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWrap{
+  left:var(--rail,250px)!important;
+  right:0!important;
+  bottom:0!important;
+  padding:34px 20px 14px!important;
+  pointer-events:none!important;
+  background:linear-gradient(transparent,rgba(3,7,12,.93) 34%,#03070c 76%)!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWrap .composer{
+  width:min(1040px,calc(100% - 24px))!important;
+  max-width:none!important;
+  margin:0 auto!important;
+  pointer-events:auto!important;
+  border-color:rgba(105,215,238,.18)!important;
+  background:rgba(8,19,28,.94)!important;
+  box-shadow:0 18px 48px rgba(0,0,0,.34),0 0 32px rgba(87,216,239,.035)!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composer textarea{
+  min-height:54px!important;
+  max-height:180px!important;
+  line-height:1.5!important;
+}
+
+/* Old UI action parity: the ... control stays visible for every chat/project row. */
+html[data-krishna-brahmand-preview="1"] .projectBranchHeader{
+  grid-template-columns:minmax(0,1fr) 30px!important;
+}
+html[data-krishna-brahmand-preview="1"] .projectBranchMore,
+html[data-krishna-brahmand-preview="1"] .chatMore{
+  display:grid!important;
+  place-items:center!important;
+  width:28px!important;
+  min-width:28px!important;
+  height:28px!important;
+  padding:0!important;
+  opacity:.72!important;
+  pointer-events:auto!important;
+  color:#8da7b2!important;
+  border:1px solid transparent!important;
+  border-radius:8px!important;
+  background:transparent!important;
+  font-size:15px!important;
+  line-height:1!important;
+  position:relative!important;
+  z-index:8!important;
+}
+html[data-krishna-brahmand-preview="1"] .projectBranchHeader:hover .projectBranchMore,
+html[data-krishna-brahmand-preview="1"] .chatRow:hover .chatMore,
+html[data-krishna-brahmand-preview="1"] .projectBranchMore:focus-visible,
+html[data-krishna-brahmand-preview="1"] .chatMore:focus-visible,
+html[data-krishna-brahmand-preview="1"] .projectBranchMore[aria-expanded="true"],
+html[data-krishna-brahmand-preview="1"] .chatMore[aria-expanded="true"]{
+  opacity:1!important;
+  color:#effcff!important;
+  border-color:rgba(105,215,238,.18)!important;
+  background:rgba(87,216,239,.08)!important;
+}
+html[data-krishna-brahmand-preview="1"] .krishnaChatMenu,
+html[data-krishna-brahmand-preview="1"] .krishnaProjectMenu{
+  z-index:10000!important;
+  border-color:rgba(105,215,238,.20)!important;
+  background:rgba(5,15,23,.985)!important;
+  box-shadow:0 22px 60px rgba(0,0,0,.58),0 0 28px rgba(87,216,239,.07)!important;
+}
+
+/* Live connections: an illuminated base plus moving droplets makes direction obvious. */
+html[data-krishna-brahmand-preview="1"] #kbGraphSvg{
+  overflow:visible!important;
+}
+html[data-krishna-brahmand-preview="1"] .kb-edge{
+  vector-effect:non-scaling-stroke;
+  stroke-width:2!important;
+  opacity:.48!important;
+}
+html[data-krishna-brahmand-preview="1"] .kb-edge.active,
+html[data-krishna-brahmand-preview="1"] .kb-edge.green{
+  stroke-width:3.4!important;
+  stroke-dasharray:1 8!important;
+  stroke-linecap:round!important;
+  opacity:.92!important;
+  animation:kbOwnerContinuousFlow .42s linear infinite!important;
+}
+html[data-krishna-brahmand-preview="1"] .kb-edge.active{
+  stroke:#69d7ee!important;
+  filter:drop-shadow(0 0 3px rgba(105,215,238,.9)) drop-shadow(0 0 9px rgba(105,215,238,.42))!important;
+}
+html[data-krishna-brahmand-preview="1"] .kb-edge.green{
+  stroke:#55e39e!important;
+  filter:drop-shadow(0 0 3px rgba(85,227,158,.85)) drop-shadow(0 0 8px rgba(85,227,158,.35))!important;
+}
+.kb-flow-drop{
+  pointer-events:none;
+  opacity:.98;
+  filter:drop-shadow(0 0 4px currentColor) drop-shadow(0 0 8px currentColor);
+}
+.kb-flow-drop.active{fill:#c7f7ff;color:#69d7ee}
+.kb-flow-drop.green{fill:#bdffd9;color:#55e39e}
+@keyframes kbOwnerContinuousFlow{to{stroke-dashoffset:-18}}
+
+@media(max-width:820px){
+  html[data-krishna-brahmand-preview="1"] #sudarshan.chatView{padding:5px 7px 0!important}
+  html[data-krishna-brahmand-preview="1"] #sudarshan .sudarshanBar{padding-right:42px!important;overflow-x:auto!important;scrollbar-width:none}
+  html[data-krishna-brahmand-preview="1"] #sudarshan .messages{padding:16px 12px 136px!important}
+  html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWrap{left:76px!important;padding:30px 8px 8px!important}
+  html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWrap .composer{width:calc(100% - 8px)!important}
+}
+@media(prefers-reduced-motion:reduce){
+  html[data-krishna-brahmand-preview="1"] .kb-edge.active,
+  html[data-krishna-brahmand-preview="1"] .kb-edge.green{animation:none!important;stroke-dasharray:none!important}
+  .kb-flow-drop{display:none!important}
+}
