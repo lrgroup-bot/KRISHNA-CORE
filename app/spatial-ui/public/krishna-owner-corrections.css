@@ -1,0 +1,138 @@
+/* Final owner corrections. Loaded after all other owner UI styles. */
+
+/* SUDARSHAN VISIBILITY: never leak into KRISHNA, Brahmand, LR Universe or other views. */
+html[data-krishna-brahmand-preview="1"] body:not([data-view="sudarshan"]) #sudarshan.chatView:not(.active){
+  display:none!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan.chatView.active,
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] #sudarshan.chatView{
+  display:flex!important;
+  flex-direction:column!important;
+  width:100%!important;
+  max-width:none!important;
+  height:100dvh!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:8px 12px 0!important;
+  overflow:hidden!important;
+}
+
+/* CENTER THE CHAT, not the whole canvas. */
+html[data-krishna-brahmand-preview="1"] #sudarshan .sudarshanCenter{
+  align-items:center!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan .messages{
+  width:min(900px,calc(100% - 40px))!important;
+  max-width:900px!important;
+  margin:0 auto!important;
+  padding-left:12px!important;
+  padding-right:12px!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWrap .composer{
+  width:min(900px,calc(100% - 24px))!important;
+  max-width:900px!important;
+}
+
+/* BROWSER: toggle opens a true 50/50 Sudarshan split on desktop. */
+html[data-krishna-brahmand-preview="1"] #sudarshan .kb-browser-drawer{
+  position:absolute!important;
+  top:0!important;
+  right:0!important;
+  bottom:0!important;
+  width:50%!important;
+  max-width:none!important;
+  height:100%!important;
+  border-radius:0!important;
+  border-top:0!important;
+  border-right:0!important;
+  border-bottom:0!important;
+  transform:translateX(102%)!important;
+  opacity:0!important;
+  pointer-events:none!important;
+  transition:transform .2s ease,opacity .16s ease!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan .kb-browser-drawer.open{
+  transform:translateX(0)!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan.kb-browser-split-open .sudarshanBar,
+html[data-krishna-brahmand-preview="1"] #sudarshan.kb-browser-split-open .sudarshanDeck{
+  width:50%!important;
+  max-width:50%!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan.kb-browser-split-open .messages{
+  width:min(760px,calc(100% - 24px))!important;
+  max-width:760px!important;
+}
+html[data-krishna-brahmand-preview="1"] body.kb-browser-split-open[data-view="sudarshan"] .composerWrap{
+  right:calc((100vw - var(--rail,250px))/2)!important;
+}
+html[data-krishna-brahmand-preview="1"] body.kb-browser-split-open[data-view="sudarshan"] .composerWrap .composer{
+  width:min(760px,calc(100% - 18px))!important;
+}
+html[data-krishna-brahmand-preview="1"] #sudarshan.kb-browser-split-open>.kb-browser-floating-toggle{
+  right:calc(50% + 12px)!important;
+}
+
+/* OLD UI ACTION PARITY: keep every chat/project overflow control discoverable. */
+html[data-krishna-brahmand-preview="1"] .projectBranchHeader{
+  grid-template-columns:minmax(0,1fr) 30px!important;
+}
+html[data-krishna-brahmand-preview="1"] .chatRow{
+  grid-template-columns:minmax(0,1fr) 28px!important;
+}
+html[data-krishna-brahmand-preview="1"] .chatMore,
+html[data-krishna-brahmand-preview="1"] .projectBranchMore{
+  display:grid!important;
+  place-items:center!important;
+  visibility:visible!important;
+  opacity:.72!important;
+  pointer-events:auto!important;
+  width:28px!important;
+  min-width:28px!important;
+  height:28px!important;
+  padding:0!important;
+  font-size:16px!important;
+  line-height:1!important;
+  position:relative!important;
+  z-index:15!important;
+}
+html[data-krishna-brahmand-preview="1"] .chatRow:hover .chatMore,
+html[data-krishna-brahmand-preview="1"] .projectBranchHeader:hover .projectBranchMore,
+html[data-krishna-brahmand-preview="1"] .chatMore:focus-visible,
+html[data-krishna-brahmand-preview="1"] .projectBranchMore:focus-visible,
+html[data-krishna-brahmand-preview="1"] .chatMore[aria-expanded="true"],
+html[data-krishna-brahmand-preview="1"] .projectBranchMore[aria-expanded="true"]{
+  opacity:1!important;
+}
+html[data-krishna-brahmand-preview="1"] .krishnaChatMenu,
+html[data-krishna-brahmand-preview="1"] .krishnaProjectMenu{
+  z-index:12000!important;
+}
+
+/* FREE WEB CONNECTORS inside Plugins. These are browser connectors, not paid APIs. */
+.kb-free-plugin-card{
+  display:grid;
+  gap:10px;
+  min-width:0;
+  padding:14px;
+  border:1px solid rgba(105,215,238,.20);
+  border-radius:15px;
+  background:linear-gradient(145deg,rgba(10,27,39,.86),rgba(4,14,21,.9));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 16px 34px rgba(0,0,0,.22);
+}
+.kb-free-plugin-head{display:flex;align-items:center;gap:10px;min-width:0}
+.kb-free-plugin-icon{display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;border:1px solid rgba(105,215,238,.22);border-radius:11px;background:rgba(105,215,238,.055);font-weight:800;color:#d9f8ff}
+.kb-free-plugin-title{min-width:0;flex:1}.kb-free-plugin-title strong{display:block;font-size:12px;color:#eef8fb}.kb-free-plugin-title small{display:block;margin-top:2px;font-size:8px;color:#7896a2}
+.kb-free-plugin-badge{flex:0 0 auto;border:1px solid rgba(85,227,158,.30);border-radius:999px;padding:3px 6px;font-size:7px;font-weight:800;letter-spacing:.06em;color:#55e39e;background:rgba(85,227,158,.055)}
+.kb-free-plugin-copy{font-size:9px;line-height:1.5;color:#8da7b2}.kb-free-plugin-meta{display:flex;gap:5px;flex-wrap:wrap}.kb-free-plugin-meta span{padding:3px 5px;border:1px solid rgba(105,215,238,.12);border-radius:999px;font-size:7px;color:#91adb7}
+.kb-free-plugin-open{justify-self:start;border:1px solid rgba(105,215,238,.22);border-radius:8px;background:rgba(105,215,238,.07);color:#c9f4fb;padding:6px 9px;font-size:8px;font-weight:700;cursor:pointer}.kb-free-plugin-open:hover{border-color:rgba(232,201,119,.40);color:#f0d998}
+
+@media(max-width:900px){
+  html[data-krishna-brahmand-preview="1"] #sudarshan .kb-browser-drawer{width:100%!important}
+  html[data-krishna-brahmand-preview="1"] #sudarshan.kb-browser-split-open .sudarshanBar,
+  html[data-krishna-brahmand-preview="1"] #sudarshan.kb-browser-split-open .sudarshanDeck{width:100%!important;max-width:none!important}
+  html[data-krishna-brahmand-preview="1"] body.kb-browser-split-open[data-view="sudarshan"] .composerWrap{right:0!important}
+  html[data-krishna-brahmand-preview="1"] #sudarshan.kb-browser-split-open>.kb-browser-floating-toggle{right:8px!important}
+}
