@@ -6,6 +6,7 @@ type PreviewWindow = Window & {
   __KRISHNA_OWNER_UI__?: boolean;
   __KRISHNA_PREVIEW_API_COMPAT__?: boolean;
   __KRISHNA_OWNER_HOTFIX__?: boolean;
+  __KRISHNA_OWNER_ENHANCEMENTS__?: boolean;
   KRISHNA_BRAHMAND_DATA?: { nodes?: Record<string, unknown> };
   LR_UNIVERSE_SOURCE_DATA?: Record<string, unknown>;
   KRISHNA_BRAHMAND_PREFLIGHT?: {
@@ -42,6 +43,7 @@ export default function LegacyKrishnaPreview() {
       delete win.__KRISHNA_OWNER_UI__;
       delete win.__KRISHNA_PREVIEW_API_COMPAT__;
       delete win.__KRISHNA_OWNER_HOTFIX__;
+      delete win.__KRISHNA_OWNER_ENHANCEMENTS__;
       delete win.KRISHNA_BRAHMAND_PREFLIGHT;
 
       const ensureStyle = (id: string, href: string) => {
@@ -56,6 +58,7 @@ export default function LegacyKrishnaPreview() {
       ensureStyle('krishna-live-motion-style', '/spatial/krishna-live-motion.css');
       ensureStyle('krishna-owner-ui-style', '/spatial/krishna-owner-ui.css');
       ensureStyle('krishna-owner-hotfix-style', '/spatial/krishna-owner-hotfix.css');
+      ensureStyle('krishna-owner-enhancements-style', '/spatial/krishna-owner-enhancements.css');
 
       [
         'krishna-brahmand-data-script',
@@ -65,6 +68,7 @@ export default function LegacyKrishnaPreview() {
         'krishna-brahmand-main-script',
         'krishna-owner-ui-script',
         'krishna-owner-hotfix-script',
+        'krishna-owner-enhancements-script',
         'krishna-brahmand-preflight-script',
       ].forEach((id) => doc.getElementById(id)?.remove());
 
@@ -116,6 +120,7 @@ export default function LegacyKrishnaPreview() {
             const base = reason instanceof Error ? reason.message : String(reason);
             throw new Error(runtimeError ? `${base} Browser error: ${runtimeError}` : base);
           }
+          await loadScript('krishna-owner-enhancements-script', '/spatial/krishna-owner-enhancements.js');
           await loadScript('krishna-brahmand-preflight-script', '/spatial/krishna-brahmand-preflight.js');
           const preflight = win.KRISHNA_BRAHMAND_PREFLIGHT;
           if (preflight?.ok === false) {
