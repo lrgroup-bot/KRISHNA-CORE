@@ -87,6 +87,11 @@
     return haystack.includes(search);
   }
 
+  function backendPluginCardPresent(spec, grid) {
+    const name = spec.name.toLowerCase();
+    return qsa('.plugin', grid).some((node) => String(node.textContent || '').toLowerCase().includes(name));
+  }
+
   function createFreePluginCard(spec) {
     const card = document.createElement('article');
     card.className = 'kb-free-plugin-card';
@@ -138,7 +143,7 @@
     const grid = $('pluginsGrid');
     if (!grid) return;
 
-    const wanted = FREE_WEB_PLUGINS.filter(pluginMatchesSearch);
+    const wanted = FREE_WEB_PLUGINS.filter(pluginMatchesSearch).filter((spec) => !backendPluginCardPresent(spec, grid));
     const signature = wanted.map((x) => x.id).join('|');
     const existing = qsa('[data-kb-free-plugin]', grid);
     const current = existing.map((node) => node.dataset.kbFreePlugin).join('|');
@@ -149,6 +154,43 @@
     wanted.forEach((spec) => fragment.appendChild(createFreePluginCard(spec)));
     grid.prepend(fragment);
     grid.dataset.kbFreePluginSignature = signature;
+  }
+
+  async function persistFreeWebPlugins() {
+    try {
+      const response = await fetch('/api/plugins', { cache: 'no-store' });
+      if (!response.ok) return;
+      const payload = await response.json();
+      const ids = new Set((payload.plugins || []).map((row) => String(row.id || '')));
+      let added = false;
+      for (const spec of FREE_WEB_PLUGINS) {
+        if (ids.has(spec.id)) continue;
+        const result = await fetch('/api/plugins/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: spec.id,
+            name: spec.name,
+            description: spec.copy,
+            kind: 'connector',
+            auth_type: 'none',
+            permissions: ['browser.inspect', 'network.external'],
+            project_scope: ['*'],
+            risk: 'medium',
+            enabled: false,
+            builtin: false,
+            source_url: spec.url,
+            license: 'provider-free-web',
+            free: true,
+            project: 'KRISHNA',
+          }),
+        });
+        if (result.ok) added = true;
+      }
+      if (added && typeof window.loadPlugins === 'function') await window.loadPlugins();
+    } catch (_) {
+      // Frontend-only preview is supported; visible fallback cards remain available.
+    }
   }
 
   function wrapPluginRenderers() {
@@ -199,6 +241,7 @@
     bindBrowserSplit();
     wrapPluginRenderers();
     ensureFreeWebPlugins();
+    void persistFreeWebPlugins();
   }
 
   const domObserver = new MutationObserver((mutations) => {
