@@ -83,7 +83,6 @@
     for (const mutation of mutations) {
       if (mutation.type !== 'childList' || mutation.addedNodes.length === 0) continue;
       const target = mutation.target;
-      if (target instanceof Element && (target.id === 'kbGraphSvg' || target.closest?.('#kbGraphSvg'))) graphChanged = true;
       if (target instanceof Element && (target.closest?.('.sidebarWorkspace') || target.closest?.('#projectChatList') || target.classList?.contains('sidebarWorkspace'))) menuChanged = true;
       for (const node of mutation.addedNodes) {
         if (!(node instanceof Element)) continue;
