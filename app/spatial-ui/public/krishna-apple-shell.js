@@ -5,6 +5,23 @@
   const $ = (id) => document.getElementById(id);
   const q = (selector, root = document) => root.querySelector(selector);
 
+  function ensureDesignIntelligenceAssets() {
+    if (!document.getElementById('krishna-design-intelligence-style')) {
+      const link = document.createElement('link');
+      link.id = 'krishna-design-intelligence-style';
+      link.rel = 'stylesheet';
+      link.href = '/spatial/krishna-design-intelligence.css';
+      document.head.appendChild(link);
+    }
+    if (!document.getElementById('krishna-design-intelligence-script')) {
+      const script = document.createElement('script');
+      script.id = 'krishna-design-intelligence-script';
+      script.src = '/spatial/krishna-design-intelligence.js';
+      script.async = false;
+      document.body.appendChild(script);
+    }
+  }
+
   function enhanceBrand() {
     const brand = q('.brand');
     if (!brand) return;
@@ -169,6 +186,7 @@
       syncSidebarEmptiness();
       cleanTopBar();
       markActiveNavigation();
+      ensureDesignIntelligenceAssets();
     });
   }
 
