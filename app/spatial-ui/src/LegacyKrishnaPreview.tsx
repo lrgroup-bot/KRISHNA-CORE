@@ -118,7 +118,7 @@ export default function LegacyKrishnaPreview() {
           return true;
         } catch (reason) {
           doc.documentElement.dataset.krishnaUiDegraded = '1';
-          win.console.warn('[KRISHNA UI optional layer skipped]', src, reason);
+          console.warn('[KRISHNA UI optional layer skipped]', src, reason);
           return false;
         }
       };
@@ -171,7 +171,7 @@ export default function LegacyKrishnaPreview() {
           if (preflight?.ok === false) {
             doc.documentElement.dataset.krishnaUiDegraded = '1';
             const failed = preflight.failed?.map((item) => item.detail ? `${item.name}: ${item.detail}` : item.name).filter(Boolean).join(', ') || 'unknown checks';
-            win.console.warn(`KRISHNA Brahmand preflight warning: ${failed}`);
+            console.warn(`KRISHNA Brahmand preflight warning: ${failed}`);
           }
         } catch (reason) {
           const base = reason instanceof Error ? reason.message : String(reason);
