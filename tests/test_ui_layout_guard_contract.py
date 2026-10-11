@@ -38,3 +38,10 @@ def test_chat_and_project_overflow_buttons_are_always_visible():
     assert ".projectBranchMore" in CSS
     assert "opacity:1!important" in CSS
     assert "visibility:visible!important" in CSS
+
+
+def test_60hz_motion_prefers_compositor_friendly_properties():
+    assert "krishnaOmCompositorBreath" in CSS
+    assert "will-change:transform,opacity" in CSS
+    assert "backdrop-filter:blur(14px)" in CSS
+    assert "contain:layout paint" in CSS
