@@ -8,6 +8,7 @@ type PreviewWindow = Window & {
   __KRISHNA_OWNER_HOTFIX__?: boolean;
   __KRISHNA_OWNER_ENHANCEMENTS__?: boolean;
   __KRISHNA_OWNER_CORRECTIONS__?: boolean;
+  __KRISHNA_APPLE_SHELL__?: boolean;
   KRISHNA_BRAHMAND_DATA?: { nodes?: Record<string, unknown> };
   LR_UNIVERSE_SOURCE_DATA?: Record<string, unknown>;
   KRISHNA_BRAHMAND_PREFLIGHT?: {
@@ -46,6 +47,7 @@ export default function LegacyKrishnaPreview() {
       delete win.__KRISHNA_OWNER_HOTFIX__;
       delete win.__KRISHNA_OWNER_ENHANCEMENTS__;
       delete win.__KRISHNA_OWNER_CORRECTIONS__;
+      delete win.__KRISHNA_APPLE_SHELL__;
       delete win.KRISHNA_BRAHMAND_PREFLIGHT;
 
       const ensureStyle = (id: string, href: string) => {
@@ -62,6 +64,7 @@ export default function LegacyKrishnaPreview() {
       ensureStyle('krishna-owner-hotfix-style', '/spatial/krishna-owner-hotfix.css');
       ensureStyle('krishna-owner-enhancements-style', '/spatial/krishna-owner-enhancements.css');
       ensureStyle('krishna-owner-corrections-style', '/spatial/krishna-owner-corrections.css');
+      ensureStyle('krishna-apple-shell-style', '/spatial/krishna-apple-shell.css');
 
       [
         'krishna-brahmand-data-script',
@@ -73,6 +76,7 @@ export default function LegacyKrishnaPreview() {
         'krishna-owner-hotfix-script',
         'krishna-owner-enhancements-script',
         'krishna-owner-corrections-script',
+        'krishna-apple-shell-script',
         'krishna-brahmand-preflight-script',
       ].forEach((id) => doc.getElementById(id)?.remove());
 
@@ -126,6 +130,7 @@ export default function LegacyKrishnaPreview() {
           }
           await loadScript('krishna-owner-enhancements-script', '/spatial/krishna-owner-enhancements.js');
           await loadScript('krishna-owner-corrections-script', '/spatial/krishna-owner-corrections.js');
+          await loadScript('krishna-apple-shell-script', '/spatial/krishna-apple-shell.js');
           await loadScript('krishna-brahmand-preflight-script', '/spatial/krishna-brahmand-preflight.js');
           const preflight = win.KRISHNA_BRAHMAND_PREFLIGHT;
           if (preflight?.ok === false) {
