@@ -33,6 +33,11 @@ def test_garudanetra_is_exactly_half_of_main_on_desktop():
     assert "right:50%!important" in CSS
 
 
+def test_garudanetra_expand_control_still_works():
+    assert "#liveWork.expanded:not([hidden])" in CSS
+    assert "width:100%!important" in CSS
+
+
 def test_chat_and_project_overflow_buttons_are_always_visible():
     assert ".chatMore" in CSS
     assert ".projectBranchMore" in CSS
