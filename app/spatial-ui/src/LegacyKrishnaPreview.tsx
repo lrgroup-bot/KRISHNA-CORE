@@ -80,14 +80,38 @@ export default function LegacyKrishnaPreview() {
         'krishna-brahmand-preflight-script',
       ].forEach((id) => doc.getElementById(id)?.remove());
 
-      const loadScript = (id: string, src: string) => new Promise<void>((resolve, reject) => {
+      const loadScript = (id: string, src: string, timeoutMs = 2500) => new Promise<void>((resolve, reject) => {
         const script = doc.createElement('script');
         script.id = id;
         script.src = `${src}?v=${Date.now()}`;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error(`${src} failed to load.`));
+        let finished = false;
+        const timer = win.setTimeout(() => {
+          if (finished) return;
+          finished = true;
+          reject(new Error(`${src} timed out after ${timeoutMs} ms.`));
+        }, timeoutMs);
+        script.onload = () => {
+          if (finished) return;
+          finished = true;
+          win.clearTimeout(timer);
+          resolve();
+        };
+        script.onerror = () => {
+          if (finished) return;
+          finished = true;
+          win.clearTimeout(timer);
+          reject(new Error(`${src} failed to load.`));
+        };
         doc.body.appendChild(script);
       });
+
+      const loadOptional = async (id: string, src: string) => {
+        try {
+          await loadScript(id, src, 1800);
+        } catch (reason) {
+          win.console.warn('[KRISHNA UI optional layer skipped]', src, reason);
+        }
+      };
 
       const waitForOwnerDom = () => new Promise<void>((resolve, reject) => {
         const started = win.performance.now();
@@ -99,13 +123,11 @@ export default function LegacyKrishnaPreview() {
             doc.getElementById('brahmand') &&
             doc.getElementById('lrUniverse') &&
             doc.getElementById('kbOwnerLoad') &&
-            doc.getElementById('kbMobileCard') &&
-            doc.getElementById('kbBrowserToggle') &&
-            doc.getElementById('kbBrowserDrawer')
+            doc.getElementById('kbMobileCard')
           );
           if (ready) return resolve();
-          if (win.performance.now() - started > 3500) return reject(new Error('KRISHNA owner UI loaded but did not inject its DOM within 3.5 seconds.'));
-          win.setTimeout(check, 50);
+          if (win.performance.now() - started > 2500) return reject(new Error('KRISHNA canonical owner UI did not become ready within 2.5 seconds.'));
+          win.setTimeout(check, 40);
         };
         check();
       });
@@ -115,6 +137,8 @@ export default function LegacyKrishnaPreview() {
         const onRuntimeError = (event: ErrorEvent) => { runtimeError = event.message || 'Unknown browser runtime error'; };
         win.addEventListener('error', onRuntimeError);
         try {
+          // Canonical layers are the only blocking stage. The removed duplicate
+          // browser drawer is intentionally NOT part of this readiness contract.
           await loadScript('krishna-brahmand-data-script', '/spatial/krishna-brahmand-data.js');
           await loadScript('krishna-brahmand-normalize-script', '/spatial/krishna-brahmand-normalize.js');
           await loadScript('lr-universe-source-script', '/spatial/lr-universe-source-data.js');
@@ -122,24 +146,25 @@ export default function LegacyKrishnaPreview() {
           await loadScript('krishna-brahmand-main-script', '/spatial/krishna-brahmand-main.js');
           await loadScript('krishna-owner-ui-script', '/spatial/krishna-owner-ui.js');
           await loadScript('krishna-owner-hotfix-script', '/spatial/krishna-owner-hotfix.js');
-          try {
-            await waitForOwnerDom();
-          } catch (reason) {
-            const base = reason instanceof Error ? reason.message : String(reason);
-            throw new Error(runtimeError ? `${base} Browser error: ${runtimeError}` : base);
-          }
-          await loadScript('krishna-owner-enhancements-script', '/spatial/krishna-owner-enhancements.js');
-          await loadScript('krishna-owner-corrections-script', '/spatial/krishna-owner-corrections.js');
-          await loadScript('krishna-apple-shell-script', '/spatial/krishna-apple-shell.js');
-          await loadScript('krishna-brahmand-preflight-script', '/spatial/krishna-brahmand-preflight.js');
+          await waitForOwnerDom();
+
+          // Reveal the working frontend immediately. Cosmetic/optional layers must
+          // never trap the owner behind a perpetual loading screen.
+          setState('ready');
+
+          await loadOptional('krishna-owner-enhancements-script', '/spatial/krishna-owner-enhancements.js');
+          await loadOptional('krishna-owner-corrections-script', '/spatial/krishna-owner-corrections.js');
+          await loadOptional('krishna-apple-shell-script', '/spatial/krishna-apple-shell.js');
+          await loadOptional('krishna-brahmand-preflight-script', '/spatial/krishna-brahmand-preflight.js');
+
           const preflight = win.KRISHNA_BRAHMAND_PREFLIGHT;
           if (preflight?.ok === false) {
             const failed = preflight.failed?.map((item) => item.detail ? `${item.name}: ${item.detail}` : item.name).filter(Boolean).join(', ') || 'unknown checks';
-            throw new Error(`KRISHNA Brahmand preflight failed: ${failed}`);
+            win.console.warn(`KRISHNA Brahmand preflight warning: ${failed}`);
           }
-          setState('ready');
         } catch (reason) {
-          setError(reason instanceof Error ? reason.message : String(reason));
+          const base = reason instanceof Error ? reason.message : String(reason);
+          setError(runtimeError ? `${base} Browser error: ${runtimeError}` : base);
           setState('error');
         } finally {
           win.removeEventListener('error', onRuntimeError);
