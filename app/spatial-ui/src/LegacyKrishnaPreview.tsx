@@ -69,8 +69,10 @@ export default function LegacyKrishnaPreview() {
       ensureStyle('krishna-owner-ui-style', '/spatial/krishna-owner-ui.css');
       ensureStyle('krishna-owner-hotfix-style', '/spatial/krishna-owner-hotfix.css');
       ensureStyle('krishna-owner-enhancements-style', '/spatial/krishna-owner-enhancements.css');
-      ensureStyle('krishna-owner-corrections-style', '/spatial/krishna-owner-corrections.css');
       ensureStyle('krishna-apple-shell-style', '/spatial/krishna-apple-shell.css');
+      // Functional invariants load last so premium styling cannot hide controls,
+      // break Sudarshan isolation, or override the canonical 50/50 browser split.
+      ensureStyle('krishna-owner-corrections-style', '/spatial/krishna-owner-corrections.css');
 
       [
         'krishna-brahmand-data-script',
@@ -168,8 +170,6 @@ export default function LegacyKrishnaPreview() {
         const onRuntimeError = (event: ErrorEvent) => { runtimeError = event.message || 'Unknown browser runtime error'; };
         win.addEventListener('error', onRuntimeError);
         try {
-          // Canonical layers are the only blocking stage. The retired duplicate
-          // browser drawer is intentionally not part of this readiness contract.
           await loadScript('krishna-brahmand-data-script', '/spatial/krishna-brahmand-data.js');
           await loadScript('krishna-brahmand-normalize-script', '/spatial/krishna-brahmand-normalize.js');
           await loadScript('lr-universe-source-script', '/spatial/lr-universe-source-data.js');
