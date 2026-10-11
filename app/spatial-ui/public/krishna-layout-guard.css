@@ -52,6 +52,12 @@ html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] #liveWork:no
   margin:0!important;
 }
 
+/* Preserve the existing live EXPAND control: 50/50 normally, full main canvas when expanded. */
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] #liveWork.expanded:not([hidden]){
+  width:100%!important;
+  border-radius:14px 0 22px 22px!important;
+}
+
 html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .main.liveSplit #sudarshan{
   width:50%!important;
   max-width:50%!important;
