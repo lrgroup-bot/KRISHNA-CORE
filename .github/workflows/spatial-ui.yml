@@ -11,6 +11,7 @@ on:
       - "tests/test_ui_loader_stability_contract.py"
       - "tests/test_ui_display_fit_contract.py"
       - "tests/test_ui_command_core_contract.py"
+      - "tests/test_live_feed_richtext_contract.py"
       - ".github/workflows/spatial-ui.yml"
       - ".github/workflows/test-core.yml"
   push:
@@ -26,6 +27,7 @@ on:
       - "tests/test_ui_loader_stability_contract.py"
       - "tests/test_ui_display_fit_contract.py"
       - "tests/test_ui_command_core_contract.py"
+      - "tests/test_live_feed_richtext_contract.py"
       - ".github/workflows/spatial-ui.yml"
       - ".github/workflows/test-core.yml"
 
@@ -55,6 +57,7 @@ jobs:
           node --check app/spatial-ui/public/krishna-design-intelligence.js
           node --check app/spatial-ui/public/krishna-display-fit.js
           node --check app/spatial-ui/public/krishna-command-core.js
+          node --check app/spatial-ui/public/krishna-live-feed-richtext.js
           node --check app/spatial-ui/public/krishna-brahmand-preflight.js
 
       - name: Build spatial frontend
@@ -81,4 +84,5 @@ jobs:
           tests/test_ui_loader_stability_contract.py
           tests/test_ui_display_fit_contract.py
           tests/test_ui_command_core_contract.py
+          tests/test_live_feed_richtext_contract.py
           tests/test_current_krishna_ui_contract.py
