@@ -13,6 +13,7 @@ type PreviewWindow = Window & {
   __KRISHNA_APPLE_SHELL__?: boolean;
   __KRISHNA_DISPLAY_FIT__?: boolean;
   __KRISHNA_COMMAND_CORE__?: boolean;
+  __KRISHNA_LIVE_FEED_RICHTEXT__?: boolean;
   KRISHNA_BRAHMAND_DATA?: { nodes?: Record<string, unknown> };
   LR_UNIVERSE_SOURCE_DATA?: Record<string, unknown>;
   KRISHNA_BRAHMAND_PREFLIGHT?: {
@@ -57,6 +58,7 @@ export default function LegacyKrishnaPreview() {
       delete win.__KRISHNA_APPLE_SHELL__;
       delete win.__KRISHNA_DISPLAY_FIT__;
       delete win.__KRISHNA_COMMAND_CORE__;
+      delete win.__KRISHNA_LIVE_FEED_RICHTEXT__;
       delete win.KRISHNA_BRAHMAND_PREFLIGHT;
 
       const cacheToken = Date.now();
@@ -76,8 +78,9 @@ export default function LegacyKrishnaPreview() {
       ensureStyle('krishna-apple-shell-style', '/spatial/krishna-apple-shell.css');
       ensureStyle('krishna-owner-corrections-style', '/spatial/krishna-owner-corrections.css');
       ensureStyle('krishna-display-fit-style', '/spatial/krishna-display-fit.css');
-      // Cinematic command-core visuals are final presentation authority.
       ensureStyle('krishna-command-core-style', '/spatial/krishna-command-core.css');
+      // Final live functionality layer: visible telemetry + rich Sudarshan rendering.
+      ensureStyle('krishna-live-feed-richtext-style', '/spatial/krishna-live-feed-richtext.css');
 
       [
         'krishna-brahmand-data-script',
@@ -92,6 +95,7 @@ export default function LegacyKrishnaPreview() {
         'krishna-apple-shell-script',
         'krishna-display-fit-script',
         'krishna-command-core-script',
+        'krishna-live-feed-richtext-script',
         'krishna-brahmand-preflight-script',
       ].forEach((id) => doc.getElementById(id)?.remove());
 
@@ -186,8 +190,6 @@ export default function LegacyKrishnaPreview() {
           await loadScript('krishna-owner-hotfix-script', '/spatial/krishna-owner-hotfix.js');
           await waitForOwnerDom();
 
-          // Reveal the functional UI before cosmetic layers. Optional polish can
-          // degrade independently but can never trap the owner behind Loading.
           setState('ready');
 
           await loadOptional('krishna-owner-enhancements-script', '/spatial/krishna-owner-enhancements.js');
@@ -195,6 +197,7 @@ export default function LegacyKrishnaPreview() {
           await loadOptional('krishna-apple-shell-script', '/spatial/krishna-apple-shell.js');
           await loadOptional('krishna-display-fit-script', '/spatial/krishna-display-fit.js');
           await loadOptional('krishna-command-core-script', '/spatial/krishna-command-core.js');
+          await loadOptional('krishna-live-feed-richtext-script', '/spatial/krishna-live-feed-richtext.js');
           await loadOptional('krishna-brahmand-preflight-script', '/spatial/krishna-brahmand-preflight.js');
 
           const preflight = win.KRISHNA_BRAHMAND_PREFLIGHT;
