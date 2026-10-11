@@ -10,6 +10,7 @@ on:
       - "tests/test_krishna_apple_shell_contract.py"
       - "tests/test_ui_loader_stability_contract.py"
       - ".github/workflows/spatial-ui.yml"
+      - ".github/workflows/test-core.yml"
   push:
     branches:
       - "fix/krishna-ui-runtime-verification"
@@ -22,6 +23,7 @@ on:
       - "tests/test_krishna_apple_shell_contract.py"
       - "tests/test_ui_loader_stability_contract.py"
       - ".github/workflows/spatial-ui.yml"
+      - ".github/workflows/test-core.yml"
 
 permissions:
   contents: read
