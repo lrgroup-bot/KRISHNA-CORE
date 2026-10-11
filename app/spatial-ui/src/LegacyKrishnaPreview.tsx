@@ -123,6 +123,27 @@ export default function LegacyKrishnaPreview() {
         }
       };
 
+      const loadBrahmandMainLowLoad = async () => {
+        const originalMatchMedia = win.matchMedia.bind(win);
+        const lowLoadMatchMedia: typeof win.matchMedia = (query: string) => {
+          const result = originalMatchMedia(query);
+          if (query !== '(prefers-reduced-motion: reduce)') return result;
+          return new Proxy(result, {
+            get(target, property) {
+              if (property === 'matches') return true;
+              const value = Reflect.get(target, property, target);
+              return typeof value === 'function' ? value.bind(target) : value;
+            },
+          });
+        };
+        win.matchMedia = lowLoadMatchMedia;
+        try {
+          await loadScript('krishna-brahmand-main-script', '/spatial/krishna-brahmand-main.js');
+        } finally {
+          win.matchMedia = originalMatchMedia;
+        }
+      };
+
       const waitForOwnerDom = () => new Promise<void>((resolve, reject) => {
         const started = win.performance.now();
         const check = () => {
@@ -153,7 +174,7 @@ export default function LegacyKrishnaPreview() {
           await loadScript('krishna-brahmand-normalize-script', '/spatial/krishna-brahmand-normalize.js');
           await loadScript('lr-universe-source-script', '/spatial/lr-universe-source-data.js');
           await loadScript('krishna-preview-api-compat-script', '/spatial/krishna-preview-api-compat.js');
-          await loadScript('krishna-brahmand-main-script', '/spatial/krishna-brahmand-main.js');
+          await loadBrahmandMainLowLoad();
           await loadScript('krishna-owner-ui-script', '/spatial/krishna-owner-ui.js');
           await loadScript('krishna-owner-hotfix-script', '/spatial/krishna-owner-hotfix.js');
           await waitForOwnerDom();
