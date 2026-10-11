@@ -25,6 +25,10 @@
     return map[id] || String(id || 'KRISHNA').replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase();
   }
 
+  function setTextIfChanged(node, value) {
+    if (node && node.textContent !== value) node.textContent = value;
+  }
+
   function injectHud() {
     const main = qs('.main');
     if (!main || $('krishnaCommandHud')) return;
@@ -40,14 +44,11 @@
 
   function syncHud() {
     injectHud();
-    const view = viewName();
-    const viewState = $('kcViewState');
-    if (viewState) viewState.textContent = displayViewLabel(view);
-    const clock = $('kcClock');
-    if (clock) clock.textContent = new Date().toLocaleTimeString([], { hour12: false });
-    const core = $('kcCoreState');
-    if (core) core.textContent = coreOnline ? 'ONLINE · VERIFIED LINK' : 'OFFLINE · FRONTEND MODE';
-    document.documentElement.dataset.kcCore = coreOnline ? 'online' : 'offline';
+    setTextIfChanged($('kcViewState'), displayViewLabel(viewName()));
+    setTextIfChanged($('kcClock'), new Date().toLocaleTimeString([], { hour12: false }));
+    setTextIfChanged($('kcCoreState'), coreOnline ? 'ONLINE · VERIFIED LINK' : 'OFFLINE · FRONTEND MODE');
+    const wanted = coreOnline ? 'online' : 'offline';
+    if (document.documentElement.dataset.kcCore !== wanted) document.documentElement.dataset.kcCore = wanted;
   }
 
   function navTarget(button) {
@@ -65,8 +66,11 @@
       const target = navTarget(button);
       const active = Boolean(target && target === current);
       button.classList.toggle('active', active);
-      if (active) button.setAttribute('aria-current', 'page');
-      else button.removeAttribute('aria-current');
+      if (active) {
+        if (button.getAttribute('aria-current') !== 'page') button.setAttribute('aria-current', 'page');
+      } else if (button.hasAttribute('aria-current')) {
+        button.removeAttribute('aria-current');
+      }
     });
   }
 
@@ -93,16 +97,16 @@
   }
 
   function setSidebarState(container, message, tone = 'loading') {
-    if (!container) return;
-    if (container.querySelector('.projectBranch,.chatRow')) return;
+    if (!container || container.querySelector('.projectBranch,.chatRow')) return;
     let node = container.querySelector('.kc-sidebar-state');
     if (!node) {
       node = document.createElement('div');
       node.className = 'kc-sidebar-state';
       container.replaceChildren(node);
     }
-    node.className = `kc-sidebar-state ${tone}`;
-    node.textContent = message;
+    const wantedClass = `kc-sidebar-state ${tone}`;
+    if (node.className !== wantedClass) node.className = wantedClass;
+    setTextIfChanged(node, message);
   }
 
   function syncSidebarCounts(projectCount = null, chatCount = null) {
@@ -110,8 +114,8 @@
     const chatBadge = ensureCountBadge(qs('.chatsHead'), 'kcChatCount');
     const p = projectCount ?? qsa('#projectMenuTree .projectBranch').length;
     const c = chatCount ?? qsa('#recentChats .chatRow').length;
-    if (projectBadge) projectBadge.textContent = String(p);
-    if (chatBadge) chatBadge.textContent = String(c);
+    setTextIfChanged(projectBadge, String(p));
+    setTextIfChanged(chatBadge, String(c));
   }
 
   async function fetchJson(url, timeoutMs = 2200) {
@@ -205,9 +209,7 @@
   });
   bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['data-view'] });
 
-  const sidebarObserver = new MutationObserver(() => {
-    syncSidebarCounts();
-  });
+  const sidebarObserver = new MutationObserver(() => syncSidebarCounts());
   const workspace = qs('.sidebarWorkspace');
   if (workspace) sidebarObserver.observe(workspace, { childList: true, subtree: true });
 
