@@ -17,7 +17,8 @@
   record('compact system load injected', has('#kbOwnerLoad') && has('#kbCpu') && has('#kbRam') && has('#kbGpu') && has('#kbNet'));
   record('standalone Surya sidebar card removed', !has('#kbSuryaCard'));
   record('compact Mobile telemetry injected', has('#kbMobileCard') && has('#kbMobileState'));
-  record('Sudarshan Garudanetra toggle injected', has('#kbBrowserToggle') && has('#kbBrowserDrawer') && has('#kbBrowserFrame'));
+  record('Sudarshan canonical Garudanetra browser ready', has('#kbBrowserToggle') && has('#liveWork') && has('#garudaFrame'));
+  record('retired duplicate browser drawer absent', !has('#kbBrowserDrawer'));
   record('old live-system button rail retained for legacy but hidden by preview CSS', has('#opsInformer'));
 
   const data = window.KRISHNA_BRAHMAND_DATA;
