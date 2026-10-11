@@ -12,7 +12,9 @@ def test_preview_loader_cannot_wait_for_retired_browser_drawer():
     wait_block = PREVIEW.split("const waitForOwnerDom", 1)[1].split("void (async () =>", 1)[0]
     assert "kbBrowserDrawer" not in wait_block
     assert "setState('ready')" in PREVIEW
-    assert PREVIEW.index("setState('ready')") < PREVIEW.index("krishna-owner-enhancements-script")
+    optional_load = "await loadOptional('krishna-owner-enhancements-script'"
+    assert optional_load in PREVIEW
+    assert PREVIEW.index("setState('ready')") < PREVIEW.index(optional_load)
     assert "script.remove()" in PREVIEW
     assert "timed out after" in PREVIEW
 
