@@ -12,6 +12,7 @@ on:
       - "tests/test_ui_display_fit_contract.py"
       - "tests/test_ui_command_core_contract.py"
       - "tests/test_live_feed_richtext_contract.py"
+      - "tests/test_ui_layout_guard_contract.py"
       - ".github/workflows/spatial-ui.yml"
       - ".github/workflows/test-core.yml"
   push:
@@ -28,6 +29,7 @@ on:
       - "tests/test_ui_display_fit_contract.py"
       - "tests/test_ui_command_core_contract.py"
       - "tests/test_live_feed_richtext_contract.py"
+      - "tests/test_ui_layout_guard_contract.py"
       - ".github/workflows/spatial-ui.yml"
       - ".github/workflows/test-core.yml"
 
@@ -85,4 +87,5 @@ jobs:
           tests/test_ui_display_fit_contract.py
           tests/test_ui_command_core_contract.py
           tests/test_live_feed_richtext_contract.py
+          tests/test_ui_layout_guard_contract.py
           tests/test_current_krishna_ui_contract.py
