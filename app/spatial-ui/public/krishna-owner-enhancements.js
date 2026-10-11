@@ -8,17 +8,19 @@
 
   function normalizeOverflowButtons() {
     qsa('.chatMore,.projectBranchMore').forEach((button) => {
-      button.textContent = '⋯';
-      button.setAttribute('aria-haspopup', 'menu');
+      if (button.textContent !== '⋯') button.textContent = '⋯';
+      if (button.getAttribute('aria-haspopup') !== 'menu') button.setAttribute('aria-haspopup', 'menu');
       if (!button.getAttribute('aria-label')) {
         button.setAttribute('aria-label', button.classList.contains('projectBranchMore') ? 'Project actions' : 'Chat actions');
       }
     });
 
     const chatMenu = $('krishnaChatMenu');
-    if (chatMenu) chatMenu.setAttribute('aria-label', 'Chat actions: rename, pin, share, move or delete');
+    const chatLabel = 'Chat actions: rename, pin, share, move or delete';
+    if (chatMenu && chatMenu.getAttribute('aria-label') !== chatLabel) chatMenu.setAttribute('aria-label', chatLabel);
     const projectMenu = $('krishnaProjectMenu');
-    if (projectMenu) projectMenu.setAttribute('aria-label', 'Project actions: rename, share or delete');
+    const projectLabel = 'Project actions: rename, share or delete';
+    if (projectMenu && projectMenu.getAttribute('aria-label') !== projectLabel) projectMenu.setAttribute('aria-label', projectLabel);
   }
 
   function enhanceFlow() {
@@ -26,8 +28,12 @@
     const svg = $('kbGraphSvg');
     if (!svg) return;
 
-    qsa('.kb-flow-drop', svg).forEach((node) => node.remove());
     const paths = qsa('path.kb-edge.active,path.kb-edge.green', svg);
+    const signature = paths.map((path) => `${path.getAttribute('d') || ''}:${path.classList.contains('green') ? 'g' : 'a'}`).join('|');
+    if (svg.dataset.kbFlowSignature === signature && qsa('.kb-flow-drop', svg).length === paths.length * 3) return;
+
+    qsa('.kb-flow-drop', svg).forEach((node) => node.remove());
+    svg.dataset.kbFlowSignature = signature;
 
     paths.forEach((path, pathIndex) => {
       const d = path.getAttribute('d');
@@ -66,9 +72,10 @@
   function makeSudarshanClear() {
     const sudarshan = $('sudarshan');
     if (!sudarshan) return;
-    sudarshan.setAttribute('aria-label', 'Sudarshan full-screen conversation workspace');
+    const label = 'Sudarshan full-screen conversation workspace';
+    if (sudarshan.getAttribute('aria-label') !== label) sudarshan.setAttribute('aria-label', label);
     const messages = $('messages');
-    if (messages) messages.setAttribute('aria-live', 'polite');
+    if (messages && messages.getAttribute('aria-live') !== 'polite') messages.setAttribute('aria-live', 'polite');
   }
 
   function run() {
