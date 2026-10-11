@@ -12,6 +12,7 @@ type PreviewWindow = Window & {
   __KRISHNA_OWNER_CORRECTIONS_V3__?: boolean;
   __KRISHNA_APPLE_SHELL__?: boolean;
   __KRISHNA_DISPLAY_FIT__?: boolean;
+  __KRISHNA_COMMAND_CORE__?: boolean;
   KRISHNA_BRAHMAND_DATA?: { nodes?: Record<string, unknown> };
   LR_UNIVERSE_SOURCE_DATA?: Record<string, unknown>;
   KRISHNA_BRAHMAND_PREFLIGHT?: {
@@ -55,6 +56,7 @@ export default function LegacyKrishnaPreview() {
       delete win.__KRISHNA_OWNER_CORRECTIONS_V3__;
       delete win.__KRISHNA_APPLE_SHELL__;
       delete win.__KRISHNA_DISPLAY_FIT__;
+      delete win.__KRISHNA_COMMAND_CORE__;
       delete win.KRISHNA_BRAHMAND_PREFLIGHT;
 
       const cacheToken = Date.now();
@@ -73,8 +75,9 @@ export default function LegacyKrishnaPreview() {
       ensureStyle('krishna-owner-enhancements-style', '/spatial/krishna-owner-enhancements.css');
       ensureStyle('krishna-apple-shell-style', '/spatial/krishna-apple-shell.css');
       ensureStyle('krishna-owner-corrections-style', '/spatial/krishna-owner-corrections.css');
-      // Absolute final layer: desktop readability and view isolation win over every older rule.
       ensureStyle('krishna-display-fit-style', '/spatial/krishna-display-fit.css');
+      // Cinematic command-core visuals are final presentation authority.
+      ensureStyle('krishna-command-core-style', '/spatial/krishna-command-core.css');
 
       [
         'krishna-brahmand-data-script',
@@ -88,6 +91,7 @@ export default function LegacyKrishnaPreview() {
         'krishna-owner-corrections-script',
         'krishna-apple-shell-script',
         'krishna-display-fit-script',
+        'krishna-command-core-script',
         'krishna-brahmand-preflight-script',
       ].forEach((id) => doc.getElementById(id)?.remove());
 
@@ -190,6 +194,7 @@ export default function LegacyKrishnaPreview() {
           await loadOptional('krishna-owner-corrections-script', '/spatial/krishna-owner-corrections.js');
           await loadOptional('krishna-apple-shell-script', '/spatial/krishna-apple-shell.js');
           await loadOptional('krishna-display-fit-script', '/spatial/krishna-display-fit.js');
+          await loadOptional('krishna-command-core-script', '/spatial/krishna-command-core.js');
           await loadOptional('krishna-brahmand-preflight-script', '/spatial/krishna-brahmand-preflight.js');
 
           const preflight = win.KRISHNA_BRAHMAND_PREFLIGHT;
