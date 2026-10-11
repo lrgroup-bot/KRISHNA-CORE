@@ -9,7 +9,8 @@
     const brand = q('.brand');
     if (!brand) return;
     const small = q('small', brand);
-    if (small) small.textContent = 'LOCAL INTELLIGENCE SYSTEM';
+    const wanted = 'LOCAL INTELLIGENCE SYSTEM';
+    if (small && small.textContent !== wanted) small.textContent = wanted;
   }
 
   function enhanceHero() {
@@ -105,8 +106,8 @@
     const collapsed = stored === '1';
     applySectionState(kind, collapsed);
     toggle.addEventListener('click', () => {
-      const next = toggle.getAttribute('aria-expanded') !== 'false';
-      applySectionState(kind, next);
+      const nextCollapsed = toggle.getAttribute('aria-expanded') !== 'false';
+      applySectionState(kind, nextCollapsed);
     });
   }
 
@@ -127,7 +128,7 @@
     const context = $('#contextBadge');
     if (context) context.hidden = true;
     const mode = $('#modeBadge');
-    if (mode) mode.textContent = 'KRISHNA';
+    if (mode && mode.textContent !== 'KRISHNA') mode.textContent = 'KRISHNA';
     const pageTitle = $('#pageTitle');
     if (pageTitle && !pageTitle.dataset.appleTitle) {
       pageTitle.dataset.appleTitle = '1';
@@ -177,6 +178,7 @@
 
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
+        if (mutation.type !== 'childList' || (!mutation.addedNodes.length && !mutation.removedNodes.length)) continue;
         const target = mutation.target;
         if (!(target instanceof Element)) continue;
         if (
