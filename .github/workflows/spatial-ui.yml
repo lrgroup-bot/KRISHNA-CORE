@@ -46,6 +46,8 @@ jobs:
           node --check app/spatial-ui/public/krishna-owner-corrections.js
           node --check app/spatial-ui/public/krishna-apple-shell.js
           node --check app/spatial-ui/public/krishna-owner-hotfix.js
+          node --check app/spatial-ui/public/krishna-design-intelligence.js
+          node --check app/spatial-ui/public/krishna-brahmand-preflight.js
 
       - name: Build spatial frontend
         working-directory: app/spatial-ui
