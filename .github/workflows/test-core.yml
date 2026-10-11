@@ -1,9 +1,9 @@
 name: Test KRISHNA Core
 on:
   push:
-    paths: ['core/**', 'tests/**', 'scripts/**', '.github/workflows/test-core.yml']
+    paths: ['core/**', 'tests/**', 'scripts/**', 'app/spatial-ui/**', '.github/workflows/test-core.yml']
   pull_request:
-    paths: ['core/**', 'tests/**', 'scripts/**', '.github/workflows/test-core.yml']
+    paths: ['core/**', 'tests/**', 'scripts/**', 'app/spatial-ui/**', '.github/workflows/test-core.yml']
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
