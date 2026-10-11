@@ -1,0 +1,238 @@
+/* KRISHNA desktop display-fit layer.
+   Loaded LAST. It owns readability, 60 Hz compositor motion, and strict Sudarshan isolation. */
+
+html[data-krishna-brahmand-preview="1"]{
+  --rail:clamp(260px,18vw,360px);
+  --display-text:#f4f7fa;
+  --display-muted:#a8b2bd;
+  --display-dim:#7f8c99;
+}
+
+/* Normal desktop monitors: do not shrink the product into a tiny admin dashboard. */
+html[data-krishna-brahmand-preview="1"] body{
+  font-size:14px!important;
+  color:var(--display-text)!important;
+}
+html[data-krishna-brahmand-preview="1"] .app{
+  grid-template-columns:var(--rail) minmax(0,1fr)!important;
+  gap:14px!important;
+  padding:14px!important;
+}
+html[data-krishna-brahmand-preview="1"] .side{
+  height:calc(100dvh - 28px)!important;
+  padding:22px 18px 16px!important;
+  border-radius:26px!important;
+}
+html[data-krishna-brahmand-preview="1"] .main{
+  height:calc(100dvh - 28px)!important;
+  border-radius:28px!important;
+  background:
+    radial-gradient(circle at 52% 38%,rgba(85,193,224,.12),transparent 31%),
+    radial-gradient(circle at 70% 80%,rgba(239,202,112,.05),transparent 34%),
+    linear-gradient(180deg,#08131e 0%,#04090f 100%)!important;
+}
+
+/* Readable sidebar on 1080p/60 Hz and common Windows scaling settings. */
+html[data-krishna-brahmand-preview="1"] .brand{
+  font-size:24px!important;
+  letter-spacing:.14em!important;
+  padding:6px 9px 18px!important;
+}
+html[data-krishna-brahmand-preview="1"] .brand small{
+  font-size:10px!important;
+  color:#8b96a2!important;
+  line-height:1.45!important;
+}
+html[data-krishna-brahmand-preview="1"] .mainMenuNav{
+  gap:7px!important;
+}
+html[data-krishna-brahmand-preview="1"] .mainMenuNav>button,
+html[data-krishna-brahmand-preview="1"] .mainMenuPlugin{
+  min-height:46px!important;
+  padding:9px 12px!important;
+  border-radius:14px!important;
+  color:#c4ccd5!important;
+  font-size:13px!important;
+  font-weight:600!important;
+}
+html[data-krishna-brahmand-preview="1"] .mainMenuNav .ico,
+html[data-krishna-brahmand-preview="1"] .mainMenuPlugin .ico{
+  width:30px!important;
+  height:30px!important;
+  min-width:30px!important;
+  font-size:14px!important;
+}
+html[data-krishna-brahmand-preview="1"] .sideSectionHead{
+  min-height:35px!important;
+  font-size:11px!important;
+  color:#929ca7!important;
+}
+html[data-krishna-brahmand-preview="1"] .projectBranchButton,
+html[data-krishna-brahmand-preview="1"] .chatOpen{
+  min-height:36px!important;
+  font-size:12px!important;
+}
+html[data-krishna-brahmand-preview="1"] .chatSearchWrap{
+  min-height:40px!important;
+}
+html[data-krishna-brahmand-preview="1"] .chatSearchWrap input{
+  font-size:12px!important;
+}
+html[data-krishna-brahmand-preview="1"] #kbOwnerLoad .kb-owner-title,
+html[data-krishna-brahmand-preview="1"] #kbOwnerLoad .kb-owner-row,
+html[data-krishna-brahmand-preview="1"] #kbOwnerLoad b,
+html[data-krishna-brahmand-preview="1"] #kbMobileCard .kb-mobile-row,
+html[data-krishna-brahmand-preview="1"] .coreLine{
+  font-size:9px!important;
+}
+html[data-krishna-brahmand-preview="1"] #kbOwnerLoad,
+html[data-krishna-brahmand-preview="1"] #kbMobileCard{
+  padding:10px 12px!important;
+}
+
+/* Make the home intelligence core the product hero instead of a small object in empty space. */
+html[data-krishna-brahmand-preview="1"] #home .assistantHome{
+  min-height:0!important;
+  overflow:hidden!important;
+}
+html[data-krishna-brahmand-preview="1"] #home .kb-core-shell{
+  width:min(46vw,68dvh,680px)!important;
+  min-width:460px!important;
+  max-width:680px!important;
+  will-change:transform!important;
+  transform:translate3d(0,0,0)!important;
+  animation:krishnaHeroFloat60 5.6s cubic-bezier(.4,0,.2,1) infinite!important;
+}
+html[data-krishna-brahmand-preview="1"] #home .kb-core-shell .assistantOm{
+  will-change:transform,filter!important;
+  animation:krishnaOmBreath60 3.8s ease-in-out infinite!important;
+}
+html[data-krishna-brahmand-preview="1"] #home .kb-om-depth{
+  font-size:clamp(118px,11vw,178px)!important;
+}
+html[data-krishna-brahmand-preview="1"] #home .kb-core-status{
+  bottom:6%!important;
+  font-size:11px!important;
+  color:#a9bbc4!important;
+}
+html[data-krishna-brahmand-preview="1"] #home .kb-cosmos{
+  opacity:1!important;
+  filter:drop-shadow(0 0 28px rgba(105,215,238,.24))!important;
+}
+
+@keyframes krishnaHeroFloat60{
+  0%,100%{transform:translate3d(0,0,0) scale(1)}
+  45%{transform:translate3d(0,-10px,0) scale(1.018)}
+  70%{transform:translate3d(0,-4px,0) scale(1.008)}
+}
+@keyframes krishnaOmBreath60{
+  0%,100%{transform:translateZ(0) scale(1);filter:brightness(1)}
+  50%{transform:translateZ(0) scale(1.022);filter:brightness(1.12)}
+}
+
+/* STRICT VIEW ISOLATION. Sudarshan, its composer and browser must NEVER leak into other views. */
+html[data-krishna-brahmand-preview="1"] body:not([data-view="sudarshan"]) #sudarshan,
+html[data-krishna-brahmand-preview="1"] body:not([data-view="sudarshan"]) .composerWrap,
+html[data-krishna-brahmand-preview="1"] body:not([data-view="sudarshan"]) #liveWork,
+html[data-krishna-brahmand-preview="1"] body:not([data-view="sudarshan"]) #kbBrowserToggle{
+  display:none!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] #sudarshan{
+  display:flex!important;
+  visibility:visible!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWrap{
+  display:block!important;
+  visibility:visible!important;
+}
+
+/* Sudarshan is one centered conversation surface, not a chat scattered across rails. */
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] #sudarshan .holoRail{
+  display:none!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] #sudarshan .sudarshanDeck{
+  display:flex!important;
+  width:100%!important;
+  max-width:none!important;
+  min-height:0!important;
+  justify-content:center!important;
+  padding:0!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] #sudarshan .sudarshanCenter{
+  width:min(100%,1080px)!important;
+  max-width:1080px!important;
+  margin:0 auto!important;
+  border:0!important;
+  background:transparent!important;
+  transform:none!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] #sudarshan #messages,
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] #sudarshan .messages{
+  width:min(100%,980px)!important;
+  max-width:980px!important;
+  margin:0 auto!important;
+  padding:26px 22px 150px!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWrap{
+  left:var(--rail)!important;
+  right:0!important;
+  width:auto!important;
+  padding:12px 20px 18px!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWrap .composer{
+  width:min(980px,calc(100% - 30px))!important;
+  max-width:980px!important;
+  margin:0 auto!important;
+}
+
+/* Real 50/50 Garudanetra split stays inside Sudarshan only. */
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .main.liveSplit #sudarshan{
+  width:50%!important;
+  margin-right:50%!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .main.liveSplit .composerWrap{
+  right:50%!important;
+}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] #liveWork:not([hidden]){
+  display:flex!important;
+  width:50%!important;
+  left:auto!important;
+  right:0!important;
+}
+
+/* Large desktop / browser zoomed-out: automatically grow the UI instead of becoming tiny. */
+@media(min-width:1800px){
+  html[data-krishna-brahmand-preview="1"]{--rail:clamp(300px,17vw,380px)}
+  html[data-krishna-brahmand-preview="1"] body{font-size:15px!important}
+  html[data-krishna-brahmand-preview="1"] .brand{font-size:26px!important}
+  html[data-krishna-brahmand-preview="1"] .mainMenuNav>button,
+  html[data-krishna-brahmand-preview="1"] .mainMenuPlugin{font-size:14px!important;min-height:48px!important}
+  html[data-krishna-brahmand-preview="1"] #home .kb-core-shell{width:min(44vw,72dvh,760px)!important;max-width:760px!important}
+}
+
+/* 1366×768-class displays still fit without browser zoom. */
+@media(max-width:1450px){
+  html[data-krishna-brahmand-preview="1"]{--rail:250px}
+  html[data-krishna-brahmand-preview="1"] .app{gap:10px!important;padding:10px!important}
+  html[data-krishna-brahmand-preview="1"] .side{height:calc(100dvh - 20px)!important;padding:16px 12px!important}
+  html[data-krishna-brahmand-preview="1"] .main{height:calc(100dvh - 20px)!important}
+  html[data-krishna-brahmand-preview="1"] .brand{font-size:21px!important}
+  html[data-krishna-brahmand-preview="1"] #home .kb-core-shell{width:min(48vw,64dvh,560px)!important;min-width:380px!important}
+}
+
+@media(max-width:900px){
+  html[data-krishna-brahmand-preview="1"]{--rail:76px}
+  html[data-krishna-brahmand-preview="1"] .brand small,
+  html[data-krishna-brahmand-preview="1"] .mainMenuNav .txt,
+  html[data-krishna-brahmand-preview="1"] .sidebarWorkspace{display:none!important}
+  html[data-krishna-brahmand-preview="1"] .mainMenuNav>button{justify-content:center!important;padding:7px!important}
+  html[data-krishna-brahmand-preview="1"] #home .kb-core-shell{min-width:300px!important;width:min(78vw,58dvh,480px)!important}
+  html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWrap{left:var(--rail)!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  html[data-krishna-brahmand-preview="1"] #home .kb-core-shell,
+  html[data-krishna-brahmand-preview="1"] #home .kb-core-shell .assistantOm{animation:none!important}
+}
