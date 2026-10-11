@@ -8,6 +8,8 @@ type PreviewWindow = Window & {
   __KRISHNA_OWNER_HOTFIX__?: boolean;
   __KRISHNA_OWNER_ENHANCEMENTS__?: boolean;
   __KRISHNA_OWNER_CORRECTIONS__?: boolean;
+  __KRISHNA_OWNER_CORRECTIONS_V2__?: boolean;
+  __KRISHNA_OWNER_CORRECTIONS_V3__?: boolean;
   __KRISHNA_APPLE_SHELL__?: boolean;
   KRISHNA_BRAHMAND_DATA?: { nodes?: Record<string, unknown> };
   LR_UNIVERSE_SOURCE_DATA?: Record<string, unknown>;
@@ -27,18 +29,19 @@ export default function LegacyKrishnaPreview() {
       const frame = frameRef.current;
       const doc = frame?.contentDocument;
       const win = frame?.contentWindow as PreviewWindow | null;
-      if (!doc?.head || !doc.body || !win) throw new Error('Legacy dashboard document is not accessible.');
+      if (!doc?.head || !doc.body || !win) throw new Error('KRISHNA dashboard document is not accessible.');
 
       setState('loading');
       setError('');
       doc.documentElement.dataset.krishnaBrahmandPreview = '1';
+      delete doc.documentElement.dataset.krishnaUiDegraded;
 
       const requiredLegacySelectors = [
         '#home', '#assistantOm', '#sudarshan', '#projects', '#plugins',
         '.mainMenuNav', '.side', '.sideFoot', '.opsVitals', 'main.main',
       ];
       const missingLegacy = requiredLegacySelectors.filter((selector) => !doc.querySelector(selector));
-      if (missingLegacy.length) throw new Error(`Legacy KRISHNA base mismatch. Missing: ${missingLegacy.join(', ')}`);
+      if (missingLegacy.length) throw new Error(`KRISHNA base UI mismatch. Missing: ${missingLegacy.join(', ')}`);
 
       delete win.__KRISHNA_BRAHMAND_MAIN__;
       delete win.__KRISHNA_BRAHMAND_PREVIEW__;
@@ -47,15 +50,18 @@ export default function LegacyKrishnaPreview() {
       delete win.__KRISHNA_OWNER_HOTFIX__;
       delete win.__KRISHNA_OWNER_ENHANCEMENTS__;
       delete win.__KRISHNA_OWNER_CORRECTIONS__;
+      delete win.__KRISHNA_OWNER_CORRECTIONS_V2__;
+      delete win.__KRISHNA_OWNER_CORRECTIONS_V3__;
       delete win.__KRISHNA_APPLE_SHELL__;
       delete win.KRISHNA_BRAHMAND_PREFLIGHT;
 
+      const cacheToken = Date.now();
       const ensureStyle = (id: string, href: string) => {
-        if (doc.getElementById(id)) return;
+        doc.getElementById(id)?.remove();
         const link = doc.createElement('link');
         link.id = id;
         link.rel = 'stylesheet';
-        link.href = href;
+        link.href = `${href}?v=${cacheToken}`;
         doc.head.appendChild(link);
       };
       ensureStyle('krishna-brahmand-style', '/spatial/krishna-brahmand.css');
@@ -83,33 +89,37 @@ export default function LegacyKrishnaPreview() {
       const loadScript = (id: string, src: string, timeoutMs = 2500) => new Promise<void>((resolve, reject) => {
         const script = doc.createElement('script');
         script.id = id;
-        script.src = `${src}?v=${Date.now()}`;
+        script.src = `${src}?v=${cacheToken}`;
+        script.async = false;
         let finished = false;
+        const finish = (callback: () => void) => {
+          if (finished) return;
+          finished = true;
+          win.clearTimeout(timer);
+          callback();
+        };
         const timer = win.setTimeout(() => {
-          if (finished) return;
-          finished = true;
-          reject(new Error(`${src} timed out after ${timeoutMs} ms.`));
+          finish(() => {
+            script.remove();
+            reject(new Error(`${src} timed out after ${timeoutMs} ms.`));
+          });
         }, timeoutMs);
-        script.onload = () => {
-          if (finished) return;
-          finished = true;
-          win.clearTimeout(timer);
-          resolve();
-        };
-        script.onerror = () => {
-          if (finished) return;
-          finished = true;
-          win.clearTimeout(timer);
+        script.onload = () => finish(resolve);
+        script.onerror = () => finish(() => {
+          script.remove();
           reject(new Error(`${src} failed to load.`));
-        };
+        });
         doc.body.appendChild(script);
       });
 
       const loadOptional = async (id: string, src: string) => {
         try {
           await loadScript(id, src, 1800);
+          return true;
         } catch (reason) {
+          doc.documentElement.dataset.krishnaUiDegraded = '1';
           win.console.warn('[KRISHNA UI optional layer skipped]', src, reason);
+          return false;
         }
       };
 
@@ -126,7 +136,7 @@ export default function LegacyKrishnaPreview() {
             doc.getElementById('kbMobileCard')
           );
           if (ready) return resolve();
-          if (win.performance.now() - started > 2500) return reject(new Error('KRISHNA canonical owner UI did not become ready within 2.5 seconds.'));
+          if (win.performance.now() - started > 2500) return reject(new Error('KRISHNA owner UI did not become ready within 2.5 seconds.'));
           win.setTimeout(check, 40);
         };
         check();
@@ -137,8 +147,8 @@ export default function LegacyKrishnaPreview() {
         const onRuntimeError = (event: ErrorEvent) => { runtimeError = event.message || 'Unknown browser runtime error'; };
         win.addEventListener('error', onRuntimeError);
         try {
-          // Canonical layers are the only blocking stage. The removed duplicate
-          // browser drawer is intentionally NOT part of this readiness contract.
+          // Canonical layers are the only blocking stage. The retired duplicate
+          // browser drawer is intentionally not part of this readiness contract.
           await loadScript('krishna-brahmand-data-script', '/spatial/krishna-brahmand-data.js');
           await loadScript('krishna-brahmand-normalize-script', '/spatial/krishna-brahmand-normalize.js');
           await loadScript('lr-universe-source-script', '/spatial/lr-universe-source-data.js');
@@ -148,8 +158,8 @@ export default function LegacyKrishnaPreview() {
           await loadScript('krishna-owner-hotfix-script', '/spatial/krishna-owner-hotfix.js');
           await waitForOwnerDom();
 
-          // Reveal the working frontend immediately. Cosmetic/optional layers must
-          // never trap the owner behind a perpetual loading screen.
+          // Reveal the functional UI before cosmetic layers. Optional polish can
+          // degrade independently but can never trap the owner behind Loading.
           setState('ready');
 
           await loadOptional('krishna-owner-enhancements-script', '/spatial/krishna-owner-enhancements.js');
@@ -159,6 +169,7 @@ export default function LegacyKrishnaPreview() {
 
           const preflight = win.KRISHNA_BRAHMAND_PREFLIGHT;
           if (preflight?.ok === false) {
+            doc.documentElement.dataset.krishnaUiDegraded = '1';
             const failed = preflight.failed?.map((item) => item.detail ? `${item.name}: ${item.detail}` : item.name).filter(Boolean).join(', ') || 'unknown checks';
             win.console.warn(`KRISHNA Brahmand preflight warning: ${failed}`);
           }
