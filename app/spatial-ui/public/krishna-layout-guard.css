@@ -1,6 +1,7 @@
 /* KRISHNA final layout guard.
    Functional geometry only: rail width, Sudarshan composer, canonical Garudanetra split,
-   and always-visible overflow controls. Loaded last so legacy embedded CSS cannot win. */
+   always-visible overflow controls, and lightweight 60 Hz motion. Loaded last so
+   legacy embedded CSS cannot win. */
 
 html[data-krishna-brahmand-preview="1"]{
   --rail:clamp(208px,12vw,232px);
@@ -31,6 +32,8 @@ html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWra
   max-width:880px!important;
   margin-left:auto!important;
   margin-right:auto!important;
+  backdrop-filter:blur(14px) saturate(120%)!important;
+  -webkit-backdrop-filter:blur(14px) saturate(120%)!important;
 }
 
 /* Garudanetra is exactly the right half of the KRISHNA canvas, never viewport-fixed. */
@@ -76,6 +79,28 @@ html[data-krishna-brahmand-preview="1"] .mainMenuPlugin:not(.active){
   box-shadow:none!important;
 }
 
+/* 60 Hz performance: preserve motion using compositor-friendly transform/opacity only. */
+html[data-krishna-brahmand-preview="1"] #home .kb-core-shell .assistantOm{
+  will-change:transform,opacity!important;
+  animation:krishnaOmCompositorBreath 4s ease-in-out infinite!important;
+}
+
+@keyframes krishnaOmCompositorBreath{
+  0%,100%{transform:translate3d(0,0,0) scale(1);opacity:.98}
+  50%{transform:translate3d(0,-1px,0) scale(1.018);opacity:1}
+}
+
+html[data-krishna-brahmand-preview="1"] .kc-live-feed{
+  contain:layout paint;
+  backdrop-filter:blur(14px) saturate(118%)!important;
+  -webkit-backdrop-filter:blur(14px) saturate(118%)!important;
+}
+
+html[data-krishna-brahmand-preview="1"] .kc-hud-block{
+  backdrop-filter:blur(12px) saturate(118%)!important;
+  -webkit-backdrop-filter:blur(12px) saturate(118%)!important;
+}
+
 @media(min-width:1800px){
   html[data-krishna-brahmand-preview="1"]{--rail:232px}
 }
@@ -102,4 +127,10 @@ html[data-krishna-brahmand-preview="1"] .mainMenuPlugin:not(.active){
 
 @media(max-width:900px){
   html[data-krishna-brahmand-preview="1"]{--rail:72px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  html[data-krishna-brahmand-preview="1"] #home .kb-core-shell .assistantOm{
+    animation:none!important;
+  }
 }
