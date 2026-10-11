@@ -79,8 +79,9 @@ export default function LegacyKrishnaPreview() {
       ensureStyle('krishna-owner-corrections-style', '/spatial/krishna-owner-corrections.css');
       ensureStyle('krishna-display-fit-style', '/spatial/krishna-display-fit.css');
       ensureStyle('krishna-command-core-style', '/spatial/krishna-command-core.css');
-      // Final live functionality layer: visible telemetry + rich Sudarshan rendering.
       ensureStyle('krishna-live-feed-richtext-style', '/spatial/krishna-live-feed-richtext.css');
+      // Final functional geometry guard must load after all visual layers.
+      ensureStyle('krishna-layout-guard-style', '/spatial/krishna-layout-guard.css');
 
       [
         'krishna-brahmand-data-script',
