@@ -4,35 +4,69 @@ on:
   pull_request:
     paths:
       - "app/spatial-ui/**"
+      - "core/web_validation.html"
+      - "core/krishna_core/server.py"
+      - "tests/test_owner_ui_supervised_browser_contract.py"
+      - "tests/test_krishna_apple_shell_contract.py"
+      - "tests/test_ui_loader_stability_contract.py"
       - ".github/workflows/spatial-ui.yml"
   push:
     branches:
       - "fix/krishna-ui-runtime-verification"
+      - "feature/krishna-universe-ui"
     paths:
       - "app/spatial-ui/**"
+      - "core/web_validation.html"
+      - "core/krishna_core/server.py"
+      - "tests/test_owner_ui_supervised_browser_contract.py"
+      - "tests/test_krishna_apple_shell_contract.py"
+      - "tests/test_ui_loader_stability_contract.py"
       - ".github/workflows/spatial-ui.yml"
 
 permissions:
   contents: read
 
 jobs:
-  build-spatial-ui:
+  verify-spatial-ui:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: app/spatial-ui
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: app/spatial-ui/package.json
-      - name: Install dependencies
+
+      - name: Install frontend dependencies
+        working-directory: app/spatial-ui
         run: npm install --no-audit --no-fund
-      - name: Build
-        run: npm run build
-      - name: Verify output
+
+      - name: Check owner UI scripts
         run: |
-          test -f dist/index.html
-          test -d dist/assets
+          node --check app/spatial-ui/public/krishna-owner-enhancements.js
+          node --check app/spatial-ui/public/krishna-owner-corrections.js
+          node --check app/spatial-ui/public/krishna-apple-shell.js
+          node --check app/spatial-ui/public/krishna-owner-hotfix.js
+
+      - name: Build spatial frontend
+        working-directory: app/spatial-ui
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          test -f app/spatial-ui/dist/index.html
+          test -d app/spatial-ui/dist/assets
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install UI contract test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+
+      - name: Run KRISHNA UI contracts
+        run: >-
+          python -m pytest -q
+          tests/test_owner_ui_supervised_browser_contract.py
+          tests/test_krishna_apple_shell_contract.py
+          tests/test_ui_loader_stability_contract.py
+          tests/test_current_krishna_ui_contract.py
