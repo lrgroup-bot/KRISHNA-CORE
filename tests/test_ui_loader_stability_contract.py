@@ -44,3 +44,11 @@ def test_premium_shell_brand_repair_is_idempotent():
 def test_duplicate_browser_drawer_is_removed_not_used():
     assert "$('kbBrowserDrawer')?.remove();" in CORRECTIONS
     assert "#liveWork" in (ROOT / "app" / "spatial-ui" / "public" / "krishna-owner-corrections.css").read_text(encoding="utf-8")
+
+
+def test_home_cosmos_is_forced_to_static_low_load_during_boot():
+    assert "loadBrahmandMainLowLoad" in PREVIEW
+    assert "query !== '(prefers-reduced-motion: reduce)'" in PREVIEW
+    assert "if (property === 'matches') return true" in PREVIEW
+    assert "finally" in PREVIEW and "win.matchMedia = originalMatchMedia" in PREVIEW
+    assert "await loadBrahmandMainLowLoad()" in PREVIEW
