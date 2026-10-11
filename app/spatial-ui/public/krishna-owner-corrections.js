@@ -1,6 +1,6 @@
 (() => {
-  if (window.__KRISHNA_OWNER_CORRECTIONS_V2__) return;
-  window.__KRISHNA_OWNER_CORRECTIONS_V2__ = true;
+  if (window.__KRISHNA_OWNER_CORRECTIONS_V3__) return;
+  window.__KRISHNA_OWNER_CORRECTIONS_V3__ = true;
 
   const $ = (id) => document.getElementById(id);
   const qsa = (selector, root = document) => Array.from(root.querySelectorAll(selector));
@@ -31,21 +31,21 @@
 
   function normalizeOverflowButtons() {
     qsa('.chatMore,.projectBranchMore').forEach((button) => {
-      button.textContent = '⋯';
-      button.type = 'button';
-      button.setAttribute('aria-haspopup', 'menu');
-      button.setAttribute('aria-expanded', button.getAttribute('aria-expanded') || 'false');
-      button.setAttribute(
-        'aria-label',
-        button.classList.contains('projectBranchMore') ? 'Project actions' : 'Chat actions',
-      );
-      button.title = button.classList.contains('projectBranchMore') ? 'Project actions' : 'Chat actions';
+      if (button.textContent !== '⋯') button.textContent = '⋯';
+      if (button.type !== 'button') button.type = 'button';
+      if (button.getAttribute('aria-haspopup') !== 'menu') button.setAttribute('aria-haspopup', 'menu');
+      if (!button.hasAttribute('aria-expanded')) button.setAttribute('aria-expanded', 'false');
+      const label = button.classList.contains('projectBranchMore') ? 'Project actions' : 'Chat actions';
+      if (button.getAttribute('aria-label') !== label) button.setAttribute('aria-label', label);
+      if (button.title !== label) button.title = label;
     });
 
     const chatMenu = $('krishnaChatMenu');
-    if (chatMenu) chatMenu.setAttribute('aria-label', 'Chat actions: Rename, Pin, Share, Move to Project, Delete');
+    const chatLabel = 'Chat actions: Rename, Pin, Share, Move to Project, Delete';
+    if (chatMenu && chatMenu.getAttribute('aria-label') !== chatLabel) chatMenu.setAttribute('aria-label', chatLabel);
     const projectMenu = $('krishnaProjectMenu');
-    if (projectMenu) projectMenu.setAttribute('aria-label', 'Project actions: Rename, Share, Delete');
+    const projectLabel = 'Project actions: Rename, Share, Delete';
+    if (projectMenu && projectMenu.getAttribute('aria-label') !== projectLabel) projectMenu.setAttribute('aria-label', projectLabel);
   }
 
   function isSudarshanActive() {
@@ -57,7 +57,7 @@
     const sudarshan = $('sudarshan');
     if (!sudarshan) return;
     const active = isSudarshanActive();
-    sudarshan.toggleAttribute('data-owner-active', active);
+    if (sudarshan.hasAttribute('data-owner-active') !== active) sudarshan.toggleAttribute('data-owner-active', active);
     if (!active) {
       sudarshan.classList.remove('kb-real-browser-split');
       document.body.classList.remove('kb-real-browser-split');
@@ -70,16 +70,31 @@
     return Boolean(panel && main && !panel.hidden && main.classList.contains('liveSplit'));
   }
 
+  function ensureBrowserToggle() {
+    let button = $('kbBrowserToggle');
+    if (button) return button;
+    const sudarshan = $('sudarshan');
+    if (!sudarshan) return null;
+    button = document.createElement('button');
+    button.id = 'kbBrowserToggle';
+    button.type = 'button';
+    button.className = 'ghost kb-browser-toggle kb-browser-floating-toggle';
+    button.textContent = '◫ Browser';
+    button.setAttribute('aria-label', 'Toggle Garudanetra browser split');
+    button.setAttribute('aria-pressed', 'false');
+    sudarshan.appendChild(button);
+    return button;
+  }
+
   function updateBrowserToggleState() {
     const open = realBrowserIsOpen();
-    const button = $('kbBrowserToggle');
+    const button = ensureBrowserToggle();
     if (button) {
       button.setAttribute('aria-pressed', open ? 'true' : 'false');
       button.setAttribute('aria-expanded', open ? 'true' : 'false');
       button.title = open ? 'Close Garudanetra browser' : 'Open Garudanetra browser';
-      const label = button.querySelector('[data-kb-browser-label]');
-      if (label) label.textContent = open ? 'Close Browser' : 'Browser';
-      else button.textContent = open ? '◫ Close Browser' : '◫ Browser';
+      const wanted = open ? '◫ Close Browser' : '◫ Browser';
+      if (button.textContent !== wanted) button.textContent = wanted;
     }
     const sudarshan = $('sudarshan');
     sudarshan?.classList.toggle('kb-real-browser-split', open && isSudarshanActive());
@@ -87,9 +102,7 @@
   }
 
   function setRealBrowserOpen(open) {
-    if (open && typeof window.showView === 'function' && !isSudarshanActive()) {
-      window.showView('sudarshan');
-    }
+    if (open && typeof window.showView === 'function' && !isSudarshanActive()) window.showView('sudarshan');
 
     if (typeof window.toggleLiveWork === 'function') {
       window.toggleLiveWork(Boolean(open));
@@ -99,13 +112,13 @@
       if (panel) panel.hidden = !open;
       main?.classList.toggle('liveSplit', Boolean(open));
     }
-
     updateBrowserToggleState();
   }
 
   function replaceBrowserToggleWithRealSplit() {
-    const existing = $('kbBrowserToggle');
-    if (!existing || existing.dataset.kbRealBrowser === '1') {
+    const existing = ensureBrowserToggle();
+    if (!existing) return;
+    if (existing.dataset.kbRealBrowser === '1') {
       updateBrowserToggleState();
       return;
     }
@@ -114,6 +127,7 @@
     clean.id = 'kbBrowserToggle';
     clean.dataset.kbRealBrowser = '1';
     clean.type = 'button';
+    clean.classList.add('kb-browser-floating-toggle');
     clean.textContent = '◫ Browser';
     clean.setAttribute('aria-label', 'Toggle Garudanetra browser split');
     clean.setAttribute('aria-pressed', 'false');
@@ -124,14 +138,9 @@
     });
     existing.replaceWith(clean);
 
-    // The owner overlay drawer was a duplicate browser UI. The canonical browser
-    // is KRISHNA's existing liveWork/Garudanetra panel, which streams real frames.
-    const duplicateDrawer = $('kbBrowserDrawer');
-    if (duplicateDrawer) {
-      duplicateDrawer.classList.remove('open');
-      duplicateDrawer.hidden = true;
-      duplicateDrawer.setAttribute('aria-hidden', 'true');
-    }
+    // Retire the duplicate browser drawer completely. The real browser surface is
+    // core/web_validation.html#liveWork, backed by the Garudanetra frame endpoint.
+    $('kbBrowserDrawer')?.remove();
     updateBrowserToggleState();
   }
 
@@ -152,9 +161,10 @@
         throw new Error('Garudanetra browser runtime is not available in this frontend session.');
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       const empty = $('garudaFrameEmpty');
-      if (empty) empty.textContent = error instanceof Error ? error.message : String(error);
-      if (typeof window.log === 'function') window.log(error instanceof Error ? error.message : String(error));
+      if (empty) empty.textContent = message;
+      if (typeof window.log === 'function') window.log(message);
     }
     updateBrowserToggleState();
   }
@@ -162,9 +172,7 @@
   function searchMatches(spec) {
     const q = String($('pluginSearch')?.value || '').trim().toLowerCase();
     if (!q) return true;
-    return `${spec.name} ${spec.provider} supervised web free garudanetra zero spend browser`
-      .toLowerCase()
-      .includes(q);
+    return `${spec.name} ${spec.provider} supervised web free garudanetra zero spend browser`.toLowerCase().includes(q);
   }
 
   function createFallbackPluginCard(spec) {
@@ -226,26 +234,24 @@
       const spec = pluginSpecByName(name);
       if (!spec) return;
       card.dataset.kbSupervisedRegistry = spec.id;
+      if (card.querySelector('.kb-supervised-registry-actions')) return;
 
-      let actions = card.querySelector('.kb-supervised-registry-actions');
-      if (!actions) {
-        actions = document.createElement('div');
-        actions.className = 'kb-supervised-registry-actions';
-        const badge = document.createElement('span');
-        badge.textContent = 'SUPERVISED WEB';
-        badge.className = 'kb-supervised-plugin-badge';
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'kb-supervised-plugin-open';
-        button.textContent = 'Open in Sudarshan';
-        button.addEventListener('click', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          void openSupervisedWebPlugin(spec);
-        });
-        actions.append(badge, button);
-        card.querySelector('.pluginBody')?.appendChild(actions);
-      }
+      const actions = document.createElement('div');
+      actions.className = 'kb-supervised-registry-actions';
+      const badge = document.createElement('span');
+      badge.textContent = 'SUPERVISED WEB';
+      badge.className = 'kb-supervised-plugin-badge';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'kb-supervised-plugin-open';
+      button.textContent = 'Open in Sudarshan';
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void openSupervisedWebPlugin(spec);
+      });
+      actions.append(badge, button);
+      card.querySelector('.pluginBody')?.appendChild(actions);
     });
   }
 
@@ -254,15 +260,15 @@
     if (!grid) return;
     enhanceRegistryPluginCards();
 
-    const registryNames = new Set(
-      qsa('.pluginName', grid).map((node) => String(node.textContent || '').trim().toLowerCase()),
-    );
+    const registryNames = new Set(qsa('.pluginName', grid).map((node) => String(node.textContent || '').trim().toLowerCase()));
+    const wanted = SUPERVISED_WEB_PLUGINS.filter(searchMatches).filter((spec) => !registryNames.has(spec.name.toLowerCase()));
+    const wantedIds = wanted.map((spec) => spec.id);
+    const existing = qsa('[data-kb-supervised-plugin]', grid);
+    const existingIds = existing.map((node) => node.dataset.kbSupervisedPlugin || '');
 
-    const wanted = SUPERVISED_WEB_PLUGINS.filter(searchMatches).filter(
-      (spec) => !registryNames.has(spec.name.toLowerCase()),
-    );
+    if (wantedIds.join('|') === existingIds.join('|')) return;
 
-    qsa('[data-kb-supervised-plugin]', grid).forEach((node) => node.remove());
+    existing.forEach((node) => node.remove());
     if (!wanted.length) return;
     const fragment = document.createDocumentFragment();
     wanted.forEach((spec) => fragment.appendChild(createFallbackPluginCard(spec)));
@@ -302,11 +308,9 @@
         if (result.ok) changed = true;
       }
 
-      if (changed && typeof window.loadPlugins === 'function') {
-        await window.loadPlugins();
-      }
+      if (changed && typeof window.loadPlugins === 'function') await window.loadPlugins();
     } catch (_) {
-      // Frontend-only mode remains useful; fallback plugin cards stay visible.
+      // Frontend-only preview remains supported; fallback plugin cards stay visible.
     }
   }
 
@@ -394,13 +398,8 @@
   });
 
   function install() {
-    // Remove the obsolete duplicate browser drawer; the real Garudanetra liveWork
-    // panel is the only browser surface used by this correction layer.
-    const duplicateDrawer = $('kbBrowserDrawer');
-    if (duplicateDrawer) {
-      duplicateDrawer.hidden = true;
-      duplicateDrawer.setAttribute('aria-hidden', 'true');
-    }
+    // Remove the old duplicate browser UI before observing DOM changes.
+    $('kbBrowserDrawer')?.remove();
 
     wrapViewSwitching();
     normalizeOverflowButtons();
