@@ -1,0 +1,381 @@
+/* KRISHNA Glass — premium minimal product shell.
+   Uses Apple-like product design principles without copying Apple branding. */
+
+html[data-krishna-brahmand-preview="1"]{
+  --rail:272px;
+  --kg-bg:#05070a;
+  --kg-surface:rgba(12,15,20,.78);
+  --kg-surface-strong:rgba(17,21,28,.92);
+  --kg-surface-soft:rgba(255,255,255,.035);
+  --kg-line:rgba(255,255,255,.075);
+  --kg-line-strong:rgba(255,255,255,.12);
+  --kg-text:#f5f7fa;
+  --kg-muted:#8d96a5;
+  --kg-gold:#f5d27a;
+  --kg-cyan:#7bdff2;
+  --kg-green:#67e6a8;
+  --kg-red:#ff6f7f;
+  --kg-shadow:0 28px 90px rgba(0,0,0,.38);
+  --kg-font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
+}
+
+html[data-krishna-brahmand-preview="1"],
+html[data-krishna-brahmand-preview="1"] body{
+  background:var(--kg-bg)!important;
+  color:var(--kg-text)!important;
+  font-family:var(--kg-font)!important;
+  letter-spacing:-.01em;
+}
+
+html[data-krishna-brahmand-preview="1"] body{overflow:hidden!important}
+
+html[data-krishna-brahmand-preview="1"] .app{
+  min-height:100dvh!important;
+  height:100dvh!important;
+  display:grid!important;
+  grid-template-columns:var(--rail) minmax(0,1fr)!important;
+  gap:12px!important;
+  padding:12px!important;
+  background:
+    radial-gradient(circle at 74% 12%,rgba(123,223,242,.055),transparent 28%),
+    radial-gradient(circle at 59% 82%,rgba(245,210,122,.032),transparent 31%),
+    var(--kg-bg)!important;
+}
+
+/* SIDEBAR */
+html[data-krishna-brahmand-preview="1"] .side{
+  width:auto!important;
+  min-width:0!important;
+  height:calc(100dvh - 24px)!important;
+  min-height:0!important;
+  padding:18px 14px 14px!important;
+  overflow:hidden!important;
+  border:1px solid var(--kg-line)!important;
+  border-radius:28px!important;
+  background:linear-gradient(180deg,rgba(14,17,23,.88),rgba(8,11,15,.76))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 20px 60px rgba(0,0,0,.24)!important;
+  backdrop-filter:blur(28px) saturate(135%)!important;
+  -webkit-backdrop-filter:blur(28px) saturate(135%)!important;
+}
+
+html[data-krishna-brahmand-preview="1"] .brand{
+  padding:5px 8px 16px!important;
+  margin:0!important;
+  color:var(--kg-gold)!important;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif!important;
+  font-size:20px!important;
+  font-weight:760!important;
+  line-height:1.05!important;
+  letter-spacing:.16em!important;
+  text-shadow:none!important;
+}
+html[data-krishna-brahmand-preview="1"] .brand small{
+  display:block!important;
+  margin-top:7px!important;
+  color:#6f7886!important;
+  font-size:8px!important;
+  font-weight:600!important;
+  line-height:1.3!important;
+  letter-spacing:.12em!important;
+}
+html[data-krishna-brahmand-preview="1"] .side>.section{display:none!important}
+
+html[data-krishna-brahmand-preview="1"] .mainMenuNav{
+  display:grid!important;
+  gap:5px!important;
+  margin:3px 0 0!important;
+}
+html[data-krishna-brahmand-preview="1"] .mainMenuNav>button,
+html[data-krishna-brahmand-preview="1"] .mainMenuPlugin{
+  width:100%!important;
+  min-height:42px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+  padding:7px 10px!important;
+  margin:0!important;
+  border:1px solid transparent!important;
+  border-radius:13px!important;
+  background:transparent!important;
+  color:#a8b0bc!important;
+  font-size:12px!important;
+  font-weight:560!important;
+  letter-spacing:-.01em!important;
+  transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease!important;
+}
+html[data-krishna-brahmand-preview="1"] .mainMenuNav>button:hover,
+html[data-krishna-brahmand-preview="1"] .mainMenuPlugin:hover{
+  background:rgba(255,255,255,.045)!important;
+  color:#f7f9fb!important;
+}
+html[data-krishna-brahmand-preview="1"] .mainMenuNav>button.active,
+html[data-krishna-brahmand-preview="1"] .mainMenuNav>button[aria-current="page"],
+html[data-krishna-brahmand-preview="1"] .mainMenuPlugin.active{
+  background:rgba(255,255,255,.085)!important;
+  border-color:rgba(255,255,255,.09)!important;
+  color:white!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 8px 24px rgba(0,0,0,.16)!important;
+}
+html[data-krishna-brahmand-preview="1"] .mainMenuNav .ico,
+html[data-krishna-brahmand-preview="1"] .mainMenuPlugin .ico{
+  width:26px!important;
+  height:26px!important;
+  min-width:26px!important;
+  display:grid!important;
+  place-items:center!important;
+  margin:0!important;
+  border-radius:9px!important;
+  background:rgba(255,255,255,.035)!important;
+  color:var(--kg-cyan)!important;
+  font-size:12px!important;
+}
+html[data-krishna-brahmand-preview="1"] .mainMenuNav>button.active .ico,
+html[data-krishna-brahmand-preview="1"] .mainMenuNav>button[aria-current="page"] .ico{
+  background:rgba(245,210,122,.10)!important;
+  color:var(--kg-gold)!important;
+}
+
+html[data-krishna-brahmand-preview="1"] .sidebarWorkspace{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  margin-top:17px!important;
+  padding-top:13px!important;
+  overflow:hidden!important;
+  border-top:1px solid var(--kg-line)!important;
+}
+html[data-krishna-brahmand-preview="1"] .sideSectionHead{
+  min-height:31px!important;
+  padding:2px 5px!important;
+  margin:0!important;
+  color:#727b88!important;
+  font-size:9px!important;
+  font-weight:650!important;
+  letter-spacing:.09em!important;
+}
+html[data-krishna-brahmand-preview="1"] .appleSectionLabel{
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:inherit!important;
+  font:inherit!important;
+  letter-spacing:inherit!important;
+  cursor:pointer!important;
+}
+html[data-krishna-brahmand-preview="1"] .appleSectionChevron{
+  display:inline-block;width:10px;color:#65707d;transition:transform .18s ease
+}
+html[data-krishna-brahmand-preview="1"] .appleSectionLabel[aria-expanded="false"] .appleSectionChevron{transform:rotate(-90deg)}
+html[data-krishna-brahmand-preview="1"] .sideSectionHead .miniAdd{
+  width:27px!important;height:27px!important;border:0!important;border-radius:9px!important;
+  background:transparent!important;color:#7f8997!important;font-size:16px!important
+}
+html[data-krishna-brahmand-preview="1"] .sideSectionHead .miniAdd:hover{background:rgba(255,255,255,.055)!important;color:white!important}
+
+html[data-krishna-brahmand-preview="1"] .projectMenuTree,
+html[data-krishna-brahmand-preview="1"] .chatMenuList{
+  margin:0!important;padding:2px 0 5px!important;border:0!important;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.12) transparent
+}
+html[data-krishna-brahmand-preview="1"] .projectMenuTree{max-height:min(28vh,260px)!important}
+html[data-krishna-brahmand-preview="1"] .chatMenuList{max-height:min(27vh,250px)!important}
+html[data-krishna-brahmand-preview="1"] .projectBranchButton,
+html[data-krishna-brahmand-preview="1"] .chatOpen{
+  min-height:32px!important;padding:5px 7px!important;border-radius:9px!important;
+  color:#aab4bf!important;font-size:10px!important;background:transparent!important
+}
+html[data-krishna-brahmand-preview="1"] .projectBranchButton:hover,
+html[data-krishna-brahmand-preview="1"] .projectBranchButton.selected,
+html[data-krishna-brahmand-preview="1"] .chatOpen:hover,
+html[data-krishna-brahmand-preview="1"] .chatRow.active .chatOpen{background:rgba(255,255,255,.05)!important;color:white!important}
+html[data-krishna-brahmand-preview="1"] .chatRow.active .chatOpen{box-shadow:inset 2px 0 0 var(--kg-cyan)!important}
+html[data-krishna-brahmand-preview="1"] .chatMore,
+html[data-krishna-brahmand-preview="1"] .projectBranchMore{color:#707b88!important;opacity:.58!important}
+html[data-krishna-brahmand-preview="1"] .chatRow:hover .chatMore,
+html[data-krishna-brahmand-preview="1"] .projectBranchHeader:hover .projectBranchMore{opacity:1!important}
+
+html[data-krishna-brahmand-preview="1"] .chatSearchWrap{
+  min-height:36px!important;margin:4px 1px 6px!important;padding:0 10px!important;
+  border:1px solid rgba(255,255,255,.065)!important;border-radius:12px!important;
+  background:rgba(255,255,255,.028)!important;box-shadow:none!important
+}
+html[data-krishna-brahmand-preview="1"] .chatSearchWrap input{color:#c8ced6!important;font-size:10px!important}
+html[data-krishna-brahmand-preview="1"] .chatSearchWrap input::placeholder{color:#687280!important}
+html[data-krishna-brahmand-preview="1"] .sidebarWorkspace.apple-no-chats .chatSearchWrap{display:none!important}
+html[data-krishna-brahmand-preview="1"] .chatEmpty,
+html[data-krishna-brahmand-preview="1"] .projectChatEmpty{padding:5px 8px!important;color:#58626e!important;font-size:9px!important}
+html[data-krishna-brahmand-preview="1"] .apple-section-collapsed{display:none!important}
+
+/* Compact footer telemetry */
+html[data-krishna-brahmand-preview="1"] .sideFoot{
+  flex:0 0 auto!important;display:grid!important;gap:7px!important;margin-top:9px!important;
+  padding:11px 0 0!important;border-top:1px solid var(--kg-line)!important
+}
+html[data-krishna-brahmand-preview="1"] .sideFoot .opsVitals{display:none!important}
+html[data-krishna-brahmand-preview="1"] #kbOwnerLoad,
+html[data-krishna-brahmand-preview="1"] #kbMobileCard{
+  margin:0!important;padding:8px 10px!important;border:1px solid rgba(255,255,255,.055)!important;
+  border-radius:13px!important;background:rgba(255,255,255,.024)!important;box-shadow:none!important
+}
+html[data-krishna-brahmand-preview="1"] #kbOwnerLoad .kb-owner-title{
+  margin-bottom:5px!important;color:#66717e!important;font-size:7px!important;font-weight:700!important;letter-spacing:.1em!important
+}
+html[data-krishna-brahmand-preview="1"] #kbOwnerLoad .kb-owner-row{
+  display:grid!important;grid-template-columns:auto 1fr auto 1fr!important;gap:5px!important;
+  align-items:center!important;min-height:13px!important;color:#74808d!important;font-size:7px!important
+}
+html[data-krishna-brahmand-preview="1"] #kbOwnerLoad b{justify-self:end!important;color:#9aa5b1!important;font-size:7px!important;font-weight:550!important}
+html[data-krishna-brahmand-preview="1"] #kbMobileCard{padding:7px 10px!important}
+html[data-krishna-brahmand-preview="1"] #kbMobileCard .kb-mobile-row{min-height:15px!important;gap:5px!important;font-size:7px!important}
+html[data-krishna-brahmand-preview="1"] #kbMobileCard small{display:none!important}
+html[data-krishna-brahmand-preview="1"] .coreLine{min-height:22px!important;padding:0 5px!important;color:#707b88!important;font-size:8px!important}
+
+/* MAIN PRODUCT CANVAS */
+html[data-krishna-brahmand-preview="1"] .main{
+  width:auto!important;height:calc(100dvh - 24px)!important;min-height:0!important;overflow:hidden!important;
+  border:1px solid var(--kg-line)!important;border-radius:30px!important;
+  background:radial-gradient(circle at 50% 27%,rgba(61,138,166,.085),transparent 28%),linear-gradient(180deg,#071019 0%,#05080c 100%)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.03),var(--kg-shadow)!important
+}
+html[data-krishna-brahmand-preview="1"] .main:before{
+  inset:0!important;opacity:.42!important;
+  background:radial-gradient(circle at 70% 18%,rgba(123,223,242,.06),transparent 24%),radial-gradient(circle at 38% 78%,rgba(245,210,122,.04),transparent 28%)!important
+}
+html[data-krishna-brahmand-preview="1"] .sceneGrid{opacity:.04!important;filter:blur(.2px)}
+
+html[data-krishna-brahmand-preview="1"] .top{
+  position:relative!important;z-index:20!important;min-height:56px!important;height:56px!important;padding:0 22px!important;
+  border-bottom:1px solid rgba(255,255,255,.045)!important;background:rgba(7,10,14,.35)!important;
+  backdrop-filter:blur(22px) saturate(135%)!important;-webkit-backdrop-filter:blur(22px) saturate(135%)!important
+}
+html[data-krishna-brahmand-preview="1"] .crumb{color:#9ba4af!important;font-size:11px!important;font-weight:520!important}
+html[data-krishna-brahmand-preview="1"] .topActions{gap:7px!important}
+html[data-krishna-brahmand-preview="1"] .top .pill,
+html[data-krishna-brahmand-preview="1"] .top .ghost,
+html[data-krishna-brahmand-preview="1"] .brahmaNotify{
+  min-height:31px!important;border:1px solid rgba(255,255,255,.065)!important;border-radius:10px!important;
+  background:rgba(255,255,255,.03)!important;color:#aeb7c1!important;box-shadow:none!important;font-size:9px!important
+}
+
+/* HOME HERO */
+html[data-krishna-brahmand-preview="1"] #home{padding:0!important;overflow:hidden!important;background:transparent!important}
+html[data-krishna-brahmand-preview="1"] #home .panelInner,
+html[data-krishna-brahmand-preview="1"] #home .projectHome{
+  width:100%!important;max-width:none!important;height:100%!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:center!important
+}
+html[data-krishna-brahmand-preview="1"] #home .assistantHome{
+  position:relative!important;width:min(940px,calc(100% - 64px))!important;min-height:calc(100% - 40px)!important;
+  display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+  gap:0!important;margin:0 auto!important;padding:24px 20px 72px!important;text-align:center!important
+}
+html[data-krishna-brahmand-preview="1"] #home .assistantHome::before,
+html[data-krishna-brahmand-preview="1"] #home .assistantHome::after{content:none!important}
+html[data-krishna-brahmand-preview="1"] .appleHeroEyebrow{margin-bottom:10px!important;color:var(--kg-cyan)!important;font-size:10px!important;font-weight:700!important;letter-spacing:.16em!important}
+html[data-krishna-brahmand-preview="1"] .appleHeroTitle{
+  margin:0!important;color:#f7f9fb!important;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif!important;
+  font-size:clamp(48px,6vw,86px)!important;font-weight:700!important;line-height:.98!important;letter-spacing:-.05em!important
+}
+html[data-krishna-brahmand-preview="1"] .appleHeroSubtitle{
+  max-width:700px!important;margin:16px auto 30px!important;color:#8f99a6!important;
+  font-size:clamp(16px,1.8vw,23px)!important;font-weight:430!important;line-height:1.35!important;letter-spacing:-.02em!important
+}
+html[data-krishna-brahmand-preview="1"] #assistantOm{
+  position:relative!important;width:176px!important;height:176px!important;min-width:176px!important;min-height:176px!important;
+  margin:4px auto 20px!important;display:grid!important;place-items:center!important;
+  border:1px solid rgba(245,210,122,.27)!important;border-radius:50%!important;
+  background:radial-gradient(circle at 38% 30%,rgba(255,255,255,.15),rgba(123,223,242,.08) 24%,rgba(8,18,27,.96) 68%)!important;
+  color:var(--kg-gold)!important;font-size:86px!important;font-weight:600!important;line-height:1!important;
+  text-shadow:0 0 22px rgba(245,210,122,.18)!important;
+  box-shadow:0 0 0 1px rgba(123,223,242,.06),0 28px 90px rgba(0,0,0,.45),0 0 74px rgba(123,223,242,.085)!important;
+  transform:none!important;animation:kgHeroFloat 6s ease-in-out infinite!important
+}
+html[data-krishna-brahmand-preview="1"] #assistantOm::before,
+html[data-krishna-brahmand-preview="1"] #assistantOm::after{content:none!important;display:none!important}
+html[data-krishna-brahmand-preview="1"] #assistantOm:hover{transform:translateY(-3px) scale(1.015)!important;border-color:rgba(245,210,122,.42)!important}
+html[data-krishna-brahmand-preview="1"] .appleHeroHint,
+html[data-krishna-brahmand-preview="1"] #home .assistantHome>p{margin:0!important;color:#6f7986!important;font-size:11px!important;line-height:1.45!important}
+html[data-krishna-brahmand-preview="1"] .appleHeroActions{display:flex!important;align-items:center!important;justify-content:center!important;gap:9px!important;margin-top:22px!important}
+html[data-krishna-brahmand-preview="1"] .appleHeroAction{
+  min-height:39px!important;padding:0 17px!important;border:1px solid rgba(255,255,255,.09)!important;border-radius:999px!important;
+  background:rgba(255,255,255,.05)!important;color:#f4f6f8!important;font:600 11px/1 var(--kg-font)!important;cursor:pointer!important;
+  transition:transform .18s ease,background .18s ease,border-color .18s ease!important
+}
+html[data-krishna-brahmand-preview="1"] .appleHeroAction.primary{border-color:rgba(245,210,122,.24)!important;background:var(--kg-gold)!important;color:#11151a!important}
+html[data-krishna-brahmand-preview="1"] .appleHeroAction:hover{transform:translateY(-1px)!important}
+@keyframes kgHeroFloat{0%,100%{translate:0 0}50%{translate:0 -5px}}
+
+/* Disconnected status becomes a small floating pill instead of a giant bar. */
+html[data-krishna-brahmand-preview="1"] #notice{
+  left:50%!important;right:auto!important;bottom:20px!important;width:max-content!important;
+  max-width:min(460px,calc(100vw - var(--rail) - 70px))!important;min-height:36px!important;transform:translateX(-50%)!important;
+  padding:9px 14px!important;border:1px solid rgba(123,223,242,.13)!important;border-radius:999px!important;
+  background:rgba(12,22,30,.80)!important;color:#a8b7c1!important;box-shadow:0 16px 45px rgba(0,0,0,.34)!important;
+  backdrop-filter:blur(18px) saturate(130%)!important;-webkit-backdrop-filter:blur(18px) saturate(130%)!important;
+  font-size:10px!important;text-align:center!important
+}
+
+/* Other views: content-first, fewer dashboard boxes. */
+html[data-krishna-brahmand-preview="1"] .panelView{padding:22px!important;background:transparent!important}
+html[data-krishna-brahmand-preview="1"] .panelInner{width:min(1480px,calc(100% - 12px))!important;margin:0 auto!important}
+html[data-krishna-brahmand-preview="1"] .panelTitle{font-size:34px!important;font-weight:700!important;letter-spacing:-.035em!important}
+html[data-krishna-brahmand-preview="1"] .panelSub{color:#808a98!important;font-size:13px!important;line-height:1.55!important}
+html[data-krishna-brahmand-preview="1"] .card,
+html[data-krishna-brahmand-preview="1"] .kb-lr-card,
+html[data-krishna-brahmand-preview="1"] .workingGodCard{
+  border:1px solid rgba(255,255,255,.07)!important;border-radius:20px!important;
+  background:rgba(255,255,255,.028)!important;box-shadow:none!important;backdrop-filter:blur(18px)!important
+}
+
+/* Sudarshan conversation stays centered and premium. */
+html[data-krishna-brahmand-preview="1"] #sudarshan{background:transparent!important}
+html[data-krishna-brahmand-preview="1"] #sudarshan .messages{width:min(900px,calc(100% - 40px))!important;max-width:900px!important;margin:0 auto!important}
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWrap .composer{
+  width:min(900px,calc(100% - 24px))!important;max-width:900px!important;
+  border:1px solid rgba(255,255,255,.09)!important;border-radius:20px!important;background:rgba(15,19,25,.91)!important;
+  box-shadow:0 24px 70px rgba(0,0,0,.34)!important;backdrop-filter:blur(22px)!important
+}
+
+/* Canonical Garudanetra split: exactly half the main canvas on desktop. */
+html[data-krishna-brahmand-preview="1"] .liveWork{
+  top:56px!important;right:0!important;bottom:0!important;width:50%!important;min-width:0!important;
+  border-left:1px solid rgba(255,255,255,.08)!important;background:#06090d!important;box-shadow:-24px 0 70px rgba(0,0,0,.28)!important
+}
+html[data-krishna-brahmand-preview="1"] .main.liveSplit>.view{margin-right:50%!important}
+html[data-krishna-brahmand-preview="1"] .main.liveSplit .composerWrap{right:50%!important}
+
+/* Menus */
+html[data-krishna-brahmand-preview="1"] .krishnaChatMenu,
+html[data-krishna-brahmand-preview="1"] .krishnaProjectMenu{
+  border:1px solid rgba(255,255,255,.09)!important;border-radius:14px!important;
+  background:rgba(15,18,24,.96)!important;box-shadow:0 22px 70px rgba(0,0,0,.42)!important;
+  backdrop-filter:blur(24px)!important
+}
+
+@media(max-width:980px){
+  html[data-krishna-brahmand-preview="1"]{--rail:84px}
+  html[data-krishna-brahmand-preview="1"] .app{gap:8px!important;padding:8px!important}
+  html[data-krishna-brahmand-preview="1"] .side{height:calc(100dvh - 16px)!important;padding:12px 8px!important;border-radius:22px!important}
+  html[data-krishna-brahmand-preview="1"] .main{height:calc(100dvh - 16px)!important;border-radius:24px!important}
+  html[data-krishna-brahmand-preview="1"] .brand{font-size:0!important;text-align:center!important;padding:8px 0 12px!important}
+  html[data-krishna-brahmand-preview="1"] .brand::before{content:"K";font-size:21px;letter-spacing:0;color:var(--kg-gold)}
+  html[data-krishna-brahmand-preview="1"] .brand small,
+  html[data-krishna-brahmand-preview="1"] .mainMenuNav .txt,
+  html[data-krishna-brahmand-preview="1"] .mainMenuPlugin .txt,
+  html[data-krishna-brahmand-preview="1"] .sidebarWorkspace,
+  html[data-krishna-brahmand-preview="1"] #kbOwnerLoad,
+  html[data-krishna-brahmand-preview="1"] #kbMobileCard,
+  html[data-krishna-brahmand-preview="1"] .coreLine{display:none!important}
+  html[data-krishna-brahmand-preview="1"] .mainMenuNav>button,
+  html[data-krishna-brahmand-preview="1"] .mainMenuPlugin{justify-content:center!important;padding:7px!important}
+  html[data-krishna-brahmand-preview="1"] #notice{max-width:calc(100vw - 120px)!important}
+  html[data-krishna-brahmand-preview="1"] .liveWork{width:100%!important}
+  html[data-krishna-brahmand-preview="1"] .main.liveSplit>.view{margin-right:0!important}
+  html[data-krishna-brahmand-preview="1"] .main.liveSplit .composerWrap{right:0!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  html[data-krishna-brahmand-preview="1"] #assistantOm{animation:none!important}
+}
