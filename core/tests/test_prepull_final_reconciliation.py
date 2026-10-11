@@ -56,20 +56,31 @@ class FinalReconciliationTests(unittest.TestCase):
         for needle in ('"/api/design/status"','"/api/design/knowledge"','"/api/model-scout"','"/api/project-brain"'):
             self.assertIn(needle,server)
 
-    def test_spatial_ui_has_design_panel_without_sidebar_clutter(self):
+    def test_spatial_ui_has_internal_design_panel_without_sidebar_clutter(self):
         app=(self.repo/"app"/"spatial-ui"/"src"/"App.tsx").read_text(encoding="utf-8")
-        self.assertIn("Design Intelligence",app)
-        self.assertIn("fetch('/api/design/status'",app)
-        self.assertIn("focusPanel('krishna-home', 'krishna')",app)
-        self.assertIn("focusPanel('sudarshan-work', 'sudarshan')",app)
-        self.assertIn("focusPanel('plugins', 'plugins')",app)
-        sidebar=app.split('<nav aria-label="Main Menu">',1)[1].split('</nav>',1)[0]
-        self.assertIn("<button",sidebar)
-        self.assertIn("KRISHNA",sidebar)
-        self.assertIn("Sudarshan",sidebar)
-        self.assertIn("Plugins",sidebar)
-        self.assertNotIn("Vishvakarma",sidebar)
-        self.assertNotIn("Design Intelligence",sidebar)
+        preview=(self.repo/"app"/"spatial-ui"/"src"/"LegacyKrishnaPreview.tsx").read_text(encoding="utf-8")
+        html=(self.repo/"core"/"web_validation.html").read_text(encoding="utf-8")
+        brahmand=(self.repo/"app"/"spatial-ui"/"public"/"krishna-brahmand-main.js").read_text(encoding="utf-8")
+        owner=(self.repo/"app"/"spatial-ui"/"public"/"krishna-owner-ui.js").read_text(encoding="utf-8")
+        apple=(self.repo/"app"/"spatial-ui"/"public"/"krishna-apple-shell.js").read_text(encoding="utf-8")
+        design=(self.repo/"app"/"spatial-ui"/"public"/"krishna-design-intelligence.js").read_text(encoding="utf-8")
+
+        self.assertIn("LegacyKrishnaPreview",app)
+        self.assertIn("krishna-apple-shell.js",preview)
+        self.assertIn("krishna-design-intelligence.js",apple)
+        self.assertIn("Design Intelligence",design)
+        self.assertIn("fetch('/api/design/status'",design)
+        self.assertIn("kbDesignToggle",design)
+        self.assertIn("This panel is deliberately not part of the main sidebar",design)
+
+        main=html.split('<div class="section">MAIN MENU</div><div class="nav mainMenuNav">',1)[1].split('</div>\n<div class="sidebarWorkspace">',1)[0]
+        self.assertIn("showView('home')",main)
+        self.assertIn("showView('sudarshan')",main)
+        self.assertNotIn("Design Intelligence",main)
+        self.assertNotIn("Vishvakarma",main)
+        self.assertIn("kbNavLR",brahmand)
+        self.assertIn("kbNavBrahmand",brahmand)
+        self.assertIn("menu.appendChild(plugin)",owner)
 
 
 if __name__=="__main__":
