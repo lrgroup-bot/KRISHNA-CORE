@@ -9,6 +9,7 @@ on:
       - "tests/test_owner_ui_supervised_browser_contract.py"
       - "tests/test_krishna_apple_shell_contract.py"
       - "tests/test_ui_loader_stability_contract.py"
+      - "tests/test_ui_display_fit_contract.py"
       - ".github/workflows/spatial-ui.yml"
       - ".github/workflows/test-core.yml"
   push:
@@ -22,6 +23,7 @@ on:
       - "tests/test_owner_ui_supervised_browser_contract.py"
       - "tests/test_krishna_apple_shell_contract.py"
       - "tests/test_ui_loader_stability_contract.py"
+      - "tests/test_ui_display_fit_contract.py"
       - ".github/workflows/spatial-ui.yml"
       - ".github/workflows/test-core.yml"
 
@@ -49,6 +51,7 @@ jobs:
           node --check app/spatial-ui/public/krishna-apple-shell.js
           node --check app/spatial-ui/public/krishna-owner-hotfix.js
           node --check app/spatial-ui/public/krishna-design-intelligence.js
+          node --check app/spatial-ui/public/krishna-display-fit.js
           node --check app/spatial-ui/public/krishna-brahmand-preflight.js
 
       - name: Build spatial frontend
@@ -73,4 +76,5 @@ jobs:
           tests/test_owner_ui_supervised_browser_contract.py
           tests/test_krishna_apple_shell_contract.py
           tests/test_ui_loader_stability_contract.py
+          tests/test_ui_display_fit_contract.py
           tests/test_current_krishna_ui_contract.py
