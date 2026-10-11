@@ -1,0 +1,105 @@
+/* KRISHNA final layout guard.
+   Functional geometry only: rail width, Sudarshan composer, canonical Garudanetra split,
+   and always-visible overflow controls. Loaded last so legacy embedded CSS cannot win. */
+
+html[data-krishna-brahmand-preview="1"]{
+  --rail:clamp(208px,12vw,232px);
+}
+
+html[data-krishna-brahmand-preview="1"] .app{
+  grid-template-columns:var(--rail) minmax(0,1fr)!important;
+}
+
+html[data-krishna-brahmand-preview="1"] .main{
+  position:relative!important;
+  min-width:0!important;
+}
+
+/* The composer lives inside <main>; do not offset it by the sidebar a second time. */
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWrap{
+  position:absolute!important;
+  left:0!important;
+  right:0!important;
+  bottom:0!important;
+  width:auto!important;
+  z-index:82!important;
+  margin:0!important;
+}
+
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .composerWrap .composer{
+  width:min(880px,calc(100% - 34px))!important;
+  max-width:880px!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
+}
+
+/* Garudanetra is exactly the right half of the KRISHNA canvas, never viewport-fixed. */
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] #liveWork:not([hidden]){
+  position:absolute!important;
+  z-index:90!important;
+  top:50px!important;
+  right:0!important;
+  bottom:0!important;
+  left:auto!important;
+  width:50%!important;
+  min-width:0!important;
+  max-width:none!important;
+  height:auto!important;
+  border-radius:14px 0 22px 0!important;
+  margin:0!important;
+}
+
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .main.liveSplit #sudarshan{
+  width:50%!important;
+  max-width:50%!important;
+  margin-right:50%!important;
+}
+
+html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .main.liveSplit .composerWrap{
+  left:0!important;
+  right:50%!important;
+  width:auto!important;
+}
+
+/* These actions were explicitly requested to remain visible, not hover-only. */
+html[data-krishna-brahmand-preview="1"] .chatMore,
+html[data-krishna-brahmand-preview="1"] .projectBranchMore{
+  display:grid!important;
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+}
+
+/* Keep one active navigation target visually authoritative. */
+html[data-krishna-brahmand-preview="1"] .mainMenuNav>button:not(.active):not([aria-current="page"]),
+html[data-krishna-brahmand-preview="1"] .mainMenuPlugin:not(.active){
+  box-shadow:none!important;
+}
+
+@media(min-width:1800px){
+  html[data-krishna-brahmand-preview="1"]{--rail:232px}
+}
+
+@media(max-width:1450px){
+  html[data-krishna-brahmand-preview="1"]{--rail:208px}
+}
+
+@media(max-width:1000px){
+  html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] #liveWork:not([hidden]){
+    top:50px!important;
+    width:100%!important;
+    border-radius:0 0 22px 22px!important;
+  }
+  html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .main.liveSplit #sudarshan{
+    width:100%!important;
+    max-width:none!important;
+    margin-right:0!important;
+  }
+  html[data-krishna-brahmand-preview="1"] body[data-view="sudarshan"] .main.liveSplit .composerWrap{
+    right:0!important;
+  }
+}
+
+@media(max-width:900px){
+  html[data-krishna-brahmand-preview="1"]{--rail:72px}
+}
