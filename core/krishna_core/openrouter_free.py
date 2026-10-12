@@ -221,10 +221,15 @@ class OpenRouterFreeFabric:
         profile = self.profile()
         if not profile:
             raise RuntimeError("OpenRouter-Free gateway profile is not configured")
-        max_age = self.CACHE_SECONDS if max_age is None else max(0, int(max_age))
         cached = self._read_cache()
-        if not refresh and cached and time.time() - float(cached.get("fetched_at") or 0) <= max_age:
-            return cached
+        if not refresh:
+            # Passive/status callers must never turn a stale cache into implicit
+            # network I/O. Explicit refresh=True is required before any provider
+            # catalog request. Execution paths already use refresh=True for their
+            # live zero-price preflight, so billing safety remains fail-closed.
+            if cached:
+                return cached
+            raise RuntimeError("OpenRouter catalog is not cached; explicit refresh is required")
         data = self.gateway.request_json(profile["id"], "/models", method="GET", timeout=30)
         rows = list((data or {}).get("data") or [])
         return self._write_cache(rows)
@@ -550,18 +555,29 @@ class OpenRouterFreeFabric:
         if refresh and profile:
             try:
                 self.catalog(refresh=True)
+                cached = self._read_cache()
                 plan = self.role_plan(refresh=False)
             except Exception as exc:
                 catalog_error = f"{type(exc).__name__}: {exc}"
         elif cached:
             try:
+                # catalog(refresh=False) is cache-only, including when stale.
+                # This keeps passive status deterministic and off the network.
                 plan = self.role_plan(refresh=False)
             except Exception as exc:
                 catalog_error = f"{type(exc).__name__}: {exc}"
+        fetched_at = None if not cached else cached.get("fetched_at")
+        cache_age = None
+        if fetched_at is not None:
+            try:
+                cache_age = max(0.0, time.time() - float(fetched_at))
+            except (TypeError, ValueError):
+                cache_age = None
         return {
             "component": "KRISHNA OpenRouter Zero-Cost Fabric",
             "version": "openrouter-zero-cost-v1",
             "configured": bool(profile),
+            "network_refresh": bool(refresh),
             "profile": None if not profile else {
                 "id": profile.get("id"),
                 "name": profile.get("name"),
@@ -570,8 +586,10 @@ class OpenRouterFreeFabric:
             },
             "catalog": {
                 "cached": bool(cached),
-                "fetched_at": None if not cached else cached.get("fetched_at"),
+                "fetched_at": fetched_at,
                 "model_count": 0 if not cached else len(cached.get("models") or []),
+                "cache_age_sec": cache_age,
+                "stale": bool(cache_age is not None and cache_age > self.CACHE_SECONDS),
                 "error": catalog_error,
             },
             "role_plan": plan,
@@ -590,6 +608,7 @@ class OpenRouterFreeFabric:
                 "provider_reported_nonzero_cost": "policy violation",
                 "paid_fallback": False,
                 "stale_catalog_execution": False,
+                "passive_status_network_io": False,
                 "provider_data_collection": "deny",
                 "provider_zero_data_retention": True,
             },
