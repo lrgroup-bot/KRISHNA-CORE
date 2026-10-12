@@ -63,10 +63,11 @@ function Wait-Http {
 }
 
 function Assert-JsonEndpoint {
-    param([string]$Name, [string]$Url)
+    param([string]$Name, [string]$Url, [switch]$PassThru)
     try {
-        $null = Invoke-RestMethod -Uri $Url -TimeoutSec 4 -Headers @{ Accept = 'application/json' }
+        $body = Invoke-RestMethod -Uri $Url -TimeoutSec 4 -Headers @{ Accept = 'application/json' }
         Write-Host ("PASS  {0,-12} {1}" -f $Name, $Url) -ForegroundColor Green
+        if ($PassThru) { return $body }
     } catch {
         Write-Host ("FAIL  {0,-12} {1} :: {2}" -f $Name, $Url, $_.Exception.Message) -ForegroundColor Red
         throw "$Name endpoint failed"
@@ -189,16 +190,14 @@ Set-Location '$spatial'
     Assert-JsonEndpoint -Name 'chats' -Url "http://127.0.0.1:$CorePort/api/chats"
     Assert-JsonEndpoint -Name 'dashboard' -Url "http://127.0.0.1:$CorePort/api/dashboard"
     Assert-JsonEndpoint -Name 'plugins' -Url "http://127.0.0.1:$CorePort/api/plugins"
-    Assert-JsonEndpoint -Name 'models' -Url "http://127.0.0.1:$CorePort/api/models/roles"
-    Assert-JsonEndpoint -Name 'resilience' -Url "http://127.0.0.1:$CorePort/api/resilience/status"
+    $modelRoles = Assert-JsonEndpoint -Name 'models' -Url "http://127.0.0.1:$CorePort/api/models/roles" -PassThru
+    $resilience = Assert-JsonEndpoint -Name 'resilience' -Url "http://127.0.0.1:$CorePort/api/resilience/status" -PassThru
 
-    $resilience = Invoke-RestMethod -Uri "http://127.0.0.1:$CorePort/api/resilience/status" -TimeoutSec 4
     if (-not $resilience.worker_supervisor.running) {
         throw 'KRISHNA background worker supervisor is not running'
     }
     Write-Host 'PASS  background    worker supervisor is running' -ForegroundColor Green
 
-    $modelRoles = Invoke-RestMethod -Uri "http://127.0.0.1:$CorePort/api/models/roles" -TimeoutSec 4
     $ollamaGeneral = $modelRoles.pc.general
     $ollamaCoding = $modelRoles.pc.coding
     if ($ollamaGeneral.available -or $ollamaGeneral.service_available -or $ollamaCoding.available -or $ollamaCoding.service_available) {
