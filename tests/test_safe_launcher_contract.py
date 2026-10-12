@@ -10,6 +10,7 @@ def test_launcher_uses_verified_worktree_and_npm_cmd():
     assert 'npm.cmd' in SCRIPT
     assert 'feature/krishna-universe-ui' in SCRIPT
     assert 'git merge --ff-only' in SCRIPT
+    assert 'git rev-parse HEAD' in SCRIPT
 
 
 def test_launcher_starts_core_low_load_without_starting_shared_ollama():
@@ -42,5 +43,15 @@ def test_launcher_checks_both_core_and_frontend_health_and_ports():
 def test_launcher_uses_encoded_child_commands_and_cleans_up_on_failure():
     assert 'Start-EncodedPowerShell' in SCRIPT
     assert '-EncodedCommand' in SCRIPT
-    assert 'Startup failed. Cleaning only KRISHNA processes' in SCRIPT
+    assert 'Startup/acceptance failed. Cleaning only KRISHNA processes' in SCRIPT
     assert 'npm install --no-package-lock --no-audit --no-fund' in SCRIPT
+
+
+def test_launcher_runs_live_acceptance_after_startup():
+    for endpoint in ('/health', '/api/status', '/api/projects', '/api/chats', '/api/dashboard', '/api/plugins'):
+        assert endpoint in SCRIPT
+    assert 'Running live acceptance sweep' in SCRIPT
+    assert 'no retired KRISHNA worker is running' in SCRIPT
+    assert 'no KRISHNA connection to 11434 while idle' in SCRIPT
+    assert 'KRISHNA is running and the live acceptance sweep passed.' in SCRIPT
+    assert 'nvidia-smi' in SCRIPT
