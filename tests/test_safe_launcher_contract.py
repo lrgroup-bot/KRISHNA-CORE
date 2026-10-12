@@ -13,12 +13,15 @@ def test_launcher_uses_verified_worktree_and_npm_cmd():
     assert 'git rev-parse HEAD' in SCRIPT
 
 
-def test_launcher_starts_core_low_load_without_starting_shared_ollama():
-    assert "KRISHNA_BACKGROUND_SERVICES_ENABLED='0'" in SCRIPT
+def test_launcher_runs_background_fabric_but_isolates_shared_ollama():
+    assert "KRISHNA_BACKGROUND_SERVICES_ENABLED='1'" in SCRIPT
+    assert "KRISHNA_OLLAMA_ENABLED='0'" in SCRIPT
+    assert "KRISHNA_STRICT_ZERO_CREDIT='1'" in SCRIPT
+    assert "KRISHNA_ALLOW_PAID_CLOUD='0'" in SCRIPT
     assert 'krishna_core.server' in SCRIPT
     assert 'start-ollama-krishna.cmd' in SCRIPT
-    assert 'A shared Ollama service is already listening on 11434' in SCRIPT
-    assert 'KRISHNA did not start or stop it' in SCRIPT
+    assert 'shared Ollama service is listening on 11434' in SCRIPT
+    assert 'KRISHNA is isolated from it' in SCRIPT
     assert 'Get-Process llama-server,ollama' not in SCRIPT
 
 
@@ -57,12 +60,17 @@ def test_launcher_runs_live_acceptance_after_startup():
         '/api/chats',
         '/api/dashboard',
         '/api/plugins',
+        '/api/models/roles',
+        '/api/resilience/status',
     ):
         assert endpoint in SCRIPT
     assert "-Name 'tasks'" in SCRIPT
     assert "-Name 'garudanetra'" in SCRIPT
+    assert "-Name 'resilience'" in SCRIPT
+    assert 'worker supervisor is running' in SCRIPT
+    assert 'KRISHNA router cannot reach shared Ollama' in SCRIPT
     assert 'Running live acceptance sweep' in SCRIPT
     assert 'no retired KRISHNA worker is running' in SCRIPT
-    assert 'no KRISHNA connection to 11434 while idle' in SCRIPT
-    assert 'KRISHNA is running and the live acceptance sweep passed.' in SCRIPT
+    assert 'no KRISHNA connection to 11434' in SCRIPT
+    assert 'KRISHNA is running with background services ON and KRISHNA Ollama routing OFF.' in SCRIPT
     assert 'nvidia-smi' in SCRIPT
