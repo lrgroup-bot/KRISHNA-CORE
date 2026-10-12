@@ -148,9 +148,13 @@ $coreLog = Join-Path $logs 'core.log'
 $uiLog = Join-Path $logs 'frontend.log'
 
 try {
-    Write-Step "Starting KRISHNA Core on $CorePort with autonomous background services disabled"
+    Write-Step "Starting KRISHNA Core on $CorePort with background services ON and KRISHNA Ollama routing OFF"
     $coreCommand = @"
-`$env:KRISHNA_BACKGROUND_SERVICES_ENABLED='0'
+`$env:KRISHNA_BACKGROUND_SERVICES_ENABLED='1'
+`$env:KRISHNA_OLLAMA_ENABLED='0'
+`$env:KRISHNA_STRICT_ZERO_CREDIT='1'
+`$env:KRISHNA_ALLOW_PAID_CLOUD='0'
+`$env:KRISHNA_ALLOW_ACTIONS='0'
 `$env:KRISHNA_RUNTIME_ROOT='$RuntimeRoot'
 `$env:KRISHNA_DB='$RuntimeRoot\krishna_core.db'
 `$env:PYTHONPATH='$core'
@@ -185,6 +189,22 @@ Set-Location '$spatial'
     Assert-JsonEndpoint -Name 'chats' -Url "http://127.0.0.1:$CorePort/api/chats"
     Assert-JsonEndpoint -Name 'dashboard' -Url "http://127.0.0.1:$CorePort/api/dashboard"
     Assert-JsonEndpoint -Name 'plugins' -Url "http://127.0.0.1:$CorePort/api/plugins"
+    Assert-JsonEndpoint -Name 'models' -Url "http://127.0.0.1:$CorePort/api/models/roles"
+    Assert-JsonEndpoint -Name 'resilience' -Url "http://127.0.0.1:$CorePort/api/resilience/status"
+
+    $resilience = Invoke-RestMethod -Uri "http://127.0.0.1:$CorePort/api/resilience/status" -TimeoutSec 4
+    if (-not $resilience.worker_supervisor.running) {
+        throw 'KRISHNA background worker supervisor is not running'
+    }
+    Write-Host 'PASS  background    worker supervisor is running' -ForegroundColor Green
+
+    $modelRoles = Invoke-RestMethod -Uri "http://127.0.0.1:$CorePort/api/models/roles" -TimeoutSec 4
+    $ollamaGeneral = $modelRoles.pc.general
+    $ollamaCoding = $modelRoles.pc.coding
+    if ($ollamaGeneral.available -or $ollamaGeneral.service_available -or $ollamaCoding.available -or $ollamaCoding.service_available) {
+        throw 'KRISHNA Ollama isolation failed: the KRISHNA router still sees Ollama as available'
+    }
+    Write-Host 'PASS  ollama-policy KRISHNA router cannot reach shared Ollama' -ForegroundColor Green
 
     if (-not (Wait-Http -Url "http://127.0.0.1:$FrontendPort/spatial/" -TimeoutSeconds 4)) {
         throw 'Spatial frontend acceptance check failed'
@@ -205,9 +225,9 @@ Set-Location '$spatial'
     }
     if (@($krishnaOllamaLinks).Count) {
         $details = @($krishnaOllamaLinks) | ForEach-Object { "PID $($_.ProcessId) $($_.Name)" }
-        throw "KRISHNA unexpectedly connected to Ollama 11434 during idle startup: $($details -join ', ')"
+        throw "KRISHNA unexpectedly connected to Ollama 11434 during startup: $($details -join ', ')"
     }
-    Write-Host 'PASS  ollama-link  no KRISHNA connection to 11434 while idle' -ForegroundColor Green
+    Write-Host 'PASS  ollama-link  no KRISHNA connection to 11434' -ForegroundColor Green
 } catch {
     Write-Warning "Startup/acceptance failed. Cleaning only KRISHNA processes started from $SourceRoot."
     Stop-KrishnaProcessByCommandLine -Patterns $activePatterns
@@ -219,6 +239,8 @@ Write-Host '=== KRISHNA SAFE START STATUS ===' -ForegroundColor Green
 Write-Host "HEAD:     $head"
 Write-Host "Core:     http://127.0.0.1:$CorePort/health"
 Write-Host "Frontend: http://127.0.0.1:$FrontendPort/spatial/"
+Write-Host "Background services: ON"
+Write-Host "KRISHNA Ollama routing: OFF"
 Write-Host "Core log: $coreLog"
 Write-Host "UI log:   $uiLog"
 Write-Host ''
@@ -228,19 +250,19 @@ Get-NetTCPConnection -State Listen -LocalPort $CorePort,$FrontendPort -ErrorActi
 
 $ollamaListener = @(Get-NetTCPConnection -State Listen -LocalPort 11434 -ErrorAction SilentlyContinue)
 if ($ollamaListener.Count) {
-    Write-Warning 'A shared Ollama service is already listening on 11434. KRISHNA did not start or stop it.'
+    Write-Warning 'A shared Ollama service is listening on 11434. KRISHNA is isolated from it; the service is left untouched for KUBER/other projects.'
     $ollama = Get-Command ollama -ErrorAction SilentlyContinue
     if ($ollama) {
         Write-Host 'Current shared Ollama model state:'
         & $ollama.Source ps
     }
 } else {
-    Write-Host 'Ollama 11434: OFF (KRISHNA did not start it)' -ForegroundColor Green
+    Write-Host 'Shared Ollama 11434: OFF' -ForegroundColor Green
 }
 
 $nvidia = Get-Command nvidia-smi -ErrorAction SilentlyContinue
 if ($nvidia) {
-    Write-Host 'GPU idle snapshot:'
+    Write-Host 'GPU snapshot:'
     & $nvidia.Source --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader
 }
 
@@ -249,5 +271,5 @@ if (-not $NoBrowser) {
 }
 
 Write-Host ''
-Write-Host 'KRISHNA is running and the live acceptance sweep passed.' -ForegroundColor Green
+Write-Host 'KRISHNA is running with background services ON and KRISHNA Ollama routing OFF.' -ForegroundColor Green
 Write-Host 'If the browser cached an older UI, press Ctrl+Shift+R once.' -ForegroundColor Yellow
