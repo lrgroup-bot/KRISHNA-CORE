@@ -5,6 +5,8 @@
   const $ = (id) => document.getElementById(id);
   const qsa = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const SVG_NS = 'http://www.w3.org/2000/svg';
+  let pipelineOnline = null;
+  let truthTimer = 0;
 
   function normalizeOverflowButtons() {
     qsa('.chatMore,.projectBranchMore').forEach((button) => {
@@ -23,11 +25,85 @@
     if (projectMenu && projectMenu.getAttribute('aria-label') !== projectLabel) projectMenu.setAttribute('aria-label', projectLabel);
   }
 
+  function ensurePipelineTruthBadge() {
+    const toolbar = $('kbGraphToolbar') || document.querySelector('#brahmand .kb-dash-actions');
+    if (!toolbar) return null;
+    let badge = $('kbPipelineTruth');
+    if (badge) return badge;
+    badge = document.createElement('span');
+    badge.id = 'kbPipelineTruth';
+    badge.className = 'kb-live-badge';
+    badge.textContent = 'PIPELINE CHECKING';
+    badge.title = 'Flow is gated by KRISHNA Core health, task ledger and per-node endpoint probes.';
+    const refresh = $('kbGraphRefresh2') || $('kbRefreshGraph');
+    if (refresh?.parentElement === toolbar) toolbar.insertBefore(badge, refresh);
+    else toolbar.appendChild(badge);
+    return badge;
+  }
+
+  async function fetchJson(url) {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`${url} HTTP ${response.status}`);
+    return response.json();
+  }
+
+  async function refreshBackendTruth() {
+    const [health, status, tasks, garuda] = await Promise.allSettled([
+      fetchJson('/health'),
+      fetchJson('/api/status'),
+      fetchJson('/api/tasks?limit=500'),
+      fetchJson('/api/garudanetra/fabric'),
+    ]);
+
+    const coreOnline = health.status === 'fulfilled' && status.status === 'fulfilled' && tasks.status === 'fulfilled';
+    const taskRows = tasks.status === 'fulfilled' && Array.isArray(tasks.value?.tasks) ? tasks.value.tasks : [];
+    document.documentElement.dataset.kbPipelineBackend = coreOnline ? 'online' : 'offline';
+
+    const badge = ensurePipelineTruthBadge();
+    if (badge) {
+      badge.className = `kb-live-badge ${coreOnline ? 'good' : 'bad'}`;
+      badge.textContent = coreOnline ? `PIPELINE LIVE · ${taskRows.length} TASK${taskRows.length === 1 ? '' : 'S'}` : 'PIPELINE BACKEND OFFLINE';
+      badge.title = coreOnline
+        ? 'Live pipeline truth: /health + /api/status + /api/tasks. Dedicated nodes also use their own endpoint probes.'
+        : 'Pipeline animation is paused because KRISHNA Core truth is unavailable.';
+    }
+
+    const garudaReady = garuda.status === 'fulfilled';
+    const browserToggle = $('kbBrowserToggle');
+    if (browserToggle) {
+      browserToggle.dataset.garudanetraStatus = garudaReady ? 'ready' : 'offline';
+      browserToggle.setAttribute('aria-label', garudaReady ? 'Toggle Garudanetra browser split · backend ready' : 'Toggle Garudanetra browser split · backend offline');
+    }
+    const liveState = $('liveState');
+    if (liveState && !garudaReady && !$('liveWork')?.hidden) liveState.textContent = 'BACKEND OFFLINE';
+
+    if (!coreOnline) {
+      qsa('.kb-flow-drop', $('kbGraphSvg') || document).forEach((node) => node.remove());
+    } else if (pipelineOnline === false) {
+      // Backend recovered: force the canonical Brahmand renderer to obtain fresh
+      // task/endpoint truth before flow animation resumes.
+      $('kbRefreshGraph')?.click();
+    }
+
+    pipelineOnline = coreOnline;
+    scheduleFlow();
+    return { coreOnline, garudaReady, taskCount: taskRows.length };
+  }
+
   function enhanceFlow() {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     const svg = $('kbGraphSvg');
     if (!svg) return;
 
+    if (document.documentElement.dataset.kbPipelineBackend !== 'online') {
+      qsa('.kb-flow-drop', svg).forEach((node) => node.remove());
+      svg.dataset.kbFlowSignature = '';
+      return;
+    }
+
+    // Every rendered connection is backend-derived by the canonical graph renderer:
+    // active = live mapped task, green = verified/connected endpoint, yellow/red =
+    // unverified/blocked. Only active/connected truth gets moving water droplets.
     const paths = qsa('path.kb-edge.active,path.kb-edge.green', svg);
     const signature = paths.map((path) => `${path.getAttribute('d') || ''}:${path.classList.contains('green') ? 'g' : 'a'}`).join('|');
     if (svg.dataset.kbFlowSignature === signature && qsa('.kb-flow-drop', svg).length === paths.length * 3) return;
@@ -81,6 +157,8 @@
   function run() {
     normalizeOverflowButtons();
     makeSudarshanClear();
+    ensurePipelineTruthBadge();
+    void refreshBackendTruth();
     scheduleFlow();
   }
 
@@ -103,5 +181,8 @@
 
   observer.observe(document.body, { childList: true, subtree: true });
   window.addEventListener('resize', scheduleFlow, { passive: true });
+  truthTimer = window.setInterval(() => { void refreshBackendTruth(); }, 4000);
+  window.addEventListener('beforeunload', () => window.clearInterval(truthTimer), { once: true });
+  window.KRISHNA_PIPELINE_TRUTH = { refresh: refreshBackendTruth };
   run();
 })();
