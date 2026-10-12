@@ -2,7 +2,7 @@ KRISHNA OWNER HARDWARE INVENTORY
 ===============================
 Purpose: Persistent source-of-truth inventory for hardware/electronics already owned by the owner.
 Rule: When the owner identifies or adds hardware, append/update it here rather than creating another inventory file.
-Last updated: 2026-10-04
+Last updated: 2026-10-12
 
 COMPUTER COMPONENTS
 -------------------
@@ -296,3 +296,28 @@ INVENTORY POLICY
 - Prefer reusing owned hardware before purchasing replacements when technically sensible.
 - Keep Suryadev/Chandradev suitability separate from general reuse value.
 - This file is the canonical owner hardware inventory in KRISHNA-CORE.
+
+
+KUBER + DIY NAS BUILD INVENTORY UPDATE (2026-10-12)
+--------------------------------------------------
+Inventory reconciliation: entries below supplement existing records; do not count the Ryzen 3 3200G, WD5000LPVX, or MacBook Air a second time.
+
+- AMD Ryzen 3 3200G (existing item 1): owner confirms CPU available for separate KUBER + NAS build. No dedicated motherboard, PSU or cabinet available for this build. CPU functional condition and cooler availability: TO VERIFY. 4 cores / 4 threads, AM4, Vega 8 iGPU; lightweight KUBER research and NAS sharing only, not heavy local AI.
+- DDR4 RAM 8GB: owner reports available for proposed build. DIMM versus SO-DIMM, model, speed, health, and whether physically separate from the active KRISHNA PC: TO VERIFY. Do not count as spare until verified.
+- 1TB HDD: owner reports available. Brand/model/form factor/SMART and whether separate from main PC: TO VERIFY. Candidate initial NAS storage only after health test.
+- Legacy Mercury motherboard + Intel CPU: owner has legacy board/system; appears Pentium 4-era with older PCI/AGP and DDR1 slots from photographs. Exact motherboard/CPU and boot status: TO VERIFY. Not a recommended 20-HDD NAS host; potential test bench / salvage.
+- Mercury-associated DDR1 modules: UMAX 512MB DDR400 and Dynet 512MB DDR400, as observed; condition TO VERIFY. Not compatible with AM4 DDR4 motherboard.
+- Acer/Unifosa 2GB DDR3-1333 PC3-10600 module: observed; form factor/health TO VERIFY. Not compatible with AM4 DDR4 motherboard.
+- Intex SMART IT-2045+ PSU: legacy label 450W, +12V 18A (216W). Do not use to power modern Ryzen/KUBER or 20-HDD array. Retain only for noncritical inspection/recycling, not active NAS service.
+- Legacy Mercury PC cabinet: appears physically available in prior inspection, but owner reports no cabinet available for Ryzen build. Mounting/fit/condition TO VERIFY; do not treat as usable until inspected.
+- Seagate Barracuda 3.5-inch SATA HDD: owner photographed. Exact model/capacity/SMART and health TO VERIFY. Requires 12V external power for USB use; candidate NAS storage only after tests.
+- WD Blue 500GB 2.5-inch SATA HDD (existing item 14): confirmed photographed and already inventoried, NOT an additional duplicate. SMART pending. May be used with powered dock or SATA connection.
+- Apple MacBook Air (existing item 5): owner calls it a 2015 Intel i5 Mac Air, while prior case identification records A1466/EMC2632 MacBookAir6,2 (2013/14-era). Actual year/identifier TO VERIFY in About This Mac. Role: remote KUBER/NAS administration, not 20-drive host. Retain existing CHANDRADEV MEDIA NODE assignment until owner reassigns.
+- MERCUSYS MW305R (existing item 19): usable for isolated lab/test Wi-Fi only; 10/100 Mbps Ethernet is a bottleneck for primary NAS. Prefer gigabit switch/router.
+- Existing KRISHNA primary PC motherboard/CPU/RAM are separate from this proposed spare-parts build; do not reallocate any installed hardware without explicit confirmation.
+
+DIY 20-HDD NAS GAP LIST
+----------------------
+Needed before functioning Ryzen host: tested AM4 motherboard supporting 3200G with usable PCIe expansion and video outputs; CPU cooler if missing; safe quality PSU; cabinet; preferably SSD for OS; Ethernet connection.
+Needed for 20 drives simultaneously: IT-mode SAS HBA, compatible SAS expander or backplane, correct forward breakout and Mini-SAS cables, safe rated HDD power distribution sized for spin-up, grounded protective 20-bay rack with airflow, drive labels, SMART/extended tests and backups. Exact HDD size/count/interface and PSU current budget TO VERIFY.
+Suggested software: Debian Linux, Samba, SMART monitoring, Docker for lightweight KUBER; use MacBook for remote management. Avoid overcommitting 8GB RAM or mixing untested disks in a fault-tolerant pool.
