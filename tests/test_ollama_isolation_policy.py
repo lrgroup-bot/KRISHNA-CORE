@@ -11,5 +11,11 @@ def test_config_has_explicit_owner_ollama_switch():
 
 def test_disabled_ollama_never_routes_to_shared_11434():
     assert 'if _OLLAMA_ENABLED' in CONFIG
-    assert 'else "http://127.0.0.1:1"' in CONFIG
+    assert 'else "disabled://krishna-ollama"' in CONFIG
     assert 'http://127.0.0.1:11434' in CONFIG
+
+
+def test_disabled_ollama_is_zero_socket_fail_fast():
+    assert 'unsupported URL scheme' in CONFIG
+    assert 'without opening any socket' in CONFIG
+    assert 'http://127.0.0.1:1' not in CONFIG
