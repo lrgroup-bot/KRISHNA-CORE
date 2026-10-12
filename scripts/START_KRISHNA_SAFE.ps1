@@ -14,17 +14,21 @@ function Write-Step([string]$Message) {
     Write-Host "[KRISHNA] $Message" -ForegroundColor Cyan
 }
 
-function Stop-KrishnaProcessByCommandLine {
+function Get-KrishnaProcesses {
     param([string[]]$Patterns)
-    $targets = Get-CimInstance Win32_Process | Where-Object {
+    return @(Get-CimInstance Win32_Process | Where-Object {
         $cmd = [string]$_.CommandLine
         if (-not $cmd) { return $false }
         foreach ($pattern in $Patterns) {
             if ($cmd -like $pattern) { return $true }
         }
         return $false
-    }
-    foreach ($proc in $targets) {
+    })
+}
+
+function Stop-KrishnaProcessByCommandLine {
+    param([string[]]$Patterns)
+    foreach ($proc in (Get-KrishnaProcesses -Patterns $Patterns)) {
         try {
             Write-Step "Stopping stale KRISHNA process $($proc.ProcessId): $($proc.Name)"
             Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
@@ -58,6 +62,17 @@ function Wait-Http {
     return $false
 }
 
+function Assert-JsonEndpoint {
+    param([string]$Name, [string]$Url)
+    try {
+        $null = Invoke-RestMethod -Uri $Url -TimeoutSec 4 -Headers @{ Accept = 'application/json' }
+        Write-Host ("PASS  {0,-12} {1}" -f $Name, $Url) -ForegroundColor Green
+    } catch {
+        Write-Host ("FAIL  {0,-12} {1} :: {2}" -f $Name, $Url, $_.Exception.Message) -ForegroundColor Red
+        throw "$Name endpoint failed"
+    }
+}
+
 function Start-EncodedPowerShell {
     param([string]$Command)
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Command))
@@ -76,17 +91,21 @@ foreach ($required in @($SourceRoot, $RuntimeRoot, $python, $npm, $spatial, $cor
 
 $runtimePattern = $RuntimeRoot.TrimEnd('\')
 $sourcePattern = $SourceRoot.TrimEnd('\')
-Write-Step "Stopping only stale KRISHNA UI/Core workers (KUBER and shared Ollama are untouched)"
-Stop-KrishnaProcessByCommandLine -Patterns @(
+$legacyPatterns = @(
     "*$runtimePattern\guardian\autopilot.py*",
     "*$runtimePattern\agents\autonomous_recovery_loop.py*",
     "*$runtimePattern\agents\astra_worker.py*",
     "*$runtimePattern\mobile\companion\server.py*",
     "*$runtimePattern\scripts\start_free_router.py*",
-    "*$runtimePattern\scripts\start-ollama-krishna.cmd*",
+    "*$runtimePattern\scripts\start-ollama-krishna.cmd*"
+)
+$activePatterns = @(
     "*$sourcePattern\core*krishna_core.server*",
     "*$sourcePattern\app\spatial-ui*vite*"
 )
+
+Write-Step "Stopping only stale KRISHNA UI/Core workers (KUBER and shared Ollama are untouched)"
+Stop-KrishnaProcessByCommandLine -Patterns ($legacyPatterns + $activePatterns)
 Start-Sleep -Milliseconds 500
 Assert-PortFree -Port $CorePort -Purpose 'KRISHNA Core'
 Assert-PortFree -Port $FrontendPort -Purpose 'KRISHNA frontend'
@@ -102,6 +121,14 @@ if (-not $SkipGitPull) {
     } finally {
         Pop-Location
     }
+}
+
+Push-Location $SourceRoot
+try {
+    $head = (& git rev-parse HEAD).Trim()
+    Write-Step "Source HEAD $head"
+} finally {
+    Pop-Location
 }
 
 if (-not (Test-Path (Join-Path $spatial 'node_modules\.bin\vite.cmd'))) {
@@ -148,17 +175,46 @@ Set-Location '$spatial'
         throw "KRISHNA frontend did not become reachable on port $FrontendPort. Check $uiLog"
     }
     Write-Step "Frontend reachable"
+
+    Write-Step "Running live acceptance sweep"
+    Assert-JsonEndpoint -Name 'health' -Url "http://127.0.0.1:$CorePort/health"
+    Assert-JsonEndpoint -Name 'status' -Url "http://127.0.0.1:$CorePort/api/status"
+    Assert-JsonEndpoint -Name 'projects' -Url "http://127.0.0.1:$CorePort/api/projects"
+    Assert-JsonEndpoint -Name 'chats' -Url "http://127.0.0.1:$CorePort/api/chats"
+    Assert-JsonEndpoint -Name 'dashboard' -Url "http://127.0.0.1:$CorePort/api/dashboard"
+    Assert-JsonEndpoint -Name 'plugins' -Url "http://127.0.0.1:$CorePort/api/plugins"
+
+    if (-not (Wait-Http -Url "http://127.0.0.1:$FrontendPort/spatial/" -TimeoutSeconds 4)) {
+        throw 'Spatial frontend acceptance check failed'
+    }
+    Write-Host ("PASS  {0,-12} {1}" -f 'frontend', "http://127.0.0.1:$FrontendPort/spatial/") -ForegroundColor Green
+
+    $legacyAlive = @(Get-KrishnaProcesses -Patterns $legacyPatterns)
+    if ($legacyAlive.Count) {
+        $details = $legacyAlive | ForEach-Object { "PID $($_.ProcessId) $($_.Name)" }
+        throw "Legacy KRISHNA workers reappeared: $($details -join ', ')"
+    }
+    Write-Host 'PASS  legacy       no retired KRISHNA worker is running' -ForegroundColor Green
+
+    $krishnaOllamaLinks = foreach ($conn in @(Get-NetTCPConnection -RemotePort 11434 -State Established -ErrorAction SilentlyContinue)) {
+        $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$($conn.OwningProcess)" -ErrorAction SilentlyContinue
+        $cmd = [string]$proc.CommandLine
+        if ($cmd -like "*$sourcePattern*" -or $cmd -like "*$runtimePattern*") { $proc }
+    }
+    if (@($krishnaOllamaLinks).Count) {
+        $details = @($krishnaOllamaLinks) | ForEach-Object { "PID $($_.ProcessId) $($_.Name)" }
+        throw "KRISHNA unexpectedly connected to Ollama 11434 during idle startup: $($details -join ', ')"
+    }
+    Write-Host 'PASS  ollama-link  no KRISHNA connection to 11434 while idle' -ForegroundColor Green
 } catch {
-    Write-Warning "Startup failed. Cleaning only KRISHNA processes started from $SourceRoot."
-    Stop-KrishnaProcessByCommandLine -Patterns @(
-        "*$sourcePattern\core*krishna_core.server*",
-        "*$sourcePattern\app\spatial-ui*vite*"
-    )
+    Write-Warning "Startup/acceptance failed. Cleaning only KRISHNA processes started from $SourceRoot."
+    Stop-KrishnaProcessByCommandLine -Patterns $activePatterns
     throw
 }
 
 Write-Host ''
 Write-Host '=== KRISHNA SAFE START STATUS ===' -ForegroundColor Green
+Write-Host "HEAD:     $head"
 Write-Host "Core:     http://127.0.0.1:$CorePort/health"
 Write-Host "Frontend: http://127.0.0.1:$FrontendPort/spatial/"
 Write-Host "Core log: $coreLog"
@@ -180,9 +236,16 @@ if ($ollamaListener.Count) {
     Write-Host 'Ollama 11434: OFF (KRISHNA did not start it)' -ForegroundColor Green
 }
 
+$nvidia = Get-Command nvidia-smi -ErrorAction SilentlyContinue
+if ($nvidia) {
+    Write-Host 'GPU idle snapshot:'
+    & $nvidia.Source --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader
+}
+
 if (-not $NoBrowser) {
     Start-Process "http://127.0.0.1:$FrontendPort/spatial/"
 }
 
 Write-Host ''
-Write-Host 'KRISHNA is running. If the browser cached an older UI, press Ctrl+Shift+R once.' -ForegroundColor Yellow
+Write-Host 'KRISHNA is running and the live acceptance sweep passed.' -ForegroundColor Green
+Write-Host 'If the browser cached an older UI, press Ctrl+Shift+R once.' -ForegroundColor Yellow
