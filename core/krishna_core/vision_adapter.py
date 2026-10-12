@@ -83,6 +83,8 @@ class VisionAdapter:
         }
 
     def _installed_models(self):
+        if not settings.ollama_enabled:
+            raise RuntimeError("KRISHNA Ollama is disabled by owner policy")
         with urllib.request.urlopen(self.base_url+"/api/tags",timeout=3) as r:
             rows=json.loads(r.read().decode()).get("models",[])
         models=[str(x.get("name") or x.get("model") or "") for x in rows]
@@ -109,10 +111,13 @@ class VisionAdapter:
 
     def status(self,mode=None):
         models=[];installed=set();error=None
-        try:
-            models,installed=self._installed_models()
-        except Exception as exc:
-            error=f"{type(exc).__name__}: {exc}"
+        if not settings.ollama_enabled:
+            error="KRISHNA Ollama is disabled by owner policy"
+        else:
+            try:
+                models,installed=self._installed_models()
+            except Exception as exc:
+                error=f"{type(exc).__name__}: {exc}"
         detailed=self._status_for("detailed",models,installed)
         fast=self._status_for("fast",models,installed)
         active=fast if self._normalize_mode(mode)=="fast" else detailed
@@ -120,6 +125,8 @@ class VisionAdapter:
             "provider":"ollama",
             **active,
             "local":True,
+            "service_available":bool(settings.ollama_enabled and not error),
+            "owner_enabled":bool(settings.ollama_enabled),
             "error":error,
             "profiles":{
                 "detailed":{k:v for k,v in detailed.items() if k!="models"},
@@ -128,6 +135,8 @@ class VisionAdapter:
         }
 
     def analyze_bytes(self,data:bytes,content_type:str,prompt:str,mode="detailed")->dict:
+        if not settings.ollama_enabled:
+            raise PermissionError("KRISHNA Ollama vision is disabled by owner policy")
         content_type=str(content_type or "").split(";",1)[0].strip().lower()
         if content_type not in IMAGE_TYPES:raise ValueError("vision adapter accepts JPEG, PNG or WEBP only")
         if not data:raise ValueError("image attachment is empty")
