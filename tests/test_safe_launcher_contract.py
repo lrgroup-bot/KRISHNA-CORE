@@ -48,8 +48,19 @@ def test_launcher_uses_encoded_child_commands_and_cleans_up_on_failure():
 
 
 def test_launcher_runs_live_acceptance_after_startup():
-    for endpoint in ('/health', '/api/status', '/api/projects', '/api/chats', '/api/dashboard', '/api/plugins'):
+    for endpoint in (
+        '/health',
+        '/api/status',
+        '/api/tasks?limit=500',
+        '/api/garudanetra/fabric',
+        '/api/projects',
+        '/api/chats',
+        '/api/dashboard',
+        '/api/plugins',
+    ):
         assert endpoint in SCRIPT
+    assert "-Name 'tasks'" in SCRIPT
+    assert "-Name 'garudanetra'" in SCRIPT
     assert 'Running live acceptance sweep' in SCRIPT
     assert 'no retired KRISHNA worker is running' in SCRIPT
     assert 'no KRISHNA connection to 11434 while idle' in SCRIPT
