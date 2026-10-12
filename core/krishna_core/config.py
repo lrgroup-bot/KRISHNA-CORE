@@ -10,13 +10,15 @@ def _env_enabled(name: str, default: str = "1") -> bool:
 
 
 # KRISHNA can run its full background fabric without being allowed to touch the
-# machine-wide/shared Ollama service.  When disabled, route all legacy Ollama
-# probes to a closed loopback port so no KRISHNA request can reach 127.0.0.1:11434.
+# machine-wide/shared Ollama service.  When disabled, use an intentionally
+# unsupported URL scheme.  Legacy callers then fail immediately inside urllib
+# without opening any socket, so status paths cannot spend seconds probing a
+# closed port and KRISHNA can never reach the shared 127.0.0.1:11434 service.
 _OLLAMA_ENABLED = _env_enabled("KRISHNA_OLLAMA_ENABLED", "1")
 _OLLAMA_URL = (
     os.getenv("KRISHNA_OLLAMA_URL", "http://127.0.0.1:11434")
     if _OLLAMA_ENABLED
-    else "http://127.0.0.1:1"
+    else "disabled://krishna-ollama"
 )
 
 
