@@ -173,6 +173,32 @@ class OpenRouterFreeFabricTests(unittest.TestCase):
             self.assertEqual(status["paid_cloud_default"],"disabled")
             self.assertTrue(status["zero_cost_policy"]["live_catalog_preflight_required"])
 
+    def test_passive_catalog_and_status_never_refresh_stale_cache(self):
+        with tempfile.TemporaryDirectory() as td:
+            gateway=FakeGateway()
+            fabric=OpenRouterFreeFabric(gateway,td)
+            fabric._cache={"schema":1,"fetched_at":1.0,"source":"test","models":list(gateway.models)}
+
+            catalog=fabric.catalog(refresh=False)
+            status=fabric.status(refresh=False)
+
+            self.assertEqual(gateway.calls,[])
+            self.assertEqual(len(catalog["models"]),len(gateway.models))
+            self.assertFalse(status["network_refresh"])
+            self.assertTrue(status["catalog"]["stale"])
+            self.assertFalse(status["zero_cost_policy"]["passive_status_network_io"])
+            self.assertTrue(status["role_plan"]["general"]["candidates"])
+
+    def test_passive_catalog_without_cache_fails_without_network(self):
+        with tempfile.TemporaryDirectory() as td:
+            gateway=FakeGateway()
+            fabric=OpenRouterFreeFabric(gateway,td)
+
+            with self.assertRaisesRegex(RuntimeError,"explicit refresh"):
+                fabric.catalog(refresh=False)
+
+            self.assertEqual(gateway.calls,[])
+
 
 if __name__=="__main__":
     unittest.main()
