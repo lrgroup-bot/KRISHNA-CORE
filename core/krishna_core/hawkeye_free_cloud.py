@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 
 
 class HawkeyeFreeCloudFabric:
@@ -78,6 +79,52 @@ class HawkeyeFreeCloudFabric:
             pass
         return rows
 
+    def _openrouter_status(self, refresh=False):
+        """Return provider status without hidden network I/O in passive mode.
+
+        OpenRouterFreeFabric.status(refresh=False) can derive a role plan from a
+        stale cache, and its ranking path is allowed to refresh that stale cache.
+        A read-only HAWKEYE/model-status request must never inherit that network
+        behavior.  Only an explicit refresh may contact the provider.
+        """
+        if refresh:
+            return self.openrouter_free.status(refresh=True)
+        try:
+            profile=self.openrouter_free.profile()
+            cached=self.openrouter_free._read_cache()
+            fetched_at=None if not cached else cached.get("fetched_at")
+            age=None
+            if fetched_at is not None:
+                try:age=max(0.0,time.time()-float(fetched_at))
+                except (TypeError,ValueError):age=None
+            cache_seconds=float(getattr(self.openrouter_free,"CACHE_SECONDS",300) or 300)
+            return {
+                "component":"KRISHNA OpenRouter Zero-Cost Fabric",
+                "configured":bool(profile),
+                "status_mode":"passive-cache-only",
+                "network_refresh":False,
+                "catalog":{
+                    "cached":bool(cached),
+                    "fetched_at":fetched_at,
+                    "model_count":0 if not cached else len(cached.get("models") or []),
+                    "cache_age_sec":age,
+                    "stale":bool(age is not None and age>cache_seconds),
+                    "error":None,
+                },
+                "role_plan":{},
+                "paid_cloud_default":"disabled",
+            }
+        except Exception as exc:
+            return {
+                "component":"KRISHNA OpenRouter Zero-Cost Fabric",
+                "configured":False,
+                "status_mode":"passive-cache-only",
+                "network_refresh":False,
+                "catalog":{"cached":False,"error":f"{type(exc).__name__}: {exc}"},
+                "role_plan":{},
+                "paid_cloud_default":"disabled",
+            }
+
     @staticmethod
     def recorded_pc_finding(sensor_context):
         sensor_context=dict(sensor_context or {})
@@ -111,7 +158,7 @@ class HawkeyeFreeCloudFabric:
             "mobile_qwen":False,
             "pc_role":"credential-broker-policy-authority-heavy-escalation",
             "providers":{
-                "openrouter_zero_cost":self.openrouter_free.status(refresh=refresh),
+                "openrouter_zero_cost":self._openrouter_status(refresh=refresh),
                 "cloudflare_verified_free":self.direct_free.status(refresh=refresh),
                 "gemini_selected_keyframe":self.gemini.status(),
                 "gemini_execution":"blocked-no-zero-credit-proof",
