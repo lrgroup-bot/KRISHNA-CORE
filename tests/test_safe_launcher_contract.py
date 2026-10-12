@@ -74,3 +74,11 @@ def test_launcher_runs_live_acceptance_after_startup():
     assert 'no KRISHNA connection to 11434' in SCRIPT
     assert 'KRISHNA is running with background services ON and KRISHNA Ollama routing OFF.' in SCRIPT
     assert 'nvidia-smi' in SCRIPT
+
+
+def test_launcher_reuses_expensive_acceptance_payloads_instead_of_double_fetching():
+    assert SCRIPT.count('/api/models/roles') == 1
+    assert SCRIPT.count('/api/resilience/status') == 1
+    assert "$modelRoles = Assert-JsonEndpoint -Name 'models'" in SCRIPT
+    assert "$resilience = Assert-JsonEndpoint -Name 'resilience'" in SCRIPT
+    assert '[switch]$PassThru' in SCRIPT
