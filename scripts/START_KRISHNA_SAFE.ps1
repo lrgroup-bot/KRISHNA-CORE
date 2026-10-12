@@ -179,6 +179,8 @@ Set-Location '$spatial'
     Write-Step "Running live acceptance sweep"
     Assert-JsonEndpoint -Name 'health' -Url "http://127.0.0.1:$CorePort/health"
     Assert-JsonEndpoint -Name 'status' -Url "http://127.0.0.1:$CorePort/api/status"
+    Assert-JsonEndpoint -Name 'tasks' -Url "http://127.0.0.1:$CorePort/api/tasks?limit=500"
+    Assert-JsonEndpoint -Name 'garudanetra' -Url "http://127.0.0.1:$CorePort/api/garudanetra/fabric"
     Assert-JsonEndpoint -Name 'projects' -Url "http://127.0.0.1:$CorePort/api/projects"
     Assert-JsonEndpoint -Name 'chats' -Url "http://127.0.0.1:$CorePort/api/chats"
     Assert-JsonEndpoint -Name 'dashboard' -Url "http://127.0.0.1:$CorePort/api/dashboard"
