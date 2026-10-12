@@ -4,17 +4,14 @@ param(
     [string]$NodeRoot = "E:\Node.JS",
     [int]$CorePort = 8766,
     [int]$FrontendPort = 5173,
-    [switch]$SkipGitPull
+    [switch]$SkipGitPull,
+    [switch]$NoBrowser
 )
 
 $ErrorActionPreference = 'Stop'
 
 function Write-Step([string]$Message) {
     Write-Host "[KRISHNA] $Message" -ForegroundColor Cyan
-}
-
-function Test-TcpListen([int]$Port) {
-    return @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue).Count -gt 0
 }
 
 function Stop-KrishnaProcessByCommandLine {
@@ -37,6 +34,17 @@ function Stop-KrishnaProcessByCommandLine {
     }
 }
 
+function Assert-PortFree {
+    param([int]$Port, [string]$Purpose)
+    $listeners = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue)
+    if (-not $listeners.Count) { return }
+    $details = foreach ($listener in $listeners) {
+        $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)" -ErrorAction SilentlyContinue
+        "PID $($listener.OwningProcess) $($proc.Name) :: $($proc.CommandLine)"
+    }
+    throw "$Purpose port $Port is already occupied after KRISHNA cleanup. Refusing to kill an unrelated process. $($details -join ' | ')"
+}
+
 function Wait-Http {
     param([string]$Url, [int]$TimeoutSeconds = 25)
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -50,6 +58,12 @@ function Wait-Http {
     return $false
 }
 
+function Start-EncodedPowerShell {
+    param([string]$Command)
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Command))
+    Start-Process powershell.exe -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',$encoded -WindowStyle Minimized | Out-Null
+}
+
 Write-Step "Validating paths"
 $python = Join-Path $RuntimeRoot '.venv\Scripts\python.exe'
 $npm = Join-Path $NodeRoot 'npm.cmd'
@@ -60,19 +74,22 @@ foreach ($required in @($SourceRoot, $RuntimeRoot, $python, $npm, $spatial, $cor
     if (-not (Test-Path $required)) { throw "Required path not found: $required" }
 }
 
-Write-Step "Stopping only stale KRISHNA UI/Core workers (KUBER is untouched)"
+$runtimePattern = $RuntimeRoot.TrimEnd('\')
+$sourcePattern = $SourceRoot.TrimEnd('\')
+Write-Step "Stopping only stale KRISHNA UI/Core workers (KUBER and shared Ollama are untouched)"
 Stop-KrishnaProcessByCommandLine -Patterns @(
-    '*E:\Krishna-The GOD\guardian\autopilot.py*',
-    '*E:\Krishna-The GOD\agents\autonomous_recovery_loop.py*',
-    '*E:\Krishna-The GOD\agents\astra_worker.py*',
-    '*E:\Krishna-The GOD\mobile\companion\server.py*',
-    '*E:\Krishna-The GOD\scripts\start_free_router.py*',
-    '*E:\Krishna-The GOD\scripts\start-ollama-krishna.cmd*',
-    '*E:\KRISHNA-UI-NEW\core*krishna_core.server*',
-    '*E:\KRISHNA-UI-NEW\app\spatial-ui*vite*'
+    "*$runtimePattern\guardian\autopilot.py*",
+    "*$runtimePattern\agents\autonomous_recovery_loop.py*",
+    "*$runtimePattern\agents\astra_worker.py*",
+    "*$runtimePattern\mobile\companion\server.py*",
+    "*$runtimePattern\scripts\start_free_router.py*",
+    "*$runtimePattern\scripts\start-ollama-krishna.cmd*",
+    "*$sourcePattern\core*krishna_core.server*",
+    "*$sourcePattern\app\spatial-ui*vite*"
 )
-
-Get-Process llama-server,ollama -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 500
+Assert-PortFree -Port $CorePort -Purpose 'KRISHNA Core'
+Assert-PortFree -Port $FrontendPort -Purpose 'KRISHNA frontend'
 
 if (-not $SkipGitPull) {
     Write-Step "Updating verified UI branch"
@@ -87,13 +104,25 @@ if (-not $SkipGitPull) {
     }
 }
 
+if (-not (Test-Path (Join-Path $spatial 'node_modules\.bin\vite.cmd'))) {
+    Write-Step "Frontend dependencies are missing; installing them once"
+    Push-Location $spatial
+    try {
+        & $npm install --no-package-lock --no-audit --no-fund
+        if ($LASTEXITCODE -ne 0) { throw 'npm install failed' }
+    } finally {
+        Pop-Location
+    }
+}
+
 $logs = Join-Path $RuntimeRoot 'logs\safe-start'
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
 $coreLog = Join-Path $logs 'core.log'
 $uiLog = Join-Path $logs 'frontend.log'
 
-Write-Step "Starting KRISHNA Core on $CorePort with background services disabled"
-$coreCommand = @"
+try {
+    Write-Step "Starting KRISHNA Core on $CorePort with autonomous background services disabled"
+    $coreCommand = @"
 `$env:KRISHNA_BACKGROUND_SERVICES_ENABLED='0'
 `$env:KRISHNA_RUNTIME_ROOT='$RuntimeRoot'
 `$env:KRISHNA_DB='$RuntimeRoot\krishna_core.db'
@@ -101,25 +130,33 @@ $coreCommand = @"
 Set-Location '$core'
 & '$python' -u -m krishna_core.server *>&1 | Tee-Object -FilePath '$coreLog'
 "@
-Start-Process powershell.exe -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-Command',$coreCommand -WindowStyle Minimized | Out-Null
+    Start-EncodedPowerShell -Command $coreCommand
 
-if (-not (Wait-Http -Url "http://127.0.0.1:$CorePort/health" -TimeoutSeconds 30)) {
-    throw "KRISHNA Core did not become healthy on port $CorePort. Check $coreLog"
-}
-Write-Step "Core healthy"
+    if (-not (Wait-Http -Url "http://127.0.0.1:$CorePort/health" -TimeoutSeconds 30)) {
+        throw "KRISHNA Core did not become healthy on port $CorePort. Check $coreLog"
+    }
+    Write-Step "Core healthy"
 
-Write-Step "Starting verified spatial frontend on $FrontendPort"
-$uiCommand = @"
+    Write-Step "Starting verified spatial frontend on $FrontendPort"
+    $uiCommand = @"
 Set-Location '$spatial'
 & '$npm' run dev -- --host 127.0.0.1 --port $FrontendPort *>&1 | Tee-Object -FilePath '$uiLog'
 "@
-Start-Process powershell.exe -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-Command',$uiCommand -WindowStyle Minimized | Out-Null
+    Start-EncodedPowerShell -Command $uiCommand
 
-if (-not (Wait-Http -Url "http://127.0.0.1:$FrontendPort/spatial/" -TimeoutSeconds 30)) {
-    throw "KRISHNA frontend did not become reachable on port $FrontendPort. Check $uiLog"
+    if (-not (Wait-Http -Url "http://127.0.0.1:$FrontendPort/spatial/" -TimeoutSeconds 30)) {
+        throw "KRISHNA frontend did not become reachable on port $FrontendPort. Check $uiLog"
+    }
+    Write-Step "Frontend reachable"
+} catch {
+    Write-Warning "Startup failed. Cleaning only KRISHNA processes started from $SourceRoot."
+    Stop-KrishnaProcessByCommandLine -Patterns @(
+        "*$sourcePattern\core*krishna_core.server*",
+        "*$sourcePattern\app\spatial-ui*vite*"
+    )
+    throw
 }
 
-Write-Step "Frontend reachable"
 Write-Host ''
 Write-Host '=== KRISHNA SAFE START STATUS ===' -ForegroundColor Green
 Write-Host "Core:     http://127.0.0.1:$CorePort/health"
@@ -130,9 +167,22 @@ Write-Host ''
 Write-Host 'Listeners:'
 Get-NetTCPConnection -State Listen -LocalPort $CorePort,$FrontendPort -ErrorAction SilentlyContinue |
     Select-Object LocalAddress,LocalPort,OwningProcess
+
+$ollamaListener = @(Get-NetTCPConnection -State Listen -LocalPort 11434 -ErrorAction SilentlyContinue)
+if ($ollamaListener.Count) {
+    Write-Warning 'A shared Ollama service is already listening on 11434. KRISHNA did not start or stop it.'
+    $ollama = Get-Command ollama -ErrorAction SilentlyContinue
+    if ($ollama) {
+        Write-Host 'Current shared Ollama model state:'
+        & $ollama.Source ps
+    }
+} else {
+    Write-Host 'Ollama 11434: OFF (KRISHNA did not start it)' -ForegroundColor Green
+}
+
+if (-not $NoBrowser) {
+    Start-Process "http://127.0.0.1:$FrontendPort/spatial/"
+}
+
 Write-Host ''
-Write-Host 'Ollama/Qwen should remain off:'
-Get-NetTCPConnection -State Listen -LocalPort 11434 -ErrorAction SilentlyContinue |
-    Select-Object LocalAddress,LocalPort,OwningProcess
-Write-Host ''
-Write-Host 'Open the frontend URL above and press Ctrl+Shift+R once after updates.' -ForegroundColor Yellow
+Write-Host 'KRISHNA is running. If the browser cached an older UI, press Ctrl+Shift+R once.' -ForegroundColor Yellow
