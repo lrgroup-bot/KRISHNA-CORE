@@ -1,9 +1,10 @@
+import NetworkVisionPanel from './NetworkVisionPanel';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { DockviewReact, themeDark } from 'dockview-react';
 import { Background, Controls, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import { Canvas } from '@react-three/fiber';
 import { Terminal } from '@xterm/xterm';
-import { Activity, Bot, Boxes, PlugZap, Radio, ShieldCheck, Wifi, Workflow } from 'lucide-react';
+import { Activity, Bot, Boxes, Network, PlugZap, Radio, ShieldCheck, Wifi, Workflow } from 'lucide-react';
 
 type RuViewStatus = {
   mode?: 'csi' | 'rssi_only' | 'unconfigured' | string;
@@ -815,8 +816,8 @@ function PluginsPanel() {
 
 export default function App() {
   const dockApi = useRef<any>(null);
-  const [activeNav, setActiveNav] = useState<'krishna' | 'sudarshan' | 'plugins'>('krishna');
-  const focusPanel = (panelId: string, nav: 'krishna' | 'sudarshan' | 'plugins') => {
+  const [activeNav, setActiveNav] = useState<'krishna' | 'sudarshan' | 'plugins' | 'network-vision'>('krishna');
+  const focusPanel = (panelId: string, nav: 'krishna' | 'sudarshan' | 'plugins' | 'network-vision') => {
     const panel = dockApi.current?.getPanel?.(panelId);
     panel?.api?.setActive?.();
     setActiveNav(nav);
@@ -831,6 +832,7 @@ export default function App() {
     avatar: AvatarPanel,
     terminal: TerminalPanel,
     plugins: PluginsPanel,
+    'network-vision': NetworkVisionPanel,
   }), []);
 
   return (
@@ -843,6 +845,9 @@ export default function App() {
           </button>
           <button type="button" className={activeNav === 'sudarshan' ? 'nav-item nav-item--active' : 'nav-item'} onClick={() => focusPanel('sudarshan-work', 'sudarshan')}>
             <Workflow size={18} /><span>Sudarshan</span>
+          </button>
+          <button type="button" className={activeNav === 'network-vision' ? 'nav-item nav-item--active' : 'nav-item'} onClick={() => focusPanel('network-vision', 'network-vision')}>
+            <Network size={18} /><span>Network &amp; Vision</span>
           </button>
           <div className="nav-spacer" />
           <button type="button" className={activeNav === 'plugins' ? 'nav-item nav-item--active' : 'nav-item'} onClick={() => focusPanel('plugins', 'plugins')}>
@@ -864,6 +869,7 @@ export default function App() {
             event.api.addPanel({ id: 'avatar-stage', component: 'avatar', title: 'Avatar / Spatial' });
             event.api.addPanel({ id: 'terminal', component: 'terminal', title: 'Terminal' });
             event.api.addPanel({ id: 'plugins', component: 'plugins', title: 'Plugins' });
+            event.api.addPanel({ id: 'network-vision', component: 'network-vision', title: 'Network & Vision' });
           }}
         />
       </main>
