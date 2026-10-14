@@ -5,7 +5,12 @@ from pathlib import Path
 
 RUNTIME_ROOT = Path(os.getenv("KRISHNA_RUNTIME_ROOT", Path(__file__).resolve().parents[2])).resolve()
 _PORTS_PATH = Path(__file__).with_name("server_ports.json")
-_PORTS = json.loads(_PORTS_PATH.read_text(encoding="utf-8"))
+# Frozen Windows builds may not include adjacent JSON data files.
+_DEFAULT_PORTS = {"krishna_core": 8766, "mobile_companion": 8765, "lan_discovery": 8767}
+try:
+    _PORTS = json.loads(_PORTS_PATH.read_text(encoding="utf-8"))
+except FileNotFoundError:
+    _PORTS = _DEFAULT_PORTS.copy()
 KRISHNA_CORE_PORT = int(_PORTS["krishna_core"])
 KRISHNA_MOBILE_COMPANION_PORT = int(_PORTS["mobile_companion"])
 KRISHNA_LAN_DISCOVERY_PORT = int(_PORTS["lan_discovery"])
