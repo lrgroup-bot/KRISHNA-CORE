@@ -1,8 +1,19 @@
+import tempfile
+import unittest
+from pathlib import Path
+
 from kuif.knowledge import KnowledgeStore
 
-def test_project_separation(tmp_path):
-    store = KnowledgeStore(str(tmp_path / "memory.db"))
-    store.put("krishna", "a", "secret apple")
-    store.put("kuber", "b", "public apple")
-    assert store.search("krishna", "apple") == [("a", "secret apple")]
-    assert store.search("kuber", "secret") == []
+
+class KuifKnowledgeTests(unittest.TestCase):
+    def test_project_separation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = KnowledgeStore(str(Path(tmp) / "memory.db"))
+            store.put("krishna", "a", "secret apple")
+            store.put("kuber", "b", "public apple")
+            self.assertEqual(store.search("krishna", "apple"), [("a", "secret apple")])
+            self.assertEqual(store.search("kuber", "secret"), [])
+
+
+if __name__ == "__main__":
+    unittest.main()
