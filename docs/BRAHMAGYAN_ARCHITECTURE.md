@@ -191,6 +191,17 @@ Knowledge gaps may be queued with priority signals:
 
 The queue is finite and prioritized.
 
+## System-design learning program
+
+BRAHMAGYAN includes a bounded Alex Xu / ByteByteGo system-design curriculum under
+`docs/BRAHMAGYAN_SYSTEM_DESIGN_CURRICULUM.md`. The scheduler is only a lightweight
+clock; research still passes through the same production-idle, CPU/RAM, source-provenance,
+Gautama review, Veda Vyasa synthesis and Gyan-promotion gates described here.
+
+The public official reference indexes are used as a syllabus, not as inherited truth.
+Technical claims must be checked against current primary engineering sources. Unauthorized
+full-book PDF copies are not ingested.
+
 ## Background-learning resource rule
 
 BRAHMAGYAN v2 does **not** start a permanent always-on Rishi/model fleet.
