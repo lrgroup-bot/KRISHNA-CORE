@@ -35,8 +35,8 @@ class OpenAICompatibleLocalProvider:
 
 class ModelRouter:
     """Prefer local providers; fail closed instead of silently sending data to cloud."""
-    DEFAULT_MODELS=("qwen3.5:4b","gemma3:4b","granite3.3:2b","smollm2:1.7b","llama3.2:1b","deepseek-r1:1.5b","qwen2.5:3b")
-    DISABLED_MODEL_PREFIXES=()
+    DEFAULT_MODELS=("gemma3:4b","granite3.3:2b","smollm2:1.7b","llama3.2:1b","deepseek-r1:1.5b")
+    DISABLED_MODEL_PREFIXES=("qwen",)
 
     @classmethod
     def model_allowed(cls,model):

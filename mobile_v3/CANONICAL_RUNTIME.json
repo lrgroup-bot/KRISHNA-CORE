@@ -166,7 +166,7 @@
     "learning_verification": "Distilled HAWKEYE candidates can run through Rishi Live -> Garuda -> Gautama -> Gyan proposal gate without raw-media transfer; automatic model escalation remains local-only",
     "openrouter": "Mobile may call OpenRouter directly using an owner-provisioned Android-Keystore-encrypted credential. Every automatic request requires a live zero-price model catalog preflight. Paid fallback is forbidden. PC-brokered OpenRouter remains a fallback for cases where the direct route is unavailable.",
     "free_cloud_reviews": "Sanitized HAWKEYE text summaries may be reviewed by verified Cloudflare Workers AI and configured free_only text gateways such as Groq/Mistral; raw camera frames are not sent to text-only providers.",
-    "mobile_qwen": "disabled; no Qwen model is hosted on the phone. KRISHNA PC assigns Qwen by role: qwen3.5:4b general/fast vision, qwen2.5-coder:7b coding, qwen2.5vl:7b detailed HAWKEYE vision.",
+    "mobile_qwen": "disabled on both mobile and KRISHNA routing; installed PC Qwen files may remain but are not selected",
     "pc_offload": "Private/protected/project actions and heavy HAWKEYE inference stay on KRISHNA PC. Ordinary non-sensitive chat and selected non-sensitive keyframes use mobile direct verified-zero-price cloud first.",
     "pc_finding_sync": "Mobile direct cloud findings remain on-device for live use and are checkpointed to the PC only on explicit/periodic sync, avoiding a PC round-trip for every frame.",
     "pc_compute_relief": "When a cloud finding is already recorded, curated evidence sync stores the bounded evidence but skips duplicate PC vision/BRAHMA intake unless explicit heavy escalation is requested.",
@@ -177,40 +177,31 @@
     "mobile_cloud_route": "Phone local ML Kit/MediaPipe -> mobile direct verified-zero-price cloud -> KRISHNA PC only for private/protected/heavy/failure escalation."
   },
   "model_policy": {
-    "pc_qwen_allowed": true,
+    "pc_qwen_allowed": false,
     "mobile_qwen_allowed": false,
     "mobile_qwen_dependency": false,
     "mobile_cloud_mode": "verified-free-only",
     "mobile_cloud_credentials": "owner-provisioned OpenRouter token encrypted with Android Keystore; Gemini permanent credential remains PC-only; short-lived device tokens permitted",
-    "pc_qwen_default_role_assigned": true,
+    "pc_qwen_default_role_assigned": false,
     "pc_roles": {
-      "general": "qwen3.5:4b",
-      "coding": "qwen2.5-coder:7b",
-      "hawkeye_detailed": "qwen2.5vl:7b",
-      "hawkeye_fast": "qwen3.5:4b"
+      "general": "gemma3:4b",
+      "coding": "gemma3:4b",
+      "hawkeye_detailed": "gemma3:4b",
+      "hawkeye_fast": "gemma3:4b"
     },
     "pc_fallbacks": {
       "general": [
-        "gemma3:4b",
         "granite3.3:2b",
         "smollm2:1.7b",
         "llama3.2:1b",
-        "deepseek-r1:1.5b",
-        "qwen2.5:3b"
+        "deepseek-r1:1.5b"
       ],
       "coding": [
-        "qwen3.5:4b",
-        "gemma3:4b",
-        "granite3.3:2b"
+        "granite3.3:2b",
+        "deepseek-r1:1.5b"
       ],
-      "hawkeye_detailed": [
-        "qwen3.5:4b",
-        "gemma3:4b"
-      ],
-      "hawkeye_fast": [
-        "gemma3:4b",
-        "qwen2.5vl:7b"
-      ]
+      "hawkeye_detailed": [],
+      "hawkeye_fast": []
     },
     "cloud_roles": {
       "general": [
@@ -244,4 +235,4 @@
     ],
     "mobile_cloud_strategy": "mobile-direct-live-zero-price-first"
   }
-}
+}\n

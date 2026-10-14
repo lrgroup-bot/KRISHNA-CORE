@@ -17,11 +17,11 @@ class ModelRouter:
     providers.
     """
 
-    DEFAULT_LOCAL_MODEL="qwen3.5:4b"
-    DEFAULT_LOCAL_FALLBACKS=("gemma3:4b","granite3.3:2b","smollm2:1.7b","llama3.2:1b","deepseek-r1:1.5b","qwen2.5:3b")
-    DEFAULT_CODING_MODEL="qwen2.5-coder:7b"
-    DEFAULT_CODING_FALLBACKS=("qwen3.5:4b","gemma3:4b","granite3.3:2b")
-    DISABLED_LOCAL_MODEL_PREFIXES=()
+    DEFAULT_LOCAL_MODEL="gemma3:4b"
+    DEFAULT_LOCAL_FALLBACKS=("granite3.3:2b","smollm2:1.7b","llama3.2:1b","deepseek-r1:1.5b")
+    DEFAULT_CODING_MODEL="gemma3:4b"
+    DEFAULT_CODING_FALLBACKS=("granite3.3:2b","deepseek-r1:1.5b")
+    DISABLED_LOCAL_MODEL_PREFIXES=("qwen",)
 
     PROVIDERS={
       "openai":{"key":"OPENAI_API_KEY","url":"https://api.openai.com/v1/chat/completions","model":"OPENAI_MODEL","default":"gpt-4o-mini"},
