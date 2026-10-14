@@ -8,11 +8,15 @@ an internal administrative method and must not be exposed as an API without
 authorization. Audit files must be protected against modification and rotation
 must be configured by the host. The task state machine is in-memory only.
 
-Run from repository root:
+Run from repository root using the standard library test runner used by CI:
 
 ```bash
-python -m pytest tests/test_kuif_policy.py tests/test_kuif_gateway.py tests/test_kuif_identity.py tests/test_kuif_audit.py tests/test_kuif_tasks.py tests/test_kuif_ollama.py tests/test_kuif_knowledge.py tests/test_kuif_health.py tests/test_kuif_runtime.py -q
+python -m unittest discover -s tests -p 'test_kuif_*.py' -v
 ```
+
+All KUIF tests must be compatible with `unittest` discovery without pytest or
+pytest fixtures. A cancelled CI run is not a pass; start a fresh run on the
+current feature branch and inspect both Linux and Windows jobs.
 
 Release gates:
 1. Inspect existing KRISHNA startup paths and dependencies before wiring imports.
