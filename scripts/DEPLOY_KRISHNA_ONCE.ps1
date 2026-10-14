@@ -8,6 +8,12 @@ param(
   [string]$SourceRoot = "E:\KRISHNA-SOURCE"
 )
 $ErrorActionPreference="Stop"
+$networkConstantsScript=Join-Path $PSScriptRoot "KRISHNA_NETWORK_CONSTANTS.ps1"
+if(!(Test-Path -LiteralPath $networkConstantsScript)){throw "KRISHNA network constants loader missing: $networkConstantsScript"}
+. $networkConstantsScript
+$networkConstants=Get-KrishnaNetworkConstants
+$CorePort=[int]$networkConstants.Core
+$DiscoveryPort=[int]$networkConstants.LanDiscovery
 $Source=[IO.Path]::GetFullPath($SourceRoot)
 $Runtime="E:\Krishna-The GOD"
 $Py="$Runtime\.venv\Scripts\python.exe"
@@ -78,7 +84,7 @@ function Get-KrishnaListenerOwnership([int]$ProcessId,[string]$RuntimeRoot,[int]
   # Windows can redact CommandLine/ExecutablePath. In that case accept only an
   # exact match between the live listener ancestry and KRISHNA's own recorded
   # guardian state. This cannot authorize an arbitrary PID: the recorded Core PID
-  # must be an ancestor of the actual 8766 Python listener, and the recorded
+  # must be an ancestor of the actual canonical Core listener, and the recorded
   # Guardian PID (when present) must also be in that same ancestry.
   if($RecordedCorePid -gt 0){
     $recordedCore=@($chain | Where-Object {
@@ -124,9 +130,9 @@ function Stop-ExistingKrishnaGuardian([string]$RuntimeRoot){
 
   # WMI may redact command lines on an otherwise valid KRISHNA process chain.
   # Recover ownership only when the recorded Core/Guardian PIDs appear in the
-  # ancestry of the actual 8766 Python listener.
+  # ancestry of the actual canonical Core listener.
   if(!$coreProc -and $oldCorePid -gt 0){
-    $live8766=Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    $live8766=Get-NetTCPConnection -LocalPort $CorePort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
     if($live8766){
       $ownership=Get-KrishnaListenerOwnership ([int]$live8766.OwningProcess) $RuntimeRoot $oldCorePid $oldGuardianPid
       if($ownership -and $ownership.proof -eq "recorded_pid_ancestry"){
@@ -152,7 +158,7 @@ function Stop-ExistingKrishnaGuardian([string]$RuntimeRoot){
   if($coreProc){
     Write-Host ("Stopping previous KRISHNA Core process tree rooted at PID {0} for verified generation handoff..." -f $oldCorePid) -ForegroundColor Yellow
     # START_KRISHNA.ps1 launches python.exe as a child. Killing only the PowerShell
-    # wrapper can orphan the server and leave port 8766 occupied. The wrapper PID
+    # wrapper can orphan the server and leave the canonical Core port occupied. The wrapper PID
     # has already been verified above as KRISHNA's START_KRISHNA.ps1, so terminate
     # that verified tree rather than touching unrelated processes.
     & taskkill.exe /PID $oldCorePid /T /F | Out-Null
@@ -444,7 +450,7 @@ if(!$SkipStart){
   if($PrivateRemote){
     $firewall=Join-Path $Runtime "scripts\CONFIGURE_KRISHNA_PRIVATE_REMOTE_FIREWALL.ps1"
     if(Test-Path $firewall){
-      & powershell -NoProfile -ExecutionPolicy Bypass -File $firewall -CorePort 8766 -DiscoveryPort 8767 -TailscaleCIDR "100.64.0.0/10" | Out-Host
+      & powershell -NoProfile -ExecutionPolicy Bypass -File $firewall -CorePort $CorePort -DiscoveryPort $DiscoveryPort -TailscaleCIDR "100.64.0.0/10" | Out-Host
       if($LASTEXITCODE -ne 0){Write-Warning "KRISHNA private-remote firewall helper returned exit code $LASTEXITCODE; Core application policy still rejects public clients."}
     }else{
       Write-Warning "KRISHNA private-remote firewall helper is missing; application-layer private remote policy remains active."
@@ -462,11 +468,11 @@ if(!$SkipStart){
   Stop-ExistingKrishnaGuardian $Runtime
   if(Test-Path $stopMarker){Remove-Item -Force $stopMarker -ErrorAction SilentlyContinue}
 
-  # The old verified Core tree must release 8766 before a new generation is launched.
+  # The old verified Core tree must release the canonical Core port before a new generation is launched.
   # If stale PID metadata missed an orphaned Core, reconstruct only verified
   # START_KRISHNA/Guardian ownership from the listener ancestry and reuse the
   # existing generation-handoff authority. Unknown listeners remain untouched.
-  $staleListener=Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+  $staleListener=Get-NetTCPConnection -LocalPort $CorePort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
   if($staleListener){
     $listenerPid=[int]$staleListener.OwningProcess
     $stateForRecovery=Join-Path $guardianStateDir "core-guardian.json"
@@ -494,7 +500,7 @@ if(!$SkipStart){
       }
       Write-Host ("Recovered verified KRISHNA Core ancestry for listener PID {0}; START_KRISHNA PID {1}; Guardian PID {2}." -f $listenerPid,$ownership.start_pid,$ownership.guardian_pid) -ForegroundColor Yellow
       Stop-ExistingKrishnaGuardian $Runtime
-      $staleListener=Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+      $staleListener=Get-NetTCPConnection -LocalPort $CorePort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
     }
     if($staleListener){
       $listenerPid=[int]$staleListener.OwningProcess
@@ -502,7 +508,7 @@ if(!$SkipStart){
       try{$listenerRow=Get-CimInstance Win32_Process -Filter ("ProcessId = "+$listenerPid) -ErrorAction Stop}catch{}
       $listenerCmd=if($listenerRow){[string]$listenerRow.CommandLine}else{""}
       $listenerExe=if($listenerRow){[string]$listenerRow.ExecutablePath}else{""}
-      throw ("Port 8766 remains occupied after KRISHNA generation handoff. Refusing to kill an unverified listener. PID={0}; executable={1}; command={2}" -f $listenerPid,$listenerExe,$listenerCmd)
+      throw ("Canonical Core port $CorePort remains occupied after KRISHNA generation handoff. Refusing to kill an unverified listener. PID={0}; executable={1}; command={2}" -f $listenerPid,$listenerExe,$listenerCmd)
     }
   }
 
@@ -522,7 +528,7 @@ if(!$SkipStart){
     -RedirectStandardOutput $guardianStdout `
     -RedirectStandardError $guardianStderr
 
-  $healthUrl="http://127.0.0.1:8766/health"
+  $healthUrl=("http://127.0.0.1:{0}/health" -f $CorePort)
   $online=$false
   for($i=0;$i -lt 45;$i++){
     Start-Sleep -Seconds 1
@@ -540,7 +546,7 @@ if(!$SkipStart){
     if(Test-Path $guardianStderr){$detail+=" guardian_stderr="+((Get-Content $guardianStderr -Tail 20 -ErrorAction SilentlyContinue)-join " | ")}
     if(Test-Path $guardianStdout){$detail+=" guardian_stdout="+((Get-Content $guardianStdout -Tail 20 -ErrorAction SilentlyContinue)-join " | ")}
     if(Test-Path $stderr){$detail+=" stderr="+((Get-Content $stderr -Tail 20 -ErrorAction SilentlyContinue)-join " | ")}
-    throw ("KRISHNA Guardian started but the newly launched runtime generation did not become healthy on 8766. generation="+$runtimeGeneration+"."+ $detail)
+    throw ("KRISHNA Guardian started but the newly launched runtime generation did not become healthy on $CorePort. generation="+$runtimeGeneration+"."+ $detail)
   }
   Write-Host ("KRISHNA GUARDIAN ONLINE PID {0} | generation {1} | Core health {2}" -f $guardianProc.Id,$runtimeGeneration,$healthUrl) -ForegroundColor Green
 }

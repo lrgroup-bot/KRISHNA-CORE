@@ -93,8 +93,9 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
         self.assertIn('KRISHNA_GUARDIAN.ps1',deploy)
         self.assertIn('Start-Process -FilePath "powershell.exe" -ArgumentList $guardianArgs',deploy)
-        self.assertIn('http://127.0.0.1:8766/health',deploy)
-        self.assertIn('newly launched runtime generation did not become healthy on 8766',deploy)
+        self.assertIn('$healthUrl=("http://127.0.0.1:{0}/health" -f $CorePort)',deploy)
+        self.assertIn('newly launched runtime generation did not become healthy on $CorePort',deploy)
+        self.assertIn('$CorePort=[int]$networkConstants.Core',deploy)
         self.assertNotIn('& "$Runtime\\scripts\\START_KRISHNA.ps1"',deploy)
 
     def test_guardian_records_guardian_and_core_pid_plus_runtime_logs(self):
@@ -130,7 +131,7 @@ class DeploymentRuntimeContractTests(unittest.TestCase):
         root=repository_root()
         deploy=(root/"scripts"/"DEPLOY_KRISHNA_ONCE.ps1").read_text(encoding="utf-8")
         self.assertIn("taskkill.exe /PID $oldCorePid /T /F",deploy)
-        self.assertIn("Port 8766 remains occupied after KRISHNA generation handoff",deploy)
+        self.assertIn("Canonical Core port $CorePort remains occupied after KRISHNA generation handoff",deploy)
         self.assertIn("Refusing to kill an unverified listener",deploy)
 
     def test_generation_handoff_can_verify_orphaned_listener_from_process_ancestry(self):
