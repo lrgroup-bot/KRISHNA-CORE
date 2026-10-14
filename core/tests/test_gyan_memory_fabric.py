@@ -14,10 +14,10 @@ class GyanMemoryFabricTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             mem=MemoryStore(Path(td)/"memory.db")
             g=GyanBhandarAgent(mem,NoopGaruda())
-            first=g.store("KRISHNA","router","Use local-first routing",[],0.7,"test",True,"semantic",{"doc":"a"})
+            first=g.store("KRISHNA","router","Use local-first routing",[{"source_family":"unit-a","reality_level":"reported"},{"source_family":"unit-b","reality_level":"reported"}],0.7,"test",True,"semantic",{"doc":"a"})
             inv=g.inventory("KRISHNA")
             self.assertEqual(inv["kinds"]["semantic"]["verified"],1)
-            proposal=g.supersede("KRISHNA",first["fingerprint"],"router","Use privacy-aware local-first routing",[],0.9,"test",True,"semantic",{"doc":"b"})
+            proposal=g.supersede("KRISHNA",first["fingerprint"],"router","Use privacy-aware local-first routing",[{"source_family":"unit-a","reality_level":"reported"},{"source_family":"unit-b","reality_level":"reported"}],0.9,"test",True,"semantic",{"doc":"b"})
             self.assertTrue(proposal["requires_user_approval"])
             decided=g.decide(proposal["approval_id"],True)
             self.assertTrue(decided["stored"])

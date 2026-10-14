@@ -19,7 +19,7 @@ class PerceptionCapability:
 
 
 class FieldPerceptionPolicy:
-    """Privacy-bounded capability contract for live BHOOMIPUTRA perception."""
+    """Privacy-bounded capability contract for HAWKEYE field perception; legacy BHOOMIPUTRA adapters are compatibility-only."""
 
     CAPABILITIES=(
         PerceptionCapability(
@@ -211,7 +211,8 @@ class FieldPerceptionPolicy:
     @classmethod
     def status(cls):
         return {
-            "owner":"KRISHNA HAWKEYE/BHOOMIPUTRA",
+            "owner":"HAWKEYE field perception",
+            "legacy_bhoomiputra_role":"compatibility adapter only; not a second field agent",
             "policy":"local-first privacy-bounded perception",
             "capabilities":cls.catalog(),
             "face_recognition":{

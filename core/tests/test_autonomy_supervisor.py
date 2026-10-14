@@ -63,7 +63,7 @@ class AutonomySupervisorTests(unittest.TestCase):
             self.assertEqual(row["detail"]["autonomy"]["run_count"],1)
             o.commitments.close()
 
-    def test_vanijya_plan_is_safe_read_only_unattended_operation(self):
+    def test_vanijya_plan_is_not_a_krishna_autonomy_operation(self):
         with tempfile.TemporaryDirectory() as td:
             o=FakeOrchestrator(Path(td)/"x.db")
             o.commitments.add(
@@ -73,12 +73,8 @@ class AutonomySupervisorTests(unittest.TestCase):
             )
             a=AutonomySupervisor(o,poll_seconds=60)
             out=a.run_once(now=1000)
-            self.assertEqual(out["executed"],1)
-            self.assertEqual(o.calls,[("vanijya_plan",False)])
-            summary=out["results"][0]["summary"]
-            self.assertFalse(summary["external_send_performed"])
-            self.assertFalse(summary["spend_performed"])
-            self.assertEqual(summary["queued_actions"],1)
+            self.assertEqual(out["executed"],0)
+            self.assertEqual(o.calls,[])
             o.commitments.close()
 
     def test_unsafe_operation_is_never_eligible(self):

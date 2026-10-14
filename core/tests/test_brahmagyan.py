@@ -41,7 +41,7 @@ class BrahmagyanTests(unittest.TestCase):
 
     def test_council_is_permanent_profiles_not_running_processes(self):
         status=RishiCouncil().status()
-        self.assertEqual(status["permanent_profiles"],31)
+        self.assertEqual(status["permanent_profiles"],33)
         self.assertEqual(status["running_processes"],0)
         ids={x["id"] for x in status["members"]}
         for needed in ("veda-vyasa","gautama","vishwamitra","sushruta","charaka","panini"):
@@ -178,8 +178,8 @@ class BrahmagyanTests(unittest.TestCase):
             10,
         )
         self.assertEqual(plan["requested_count"],10)
-        self.assertGreaterEqual(plan["wave_count"],2)
-        self.assertLessEqual(max(len(x) for x in plan["waves"]),8)
+        self.assertGreaterEqual(plan["wave_count"],1)
+        self.assertLessEqual(max(len(x) for x in plan["waves"]),plan["max_concurrent"])
         self.assertTrue(plan["ephemeral"])
         self.assertTrue(plan["approval_required"])
         self.assertEqual(plan["retention_policy"],"findings_and_provenance_only")

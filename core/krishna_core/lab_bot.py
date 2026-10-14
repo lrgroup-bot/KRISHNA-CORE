@@ -40,7 +40,7 @@ class LabAdapter:
 
 
 class LabBot:
-    VERSION = "krishna-lab-bot-v1"
+    VERSION = "krishna-lab-bot-v2"
 
     PHYSICAL_MODES = frozenset({"measurement", "fabrication", "wet_lab"})
     REVIEWED_DOMAINS = frozenset({
@@ -134,6 +134,25 @@ class LabBot:
             "hypothesis": hypothesis[:4000],
             "objective": objective[:4000],
             "requested_artifact": str(payload.get("requested_artifact") or "").strip()[:2000],
+            "proposal": {
+                "research_question": str(payload.get("research_question") or objective).strip()[:4000],
+                "novelty": str(payload.get("novelty") or "").strip()[:4000],
+                "prior_work": self._clean_list(payload.get("prior_work"), 128),
+                "expected_benefit": str(payload.get("expected_benefit") or "").strip()[:4000],
+                "collaborating_rishis": self._clean_list(payload.get("collaborating_rishis"), 32),
+                "tools_data": self._clean_list(payload.get("tools_data"), 128),
+                "simulation_method": str(payload.get("simulation_method") or "").strip()[:4000],
+                "failure_criteria": self._clean_list(payload.get("failure_criteria")),
+                "cost_notes": str(payload.get("cost_notes") or "").strip()[:2000],
+                "risk_notes": self._clean_list(payload.get("risk_notes")),
+                "reproducibility_plan": str(payload.get("reproducibility_plan") or "").strip()[:4000],
+                "contradictory_evidence": self._clean_list(payload.get("contradictory_evidence"), 128),
+                "ip_patent_refs": self._clean_list(payload.get("ip_patent_refs"), 128),
+                "possible_applications": self._clean_list(payload.get("possible_applications"), 128),
+                "what_else_can_this_become": self._clean_list(payload.get("what_else_can_this_become"), 128),
+                "technology_maturity": str(payload.get("technology_maturity") or "unknown").strip()[:200],
+            },
+
             "independent_variable": str(payload.get("independent_variable") or "").strip()[:1000],
             "dependent_variables": self._clean_list(payload.get("dependent_variables")),
             "controls": self._clean_list(payload.get("controls")),

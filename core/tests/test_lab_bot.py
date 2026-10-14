@@ -110,7 +110,7 @@ class LabBotTests(unittest.TestCase):
     def test_status_declares_adapter_and_verification_boundaries(self):
         with tempfile.TemporaryDirectory() as td:
             status=LabBot(Path(td)).status()
-            self.assertEqual(status["version"],"krishna-lab-bot-v1")
+            self.assertEqual(status["version"],"krishna-lab-bot-v2")
             self.assertTrue(status["policy"]["rishi_can_request"])
             self.assertTrue(status["policy"]["physical_execution_requires_approval"])
             self.assertFalse(status["policy"]["raw_shell_or_unregistered_hardware_commands"])
