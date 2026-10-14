@@ -467,6 +467,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
           script: |
             PYTHONPATH=core python scripts/VERIFY_KRISHNA_APK.py dist/KRISHNA-Mobile.apk com.krishna.mobile
             adb logcat -c
@@ -480,6 +481,7 @@ jobs:
             grep -q '"mic":true' krishna-ui-ready.log
             adb exec-out screencap -p > krishna-mobile-home.png
             python -c "from pathlib import Path; import struct; d=Path('krishna-mobile-home.png').read_bytes(); assert len(d)>=1024 and d[:8]==b'\\x89PNG\\r\\n\\x1a\\n' and d[12:16]==b'IHDR', 'invalid mobile PNG'; w,h=struct.unpack('>II',d[16:24]); assert w>=320 and h>=480, f'mobile proof too small: {w}x{h}'; print(f'KRISHNA_MOBILE_SCREENSHOT_OK {w}x{h} bytes={len(d)}')"
+            python scripts/VERIFY_MOBILE_SCREENSHOT.py krishna-mobile-home.png
 
       - name: Upload KRISHNA mobile visual proof
         uses: actions/upload-artifact@v7
