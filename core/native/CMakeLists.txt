@@ -1,0 +1,8 @@
+# KRISHNA native live projection smoke test (no external dependencies)
+cmake_minimum_required(VERSION 3.16)
+project(krishna_native_live LANGUAGES CXX)
+add_executable(krishna_live_projection_test tests/live_projection_test.cpp)
+target_compile_features(krishna_live_projection_test PRIVATE cxx_std_20)
+target_include_directories(krishna_live_projection_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+enable_testing()
+add_test(NAME krishna_live_projection COMMAND krishna_live_projection_test)

@@ -5026,7 +5026,7 @@ Project: {payload.get('project')}
         except Exception:pass
         for obj in (
             self.action_bus,self.resource_locks,self.queue,self.mission_budgets,self.missions,self.lifecycle_bus,
-            self.commitments,self.task_ledger,self.memory,
+            self.commitments,self.task_ledger,self.agi.external_learning_ledger,self.memory,
         ):
             try:obj.close()
             except Exception:pass
