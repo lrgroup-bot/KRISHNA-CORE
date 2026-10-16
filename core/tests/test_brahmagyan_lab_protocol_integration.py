@@ -33,3 +33,11 @@ def test_existing_lab_bot_receives_proposal_only(tmp_path):
     assert brain.mission(mission["mission_id"])["maturity"] == "L0"
     assert brain.state["claims"] == {}
     ledger.close()
+
+    feedback=bridge.inspect_lab_feedback(mission["mission_id"],lab)
+    assert feedback["read_only"] is True
+    assert feedback["claims_created"] == 0
+    assert feedback["promotion_requested"] is False
+    assert len(feedback["experiments"]) == 1
+    assert feedback["experiments"][0]["experiment_id"] == experiment_id
+    assert feedback["experiments"][0]["evidence_count"] == 0
