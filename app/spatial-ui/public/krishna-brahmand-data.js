@@ -25,7 +25,7 @@ window.KRISHNA_BRAHMAND_DATA = {
     chandradev:{label:'CHANDRA DEV',icon:'◐',role:'Camera observation · vision input',aliases:['chandradev','chandra dev','chandra']},
     kabach:{label:'KABACH',icon:'⬡',role:'Security · privacy · project boundary',endpoint:'/api/kabach/privacy/status',aliases:['kabach']},
     mrityunjaya:{label:'MRITYUNJAYA',icon:'♜',role:'Diagnosis · recovery · self-heal',endpoint:'/api/mrityunjay/status',aliases:['mrityunjaya','mrityunjay']},
-    vishwakarma:{label:'VISHWAKARMA',icon:'⚒',role:'Engineering · repair · design verification',endpoint:'/api/design/status',aliases:['vishwakarma']},
+    vishwakarma:{label:'VISHWAKARMA',icon:'⚒',role:'Engineering · repair · design verification',endpoint:'/api/design/status',aliases:['vishwakarma','vishvakarma']},
     'ui-guardian':{label:'UI GUARDIAN',icon:'◇',role:'Rendered UI verification',endpoint:'/api/ui-guardian/registry?project=KRISHNA',aliases:['ui guardian','ui-guardian']},
     narad:{label:'NARAD',icon:'♫',role:'Messaging · workflows · automation',aliases:['narad']},
     'project-perfection':{label:'PROJECT PERFECTION',icon:'◎',role:'Quality gates · project perfection',endpoint:'/api/project-perfection/status',aliases:['project perfection','project-perfection']},
@@ -65,3 +65,11 @@ window.KRISHNA_BRAHMAND_DATA = {
     ['LR Resources',['resources','waste','e-waste','ewaste']],['LR Technology',['technology','software','ai','it']],['LR Production',['production','film','animation','media']],['LR Construction',['construction','renovation']],['LR Homes',['homes','residential']],['LR Foods',['foods','beverage']],['LR Agro',['agro','agriculture','farm']],['LR Commerce',['commerce','retail','wholesale','e-commerce','ecommerce']]
   ]
 };
+
+// Process QC uses backend component IDs rather than the display hierarchy IDs.
+Object.entries({
+  'rishi-council':['rishi'], 'gyan-bhandar':['gyan'], 'ui-guardian':['ui_guardian'],
+  'project-perfection':['perfection'], vishwakarma:['vishvakarma','vishwakarma']
+}).forEach(([id, aliases]) => {
+  window.KRISHNA_BRAHMAND_DATA.nodes[id].telemetryAliases = aliases;
+});

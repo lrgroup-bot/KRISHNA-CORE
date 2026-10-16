@@ -62,7 +62,8 @@
     const badge = ensurePipelineTruthBadge();
     if (badge) {
       badge.className = `kb-live-badge ${coreOnline ? 'good' : 'bad'}`;
-      badge.textContent = coreOnline ? `PIPELINE LIVE · ${taskRows.length} TASK${taskRows.length === 1 ? '' : 'S'}` : 'PIPELINE BACKEND OFFLINE';
+      const working=taskRows.filter((row)=>['running','working','executing','verifying'].includes(String(row.status||'').toLowerCase())).length;
+      badge.textContent = coreOnline ? `CORE CONNECTED · ${working} ACTIVE` : 'CORE OFFLINE';
       badge.title = coreOnline
         ? 'Live pipeline truth: /health + /api/status + /api/tasks. Dedicated nodes also use their own endpoint probes.'
         : 'Pipeline animation is paused because KRISHNA Core truth is unavailable.';
@@ -104,7 +105,7 @@
     // Every rendered connection is backend-derived by the canonical graph renderer:
     // active = live mapped task, green = verified/connected endpoint, yellow/red =
     // unverified/blocked. Only active/connected truth gets moving water droplets.
-    const paths = qsa('path.kb-edge.active,path.kb-edge.green', svg);
+    const paths = qsa('path.kb-edge.active', svg);
     const signature = paths.map((path) => `${path.getAttribute('d') || ''}:${path.classList.contains('green') ? 'g' : 'a'}`).join('|');
     if (svg.dataset.kbFlowSignature === signature && qsa('.kb-flow-drop', svg).length === paths.length * 3) return;
 

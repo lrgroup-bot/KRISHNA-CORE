@@ -221,19 +221,21 @@
     if (!main || $('kcLiveFeed')) return;
     const feed = document.createElement('aside');
     feed.id = 'kcLiveFeed';
-    feed.className = 'kc-live-feed';
+    feed.className = 'kc-live-feed collapsed';
+    feed.setAttribute('aria-label', 'Intelligence notifications');
     feed.innerHTML = `
       <div class="kc-live-feed-head">
-        <div><span class="kc-feed-eye">◉</span><span>LIVE INTELLIGENCE FEED</span></div>
-        <button id="kcLiveFeedToggle" type="button" aria-label="Collapse live feed">−</button>
+        <button id="kcLiveFeedToggle" type="button" aria-label="Open intelligence notifications" aria-expanded="false"><span class="kc-feed-eye">✦</span><span>Intelligence</span><span id="kcNotificationCount">0</span><span class="kc-notification-chevron">⌄</span></button>
       </div>
       <div class="kc-live-current"><span>CURRENT ACTIVITY</span><strong id="kcLiveCurrent">WAITING FOR CORE</strong></div>
-      <div id="kcLiveRows" class="kc-live-rows"><div class="kc-feed-empty">Connecting to KRISHNA telemetry…</div></div>
+      <div id="kcLiveRows" class="kc-live-rows" role="log" aria-live="polite" aria-relevant="additions"><div class="kc-feed-empty">Connecting to KRISHNA telemetry…</div></div>
       <div class="kc-live-foot"><span id="kcLiveState" class="offline">OFFLINE</span><span id="kcLiveUpdated">--:--:--</span></div>`;
     main.appendChild(feed);
     $('kcLiveFeedToggle')?.addEventListener('click', () => {
       feed.classList.toggle('collapsed');
-      $('kcLiveFeedToggle').textContent = feed.classList.contains('collapsed') ? '+' : '−';
+      const expanded = !feed.classList.contains('collapsed');
+      $('kcLiveFeedToggle').setAttribute('aria-expanded', String(expanded));
+      $('kcLiveFeedToggle').setAttribute('aria-label', expanded ? 'Close intelligence notifications' : 'Open intelligence notifications');
     });
   }
 
@@ -249,6 +251,7 @@
     const updated = $('kcLiveUpdated');
     const recent = Array.isArray(payload?.recent) ? payload.recent.slice(0, 18) : [];
     if (current) current.textContent = payload?.current_activity || 'Idle';
+    if ($('kcNotificationCount')) $('kcNotificationCount').textContent = String(recent.length);
     if (rows) {
       rows.replaceChildren();
       if (!recent.length) {
@@ -321,7 +324,7 @@
     const feed = $('kcLiveFeed');
     if (!feed) return;
     const view = String(document.body.dataset.view || 'home');
-    feed.hidden = view === 'sudarshan' || view === 'plugins' || view === 'projects';
+    feed.hidden = false;
   }
 
   const messageRoot = $('messages') || document.body;

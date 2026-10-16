@@ -82,6 +82,7 @@ export default function LegacyKrishnaPreview() {
       ensureStyle('krishna-live-feed-richtext-style', '/spatial/krishna-live-feed-richtext.css');
       // Final functional geometry guard must load after all visual layers.
       ensureStyle('krishna-layout-guard-style', '/spatial/krishna-layout-guard.css');
+      ensureStyle('krishna-ai-center-style', '/spatial/krishna-ai-center.css');
 
       [
         'krishna-brahmand-data-script',
@@ -138,24 +139,7 @@ export default function LegacyKrishnaPreview() {
       };
 
       const loadBrahmandMainLowLoad = async () => {
-        const originalMatchMedia = win.matchMedia.bind(win);
-        const lowLoadMatchMedia: typeof win.matchMedia = (query: string) => {
-          const result = originalMatchMedia(query);
-          if (query !== '(prefers-reduced-motion: reduce)') return result;
-          return new Proxy(result, {
-            get(target, property) {
-              if (property === 'matches') return true;
-              const value = Reflect.get(target, property, target);
-              return typeof value === 'function' ? value.bind(target) : value;
-            },
-          });
-        };
-        win.matchMedia = lowLoadMatchMedia;
-        try {
-          await loadScript('krishna-brahmand-main-script', '/spatial/krishna-brahmand-main.js');
-        } finally {
-          win.matchMedia = originalMatchMedia;
-        }
+        await loadScript('krishna-brahmand-main-script', '/spatial/krishna-brahmand-main.js');
       };
 
       const waitForOwnerDom = () => new Promise<void>((resolve, reject) => {
@@ -200,6 +184,7 @@ export default function LegacyKrishnaPreview() {
           await loadOptional('krishna-command-core-script', '/spatial/krishna-command-core.js');
           await loadOptional('krishna-live-feed-richtext-script', '/spatial/krishna-live-feed-richtext.js');
           await loadOptional('krishna-brahmand-preflight-script', '/spatial/krishna-brahmand-preflight.js');
+          await loadOptional('krishna-om-particles-script', '/spatial/krishna-om-particles.js');
 
           const preflight = win.KRISHNA_BRAHMAND_PREFLIGHT;
           if (preflight?.ok === false) {
@@ -223,7 +208,7 @@ export default function LegacyKrishnaPreview() {
 
   return (
     <div className="legacy-preview-shell">
-      <iframe ref={frameRef} className="legacy-preview-frame" src="/legacy-dashboard-preview" title="KRISHNA Brahmand frontend preview" onLoad={inject} />
+      <iframe ref={frameRef} className="legacy-preview-frame" src={import.meta.env.DEV ? '/legacy-dashboard-preview' : '/spatial/legacy-dashboard.html'} title="KRISHNA Brahmand frontend" onLoad={inject} />
       {state === 'loading' ? <div className="legacy-preview-status">Loading KRISHNA frontend…</div> : null}
       {state === 'error' ? <div className="legacy-preview-status legacy-preview-error">{error}</div> : null}
     </div>

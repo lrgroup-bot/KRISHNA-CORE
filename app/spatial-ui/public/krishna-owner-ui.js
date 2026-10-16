@@ -143,6 +143,7 @@
        <section class="kb-lr-card wide"><div class="eyebrow">LIVE READ STATUS</div><pre>${esc(JSON.stringify(live,null,2))}</pre></section>
       </div>`;
   }
+  window.__KRISHNA_LR_REFRESH__ = refreshLR;
 
   function browserMarkup(){
     return `<aside id="kbBrowserDrawer" class="kb-browser-drawer" aria-label="Garudanetra browser">

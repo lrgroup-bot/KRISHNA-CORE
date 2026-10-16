@@ -30,6 +30,8 @@
   }
 
   function injectHud() {
+    $('krishnaCommandHud')?.remove();
+    return;
     const main = qs('.main');
     if (!main || $('krishnaCommandHud')) return;
     const hud = document.createElement('div');
@@ -82,9 +84,9 @@
     badge.id = id;
     badge.className = 'kc-side-count';
     badge.textContent = '0';
-    const label = head.querySelector('span:first-child') || head.querySelector('.appleSectionLabel');
-    if (label) label.appendChild(badge);
-    else head.prepend(badge);
+    const label = head.querySelector('.appleSectionLabel');
+    if (label && badge.parentElement !== label) label.appendChild(badge);
+    else if (!label && badge.parentElement !== head) head.appendChild(badge);
     return badge;
   }
 

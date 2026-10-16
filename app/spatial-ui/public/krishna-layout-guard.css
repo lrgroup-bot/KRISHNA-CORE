@@ -280,3 +280,9 @@ html[data-krishna-brahmand-preview="1"] .kc-hud-block{
     animation:none!important;
   }
 }
+/* Paused low-load entrance animations must not leave active views invisible. */
+html[data-krishna-brahmand-preview="1"] .view.active,
+html[data-krishna-brahmand-preview="1"] .kb-view.active{
+  opacity:1!important;
+  transform:none!important;
+}

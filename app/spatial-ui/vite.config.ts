@@ -44,6 +44,13 @@ const legacyDashboardPath = fileURLToPath(new URL('../../core/web_validation.htm
 function legacyDashboardPreview(): Plugin {
   return {
     name: 'krishna-legacy-dashboard-preview',
+    async generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'legacy-dashboard.html',
+        source: await readFile(legacyDashboardPath, 'utf8'),
+      });
+    },
     configureServer(server) {
       server.middlewares.use('/legacy-dashboard-preview', async (_req, res) => {
         try {
