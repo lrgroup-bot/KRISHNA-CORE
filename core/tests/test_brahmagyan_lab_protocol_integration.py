@@ -1,13 +1,17 @@
 """BRAHMAGYAN must reuse LAB BOT and never mark proposed experiments executed."""
 import pytest
 from krishna_core.brahmagyan import BrahmagyanRuntime
+
+class AuditMemory:
+    def audit(self, *args, **kwargs):
+        return None
 from krishna_core.brahmagyan_learning_bridge import BrahmagyanLearningBridge
 from krishna_core.external_learning_ledger import ExternalLearningLedger
 from krishna_core.lab_bot import LabBot
 
 
 def test_existing_lab_bot_receives_proposal_only(tmp_path):
-    brain=BrahmagyanRuntime(tmp_path/"brain", gyan=None, memory=None)
+    brain=BrahmagyanRuntime(tmp_path/"brain", gyan=None, memory=AuditMemory())
     ledger=ExternalLearningLedger(tmp_path/"lessons.sqlite3")
     bridge=BrahmagyanLearningBridge(brain, ledger)
     lab=LabBot(tmp_path/"lab")
