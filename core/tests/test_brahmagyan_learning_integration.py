@@ -31,6 +31,6 @@ def test_real_brahmagyan_bridge_preserves_maturity_and_persists(tmp_path):
     assert len(brain.mission(mission_id)["research_questions"]) >= 3
     restarted = BrahmagyanRuntime(root, gyan=None, memory=None)
     assert restarted.mission(mission_id)["maturity"] == "L0"
-    assert restarted.mission(mission_id)["shishya_batches"]
+    assert restarted.mission(mission_id)["shishya_batches"] == []  # planned, not executed
     assert restarted.state["claims"] == {}
     ledger.close()
