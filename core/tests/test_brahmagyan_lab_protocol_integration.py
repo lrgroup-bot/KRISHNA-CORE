@@ -1,5 +1,17 @@
 """BRAHMAGYAN must reuse LAB BOT and never mark proposed experiments executed."""
-import pytest
+import unittest
+
+class _Raises:
+    def __init__(self, exception): self.exception=exception
+    def __enter__(self): return self
+    def __exit__(self, kind, value, traceback):
+        if kind is None: raise AssertionError('Expected exception')
+        return issubclass(kind,self.exception)
+
+class _Compat:
+    raises=staticmethod(_Raises)
+
+pytest=_Compat()
 from krishna_core.brahmagyan import BrahmagyanRuntime
 
 class AuditMemory:
