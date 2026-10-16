@@ -95,3 +95,35 @@ class BrahmagyanLearningBridge:
             "minimum_independent_runs":3,
             "limitations":["Protocol proposal only; no execution, replication, or knowledge promotion"],
         })
+
+    def inspect_lab_feedback(self, mission_id, lab):
+        """Read LAB BOT evidence without treating observations as verified claims.
+
+        A completed experiment is not automatically reproducible or promotable.
+        """
+        self.brahmagyan.mission(mission_id)
+        ref = f"brahmagyan:mission:{mission_id}"
+        matches = []
+        for item in lab.list(limit=500):
+            record = lab.get(item["experiment_id"])
+            if ref not in (record.get("source_refs") or []):
+                continue
+            evidence = record.get("evidence") or []
+            matches.append({
+                "experiment_id":record["experiment_id"],
+                "status":record.get("status"),
+                "evidence_count":len(evidence),
+                "evidence_summaries":[str(x.get("summary") or "")[:300] for x in evidence],
+                "replication_required":bool((record.get("replication") or {}).get("independent_replication_required",True)),
+                "owner_approved":bool((record.get("review") or {}).get("owner_approved",False)),
+                "knowledge_maturity":"unchanged",
+            })
+        return {
+            "mission_id":mission_id,
+            "experiments":matches,
+            "authority":"BRAHMAGYAN",
+            "read_only":True,
+            "claims_created":0,
+            "promotion_requested":False,
+            "policy":"Evidence is observational and requires independent evaluation before a claim can mature",
+        }
