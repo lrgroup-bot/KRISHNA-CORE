@@ -784,6 +784,7 @@ class RishiLearningLedger:
             verified=[f for f in findings if f.get("maturity") in
                       {"L4","L5","L6","L7","L8"} and
                       f.get("evidence_status") in {"verified","strongly_supported"} and
+                      int(f.get("source_count") or 0)>=2 and
                       not f.get("unresolved")]
             unverified=[f for f in findings if f not in verified]
             source_gaps=sum(1 for f in findings if int(f.get("source_count") or 0)<2)
