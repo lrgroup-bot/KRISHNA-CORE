@@ -765,6 +765,50 @@ class RishiLearningLedger:
         row["findings"]=(row.get("findings") or [])[-max(1,min(int(limit),200)):]
         return row
 
+    def learning_quality_audit(self, rishi_id=None):
+        """Read-only evidence-quality audit over existing council memory.
+
+        Distinguishes captured findings from verified learning; never promotes
+        knowledge or alters the Rishi registry. Useful for self-diagnosis.
+        """
+        with self.lock:
+            snapshot=json.loads(json.dumps(self.state["rishis"]))
+        selected=[str(rishi_id).strip().lower()] if rishi_id is not None else [
+            item["id"] for item in self.council.list()
+        ]
+        results=[]
+        for rid in selected:
+            self.council.get(rid)
+            row=snapshot[rid]
+            findings=list(row.get("findings") or [])
+            verified=[f for f in findings if f.get("maturity") in
+                      {"L4","L5","L6","L7","L8"} and
+                      f.get("evidence_status") in {"verified","strongly_supported"} and
+                      not f.get("unresolved")]
+            unverified=[f for f in findings if f not in verified]
+            source_gaps=sum(1 for f in findings if int(f.get("source_count") or 0)<2)
+            contradictions=sum(1 for f in findings if f.get("unresolved") or
+                               f.get("evidence_status") in {"contested","contradicted"})
+            results.append({
+                "rishi_id":rid,
+                "total_findings":len(findings),
+                "verified_findings":len(verified),
+                "provisional_findings":len(unverified),
+                "insufficient_source_findings":source_gaps,
+                "unresolved_or_contested_findings":contradictions,
+                "verified_fraction":round(len(verified)/len(findings),4) if findings else None,
+                "diagnosis":("NO_FINDINGS" if not findings else
+                             "REVIEW_REQUIRED" if contradictions or source_gaps or unverified
+                             else "EVIDENCE_GATES_SATISFIED"),
+            })
+        return {
+            "authority":"BRAHMAGYAN",
+            "read_only":True,
+            "rishi_count":len(results),
+            "results":results,
+            "policy":"Audit uses recorded evidence metadata only; not independent verification or proof of model learning",
+        }
+
     def next_learning_assignment(self):
         """Balance autonomous learning across the permanent council first."""
         with self.lock:
