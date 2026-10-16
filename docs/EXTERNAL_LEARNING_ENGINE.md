@@ -1,6 +1,6 @@
-# External Learning Engine — zero-spend integration contract
+# BRAHMAGYAN external-source quarantine adapter — zero-spend integration contract
 
-## Existing implementation
+This is **not a separate learning brain or agent**. BRAHMAGYAN remains the sole research/knowledge maturation authority, with Gautama review, Veda Vyasa compilation and owner-gated GYAN-BHANDAR promotion. The ledger is a source-provenance quarantine utility; its `approved` flag only means eligible for BRAHMAGYAN review, **never** automatic trusted GYAN promotion.\n\n## Existing implementation
 
 `krishna_core.external_learning_ledger.ExternalLearningLedger` provides SQLite-backed
 source attribution, idempotent capture, quarantine, explicit review gates and
@@ -9,7 +9,7 @@ verify licenses automatically, train models, or authorize the reviewer.
 The host must authenticate the reviewer and enforce owner approval **before**
 calling `review`. Never expose `review` directly as a public HTTP endpoint.
 
-## Proposed connections
+## Proposed connections (within existing BRAHMAGYAN)
 
 1. **GARUDA/SURYADEV (collection)**: ingest public/authorized URLs, release notes,
    issues, engineering examples, and research papers; preserve exact source revision.
