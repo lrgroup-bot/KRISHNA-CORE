@@ -66,3 +66,32 @@ class BrahmagyanLearningBridge:
             "experiment_execution": "not_started",
             "gyan_promotion": "not_requested",
         }
+
+    def propose_lab_protocol(self, mission_id, lab, *, hypothesis, objective,
+                             controls, measurements, success_criteria):
+        """Create an existing LAB BOT simulation protocol; do not execute it.
+
+        SUDARSHAN must authorize callers at the action boundary. Research
+        provenance stays attached to the BRAHMAGYAN mission identifier.
+        """
+        mission = self.brahmagyan.mission(mission_id)
+        if not all((isinstance(x, (list, tuple)) and len(x)>0)
+                   for x in (controls, measurements, success_criteria)):
+            raise ValueError("controls, measurements and success criteria are required")
+        lead = mission["lead_rishi"]
+        self.brahmagyan.council.get(lead)
+        return lab.request({
+            "rishi":lead,
+            "hypothesis":str(hypothesis).strip(),
+            "objective":str(objective).strip(),
+            "mode":"simulation",
+            "domain":"engineering" if mission["knowledge_track"]=="engineering" else "general",
+            "independent_variable":"proposed experimental condition",
+            "dependent_variables":list(measurements),
+            "controls":list(controls),
+            "measurements":list(measurements),
+            "success_criteria":list(success_criteria),
+            "source_refs":[f"brahmagyan:mission:{mission_id}"],
+            "minimum_independent_runs":3,
+            "limitations":["Protocol proposal only; no execution, replication, or knowledge promotion"],
+        })
