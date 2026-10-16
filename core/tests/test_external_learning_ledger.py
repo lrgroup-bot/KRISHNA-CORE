@@ -1,4 +1,17 @@
-import pytest
+import unittest
+from contextlib import contextmanager
+
+class _Raises:
+    def __init__(self, exception): self.exception=exception
+    def __enter__(self): return self
+    def __exit__(self, kind, value, traceback):
+        if kind is None: raise AssertionError(f'Expected {self.exception.__name__}')
+        return issubclass(kind,self.exception)
+
+class _PytestCompat:
+    raises=staticmethod(_Raises)
+
+pytest=_PytestCompat()
 from krishna_core.external_learning_ledger import ExternalLearningLedger
 
 
