@@ -1,4 +1,13 @@
-import pytest
+import unittest
+from contextlib import contextmanager
+
+@contextmanager
+def raises(expected):
+    try:
+        yield
+    except expected:
+        return
+    raise AssertionError(f'Expected {expected.__name__}')
 
 from krishna_core.agent_live_projection import AgentLiveProjection, project_agent_event
 
@@ -28,22 +37,27 @@ def test_stale_event_is_not_presented_as_live():
 def test_sequence_guard_rejects_replay_and_out_of_order_events():
     projection = AgentLiveProjection()
     projection.ingest(event(), now=100)
-    with pytest.raises(ValueError):
+    with raises(ValueError):
         projection.ingest(event(), now=101)
-    with pytest.raises(ValueError):
+    with raises(ValueError):
         projection.ingest(event(sequence=0), now=101)
     assert projection.ingest(event(sequence=2, state="blocked"), now=101)["state"] == "blocked"
     assert projection.snapshot(now=140)[0]["display_status"] == "STALE"
 
 
-@pytest.mark.parametrize("bad", [
+BAD_EVENTS = [
     {"state": "success"}, {"agent_id": ""}, {"sequence": -1},
     {"sequence": True}, {"progress": 1.2}, {"timestamp": float("nan")},
     {"timestamp": 110.0}, {"verified_completion": "yes"},
-])
-def test_bad_events_rejected_or_do_not_fabricate_success(bad):
+]
+def test_bad_events_rejected_or_do_not_fabricate_success():
+    for bad in BAD_EVENTS:
+        _check_bad_event(bad)
+
+
+def _check_bad_event(bad):
     if "verified_completion" in bad:
         assert project_agent_event(event(**bad), now=100)["verified_completion"] is False
     else:
-        with pytest.raises(ValueError):
+        with raises(ValueError):
             project_agent_event(event(**bad), now=100)
