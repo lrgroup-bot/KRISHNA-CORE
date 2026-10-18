@@ -16,6 +16,7 @@ from krishna_core.shared_action_bus import SharedActionBus
 from krishna_core.sudarshan_project_orchestrator import SudarshanProjectOrchestrator
 from krishna_core.sudarshan_canonical_integration import SudarshanCanonicalIntegration
 from krishna_core.sudarshan_owner_consent import OwnerConsent
+from krishna_core.project_registry import ProjectRegistry, ProjectPolicy
 
 EVIDENCE = "sha256:" + "a" * 64
 
@@ -64,6 +65,10 @@ class CanonicalBridgeTests(unittest.TestCase):
         self.context = {key: "test" for key in REQUIRED_CONTEXT}
         self.context["repository"] = self.repo
         self.consent = OwnerConsent("ab" * 32, Path(self.folder.name) / "consent.sqlite")
+        self.registry = ProjectRegistry()
+        self.registry.register(ProjectPolicy(
+            self.project, self.repo, allowed_actions=[
+                "sudarshan.research.observe", "sudarshan.research.mission"]))
         self.gyan = GyanStub()
         self.brahmagyan = BrahmagyanStub()
         self.executions = []
@@ -75,7 +80,7 @@ class CanonicalBridgeTests(unittest.TestCase):
         self.bridge = SudarshanCanonicalIntegration(
             SudarshanProjectOrchestrator(), self.gyan, self.brahmagyan,
             runner=self.runner, rea_executable="/not-executed-by-mock",
-            consent=self.consent)
+            consent=self.consent, registry=self.registry)
         self.bus = SharedActionBus(
             AutomationBus(), PolicyKernel(Path(self.folder.name) / "policy"),
             permission_resolver=PermissionRuntime().authorize)
@@ -193,6 +198,43 @@ class CanonicalBridgeTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             self.dispatch("sudarshan.research.observe", request)
         self.assertEqual(self.executions, [])
+
+    def test_unregistered_project_fails_before_adapter(self):
+        self.registry.unregister(self.project)
+        with self.assertRaises(PermissionError):
+            self.dispatch("sudarshan.research.observe", self.payload)
+        self.assertEqual(self.executions, [])
+
+    def test_protected_project_fails_before_adapter(self):
+        self.registry.register(ProjectPolicy(
+            self.project, self.repo, role="protected",
+            allowed_actions=["sudarshan.research.observe", "sudarshan.research.mission"]))
+        with self.assertRaises(PermissionError):
+            self.dispatch("sudarshan.research.observe", self.payload)
+        self.assertEqual(self.executions, [])
+
+    def test_project_policy_requires_explicit_research_capability(self):
+        self.registry.register(ProjectPolicy(self.project, self.repo, allowed_actions=[]))
+        with self.assertRaises(PermissionError):
+            self.dispatch("sudarshan.research.observe", self.payload)
+        self.assertEqual(self.executions, [])
+
+    def test_caller_cannot_switch_bootstrap_repository(self):
+        other=Path(self.folder.name).parent.resolve()
+        payload=dict(self.payload, project_context={**self.context,
+                                                      "repository": str(other)})
+        with self.assertRaises(PermissionError):
+            self.dispatch("sudarshan.research.observe", payload)
+        self.assertEqual(self.executions, [])
+
+    def test_research_mission_requires_project_capability(self):
+        proposal=self.dispatch("sudarshan.research.observe", self.payload)["result"]
+        self.registry.register(ProjectPolicy(self.project, self.repo,
+                                              allowed_actions=["sudarshan.research.observe"]))
+        with self.assertRaises(PermissionError):
+            self.dispatch("sudarshan.research.mission", {
+                "project_id": self.project, "approval_id": proposal["approval_id"]})
+        self.assertEqual(self.brahmagyan.missions, [])
 
     def test_only_digest_backed_success_is_accepted(self):
         self.bridge.runner = lambda engine, spec, *, authorized: SimpleNamespace(
