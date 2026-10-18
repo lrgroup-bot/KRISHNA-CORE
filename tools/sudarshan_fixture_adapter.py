@@ -21,7 +21,7 @@ def main(argv=None):
         raise ValueError("checks must be nonempty list of named boolean results")
     passed=all(c["passed"] for c in checks)
     canonical=json.dumps(fixture,sort_keys=True).encode()
-    output={"engine":args.engine,"status":"passed" if passed else "failed",
+    output={"engine":args.engine,"status":"not_tested" if passed else "failed",
             "evidence_id":"sha256:"+hashlib.sha256(canonical).hexdigest(),
             "summary":str(len(checks))+" offline fixture checks; no real engine execution"}
     print(json.dumps(output))
