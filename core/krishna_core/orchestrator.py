@@ -38,6 +38,7 @@ from .protocol_gateway import AgentProtocolGateway
 from .dispatch_runtime import DispatchRuntime
 from .sudarshan_control import SudarshanControlPlane
 from .sudarshan_project_orchestrator import SudarshanProjectOrchestrator
+from .sudarshan_canonical_integration import SudarshanCanonicalIntegration
 from .sudarshan_design_engine import DesignJob
 from .sudarshan_ui_pipeline import UIEvidence
 from .vishvakarma_learning import ResearchLesson
@@ -457,6 +458,12 @@ class Orchestrator:
         )
         self._restore_projects()
         self._register_shared_actions()
+        # Reuse the canonical action bus, Gyan approval queue and BRAHMAGYAN runtime.
+        self.sudarshan_research = SudarshanCanonicalIntegration(
+            self.sudarshan_projects, self.gyan_bhandar, self.agi.brahmagyan,
+            rea_executable=os.environ.get("KRISHNA_REA_CLI_PATH") or None,
+        )
+        self.sudarshan_research.register(self.action_bus)
         self._register_agent_runtime()
         self.mrityunjay.bind(self._mrityunjay_heal_event)
         self.mrityunjay.bind_research(self._mrityunjay_research_improvement)
