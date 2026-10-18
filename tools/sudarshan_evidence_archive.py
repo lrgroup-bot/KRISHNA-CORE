@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 import tempfile
 
-_ALLOWED_ENGINES = frozenset(("REA", "MiroFish"))
+_ALLOWED_ENGINES = frozenset(("REA", "MiroFish", "UI_GUARDIAN"))
 _ID = re.compile(r"^sha256:([0-9a-f]{64})$")
 MAX_BYTES = 5_000_000
 
