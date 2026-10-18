@@ -7,7 +7,7 @@ from hashlib import sha256
 import json
 import re
 from urllib.parse import urlsplit
-from urllib.request import Request, HTTPRedirectHandler, build_opener
+from urllib.request import Request, HTTPRedirectHandler, ProxyHandler, build_opener
 from .sudarshan_execution_contract import AdapterResult
 
 
@@ -17,7 +17,7 @@ class _NoRedirect(HTTPRedirectHandler):
 
 
 def _local_get(url, timeout):
-    return build_opener(_NoRedirect()).open(Request(url, method='GET'), timeout=timeout)
+    return build_opener(ProxyHandler({}), _NoRedirect()).open(Request(url, method='GET'), timeout=timeout)
 
 
 def inspect_completed_simulation(simulation_id, project_id, *, authorized=False,
