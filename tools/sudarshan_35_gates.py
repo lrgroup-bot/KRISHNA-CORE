@@ -1,18 +1,9 @@
-"""Evidence-based release gates. Missing evidence never passes."""
-GATES = ('authorization','license','privacy','security','scope','provenance','integrity','freshness','traceability','feature_inventory','route_inventory','interaction_inventory','accessibility','data_contracts','dependencies','architecture','budget','offline','models','reproducibility','simulation_limits','counterevidence','human_review','build_plan','unit_tests','integration_tests','browser_tests','mobile_tests','regression_tests','performance','rollback','audit','owner_approval','deployment','post_deploy_verification')
+"""Deprecated compatibility alias for the fail-closed canonical 35-gate evaluator.
 
-def evaluate(evidence):
-    if not isinstance(evidence, dict):
-        raise TypeError('evidence mapping required')
-    if set(evidence)-set(GATES):
-        raise ValueError('unknown gate')
-    results={}
-    for gate in GATES:
-        item=evidence.get(gate)
-        if item is None:
-            results[gate]='not_tested'
-        elif not isinstance(item,dict) or not item.get('evidence_id') or not item.get('reviewer'):
-            results[gate]='insufficient_evidence'
-        else:
-            results[gate]='passed' if item.get('passed') is True else 'failed'
-    return {'total':len(GATES),'results':results,'passed':sum(v=='passed' for v in results.values()),'release_ready':all(v=='passed' for v in results.values())}
+Historically this module could assert release_ready=True on self-attested
+pass flags. Importing it now delegates to the canonical evaluator, which
+always requires an independent release authorization path.
+"""
+from .sudarshan_gates_35 import GATES, evaluate
+
+__all__ = ("GATES", "evaluate")
