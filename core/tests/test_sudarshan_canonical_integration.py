@@ -72,7 +72,7 @@ class CanonicalBridgeTests(unittest.TestCase):
         self.runner = runner
         self.bridge = SudarshanCanonicalIntegration(
             SudarshanProjectOrchestrator(), self.gyan, self.brahmagyan,
-            runner=self.runner)
+            runner=self.runner, rea_executable="/not-executed-by-mock")
         self.bus = SharedActionBus(
             AutomationBus(), PolicyKernel(Path(self.folder.name) / "policy"),
             permission_resolver=PermissionRuntime().authorize)
@@ -139,6 +139,27 @@ class CanonicalBridgeTests(unittest.TestCase):
         result = self.dispatch("sudarshan.research.observe", changed)["result"]
         self.assertEqual(result["engine"], "MiroFish")
         self.assertEqual(self.gyan.calls[-1]["source"], "sudarshan:MiroFish")
+
+    def test_supervisor_allowlist_blocks_untrusted_rea_executable(self):
+        changed = dict(self.payload, spec={**self.payload["spec"],
+                                            "rea_executable": "/tmp/untrusted-rea"})
+        with self.assertRaises(PermissionError):
+            self.dispatch("sudarshan.research.observe", changed)
+        self.assertEqual(self.executions, [])
+
+    def test_unconfigured_rea_does_not_run(self):
+        self.bridge.rea_executable = None
+        with self.assertRaises(RuntimeError):
+            self.dispatch("sudarshan.research.observe", self.payload)
+        self.assertEqual(self.executions, [])
+
+    def test_mirofish_endpoint_override_blocked(self):
+        changed = dict(self.payload, engine="MiroFish",
+                       spec={"project_id": self.project, "simulation_id": "s",
+                             "base_url": "http://127.0.0.1:8888"})
+        with self.assertRaises(PermissionError):
+            self.dispatch("sudarshan.research.observe", changed)
+        self.assertEqual(self.executions, [])
 
     def test_only_digest_backed_success_is_accepted(self):
         self.bridge.runner = lambda engine, spec, *, authorized: SimpleNamespace(
