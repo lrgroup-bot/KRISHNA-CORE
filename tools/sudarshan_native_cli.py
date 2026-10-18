@@ -37,7 +37,9 @@ def dispatch(engine, spec, *, authorized=False):
                 project_id=spec.get('project_id'))
         else:
             from .sudarshan_ui_guardian import run_browser
-            result = run_browser(spec['plan'], authorized=True)
+            result = run_browser(spec['plan'], authorized=True,
+                                 evidence_root=spec.get('evidence_root'),
+                                 project_id=spec.get('project_id'))
     elif engine == 'VISHWAKARMA':
         from .sudarshan_vishwakarma import propose_code
         result = propose_code(spec['repository'], spec['code_argv'], spec['test_argv'],
