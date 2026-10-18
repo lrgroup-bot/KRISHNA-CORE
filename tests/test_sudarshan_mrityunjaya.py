@@ -17,6 +17,24 @@ class RecoveryTests(unittest.TestCase):
             self.assertEqual(verify_baseline(snap,authorized=True).status,'passed')
             (p/'file').write_text('modified')
             self.assertEqual(verify_baseline(snap,authorized=True).status,'failed')
+    def test_dirty_file_contents_change_even_with_same_git_status(self):
+        with tempfile.TemporaryDirectory() as root:
+            p=Path(root)/'repo';p.mkdir()
+            def git(*args):
+                subprocess.run(['git','-C',str(p),*args],check=True,
+                               stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            git('init','-q')
+            (p/'file').write_text('original')
+            git('add','file')
+            git('-c','user.email=test@example.invalid',
+                '-c','user.name=T','commit','-qm','initial')
+            (p/'file').write_text('first dirty content')
+            snap=baseline(p)
+            self.assertEqual(verify_baseline(snap,authorized=True).status,'passed')
+            (p/'file').write_text('second dirty content')
+            # Both states normally have Git status " M file"; bytes differ.
+            self.assertEqual(verify_baseline(snap,authorized=True).status,'failed')
+
     def test_requires_approval(self):
         with self.assertRaises(PermissionError):verify_baseline({})
 
