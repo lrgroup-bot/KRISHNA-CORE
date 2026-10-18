@@ -9,6 +9,12 @@ from pathlib import Path
 import tempfile
 from threading import Thread
 import unittest
+import sys
+
+# Core CI runs with PYTHONPATH=core; root tools live alongside core/.
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from tools.sudarshan_ui_guardian import run_browser
 from tools.sudarshan_evidence_archive import load, verify
