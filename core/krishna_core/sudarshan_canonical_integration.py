@@ -19,7 +19,10 @@ _ACTION_MISSION = "sudarshan.research.mission"
 class SudarshanCanonicalIntegration:
     """Registered actions are the *only* entry points for this bridge."""
 
-    def __init__(self, projects, gyan_bhandar, brahmagyan, runner=None):
+    def __init__(self, projects, gyan_bhandar, brahmagyan, runner=None, *,
+                 rea_executable=None, mirofish_base_url="http://127.0.0.1:5001"):
+        self.rea_executable = rea_executable
+        self.mirofish_base_url = mirofish_base_url
         self.projects = projects
         self.gyan = gyan_bhandar
         self.brahmagyan = brahmagyan
@@ -38,8 +41,7 @@ class SudarshanCanonicalIntegration:
             raise PermissionError("research project must equal authorized action scope")
         return project
 
-    @staticmethod
-    def _engine_spec(engine, spec, project, project_context):
+    def _engine_spec(self, engine, spec, project, project_context):
         if engine not in ENGINES:
             raise ValueError("unsupported research engine")
         if not isinstance(spec, dict):
@@ -47,6 +49,8 @@ class SudarshanCanonicalIntegration:
         if engine == "MiroFish":
             if spec.get("project_id") != project:
                 raise PermissionError("MiroFish simulation project mismatch")
+            if spec.get("base_url", "http://127.0.0.1:5001") != self.mirofish_base_url:
+                raise PermissionError("MiroFish API endpoint must match supervisor configuration")
             if not isinstance(spec.get("simulation_id"), str) or not spec["simulation_id"].strip():
                 raise ValueError("simulation_id required")
         else:
@@ -59,6 +63,10 @@ class SudarshanCanonicalIntegration:
                 raise ValueError("REA root and project repository must be absolute local paths")
             if Path(repository).resolve() != Path(spec["root"]).resolve():
                 raise PermissionError("REA root must match the authorized project repository")
+            if not self.rea_executable:
+                raise RuntimeError("REA must be explicitly configured on KRISHNA supervisor")
+            if spec.get("rea_executable") != self.rea_executable:
+                raise PermissionError("REA executable must match supervisor-allowlisted executable")
 
     def _dispatch(self, engine, spec):
         # Never interpret a shell string or invoke arbitrary executables here.
