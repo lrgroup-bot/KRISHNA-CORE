@@ -9,6 +9,7 @@ import re
 from urllib.parse import urlsplit
 from urllib.request import Request, HTTPRedirectHandler, ProxyHandler, build_opener
 from .sudarshan_execution_contract import AdapterResult
+from .sudarshan_evidence_archive import archive
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -21,7 +22,7 @@ def _local_get(url, timeout):
 
 
 def inspect_completed_simulation(simulation_id, project_id, *, authorized=False,
-                                 base_url='http://127.0.0.1:5001', transport=None):
+                                 base_url='http://127.0.0.1:5001', transport=None, evidence_root=None):
     if not authorized:
         raise PermissionError('explicit local simulation read approval required')
     parsed = urlsplit(base_url)
@@ -63,5 +64,7 @@ def inspect_completed_simulation(simulation_id, project_id, *, authorized=False,
     except (OSError, TimeoutError):
         return AdapterResult('MiroFish', 'blocked', '', 'local MiroFish API unavailable')
     canonical=json.dumps({'simulation':simulation,'report':report},sort_keys=True).encode()
-    return AdapterResult('MiroFish', 'passed', 'sha256:' + sha256(canonical).hexdigest(),
+    evidence_id = (archive(evidence_root, project_id, 'MiroFish', canonical)
+                   if evidence_root is not None else 'sha256:' + sha256(canonical).hexdigest())
+    return AdapterResult('MiroFish', 'passed', evidence_id,
                          'completed local simulation report collected; hypothesis only')
