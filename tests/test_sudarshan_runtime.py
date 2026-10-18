@@ -8,11 +8,10 @@ from tools.sudarshan_runtime import run_pipeline,ORDER
 class PipelineTests(unittest.TestCase):
  def test_requires_authorization(self):
   with self.assertRaises(PermissionError):run_pipeline("p","f",False,{},":memory:")
- def test_no_adapters_never_ready(self):
+ def test_no_adapters_rejected(self):
   with tempfile.TemporaryDirectory() as root:
-   out=run_pipeline("p","f",True,{},str(Path(root)/"e.sqlite"))
-   self.assertFalse(out["readiness"]["ready_for_human_review"])
-   self.assertTrue(out["execution_stopped"])
+   with self.assertRaises(ValueError):
+    run_pipeline("p","f",True,{},str(Path(root)/"e.sqlite"))
  def test_all_local_adapters_handoff(self):
   with tempfile.TemporaryDirectory() as root:
    root=Path(root)
