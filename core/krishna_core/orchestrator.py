@@ -461,6 +461,7 @@ class Orchestrator:
         # Reuse the canonical action bus, Gyan approval queue and BRAHMAGYAN runtime.
         self.sudarshan_research = SudarshanCanonicalIntegration(
             self.sudarshan_projects, self.gyan_bhandar, self.agi.brahmagyan,
+            rea_executable=os.environ.get("KRISHNA_REA_CLI_PATH") or None,
         )
         self.sudarshan_research.register(self.action_bus)
         self._register_agent_runtime()
