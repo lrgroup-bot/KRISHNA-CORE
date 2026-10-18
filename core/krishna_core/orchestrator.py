@@ -465,6 +465,7 @@ class Orchestrator:
             rea_executable=os.environ.get("KRISHNA_REA_CLI_PATH") or None,
             consent=OwnerConsent.from_environment(self.db_path),
             evidence_root=runtime_state / "sudarshan-evidence",
+            registry=self.projects,
         )
         self.sudarshan_research.register(self.action_bus)
         self._register_agent_runtime()
