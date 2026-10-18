@@ -33,6 +33,7 @@ def dispatch(engine, spec, *, authorized=False):
                 adb_executable=spec['adb_executable'],
                 device_serial=spec['device_serial'],
                 app_package=spec['app_package'], authorized=True,
+                expected_resource_ids=spec.get('expected_resource_ids', []),
                 evidence_root=spec.get('evidence_root'),
                 project_id=spec.get('project_id'))
         else:
