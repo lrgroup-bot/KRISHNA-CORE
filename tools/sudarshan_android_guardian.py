@@ -20,13 +20,17 @@ _SERIAL = re.compile(r"^[a-zA-Z0-9_.:\-]{2,128}$")
 
 def inventory_android(*, adb_executable, device_serial, app_package,
                       authorized=False, evidence_root=None, project_id=None,
-                      runner=None):
+                      expected_resource_ids=(), runner=None):
     if not authorized:
         raise PermissionError("explicit physical-device inspection approval required")
     if not isinstance(device_serial, str) or not _SERIAL.fullmatch(device_serial):
         raise ValueError("specific local Android device serial required")
     if not isinstance(app_package, str) or not _PACKAGE.fullmatch(app_package):
         raise ValueError("valid installed Android package required")
+    if not isinstance(expected_resource_ids, (list, tuple)) or len(expected_resource_ids)>100 or any(
+            not isinstance(item,str) or not item.strip() or len(item)>200
+            for item in expected_resource_ids):
+        raise ValueError("bounded Android UI resource ID expectations required")
     adb = Path(adb_executable)
     if not adb.is_absolute() or not adb.is_file():
         raise ValueError("installed ADB binary absolute path required")
@@ -81,17 +85,22 @@ def inventory_android(*, adb_executable, device_serial, app_package,
          "bounds": node.get("bounds", "")[:80]}
         for node in nodes if node.get("clickable") == "true"
     ]
+    observed = {node.get("resource-id","") for node in nodes}
+    missing = sorted(set(expected_resource_ids)-observed)
     evidence = json.dumps(
         {"source": "android_adb_real_device", "serial_sha256": hashlib.sha256(
             device_serial.encode()).hexdigest(), "package": app_package,
          "ui_xml": xml, "clickable_inventory": actionable, "nodes": len(nodes),
-         "interactions_performed": 0, "native_ui_verified": True},
+         "interactions_performed": 0, "native_ui_verified": True,
+         "expected_resource_ids": list(expected_resource_ids),
+         "missing_resource_ids": missing},
         sort_keys=True, ensure_ascii=True).encode()
     if evidence_root is not None:
         evidence_id = archive(evidence_root, project_id, "UI_GUARDIAN", evidence)
     else:
         evidence_id = "sha256:" + hashlib.sha256(evidence).hexdigest()
     return AdapterResult(
-        "UI_GUARDIAN", "passed", evidence_id,
-        "physical Android UI inventory: %d nodes, %d clickable controls; NO buttons exercised" %
-        (len(nodes), len(actionable)))
+        "UI_GUARDIAN", "failed" if missing else "passed", evidence_id,
+        ("physical Android UI inventory: %d nodes, %d clickable controls, "
+         "%d missing expected IDs; NO buttons exercised") %
+        (len(nodes),len(actionable),len(missing)))
