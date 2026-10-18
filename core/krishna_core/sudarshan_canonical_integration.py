@@ -20,9 +20,11 @@ class SudarshanCanonicalIntegration:
     """Registered actions are the *only* entry points for this bridge."""
 
     def __init__(self, projects, gyan_bhandar, brahmagyan, runner=None, *,
-                 rea_executable=None, mirofish_base_url="http://127.0.0.1:5001"):
+                 rea_executable=None, mirofish_base_url="http://127.0.0.1:5001",
+                 consent=None):
         self.rea_executable = rea_executable
         self.mirofish_base_url = mirofish_base_url
+        self.consent = consent
         self.projects = projects
         self.gyan = gyan_bhandar
         self.brahmagyan = brahmagyan
@@ -79,8 +81,18 @@ class SudarshanCanonicalIntegration:
             raise RuntimeError("SUDARSHAN tool adapters unavailable on this runtime host") from error
         return dispatch(engine, spec, authorized=True)
 
+    def _require_consent(self, payload, action_context, action, project):
+        if (self.consent is None or not action_context.get("approved") or
+                action_context.get("source") != "pc" or
+                action_context.get("action") != action):
+            raise PermissionError("local operator consent is not configured")
+        if not isinstance(payload.get("owner_token"), str):
+            raise PermissionError("SUDARSHAN owner_token required")
+        self.consent.consume(payload["owner_token"], action, project, payload)
+
     def observe(self, payload, action_context):
         project = self._project(payload, action_context)
+        self._require_consent(payload, action_context, _ACTION_OBSERVE, project)
         project_context = payload.get("project_context")
         if not isinstance(project_context, dict):
             raise ValueError("canonical project bootstrap context required")
@@ -132,6 +144,7 @@ class SudarshanCanonicalIntegration:
 
     def mission(self, payload, action_context):
         project = self._project(payload, action_context)
+        self._require_consent(payload, action_context, _ACTION_MISSION, project)
         proposal_id = payload.get("approval_id")
         if not isinstance(proposal_id, str) or not proposal_id.strip():
             raise ValueError("approval_id required")
