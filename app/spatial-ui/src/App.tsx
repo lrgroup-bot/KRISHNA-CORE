@@ -327,16 +327,77 @@ function KrishnaHome() {
   );
 }
 
+type SudarshanOverview = {
+  bus?: { registered_actions?: number; actions?: { name: string; requires_approval?: boolean }[] };
+  runtime?: { owner?: string; policy?: string };
+  recent?: { action?: string; status?: string; project?: string; action_id?: string }[];
+};
+
 function SudarshanPanel() {
+  const [overview, setOverview] = useState<SudarshanOverview | null>(null);
+  const [error, setError] = useState('');
+  const [refresh, setRefresh] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const urls = ['/api/action-bus', '/api/sudarshan/runtime', '/api/action-bus/recent?limit=20'];
+        const results = await Promise.all(urls.map(async url => {
+          const response = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+          if (!response.ok) throw new Error('KRISHNA runtime returned ' + response.status);
+          return response.json();
+        }));
+        if (controller.signal.aborted) return;
+        const [bus, runtime, history] = results;
+        setOverview({ bus, runtime, recent: Array.isArray(history.actions) ? history.actions : [] });
+        setError('');
+      } catch {
+        if (!controller.signal.aborted) {
+          setOverview(null);
+          setError('KRISHNA runtime is unavailable; no agent execution is confirmed.');
+        }
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [refresh]);
+  const researchActions = (overview?.bus?.actions ?? []).filter(
+    action => action.name.startsWith('sudarshan.research.'));
+  const recentResearch = (overview?.recent ?? []).filter(
+    receipt => (receipt.action ?? '').startsWith('sudarshan.research.'));
   return (
-    <section className="panel-content">
-      <div className="eyebrow">SUDARSHAN</div>
-      <h2>Work console</h2>
-      <p className="muted">Projects, chats, verification, browser work and action receipts render here through authenticated runtime contracts.</p>
-      <div className="status-strip">
-        <span>Active Work</span><span>Verification</span><span>System Load</span>
-      </div>
-      <p className="muted">Operational controls are injected only after their Shared Action contract is available; this shell does not render fake action buttons.</p>
+    <section className="panel-content" aria-label="SUDARSHAN runtime evidence">
+      <div className="eyebrow">SUDARSHAN · KRISHNA AUTHORITY</div>
+      <h2>Research and verification console</h2>
+      <p className="muted">Read-only view of registered Shared Action contracts and real action receipts. No simulated agent completion.</p>
+      <button type="button" onClick={() => setRefresh(value => value + 1)}>Refresh runtime evidence</button>
+      {error && <p role="status" className="muted">{error}</p>}
+      {!error && !overview && <p role="status" className="muted">Checking KRISHNA runtime…</p>}
+      {overview && (
+        <div className="bento">
+          <article className="card">
+            <ShieldCheck />
+            <strong>Supervisor connected</strong>
+            <span>{overview.runtime?.owner ?? 'KRISHNA SUDARSHAN'}</span>
+            <span>Registered research contracts: {researchActions.length}</span>
+          </article>
+          <article className="card">
+            <Workflow />
+            <strong>Approval-bound research</strong>
+            {researchActions.length ? researchActions.map(action => (
+              <span key={action.name}>{action.name} · {action.requires_approval ? 'Approval required' : 'Read-only'}</span>
+            )) : <span>Research actions not registered or awaiting configuration</span>}
+          </article>
+          <article className="card">
+            <Activity />
+            <strong>Recent research action receipts</strong>
+            {recentResearch.length ? recentResearch.slice(0, 8).map((row, i) => (
+              <span key={row.action_id ?? i}>{row.action ?? 'Unknown'} · {row.status ?? 'unknown'} · {row.project ?? 'unknown project'}</span>
+            )) : <span>No recorded research actions; nothing is marked completed</span>}
+          </article>
+        </div>
+      )}
+      <p className="muted">Engine installation, operator consent and physical Android tests require separate evidence. This screen never grants deployment approval.</p>
     </section>
   );
 }
