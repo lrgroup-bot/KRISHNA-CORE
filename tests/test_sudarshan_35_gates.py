@@ -1,5 +1,5 @@
 import unittest
-from tools.sudarshan_35_gates import GATES,evaluate
+from tools.sudarshan_gates_35 import GATES,evaluate
 
 class GateTests(unittest.TestCase):
  def test_35_gates(self):
@@ -12,7 +12,8 @@ class GateTests(unittest.TestCase):
   self.assertFalse(evaluate({GATES[0]:{'passed':True}})['release_ready'])
  def test_complete_evidence(self):
   evidence={gate:{'passed':True,'evidence_id':'sha256:sample-'+gate,'reviewer':'test-reviewer'} for gate in GATES}
-  self.assertTrue(evaluate(evidence)['release_ready'])
+  self.assertTrue(evaluate(evidence)['evidence_claims_complete'])
+       self.assertFalse(evaluate(evidence)['release_ready'])
  def test_failed_gate_blocks(self):
   evidence={gate:{'passed':True,'evidence_id':'sample-'+gate,'reviewer':'reviewer'} for gate in GATES}
   evidence['security']['passed']=False
