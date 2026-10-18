@@ -15,7 +15,7 @@ class FixtureTests(unittest.TestCase):
     code=main(["REA","--fixture",str(path)])
    self.assertEqual(code,0)
    result=json.loads(output.getvalue())
-   self.assertEqual(result["status"],"passed")
+   self.assertEqual(result["status"],"not_tested")
    self.assertIn("offline fixture",result["summary"])
  def test_failure(self):
   with tempfile.TemporaryDirectory() as root:
