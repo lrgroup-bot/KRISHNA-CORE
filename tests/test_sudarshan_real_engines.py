@@ -35,6 +35,31 @@ class EngineTests(unittest.TestCase):
         result=inspect_completed_simulation('sim_1','p',authorized=True,transport=transport)
         self.assertEqual(result.status,'passed')
         self.assertIn('hypothesis',result.summary)
+    def test_real_engine_adapters_persist_replayable_raw_json(self):
+        from tools.sudarshan_evidence_archive import verify, load
+        with tempfile.TemporaryDirectory() as root:
+            p=Path(root)
+            binary=p/'rea';binary.write_text('fixture')
+            archive_root=(p/'records').resolve()
+            with patch('tools.sudarshan_rea_client.subprocess.run',
+                       return_value=SimpleNamespace(returncode=0,stdout='{"modules":["a"]}')):
+                result=analyze_javascript(p,root=p,rea_executable=binary,
+                      authorized=True,project_id='project-a',
+                      evidence_root=archive_root)
+            self.assertEqual(result.status,'passed')
+            self.assertTrue(verify(archive_root,'project-a','REA',result.evidence_id))
+            self.assertEqual(load(archive_root,'project-a','REA',result.evidence_id),
+                             {'modules':['a']})
+            sim={'success':True,'data':{'simulation_id':'sim_1','project_id':'project-a','status':'completed'}}
+            rep={'success':True,'data':{'report_id':'report_1','simulation_id':'sim_1','status':'completed'}}
+            fn=lambda url,timeout: FakeReply(rep if '/report/' in url else sim)
+            out=inspect_completed_simulation('sim_1','project-a',authorized=True,
+                                              transport=fn,evidence_root=archive_root)
+            self.assertEqual(out.status,'passed')
+            self.assertTrue(verify(archive_root,'project-a','MiroFish',out.evidence_id))
+            self.assertEqual(load(archive_root,'project-a','MiroFish',out.evidence_id)
+                             ['simulation']['simulation_id'],'sim_1')
+
     def test_scope_mismatch_fails_closed(self):
         sim={'success':True,'data':{'simulation_id':'sim_1','project_id':'other','status':'completed'}}
         with self.assertRaises(PermissionError):

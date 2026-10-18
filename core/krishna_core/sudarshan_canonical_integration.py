@@ -20,10 +20,14 @@ class SudarshanCanonicalIntegration:
     """Registered actions are the *only* entry points for this bridge."""
 
     def __init__(self, projects, gyan_bhandar, brahmagyan, runner=None, *,
-                 rea_executable=None, mirofish_base_url="http://127.0.0.1:5001"):
+                 rea_executable=None, mirofish_base_url="http://127.0.0.1:5001",
+                 consent=None, evidence_root=None, registry=None):
         self.rea_executable = rea_executable
         self.mirofish_base_url = mirofish_base_url
+        self.consent = consent
+        self.evidence_root = Path(evidence_root).resolve() if evidence_root is not None else None
         self.projects = projects
+        self.registry = registry
         self.gyan = gyan_bhandar
         self.brahmagyan = brahmagyan
         if runner is not None and not callable(runner):
@@ -41,11 +45,31 @@ class SudarshanCanonicalIntegration:
             raise PermissionError("research project must equal authorized action scope")
         return project
 
+    def _registry_policy(self, project, action, project_context=None):
+        if self.registry is None:
+            raise PermissionError("KRISHNA project registry is unavailable")
+        policy = self.registry.get(project)
+        if policy is None:
+            raise PermissionError("SUDARSHAN project is not registered")
+        if policy.role != "active":
+            raise PermissionError("protected or archived projects cannot initiate research")
+        if action not in policy.allowed_actions:
+            raise PermissionError("SUDARSHAN research action is not project-allowlisted")
+        if project_context is not None:
+            repository = project_context.get("repository")
+            if (not isinstance(repository, str) or
+                    not Path(repository).is_absolute() or
+                    Path(repository).resolve() != Path(policy.root).resolve()):
+                raise PermissionError("project bootstrap repository must equal registered root")
+        return policy
+
     def _engine_spec(self, engine, spec, project, project_context):
         if engine not in ENGINES:
             raise ValueError("unsupported research engine")
         if not isinstance(spec, dict):
             raise TypeError("adapter spec must be an object")
+        if "evidence_root" in spec:
+            raise PermissionError("only KRISHNA supervisor may choose evidence storage")
         if engine == "MiroFish":
             if spec.get("project_id") != project:
                 raise PermissionError("MiroFish simulation project mismatch")
@@ -68,22 +92,43 @@ class SudarshanCanonicalIntegration:
             if spec.get("rea_executable") != self.rea_executable:
                 raise PermissionError("REA executable must match supervisor-allowlisted executable")
 
-    def _dispatch(self, engine, spec):
+    def _dispatch(self, engine, spec, project):
         # Never interpret a shell string or invoke arbitrary executables here.
         # The existing allowlisted tool adapters implement their own validation.
         if self.runner is not None:
             return self.runner(engine, spec, authorized=True)
+        if self.evidence_root is None:
+            raise RuntimeError("canonical evidence root not configured")
         try:
             from tools.sudarshan_native_cli import dispatch
+            from tools.sudarshan_evidence_archive import verify
         except ImportError as error:
             raise RuntimeError("SUDARSHAN tool adapters unavailable on this runtime host") from error
-        return dispatch(engine, spec, authorized=True)
+        local_spec = dict(spec)
+        local_spec["project_id"] = project
+        local_spec["evidence_root"] = str(self.evidence_root)
+        result = dispatch(engine, local_spec, authorized=True)
+        if getattr(result, "status", None) == "passed" and not verify(
+                self.evidence_root, project, engine, result.evidence_id):
+            raise RuntimeError("adapter digest has no locally verified raw evidence")
+        return result
+
+    def _require_consent(self, payload, action_context, action, project):
+        if (self.consent is None or not action_context.get("approved") or
+                action_context.get("source") != "pc" or
+                action_context.get("action") != action):
+            raise PermissionError("local operator consent is not configured")
+        if not isinstance(payload.get("owner_token"), str):
+            raise PermissionError("SUDARSHAN owner_token required")
+        self.consent.consume(payload["owner_token"], action, project, payload)
 
     def observe(self, payload, action_context):
         project = self._project(payload, action_context)
+        self._require_consent(payload, action_context, _ACTION_OBSERVE, project)
         project_context = payload.get("project_context")
         if not isinstance(project_context, dict):
             raise ValueError("canonical project bootstrap context required")
+        self._registry_policy(project, _ACTION_OBSERVE, project_context)
         lifecycle = self.projects.start(project, project_context)
         if lifecycle.get("state") != "DISCOVERY":
             raise PermissionError("project bootstrap incomplete; observation blocked")
@@ -93,7 +138,7 @@ class SudarshanCanonicalIntegration:
         topic = payload.get("topic")
         if not isinstance(topic, str) or not topic.strip() or len(topic) > 200:
             raise ValueError("bounded research topic required")
-        result = self._dispatch(engine, spec)
+        result = self._dispatch(engine, spec, project)
         if (getattr(result, "engine", None) != engine or
                 getattr(result, "status", None) != "passed"):
             raise RuntimeError("research adapter did not provide a successful observation")
@@ -132,6 +177,8 @@ class SudarshanCanonicalIntegration:
 
     def mission(self, payload, action_context):
         project = self._project(payload, action_context)
+        self._require_consent(payload, action_context, _ACTION_MISSION, project)
+        self._registry_policy(project, _ACTION_MISSION)
         proposal_id = payload.get("approval_id")
         if not isinstance(proposal_id, str) or not proposal_id.strip():
             raise ValueError("approval_id required")

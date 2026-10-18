@@ -55,7 +55,8 @@ jobs:
         env:
           KRISHNA_PRIVACY_BROWSER_E2E: '1'
           KRISHNA_WINDOWS_UI_E2E: '1'
-        run: python -m unittest tests.test_privacy_browser_e2e tests.test_windows_ui_browser_e2e -v
+          KRISHNA_SUDARSHAN_CHROMIUM_REQUIRED: '1'
+        run: python -m unittest tests.test_privacy_browser_e2e tests.test_windows_ui_browser_e2e tests.test_sudarshan_playwright_live -v
 
   project-perfection-browser-e2e:
     runs-on: ubuntu-latest

@@ -19,14 +19,28 @@ def dispatch(engine, spec, *, authorized=False):
     if engine == 'REA':
         from .sudarshan_rea_client import analyze_javascript
         result = analyze_javascript(spec['target'], root=spec['root'],
-                    rea_executable=spec['rea_executable'], authorized=True)
+                    rea_executable=spec['rea_executable'], authorized=True,
+                    project_id=spec.get('project_id'), evidence_root=spec.get('evidence_root'))
     elif engine == 'MiroFish':
         from .sudarshan_mirofish_client import inspect_completed_simulation
         result = inspect_completed_simulation(spec['simulation_id'], spec['project_id'],
-                    base_url=spec.get('base_url','http://127.0.0.1:5001'), authorized=True)
+                    base_url=spec.get('base_url','http://127.0.0.1:5001'), authorized=True,
+                    evidence_root=spec.get('evidence_root'))
     elif engine == 'UI_GUARDIAN':
-        from .sudarshan_ui_guardian import run_browser
-        result = run_browser(spec['plan'], authorized=True)
+        if spec.get('mode') == 'android':
+            from .sudarshan_android_guardian import inventory_android
+            result = inventory_android(
+                adb_executable=spec['adb_executable'],
+                device_serial=spec['device_serial'],
+                app_package=spec['app_package'], authorized=True,
+                expected_resource_ids=spec.get('expected_resource_ids', []),
+                evidence_root=spec.get('evidence_root'),
+                project_id=spec.get('project_id'))
+        else:
+            from .sudarshan_ui_guardian import run_browser
+            result = run_browser(spec['plan'], authorized=True,
+                                 evidence_root=spec.get('evidence_root'),
+                                 project_id=spec.get('project_id'))
     elif engine == 'VISHWAKARMA':
         from .sudarshan_vishwakarma import propose_code
         result = propose_code(spec['repository'], spec['code_argv'], spec['test_argv'],
