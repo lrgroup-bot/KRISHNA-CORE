@@ -19,11 +19,13 @@ def dispatch(engine, spec, *, authorized=False):
     if engine == 'REA':
         from .sudarshan_rea_client import analyze_javascript
         result = analyze_javascript(spec['target'], root=spec['root'],
-                    rea_executable=spec['rea_executable'], authorized=True)
+                    rea_executable=spec['rea_executable'], authorized=True,
+                    project_id=spec.get('project_id'), evidence_root=spec.get('evidence_root'))
     elif engine == 'MiroFish':
         from .sudarshan_mirofish_client import inspect_completed_simulation
         result = inspect_completed_simulation(spec['simulation_id'], spec['project_id'],
-                    base_url=spec.get('base_url','http://127.0.0.1:5001'), authorized=True)
+                    base_url=spec.get('base_url','http://127.0.0.1:5001'), authorized=True,
+                    evidence_root=spec.get('evidence_root'))
     elif engine == 'UI_GUARDIAN':
         from .sudarshan_ui_guardian import run_browser
         result = run_browser(spec['plan'], authorized=True)
