@@ -50,6 +50,13 @@ class AndroidInventoryTests(unittest.TestCase):
         data=load(root,'k','UI_GUARDIAN',result.evidence_id)
         self.assertEqual(data['nodes'],2)
         self.assertEqual(data['interactions_performed'],0)
+    def test_declared_native_resource_ids_are_asserted(self):
+        found=self.inspect(expected_resource_ids=['com.lr.krishna:id/launch'])
+        self.assertEqual(found.status,'passed')
+        missing=self.inspect(expected_resource_ids=['com.lr.krishna:id/does_not_exist'])
+        self.assertEqual(missing.status,'failed')
+        self.assertTrue(missing.evidence_id.startswith('sha256:'))
+
     def test_unapproved_device_and_package_blocked(self):
         with self.assertRaises(PermissionError):
             inventory_android(adb_executable=self.adb.resolve(),
