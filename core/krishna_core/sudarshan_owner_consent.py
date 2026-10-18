@@ -10,6 +10,7 @@ authenticated human session / hardware-backed identity.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import base64
 import binascii
 import hashlib
@@ -72,10 +73,17 @@ class OwnerConsent:
         key = os.environ.get(ENV_KEY)
         return cls(key, db_path) if key else None
 
+    @contextmanager
     def _connect(self):
+        # A sqlite3.Connection context manager commits/rolls back but DOES NOT
+        # close its file handle; close explicitly for Windows temp/runtime use.
         db = sqlite3.connect(self.db_path, timeout=10)
-        db.execute("PRAGMA busy_timeout = 10000")
-        return db
+        try:
+            db.execute("PRAGMA busy_timeout = 10000")
+            with db:
+                yield db
+        finally:
+            db.close()
 
     @staticmethod
     def _scope(action, project):
