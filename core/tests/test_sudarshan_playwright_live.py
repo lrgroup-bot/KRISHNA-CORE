@@ -4,6 +4,7 @@ Never reaches the internet: a private 127.0.0.1 HTTPServer hosts the test UI.
 The CI privacy-browser job installs Chromium before executing this module.
 """
 import base64
+import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import tempfile
@@ -41,10 +42,19 @@ class LocalPage(BaseHTTPRequestHandler):
 class RealChromiumTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        required = os.getenv('KRISHNA_SUDARSHAN_CHROMIUM_REQUIRED') == '1'
         try:
-            import playwright.sync_api
+            from playwright.sync_api import sync_playwright
         except ImportError as error:
-            raise unittest.SkipTest('Playwright unavailable; host browser smoke not certified') from error
+            if required:
+                raise RuntimeError('Required Chromium test dependency is missing') from error
+            raise unittest.SkipTest('Playwright unavailable: browser test NOT executed') from error
+        with sync_playwright() as playwright:
+            browser_executable = Path(playwright.chromium.executable_path)
+        if not browser_executable.is_file():
+            if required:
+                raise RuntimeError('Required Chromium browser binary is not installed')
+            raise unittest.SkipTest('Chromium absent: dedicated browser E2E is required')
         cls.web=ThreadingHTTPServer(('127.0.0.1',0),LocalPage)
         cls.thread=Thread(target=cls.web.serve_forever,daemon=True)
         cls.thread.start()
