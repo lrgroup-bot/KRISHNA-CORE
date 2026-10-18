@@ -21,12 +21,13 @@ class SudarshanCanonicalIntegration:
 
     def __init__(self, projects, gyan_bhandar, brahmagyan, runner=None, *,
                  rea_executable=None, mirofish_base_url="http://127.0.0.1:5001",
-                 consent=None, evidence_root=None):
+                 consent=None, evidence_root=None, registry=None):
         self.rea_executable = rea_executable
         self.mirofish_base_url = mirofish_base_url
         self.consent = consent
         self.evidence_root = Path(evidence_root).resolve() if evidence_root is not None else None
         self.projects = projects
+        self.registry = registry
         self.gyan = gyan_bhandar
         self.brahmagyan = brahmagyan
         if runner is not None and not callable(runner):
@@ -43,6 +44,24 @@ class SudarshanCanonicalIntegration:
         if project != context.get("project"):
             raise PermissionError("research project must equal authorized action scope")
         return project
+
+    def _registry_policy(self, project, action, project_context=None):
+        if self.registry is None:
+            raise PermissionError("KRISHNA project registry is unavailable")
+        policy = self.registry.get(project)
+        if policy is None:
+            raise PermissionError("SUDARSHAN project is not registered")
+        if policy.role != "active":
+            raise PermissionError("protected or archived projects cannot initiate research")
+        if action not in policy.allowed_actions:
+            raise PermissionError("SUDARSHAN research action is not project-allowlisted")
+        if project_context is not None:
+            repository = project_context.get("repository")
+            if (not isinstance(repository, str) or
+                    not Path(repository).is_absolute() or
+                    Path(repository).resolve() != Path(policy.root).resolve()):
+                raise PermissionError("project bootstrap repository must equal registered root")
+        return policy
 
     def _engine_spec(self, engine, spec, project, project_context):
         if engine not in ENGINES:
@@ -109,6 +128,7 @@ class SudarshanCanonicalIntegration:
         project_context = payload.get("project_context")
         if not isinstance(project_context, dict):
             raise ValueError("canonical project bootstrap context required")
+        self._registry_policy(project, _ACTION_OBSERVE, project_context)
         lifecycle = self.projects.start(project, project_context)
         if lifecycle.get("state") != "DISCOVERY":
             raise PermissionError("project bootstrap incomplete; observation blocked")
@@ -158,6 +178,7 @@ class SudarshanCanonicalIntegration:
     def mission(self, payload, action_context):
         project = self._project(payload, action_context)
         self._require_consent(payload, action_context, _ACTION_MISSION, project)
+        self._registry_policy(project, _ACTION_MISSION)
         proposal_id = payload.get("approval_id")
         if not isinstance(proposal_id, str) or not proposal_id.strip():
             raise ValueError("approval_id required")
