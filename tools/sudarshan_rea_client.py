@@ -7,9 +7,11 @@ import json
 from pathlib import Path
 import subprocess
 from .sudarshan_execution_contract import AdapterResult
+from .sudarshan_evidence_archive import archive
 
 
-def analyze_javascript(target, *, root, rea_executable, authorized=False, timeout=120):
+def analyze_javascript(target, *, root, rea_executable, authorized=False, timeout=120,
+                       project_id=None, evidence_root=None):
     if not authorized:
         raise PermissionError('authorization required for inspected target')
     target = Path(target).resolve(strict=True)
@@ -39,6 +41,10 @@ def analyze_javascript(target, *, root, rea_executable, authorized=False, timeou
         return AdapterResult('REA', 'failed', '', 'REA returned empty evidence')
     if isinstance(evidence, dict) and (evidence.get('success') is False or evidence.get('error')):
         return AdapterResult('REA', 'failed', '', 'REA reported an analysis error')
-    digest = sha256(run.stdout.encode()).hexdigest()
-    return AdapterResult('REA', 'passed', 'sha256:' + digest,
+    encoded = run.stdout.encode('utf-8')
+    if evidence_root is not None:
+        evidence_id = archive(evidence_root, project_id, 'REA', encoded)
+    else:
+        evidence_id = 'sha256:' + sha256(encoded).hexdigest()
+    return AdapterResult('REA', 'passed', evidence_id,
                          'local REA JSON analysis collected; conclusions require review')
