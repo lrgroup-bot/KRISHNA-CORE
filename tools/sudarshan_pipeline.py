@@ -1,7 +1,7 @@
 """Orchestrate permissioned planning and evidence evaluation without executing external tools."""
 from .sudarshan_reconstruction import create_plan
 from .sudarshan_evidence import feature_coverage
-from .sudarshan_35_gates import evaluate
+from .sudarshan_gates_35 import evaluate
 
 def assess(request, observations=(), gate_evidence=None):
     plan=create_plan(request)
