@@ -10,7 +10,9 @@ import json
 from pathlib import Path
 import zipfile
 from .sudarshan_execution_contract import AdapterResult
-from .sudarshan_worktree import isolated_worktree, execute, change_report
+from .sudarshan_worktree import execute, change_report
+from core.krishna_core.git_worktrees import GitWorktreeManager
+import tempfile
 
 
 def propose_code(repository, code_argv, test_argv, output_dir, *, authorized=False):
@@ -22,7 +24,18 @@ def propose_code(repository, code_argv, test_argv, output_dir, *, authorized=Fal
         raise ValueError('proposal artifacts must be outside the source repository')
     if not isinstance(code_argv, (list, tuple)) or not isinstance(test_argv, (list, tuple)):
         raise ValueError('code and test argument vectors required')
-    with isolated_worktree(repository) as checkout:
+    # KRISHNA owns Git worktrees; do not create a competing worktree manager.
+    with tempfile.TemporaryDirectory(prefix='krishna-vishwakarma-') as temp_root:
+        manager = GitWorktreeManager(repository, Path(temp_root) / 'managed')
+        assignment = manager.create('SUDARSHAN', 'vishwakarma')
+        checkout = Path(assignment['path'])
+        try:
+            return _execute_proposal(manager, checkout, code_argv, test_argv, output)
+        finally:
+            manager.remove(checkout, force=True, delete_branch=True)
+
+
+def _execute_proposal(manager, checkout, code_argv, test_argv, output):
         coding = execute(checkout, code_argv)
         if not coding['passed']:
             return AdapterResult('VISHWAKARMA', 'failed', '', 'trusted coding command failed in disposable worktree')
