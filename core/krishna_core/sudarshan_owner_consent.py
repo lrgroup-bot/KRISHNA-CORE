@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -114,7 +115,7 @@ class OwnerConsent:
                     not isinstance(body.get("nonce"), str) or
                     len(body["nonce"]) != 48):
                 raise ValueError("expired or out-of-scope consent")
-        except (ValueError, TypeError, KeyError, json.JSONDecodeError) as error:
+        except (ValueError, TypeError, KeyError, binascii.Error) as error:
             raise PermissionError("invalid, expired or out-of-scope SUDARSHAN consent") from error
         nonce_hash = hashlib.sha256(body["nonce"].encode()).hexdigest()
         try:
