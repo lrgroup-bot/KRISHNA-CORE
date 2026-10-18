@@ -7,7 +7,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
-from urllib.request import Request, HTTPRedirectHandler, build_opener
+from urllib.request import Request, HTTPRedirectHandler, ProxyHandler, build_opener
 
 SCHEMA = """CREATE TABLE IF NOT EXISTS brahmagyan_lessons (
  id TEXT PRIMARY KEY, project_id TEXT NOT NULL, feature_id TEXT NOT NULL,
@@ -34,7 +34,7 @@ class _NoRedirect(HTTPRedirectHandler):
 
 
 def _local_open(request, timeout):
-    return build_opener(_NoRedirect()).open(request, timeout=timeout)
+    return build_opener(ProxyHandler({}), _NoRedirect()).open(request, timeout=timeout)
 
 
 def propose_lessons(db, project_id, feature_id, rishi, source_text, evidence_ids, *,
