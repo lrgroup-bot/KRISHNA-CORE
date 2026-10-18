@@ -6,8 +6,10 @@ on:
   pull_request:
     paths:
       - 'core/krishna_core/sudarshan_canonical_integration.py'
+      - 'core/krishna_core/sudarshan_owner_consent.py'
       - 'core/krishna_core/orchestrator.py'
       - 'core/tests/test_sudarshan_canonical_integration.py'
+      - 'core/tests/test_sudarshan_owner_consent.py'
       - '.github/workflows/sudarshan-canonical-bridge.yml'
   workflow_dispatch:
 permissions:
@@ -22,8 +24,10 @@ jobs:
         with:
           python-version: '3.11'
       - name: Compile changed Python modules
-        run: python -m py_compile core/krishna_core/sudarshan_canonical_integration.py core/krishna_core/orchestrator.py core/tests/test_sudarshan_canonical_integration.py
+        run: python -m py_compile core/krishna_core/sudarshan_canonical_integration.py core/krishna_core/sudarshan_owner_consent.py core/krishna_core/orchestrator.py core/tests/test_sudarshan_canonical_integration.py core/tests/test_sudarshan_owner_consent.py
       - name: Verify action bus, project authority and knowledge handoffs
         env:
           PYTHONPATH: core
-        run: python -m unittest discover -s core/tests -p 'test_sudarshan_canonical_integration.py' -v
+        run: |
+          python -m unittest discover -s core/tests -p 'test_sudarshan_canonical_integration.py' -v
+          python -m unittest discover -s core/tests -p 'test_sudarshan_owner_consent.py' -v
