@@ -21,10 +21,11 @@ class SudarshanCanonicalIntegration:
 
     def __init__(self, projects, gyan_bhandar, brahmagyan, runner=None, *,
                  rea_executable=None, mirofish_base_url="http://127.0.0.1:5001",
-                 consent=None):
+                 consent=None, evidence_root=None):
         self.rea_executable = rea_executable
         self.mirofish_base_url = mirofish_base_url
         self.consent = consent
+        self.evidence_root = Path(evidence_root).resolve() if evidence_root is not None else None
         self.projects = projects
         self.gyan = gyan_bhandar
         self.brahmagyan = brahmagyan
@@ -48,6 +49,8 @@ class SudarshanCanonicalIntegration:
             raise ValueError("unsupported research engine")
         if not isinstance(spec, dict):
             raise TypeError("adapter spec must be an object")
+        if "evidence_root" in spec:
+            raise PermissionError("only KRISHNA supervisor may choose evidence storage")
         if engine == "MiroFish":
             if spec.get("project_id") != project:
                 raise PermissionError("MiroFish simulation project mismatch")
@@ -70,16 +73,26 @@ class SudarshanCanonicalIntegration:
             if spec.get("rea_executable") != self.rea_executable:
                 raise PermissionError("REA executable must match supervisor-allowlisted executable")
 
-    def _dispatch(self, engine, spec):
+    def _dispatch(self, engine, spec, project):
         # Never interpret a shell string or invoke arbitrary executables here.
         # The existing allowlisted tool adapters implement their own validation.
         if self.runner is not None:
             return self.runner(engine, spec, authorized=True)
+        if self.evidence_root is None:
+            raise RuntimeError("canonical evidence root not configured")
         try:
             from tools.sudarshan_native_cli import dispatch
+            from tools.sudarshan_evidence_archive import verify
         except ImportError as error:
             raise RuntimeError("SUDARSHAN tool adapters unavailable on this runtime host") from error
-        return dispatch(engine, spec, authorized=True)
+        local_spec = dict(spec)
+        local_spec["project_id"] = project
+        local_spec["evidence_root"] = str(self.evidence_root)
+        result = dispatch(engine, local_spec, authorized=True)
+        if getattr(result, "status", None) == "passed" and not verify(
+                self.evidence_root, project, engine, result.evidence_id):
+            raise RuntimeError("adapter digest has no locally verified raw evidence")
+        return result
 
     def _require_consent(self, payload, action_context, action, project):
         if (self.consent is None or not action_context.get("approved") or
@@ -105,7 +118,7 @@ class SudarshanCanonicalIntegration:
         topic = payload.get("topic")
         if not isinstance(topic, str) or not topic.strip() or len(topic) > 200:
             raise ValueError("bounded research topic required")
-        result = self._dispatch(engine, spec)
+        result = self._dispatch(engine, spec, project)
         if (getattr(result, "engine", None) != engine or
                 getattr(result, "status", None) != "passed"):
             raise RuntimeError("research adapter did not provide a successful observation")
