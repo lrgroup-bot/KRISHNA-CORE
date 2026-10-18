@@ -39,6 +39,7 @@ from .dispatch_runtime import DispatchRuntime
 from .sudarshan_control import SudarshanControlPlane
 from .sudarshan_project_orchestrator import SudarshanProjectOrchestrator
 from .sudarshan_canonical_integration import SudarshanCanonicalIntegration
+from .sudarshan_owner_consent import OwnerConsent
 from .sudarshan_design_engine import DesignJob
 from .sudarshan_ui_pipeline import UIEvidence
 from .vishvakarma_learning import ResearchLesson
@@ -462,6 +463,7 @@ class Orchestrator:
         self.sudarshan_research = SudarshanCanonicalIntegration(
             self.sudarshan_projects, self.gyan_bhandar, self.agi.brahmagyan,
             rea_executable=os.environ.get("KRISHNA_REA_CLI_PATH") or None,
+            consent=OwnerConsent.from_environment(self.db_path),
         )
         self.sudarshan_research.register(self.action_bus)
         self._register_agent_runtime()
