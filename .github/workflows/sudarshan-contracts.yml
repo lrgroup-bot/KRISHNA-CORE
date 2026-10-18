@@ -1,0 +1,26 @@
+name: Sudarshan Python Contracts
+on:
+  push:
+    branches:
+      - feature/replica-audit-gates-20261018
+  pull_request:
+    paths:
+      - 'tools/sudarshan*.py'
+      - 'tests/test_sudarshan*.py'
+      - '.github/workflows/sudarshan-contracts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile Sudarshan modules and tests
+        run: python -m compileall -q tools tests
+      - name: Run Sudarshan tests
+        run: python -m unittest discover -s tests -p 'test_sudarshan*.py' -v
