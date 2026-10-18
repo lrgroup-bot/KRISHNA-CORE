@@ -6,6 +6,46 @@ No provider receives credentials or filesystem access through this module.
 from __future__ import annotations
 from dataclasses import dataclass
 import json, os, urllib.request
+import ipaddress
+from urllib.parse import urlsplit
+
+_LOCAL_NETS=tuple(ipaddress.ip_network(net) for net in (
+    "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+    "100.64.0.0/10",  # Tailscale / private overlay CGNAT addresses
+    "fc00::/7", "fe80::/10",
+))
+
+
+def _validate_local_model_url(base_url):
+    """Reject public/cloud endpoints in the strictly local model router."""
+    if not isinstance(base_url,str):
+        raise ValueError("model router URL must be a string")
+    try:
+        uri=urlsplit(base_url)
+        host=uri.hostname
+        port=uri.port
+    except ValueError as error:
+        raise ValueError("invalid local model endpoint") from error
+    if (uri.scheme not in ("http","https") or not host or
+            uri.username or uri.password or uri.query or uri.fragment or
+            (port is not None and not (1<=port<=65535))):
+        raise PermissionError("model router must use an approved private endpoint")
+    if host.lower()=="localhost":
+        return base_url.rstrip("/")
+    try:
+        ip=ipaddress.ip_address(host)
+    except ValueError:
+        explicit={
+            part.strip().lower() for part in os.getenv(
+                "KRISHNA_LOCAL_MODEL_TRUSTED_HOSTS","").split(",")
+            if part.strip()
+        }
+        if host.lower() not in explicit:
+            raise PermissionError("unlisted model-router hostname may route data to cloud")
+        return base_url.rstrip("/")
+    if not (ip.is_loopback or any(ip in block for block in _LOCAL_NETS)):
+        raise PermissionError("public model endpoint prohibited in local model router")
+    return base_url.rstrip("/")
 
 @dataclass(frozen=True)
 class ModelRequest:
@@ -18,7 +58,7 @@ class ProviderError(RuntimeError): pass
 
 class OpenAICompatibleLocalProvider:
     def __init__(self, name:str, base_url:str, model:str|None=None, timeout:int=90):
-        self.name=name; self.base_url=base_url.rstrip("/"); self.model=model; self.timeout=timeout
+        self.name=name; self.base_url=_validate_local_model_url(base_url); self.model=model; self.timeout=timeout
     def models(self):
         with urllib.request.urlopen(self.base_url+"/models", timeout=5) as r:
             return json.loads(r.read().decode()).get("data",[])
