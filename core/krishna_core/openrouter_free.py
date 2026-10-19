@@ -29,6 +29,7 @@ class OpenRouterFreeFabric:
     CACHE_SECONDS = 300
     MAX_IMAGE_BYTES = 32 * 1024 * 1024
     RATE_LIMIT_COOLDOWN_SECONDS = 3600
+    MODEL_FAILURE_COOLDOWN_SECONDS = 1800
 
     ROLE_ALIASES = {
         "hawkeye_vision": "vision",
@@ -79,6 +80,7 @@ class OpenRouterFreeFabric:
         self.preferences_path = self.state_root / "role-preferences.json"
         self._cache = None
         self._rate_limited_until = 0.0
+        self.failure_state_path = self.state_root / "inference-failures.json"
 
     @staticmethod
     def _decimal(value):
@@ -394,9 +396,37 @@ class OpenRouterFreeFabric:
         except (InvalidOperation, ValueError, TypeError):
             return None
 
+    def _read_failure_state(self):
+        try:
+            state = json.loads(self.failure_state_path.read_text(encoding="utf-8"))
+            if isinstance(state, dict):
+                return state
+        except (OSError, ValueError, TypeError):
+            pass
+        return {}
+
+    def _save_failure_state(self, state):
+        self.state_root.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(prefix="openrouter-failures-", suffix=".json", dir=str(self.state_root))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(state, handle)
+            os.replace(tmp, self.failure_state_path)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+
+    @staticmethod
+    def _http_failure_code(exc):
+        # The gateway redacts HTTP bodies but retains HTTP status in the exception.
+        match = re.search(r"\\bHTTP(?: Error)?\\s+(403|404|429)\\b", str(exc))
+        return int(match.group(1)) if match else None
+
     def complete(self, role, prompt, *, privacy="approved_cloud", sensitive=False,
                  image_data_url=None, max_tokens=2048, preferred_model=None):
         self._assert_cloud_allowed(privacy, prompt, sensitive=sensitive)
+        failure_state = self._read_failure_state()
+        self._rate_limited_until = max(self._rate_limited_until, float(failure_state.get("rate_limited_until") or 0))
         if time.time() < self._rate_limited_until:
             raise RuntimeError("OpenRouter free inference cooldown active; no request sent")
         role = self.normalize_role(role)
@@ -405,7 +435,11 @@ class OpenRouterFreeFabric:
             raise ZeroCostPolicyError(f"no live zero-cost OpenRouter model is eligible for role: {role}")
         profile = self.profile()
         errors = []
+        model_failures = dict(failure_state.get("models") or {})
         for model in candidates:
+            if float((model_failures.get(model["id"]) or {}).get("until") or 0) > time.time():
+                errors.append({"model": model["id"], "error": "temporarily unavailable (cached HTTP 403/404)"})
+                continue
             content = str(prompt)
             if image_data_url:
                 if not str(image_data_url).startswith("data:image/"):
@@ -453,9 +487,16 @@ class OpenRouterFreeFabric:
                 raise
             except Exception as exc:
                 # Do not cascade across providers after account-level throttling.
-                if "HTTP Error 429" in str(exc) or "HTTP 429" in str(exc):
+                code = self._http_failure_code(exc)
+                if code == 429:
                     self._rate_limited_until = time.time() + self.RATE_LIMIT_COOLDOWN_SECONDS
+                    failure_state["rate_limited_until"] = self._rate_limited_until
+                    self._save_failure_state(failure_state)
                     raise RuntimeError("OpenRouter free inference rate-limited (HTTP 429); stopped model attempts; cooldown active") from None
+                if code in (403, 404):
+                    model_failures[model["id"]] = {"status": code, "until": time.time() + self.MODEL_FAILURE_COOLDOWN_SECONDS}
+                    failure_state["models"] = model_failures
+                    self._save_failure_state(failure_state)
                 errors.append({"model": model["id"], "error": f"{type(exc).__name__}: {exc}"})
                 continue
         raise RuntimeError("all eligible zero-cost OpenRouter models failed: " + json.dumps(errors, ensure_ascii=False)[:6000])
