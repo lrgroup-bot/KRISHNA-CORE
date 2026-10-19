@@ -19,7 +19,7 @@ import socket
 import sqlite3
 import time
 from urllib.parse import urlparse
-from urllib.request import Request, build_opener, ProxyHandler
+from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
 from urllib.error import URLError
 
 MAX_BYTES = 2_000_000
@@ -137,7 +137,7 @@ class Library:
     def __init__(self, root):
         self.root = Path(root).expanduser().resolve()
         self.root.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(self.root / "suryadev.sqlite3")
+        self.db = sqlite3.connect(self.root / "suryadev.sqlite3", timeout=10)\n        self.db.execute("PRAGMA busy_timeout=10000")\n        self.db.execute("PRAGMA foreign_keys=ON")\n        self.db.execute("PRAGMA journal_mode=WAL")
         self.db.executescript(SCHEMA)
         self.db.commit()
 
@@ -181,7 +181,7 @@ class Library:
 
     def recover(self):
         with self.db:
-            self.db.execute("UPDATE jobs SET status='queued',updated=? WHERE status='running'", (time.time(),))
+            self.db.execute("UPDATE jobs SET status='queued',updated=? WHERE status='running' AND updated < ?", (time.time(), time.time() - 7200))
 
     def search(self, term):
         term = "%" + term.replace("%", "\\%").replace("_", "\\_") + "%"
