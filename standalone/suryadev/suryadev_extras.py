@@ -86,7 +86,7 @@ def serve(lib, port=8769):
             if route.path != "/":
                 return self.respond(404, "Not found", "text/plain")
             term = parse_qs(route.query).get("q", [""])[0][:200]
-            rows = lib.search(term) if term else []
+            reader = Library(lib.root)\n            try:\n                rows = reader.search(term) if term else []\n                counts = html.escape(json.dumps(reader.stats()))\n            finally:\n                reader.db.close()
             findings = "".join(
                 "<article><h3>" + html.escape(x["title"]) + "</h3><p>" +
                 html.escape(x["summary"]) + "</p><small>" +
