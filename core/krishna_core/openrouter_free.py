@@ -342,8 +342,19 @@ class OpenRouterFreeFabric:
             return value
 
         rows.sort(key=lambda row: (-score(row), -int(row.get("context_length") or 0), str(row.get("id") or "")))
+        # Spread the shortlist across model authors before filling remaining
+        # slots by score. Explicit user preference still wins the first slot.
+        shortlist = []
+        seen_authors = set()
+        for row in rows:
+            author = str(row.get("id") or "").split("/", 1)[0]
+            if author not in seen_authors:
+                shortlist.append(row)
+                seen_authors.add(author)
+        selected_ids = {str(row.get("id") or "") for row in shortlist}
+        shortlist.extend(row for row in rows if str(row.get("id") or "") not in selected_ids)
         result = []
-        for row in rows[:max(1, int(limit))]:
+        for row in shortlist[:max(1, int(limit))]:
             architecture = dict(row.get("architecture") or {})
             result.append({
                 "id": row.get("id"),
@@ -549,7 +560,7 @@ class OpenRouterFreeFabric:
         plan = {}
         if refresh and profile:
             try:
-                self.catalog(refresh=True)
+                cached = self.catalog(refresh=True)
                 plan = self.role_plan(refresh=False)
             except Exception as exc:
                 catalog_error = f"{type(exc).__name__}: {exc}"
