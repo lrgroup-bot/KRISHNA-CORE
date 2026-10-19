@@ -120,3 +120,20 @@ start automatically or access a microphone.
   before unattended broad-scale crawling.
 - Test the dashboard in Chromium and perform restart, outage and backup drills.
 - Package a Windows installer only after these gates pass.
+
+## Full evidence and backup
+
+Web and transcript ingestion now store up to 2 MB of normalized full text in
+`SURYADEV-DATA/evidence/<first-two-hash-chars>/<sha256>.txt`. Findings
+still contain short excerpts and summaries for search. Evidence is
+content-addressed; use the integrity command to detect changed files.
+
+```powershell
+python suryadev_extras.py verify-evidence
+python suryadev_extras.py backup "C:\\Backups\\suryadev.sqlite3"
+```
+
+The database backup uses SQLite's online backup API. **The evidence directory
+must also be backed up**; the database backup alone does not preserve full text.
+Source URLs and hashes are retained in the findings database, but a formal
+source-verification and licensing policy remains to be implemented.
