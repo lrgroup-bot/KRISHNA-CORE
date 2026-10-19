@@ -24,6 +24,16 @@ class DiscoveryTests(unittest.TestCase):
         self.assertFalse(item["trusted"])
         self.assertEqual(item["health"]["status"], "ok")
 
+    def test_reject_oversized_body_without_length_header(self):
+        response = MagicMock()
+        response.status = 200
+        response.headers = {}
+        response.read.return_value = b"x" * 8193
+        response.__enter__.return_value = response
+        with patch("suryadev_discovery.build_opener") as opener:
+            opener.return_value.open.return_value = response
+            self.assertIsNone(probe("192.168.20.10"))
+
     def test_never_probe_public_host(self):
         self.assertIsNone(probe("8.8.8.8"))
 
