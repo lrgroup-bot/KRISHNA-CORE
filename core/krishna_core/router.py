@@ -181,7 +181,7 @@ class ModelRouter:
         if keep_alive is not None:payload["keep_alive"]=keep_alive
         body=json.dumps(payload).encode()
         req=urllib.request.Request(settings.ollama_url.rstrip("/")+"/api/generate",data=body,headers={"Content-Type":"application/json"})
-        with self._open_endpoint(req,timeout=90) as r:
+        with urllib.request.urlopen(req,timeout=90) as r:
             result=json.loads(r.read().decode())
         if result.get("error"):
             raise RuntimeError("Ollama generation failed: "+str(result["error"]))
