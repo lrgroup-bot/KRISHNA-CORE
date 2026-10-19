@@ -50,3 +50,35 @@ while the worker is stopped or via SQLite's online backup API.
 4. Restart and verify persistent search and queue recovery.
 5. Test offline, bad URLs, large responses and model-unavailable fallback.
 6. Only then consider background scheduling and further media capabilities.
+
+
+## Added standalone extensions
+
+Run these commands from `standalone\\suryadev`:
+
+```powershell
+# Import a locally saved transcript (.txt, .srt, or .vtt)
+python suryadev_extras.py import-transcript "C:\\Videos\\lesson.vtt" --no-ollama
+
+# Use local Qwen for transcript summaries
+python suryadev_extras.py import-transcript "C:\\Videos\\lesson.vtt" --model qwen3.5:9b
+
+# Run queued, explicitly added HTTPS research jobs every 60 seconds
+python suryadev_extras.py worker --interval 60
+
+# In a separate terminal, open the local read-only dashboard
+python suryadev_extras.py dashboard --port 8769
+# Open http://127.0.0.1:8769/
+```
+
+The worker does not discover or enqueue sources automatically. The dashboard
+is loopback-only, read-only and searches saved findings. The importer does not
+download YouTube videos or generate transcripts from audio; provide a lawful
+transcript file. A full media capture/transcription pipeline and packaged Windows
+installer still require separate development and real-device tests.
+
+## Operational caution
+Do not run multiple writer processes against the same database until the
+single-writer/locking design is strengthened. Back up the database before
+upgrading. Keep local files containing personal/private content out of the
+learning queue unless you explicitly authorize processing.
