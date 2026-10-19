@@ -1,5 +1,6 @@
 """Evidence storage and consistent SQLite backup for SURYADEV."""
 from __future__ import annotations
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
@@ -41,13 +42,12 @@ def backup_database(root, destination):
     target.parent.mkdir(parents=True, exist_ok=True)
     if target == src:
         raise ValueError("backup destination must differ from live database")
-    with sqlite3.connect(src, timeout=20) as live:
-        with sqlite3.connect(target) as copy:
+    with closing(sqlite3.connect(src, timeout=20)) as live:
+        with closing(sqlite3.connect(target)) as copy:
             live.backup(copy)
             check = copy.execute("PRAGMA integrity_check").fetchone()[0]
             if check != "ok":
                 raise RuntimeError("backup integrity check failed: " + check)
-            copy.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     return {"backup": str(target), "integrity": "ok"}
 
 def verify_evidence(root):
