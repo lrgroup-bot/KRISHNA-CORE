@@ -1,4 +1,5 @@
 import tempfile
+from contextlib import closing
 import unittest
 from pathlib import Path
 from suryadev import Library
@@ -25,7 +26,7 @@ class EvidenceTests(unittest.TestCase):
             result = backup_database(d, destination)
             self.assertEqual(result["integrity"], "ok")
             import sqlite3
-            with sqlite3.connect(destination) as db:
+            with closing(sqlite3.connect(destination)) as db:
                 self.assertEqual(db.execute("SELECT count(*) FROM jobs").fetchone()[0], 1)
             lib.db.close()
 
