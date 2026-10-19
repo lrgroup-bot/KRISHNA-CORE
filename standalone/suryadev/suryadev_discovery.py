@@ -52,12 +52,15 @@ def probe(host, timeout=0.35):
         with opener.open(Request(url, headers={"User-Agent": "SuryadevDiscovery/1.0"}), timeout=timeout) as response:
             if response.status != 200 or int(response.headers.get("Content-Length", "0")) > 8192:
                 return None
-            data = json.loads(response.read(8193))
+            payload = response.read(8193)
+            if len(payload) > 8192:
+                return None
+            data = json.loads(payload)
             if not isinstance(data, dict):
                 return None
             # A health endpoint alone is NOT authentication or proof of identity.
             return {"host": str(ip), "port": PORT, "health": data, "trusted": False}
-    except (OSError, URLError, ValueError, json.JSONDecodeError):
+    except (OSError, URLError, ValueError, json.JSONDecodeError, TypeError):
         return None
 
 def discover(ips=None, max_workers=32):
