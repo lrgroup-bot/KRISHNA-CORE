@@ -107,6 +107,7 @@ from .gita_performance import GitaPerformanceEngine
 from .krishna_shloka import KrishnaShlokaOrchestrator
 from .self_heal import KrishnaSelfHealRuntime
 from .mrityunjay import MrityunjayRuntime
+from .hybrid_implementation import HybridImplementationRuntime, hybrid_implementation_plan
 from .superhuman_operator import SuperhumanOperatorPolicy
 from .gmail_triage import GmailTriage
 from .workflow_recording import WorkflowRecorder
@@ -1217,6 +1218,11 @@ class Orchestrator:
                 str(payload.get("project") or context.get("project") or ""),
                 payload.get("files") or [],
             )
+
+        def hybrid_contract_action(payload, context):
+            return hybrid_implementation_plan(task=str(payload.get('task') or ''),
+                project=str(context.get('project') or 'KRISHNA'),
+                approved_public_context=payload.get('approved_public_context', False))
 
         def development_verify_action(payload,context):
             return self._development_verify_impl(
@@ -3871,6 +3877,14 @@ class Orchestrator:
             mutating=True,permissions=("candidate.write",),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
+        self.action_bus.register('hybrid.implementation.plan', hybrid_contract_action,
+            description='Inspect hybrid research/local engineering policy; no execution',
+            permissions=('runtime.read',),sources=('pc','system','agent','job'))
+        self.action_bus.register('hybrid.implementation.run', HybridImplementationRuntime(self).run,
+            description='Approved, isolated hybrid workflow using existing agents; never promotes',
+            mutating=True,requires_approval=True,
+            permissions=('candidate.write','tests.run','model.use','evidence.write','memory.write','web.read'),
+            sources=('pc','job'))
         self.action_bus.register(
             "development.verify",development_verify_action,
             description="Run independent tests/browser/API verification on a candidate workspace",
@@ -4710,7 +4724,7 @@ class Orchestrator:
         self.agent_runtime.register(
             "developer","bounded project implementation and verification",
             permissions=("code.read","candidate.write","git.push","tests.run","browser.read","browser.test","worker.execute","model.use","media.create"),
-            actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead","repair.shadow","openrouter.free.*","direct.free.*"),
+            actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead","repair.shadow","openrouter.free.*","direct.free.*","model.complete"),
         )
 
 
@@ -4723,7 +4737,7 @@ class Orchestrator:
         self.agent_runtime.register(
             "mrityunjay","KRISHNA change, improvement, self-heal, recovery, regression verification and rollback supervisor",
             permissions=("runtime.read","web.read","browser.research","candidate.write","tests.run","browser.test","model.use","live.write"),
-            actions=("mrityunjay.*","self_heal.status","garuda.scout"),
+            actions=("mrityunjay.*","self_heal.status","garuda.scout","model.complete","development.stage","development.verify"),
         )
 
         self.agent_runtime.register(

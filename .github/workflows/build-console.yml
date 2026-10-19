@@ -13,12 +13,14 @@ on:
     paths:
       - 'core/**'
       - 'avatar/**'
+      - 'app/spatial-ui/**'
       - 'scripts/**'
       - '.github/workflows/build-console.yml'
   pull_request:
     paths:
       - 'core/**'
       - 'avatar/**'
+      - 'app/spatial-ui/**'
       - 'scripts/**'
       - '.github/workflows/build-console.yml'
   workflow_dispatch:
@@ -36,6 +38,16 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build reviewed desktop frontend
+        working-directory: app/spatial-ui
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
 
       - name: Install Windows app dependencies
         shell: pwsh
@@ -63,6 +75,8 @@ jobs:
             --collect-all playwright `
             --collect-all webview `
             --add-data "core/web_validation.html;." `
+            --add-data "app/spatial-ui/dist;spatial-ui" `
+            --add-data "core/orchestration_control.html;." `
             --add-data "core/requirements;requirements" `
             --add-data "core/krishna_core/data;krishna_core/data" `
             --add-data "core/design_studio.html;." `
@@ -79,6 +93,8 @@ jobs:
             --collect-submodules krishna_core `
             --collect-all playwright `
             --add-data "core/web_validation.html;." `
+            --add-data "app/spatial-ui/dist;spatial-ui" `
+            --add-data "core/orchestration_control.html;." `
             --add-data "core/requirements;requirements" `
             --add-data "core/krishna_core/data;krishna_core/data" `
             --add-data "core/design_studio.html;." `

@@ -468,7 +468,8 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
     AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"
     AVATAR_ENGINE_ROOT = RUNTIME_ROOT / "dashboard" / "assets" / "avatar-engine"
-    SPATIAL_UI_ROOT = RUNTIME_ROOT / "dashboard" / "spatial-ui"
+    _BUNDLED_SPATIAL = _BUNDLE_ROOT / 'spatial-ui'
+    SPATIAL_UI_ROOT = _BUNDLED_SPATIAL if (_BUNDLED_SPATIAL / 'index.html').is_file() else RUNTIME_ROOT / "dashboard" / "spatial-ui"
 else:
     _CORE_ROOT = Path(__file__).resolve().parents[1]
     _REPO_ROOT = Path(__file__).resolve().parents[2]

@@ -9,11 +9,42 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+from email.utils import parsedate_to_datetime
+from datetime import timezone
+from decimal import Decimal, InvalidOperation
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
 from .secure_vault import SecureSecretVault
+
+
+class GatewayHTTPError(RuntimeError):
+    """Only numeric status/backoff metadata crosses the provider boundary."""
+    def __init__(self, status_code, retry_after_seconds=None):
+        self.status_code = int(status_code)
+        self.retry_after_seconds = retry_after_seconds
+        super().__init__(f"model gateway HTTP {self.status_code}; no fallback attempted")
+
+
+class _NoGatewayRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def retry_after_seconds(value, *, now=None):
+    if not isinstance(value, str) or len(value) > 128:
+        return None
+    try:
+        seconds = int(value.strip())
+    except ValueError:
+        try:
+            date = parsedate_to_datetime(value)
+            if date.tzinfo is None: date = date.replace(tzinfo=timezone.utc)
+            seconds = int(date.timestamp() - (time.time() if now is None else now))
+        except (ValueError, TypeError, OverflowError):
+            return None
+    return max(0, min(86400, seconds))
 
 
 @dataclass
@@ -197,6 +228,14 @@ class ModelGatewayRegistry:
                     "cloud POST blocked by KRISHNA hard zero-credit gateway; "
                     "a specialized execution-time zero-credit proof is required"
                 )
+            if proof == 'openrouter-live-zero-price':
+                if row.base_url != 'https://openrouter.ai/api/v1':
+                    raise PermissionError('OpenRouter proof is restricted to the canonical gateway')
+                metadata = self.request_json(profile_id, '/key', method='GET', timeout=10)
+                try: cap = Decimal(str((metadata.get('data') or {}).get('limit')))
+                except (InvalidOperation, ValueError, TypeError): cap = None
+                if cap is None or not cap.is_finite() or cap != 0:
+                    raise PermissionError('OpenRouter requires a verified per-key $0 spending cap before inference')
         key=self.vault.resolve(row.secret_id)
         body=None if payload is None else json.dumps(payload).encode()
         headers={
@@ -207,19 +246,24 @@ class ModelGatewayRegistry:
         if body is not None:headers["Content-Type"]="application/json"
         req=urllib.request.Request(row.base_url+relative,data=body,headers=headers,method=verb)
         try:
-            with urllib.request.urlopen(req,timeout=max(1,int(timeout))) as response:
-                raw=response.read()
+            opener = urllib.request.build_opener(_NoGatewayRedirect())
+            with opener.open(req,timeout=max(1,int(timeout))) as response:
+                raw=response.read(2 * 1024 * 1024 + 1)
+            if len(raw) > 2 * 1024 * 1024: raise ValueError('gateway response exceeds limit')
         except urllib.error.HTTPError as exc:
             # Provider bodies can echo request or account details: never log them.
-            raise RuntimeError(
-                f"model gateway HTTP {exc.code} ({verb} {relative}); no fallback attempted"
-            ) from exc
+            raise GatewayHTTPError(exc.code, retry_after_seconds(exc.headers.get('Retry-After') if exc.headers else None)) from None
         except Exception as exc:
             raise RuntimeError(
                 f"model gateway transport failure ({type(exc).__name__}); no fallback attempted"
-            ) from exc
-        try:return json.loads(raw.decode())
-        except Exception as exc:raise RuntimeError("model gateway returned invalid JSON") from exc
+            ) from None
+        try: data = json.loads(raw.decode())
+        except Exception: raise RuntimeError("model gateway returned invalid JSON") from None
+        if isinstance(data, dict) and isinstance(data.get('error'), dict):
+            code = data['error'].get('code')
+            if type(code) is int and 400 <= code <= 599: raise GatewayHTTPError(code) from None
+            raise RuntimeError('model gateway returned a provider error; details withheld') from None
+        return data
 
     def complete(self,profile_id,prompt,system="You are a worker model for KRISHNA.",max_tokens=2048):
         # Generic OpenAI-compatible profiles do not provide KRISHNA with a

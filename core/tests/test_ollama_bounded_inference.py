@@ -14,7 +14,7 @@ class _Response:
     def __exit__(self, *args):
         return False
 
-    def read(self):
+    def read(self, limit=None):
         return json.dumps({"response": "KRISHNA CHAT READY"}).encode()
 
 
@@ -28,7 +28,7 @@ class TestBoundedOllama(unittest.TestCase):
             captured["timeout"] = timeout
             return _Response()
 
-        with patch("krishna_core.router.urllib.request.urlopen", side_effect=fake_open):
+        with patch("krishna_core.local_model_transport.urllib.request.OpenerDirector.open", side_effect=fake_open):
             with patch.dict(os.environ, {
                 "KRISHNA_OLLAMA_NUM_CTX": "999999",
                 "KRISHNA_OLLAMA_NUM_PREDICT": "999999",
@@ -48,7 +48,7 @@ class TestBoundedOllama(unittest.TestCase):
             captured.update(json.loads(request.data))
             return _Response()
 
-        with patch("krishna_core.router.urllib.request.urlopen", side_effect=fake_open):
+        with patch("krishna_core.local_model_transport.urllib.request.OpenerDirector.open", side_effect=fake_open):
             with patch.dict(os.environ, {
                 "KRISHNA_OLLAMA_NUM_CTX": "invalid",
                 "KRISHNA_OLLAMA_NUM_PREDICT": "-1",

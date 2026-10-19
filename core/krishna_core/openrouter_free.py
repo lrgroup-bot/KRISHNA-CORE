@@ -7,6 +7,9 @@ import re
 import tempfile
 import time
 import uuid
+import math
+from threading import RLock
+from .model_gateway import GatewayHTTPError
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -81,6 +84,7 @@ class OpenRouterFreeFabric:
         self._cache = None
         self._rate_limited_until = 0.0
         self.failure_state_path = self.state_root / "inference-failures.json"
+        self._inference_lock = RLock()
 
     @staticmethod
     def _decimal(value):
@@ -304,6 +308,8 @@ class OpenRouterFreeFabric:
             architecture = dict(row.get("architecture") or {})
             inputs = set(architecture.get("input_modalities") or [])
             outputs = set(architecture.get("output_modalities") or [])
+            if "text" not in inputs or "text" not in outputs:
+                continue
             vision = role == "vision"
             if vision and "image" not in inputs:
                 continue
@@ -318,6 +324,8 @@ class OpenRouterFreeFabric:
         role = self.normalize_role(role)
         hints = self.ROLE_HINTS.get(role, self.ROLE_HINTS["general"])
         rows = self._free_rows(role=role, refresh=refresh)
+        unavailable = self._read_failure_state().get('models') or {}
+        rows = [row for row in rows if self._until((unavailable.get(str(row.get('id'))) or {}).get('until')) <= time.time()]
         preferred_model = str(
             preferred_model
             or self.role_preferences().get(role)
@@ -371,6 +379,7 @@ class OpenRouterFreeFabric:
                 "expires_soon": self._expires_soon(row),
                 "pricing": row.get("pricing") or {},
                 "score": score(row),
+                "endpoint_status": "catalog_eligible_inference_unverified",
             })
         return result
 
@@ -401,8 +410,11 @@ class OpenRouterFreeFabric:
             state = json.loads(self.failure_state_path.read_text(encoding="utf-8"))
             if isinstance(state, dict):
                 return state
-        except (OSError, ValueError, TypeError):
+            raise ValueError('invalid cooldown state')
+        except FileNotFoundError:
             pass
+        except (OSError, ValueError, TypeError):
+            raise RuntimeError("OpenRouter cooldown state unreadable; inference blocked") from None
         return {}
 
     def _save_failure_state(self, state):
@@ -418,28 +430,53 @@ class OpenRouterFreeFabric:
 
     @staticmethod
     def _http_failure_code(exc):
+        if isinstance(exc, GatewayHTTPError): return exc.status_code
         # The gateway redacts HTTP bodies but retains HTTP status in the exception.
         match = re.search(r"\bHTTP(?: Error)?\s+(403|404|429)\b", str(exc))
         return int(match.group(1)) if match else None
 
     def complete(self, role, prompt, *, privacy="approved_cloud", sensitive=False,
-                 image_data_url=None, max_tokens=2048, preferred_model=None):
+                 image_data_url=None, max_tokens=2048, preferred_model=None, max_attempts=2):
+        with self._inference_lock:
+            return self._complete(role, prompt, privacy=privacy, sensitive=sensitive,
+                image_data_url=image_data_url, max_tokens=max_tokens,
+                preferred_model=preferred_model, max_attempts=max_attempts)
+
+    @staticmethod
+    def _until(value):
+        try:
+            number = float(value)
+            return number if math.isfinite(number) and number >= 0 else 0
+        except (TypeError, ValueError, OverflowError): return 0
+
+    def _complete(self, role, prompt, *, privacy, sensitive, image_data_url,
+                  max_tokens, preferred_model, max_attempts):
+        if type(max_attempts) is not int or not 1 <= max_attempts <= 2:
+            raise ValueError("OpenRouter attempts must be 1 or 2")
+        if image_data_url and self.normalize_role(role) != "vision":
+            raise ValueError("image input requires the vision role")
         self._assert_cloud_allowed(privacy, prompt, sensitive=sensitive)
         failure_state = self._read_failure_state()
-        self._rate_limited_until = max(self._rate_limited_until, float(failure_state.get("rate_limited_until") or 0))
+        self._rate_limited_until = max(self._rate_limited_until, self._until(failure_state.get("rate_limited_until")))
         if time.time() < self._rate_limited_until:
             raise RuntimeError("OpenRouter free inference cooldown active; no request sent")
         role = self.normalize_role(role)
         candidates = self.rank(role, 8, refresh=True, preferred_model=preferred_model)
+        if preferred_model:
+            candidates = [row for row in candidates if row.get('id') == preferred_model]
+            max_attempts = 1
         if not candidates:
             raise ZeroCostPolicyError(f"no live zero-cost OpenRouter model is eligible for role: {role}")
         profile = self.profile()
         errors = []
         model_failures = dict(failure_state.get("models") or {})
+        attempts = 0
         for model in candidates:
-            if float((model_failures.get(model["id"]) or {}).get("until") or 0) > time.time():
+            if self._until((model_failures.get(model["id"]) or {}).get("until")) > time.time():
                 errors.append({"model": model["id"], "error": "temporarily unavailable (cached HTTP 403/404)"})
                 continue
+            if attempts >= max_attempts: break
+            attempts += 1
             content = str(prompt)
             if image_data_url:
                 if not str(image_data_url).startswith("data:image/"):
@@ -464,15 +501,25 @@ class OpenRouterFreeFabric:
             }
             try:
                 data = self.gateway.request_json(
-                    profile["id"], "/chat/completions", payload=payload, method="POST", timeout=120,
+                    profile["id"], "/chat/completions", payload=payload, method="POST", timeout=30,
                     zero_credit_proof="openrouter-live-zero-price",
                 )
                 cost = self._usage_cost(data)
                 if cost is not None and cost != 0:
                     raise ZeroCostPolicyError(f"provider reported non-zero cost for supposedly free model {model['id']}: {cost}")
-                text = str((((data or {}).get("choices") or [{}])[0].get("message") or {}).get("content") or "")
+                if not isinstance(data, dict): raise RuntimeError("invalid_completion_shape")
+                choices = data.get('choices')
+                first = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else {}
+                message = first.get('message') if isinstance(first.get('message'), dict) else {}
+                content = message.get('content')
+                if isinstance(content, list):
+                    content = ''.join(row.get('text', '') for row in content if isinstance(row, dict) and row.get('type') == 'text' and isinstance(row.get('text'), str))
+                text = content if isinstance(content, str) else ''
                 if not text.strip():
-                    raise RuntimeError("empty completion")
+                    # Reasoning is deliberately never copied into logs or final text.
+                    raise RuntimeError("reasoning_only_completion" if message.get('reasoning') or message.get('reasoning_details') else "empty_completion")
+                failure_state['consecutive_rate_limits'] = 0
+                self._save_failure_state(failure_state)
                 return {
                     "provider": "openrouter",
                     "profile_id": profile["id"],
@@ -483,21 +530,29 @@ class OpenRouterFreeFabric:
                     "provider_reported_cost": None if cost is None else str(cost),
                     "privacy": str(privacy),
                 }
-            except ZeroCostPolicyError:
-                raise
+            except PermissionError:
+                raise ZeroCostPolicyError('OpenRouter preflight policy blocked completion; no fallback') from None
             except Exception as exc:
                 # Do not cascade across providers after account-level throttling.
                 code = self._http_failure_code(exc)
-                if code == 429:
-                    self._rate_limited_until = time.time() + self.RATE_LIMIT_COOLDOWN_SECONDS
+                if code in (429, 503):
+                    previous = min(10, int(self._until(failure_state.get('consecutive_rate_limits'))))
+                    delay = min(3600, 60 * 2 ** previous)
+                    hint = getattr(exc, 'retry_after_seconds', None)
+                    if type(hint) is int: delay = max(delay, min(86400, max(0, hint)))
+                    self._rate_limited_until = time.time() + delay
                     failure_state["rate_limited_until"] = self._rate_limited_until
+                    failure_state['consecutive_rate_limits'] = previous + 1
                     self._save_failure_state(failure_state)
-                    raise RuntimeError("OpenRouter free inference rate-limited (HTTP 429); stopped model attempts; cooldown active") from None
+                    raise RuntimeError(f"OpenRouter free inference rate-limited (HTTP {code}); stopped model attempts; cooldown active") from None
+                if code in (401, 402):
+                    raise RuntimeError(f"OpenRouter account unavailable (HTTP {code}); no further attempts") from None
                 if code in (403, 404):
                     model_failures[model["id"]] = {"status": code, "until": time.time() + self.MODEL_FAILURE_COOLDOWN_SECONDS}
                     failure_state["models"] = model_failures
                     self._save_failure_state(failure_state)
-                errors.append({"model": model["id"], "error": f"{type(exc).__name__}: {exc}"})
+                diagnostic = str(exc) if str(exc) in {'reasoning_only_completion', 'empty_completion', 'invalid_completion_shape'} else 'provider_failure'
+                errors.append({"model": model["id"], "status": code, "error": diagnostic})
                 continue
         raise RuntimeError("all eligible zero-cost OpenRouter models failed: " + json.dumps(errors, ensure_ascii=False)[:6000])
 
@@ -632,6 +687,8 @@ class OpenRouterFreeFabric:
                 "cached": bool(cached),
                 "fetched_at": None if not cached else cached.get("fetched_at"),
                 "model_count": 0 if not cached else len(cached.get("models") or []),
+                "eligible_text_model_count": len(self._free_rows(role='general')) if cached and not catalog_error else 0,
+                "inference_usable": "unverified until a successful bounded completion",
                 "error": catalog_error,
             },
             "role_plan": plan,

@@ -6,6 +6,7 @@ No provider receives credentials or filesystem access through this module.
 from __future__ import annotations
 from dataclasses import dataclass
 import json, os, urllib.request
+from .local_model_transport import request_local_json, validate_local_url
 
 @dataclass(frozen=True)
 class ModelRequest:
@@ -18,7 +19,7 @@ class ProviderError(RuntimeError): pass
 
 class OpenAICompatibleLocalProvider:
     def __init__(self, name:str, base_url:str, model:str|None=None, timeout:int=90):
-        self.name=name; self.base_url=base_url.rstrip("/"); self.model=model; self.timeout=timeout
+        self.name=name; self.base_url=validate_local_url(base_url.rstrip("/")); self.model=model; self.timeout=timeout
     def models(self):
         with urllib.request.urlopen(self.base_url+"/models", timeout=5) as r:
             return json.loads(r.read().decode()).get("data",[])
@@ -28,9 +29,7 @@ class OpenAICompatibleLocalProvider:
             ms=self.models()
             if not ms: raise ProviderError(f"{self.name}: no local models available")
             model=ms[0].get("id")
-        body=json.dumps({"model":model,"messages":[{"role":"system","content":req.system},{"role":"user","content":req.prompt}],"max_tokens":req.max_tokens,"temperature":0.2}).encode()
-        q=urllib.request.Request(self.base_url+"/chat/completions",data=body,headers={"Content-Type":"application/json"})
-        with urllib.request.urlopen(q,timeout=self.timeout) as r: data=json.loads(r.read().decode())
+        data=request_local_json(self.base_url+"/chat/completions",{"model":model,"messages":[{"role":"system","content":req.system},{"role":"user","content":req.prompt}],"max_tokens":max(1,min(2048,int(req.max_tokens))),"temperature":0.2},timeout=self.timeout)
         return data["choices"][0]["message"]["content"]
 
 class ModelRouter:

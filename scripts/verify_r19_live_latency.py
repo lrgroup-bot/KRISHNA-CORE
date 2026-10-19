@@ -6,15 +6,19 @@ import statistics
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 
 def request(url, payload, timeout):
+    parsed=urlsplit(url)
+    if parsed.scheme not in {'http','https'} or parsed.hostname not in {'localhost','127.0.0.1','::1'} or parsed.username or parsed.password:
+        raise ValueError('Latency diagnostics support loopback endpoints only')
     req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
         headers={"Content-Type": "application/json"}, method="POST")
     started = time.monotonic()
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as response:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req, timeout=timeout) as response:
             data = json.loads(response.read().decode("utf-8"))
-        return {"ok": True, "seconds": round(time.monotonic()-started, 3),
+        return {"ok": not bool(data.get('error')), "seconds": round(time.monotonic()-started, 3),
                 "response": str(data.get("response") or data.get("reply") or data.get("text") or "")[:160],
                 "provider": data.get("provider"), "error": data.get("error")}
     except (urllib.error.URLError, TimeoutError, ValueError, OSError) as exc:
@@ -49,7 +53,7 @@ def main():
     b = results["tests"]["r19_chat"]["median_seconds"]
     if a is not None and b is not None:
         print("Core overhead (median seconds):", round(b-a, 3))
-    return 0 if all(len(x["samples"]) == args.samples and all(y["ok"] for y in x["samples"])
+    return 0 if all(x['exact_replies']==args.samples and len(x["samples"]) == args.samples and all(y["ok"] for y in x["samples"])
                     for x in results["tests"].values()) else 1
 
 if __name__ == "__main__":
