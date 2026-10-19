@@ -1,6 +1,7 @@
 """Opt-in SURYADEV media utilities. Explicit files/URLs only; no surveillance."""
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from urllib.parse import urlparse
@@ -101,14 +102,23 @@ def main(argv=None):
         result = transcribe_file(args.file, model_size=args.model_size, language=args.language, device=args.device)
         folder = Path(args.data).expanduser().resolve() / "transcripts"
         folder.mkdir(parents=True, exist_ok=True)
-        target = folder / (Path(args.file).stem + ".txt")
+        source_file = Path(args.file).expanduser().resolve(strict=True)
+        fingerprint = hashlib.sha256(str(source_file).encode("utf-8")).hexdigest()[:12]
+        target = folder / (source_file.stem + "-" + fingerprint + ".txt")
         target.write_text(result["text"], encoding="utf-8")
-        receipt = import_transcript(Library(args.data), target, use_ollama=not args.no_ollama)
+        lib = Library(args.data)
+        try:
+            receipt = import_transcript(lib, target, source_url=source_file.as_uri(), use_ollama=not args.no_ollama)
+        finally:
+            lib.db.close()
         print(json.dumps({"transcription": str(target), "language": result["language"], "finding": receipt}, indent=2))
     elif args.action == "youtube-subtitles":
         files = youtube_subtitles(args.url, output_dir=args.output_dir)
         lib = Library(args.data)
-        results = [import_transcript(lib, f, source_url=args.url) for f in files]
+        try:
+            results = [import_transcript(lib, f, source_url=args.url) for f in files]
+        finally:
+            lib.db.close()
         print(json.dumps({"files": files, "findings": results}, indent=2))
     else:
         print(json.dumps(capture_page(args.url, args.output, allow_hosts=set(args.allow_host)), indent=2))
