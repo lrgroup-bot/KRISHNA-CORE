@@ -81,8 +81,8 @@ def execute_hybrid_implementation(
     if not all(callable(fn) for fn in (research, local_plan, local_build, local_test, local_learn)):
         raise TypeError("All workflow adapters must be registered callables")
 
-    # The research adapter must itself enforce free-tier eligibility and zero
-    # billable usage. Reject unverified results before local execution.
+    # The host must supply a trusted research adapter which checks free-tier
+    # eligibility independently. The research result is untrusted evidence.
     evidence = research(task=policy["task"], project=project, free_only=True)
     if not isinstance(evidence, dict) or evidence.get("verified_free") is not True:
         return {"status": "blocked", "reason": "cloud_free_not_verified", "policy": policy}
@@ -96,10 +96,13 @@ def execute_hybrid_implementation(
         if parsed.scheme != "https" or not parsed.hostname:
             return {"status": "blocked", "reason": "non_https_source", "policy": policy}
     # Only public evidence is transferred to the local planning adapter.
-    public_evidence = {"sources": sources, "summary": str(evidence.get("summary", ""))[:8000]}
+    public_evidence = {"sources": [{"url": s["url"], "title": str(s.get("title", ""))[:200]} for s in sources[:20]],
+                       "summary": str(evidence.get("summary", ""))[:8000]}
     plan = local_plan(task=task, project=project, evidence=public_evidence)
     if not isinstance(plan, dict):
         return {"status": "blocked", "reason": "invalid_local_plan", "policy": policy}
+    if type(approve_build) is not bool:
+        raise TypeError("approve_build must be a boolean")
     if not approve_build:
         return {"status": "awaiting_approval", "plan": plan, "sources": sources, "policy": policy}
     # The host must bind local_build to its registered isolated-worker boundary.
