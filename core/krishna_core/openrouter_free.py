@@ -28,6 +28,7 @@ class OpenRouterFreeFabric:
     IMAGE_MODEL = "inclusionai/ming-image-0.1-design"
     CACHE_SECONDS = 300
     MAX_IMAGE_BYTES = 32 * 1024 * 1024
+    RATE_LIMIT_COOLDOWN_SECONDS = 3600
 
     ROLE_ALIASES = {
         "hawkeye_vision": "vision",
@@ -77,6 +78,7 @@ class OpenRouterFreeFabric:
         self.image_dir = self.state_root / "images"
         self.preferences_path = self.state_root / "role-preferences.json"
         self._cache = None
+        self._rate_limited_until = 0.0
 
     @staticmethod
     def _decimal(value):
@@ -395,6 +397,8 @@ class OpenRouterFreeFabric:
     def complete(self, role, prompt, *, privacy="approved_cloud", sensitive=False,
                  image_data_url=None, max_tokens=2048, preferred_model=None):
         self._assert_cloud_allowed(privacy, prompt, sensitive=sensitive)
+        if time.time() < self._rate_limited_until:
+            raise RuntimeError("OpenRouter free inference cooldown active; no request sent")
         role = self.normalize_role(role)
         candidates = self.rank(role, 8, refresh=True, preferred_model=preferred_model)
         if not candidates:
@@ -448,6 +452,10 @@ class OpenRouterFreeFabric:
             except ZeroCostPolicyError:
                 raise
             except Exception as exc:
+                # Do not cascade across providers after account-level throttling.
+                if "HTTP Error 429" in str(exc) or "HTTP 429" in str(exc):
+                    self._rate_limited_until = time.time() + self.RATE_LIMIT_COOLDOWN_SECONDS
+                    raise RuntimeError("OpenRouter free inference rate-limited (HTTP 429); stopped model attempts; cooldown active") from None
                 errors.append({"model": model["id"], "error": f"{type(exc).__name__}: {exc}"})
                 continue
         raise RuntimeError("all eligible zero-cost OpenRouter models failed: " + json.dumps(errors, ensure_ascii=False)[:6000])
