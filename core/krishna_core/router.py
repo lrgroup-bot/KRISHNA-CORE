@@ -159,11 +159,33 @@ class ModelRouter:
         }
 
     def _ollama_generate(self,model,prompt,keep_alive=None):
-        payload={"model":model,"prompt":prompt,"stream":False}
+        # Bound default generation to avoid unexpectedly long local chat replies.
+        # Environment overrides are clamped to keep the review runtime predictable.
+        def bounded_int(name, default, minimum, maximum):
+            try:
+                value=int(os.getenv(name, str(default)))
+            except (TypeError, ValueError):
+                value=default
+            return max(minimum, min(maximum, value))
+
+        payload={
+            "model":model,
+            "prompt":prompt,
+            "stream":False,
+            "options":{
+                "num_ctx":bounded_int("KRISHNA_OLLAMA_NUM_CTX",2048,512,8192),
+                "num_predict":bounded_int("KRISHNA_OLLAMA_NUM_PREDICT",256,32,2048),
+                "temperature":0.2,
+            },
+        }
         if keep_alive is not None:payload["keep_alive"]=keep_alive
         body=json.dumps(payload).encode()
         req=urllib.request.Request(settings.ollama_url.rstrip("/")+"/api/generate",data=body,headers={"Content-Type":"application/json"})
-        with urllib.request.urlopen(req,timeout=90) as r:return json.loads(r.read().decode()).get("response","")
+        with self._open_endpoint(req,timeout=90) as r:
+            result=json.loads(r.read().decode())
+        if result.get("error"):
+            raise RuntimeError("Ollama generation failed: "+str(result["error"]))
+        return result.get("response","")
 
     def local(self,prompt,model=None,task="general",keep_alive=None):
         if model:
