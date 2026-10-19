@@ -16,6 +16,12 @@ class CandidateRepairGuard:
     MAX_FILE_CHARS=50000
     MAX_TOTAL_CONTEXT=150000
 
+    @staticmethod
+    def is_private_file(path):
+        name = Path(path).name.casefold()
+        return (name.startswith('.env') or name in {'.npmrc','credentials.json','secrets.json','id_rsa','id_ed25519'}
+                or Path(name).suffix in {'.pem','.key','.p12','.pfx','.db','.sqlite','.sqlite3'})
+
     @classmethod
     def collect_context(cls, candidate_root: str | Path, hints: list[str] | None=None) -> dict[str,Any]:
         root=Path(candidate_root).resolve()
@@ -24,7 +30,10 @@ class CandidateRepairGuard:
         rows=[]
         for path in root.rglob("*"):
             if not path.is_file() or path.suffix.lower() not in cls.EXTENSIONS:continue
-            if path.name.lower() in cls.SENSITIVE or any(part in cls.EXCLUDES for part in path.parts):continue
+            try: resolved_relative = path.resolve().relative_to(root)
+            except ValueError: continue
+            if cls.is_private_file(path) or cls.is_private_file(path.resolve()):continue
+            if path.name.lower() in cls.SENSITIVE or any(part in cls.EXCLUDES for part in path.relative_to(root).parts + resolved_relative.parts):continue
             try:
                 rel=str(path.relative_to(root)).replace("\\","/")
                 text=path.read_text(encoding="utf-8")
@@ -55,7 +64,7 @@ class CandidateRepairGuard:
             if rel in seen:raise ValueError("duplicate repair path")
             seen.add(rel)
             target=(root/rel).resolve()
-            try:target.relative_to(root)
+            try:relative_target = target.relative_to(root)
             except ValueError as exc:raise ValueError("repair escapes candidate") from exc
             if not target.is_file():
                 rel_low=rel.lower()
@@ -68,7 +77,8 @@ class CandidateRepairGuard:
                 if not allowed_new_test:
                     raise PermissionError("auto-repair may create only bounded regression tests")
             if target.suffix.lower() not in cls.EXTENSIONS:raise PermissionError("auto-repair file type is not allowed")
-            if target.name.lower() in cls.SENSITIVE or any(part in cls.EXCLUDES for part in target.parts):
+            if cls.is_private_file(target):raise PermissionError('auto-repair cannot modify private files')
+            if target.name.lower() in cls.SENSITIVE or any(part in cls.EXCLUDES for part in relative_target.parts):
                 raise PermissionError("auto-repair cannot modify dependency, secret, workflow or build state")
             content=str(row.get("content") or "")
             if not content:raise ValueError("repair content is empty")

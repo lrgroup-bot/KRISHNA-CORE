@@ -168,6 +168,8 @@ class SharedActionBus:
     @classmethod
     def _safe_payload(cls,payload):
         def clean(value,key="",depth=0,active=None):
+            if key.casefold() in {'prompt','system'} and isinstance(value,str):
+                return {'private_text_sha256':hashlib.sha256(value.encode('utf-8')).hexdigest(),'characters':len(value)}
             if cls._is_sensitive_key(key):
                 return "[REDACTED]"
             if depth>64:

@@ -1,0 +1,19 @@
+.work-console { max-width: 1000px; }
+.work-console label { display: grid; gap: 7px; margin: 12px 0; font-size: 13px; }
+.work-console :is(input:not([type=checkbox]),select,textarea) { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #45546b; border-radius: 8px; color: #edf3ff; background: #111b2d; font: inherit; }
+.work-console textarea { min-height: 82px; resize: vertical; }
+.work-console button { padding: 10px 16px; border: 1px solid #82b6ec; border-radius: 8px; background: #244a72; color: #fff; cursor: pointer; }
+.work-console button:disabled { opacity: .5; cursor: default; }
+.work-console :is(button,input,select,textarea,summary):focus-visible { outline: 2px solid #98cbff; outline-offset: 3px; }
+.work-console .work-check { display: flex; align-items: flex-start; gap: 10px; line-height: 1.6; }
+.work-check input { margin-top: 5px; flex-shrink: 0; }
+.work-chat { max-height: 340px; overflow: auto; margin: 18px 0; }
+.work-chat p { padding: 12px; border-radius: 8px; background: #172135; }
+.work-chat :is(strong,span) { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.work-chat strong { margin-bottom: 7px; color: #9bc9fb; }
+.work-console details { margin-top: 28px; padding-top: 20px; border-top: 1px solid #344159; }
+.work-console summary { cursor: pointer; font-weight: 600; }
+.work-console [role=alert] { color: #ffb7b7; overflow-wrap: anywhere; }
+.work-outcome { margin-top: 20px; padding: 16px; border: 1px solid #577a96; border-radius: 8px; }
+.work-outcome li { margin: 10px 0; overflow-wrap: anywhere; }
+.work-outcome small { display: block; color: #b7c3d7; }

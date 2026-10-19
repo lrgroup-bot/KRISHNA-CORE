@@ -63,8 +63,17 @@ class AgentRuntime:
         return [x.as_dict() for x in sorted(self._agents.values(),key=lambda x:x.agent_id)]
 
     def status(self):
+        recent = self.action_bus.recent(200)
+        last = {}
+        for row in recent:
+            if row.get('source') == 'agent' and row.get('actor') in self._agents:
+                last[row['actor']] = {key:row.get(key) for key in ('action_id','action','status','created_at','completed_at')}
         return {
             "owner":"KRISHNA Agent Runtime",
             "agents":self.list(),"count":len(self._agents),
             "authority":"Sudarshan Control Plane" if self.control_plane else "Shared Action Bus",
+            "execution_audit":[{'agent_id':agent.agent_id,'last_recorded_action':last.get(agent.agent_id),
+                'state':'not_observed' if agent.agent_id not in last else 'action_recorded',
+                'full_workflow_verified':False} for agent in sorted(self._agents.values(),key=lambda x:x.agent_id)],
+            "audit_scope":"last 200 local action receipts; registration or returned action is not full workflow verification",
         }

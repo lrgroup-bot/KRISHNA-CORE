@@ -15,6 +15,7 @@ import webbrowser
 from krishna_console import CORE_URL, STARTUP_ERRORS, ensure_core
 
 CURRENT_UI_MARKER = 'data-krishna-ui="2026.09-current"'
+SPATIAL_UI_MARKER = 'data-krishna-spatial-ui="2026.09"'
 
 
 def _show_error(message: str) -> None:
@@ -32,7 +33,7 @@ def _show_error(message: str) -> None:
 def _verify_current_ui(url: str) -> None:
     with urllib.request.urlopen(url, timeout=8) as response:
         html = response.read(512_000).decode("utf-8", errors="replace")
-    if CURRENT_UI_MARKER not in html:
+    if CURRENT_UI_MARKER not in html and SPATIAL_UI_MARKER not in html:
         raise RuntimeError(
             "KRISHNA Core is online but is not serving the current desktop design. "
             "Run the verified deployment before opening KRISHNA."

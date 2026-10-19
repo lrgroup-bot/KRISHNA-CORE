@@ -1,4 +1,5 @@
 import NetworkVisionPanel from './NetworkVisionPanel';
+import SudarshanWorkPanel from './SudarshanWorkPanel';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { DockviewReact, themeDark } from 'dockview-react';
 import { Background, Controls, ReactFlow, type Edge, type Node } from '@xyflow/react';
@@ -328,17 +329,7 @@ function KrishnaHome() {
 }
 
 function SudarshanPanel() {
-  return (
-    <section className="panel-content">
-      <div className="eyebrow">SUDARSHAN</div>
-      <h2>Work console</h2>
-      <p className="muted">Projects, chats, verification, browser work and action receipts render here through authenticated runtime contracts.</p>
-      <div className="status-strip">
-        <span>Active Work</span><span>Verification</span><span>System Load</span>
-      </div>
-      <p className="muted">Operational controls are injected only after their Shared Action contract is available; this shell does not render fake action buttons.</p>
-    </section>
-  );
+  return <SudarshanWorkPanel />;
 }
 
 type DesignStatus = {

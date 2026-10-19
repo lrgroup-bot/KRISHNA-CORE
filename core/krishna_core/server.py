@@ -29,6 +29,7 @@ from .narad.scheduler import NaradScheduler
 from .autonomy_supervisor import AutonomySupervisor
 from .specialist_team import SpecialistTeamPlanner
 from .lan_discovery import LanDiscoveryService
+from .network_inventory import NetworkInventory
 from .avatar_asset_pipeline import AvatarAssetInspector
 from .video_avatar import VideoAvatarFabric
 from .science_atlas import ScienceFrontierScheduler
@@ -203,6 +204,7 @@ _specialists = SpecialistLibrary(Path(settings.db_path).resolve().parent / ".kri
 _integrity = RuntimeIntegrity(RUNTIME_ROOT)
 _requirements = RequirementsLedger()
 _lan_discovery = None
+_network_inventory = NetworkInventory()
 def _remember_garudanetra_session(snapshot):
     project=str(snapshot.get("project") or "KRISHNA")
     sid=str(snapshot.get("session_id") or "")
@@ -468,7 +470,8 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     AVATAR_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.glb"
     AVATAR_PRODUCTION_GLB = RUNTIME_ROOT / "dashboard" / "assets" / "avatar" / "krishna.production.glb"
     AVATAR_ENGINE_ROOT = RUNTIME_ROOT / "dashboard" / "assets" / "avatar-engine"
-    SPATIAL_UI_ROOT = RUNTIME_ROOT / "dashboard" / "spatial-ui"
+    _BUNDLED_SPATIAL = _BUNDLE_ROOT / 'spatial-ui'
+    SPATIAL_UI_ROOT = _BUNDLED_SPATIAL if (_BUNDLED_SPATIAL / 'index.html').is_file() else RUNTIME_ROOT / "dashboard" / "spatial-ui"
 else:
     _CORE_ROOT = Path(__file__).resolve().parents[1]
     _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -1091,6 +1094,10 @@ class Handler(BaseHTTPRequestHandler):
                 **orch.external_auth.status(),
                 "pending_requests":orch.external_auth.pending(),
             })
+        if path == "/api/network/overview":
+            if self.client_address[0] not in ("127.0.0.1", "::1"):
+                return self._json(403, {"error": "network inventory is local-PC only"})
+            return self._json(200, _network_inventory.status())
         if path == "/api/garuda/status":
             return self._json(200, orch.garuda_status())
         if path == "/api/brahmagyan/status":

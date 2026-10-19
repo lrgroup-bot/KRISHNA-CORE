@@ -107,6 +107,7 @@ from .gita_performance import GitaPerformanceEngine
 from .krishna_shloka import KrishnaShlokaOrchestrator
 from .self_heal import KrishnaSelfHealRuntime
 from .mrityunjay import MrityunjayRuntime
+from .hybrid_implementation import HybridImplementationRuntime, hybrid_implementation_plan
 from .superhuman_operator import SuperhumanOperatorPolicy
 from .gmail_triage import GmailTriage
 from .workflow_recording import WorkflowRecorder
@@ -1217,6 +1218,11 @@ class Orchestrator:
                 str(payload.get("project") or context.get("project") or ""),
                 payload.get("files") or [],
             )
+
+        def hybrid_contract_action(payload, context):
+            return hybrid_implementation_plan(task=str(payload.get('task') or ''),
+                project=str(context.get('project') or 'KRISHNA'),
+                approved_public_context=payload.get('approved_public_context', False))
 
         def development_verify_action(payload,context):
             return self._development_verify_impl(
@@ -3871,6 +3877,14 @@ class Orchestrator:
             mutating=True,permissions=("candidate.write",),
             sources=("pc","system","agent","job","mcp","a2a"),
         )
+        self.action_bus.register('hybrid.implementation.plan', hybrid_contract_action,
+            description='Inspect hybrid research/local engineering policy; no execution',
+            permissions=('runtime.read',),sources=('pc','system','agent','job'))
+        self.action_bus.register('hybrid.implementation.run', HybridImplementationRuntime(self).run,
+            description='Approved, isolated hybrid workflow using existing agents; never promotes',
+            mutating=True,requires_approval=True,
+            permissions=('candidate.write','tests.run','model.use','evidence.write','memory.write','web.read'),
+            sources=('pc','job'))
         self.action_bus.register(
             "development.verify",development_verify_action,
             description="Run independent tests/browser/API verification on a candidate workspace",
@@ -4710,7 +4724,7 @@ class Orchestrator:
         self.agent_runtime.register(
             "developer","bounded project implementation and verification",
             permissions=("code.read","candidate.write","git.push","tests.run","browser.read","browser.test","worker.execute","model.use","media.create"),
-            actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead","repair.shadow","openrouter.free.*","direct.free.*"),
+            actions=("development.*","worker.ephemeral.execute","browser.inspect","browser.testing_lead","repair.shadow","openrouter.free.*","direct.free.*","model.complete"),
         )
 
 
@@ -4723,7 +4737,7 @@ class Orchestrator:
         self.agent_runtime.register(
             "mrityunjay","KRISHNA change, improvement, self-heal, recovery, regression verification and rollback supervisor",
             permissions=("runtime.read","web.read","browser.research","candidate.write","tests.run","browser.test","model.use","live.write"),
-            actions=("mrityunjay.*","self_heal.status","garuda.scout"),
+            actions=("mrityunjay.*","self_heal.status","garuda.scout","model.complete","development.stage","development.verify"),
         )
 
         self.agent_runtime.register(
@@ -6818,6 +6832,45 @@ STRICT OUTPUT CONTRACT:
             except Exception as exc:
                 research_rows.append({"error":f"{type(exc).__name__}: {exc}","official_only":True})
             legal_context={**legal_context,"live_official_research":research_rows}
+        # Limit recalled background text before sending it to small local models.
+        # Preserve the current user request and all safety/policy contracts.
+        def _bounded_context(value, limit):
+            text = str(value)
+            if len(text) <= limit:
+                return text
+            return text[:limit] + " [older context truncated]"
+
+        context = _bounded_context(context, 1800)
+        incidents = _bounded_context(incidents, 1000)
+        chat_context = _bounded_context(chat_context, 2200)
+        skill_context = _bounded_context(skill_context, 1400)
+        vision_evidence = _bounded_context(vision_evidence, 1800) if vision_evidence else None
+
+        # Literal-response probes should not be overwhelmed by the full persona,
+        # history and specialist instructions on small local models. Still route
+        # through the configured model and privacy controls (no fabricated reply).
+        import re
+        exact_match = re.fullmatch(
+            r"Reply with exactly ([A-Za-z0-9][A-Za-z0-9 _.-]{0,63}) and nothing else\.",
+            str(message).strip(), flags=re.IGNORECASE,
+        )
+        if exact_match and not vision_evidence:
+            literal = exact_match.group(1).strip()
+            prompt = (
+                "You are KRISHNA. Follow this exact-output instruction. "
+                "Output only the literal text below, with no greeting, translation, "
+                "punctuation, explanation, or other characters.\n"
+                "Literal: " + literal
+            )
+            result = self._route_model(prompt, privacy=privacy, project=project, actor="conversation")
+            self.memory.remember(project, "conversation", message, {"task_id": task_id, "chat_id": chat_id})
+            if chat_id:
+                self.memory.add_chat_message(chat_id, "assistant", result["text"],
+                    {"task_id": task_id, "provider": result["provider"]})
+            self.memory.audit(task_id, "answered", result["provider"])
+            return {"task_id": task_id, "chat_id": chat_id, "neural_intent": neural["intent"],
+                    "skills_used": [], **result}
+
         prompt = f"""You are KRISHNA Core, a persistent autonomous software intelligence.
 Operating loop: Observe -> Understand -> Investigate -> Research -> Plan -> Act -> Test -> Verify -> Learn.
 Be concise and truthful. Never claim an action completed unless verification evidence exists.
@@ -6830,6 +6883,7 @@ GLOBAL CONVERSATION LANGUAGE OVERRIDE:
 - Write all owner-facing conversational prose in natural Odia unless Partha explicitly asks for Hindi or English.
 - Preserve code, paths, API names, model names, logs, quotations and source text exactly where translation would reduce precision.
 - This applies globally, not only to Gita conversations.
+- If the user explicitly requests an exact literal response, output only that literal, with no Odia prefix or translation.
 
 {self.requirements.prompt_contract()}
 

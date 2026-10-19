@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, ArrowUpRight, Cable, CheckCircle2, CircleHelp, Globe2, HardDrive, LockKeyhole, Monitor, Network, RefreshCw, Router, Search, Server, ShieldCheck, Wifi, XCircle } from 'lucide-react';
 
 type Device = { id?: string; name?: string; ip?: string; kind?: string; status?: string; bandwidth_mbps?: number; console_url?: string; console_type?: string };
-type Snapshot = { devices?: Device[]; source?: string; updated_at?: string; gateway?: string; subnet?: string };
+type Snapshot = { devices?: Device[]; available?: boolean; policy?: string; error?: string; source?: string; updated_at?: string; gateway?: string; subnet?: string };
 type Section = 'overview' | 'devices' | 'servers' | 'traffic' | 'integrations';
 const sections: { id: Section; label: string }[] = [
   { id: 'overview', label: 'Overview' }, { id: 'devices', label: 'Devices & IPs' },
@@ -43,7 +43,7 @@ export default function NetworkVisionPanel() {
       if (!payload || typeof payload !== 'object' || !Array.isArray((payload as Snapshot).devices)) throw new Error('Invalid network inventory response');
       if (signal?.aborted) return;
       setSnapshot(payload as Snapshot);
-      setError('');
+      setError((payload as Snapshot).available === false ? (payload as Snapshot).error || 'Inventory unavailable' : '');
     } catch (reason) {
       if (signal?.aborted) return;
       setSnapshot(null);
@@ -68,10 +68,11 @@ export default function NetworkVisionPanel() {
     <section className="nv-shell" aria-label="Network and Vision">
       <header className="nv-header">
         <div><div className="nv-kicker"><span className="nv-kicker-dot" /> KRISHNA / INFRASTRUCTURE</div><h1>Network <span>&amp;</span> Vision</h1><p>Observe every connection. Control authorized servers from one place.</p></div>
-        <div className="nv-header-actions"><span className={snapshot ? 'nv-pill nv-pill--live' : 'nv-pill'}>{snapshot ? <CheckCircle2 size={14} /> : <XCircle size={14} />}{snapshot ? 'Inventory connected' : 'Not connected'}</span><button type="button" className="nv-refresh" onClick={() => void refresh()} disabled={loading}><RefreshCw size={16} className={loading ? 'nv-spin' : ''} /> Refresh</button></div>
+        <div className="nv-header-actions"><span className={snapshot ? 'nv-pill nv-pill--live' : 'nv-pill'}>{snapshot ? <CheckCircle2 size={14} /> : <XCircle size={14} />}{snapshot && snapshot.available !== false ? 'Inventory connected' : 'Not connected'}</span><button type="button" className="nv-refresh" onClick={() => void refresh()} disabled={loading}><RefreshCw size={16} className={loading ? 'nv-spin' : ''} /> Refresh</button></div>
       </header>
       <div className="nv-toolbar"><nav className="nv-tabs" aria-label="Network and Vision sections">{sections.map(item => <button key={item.id} type="button" className={tab === item.id ? 'nv-tab nv-tab--active' : 'nv-tab'} onClick={() => setTab(item.id)}>{item.label}</button>)}</nav><span className="nv-updated">Updated: {updated}</span></div>
       {error && <div className="nv-notice" role="status"><CircleHelp size={19} /><div><strong>Live inventory unavailable</strong><p>{error}. Connect a compatible discovery service to display verified devices. No simulated data is shown.</p></div></div>}
+      {snapshot?.policy && <p className="nv-footnote">{snapshot.policy}. Observed addresses do not verify device identity, connectivity or hardware health.</p>}
       {(tab === 'overview' || tab === 'devices') && <div className="nv-stats">{statCards.map(card => <article key={card.label} className="nv-stat"><span className="nv-stat-icon">{card.icon}</span><span className="nv-stat-label">{card.label}</span><strong>{card.value}</strong><small>{card.hint}</small></article>)}</div>}
       {tab === 'overview' && <div className="nv-main-grid">
         <article className="nv-surface nv-topology"><div className="nv-section-head"><div><span className="nv-overline">CONNECTION MAP</span><h2>Network topology</h2></div><span className="nv-quiet">Logical overview</span></div>

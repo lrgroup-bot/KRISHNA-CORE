@@ -19,10 +19,11 @@ class DevelopmentOperator:
             self.staging_root.mkdir(parents=True,exist_ok=True)
 
     @staticmethod
-    def _run(args,cwd,timeout=180):
+    def _run(args,cwd,timeout=180,env_overrides=None):
         started=time.perf_counter()
         try:
-            p=subprocess.run(args,cwd=str(cwd),capture_output=True,text=True,timeout=timeout,shell=False,env=os.environ.copy())
+            p=subprocess.run(args,cwd=str(cwd),stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=timeout,shell=False,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name=="nt" else 0,env={**os.environ,**(env_overrides or {})})
             out=((p.stdout or "")+"\n"+(p.stderr or "")).strip()[-12000:]
             # Empty stdout/stderr is meaningful for commands such as
             # `git status --porcelain`: it means the working tree is clean.
@@ -137,7 +138,19 @@ class DevelopmentOperator:
         for name in checks:
             cmd=allowed.get(str(name))
             if not cmd:steps.append(DevStep(str(name),False,"verification check is not allowlisted",0));continue
-            steps.append(self._run(cmd,root,300))
+            cmd=list(cmd)
+            # Resolve the configured PATH tool explicitly: Windows CreateProcess
+            # otherwise prefers the parent Python's directory over the venv PATH.
+            if cmd[0] in {"python","npm"}:cmd[0]=shutil.which(cmd[0]) or cmd[0]
+            if str(name) in {'python-tests','pytest'}:
+                # Independent retries must not reuse timestamp-valid stale project
+                # bytecode or clean a shared pytest directory.
+                with tempfile.TemporaryDirectory(prefix="krishna-check-cache-") as cache:
+                    command=cmd+["--basetemp="+str(Path(cache)/"pytest")] if str(name)=='pytest' else cmd
+                    step=self._run(command,root,300,env_overrides={'PYTHONPYCACHEPREFIX':cache,'PYTHONDONTWRITEBYTECODE':'1'})
+            else:step=self._run(cmd,root,300)
+            step.name=str(name)
+            steps.append(step)
         browser=None
         if frontend_url:
             try:browser=self.browser.inspect(frontend_url,actions=browser_actions or [],screenshot_path=screenshot_path)
