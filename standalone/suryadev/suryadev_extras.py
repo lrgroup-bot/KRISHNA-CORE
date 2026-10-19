@@ -99,17 +99,21 @@ def serve(lib, port=8769):
                 html.escape(x["url"]) + "</small></article>" for x in rows
             )
             counts = html.escape(json.dumps(lib.stats()))
-            page = ("""<!doctype html><html><head><meta charset="utf-8">
-<title>SURYDEV Learning Library</title><style>
-body{font:16px system-ui;max-width:920px;margin:35px auto;padding:20px;background:#111827;color:#f9fafb}
-input{padding:12px;width:65%;border-radius:6px}button{padding:12px}
-article{background:#1f2937;padding:16px;margin:12px 0;border-radius:8px}
-small{overflow-wrap:anywhere;color:#9ca3af}p{white-space:pre-wrap}
-</style></head><body><h1>SURYDEV Learning Library</h1>
-<p>Local-only dashboard · Jobs: """ + counts + """</p>
-<form action="/" method="get"><input name="q" placeholder="Search saved findings" value="""" +
-html.escape(term, quote=True) + """"><button>Search</button></form>""" +
-findings + """</body></html>""")
+            page = (
+                '<!doctype html><html><head><meta charset="utf-8">'
+                '<title>SURYDEV Learning Library</title>'
+                '<style>body{font:16px system-ui;max-width:920px;margin:35px auto;'
+                'padding:20px;background:#111827;color:#f9fafb}'
+                'input{padding:12px;width:65%}button{padding:12px}'
+                'article{background:#1f2937;padding:16px;margin:12px 0;border-radius:8px}'
+                'small{overflow-wrap:anywhere;color:#9ca3af}p{white-space:pre-wrap}'
+                '</style></head><body><h1>SURYDEV Learning Library</h1>'
+                '<p>Local-only dashboard · Jobs: ' + counts + '</p>'
+                '<form action="/" method="get"><input name="q" '
+                'placeholder="Search saved findings" value="' +
+                html.escape(term, quote=True) +
+                '"><button>Search</button></form>' + findings + '</body></html>'
+            )
             return self.respond(200, page)
 
         def log_message(self, fmt, *args):
