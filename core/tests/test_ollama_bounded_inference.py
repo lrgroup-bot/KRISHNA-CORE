@@ -28,7 +28,7 @@ class TestBoundedOllama(unittest.TestCase):
             captured["timeout"] = timeout
             return _Response()
 
-        with patch.object(ModelRouter, "_open_endpoint", side_effect=fake_open):
+        with patch("krishna_core.router.urllib.request.urlopen", side_effect=fake_open):
             with patch.dict(os.environ, {
                 "KRISHNA_OLLAMA_NUM_CTX": "999999",
                 "KRISHNA_OLLAMA_NUM_PREDICT": "999999",
@@ -48,7 +48,7 @@ class TestBoundedOllama(unittest.TestCase):
             captured.update(json.loads(request.data))
             return _Response()
 
-        with patch.object(ModelRouter, "_open_endpoint", side_effect=fake_open):
+        with patch("krishna_core.router.urllib.request.urlopen", side_effect=fake_open):
             with patch.dict(os.environ, {
                 "KRISHNA_OLLAMA_NUM_CTX": "invalid",
                 "KRISHNA_OLLAMA_NUM_PREDICT": "-1",
