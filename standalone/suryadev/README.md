@@ -164,3 +164,7 @@ Run `python suryadev_discovery.py` to find possible Core servers on the local ne
 ## Laptop preflight before first pull-and-run acceptance
 
 From Windows PowerShell inside the standalone/suryadev folder, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\laptop-preflight.ps1`. This runs syntax checks, all bundled unit tests, the local database status command, a best-effort local Ollama model check, and LAN discovery. Use `-SkipOllama` for offline checks. Discovery does not imply enrollment. Do not run a background worker or enable Core synchronization until the tests and pairing checks pass.
+
+## Secure enrollment client (integration pending)
+
+The optional `suryadev_enroll.py` command requires a documented HTTPS Core enrollment URL, a SHA-256 fingerprint of its verified TLS certificate, and a one-time code entered interactively. It refuses HTTP and certificate mismatches. Example syntax: `python suryadev_enroll.py --endpoint https://core.example/enroll --cert-sha256 YOUR_VERIFIED_64_HEX_FINGERPRINT`. This is a client-side protocol proposal, not confirmation that KRISHNA Core exposes this endpoint or accepts the proposed JSON. No automatic pairing, credential persistence, or command channel is active. A compatible Core server implementation and hardware integration tests are still required.
