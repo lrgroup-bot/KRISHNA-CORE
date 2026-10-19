@@ -56,6 +56,47 @@ class FreeModelDiversityTests(unittest.TestCase):
                 fabric.complete("general", "public test", privacy="public")
             self.assertEqual(gateway.request_json.call_count, 1)
 
+    def test_rate_limit_survives_new_instance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            gateway = Mock()
+            gateway.list.return_value = {"profiles": [{
+                "id": "profile", "name": "OpenRouter-Free",
+                "base_url": "https://openrouter.ai/api/v1",
+                "enabled": True, "credential_available": True,
+                "free_only": True, "created_at": 1,
+            }]}
+            models = [{"id": "nvidia/a:free", "pricing": {"prompt": "0", "completion": "0"}}]
+            first = OpenRouterFreeFabric(gateway, Path(directory))
+            first.rank = Mock(return_value=models)
+            gateway.request_json.side_effect = RuntimeError("HTTP Error 429: Too Many Requests")
+            with self.assertRaisesRegex(RuntimeError, "rate-limited"):
+                first.complete("general", "public test", privacy="public")
+            second = OpenRouterFreeFabric(gateway, Path(directory))
+            with self.assertRaisesRegex(RuntimeError, "cooldown active"):
+                second.complete("general", "public test", privacy="public")
+            self.assertEqual(gateway.request_json.call_count, 1)
+
+    def test_http_404_model_is_skipped_on_next_call(self):
+        with tempfile.TemporaryDirectory() as directory:
+            gateway = Mock()
+            gateway.list.return_value = {"profiles": [{
+                "id": "profile", "name": "OpenRouter-Free",
+                "base_url": "https://openrouter.ai/api/v1",
+                "enabled": True, "credential_available": True,
+                "free_only": True, "created_at": 1,
+            }]}
+            models = [{"id": "nvidia/a:free"}, {"id": "google/b:free"}]
+            fabric = OpenRouterFreeFabric(gateway, Path(directory))
+            fabric.rank = Mock(return_value=models)
+            gateway.request_json.side_effect = [
+                RuntimeError("HTTP Error 404: Not Found"),
+                {"choices": [{"message": {"content": "ok"}}]},
+                {"choices": [{"message": {"content": "ok again"}}]},
+            ]
+            self.assertEqual(fabric.complete("general", "public", privacy="public")["text"], "ok")
+            self.assertEqual(fabric.complete("general", "public", privacy="public")["text"], "ok again")
+            self.assertEqual(gateway.request_json.call_count, 3)
+
     def test_nonzero_pricing_remains_blocked(self):
         self.assertFalse(OpenRouterFreeFabric._pricing_zero(
             {"prompt": "0", "completion": "0.00001", "request": "0"}))
