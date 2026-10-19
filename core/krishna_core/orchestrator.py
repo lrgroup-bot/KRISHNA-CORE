@@ -6837,7 +6837,7 @@ STRICT OUTPUT CONTRACT:
         # through the configured model and privacy controls (no fabricated reply).
         import re
         exact_match = re.fullmatch(
-            r"Reply with exactly ([A-Za-z0-9][A-Za-z0-9 _.-]{0,63}) and nothing else\\.",
+            r"Reply with exactly ([A-Za-z0-9][A-Za-z0-9 _.-]{0,63}) and nothing else\.",
             str(message).strip(), flags=re.IGNORECASE,
         )
         if exact_match and not vision_evidence:
@@ -6845,7 +6845,7 @@ STRICT OUTPUT CONTRACT:
             prompt = (
                 "You are KRISHNA. Follow this exact-output instruction. "
                 "Output only the literal text below, with no greeting, translation, "
-                "punctuation, explanation, or other characters.\\n"
+                "punctuation, explanation, or other characters.\n"
                 "Literal: " + literal
             )
             result = self._route_model(prompt, privacy=privacy, project=project, actor="conversation")
