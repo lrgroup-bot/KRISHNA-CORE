@@ -55,3 +55,58 @@ def hybrid_implementation_plan(*, task: str, project: str, approved_public_conte
         },
         "stages": [vars(stage) for stage in STAGES],
     }
+
+
+def execute_hybrid_implementation(
+    *, task: str, project: str, approved_public_context: bool,
+    research, local_plan, local_build, local_test, local_learn,
+    approve_build=False,
+):
+    """Run an injected, policy-gated hybrid workflow.
+
+    Research receives only the public task string, never repository contents.
+    Callbacks are registered trusted adapters supplied by the host; this function
+    neither executes arbitrary model output nor grants filesystem permissions.
+    """
+    import os
+    from urllib.parse import urlparse
+
+    policy = hybrid_implementation_plan(
+        task=task, project=project, approved_public_context=approved_public_context
+    )
+    if os.getenv("KRISHNA_STRICT_ZERO_CREDIT", "1").strip().lower() in {"0", "false", "no", "off"}:
+        raise PermissionError("Hybrid workflow requires strict zero-credit mode")
+    if not policy["cloud_allowed"]:
+        return {"status": "blocked", "reason": "public_research_not_approved", "policy": policy}
+    if not all(callable(fn) for fn in (research, local_plan, local_build, local_test, local_learn)):
+        raise TypeError("All workflow adapters must be registered callables")
+
+    # The research adapter must itself enforce free-tier eligibility and zero
+    # billable usage. Reject unverified results before local execution.
+    evidence = research(task=policy["task"], project=project, free_only=True)
+    if not isinstance(evidence, dict) or evidence.get("verified_free") is not True:
+        return {"status": "blocked", "reason": "cloud_free_not_verified", "policy": policy}
+    sources = evidence.get("sources")
+    if not isinstance(sources, list) or not sources:
+        return {"status": "blocked", "reason": "missing_research_sources", "policy": policy}
+    for item in sources:
+        if not isinstance(item, dict) or not isinstance(item.get("url"), str):
+            return {"status": "blocked", "reason": "invalid_source", "policy": policy}
+        parsed = urlparse(item["url"])
+        if parsed.scheme != "https" or not parsed.hostname:
+            return {"status": "blocked", "reason": "non_https_source", "policy": policy}
+    # Only public evidence is transferred to the local planning adapter.
+    public_evidence = {"sources": sources, "summary": str(evidence.get("summary", ""))[:8000]}
+    plan = local_plan(task=task, project=project, evidence=public_evidence)
+    if not isinstance(plan, dict):
+        return {"status": "blocked", "reason": "invalid_local_plan", "policy": policy}
+    if not approve_build:
+        return {"status": "awaiting_approval", "plan": plan, "sources": sources, "policy": policy}
+    # The host must bind local_build to its registered isolated-worker boundary.
+    built = local_build(project=project, plan=plan, isolated=True)
+    tested = local_test(project=project, build=built)
+    passed = isinstance(tested, dict) and tested.get("passed") is True
+    if not passed:
+        return {"status": "test_failed", "tests": tested, "sources": sources, "policy": policy}
+    learned = local_learn(project=project, task=task, sources=sources, tests=tested)
+    return {"status": "verified", "tests": tested, "learning": learned, "sources": sources, "policy": policy}
