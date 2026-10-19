@@ -27,7 +27,8 @@ def request_local_json(url, payload, timeout=90):
     validate_local_url(url)
     raw = json.dumps(payload).encode('utf-8')
     if len(raw) > 256 * 1024: raise ValueError('local model request exceeds the bounded context budget')
-    if not _SLOTS.acquire(timeout=2): raise RuntimeError('local model busy; request not queued')
+    slots = _SLOTS
+    if not slots.acquire(timeout=2): raise RuntimeError('local model busy; request not queued')
     try:
         request = urllib.request.Request(url, data=raw, headers={'Content-Type':'application/json'})
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
@@ -43,4 +44,4 @@ def request_local_json(url, payload, timeout=90):
         if not isinstance(result, dict): raise ValueError('local model returned invalid shape')
         return result
     finally:
-        _SLOTS.release()
+        slots.release()

@@ -30,6 +30,7 @@ class TestBoundedOllama(unittest.TestCase):
 
         with patch("krishna_core.local_model_transport.urllib.request.OpenerDirector.open", side_effect=fake_open):
             with patch.dict(os.environ, {
+                "KRISHNA_OLLAMA_ENABLED": "1",
                 "KRISHNA_OLLAMA_NUM_CTX": "999999",
                 "KRISHNA_OLLAMA_NUM_PREDICT": "999999",
             }):
@@ -50,6 +51,7 @@ class TestBoundedOllama(unittest.TestCase):
 
         with patch("krishna_core.local_model_transport.urllib.request.OpenerDirector.open", side_effect=fake_open):
             with patch.dict(os.environ, {
+                "KRISHNA_OLLAMA_ENABLED": "1",
                 "KRISHNA_OLLAMA_NUM_CTX": "invalid",
                 "KRISHNA_OLLAMA_NUM_PREDICT": "-1",
             }):

@@ -23,10 +23,11 @@ class RuntimeLifecycleTests(unittest.TestCase):
             path.rename(Path(td)/"released.db")
 
     def test_configured_local_model_is_used(self):
-        with patch.dict(os.environ,{"KRISHNA_LOCAL_MODEL":"test-local:1"}), patch("urllib.request.urlopen") as opened:
-            opened.return_value.__enter__.return_value.read.return_value=b'{"response":"READY"}'
-            self.assertEqual(ModelRouter().local("hello"),"READY")
-            self.assertEqual(json.loads(opened.call_args.args[0].data)["model"],"test-local:1")
+        with patch.dict(os.environ,{"KRISHNA_LOCAL_MODEL":"test-local:1","KRISHNA_OLLAMA_ENABLED":"1"}), patch("krishna_core.router.request_local_json",return_value={'response':'READY'}) as generated:
+            router=ModelRouter()
+            with patch.object(router,'_probe_json',return_value=(True,{'models':[{'name':'test-local:1'}]})):
+                self.assertEqual(router.local("hello"),"READY")
+            self.assertEqual(generated.call_args.args[1]['model'],"test-local:1")
 
     def test_worker_failure_does_not_hide_other_results(self):
         class Registry:

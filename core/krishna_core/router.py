@@ -158,6 +158,8 @@ class ModelRouter:
         }
 
     def _ollama_generate(self,model,prompt,keep_alive=None):
+        if os.getenv('KRISHNA_OLLAMA_ENABLED','1').strip().lower() in {'0','false','off','no'}:
+            raise RuntimeError('Ollama inference disabled by runtime policy')
         # Bound default generation to avoid unexpectedly long local chat replies.
         # Environment overrides are clamped to keep the review runtime predictable.
         def bounded_int(name, default, minimum, maximum):
