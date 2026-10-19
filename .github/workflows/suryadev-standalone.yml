@@ -26,3 +26,12 @@ jobs:
       - name: Run tests
         working-directory: standalone/suryadev
         run: python -m unittest discover -s tests -v
+
+      - name: Validate Windows laptop preflight PowerShell syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'standalone/suryadev/laptop-preflight.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
