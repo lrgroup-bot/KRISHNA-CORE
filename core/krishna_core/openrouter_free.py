@@ -419,7 +419,7 @@ class OpenRouterFreeFabric:
     @staticmethod
     def _http_failure_code(exc):
         # The gateway redacts HTTP bodies but retains HTTP status in the exception.
-        match = re.search(r"\\bHTTP(?: Error)?\\s+(403|404|429)\\b", str(exc))
+        match = re.search(r"\bHTTP(?: Error)?\s+(403|404|429)\b", str(exc))
         return int(match.group(1)) if match else None
 
     def complete(self, role, prompt, *, privacy="approved_cloud", sensitive=False,
