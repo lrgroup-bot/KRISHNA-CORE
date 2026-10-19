@@ -6818,6 +6818,20 @@ STRICT OUTPUT CONTRACT:
             except Exception as exc:
                 research_rows.append({"error":f"{type(exc).__name__}: {exc}","official_only":True})
             legal_context={**legal_context,"live_official_research":research_rows}
+        # Limit recalled background text before sending it to small local models.
+        # Preserve the current user request and all safety/policy contracts.
+        def _bounded_context(value, limit):
+            text = str(value)
+            if len(text) <= limit:
+                return text
+            return text[:limit] + " [older context truncated]"
+
+        context = _bounded_context(context, 1800)
+        incidents = _bounded_context(incidents, 1000)
+        chat_context = _bounded_context(chat_context, 2200)
+        skill_context = _bounded_context(skill_context, 1400)
+        vision_evidence = _bounded_context(vision_evidence, 1800) if vision_evidence else None
+
         prompt = f"""You are KRISHNA Core, a persistent autonomous software intelligence.
 Operating loop: Observe -> Understand -> Investigate -> Research -> Plan -> Act -> Test -> Verify -> Learn.
 Be concise and truthful. Never claim an action completed unless verification evidence exists.
@@ -6830,6 +6844,7 @@ GLOBAL CONVERSATION LANGUAGE OVERRIDE:
 - Write all owner-facing conversational prose in natural Odia unless Partha explicitly asks for Hindi or English.
 - Preserve code, paths, API names, model names, logs, quotations and source text exactly where translation would reduce precision.
 - This applies globally, not only to Gita conversations.
+- If the user explicitly requests an exact literal response, output only that literal, with no Odia prefix or translation.
 
 {self.requirements.prompt_contract()}
 
