@@ -1,9 +1,9 @@
 name: Test KRISHNA Core
 on:
   push:
-    paths: ['core/**', 'tests/**', 'scripts/**', '.github/workflows/test-core.yml']
+    paths: ['core/**', 'tests/**', 'scripts/**', 'app/spatial-ui/**', '.github/workflows/test-core.yml']
   pull_request:
-    paths: ['core/**', 'tests/**', 'scripts/**', '.github/workflows/test-core.yml']
+    paths: ['core/**', 'tests/**', 'scripts/**', 'app/spatial-ui/**', '.github/workflows/test-core.yml']
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -46,6 +46,14 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Build actual spatial frontend for browser acceptance
+        working-directory: app/spatial-ui
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
       - name: Install Playwright Chromium
         run: |
           python -m pip install --disable-pip-version-check playwright
@@ -55,7 +63,8 @@ jobs:
         env:
           KRISHNA_PRIVACY_BROWSER_E2E: '1'
           KRISHNA_WINDOWS_UI_E2E: '1'
-        run: python -m unittest tests.test_privacy_browser_e2e tests.test_windows_ui_browser_e2e -v
+          KRISHNA_SPATIAL_UI_E2E: '1'
+        run: python -m unittest tests.test_privacy_browser_e2e tests.test_windows_ui_browser_e2e tests.test_spatial_work_console_browser_e2e -v
 
   project-perfection-browser-e2e:
     runs-on: ubuntu-latest

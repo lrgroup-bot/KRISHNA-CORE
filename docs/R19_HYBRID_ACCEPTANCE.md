@@ -25,8 +25,12 @@ Ollama requests use loopback URLs, ignore environment proxies, reject redirects,
 
 ## Verification and deployment
 
+The spatial Sudarshan work console now uses the real Core chat and governed hybrid action. Engineering requires an active registered project, registered checks and explicit local approval. A separate public-query opt-in controls GARUDA; cloud opt-in is disabled for local-only projects. The page shows actual returned action receipts, candidate status and pending learning. Neither a registered agent nor a returned receipt certifies the complete system. CI renders the built React frontend to check approval gates, private-project cloud controls, text escaping and receipt display; live host acceptance is separate.
+
 Run focused provider/privacy/hybrid integration tests, then all Core/repository tests, architecture audit, real Chromium privacy/desktop/project checks, frontend build and relevant mobile contracts. The hybrid integration tests use real registered agents, action receipts, staging, subprocess tests and learning proposals; only model/network responses are controlled fixtures. Live Ollama tests and live cloud tests must be reported separately.
 
 The Windows workflow builds and bundles the actual spatial frontend and orchestration page; the frozen server prefers bundled spatial assets while retaining the legacy external fallback. Test browser/UI behavior before packaging, then verify frozen Core, local inference and bundled assets. Accepted existing R8/R13/R16/R19 packages and dirty user worktrees remain unchanged. Native capture/physical mobile/remote-hardware limitations must remain explicit.
 
 PR #228 may merge only into `fix/krishna-ui-runtime-verification` after current-head required CI and local acceptance pass. Merging to main, signing or promoting a release needs separate authorization. Production self-modification, complete fleet diagnostics, trusted worker attestation and a general repository-to-plugin installer remain future gated work.
+
+Network & Vision reuses the passive Windows network_inventory implementation and its tests from preserved local R19 commit 97be6ec8. The missing local-only /api/network/overview binding is restored. This reads existing route/neighbor observations; it does not scan, authenticate devices or certify hardware health. MAC identifiers are omitted. Remote fleet adapters from the separate local branch are not implicitly promoted by this PR.
