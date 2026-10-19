@@ -137,3 +137,22 @@ The database backup uses SQLite's online backup API. **The evidence directory
 must also be backed up**; the database backup alone does not preserve full text.
 Source URLs and hashes are retained in the findings database, but a formal
 source-verification and licensing policy remains to be implemented.
+
+## KRISHNA Core LAN discovery (new optional mode)
+
+The laptop can search its local IPv4 /24 networks for an HTTP health endpoint
+on port 8766 without entering the server address manually:
+
+```powershell
+python suryadev_discovery.py
+# Or, if Windows hostname resolution does not expose the correct Wi-Fi interface:
+python suryadev_discovery.py --local-ip 192.168.0.105
+```
+
+Discovery results are **untrusted candidates**, not authenticated KRISHNA
+servers. SURYADEV will **not** transmit learning data, accept remote commands,
+or silently join any discovered service. Secure joining needs a confirmed
+KRISHNA Core enrollment API and identity verification (for example, a
+one-time pairing code or mutual TLS). A successful /health response alone
+must never be treated as permission to connect. The standalone research
+worker remains functional offline and independently of Core.
