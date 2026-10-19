@@ -16,7 +16,8 @@ import threading
 import time
 from urllib.parse import parse_qs, urlsplit
 
-from suryadev import Library, summarize\nfrom suryadev_lock import worker_lock
+from suryadev import Library, summarize
+from suryadev_lock import worker_lock
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
