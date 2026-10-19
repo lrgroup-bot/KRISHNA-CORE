@@ -22,6 +22,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
 from urllib.error import URLError
 from suryadev_evidence import save_evidence
+from suryadev_lock import worker_lock
 
 MAX_BYTES = 2_000_000
 SCHEMA = """
@@ -154,12 +155,11 @@ class Library:
         return cur.lastrowid
 
     def run_next(self, use_ollama=True, model="qwen3.5:9b"):
-        row = self.db.execute("SELECT id,url FROM jobs WHERE status='queued' ORDER BY id LIMIT 1").fetchone()
+        row = self.db.execute("UPDATE jobs SET status='running',updated=? WHERE id=(SELECT id FROM jobs WHERE status='queued' ORDER BY id LIMIT 1) RETURNING id,url", (time.time(),)).fetchone()
+        self.db.commit()
         if not row:
             return None
         job_id, url = row
-        self.db.execute("UPDATE jobs SET status='running',updated=? WHERE id=?", (time.time(), job_id))
-        self.db.commit()
         try:
             title, text = fetch_text(url)
             if not text:
@@ -210,13 +210,14 @@ def main(argv=None):
     query = sub.add_parser("search")
     query.add_argument("term")
     sub.add_parser("status")
-    lib = Library(ap.parse_args(argv).data)
     args = ap.parse_args(argv)
+    lib = Library(args.data)
     if args.command == "add":
         output = {"job_id": lib.add(args.url)}
     elif args.command == "run":
-        lib.recover()
-        output = lib.run_next(not args.no_ollama, args.model) or {"status": "empty"}
+        with worker_lock(lib.root):
+            lib.recover()
+            output = lib.run_next(not args.no_ollama, args.model) or {"status": "empty"}
     elif args.command == "search":
         output = lib.search(args.term)
     else:
