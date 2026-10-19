@@ -24,6 +24,8 @@ class OpenAICompatibleLocalProvider:
         with urllib.request.urlopen(self.base_url+"/models", timeout=5) as r:
             return json.loads(r.read().decode()).get("data",[])
     def complete(self, req:ModelRequest)->str:
+        if self.name.startswith('ollama') and os.getenv('KRISHNA_OLLAMA_ENABLED','1').strip().lower() in {'0','false','off','no'}:
+            raise ProviderError('Ollama inference disabled by runtime policy')
         model=self.model
         if not model:
             ms=self.models()
