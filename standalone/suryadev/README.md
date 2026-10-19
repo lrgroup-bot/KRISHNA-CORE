@@ -156,3 +156,7 @@ KRISHNA Core enrollment API and identity verification (for example, a
 one-time pairing code or mutual TLS). A successful /health response alone
 must never be treated as permission to connect. The standalone research
 worker remains functional offline and independently of Core.
+
+## Core connection safety
+
+Run `python suryadev_discovery.py` to find possible Core servers on the local network. The results are untrusted. The optional command `python suryadev_core_identity.py --host 192.168.0.100 --instance-id VERIFIED_ID` compares a manually verified identity with a reported health field. This is not authentication: the current Core health API has not been confirmed to provide this field. No automatic enrollment or exchange of data is enabled. A compatible authenticated enrollment endpoint must be verified before enabling automatic joining.
