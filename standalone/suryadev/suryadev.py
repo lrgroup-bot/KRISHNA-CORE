@@ -21,6 +21,7 @@ import time
 from urllib.parse import urlparse
 from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
 from urllib.error import URLError
+from suryadev_evidence import save_evidence
 
 MAX_BYTES = 2_000_000
 SCHEMA = """
@@ -163,7 +164,8 @@ class Library:
             title, text = fetch_text(url)
             if not text:
                 raise ValueError("source contains no readable text")
-            digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            evidence = save_evidence(self.root, text, source=url, kind="web")
+            digest = evidence["sha256"]
             previous = self.db.execute("SELECT id FROM findings WHERE sha256=? LIMIT 1", (digest,)).fetchone()
             if previous:
                 summary = "Duplicate of finding #" + str(previous[0])
