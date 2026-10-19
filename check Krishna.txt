@@ -1,0 +1,105 @@
+KRISHNA — IMPLEMENTATION, TESTING AND REMAINING GAPS
+Prepared: 17 October 2026 (India)
+Scope: Work reviewed and committed in this conversation, 16–17 October 2026.
+
+Repository: https://github.com/lrgroup-bot/KRISHNA-CORE
+PR #225: https://github.com/lrgroup-bot/KRISHNA-CORE/pull/225
+Branch: feature/live-agent-frontend-contract-v1
+Last checked head: 0703a2e8753619eba1374b245d9bfc4eac8f6a15
+
+OVERALL STATUS: NOT FULLY COMPLETE.
+At the last check PR #225 was open, draft, mergeable, and unmerged. On the latest commit, Core tests, Windows build and Suryadev/Chandradev build were still running; long-context regression had passed. Recheck CI for updated status.
+
+1. IMPLEMENTED AND COMMITTED IN THIS SESSION
+
+A. BRAHMAGYAN / LAB BOT feedback
+- Added read-only experiment feedback inspection to existing BrahmagyanLearningBridge.
+- Associates LAB BOT experiment records with BRAHMAGYAN mission references.
+- Reports experiment status and evidence summaries without creating claims or promoting knowledge.
+- Added regression assertions for read-only behavior.
+- Commits: b1c2a827178902c69fd95f2fa8859c8930353225, 075bbe32a500b1acd296b0191b15b225ca4bf609.
+
+B. Windows SQLite cleanup
+- GitHub logs showed WinError 32 when Windows tried deleting temporary external-learning.sqlite3 files still open by KRISHNA.
+- Updated existing orchestrator.close() to close the external-learning ledger connection.
+- Commit: 5aeffca582e94296d278c732ee104402b017c26e.
+
+C. Windows bundled smoke-test imports
+- Found ModuleNotFoundError: pytest because the Windows smoke test used unittest discovery without pytest installed.
+- Replaced pytest imports used for exception assertions with standard-library-compatible checks in:
+  core/tests/test_external_learning_ledger.py — 7dda962bb86c53d3d118208a4445720010956cd5
+  core/tests/test_brahmagyan_learning_bridge.py — 42ee7828d6a8f49787d94621398e68bc3a854fda
+  core/tests/test_brahmagyan_learning_integration.py — 2ee7eed8a67c2de0f3d33be1492f9376854334fd
+  core/tests/test_brahmagyan_lab_protocol_integration.py — 8bf5da3530f1b239faa35cd5c5b0271613ebdfb1
+- Following Windows run exposed another pytest import in core/tests/test_agent_live_projection.py.
+- Removed that dependency while retaining invalid-event and replay-protection checks.
+- Commit: 0703a2e8753619eba1374b245d9bfc4eac8f6a15.
+- The final Windows build result on this latest commit was not yet available.
+
+2. EARLIER WORK IN THIS IMPLEMENTATION THREAD
+- BRAHMAGYAN research missions and approved external-source intake.
+- Rishi learning-quality audit.
+- LAB BOT simulation protocol proposal through existing components.
+- AuditMemory test fixtures for actual BRAHMAGYAN mission creation.
+- Evidence-quality heuristic updated to require at least two recorded sources for verified status; real schema/behavior still needs review.
+- Related commits: 3c10b9d, 779fd45, d1ee35a, efeb9b1, 8c2aa13, 5700021, c54a502.
+- LR Group read-only KRISHNA Council client, owner-only /api/krishna/rishi-council route, and tests.
+- LR Group commits: 7abd071, 223333c, 4db2a5c.
+- Existing BRAHMAGYAN, RishiLearningLedger, LAB BOT and SUDARSHAN were reused instead of deliberately creating duplicate engines.
+
+3. VERIFIED GITHUB CI HISTORY
+Earlier failing run:
+- Windows Core tests failed (SQLite file lock); Ubuntu Core tests passed.
+- Windows app build failed (including pytest import errors).
+- Suryadev/Chandradev build passed.
+
+Run on commit 8bf5da3:
+- KRISHNA Core tests: PASSED.
+- Long-context regression: PASSED.
+- Suryadev/Chandradev build: PASSED.
+- Windows app build: FAILED due to pytest import in test_agent_live_projection.py.
+
+Latest checked run on commit 0703a2e:
+- Long-context regression: PASSED.
+- Core tests: IN PROGRESS.
+- Windows app build: IN PROGRESS.
+- Suryadev/Chandradev build: IN PROGRESS.
+- PR review: SKIPPED.
+These are point-in-time statuses, not final results.
+
+4. REMAINING WORK / MISSING ITEMS
+[ ] Recheck latest CI and fix any failures, especially Windows smoke tests.
+[ ] Implement matching KRISHNA-side GET /api/brahmagyan/rishis endpoint in the existing HTTP server; avoid a duplicate server.
+[ ] Secure that endpoint: local-only binding, sufficiently strong token, constant-time token check, no private information leakage, negative tests.
+[ ] Verify live LR Group -> KRISHNA response and frontend display; adapter code alone is not end-to-end integration.
+[ ] Reconcile permanent Rishi registry. Previously 31 on PR #225; separate unmerged PRs appeared to add Sukracharya, Tvasta and Marichi (potentially 34). Confirm actual roster and the 35th identity; never invent or duplicate a Rishi.
+[ ] Validate learning_quality_audit source_count semantics and persisted finding schema.
+[ ] Verify LAB BOT experiment evidence is independently reviewed before any claim advancement, through existing SUDARSHAN/BRAHMAGYAN approval gates.
+[ ] Review related PRs and merge conflicts; avoid duplicate components.
+[ ] Run full Python KRISHNA and Node.js LR Group tests on target revisions.
+[ ] Validate local-first and zero-additional-spend requirements.
+[ ] Obtain green required checks, review, merge and verify main branch.
+[ ] Pull onto Windows PC and verify real KRISHNA Core, Control Room UI, LAB BOT, Rishi Council, and LR Group connection.
+[ ] Confirm deployment health and no regressions.
+
+5. WHAT HAS NOT BEEN VERIFIED OR DONE
+- Complete 35-Rishi registry: NOT VERIFIED.
+- Authenticated KRISHNA <-> LR Group live integration: NOT VERIFIED.
+- Final Windows build on latest commit: PENDING AT LAST CHECK.
+- PR merged: NO.
+- Windows PC deployment: NO.
+- All errors closed across repositories: NOT PROVEN.
+- Paid service or hardware purchases: NONE PERFORMED.
+
+6. NEXT EXECUTION ORDER
+1) Inspect latest GitHub Actions results and logs.
+2) Fix all newly confirmed failures and rerun tests.
+3) Add secure KRISHNA Council endpoint and integration tests.
+4) Verify LR Group API and frontend end-to-end.
+5) Reconcile the exact 35-Rishi registry without duplicates.
+6) Audit learning evidence, source counts, approval and experiment feedback.
+7) Run full suites, review and merge when green.
+8) Pull and test the actual Windows installation.
+
+FINAL VERDICT
+Meaningful code changes were committed and specific Windows CI failures were fixed or addressed. The project is NOT confirmed complete or error-free. Code commits, successful CI, merge, and live deployment are separate milestones.
