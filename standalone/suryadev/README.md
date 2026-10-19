@@ -160,3 +160,7 @@ worker remains functional offline and independently of Core.
 ## Core connection safety
 
 Run `python suryadev_discovery.py` to find possible Core servers on the local network. The results are untrusted. The optional command `python suryadev_core_identity.py --host 192.168.0.100 --instance-id VERIFIED_ID` compares a manually verified identity with a reported health field. This is not authentication: the current Core health API has not been confirmed to provide this field. No automatic enrollment or exchange of data is enabled. A compatible authenticated enrollment endpoint must be verified before enabling automatic joining.
+
+## Laptop preflight before first pull-and-run acceptance
+
+From Windows PowerShell inside the standalone/suryadev folder, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\laptop-preflight.ps1`. This runs syntax checks, all bundled unit tests, the local database status command, a best-effort local Ollama model check, and LAN discovery. Use `-SkipOllama` for offline checks. Discovery does not imply enrollment. Do not run a background worker or enable Core synchronization until the tests and pairing checks pass.
