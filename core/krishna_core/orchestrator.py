@@ -6832,6 +6832,31 @@ STRICT OUTPUT CONTRACT:
         skill_context = _bounded_context(skill_context, 1400)
         vision_evidence = _bounded_context(vision_evidence, 1800) if vision_evidence else None
 
+        # Literal-response probes should not be overwhelmed by the full persona,
+        # history and specialist instructions on small local models. Still route
+        # through the configured model and privacy controls (no fabricated reply).
+        import re
+        exact_match = re.fullmatch(
+            r"Reply with exactly ([A-Za-z0-9][A-Za-z0-9 _.-]{0,63}) and nothing else\\.",
+            str(message).strip(), flags=re.IGNORECASE,
+        )
+        if exact_match and not vision_evidence:
+            literal = exact_match.group(1).strip()
+            prompt = (
+                "You are KRISHNA. Follow this exact-output instruction. "
+                "Output only the literal text below, with no greeting, translation, "
+                "punctuation, explanation, or other characters.\\n"
+                "Literal: " + literal
+            )
+            result = self._route_model(prompt, privacy=privacy, project=project, actor="conversation")
+            self.memory.remember(project, "conversation", message, {"task_id": task_id, "chat_id": chat_id})
+            if chat_id:
+                self.memory.add_chat_message(chat_id, "assistant", result["text"],
+                    {"task_id": task_id, "provider": result["provider"]})
+            self.memory.audit(task_id, "answered", result["provider"])
+            return {"task_id": task_id, "chat_id": chat_id, "neural_intent": neural["intent"],
+                    "skills_used": [], **result}
+
         prompt = f"""You are KRISHNA Core, a persistent autonomous software intelligence.
 Operating loop: Observe -> Understand -> Investigate -> Research -> Plan -> Act -> Test -> Verify -> Learn.
 Be concise and truthful. Never claim an action completed unless verification evidence exists.
