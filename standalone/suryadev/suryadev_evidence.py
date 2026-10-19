@@ -47,6 +47,7 @@ def backup_database(root, destination):
             check = copy.execute("PRAGMA integrity_check").fetchone()[0]
             if check != "ok":
                 raise RuntimeError("backup integrity check failed: " + check)
+            copy.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     return {"backup": str(target), "integrity": "ok"}
 
 def verify_evidence(root):
