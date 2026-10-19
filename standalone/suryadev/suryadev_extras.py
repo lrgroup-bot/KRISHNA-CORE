@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from suryadev import Library, summarize
 from suryadev_lock import worker_lock
+from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
@@ -49,7 +50,8 @@ def import_transcript(lib, filename, source_url="", use_ollama=True, model="qwen
     text = parse_transcript(file.read_text(encoding="utf-8-sig"))
     if not text.strip():
         raise ValueError("transcript has no text")
-    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    evidence = save_evidence(lib.root, text, source=source_url or file.as_uri(), kind="transcript")
+    digest = evidence["sha256"]
     existing = lib.db.execute("SELECT id FROM findings WHERE sha256=?", (digest,)).fetchone()
     if existing:
         return {"duplicate_of": existing[0], "sha256": digest}
@@ -152,7 +154,16 @@ def main():
     imp.add_argument("--source", default="")
     imp.add_argument("--no-ollama", action="store_true")
     imp.add_argument("--model", default="qwen3.5:9b")
+    backup = sub.add_parser("backup")
+    backup.add_argument("destination")
+    sub.add_parser("verify-evidence")
     args = ap.parse_args()
+    if args.command == "backup":
+        print(json.dumps(backup_database(args.data, args.destination), indent=2))
+        return
+    if args.command == "verify-evidence":
+        print(json.dumps(verify_evidence(args.data), indent=2))
+        return
     lib = Library(args.data)
     if args.command == "dashboard":
         serve(lib, args.port)
