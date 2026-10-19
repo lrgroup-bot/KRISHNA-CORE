@@ -85,7 +85,12 @@ def serve(lib, port=8769):
         def do_GET(self):
             route = urlsplit(self.path)
             if route.path == "/health":
-                return self.respond(200, json.dumps({"status": "ok", "jobs": lib.stats()}), "application/json")
+                reader = Library(lib.root)
+                try:
+                    status = reader.stats()
+                finally:
+                    reader.db.close()
+                return self.respond(200, json.dumps({"status": "ok", "jobs": status}), "application/json")
             if route.path != "/":
                 return self.respond(404, "Not found", "text/plain")
             term = parse_qs(route.query).get("q", [""])[0][:200]
@@ -100,7 +105,6 @@ def serve(lib, port=8769):
                 html.escape(x["summary"]) + "</p><small>" +
                 html.escape(x["url"]) + "</small></article>" for x in rows
             )
-            counts = html.escape(json.dumps(lib.stats()))
             page = (
                 '<!doctype html><html><head><meta charset="utf-8">'
                 '<title>SURYDEV Learning Library</title>'
@@ -122,6 +126,7 @@ def serve(lib, port=8769):
             return
 
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server.daemon_threads = True
     print(f"SURYDEV dashboard: http://127.0.0.1:{port}/", flush=True)
     try:
         server.serve_forever()
@@ -168,7 +173,8 @@ def main():
     if args.command == "dashboard":
         serve(lib, args.port)
     elif args.command == "worker":
-        work_loop(lib, args.interval, not args.no_ollama, args.model)
+        with worker_lock(lib.root):
+            work_loop(lib, args.interval, not args.no_ollama, args.model)
     else:
         print(json.dumps(import_transcript(lib, args.file, args.source, not args.no_ollama, args.model), indent=2))
 
