@@ -137,7 +137,10 @@ class Library:
     def __init__(self, root):
         self.root = Path(root).expanduser().resolve()
         self.root.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(self.root / "suryadev.sqlite3", timeout=10)\n        self.db.execute("PRAGMA busy_timeout=10000")\n        self.db.execute("PRAGMA foreign_keys=ON")\n        self.db.execute("PRAGMA journal_mode=WAL")
+        self.db = sqlite3.connect(self.root / "suryadev.sqlite3", timeout=10)
+        self.db.execute("PRAGMA busy_timeout=10000")
+        self.db.execute("PRAGMA foreign_keys=ON")
+        self.db.execute("PRAGMA journal_mode=WAL")
         self.db.executescript(SCHEMA)
         self.db.commit()
 
