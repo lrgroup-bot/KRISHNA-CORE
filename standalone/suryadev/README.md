@@ -82,3 +82,41 @@ Do not run multiple writer processes against the same database until the
 single-writer/locking design is strengthened. Back up the database before
 upgrading. Keep local files containing personal/private content out of the
 learning queue unless you explicitly authorize processing.
+
+## Optional media-learning modules
+
+These features are opt-in and need additional free Python packages:
+
+```powershell
+python -m pip install faster-whisper yt-dlp playwright
+python -m playwright install chromium
+```
+
+Examples, run from `standalone\\suryadev`:
+
+```powershell
+# Transcribe a local audio/video file and save findings
+python suryadev_media.py transcribe "C:\\Learning\\lecture.mp3" --device cpu
+
+# Import YouTube captions if publicly available (no video download)
+python suryadev_media.py youtube-subtitles "https://www.youtube.com/watch?v=VIDEO_ID"
+
+# Screenshot only a user-approved public website
+python suryadev_media.py capture-page "https://example.com/" "captures\\example.png" --allow-host example.com
+```
+
+Audio decoding/transcription uses faster-whisper; CPU int8 is the default.
+YouTube subtitle retrieval uses yt-dlp and may fail for unavailable captions,
+geo restrictions or service changes. Browser capture uses Playwright with
+explicit host allowlisting and does not click, submit or authenticate.
+Capture is **not** permission to monitor private screens. These tools do not
+start automatically or access a microphone.
+
+## Remaining release gates
+- Run actual Windows unit and integration tests, including the optional packages.
+- Test YouTube subtitle availability and local transcription quality.
+- Add a verified single-instance worker lock, source policy/robots review,
+  provenance and evidence retention improvements, and browser egress hardening
+  before unattended broad-scale crawling.
+- Test the dashboard in Chromium and perform restart, outage and backup drills.
+- Package a Windows installer only after these gates pass.
