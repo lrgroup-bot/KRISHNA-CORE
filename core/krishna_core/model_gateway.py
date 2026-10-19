@@ -6,6 +6,7 @@ import os
 import socket
 import tempfile
 import time
+import urllib.error
 import urllib.request
 import uuid
 from dataclasses import asdict, dataclass
@@ -208,8 +209,15 @@ class ModelGatewayRegistry:
         try:
             with urllib.request.urlopen(req,timeout=max(1,int(timeout))) as response:
                 raw=response.read()
+        except urllib.error.HTTPError as exc:
+            # Provider bodies can echo request or account details: never log them.
+            raise RuntimeError(
+                f"model gateway HTTP {exc.code} ({verb} {relative}); no fallback attempted"
+            ) from exc
         except Exception as exc:
-            raise RuntimeError(f"model gateway request failed without fallback: {type(exc).__name__}: {exc}") from exc
+            raise RuntimeError(
+                f"model gateway transport failure ({type(exc).__name__}); no fallback attempted"
+            ) from exc
         try:return json.loads(raw.decode())
         except Exception as exc:raise RuntimeError("model gateway returned invalid JSON") from exc
 
