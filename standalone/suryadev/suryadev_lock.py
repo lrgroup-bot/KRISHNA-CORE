@@ -11,8 +11,10 @@ def worker_lock(data_root):
     path = root / ".worker.lock"
     with open(path, "a+b") as stream:
         stream.seek(0)
-        stream.write(b"0")
-        stream.flush()
+        if stream.read(1) == b"":
+            stream.seek(0)
+            stream.write(b"0")
+            stream.flush()
         stream.seek(0)
         if os.name == "nt":
             import msvcrt
