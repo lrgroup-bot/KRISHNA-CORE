@@ -285,6 +285,60 @@ class Library:
                                 (time.time(), type(exc).__name__ + ": " + str(exc)[:300], job_id))
             return {"job_id": job_id, "status": "failed", "error": str(exc)[:300]}
 
+    def retry_failed(self, job_id):
+        """Manual, ID-targeted retry. Never auto-requeue a provider failure.
+
+        The caller must hold the worker lock; an active worker/mission
+        cannot be bypassed. Previous failure details remain in the
+        append-only job_attempt_history table.
+        """
+        from suryadev_sources import source_kind
+        from suryadev_parallel import youtube_access, youtube_rate_limited
+        if type(job_id) is not int or job_id < 1:
+            raise ValueError("A valid positive numeric assignment ID is required")
+        row = self.db.execute(
+            "SELECT url,status,error,updated FROM jobs WHERE id=?", (job_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError("Assignment ID not found")
+        url,status,error,updated = row
+        if status != "failed":
+            raise ValueError("Only failed assignments can be manually retried")
+        if source_kind(url) != "youtube":
+            raise ValueError("This retry command is restricted to failed YouTube captions")
+        if self.db.execute("SELECT 1 FROM findings WHERE job_id=?", (job_id,)).fetchone():
+            raise RuntimeError("Existing finding must not be overwritten by a retry")
+        if youtube_rate_limited(error):
+            elapsed = time.time() - updated
+            if elapsed < 3600:
+                minutes = max(1, int((3600 - elapsed + 59) // 60))
+                raise RuntimeError(
+                    "YouTube HTTP 429 cooldown: at least " + str(minutes) +
+                    " more minutes before a new manual attempt. Provider access is not guaranteed.")
+        state = youtube_access(self.root)
+        if state["state"] == "rate_limited":
+            raise RuntimeError("YouTube 429 cooldown is still active; do not retry yet")
+        now = time.time()
+        with self.db:
+            self.db.execute(
+                "CREATE TABLE IF NOT EXISTS job_attempt_history "
+                "(id INTEGER PRIMARY KEY,job_id INTEGER NOT NULL, "
+                "previous_error TEXT NOT NULL, failed_at REAL NOT NULL,retried_at REAL NOT NULL)"
+            )
+            self.db.execute(
+                "INSERT INTO job_attempt_history "
+                "(job_id,previous_error,failed_at,retried_at) VALUES (?,?,?,?)",
+                (job_id, str(error or "")[:600], updated, now)
+            )
+            changed = self.db.execute(
+                "UPDATE jobs SET status='queued',updated=?,error='' "
+                "WHERE id=? AND status='failed'", (now, job_id)
+            ).rowcount
+            if changed != 1:
+                raise RuntimeError("Assignment changed while preparing manual retry")
+        return {"job_id":job_id, "status":"queued", "manual_retry":True,
+                "note":"Operator-approved retry queued. Only one caption language will be requested."}
+
     def recover(self):
         with self.db:
             self.db.execute("UPDATE jobs SET status='queued',updated=? WHERE status='running' AND updated < ?", (time.time(), time.time() - 7200))
@@ -310,6 +364,8 @@ def main(argv=None):
     run.add_argument("--model", default="qwen3.5:9b")
     query = sub.add_parser("search")
     query.add_argument("term")
+    retry = sub.add_parser("retry-failed", help="Manually requeue a failed YouTube assignment after cooldown")
+    retry.add_argument("job_id", type=int)
     sub.add_parser("status")
     args = ap.parse_args(argv)
     lib = Library(args.data)
@@ -321,6 +377,9 @@ def main(argv=None):
             output = lib.run_next(not args.no_ollama, args.model) or {"status": "empty"}
     elif args.command == "search":
         output = lib.search(args.term)
+    elif args.command == "retry-failed":
+        with worker_lock(lib.root):
+            output = lib.retry_failed(args.job_id)
     else:
         output = lib.stats()
     print(json.dumps(output, indent=2, ensure_ascii=False))
