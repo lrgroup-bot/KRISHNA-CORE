@@ -200,8 +200,12 @@ class Library:
             from suryadev_ingest import ingest_source
             from suryadev_summary import summarize_all
             title, text, coverage = ingest_source(url)
+            from suryadev_cleanup import stage_extracted_text
+            staged_sha = stage_extracted_text(self.root, job_id, text)
             evidence = save_evidence(self.root, text, source=url, kind=coverage["kind"])
             digest = evidence["sha256"]
+            if staged_sha != digest:
+                raise RuntimeError("Staged working file did not match saved source evidence")
             previous = self.db.execute("SELECT id FROM findings WHERE sha256=? LIMIT 1", (digest,)).fetchone()
             if previous:
                 summary = "Duplicate of finding #" + str(previous[0])
@@ -225,6 +229,13 @@ class Library:
                     (job_id, coverage["kind"], json.dumps(coverage, ensure_ascii=False), time.time()))
                 self.db.execute("UPDATE jobs SET status='done',updated=?,error='' WHERE id=?",
                                 (time.time(), job_id))
+            # Cleanup is non-critical to the recorded learning result: never
+            # incorrectly convert an already committed success to a failed job.
+            try:
+                from suryadev_cleanup import cleanup_completed
+                cleanup_completed(self.db, self.root)
+            except (OSError, ValueError, RuntimeError):
+                pass
             return {"job_id": job_id, "status": "done", "title": title,
                     "sha256": digest, "coverage_status": coverage["coverage_status"]}
         except Exception as exc:
