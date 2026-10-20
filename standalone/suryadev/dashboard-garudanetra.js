@@ -24,6 +24,19 @@
       el("netra-"+key+"-queued").textContent = num(values.queued);
     }
     el("netra-web-tabs").textContent = num(web.browser_tabs);
+    const ytAccess = capacity.youtube_access || {};
+    const ytNote = el("netra-youtube-access");
+    if (ytAccess.state === "rate_limited") {
+      const until = Number(ytAccess.cooldown_until || 0);
+      const time = Number.isFinite(until) && until > 0
+        ? new Date(until * 1000).toLocaleTimeString() : "later";
+      ytNote.textContent = "YouTube HTTP 429 · New captions paused until " + time +
+        ". Failed jobs require manual retry.";
+      ytNote.className = "netra-access-note rate-limited";
+    } else {
+      ytNote.textContent = "One requested caption language per job · provider access unverified";
+      ytNote.className = "netra-access-note";
+    }
     const badge = el("netra-engine-state");
     const alive = netra.state === "running";
     badge.textContent = alive ? "● Chromium browser ready" :
