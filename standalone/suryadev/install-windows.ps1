@@ -20,7 +20,7 @@ if ($LASTEXITCODE -ne 0) { throw "Tests failed; no files installed" }
 New-Item -ItemType Directory -Force -Path $destination | Out-Null
 $files = @('suryadev.py','suryadev_extras.py','suryadev_evidence.py',
            'suryadev_lock.py','suryadev_resources.py','suryadev_sources.py','suryadev_media.py','suryadev_discovery.py',
-           'suryadev_core_identity.py','suryadev_enroll.py','laptop-preflight.ps1','README.md')
+           'suryadev_core_identity.py','suryadev_enroll.py','dashboard.html','dashboard.css','dashboard.js','laptop-preflight.ps1','README.md')
 foreach ($name in $files) {
     $from = Join-Path $source $name
     if (-not (Test-Path $from)) { throw "Missing release file: $name" }
