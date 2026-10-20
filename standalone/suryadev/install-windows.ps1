@@ -19,7 +19,7 @@ if ($LASTEXITCODE -ne 0) { throw "Python 3.10+ is required" }
 if ($LASTEXITCODE -ne 0) { throw "Tests failed; no files installed" }
 New-Item -ItemType Directory -Force -Path $destination | Out-Null
 $files = @('suryadev.py','suryadev_extras.py','suryadev_evidence.py',
-           'suryadev_lock.py','suryadev_resources.py','suryadev_sources.py','suryadev_task_details.py','suryadev_liveops.py','suryadev_settings.py','suryadev_storage.py','suryadev_cleanup.py','suryadev_operator_api.py','suryadev_ingest.py','suryadev_summary.py','suryadev_feeder.py','suryadev_mission.py','suryadev_parallel.py','suryadev_garudanetra.py','live_smoke.py','parallel_smoke.py','dashboard_ui_smoke.py','learning-plan.example.json','suryadev_bridge.py','suryadev_core_reader.py','suryadev_media.py','suryadev_discovery.py',
+           'suryadev_lock.py','suryadev_resources.py','suryadev_sources.py','suryadev_task_details.py','suryadev_liveops.py','suryadev_settings.py','suryadev_storage.py','suryadev_cleanup.py','suryadev_operator_api.py','suryadev_ingest.py','suryadev_summary.py','suryadev_feeder.py','suryadev_mission.py','suryadev_parallel.py','suryadev_garudanetra.py','suryadev_youtube_preflight.py','live_smoke.py','parallel_smoke.py','dashboard_ui_smoke.py','learning-plan.example.json','suryadev_bridge.py','suryadev_core_reader.py','suryadev_media.py','suryadev_discovery.py',
            'suryadev_core_identity.py','suryadev_enroll.py','dashboard.html','dashboard.css','dashboard.js','dashboard-settings.css','dashboard-settings.js','dashboard-garudanetra.css','dashboard-garudanetra.js','laptop-preflight.ps1','README.md')
 foreach ($name in $files) {
     $from = Join-Path $source $name
