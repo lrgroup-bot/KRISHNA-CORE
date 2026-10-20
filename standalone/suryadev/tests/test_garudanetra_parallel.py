@@ -9,7 +9,8 @@ from unittest.mock import patch
 
 from suryadev import Library
 from suryadev_garudanetra import GarudanetraLite
-from suryadev_parallel import plan_capacity, AdaptiveResearchWorkers
+from suryadev_parallel import (plan_capacity, AdaptiveResearchWorkers,
+    youtube_rate_limited, record_youtube_rate_limit, youtube_access)
 from suryadev_liveops import operations_snapshot, atomic_json
 
 
@@ -54,6 +55,80 @@ class AdaptiveCapacityTests(unittest.TestCase):
             GarudanetraLite("unused", max_tabs=5)
         with self.assertRaises(ValueError):
             GarudanetraLite("unused", max_tabs=0)
+
+
+class YouTubeRateLimitSafetyTests(unittest.TestCase):
+    def test_429_classification_and_bounded_persistent_cooldown(self):
+        self.assertTrue(youtube_rate_limited("HTTP Error 429: Too Many Requests"))
+        self.assertFalse(youtube_rate_limited("Video unavailable"))
+        with tempfile.TemporaryDirectory() as root:
+            now=time.time()
+            self.assertEqual(youtube_access(root,now)["state"],"ready")
+            record_youtube_rate_limit(root,now=now)
+            self.assertEqual(youtube_access(root,now+1)["state"],"rate_limited")
+            self.assertEqual(youtube_access(root,now+3601)["state"],"ready")
+            atomic_json(root,"youtube-access-state.json",
+                        {"cooldown_until": float("inf")})
+            self.assertEqual(youtube_access(root,now)["state"],"ready")
+
+    def test_no_youtube_worker_launch_during_rate_limit_but_website_still_runs(self):
+        with tempfile.TemporaryDirectory() as root:
+            lib = Library(root)
+            try:
+                with patch("suryadev.validate_url",return_value=None):
+                    lib.add("https://www.youtube.com/watch?v=abcdefghijk")
+                    lib.add("https://example.com/reading")
+                record_youtube_rate_limit(root)
+                FakeGarudanetra.visits = []
+                with AdaptiveResearchWorkers(root, use_ollama=False,
+                         browser_factory=FakeGarudanetra, check_seconds=10) as pool:
+                    with patch("suryadev_parallel.os.cpu_count",return_value=8):
+                        result=pool.pump(telemetry=healthy())
+                        self.assertEqual(result["capacity"]["limits"]["youtube"],0)
+                        self.assertNotIn("youtube",result["capacity"]["launched_this_cycle"])
+                        self.assertIn("website",result["capacity"]["launched_this_cycle"])
+                        pool.pool.shutdown(wait=True)
+                        pool._reap()
+                self.assertEqual(lib.db.execute(
+                    "SELECT status FROM jobs WHERE url LIKE '%youtube%'").fetchone()[0],
+                    "queued")
+                self.assertEqual(lib.db.execute(
+                    "SELECT status FROM jobs WHERE url LIKE '%reading%'").fetchone()[0],
+                    "done")
+            finally:
+                lib.db.close()
+
+    def test_observed_youtube_429_cools_following_queued_videos(self):
+        with tempfile.TemporaryDirectory() as root:
+            lib=Library(root)
+            try:
+                with patch("suryadev.validate_url",return_value=None):
+                    lib.add("https://www.youtube.com/watch?v=abcdefghijk")
+                    lib.add("https://www.youtube.com/watch?v=123456789ab")
+                def fail(_url):
+                    raise RuntimeError("HTTP Error 429: Too Many Requests")
+                with patch("suryadev_ingest.ingest_youtube",side_effect=fail):
+                    with AdaptiveResearchWorkers(root, use_ollama=False,check_seconds=10) as pool:
+                        with patch("suryadev_parallel.os.cpu_count",return_value=8):
+                            first=pool.pump(telemetry=healthy())
+                            self.assertEqual(first["capacity"]["limits"]["youtube"],1)
+                            self.assertEqual(first["capacity"]["launched_this_cycle"],["youtube"])
+                            for _ in range(70):
+                                if any(f.done() for f in pool.futures):
+                                    break
+                                time.sleep(.03)
+                            again=pool.pump(telemetry=healthy())
+                            self.assertEqual(again["capacity"]["limits"]["youtube"],0)
+                            self.assertEqual(again["capacity"]["youtube_access"]["state"],
+                                             "rate_limited")
+                            self.assertEqual(again["capacity"]["launched_this_cycle"],[])
+                self.assertEqual(lib.stats()["failed"],1)
+                self.assertEqual(lib.stats()["queued"],1)
+                with AdaptiveResearchWorkers(root,use_ollama=False) as replacement:
+                    persisted = replacement.pump(telemetry=healthy())["capacity"]
+                    self.assertEqual(persisted["limits"]["youtube"],0)
+            finally:
+                lib.db.close()
 
 
 class FakeRoute:
