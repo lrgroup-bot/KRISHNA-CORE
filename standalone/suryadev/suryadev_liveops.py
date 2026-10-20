@@ -62,10 +62,11 @@ def connection_indicators(root):
     trusted_read = (receipt.get("type") == "authenticated_tls_read" and 0 <= age < 120)
     return {
         "krishna": {
-            "connected": bool(trusted_read),
-            "state": "authenticated_live_reader" if trusted_read else "not_connected",
-            "detail": ("An approved TLS client read the dashboard export recently. "
-                       "This does not prove KRISHNA Core enrollment."
+            "connected": False,
+            "reader_active": bool(trusted_read),
+            "state": "authorized_reader_unverified" if trusted_read else "not_connected",
+            "detail": ("A permitted TLS reader accessed SURYADEV recently. "
+                       "Its KRISHNA Core identity/enrollment is not verified."
                        if trusted_read else "No recent authenticated KRISHNA reader; secure pairing not confirmed."),
         },
         "brahmagyan": {
