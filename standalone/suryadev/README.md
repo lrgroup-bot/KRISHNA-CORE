@@ -835,6 +835,23 @@ entries. It must never treat alternative documentation as a transcript
 of the blocked YouTube video; job #6 remains failed until a successful,
 operator-authorized retry after the provider restriction.
 
+### Single-command launch after updating your installed files
+
+Stop any old SURYADEV worker or mission first. In PowerShell from the
+installed app folder, **explicitly opt in** to the official source pack and
+start exactly one continuously refilling worker:
+
+```powershell
+cd "D:\\Work\\SURYADEV"
+.\\start-continuous-learning.ps1 -DataDir "D:\\Work\\SURYADEV-DATA" -ActivateOfficialTech
+```
+
+The dashboard can stay running in its own terminal. The flag adds only the
+published official tech URLs/feeds; it will not download the blocked
+YouTube subtitle file during the cooldown. A second invocation without
+`-ActivateOfficialTech` uses the existing approved plan without modification.
+Use Ctrl+C in the launcher window to stop the learning worker.
+
 ### Activate a free official technology research pack
 
 The following action is **opt-in**; it merges a bounded set of public
