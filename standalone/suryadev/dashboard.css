@@ -60,3 +60,6 @@ main{min-width:0;flex:1;max-width:1660px;padding:32px clamp(20px,3.35vw,56px) 28
 .sidebar-bottom .node-card{margin:9px 0 0;padding:10px}
 .sidebar-bottom .sidebar-footer{margin:6px 0 0}
 .sidebar-bottom .led-note{display:block;margin-top:9px;font-size:9px;color:#e9e1ff}
+
+@media(max-height:740px) and (min-width:751px){.sidebar-label{margin:10px 10px 4px}.sidebar .nav-item{padding:6px 8px;min-height:31px}.sidebar-bottom .node-card small,.sidebar-bottom .sidebar-footer{display:none}.sidebar-bottom .status-leds{padding:8px}.sidebar-bottom .led-row{margin:5px 0}}
+@media(max-width:750px){.sidebar{height:auto;overflow:visible;display:flex;flex-direction:column}.sidebar .navigation{display:flex;flex:0 0 auto;overflow-x:auto;overflow-y:hidden}.sidebar-bottom{display:block;margin:10px 0 0}.sidebar-bottom .status-leds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.sidebar-bottom .status-led-title,.sidebar-bottom .led-note{grid-column:1/-1}.sidebar-bottom .led-row{display:flex;flex-direction:column;align-items:center;gap:5px;margin:0;padding:7px 3px;background:#ffffff16;border-radius:9px}.sidebar-bottom .led-state{font-size:9px;white-space:normal;text-align:center}.sidebar-bottom .node-card,.sidebar-bottom .sidebar-footer{display:none}}
