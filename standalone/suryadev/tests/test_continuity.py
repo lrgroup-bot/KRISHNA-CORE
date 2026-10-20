@@ -164,6 +164,12 @@ class ContinuityRefillTests(unittest.TestCase):
         self.assertIn('const continuity = data.continuity',js)
         self.assertIn('youtube_video_equivalence_claimed', (folder/"suryadev_continuity.py").read_text())
         self.assertIn("'suryadev_continuity.py'",installer)
+        launcher=(folder/"start-continuous-learning.ps1").read_text(encoding="utf-8")
+        self.assertIn("'start-continuous-learning.ps1'",installer)
+        self.assertIn('activate-official-tech',launcher)
+        self.assertIn('"--plan", $plan',launcher)
+        self.assertNotIn('retry-failed',launcher)
+
 
 
 if __name__ == "__main__":
