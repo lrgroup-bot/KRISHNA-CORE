@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "python scripts/AGENTIC_PRE_TOOL_GATE.py",
+        "powershell": "python scripts/AGENTIC_PRE_TOOL_GATE.py",
+        "cwd": ".",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}
