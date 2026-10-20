@@ -11,6 +11,8 @@ if ($destination.TrimEnd('\') -eq $source.TrimEnd('\')) {
 }
 Set-Location -LiteralPath $source
 Write-Host "Validating SURYADEV before copying"
+& $Python -c "import sys; assert sys.version_info >= (3,10), 'Python 3.10+ required'"
+if ($LASTEXITCODE -ne 0) { throw "Python 3.10+ required" }
 & $Python --version
 if ($LASTEXITCODE -ne 0) { throw "Python 3.10+ is required" }
 & $Python -m unittest discover -s (Join-Path $source 'tests') -v
