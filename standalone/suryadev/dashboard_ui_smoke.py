@@ -27,7 +27,7 @@ def available_port():
 
 
 async def browser_check(port):
-    from playwright.async_api import async_playwright
+    from playwright.async_api import async_playwright, expect
     async with async_playwright() as p:
         browser=await p.chromium.launch(headless=True)
         try:
@@ -35,8 +35,8 @@ async def browser_check(port):
             errors=[]
             page.on("pageerror",lambda e:errors.append(str(e)))
             await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
-            await page.locator("#netra-web-running").get_by_text("2",exact=True).wait_for(timeout=12000)
-            await page.locator("#netra-video-running").get_by_text("1",exact=True).wait_for()
+            await expect(page.locator("#netra-web-running")).to_have_text("2",timeout=12000)
+            await expect(page.locator("#netra-video-running")).to_have_text("1",timeout=12000)
             web=await page.locator("#netra-web-tabs").inner_text()
             tabs=await page.locator(".netra-workspace-tab").count()
             cap=await page.locator("#netra-total-capacity").inner_text()
