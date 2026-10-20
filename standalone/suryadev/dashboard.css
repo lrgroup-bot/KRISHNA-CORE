@@ -63,3 +63,15 @@ main{min-width:0;flex:1;max-width:1660px;padding:32px clamp(20px,3.35vw,56px) 28
 
 @media(max-height:740px) and (min-width:751px){.sidebar-label{margin:10px 10px 4px}.sidebar .nav-item{padding:6px 8px;min-height:31px}.sidebar-bottom .node-card small,.sidebar-bottom .sidebar-footer{display:none}.sidebar-bottom .status-leds{padding:8px}.sidebar-bottom .led-row{margin:5px 0}}
 @media(max-width:750px){.sidebar{height:auto;overflow:visible;display:flex;flex-direction:column}.sidebar .navigation{display:flex;flex:0 0 auto;overflow-x:auto;overflow-y:hidden}.sidebar-bottom{display:block;margin:10px 0 0}.sidebar-bottom .status-leds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.sidebar-bottom .status-led-title,.sidebar-bottom .led-note{grid-column:1/-1}.sidebar-bottom .led-row{display:flex;flex-direction:column;align-items:center;gap:5px;margin:0;padding:7px 3px;background:#ffffff16;border-radius:9px}.sidebar-bottom .led-state{font-size:9px;white-space:normal;text-align:center}.sidebar-bottom .node-card,.sidebar-bottom .sidebar-footer{display:none}}
+
+/* Visible, high-contrast date-wise learning controls */
+.date-center{margin:21px 0 0;padding:22px;border-radius:20px;border:1px solid #d8cafa;background:linear-gradient(110deg,#fff,#f5edff 54%,#e8f9ff);box-shadow:var(--shadow)}
+.date-center-heading{display:flex;align-items:center;gap:13px}
+.date-center-icon{display:grid;place-items:center;flex:0 0 47px;height:47px;border-radius:14px;background:linear-gradient(130deg,#7045d6,#e363a2);color:white;font-size:25px}
+.date-center-heading h2{margin:1px 0 2px;font-size:21px;color:#523395}
+.date-center-heading p{margin:0;color:#676c89;font-size:12px}
+.date-center-eyebrow{font-size:10px;letter-spacing:1.5px;font-weight:900;color:#9863be}
+.date-center-controls{display:flex;flex-wrap:wrap;align-items:end;gap:9px;margin:17px 0 14px}
+.date-main-label{display:flex;flex-direction:column;gap:4px;min-width:195px;font-size:11px;font-weight:850;color:#584198}
+.date-main-label input{min-height:44px;padding:9px 12px;background:#fff;color:#33255a;border:1px solid #bfa9e9;border-radius:11px;font-size:14px}
+.date-main-btn{min-height:44px;padding:10px 13px;border:0;border-radius:11px;background:#7750d5;color:#fff;font-size:12px;font-weight:850}
