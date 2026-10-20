@@ -53,7 +53,7 @@ def cleanup_completed(db, root, *, dry_run=False, now=None):
     policy = read_settings(root)["cleanup"]
     report = {"enabled": policy["enabled"], "dry_run": bool(dry_run),
               "checked_at": now, "deleted_jobs": 0, "deleted_bytes": 0,
-              "eligible_jobs": 0, "skipped": 0, "errors": 0,
+              "eligible_jobs": 0, "eligible_bytes": 0, "skipped": 0, "errors": 0,
               "retained_evidence": True, "scope": "staging/jobs only"}
     if not policy["enabled"]:
         return report
@@ -108,6 +108,7 @@ def cleanup_completed(db, root, *, dry_run=False, now=None):
                 report["skipped"] += 1
                 continue
             report["eligible_jobs"] += 1
+            report["eligible_bytes"] += source_path.stat().st_size
             if not dry_run:
                 size = source_path.stat().st_size
                 source_path.unlink()
