@@ -45,8 +45,10 @@ def youtube_access(root, now=None):
     except (TypeError, ValueError, OverflowError):
         until = 0.0
     # Malformed data must not impose an indefinite ban or cause launches.
-    if not math.isfinite(until) or until > now + YOUTUBE_RATE_LIMIT_PAUSE_SECONDS:
-        until = now + YOUTUBE_RATE_LIMIT_PAUSE_SECONDS
+    if not math.isfinite(until) or until > now + YOUTUBE_RATE_LIMIT_PAUSE_SECONDS + 5:
+        # A corrupt or manually altered value must not disable all future
+        # YouTube jobs indefinitely. Do not trust or silently extend it.
+        until = 0.0
     blocked = until > now
     return {"state": "rate_limited" if blocked else "ready",
             "cooldown_until": round(until, 2) if blocked else None,
