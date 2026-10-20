@@ -188,3 +188,29 @@ python suryadev_extras.py --data "$env:USERPROFILE\SURYADEV-DATA" dashboard --po
 ```
 
 The `--data` option is a global argument and must appear before the subcommand. The dashboard runs on laptop loopback only; visit `http://127.0.0.1:8769/` on that laptop.
+
+## Learning Control Room (October 2026)
+
+The read-only dashboard now displays the 100 newest assigned jobs, their source URLs,
+status, assigned/updated timestamps, errors, saved findings, SHA-256 evidence digests,
+and summary provenance. Search filters source, title, status, and saved learning text.
+It refreshes every 30 seconds and binds only to 127.0.0.1. It never starts a job
+or sends information to KRISHNA by itself.
+
+Run on the D-drive laptop after pulling and reinstalling:
+
+```powershell
+cd D:\\Work\\SURYADEV-SOURCE
+git pull --ff-only origin feat/suryadev-standalone-laptop-20261019
+cd D:\\Work\\SURYADEV-SOURCE\\standalone\\suryadev
+powershell -NoProfile -ExecutionPolicy Bypass -File .\\install-windows.ps1 -InstallDir D:\\Work\\SURYADEV -DataDir D:\\Work\\SURYADEV-DATA
+cd D:\\Work\\SURYADEV
+python suryadev_extras.py --data D:\\Work\\SURYADEV-DATA dashboard --port 8769
+```
+
+Previously saved findings are labeled `legacy_unverified`, because their original
+summarization method was not recorded. New Ollama failures cause a failed job
+instead of silent extractive fallback. AI summaries are still unverified claims,
+not BRAHMAGYAN-approved knowledge. Secure KRISHNA enrollment and the existing
+SURYDEV distributed-bundle protocol are **not yet integrated** into this laptop
+worker; no automatic handoff or 24/7 learning is claimed.
