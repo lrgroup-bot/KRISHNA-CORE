@@ -451,3 +451,79 @@ Select-String -Path "D:\\Work\\SURYADEV\\dashboard.html" -Pattern 'id="date-main
 The LED colors report verified connectivity, not an implied pairing. The UI
 contract tests cover presence and event wiring of these visible controls;
 an actual Windows browser test at different viewport sizes remains required.
+
+
+## v5 · KRISHNA Server and Storage & Cleanup popup menus
+
+The dashboard's main sidebar now has two clickable entries:
+**KRISHNA Server** and **Storage & Cleanup**. Both open colorful dialogs.
+These settings apply only to the local SURYADEV installation and use a
+same-origin, per-dashboard-start CSRF token for configuration changes.
+No new network listener, Windows service, startup task or firewall exception
+is added. The optional remote Core bridge remains read-only.
+
+**KRISHNA Server:** enter the private numeric IPv4 address of KRISHNA Core and
+its health port (normally **8766**). Click **Save server IP**, then **Diagnose
+connection** to check TCP reachability and the HTTP `/health` JSON response.
+This stores only the candidate's IP/port in
+`<active-data-root>/operator-settings.json`. A successful diagnosis is **not**
+identity proof, authenticated pairing or BRAHMAGYAN/Rishi handoff, so Core
+and academy LEDs correctly remain unpaired. There are no tokens or Core
+credentials stored by this popup.
+
+**Storage & Cleanup:** displays the *currently active* SURYADEV data folder,
+available space and its retained data size. Enter a local absolute data
+folder, or click **Browse folders…** to open the optional native Windows
+folder picker in the same desktop session as the dashboard server. Click
+**Check free disk space**. The migration requires an **empty destination**
+and at least 2 GiB free, or the existing data size plus 512 MiB, whichever
+is larger. It refuses paths inside the current data folder, network shares,
+drive roots and common Windows system directories.
+
+Click **Copy & verify data** and approve the confirmation prompt to copy
+durable research data. The migration acquires the worker lock (stop any
+running mission/worker first), backs up live SQLite using SQLite's own
+backup API, SHA-256 verifies evidence files and copied data, and retains
+the entire old data directory. It never automatically deletes the original
+folder. The dashboard continues using its original open database until
+you stop it and restart both dashboard and any worker with:
+
+```powershell
+cd "D:\\Work\\SURYADEV"
+python suryadev_extras.py --data "E:\\SURYADEV-DATA" dashboard --port 8769
+```
+
+Replace `E:\\SURYADEV-DATA` with the exact verified destination displayed
+in your popup and use the same `--data` for `suryadev_mission.py` or the
+worker. This is an explicit restart-based cutover, not a risky hot
+database move. If a copy fails, do **not** switch; the old location stays
+intact. A partial destination may need manual review.
+
+**Automatic cleanup:** enabled by default for newly created *disposable*
+SURYADEV working copies only. The worker stages text under
+`<data-root>/staging/jobs/<job-id>/source.txt`, then saves permanent
+content-addressed evidence and its finding to SQLite. When job status is
+`done` and the staged bytes, finding SHA-256 and saved evidence all match,
+only `source.txt`, its machine-generated manifest and the empty staging
+subdirectory are eligible for deletion. The default retention is **0
+hours** (immediately after the verified save); you can choose 1, 24, 72
+or 168 hours or disable automatic cleanup. Idle worker cycles revisit
+expired work copies. You can preview eligible files without deleting,
+or request a manual verified cleanup from the popup.
+
+Important: the software does **not** automatically delete original
+videos/PDFs/audio, imported transcripts, durable SHA-256 evidence,
+SQLite history, learning plans, unfinished/failed job staging, other
+applications' files or arbitrary old laptop files. Full YouTube
+audiovisual comprehension and BRAHMAGYAN approval are not inferred
+from successful text extraction.
+
+After updating and reinstalling, test the running version:
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8769/api/ui-version"
+```
+
+Expected: `2026-10-21-v5-server-storage`. The loopback diagnostics API is
+`GET /api/operator/settings`; state-changing POST requests are limited
+to the same-origin UI and require the transient dashboard CSRF header.
