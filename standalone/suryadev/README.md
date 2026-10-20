@@ -174,3 +174,17 @@ The optional `suryadev_enroll.py` command requires a documented HTTPS Core enrol
 From a clean Git checkout on the laptop, open PowerShell in `standalone/suryadev` and run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1`. The script first runs the bundled unit tests and then copies application files to `%LOCALAPPDATA%\SURYADEV`; evidence and SQLite data stay under `%USERPROFILE%\SURYADEV-DATA`. It does not install Python, Ollama or optional media dependencies, and it does not schedule background jobs or pair with KRISHNA Core.
 
 Then run `cd "$env:LOCALAPPDATA\SURYADEV"`, `python suryadev.py status`, and `python suryadev_discovery.py`. For live learning, add a user-approved public HTTPS URL with `python suryadev.py add "https://example.com/"` and process it using `python suryadev.py run --no-ollama` first. Test Ollama only after verifying that `qwen3.5:9b` is installed locally. Confirm evidence integrity with `python suryadev_extras.py verify-evidence`. A production-ready authenticated Core joining workflow is still blocked on the server-side pairing contract and real laptop tests.
+
+### Exact laptop acceptance commands
+
+Run these inside the installed SURYADEV directory:
+
+```powershell
+python suryadev.py --data "$env:USERPROFILE\SURYADEV-DATA" status
+python suryadev.py --data "$env:USERPROFILE\SURYADEV-DATA" add "https://example.com/"
+python suryadev.py --data "$env:USERPROFILE\SURYADEV-DATA" run --no-ollama
+python suryadev_extras.py --data "$env:USERPROFILE\SURYADEV-DATA" verify-evidence
+python suryadev_extras.py --data "$env:USERPROFILE\SURYADEV-DATA" dashboard --port 8769
+```
+
+The `--data` option is a global argument and must appear before the subcommand. The dashboard runs on laptop loopback only; visit `http://127.0.0.1:8769/` on that laptop.
