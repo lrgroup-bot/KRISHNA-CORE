@@ -114,6 +114,18 @@ def operations_snapshot(db, root):
                  "queued_at": created, "scheduled_at": None}
                 for job,url,created in queue_rows]
     last = state.get("last_result") if fresh else None
+    capacity = _safe_read(root, "capacity-runtime.json")
+    capacity_age = now - float(capacity.get("sample_time") or 0)
+    if not (0 <= capacity_age <= 45):
+        capacity = {"state":"offline", "safe":False, "max_total":0,
+                    "limits":{k:0 for k in ("website","youtube","pdf")},
+                    "active_total":0, "active":{k:0 for k in ("website","youtube","pdf")},
+                    "reason":"No recent scheduler sample"}
+    netra = _safe_read(root, "garudanetra-runtime.json")
+    browser_age = now - float(netra.get("heartbeat_at") or 0)
+    if not (0 <= browser_age <= 20) or netra.get("state") != "running":
+        netra = {"state":"offline", "open_tabs":0, "tabs":[],
+                 "engine":"Garudanetra Lite / Playwright Chromium"}
     return {
         "sample_time": now,
         "worker": {
@@ -132,4 +144,17 @@ def operations_snapshot(db, root):
         "by_source": summary,
         "connections": connection_indicators(root),
         "feeder": _safe_read(root, "feeder-runtime.json"),
+        "capacity": capacity, "garudanetra": netra,
+        "processing": {
+            "website": {"running":summary["website"]["running"],
+                        "queued":summary["website"]["queued"],
+                        "browser_tabs":sum(1 for tab in netra.get("tabs",[])
+                                           if tab.get("kind")=="website")},
+            "youtube": {"running":summary["youtube"]["running"],
+                        "queued":summary["youtube"]["queued"],
+                        "browser_tabs":0},
+            "pdf": {"running":summary["pdf"]["running"],
+                    "queued":summary["pdf"]["queued"],
+                    "browser_tabs":0},
+        },
     }
