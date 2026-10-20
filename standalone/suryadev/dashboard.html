@@ -7,8 +7,10 @@
 <title>SURYADEV • Learning Mission Control</title>
 <link rel="stylesheet" href="/dashboard.css">
 <link rel="stylesheet" href="/dashboard-settings.css">
+<link rel="stylesheet" href="/dashboard-garudanetra.css">
 <script src="/dashboard.js" defer></script>
 <script src="/dashboard-settings.js" defer></script>
+<script src="/dashboard-garudanetra.js" defer></script>
 </head>
 <body>
 <div class="app-shell">
@@ -18,6 +20,7 @@
     <nav class="navigation">
       <a href="#overview" class="nav-item selected"><span>✦</span> Overview</a>
       <a href="#live-learning" class="nav-item"><span>●</span> Live learning</a>
+      <a href="#garudanetra" class="nav-item"><span>◉</span> Garudanetra browser</a>
       <a href="#assignments" class="nav-item"><span>▣</span> All assignments</a>
       <a href="#sources" class="nav-item"><span>◈</span> Sources & learning</a>
       <a href="#date-center" class="nav-item"><span>◷</span> Date-wise learning</a>
@@ -39,7 +42,7 @@
         <strong id="connection">Connecting…</strong>
         <small>KRISHNA pairing is separate from local connectivity.</small>
       </div>
-      <div class="sidebar-footer">UI v5 · 21 Oct 2026 · Local-first</div>
+      <div class="sidebar-footer">UI v6 · 21 Oct 2026 · Local-first</div>
     </div>
   </aside>
   <main>
@@ -95,6 +98,40 @@
       <div class="diary-task-title">Next assignments in queue</div>
       <div id="upcoming-jobs" class="operations-queue"><div class="empty-state">Loading queue…</div></div>
       <p class="operations-bottom-note" id="operations-note">Processing percentage and exact start time are not available until recorded by the worker.</p>
+    </section>
+    <section id="garudanetra" class="netra-control" aria-labelledby="netra-title">
+      <div class="section-heading compact">
+        <div>
+          <div class="overline">GARUDANETRA · LIGHTWEIGHT PLAYWRIGHT CHROMIUM</div>
+          <h2 id="netra-title">Live parallel learning workspaces</h2>
+          <p>Measured CPU, RAM, GPU and disk headroom decides when SURYADEV can open the next approved source.</p>
+        </div>
+        <span class="netra-live-pill" id="netra-engine-state">Checking browser…</span>
+      </div>
+      <div class="netra-source-grid">
+        <article class="netra-source netra-web">
+          <div class="netra-source-top"><span class="netra-icon">◎</span><strong>Websites</strong><span class="netra-label">Garudanetra Chromium tabs</span></div>
+          <div class="netra-big"><strong id="netra-web-running">—</strong><span>processing now</span></div>
+          <div class="netra-metrics"><span>Allowed <b id="netra-web-capacity">—</b></span><span>Queued <b id="netra-web-queued">—</b></span><span>Open browser tabs <b id="netra-web-tabs">—</b></span></div>
+        </article>
+        <article class="netra-source netra-youtube">
+          <div class="netra-source-top"><span class="netra-icon">▶</span><strong>YouTube</strong><span class="netra-label">Caption extraction lane</span></div>
+          <div class="netra-big"><strong id="netra-video-running">—</strong><span>processing now</span></div>
+          <div class="netra-metrics"><span>Allowed <b id="netra-video-capacity">—</b></span><span>Queued <b id="netra-video-queued">—</b></span><span>Video viewing <b>Not verified</b></span></div>
+        </article>
+        <article class="netra-source netra-pdf">
+          <div class="netra-source-top"><span class="netra-icon">▤</span><strong>PDF documents</strong><span class="netra-label">Page-by-page text lane</span></div>
+          <div class="netra-big"><strong id="netra-pdf-running">—</strong><span>processing now</span></div>
+          <div class="netra-metrics"><span>Allowed <b id="netra-pdf-capacity">—</b></span><span>Queued <b id="netra-pdf-queued">—</b></span><span>Visual OCR <b>Not verified</b></span></div>
+        </article>
+      </div>
+      <div class="netra-bottom-row">
+        <div class="netra-admission"><span aria-hidden="true">◈</span><div><strong id="netra-capacity-heading">Measuring laptop headroom…</strong><small id="netra-capacity-reason">Auto-admission is disabled unless hardware telemetry is available.</small></div><span class="netra-capacity-badge" id="netra-total-capacity">— active / — allowed</span></div>
+        <div class="netra-browser-state"><span id="netra-tab-heading">Actual Garudanetra browser: inactive</span><small id="netra-browser-detail">Playwright Chromium is opened only for approved queued website jobs.</small></div>
+      </div>
+      <div class="netra-tab-title">Source tabs currently being processed <span id="netra-workspace-count">0</span></div>
+      <div id="netra-workspace-tabs" class="netra-workspace-tabs" aria-live="polite"><div class="empty-state">No processing slots active.</div></div>
+      <p class="netra-disclaimer">Workspace cards for YouTube and PDF represent real extraction jobs, not hidden video playback or Chromium tabs. Browser tabs are counted separately. SURYADEV never claims complete learning from simply opening a source.</p>
     </section>
     <section class="task-section" id="assignments" aria-labelledby="tasks-title">
       <div class="section-heading"><div><div class="overline">INTERACTIVE TASK EXPLORER</div><h2 id="tasks-title">All assignments <span class="title-count" id="filtered-count">—</span></h2><p>Click any task to inspect what SURYADEV did, its evidence and what is still pending.</p></div><span class="section-decoration" aria-hidden="true">✦</span></div>
