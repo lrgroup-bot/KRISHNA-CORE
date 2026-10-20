@@ -311,3 +311,107 @@ The green KRISHNA/BRAHMAGYAN/Rishi indicators require future Core-side
 authenticated pairing and explicit learning-bundle acceptance receipts.
 Never expose the bridge on the public internet or change its private-IP
 allowlist to a wildcard.
+
+
+## End-to-end source pipeline and six-hour study mission
+
+### Who provides research data?
+
+Before authenticated KRISHNA enrollment, **the owner** supplies a local JSON
+research plan. It lists explicit approved HTTPS sources and/or opt-in RSS/Atom
+feeds. The feeder discovers **only** URLs published by these feeds and restricts
+RSS/Atom results to `allowed_source_hosts`. There is no general YouTube/web
+search engine or autonomous topic generator yet; the queue will eventually
+become empty if subscribed sources stop producing new items. Future KRISHNA,
+BRAHMAGYAN, or Rishi task delivery must be authenticated, owner-authorized and
+acked before it may populate the queue.
+
+Sources travel through this chain:
+
+`learning-plan.json -> suryadev_feeder -> SQLite queued job -> mission worker
+-> type-specific source extractor -> full text evidence SHA-256
+-> local chunk-by-chunk Ollama preview / extractive preview
+-> SQLite finding + job_provenance receipt -> dashboard and optional Core HTTPS reader`
+
+### Run a supervised six-hour study
+
+The installer only copies files; it does **not** start tasks, open firewall
+ports, create a Windows service or connect to KRISHNA. Stop any other SURYADEV
+worker before starting a mission because the worker lock permits one writer.
+
+```powershell
+cd "D:\\Work\\SURYADEV"
+python -m pip install pypdf yt-dlp
+Copy-Item .\\learning-plan.example.json "D:\\Work\\SURYADEV-DATA\\learning-plan.json" -Force
+notepad "D:\\Work\\SURYADEV-DATA\\learning-plan.json"
+```
+
+The supplied example includes the already approved Python.org About page and
+the public one-page W3C sample PDF. The user must explicitly review/approve
+the source plan. To study YouTube, add a user-approved `https://www.youtube.com/watch?v=...`
+URL to `approved_urls`. For continuing discovery, add approved RSS/Atom
+feed URLs to `approved_feeds`, then explicitly list the allowed destination
+hostnames in `allowed_source_hosts`. Only content explicitly available and
+permitted for processing should be submitted.
+
+```powershell
+python suryadev_mission.py --data "D:\\Work\\SURYADEV-DATA" --plan "D:\\Work\\SURYADEV-DATA\\learning-plan.json" --duration-hours 6 --refill-minutes 30 --check-seconds 60 --model qwen3.5:9b
+```
+
+Run the dashboard in a separate PowerShell window:
+
+```powershell
+python suryadev_extras.py --data "D:\\Work\\SURYADEV-DATA" dashboard --port 8769
+```
+
+For a one-time source discovery dry run (this **does enqueue** approved new
+items, but does not start a worker), run:
+
+```powershell
+python suryadev_feeder.py --data "D:\\Work\\SURYADEV-DATA" --plan "D:\\Work\\SURYADEV-DATA\\learning-plan.json" --once
+```
+
+Use `--no-ollama` in the six-hour mission if no local model is available;
+this stores only an explicitly marked extractive preview rather than a
+summary of the entire source. A mission is a manually started foreground
+process; it ends after approximately six hours (or after the current
+processing attempt returns) and can be stopped with Ctrl+C.
+
+### End-to-end validation, evidence and known limitations
+
+- **Website:** approved public HTTPS HTML/plain-text only. Decoded response
+  capped at 2 MB and extracted text capped at 220k characters; truncation is
+  now a recorded failure, not silent completion. Ordinary extraction does
+  **not** render JavaScript or study embedded media/linked pages. Coverage
+  claim is `html_text_extracted_not_browser_verified`.
+- **PDF:** requires the free `pypdf` dependency. Downloads up to 20 MB,
+  extracts selectable text from **every** page (up to 500), fails on scanned
+  or missing-text pages or encrypted PDFs, and stores page counts in the
+  evidence receipt. OCR, charts, diagrams, formulas and visual interpretation
+  are **not** yet covered.
+- **YouTube:** requires the free `yt-dlp` dependency and an explicit approved
+  single-video URL. Saves caption text with cue start/end timestamps and
+  checks timestamps against reported duration, while retaining gap warnings.
+  Does **not** download the video for visual review and does not guarantee
+  captions cover every spoken or visual second. If captions are missing, fails
+  instead of declaring the video learned. The receipt is
+  `caption_timeline_only_unverified`.
+- **Learning:** with Ollama enabled, sends **each extracted text chunk** to
+  the local model and retains per-chunk summaries. All chunks presented does
+  not guarantee understanding or fact-checking. Without Ollama, only a preview
+  is stored. The transcript/audio/visual and BRAHMAGYAN approval gates remain
+  unverified until independent integration and live-device tests.
+- **Queue & history:** existing SQLite jobs are not rewritten; new ones gain
+  a `job_provenance` receipt. Duplicates reuse existing evidence and do not
+  count as new unique understanding. Genuine current, queued, and feeder
+  scheduling state is visible at `GET /api/operations`. KRISHNA, BRAHMAGYAN
+  and Rishi remain disconnected until secure pairing and acknowledgements.
+
+### Acceptance on the actual laptop
+
+Run the test suite, then process **one real approved source of each type**;
+inspect `/api/tasks/{id}` for `coverage`, `evidence_state`, and
+`complete_verified` before trusting any higher-level dashboard total.
+Regression tests use deterministic/mocked source responses; GitHub CI passing
+does **not** prove live YouTube availability, pypdf behavior on arbitrary
+third-party PDFs, visual comprehension, or genuine KRISHNA connectivity.
