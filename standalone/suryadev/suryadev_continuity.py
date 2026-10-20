@@ -20,6 +20,7 @@ import time
 
 from suryadev_feeder import read_plan, feed_once
 from suryadev_liveops import atomic_json
+from suryadev_publisher import recover_failed_video_from_publisher
 
 RUNTIME_FILE = "continuity-runtime.json"
 PACK_NAME = "official-tech-education"
@@ -150,13 +151,14 @@ class ContinuityFeeder:
     never starts workers and never retries completed/failed assignments.
     """
     def __init__(self, root, plan_path, *, refill_seconds=300,
-                 fetcher=None, clock=time.time):
+                 fetcher=None, publisher_fetcher=None, clock=time.time):
         if not 60 <= refill_seconds <= 21600:
             raise ValueError("Refill interval must be 60..21600 seconds")
         self.root = Path(root).expanduser().resolve()
         self.plan_path = Path(plan_path).expanduser().resolve()
         self.refill_seconds = refill_seconds
         self.fetcher = fetcher
+        self.publisher_fetcher = publisher_fetcher
         self.clock = clock
         self.next_due = 0
         self.last_refresh = None
@@ -171,6 +173,13 @@ class ContinuityFeeder:
             return None
         try:
             plan = read_plan(self.plan_path)  # hot reload approved-plan edits
+            # Official publisher captions are independent of YouTube. A failed
+            # video can get truthful TIMED-TEXT coverage without waiting for
+            # YouTube's HTTP 429 guard or issuing any new YouTube request.
+            publisher = (recover_failed_video_from_publisher(lib,plan) if
+                         self.publisher_fetcher is None else
+                         recover_failed_video_from_publisher(
+                             lib,plan,fetcher=self.publisher_fetcher))
             outcome = (feed_once(lib, plan) if self.fetcher is None else
                        feed_once(lib, plan, fetcher=self.fetcher))
             error = ""
@@ -178,6 +187,7 @@ class ContinuityFeeder:
             outcome = {"added_total":0, "feed_errors":[
                 {"error":type(exc).__name__ + ": " + str(exc)[:160]}]}
             error = type(exc).__name__ + ": " + str(exc)[:160]
+            publisher = {"status":"error","recovered":0,"error":error}
         self.refresh_count += 1
         self.last_refresh = now
         self.next_due = now + self.refill_seconds
@@ -191,6 +201,8 @@ class ContinuityFeeder:
             "next_refresh":self.next_due,
             "refresh_count":self.refresh_count,
             "added_total":outcome.get("added_total",0),
+            "publisher_recovery":publisher,
+            "publisher_recovered":int(publisher.get("recovered",0)),
             "skipped_duplicate":outcome.get("skipped_duplicate",0),
             "feed_error_count":len(outcome.get("feed_errors",[])),
             "feed_errors":outcome.get("feed_errors",[])[:5],
