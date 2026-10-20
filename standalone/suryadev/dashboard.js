@@ -197,6 +197,17 @@ function renderDetail(task) {
     content.append(textNode("h3", "Recorded error", "detail-subtitle"),
                    textNode("div", task.error, "result-pane error-pane"));
   }
+  if (task.publisher_recovery) {
+    const recovered = task.publisher_recovery;
+    content.append(textNode("h3", "Approved publisher caption recovery", "detail-subtitle"));
+    content.append(safeSourceLink(recovered.transcript_url));
+    content.append(textNode("div", "Earlier YouTube extraction error: " +
+      (recovered.previous_error || "Not recorded"), "result-pane"));
+    content.append(textNode("div",
+      "Recovered from publisher-hosted timed captions only. The original YouTube " +
+      "request was blocked; video visuals, uncaptioned speech and complete " +
+      "audiovisual coverage remain UNVERIFIED.", "detail-banner info"));
+  }
   const coverage = task.coverage || {};
   content.append(textNode("h3", "Source coverage & learning provenance", "detail-subtitle"));
   if (Object.keys(coverage).length) {
@@ -208,6 +219,8 @@ function renderDetail(task) {
       ["Browser final HTTPS URL", coverage.browser_final_url],
       ["PDF pages read as text", coverage.pages_total ? String(coverage.pages_extracted ?? 0) + "/" + String(coverage.pages_total) : ""],
       ["Timed caption cues", coverage.cue_count],
+      ["Publisher caption source", coverage.publisher_transcript_url],
+      ["Publisher transcript only", coverage.publisher_transcript_only === true ? "Yes · video playback not verified" : ""],
       ["Video duration (seconds)", coverage.duration_seconds],
       ["Transcript last cue (seconds)", coverage.last_cue_seconds],
       ["Caption gaps over 60 seconds", Array.isArray(coverage.long_uncaptioned_gaps) ? coverage.long_uncaptioned_gaps.length : ""],
