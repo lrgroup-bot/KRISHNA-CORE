@@ -5,6 +5,7 @@ No claims of complete video, PDF or website coverage are inferred from a 'done' 
 from __future__ import annotations
 
 import hashlib
+from datetime import date as CalendarDate
 from pathlib import Path
 import time
 
@@ -33,7 +34,7 @@ _QUERY = (
 )
 
 
-def list_tasks(db, *, offset=0, limit=25, q="", status="", kind=""):
+def list_tasks(db, *, offset=0, limit=25, q="", status="", kind="", day=""):
     """Return all historical tasks through bounded, filtered pagination."""
     offset = max(0, min(int(offset), 1_000_000))
     limit = max(1, min(int(limit), MAX_PAGE_SIZE))
@@ -44,7 +45,17 @@ def list_tasks(db, *, offset=0, limit=25, q="", status="", kind=""):
         raise ValueError("invalid task status")
     if kind not in ("", "youtube", "pdf", "website", "other"):
         raise ValueError("invalid source kind")
+    if day:
+        day = validate_day(day)
     clauses, args = [], []
+    if day:
+        clauses.append(
+            "(date(j.created,'unixepoch','localtime')=? "
+            "OR date(f.created,'unixepoch','localtime')=? "
+            "OR (j.status IN ('running','done','failed') "
+            "AND date(j.updated,'unixepoch','localtime')=?))"
+        )
+        args.extend((day, day, day))
     if status:
         clauses.append("j.status=?")
         args.append(status)
@@ -70,6 +81,67 @@ def list_tasks(db, *, offset=0, limit=25, q="", status="", kind=""):
     return {"total": total, "offset": offset, "limit": limit,
             "has_more": offset + limit < total,
             "tasks": [{k: t[k] for k in fields} for t in result[offset:offset + limit]]}
+
+
+def validate_day(value):
+    """Accept only canonical ISO local calendar dates, never arbitrary SQL."""
+    if not isinstance(value, str) or len(value) != 10:
+        raise ValueError("date must be YYYY-MM-DD")
+    try:
+        parsed = CalendarDate.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError("invalid calendar date") from exc
+    if parsed.isoformat() != value:
+        raise ValueError("date must be YYYY-MM-DD")
+    return value
+
+
+_DAILY_SQL = """
+WITH activity AS (
+  SELECT date(created,'unixepoch','localtime') day,
+         1 assigned,0 completed,0 failed,0 findings FROM jobs
+  UNION ALL
+  SELECT date(updated,'unixepoch','localtime'),0,1,0,0
+    FROM jobs WHERE status='done'
+  UNION ALL
+  SELECT date(updated,'unixepoch','localtime'),0,0,1,0
+    FROM jobs WHERE status='failed'
+  UNION ALL
+  SELECT date(created,'unixepoch','localtime'),0,0,0,1 FROM findings
+)
+SELECT day,SUM(assigned),SUM(completed),SUM(failed),SUM(findings)
+FROM activity
+WHERE day IS NOT NULL
+GROUP BY day
+"""
+
+
+def diary_days(db, limit=180):
+    """Daily activity by laptop-local calendar date, newest first.
+
+    Completed/failed are current terminal states dated by last update,
+    not an immutable lifecycle event log. Finding dates are recorded independently.
+    """
+    limit = max(1, min(int(limit), 1000))
+    rows = db.execute(_DAILY_SQL + " ORDER BY day DESC LIMIT ?", (limit,))
+    return [{"date": day, "assignments": assigned,
+             "completed": completed, "failed": failed, "findings": findings}
+            for day, assigned, completed, failed, findings in rows]
+
+
+def diary_day(db, day):
+    """Selected-day totals; usable for older dates outside the recent diary list."""
+    day = validate_day(day)
+    row = db.execute(
+        "SELECT day,assigned,completed,failed,findings FROM ("
+        + _DAILY_SQL + ") WHERE day=?", (day,)
+    ).fetchone()
+    if row is None:
+        return {"date": day, "assignments": 0, "completed": 0,
+                "failed": 0, "findings": 0}
+    d, assigned, completed, failed, findings = row
+    return {"date": d, "assignments": assigned,
+            "completed": completed, "failed": failed, "findings": findings}
 
 
 def _evidence_state(root, sha256):
