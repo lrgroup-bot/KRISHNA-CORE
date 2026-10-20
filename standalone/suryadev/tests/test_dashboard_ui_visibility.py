@@ -13,7 +13,7 @@ class DashboardVisibleTests(unittest.TestCase):
             with self.subTest(element=element):
                 self.assertIn(element, html)
         self.assertIn('href="#date-center"', html)
-        self.assertIn("UI v5", html)
+        self.assertIn("UI v6", html)
 
     def test_controls_have_js_handlers(self):
         js = (ROOT/"dashboard.js").read_text(encoding="utf-8")
