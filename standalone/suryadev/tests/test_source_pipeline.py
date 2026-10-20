@@ -2,6 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
+import os
 import sys
 import tempfile
 import types
@@ -10,7 +11,7 @@ from unittest.mock import patch
 
 from suryadev import Library
 from suryadev_feeder import read_plan, feed_once, feed_links, allowed_source
-from suryadev_ingest import caption_cues, caption_report, ingest_pdf, ingest_youtube
+from suryadev_ingest import caption_cues, caption_report, ingest_pdf, ingest_youtube, selected_caption_language
 from suryadev_summary import summarize_all
 from suryadev_mission import mission
 from suryadev_task_details import task_detail
@@ -79,6 +80,57 @@ class PipelineTests(unittest.TestCase):
         with patch.dict(sys.modules, {"pypdf":types.SimpleNamespace(PdfReader=Reader)}):
             with self.assertRaisesRegex(ValueError, "page text missing"):
                 ingest_pdf("https://example.com/paper.pdf")
+
+    def test_caption_download_is_one_language_only_with_no_429_retry(self):
+        urls = []
+        class Downloader:
+            def __init__(self, opts):
+                assert opts["subtitleslangs"] == ["en"]
+                assert opts["retries"] == 0
+                assert opts["extractor_retries"] == 0
+                assert opts["fragment_retries"] == 0
+                assert opts["sleep_interval_subtitles"] >= 1
+                self.options = opts
+            def __enter__(self): return self
+            def __exit__(self,*_): pass
+            def extract_info(self,url,download):
+                urls.append(url)
+                folder = Path(self.options["outtmpl"]).parent
+                (folder / "abcdefghijk.en.vtt").write_text(VTT,encoding="utf-8")
+                return {"id":"abcdefghijk","duration":20,"title":"One language"}
+        with patch.dict(os.environ, {"SURYADEV_CAPTION_LANG":"en"}):
+            with patch.dict(sys.modules, {"yt_dlp":types.SimpleNamespace(YoutubeDL=Downloader)}):
+                title,text,coverage = ingest_youtube(
+                    "https://www.youtube.com/watch?v=abcdefghijk")
+        self.assertEqual(len(urls),1)
+        self.assertEqual(coverage["caption_language_requested"],"en")
+        self.assertEqual(coverage["cue_count"],3)
+
+    def test_caption_language_operator_choice_and_invalid_rejection(self):
+        for code in ("en","hi","or"):
+            with patch.dict(os.environ,{"SURYADEV_CAPTION_LANG":code}):
+                self.assertEqual(selected_caption_language(),code)
+        with patch.dict(os.environ,{"SURYADEV_CAPTION_LANG":"all"}):
+            with self.assertRaisesRegex(ValueError,"en, hi, or"):
+                selected_caption_language()
+
+    def test_youtube_429_is_explicit_error_with_no_secondary_language_attempt(self):
+        class Downloader:
+            calls=0
+            def __init__(self,opts):
+                self.opts=opts
+                self.assert_opts = opts
+            def __enter__(self): return self
+            def __exit__(self,*_): pass
+            def extract_info(self,url,download):
+                type(self).calls += 1
+                assert self.opts["subtitleslangs"] == ["en"]
+                raise RuntimeError("Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests")
+        with patch.dict(os.environ,{"SURYADEV_CAPTION_LANG":"en"}):
+            with patch.dict(sys.modules,{"yt_dlp":types.SimpleNamespace(YoutubeDL=Downloader)}):
+                with self.assertRaisesRegex(RuntimeError,"YouTube HTTP 429.*No automatic retry"):
+                    ingest_youtube("https://www.youtube.com/watch?v=abcdefghijk")
+        self.assertEqual(Downloader.calls,1)
 
     def test_youtube_caption_ingest_reports_timeline_only(self):
         class Downloader:
