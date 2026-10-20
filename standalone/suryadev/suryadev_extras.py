@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 from suryadev import Library, summarize
 from suryadev_resources import snapshot, admission
 from suryadev_sources import breakdown
+from mimetypes import guess_type
 from suryadev_lock import worker_lock
 from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
@@ -81,12 +82,47 @@ def serve(lib, port=8769):
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'")
+            self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'")
             self.end_headers()
             self.wfile.write(body)
 
         def do_GET(self):
             route = urlsplit(self.path)
+            if route.path in ("/", "/dashboard.css", "/dashboard.js"):
+                filename = {"/": "dashboard.html", "/dashboard.css": "dashboard.css",
+                            "/dashboard.js": "dashboard.js"}[route.path]
+                content = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
+                mime = "text/html; charset=utf-8" if route.path == "/" else (
+                    "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
+                return self.respond(200, content, mime)
+            if route.path == "/api/live":
+                reader = Library(lib.root)
+                try:
+                    status = reader.stats()
+                    sources = breakdown(reader.db)
+                    findings = reader.db.execute("SELECT count(*) FROM findings").fetchone()[0]
+                    days = reader.db.execute(
+                        "SELECT date(created,'unixepoch','localtime'),count(*),"
+                        "sum(CASE WHEN status='done' THEN 1 ELSE 0 END) "
+                        "FROM jobs GROUP BY 1 ORDER BY 1 DESC LIMIT 365"
+                    ).fetchall()
+                    jobs = reader.db.execute(
+                        "SELECT j.id,j.url,j.status,j.created,j.error,f.title,f.summary,f.summary_method "
+                        "FROM jobs j LEFT JOIN findings f ON f.job_id=j.id "
+                        "ORDER BY j.id DESC LIMIT 40"
+                    ).fetchall()
+                finally:
+                    reader.db.close()
+                payload = {"time": time.time(), "status": status, "sources": sources,
+                           "total": sum(status.values()), "findings": findings,
+                           "diary": [{"date": d, "assignments": n, "completed": done or 0}
+                                     for d,n,done in days],
+                           "jobs": [{"id": i, "url": url, "status": state, "created": created,
+                                     "error": error, "title": title or "", "summary": summary or "",
+                                     "method": method or ""}
+                                    for i,url,state,created,error,title,summary,method in jobs],
+                           "resources": snapshot(lib.root)}
+                return self.respond(200, json.dumps(payload), "application/json")
             if route.path == "/api/resources":
                 return self.respond(200, json.dumps(snapshot(lib.root)), "application/json")
             if route.path == "/health":
