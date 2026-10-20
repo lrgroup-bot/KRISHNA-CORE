@@ -71,6 +71,9 @@
           ? new Date(continuity.next_refresh * 1000).toLocaleTimeString()
           : "not reported") +
         " · New sources last cycle: " + num(continuity.added_total) +
+        (continuity.publisher_recovered
+          ? " · Publisher timed-caption recovery: " + num(continuity.publisher_recovered) +
+            " (video visuals unverified)" : "") +
         (continuity.feed_error_count ? " · Feed errors: " + num(continuity.feed_error_count) : "") +
         ". Independent sources are not a substitute for the blocked video.";
     } else {
