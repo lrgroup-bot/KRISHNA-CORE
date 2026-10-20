@@ -415,3 +415,39 @@ inspect `/api/tasks/{id}` for `coverage`, `evidence_state`, and
 Regression tests use deterministic/mocked source responses; GitHub CI passing
 does **not** prove live YouTube availability, pypdf behavior on arbitrary
 third-party PDFs, visual comprehension, or genuine KRISHNA connectivity.
+
+
+## October 21: visible calendar and sidebar connection lights (UI v4)
+
+The latest colorful dashboard places **Explore learning date-wise** immediately
+below the header. A visible native date input, Today, Previous day, Next day,
+and All dates buttons filter the local assignment history and populate a
+top-level day summary. The full per-task daily report remains available at
+the linked Daily Learning Diary. The selected date stays synchronized across
+the header, All Assignments, and diary filters.
+
+The three LEDs for KRISHNA Core, BRAHMAGYAN and Rishi Council now sit in a
+single sidebar-bottom group, with layout rules for compact-height desktop
+windows and a three-column status strip directly below the main navigation
+on mobile. Red remains the expected state before authenticated pairing.
+
+After git pull, **stop the running dashboard and reinstall**, because the
+live service serves the installed copy at D:\\Work\\SURYADEV rather than the
+source checkout. Then start the dashboard again and refresh the browser.
+Verify the exact active UI build:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8769/api/ui-version
+```
+
+Expected `version`: `2026-10-21-v4-leds-calendar`. If that endpoint is
+404 or reports an older value, the laptop is still serving the older code.
+You can also verify the installed HTML has both controls:
+
+```powershell
+Select-String -Path "D:\\Work\\SURYADEV\\dashboard.html" -Pattern 'id="date-main"','id="krishna-led"'
+```
+
+The LED colors report verified connectivity, not an implied pairing. The UI
+contract tests cover presence and event wiring of these visible controls;
+an actual Windows browser test at different viewport sizes remains required.
