@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
 import html
 import json
+import secrets
 from pathlib import Path
 import re
 import threading
@@ -21,13 +22,14 @@ from suryadev_resources import snapshot, admission
 from suryadev_sources import breakdown
 from suryadev_task_details import list_tasks, task_detail, diary_days, diary_day
 from suryadev_liveops import operations_snapshot, worker_note
+from suryadev_operator_api import settings_snapshot, handle_operator_action
 from mimetypes import guess_type
 from suryadev_lock import worker_lock
 from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-21-v4-leds-calendar"
+UI_VERSION = "2026-10-21-v5-server-storage"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -76,7 +78,9 @@ def import_transcript(lib, filename, source_url="", use_ollama=True, model="qwen
     return {"status": "done", "title": title, "sha256": digest}
 
 def serve(lib, port=8769):
-    """Dashboard binds only to loopback and requires no external credentials."""
+    """Dashboard binds only to loopback; state changes require same-origin CSRF."""
+    csrf_token = secrets.token_urlsafe(32)
+    settings_lock = threading.Lock()
     class Handler(BaseHTTPRequestHandler):
         def respond(self, status, content, mime="text/html; charset=utf-8"):
             body = content.encode("utf-8")
@@ -91,15 +95,23 @@ def serve(lib, port=8769):
 
         def do_GET(self):
             route = urlsplit(self.path)
+            if route.path == "/api/operator/settings":
+                payload = settings_snapshot(lib.root)
+                payload["csrf_token"] = csrf_token
+                return self.respond(200, json.dumps(payload), "application/json")
             if route.path == "/api/ui-version":
                 return self.respond(
                     200, json.dumps({"version": UI_VERSION,
                                      "has_connection_leds": True,
-                                     "has_date_picker": True}),
+                                     "has_date_picker": True,
+                                     "has_server_settings": True,
+                                     "has_storage_settings": True}),
                     "application/json")
-            if route.path in ("/", "/dashboard.css", "/dashboard.js"):
+            if route.path in ("/", "/dashboard.css", "/dashboard.js", "/dashboard-settings.css", "/dashboard-settings.js"):
                 filename = {"/": "dashboard.html", "/dashboard.css": "dashboard.css",
-                            "/dashboard.js": "dashboard.js"}[route.path]
+                            "/dashboard.js": "dashboard.js",
+                            "/dashboard-settings.css": "dashboard-settings.css",
+                            "/dashboard-settings.js": "dashboard-settings.js"}[route.path]
                 content = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
                 mime = "text/html; charset=utf-8" if route.path == "/" else (
                     "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
@@ -262,6 +274,47 @@ def serve(lib, port=8769):
                 '<p class="muted">Legacy findings may contain unverified summaries. Completion does not mean Rishi approval.</p></body></html>'
             )
             return self.respond(200, page)
+
+        def do_POST(self):
+            # Mutating configuration is never exposed through the opt-in Core
+            # read-only bridge. Only local browser requests with per-start CSRF
+            # token and exact Origin/Host matching may change settings.
+            origin = f"http://127.0.0.1:{port}"
+            if (self.client_address[0] != "127.0.0.1"
+                    or self.headers.get("Host") != f"127.0.0.1:{port}"
+                    or self.headers.get("Origin") != origin
+                    or self.headers.get("X-SURYADEV-CSRF") != csrf_token):
+                return self.respond(403, json.dumps({"error": "Same-origin authorization required"}),
+                                    "application/json")
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                return self.respond(415, json.dumps({"error": "JSON body required"}),
+                                    "application/json")
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                length = 0
+            if length < 2 or length > 4096:
+                return self.respond(413, json.dumps({"error": "Invalid request body length"}),
+                                    "application/json")
+            route = urlsplit(self.path)
+            if not route.path.startswith("/api/operator/"):
+                return self.respond(404, json.dumps({"error": "Unknown operation"}),
+                                    "application/json")
+            try:
+                body = json.loads(self.rfile.read(length))
+                with settings_lock:
+                    outcome = handle_operator_action(lib.root, route.path, body)
+                return self.respond(200, json.dumps(outcome), "application/json")
+            except (ValueError, TypeError) as exc:
+                return self.respond(400, json.dumps({"error": str(exc)[:230]}),
+                                    "application/json")
+            except (RuntimeError, FileExistsError) as exc:
+                return self.respond(409, json.dumps({"error": str(exc)[:230]}),
+                                    "application/json")
+            except OSError as exc:
+                return self.respond(500, json.dumps({"error": "Storage or OS error: " +
+                                                          type(exc).__name__}),
+                                    "application/json")
 
         def log_message(self, fmt, *args):
             return
