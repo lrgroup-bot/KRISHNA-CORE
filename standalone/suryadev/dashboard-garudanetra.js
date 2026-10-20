@@ -10,6 +10,7 @@
     const worker = data.worker || {};
     const hardware = data.hardware || {};
     const plan = data.research_plan || {};
+    const continuity = data.continuity || {};
     const workerOnline = !!worker.state &&
       !["offline", "stopped"].includes(worker.state);
     const schedulerOnline = workerOnline && capacity.state !== "offline";
@@ -51,6 +52,32 @@
       ? Math.round(Number(reported[key])) + "%" : "Unavailable";
     const cpu = measured("cpu_percent") + " CPU";
     const ram = measured("ram_percent") + " RAM";
+    const continuityOnline = workerOnline && continuity.active === true;
+    const ytBlocked = ytAccess.state === "rate_limited";
+    const alternatives = Number(processing.website?.queued || 0) +
+      Number(processing.website?.running || 0) +
+      Number(processing.pdf?.queued || 0) +
+      Number(processing.pdf?.running || 0);
+    const continuityBar = el("netra-continuity-status");
+    if (!workerOnline) {
+      continuityBar.lastElementChild.textContent =
+        "Inactive: start one learning worker or mission with an approved plan.";
+    } else if (continuityOnline) {
+      continuityBar.lastElementChild.textContent =
+        (ytBlocked ? "YouTube rate-limited; approved websites and PDFs remain eligible. " :
+         "Approved-source discovery active. ") +
+        "Next source refresh: " +
+        (continuity.next_refresh
+          ? new Date(continuity.next_refresh * 1000).toLocaleTimeString()
+          : "not reported") +
+        " · New sources last cycle: " + num(continuity.added_total) +
+        (continuity.feed_error_count ? " · Feed errors: " + num(continuity.feed_error_count) : "") +
+        ". Independent sources are not a substitute for the blocked video.";
+    } else {
+      continuityBar.lastElementChild.textContent =
+        "Disabled. Start the worker with --plan or use the six-hour mission; " +
+        "only manually queued sources will be processed.";
+    }
     const missingPlan = !plan.present;
     const noSources = !Number(data.queued_total || 0) && !Number(data.running_total || 0);
     let heading, reason;
@@ -67,10 +94,18 @@
       heading = "New research paused by live hardware guard";
       reason = cpu + " · " + ram + " · " +
         (capacity.reason || "Insufficient safe processing headroom");
-    } else if (noSources) {
-      heading = "Learning worker ready — approved queue is empty";
+    } else if (ytBlocked && alternatives > 0) {
+      heading = "YouTube rate-limited — website/PDF research continues";
       reason = cpu + " · " + ram +
-        " · Add approved sources or run the six-hour mission with a valid research plan.";
+        " · Only approved independent sources are being studied; blocked video remains unverified.";
+    } else if (noSources || (ytBlocked && alternatives === 0 &&
+               Number(processing.youtube?.queued || 0) > 0)) {
+      heading = ytBlocked ? "YouTube paused — no independent source ready" :
+                 "Learning worker ready — approved queue is empty";
+      reason = cpu + " · " + ram +
+        (continuityOnline
+           ? " · Approved feed refill is scheduled; no fabricated learning during an empty queue."
+           : " · Activate official tech sources and start a worker with --plan.");
     } else {
       heading = "Automatic hardware admission enabled";
       reason = cpu + " · " + ram + " · " +
