@@ -131,4 +131,5 @@ def operations_snapshot(db, root):
         "running_total": pending.get("running", 0),
         "by_source": summary,
         "connections": connection_indicators(root),
+        "feeder": _safe_read(root, "feeder-runtime.json"),
     }
