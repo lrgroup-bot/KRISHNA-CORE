@@ -154,9 +154,11 @@ def summarize(text, model="qwen3.5:9b"):
         with build_opener(ProxyHandler({})).open(request, timeout=120) as response:
             result = json.loads(response.read(200_000))
         answer = str(result.get("response") or "").strip()
-        return answer[:10000] if answer else text[:2000]
-    except (OSError, ValueError, URLError, TimeoutError):
-        return text[:2000]
+        if not answer:
+            raise RuntimeError('Ollama returned an empty summary')
+        return answer[:10000]
+    except (OSError, ValueError, URLError, TimeoutError) as exc:
+        raise RuntimeError('Ollama summary unavailable: ' + type(exc).__name__) from exc
 
 class Library:
     def __init__(self, root):
@@ -167,6 +169,9 @@ class Library:
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.executescript(SCHEMA)
+        columns = {r[1] for r in self.db.execute('PRAGMA table_info(findings)')}
+        if 'summary_method' not in columns:
+            self.db.execute("ALTER TABLE findings ADD COLUMN summary_method TEXT NOT NULL DEFAULT 'legacy_unverified'")
         self.db.commit()
 
     def add(self, url):
@@ -196,8 +201,9 @@ class Library:
                 summary = summarize(text, model) if use_ollama else text[:2000]
             with self.db:
                 self.db.execute(
-                    "INSERT INTO findings(job_id,url,sha256,title,summary,excerpt,created) VALUES (?,?,?,?,?,?,?)",
-                    (job_id, url, digest, title[:500], summary, text[:4000], time.time()))
+                    "INSERT INTO findings(job_id,url,sha256,title,summary,excerpt,created,summary_method) VALUES (?,?,?,?,?,?,?,?)",
+                    (job_id, url, digest, title[:500], summary, text[:4000], time.time(),
+                     'duplicate' if previous else ('ollama:' + model if use_ollama else 'extractive')))
                 self.db.execute("UPDATE jobs SET status='done',updated=?,error='' WHERE id=?",
                                 (time.time(), job_id))
             return {"job_id": job_id, "status": "done", "title": title, "sha256": digest}
