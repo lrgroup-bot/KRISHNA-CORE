@@ -896,6 +896,37 @@ learned and RSS has nothing new, the queue will truthfully become idle.
 Add more approved sources, feeds or research categories rather than
 fabricating completed work.
 
+### No-wait publisher subtitles for the known CS50 video
+
+An explicit `approved_publisher_transcripts` mapping, activated with
+the official pack, pairs YouTube video `mgBpcQRDtl0` with the CS50
+publisher's official UTF-8 SRT:
+
+`https://cdn.cs50.net/2017/fall/shorts/python/lang/en/python.srt`
+
+The current real-source smoke checks this official SRT independently
+and has recorded 778 timestamped cues covering approximately 38m54s
+with a verified evidence SHA-256. On starting the single worker or
+six-hour mission, the opt-in continuity feeder can **recover an existing
+failed YouTube assignment** from that approved publisher file even
+during a YouTube HTTP 429 cooldown, without contacting YouTube again.
+
+The recovery preserves the earlier YouTube error in
+`publisher_caption_recoveries`, extracts every readable timestamped
+cue, verifies and stores the publisher text, and marks the original job
+complete with explicit `publisher_transcript_only=true`,
+`youtube_extraction_success=false`, and
+`full_video_visuals_verified=false`. The task popup explains that
+only publisher-hosted captions were obtained, **not** video playback,
+full speech, graphics, or BRAHMAGYAN acceptance.
+
+This mapping applies only to that *specific, explicitly approved*
+video. Other YouTube videos will require their own legitimate
+publisher-hosted transcript approvals; never assume all publishers
+offer transcripts, and never use this as a way to bypass YouTube access
+restrictions. Publisher failures are recorded with a separate one-hour
+retry backoff, while unrelated website and PDF learning keeps working.
+
 ### Read status
 
 Dashboard `http://127.0.0.1:8769/` shows YouTube cooldown separately
