@@ -20,6 +20,7 @@ from urllib.parse import parse_qs, urlsplit
 from suryadev import Library, summarize
 from suryadev_resources import snapshot, admission
 from suryadev_parallel import AdaptiveResearchWorkers
+from suryadev_continuity import ContinuityFeeder
 from suryadev_sources import breakdown
 from suryadev_task_details import list_tasks, task_detail, diary_days, diary_day
 from suryadev_liveops import operations_snapshot, worker_note
@@ -30,7 +31,7 @@ from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-21-v6.2-youtube-cooldown"
+UI_VERSION = "2026-10-21-v6.3-learning-continuity"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -112,7 +113,8 @@ def serve(lib, port=8769):
                                      "has_offline_worker_diagnostics": True,
                                      "has_dashboard_hardware_preview": True,
                                      "has_youtube_cooldown": True,
-                                     "has_youtube_language_selection": True}),
+                                     "has_youtube_language_selection": True,
+                                     "has_approved_source_continuity": True}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
@@ -338,9 +340,14 @@ def serve(lib, port=8769):
     finally:
         server.server_close()
 
-def work_loop(lib, interval, use_ollama, model):
+def work_loop(lib, interval, use_ollama, model, *,
+              plan_path=None, refill_minutes=5):
     if interval < 10:
         raise ValueError("interval must be at least 10 seconds")
+    if not 1 <= refill_minutes <= 360:
+        raise ValueError("refill-minutes must be 1..360")
+    feeder = (ContinuityFeeder(lib.root, plan_path,
+               refill_seconds=refill_minutes * 60) if plan_path else None)
     lib.recover()
     print("SURYADEV Garudanetra adaptive worker started. Ctrl+C to stop.", flush=True)
     worker_note(lib.root, "starting", interval, "Adaptive source lanes starting")
@@ -348,12 +355,23 @@ def work_loop(lib, interval, use_ollama, model):
         with AdaptiveResearchWorkers(lib.root, use_ollama=use_ollama,
                                      model=model, check_seconds=interval) as adaptive:
             while True:
+                if feeder:
+                    result = feeder.tick(lib, youtube_blocked=(
+                        adaptive.youtube_access["state"] == "rate_limited"))
+                    if result is not None:
+                        print(json.dumps({"continuity":result}, ensure_ascii=False),flush=True)
                 update = adaptive.pump()
                 for result in update["finished"]:
                     print(json.dumps(result, ensure_ascii=False), flush=True)
-                # Refresh live CPU and tab counts while sources process.
-                time.sleep(2 if update["capacity"]["active_total"] else interval)
+                # One worker can both discover approved sources and process them;
+                # no second feeder process or duplicate worker is required.
+                wait = 2 if update["capacity"]["active_total"] else interval
+                if feeder:
+                    wait = min(wait, max(0.1, feeder.next_due - time.time()))
+                time.sleep(wait)
     finally:
+        if feeder:
+            feeder.stop()
         worker_note(lib.root, "stopped", interval, "Worker stopped")
 
 
@@ -367,6 +385,9 @@ def main():
     worker.add_argument("--interval", type=int, default=60)
     worker.add_argument("--no-ollama", action="store_true")
     worker.add_argument("--model", default="qwen3.5:9b")
+    worker.add_argument("--plan", default=None,
+                        help="Opt-in existing learning-plan.json for continual approved-source refilling")
+    worker.add_argument("--refill-minutes", type=int, default=5)
     imp = sub.add_parser("import-transcript")
     imp.add_argument("file")
     imp.add_argument("--source", default="")
@@ -387,7 +408,8 @@ def main():
         serve(lib, args.port)
     elif args.command == "worker":
         with worker_lock(lib.root):
-            work_loop(lib, args.interval, not args.no_ollama, args.model)
+            work_loop(lib, args.interval, not args.no_ollama, args.model,
+                      plan_path=args.plan, refill_minutes=args.refill_minutes)
     else:
         print(json.dumps(import_transcript(lib, args.file, args.source, not args.no_ollama, args.model), indent=2))
 
