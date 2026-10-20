@@ -323,8 +323,11 @@ async function loadDiaryDay(day) {
     for (const task of activity.tasks) {
       const btn = textNode("button", "", "diary-task");
       btn.type = "button";
-      btn.append(textNode("span", "#" + task.id + " · " + (task.title || task.url), "diary-task-name"),
-                 textNode("span", task.status + "  ↗", "diary-task-state"));
+      const name = textNode("span", "", "diary-task-name");
+      name.append(textNode("strong", "#" + task.id + " · " + (task.title || task.url)));
+      name.append(textNode("small",
+          "Assigned " + dateTime(task.created) + " · Updated " + dateTime(task.updated)));
+      btn.append(name, textNode("span", task.status + "  ↗", "diary-task-state"));
       btn.addEventListener("click", () => openDetail(task.id));
       report.append(btn);
     }
@@ -383,10 +386,12 @@ function renderOperations(data) {
   for (const key of ["krishna","brahmagyan","rishi"]) {
     const detail = connections[key] || {};
     const connected = detail.connected === true;
+    const readerActive = detail.reader_active === true && !connected;
     const led = $(key + "-led");
-    led.className = "led" + (connected ? " green" : "");
+    led.className = "led" + (connected ? " green" : readerActive ? " amber" : "");
     led.title = detail.detail || "Not connected";
-    $(key + "-led-label").textContent = connected ? "Connected" : "Not connected";
+    $(key + "-led-label").textContent = connected ? "Connected" :
+      readerActive ? "Reader active (unpaired)" : "Not connected";
   }
 }
 async function pollOperations() {
