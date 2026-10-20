@@ -54,7 +54,9 @@ def run(*, source=None, log_path=None):
             suite = unittest.TestLoader().discover(
                 start_dir=str(root / "tests"),
                 pattern="test_*.py",
-                top_level_dir=str(root),
+                # Equivalent to 'python -m unittest discover -s tests':
+                # tests/ intentionally has no __init__.py, so root cannot
+                # be the explicit unittest top-level import package.
             )
             result = unittest.TextTestRunner(stream=out, verbosity=2).run(suite)
         except Exception:
