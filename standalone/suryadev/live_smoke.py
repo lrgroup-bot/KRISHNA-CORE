@@ -21,8 +21,8 @@ from suryadev_task_details import task_detail
 TEST_SOURCES = (
     ("website", "https://www.python.org/about/"),
     ("pdf", "https://samplepdf.org/files/sample.pdf"),
-    ("pdf_multi", "https://pdftoolskit.org/samples/sample-10-pages.pdf"),
-    ("pdf_scanned", "https://pdftoolskit.org/samples/sample-scanned.pdf"),
+    ("pdf_multi", "https://raw.githubusercontent.com/tinytoolkit-org/pdf-sample-files/master/out/sample-10-pages.pdf"),
+    ("pdf_scanned", "https://raw.githubusercontent.com/tinytoolkit-org/pdf-sample-files/master/out/sample-scanned.pdf"),
     ("youtube", "https://www.youtube.com/watch?v=mgBpcQRDtl0"),
 )
 
