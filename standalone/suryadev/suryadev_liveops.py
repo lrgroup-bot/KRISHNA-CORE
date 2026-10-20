@@ -126,6 +126,15 @@ def operations_snapshot(db, root):
                     "limits":{k:0 for k in ("website","youtube","pdf")},
                     "active_total":0, "active":{k:0 for k in ("website","youtube","pdf")},
                     "reason":"No recent scheduler sample"}
+    # YouTube's observed 429 cooldown is persisted and may outlive the worker.
+    # Show it even when the dashboard is running on its own.
+    if not isinstance(capacity.get("youtube_access"), dict):
+        try:
+            from suryadev_parallel import youtube_access
+            capacity["youtube_access"] = youtube_access(root)
+        except (OSError, ValueError, TypeError):
+            capacity["youtube_access"] = {"state":"unknown"}
+
     # The dashboard may run by itself. Sample *read-only* hardware metrics
     # even if no worker has recently produced a capacity receipt. This is
     # informational only: an offline worker still has zero active job slots.
