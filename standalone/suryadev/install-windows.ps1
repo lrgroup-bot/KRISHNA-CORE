@@ -9,6 +9,7 @@ $destination = [System.IO.Path]::GetFullPath($InstallDir)
 if ($destination.TrimEnd('\') -eq $source.TrimEnd('\')) {
     throw "Install destination must differ from source checkout"
 }
+Set-Location -LiteralPath $source
 Write-Host "Validating SURYADEV before copying"
 & $Python --version
 if ($LASTEXITCODE -ne 0) { throw "Python 3.10+ is required" }
