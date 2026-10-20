@@ -135,11 +135,14 @@ def fetch_text(url):
         if chr(0) in decoded:
             raise ValueError("binary response cannot be used as research text")
         if mime == "text/plain":
-            return url, decoded[:100_000]
-        parser = TextExtractor()
-        parser.feed(decoded)
-        text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts))).strip()
-        return parser.title.strip() or url, text[:100_000]
+            text = decoded.strip()
+        else:
+            parser = TextExtractor()
+            parser.feed(decoded)
+            text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts))).strip()
+        if len(text) > 220_000:
+            raise ValueError("Extracted text exceeds supported complete-processing budget; source not truncated")
+        return (parser.title.strip() if mime != "text/plain" else url) or url, text
 
 def summarize(text, model="qwen3.5:9b"):
     """Optional loopback Ollama. Fail closed to extractive text on errors."""
@@ -172,6 +175,11 @@ class Library:
         columns = {r[1] for r in self.db.execute('PRAGMA table_info(findings)')}
         if 'summary_method' not in columns:
             self.db.execute("ALTER TABLE findings ADD COLUMN summary_method TEXT NOT NULL DEFAULT 'legacy_unverified'")
+        self.db.execute(
+            "CREATE TABLE IF NOT EXISTS job_provenance ("
+            "job_id INTEGER PRIMARY KEY REFERENCES jobs(id),"
+            "kind TEXT NOT NULL,report_json TEXT NOT NULL,recorded REAL NOT NULL)"
+        )
         self.db.commit()
 
     def add(self, url):
@@ -189,24 +197,36 @@ class Library:
             return None
         job_id, url = row
         try:
-            title, text = fetch_text(url)
-            if not text:
-                raise ValueError("source contains no readable text")
-            evidence = save_evidence(self.root, text, source=url, kind="web")
+            from suryadev_ingest import ingest_source
+            from suryadev_summary import summarize_all
+            title, text, coverage = ingest_source(url)
+            evidence = save_evidence(self.root, text, source=url, kind=coverage["kind"])
             digest = evidence["sha256"]
             previous = self.db.execute("SELECT id FROM findings WHERE sha256=? LIMIT 1", (digest,)).fetchone()
             if previous:
                 summary = "Duplicate of finding #" + str(previous[0])
+                report = {"summary_coverage": "duplicate_reuses_existing_evidence",
+                          "duplicate_of": previous[0],
+                          "source_characters": len(text), "chunks_total": 0,
+                          "chunks_summarized": 0}
             else:
-                summary = summarize(text, model) if use_ollama else text[:2000]
+                summary, report = summarize_all(
+                    text, model=model, use_ollama=use_ollama, summarize_fn=summarize)
+            coverage.update(report)
+            coverage["evidence_sha256"] = digest
+            coverage["extraction_completed"] = True
             with self.db:
                 self.db.execute(
                     "INSERT INTO findings(job_id,url,sha256,title,summary,excerpt,created,summary_method) VALUES (?,?,?,?,?,?,?,?)",
                     (job_id, url, digest, title[:500], summary, text[:4000], time.time(),
-                     'duplicate' if previous else ('ollama:' + model if use_ollama else 'extractive')))
+                     'duplicate' if previous else ('ollama_chunked:' + model if use_ollama else 'extractive_preview')))
+                self.db.execute(
+                    "INSERT OR REPLACE INTO job_provenance(job_id,kind,report_json,recorded) VALUES (?,?,?,?)",
+                    (job_id, coverage["kind"], json.dumps(coverage, ensure_ascii=False), time.time()))
                 self.db.execute("UPDATE jobs SET status='done',updated=?,error='' WHERE id=?",
                                 (time.time(), job_id))
-            return {"job_id": job_id, "status": "done", "title": title, "sha256": digest}
+            return {"job_id": job_id, "status": "done", "title": title,
+                    "sha256": digest, "coverage_status": coverage["coverage_status"]}
         except Exception as exc:
             with self.db:
                 self.db.execute("UPDATE jobs SET status='failed',updated=?,error=? WHERE id=?",
