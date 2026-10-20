@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import shutil
 import sqlite3
+import tempfile
 from contextlib import closing
 
 from suryadev_evidence import backup_database, verify_evidence
@@ -101,6 +102,14 @@ def inspect_storage(source_root, requested):
     if not ancestor.is_dir():
         raise ValueError("Destination parent is not a directory")
     disk = shutil.disk_usage(ancestor)
+    try:
+        with tempfile.NamedTemporaryFile(mode="wb", prefix=".suryadev-write-check-",
+                                         dir=ancestor, delete=True) as probe:
+            probe.write(b"SURYDEV-WRITABLE")
+            probe.flush()
+        writable = True
+    except OSError:
+        writable = False
     current_size, files = size_of_data(source)
     required = max(MIN_FREE_BYTES, current_size + SAFETY_BYTES)
     already_active = target == source
@@ -112,7 +121,8 @@ def inspect_storage(source_root, requested):
         "free_bytes": disk.free, "total_bytes": disk.total,
         "minimum_required_bytes": required,
         "sufficient_space": disk.free >= required,
-        "ready_to_migrate": (already_active or (empty and disk.free >= required)),
+        "writable": writable,
+        "ready_to_migrate": (already_active or (empty and disk.free >= required and writable)),
         "note": ("Active research data location" if already_active else
                  "Migration copies all existing data and keeps the original. "
                  "The dashboard and workers must restart using the new --data path.")
