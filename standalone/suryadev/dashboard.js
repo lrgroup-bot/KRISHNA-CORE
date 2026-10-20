@@ -10,7 +10,8 @@ const textNode = (tag, value, className) => {
   return el;
 };
 const app = { offset: 0, limit: 25, total: 0, taskId: null,
-              lastList: "", lastDetail: "", taskQuery: "", status: "", kind: "", refreshInProgress: false };
+              lastList: "", lastDetail: "", taskQuery: "", status: "", kind: "", selectedDay: "",
+              diaryCache: [], refreshInProgress: false };
 
 function clockTick() { $("clock").textContent = new Date().toLocaleTimeString(); }
 function resourceGauge(name, value) {
@@ -56,14 +57,9 @@ function renderLive(data) {
     gauges.append(textNode("div", "Telemetry unavailable: " + (r.reason || "psutil missing"), "empty-state"));
     $("network").textContent = "Hardware telemetry requires the optional psutil package.";
   }
-  const diary = $("diary-list"); diary.replaceChildren();
-  for (const day of (data.diary || []).slice(0, 28)) {
-    const item = textNode("div", "", "diary-row");
-    item.append(textNode("span", day.date), textNode("b", format(day.assignments) +
-       " assigned · " + format(day.completed) + " worker-done"));
-    diary.append(item);
-  }
-  if (!diary.childElementCount) diary.append(textNode("div", "No dated activity yet.", "empty-state"));
+  app.diaryCache = data.diary || [];
+  renderDiaryTiles();
+
 }
 async function pollLive() {
   try {
@@ -99,7 +95,7 @@ async function loadTasks() {
   if (app.refreshInProgress) return;
   app.refreshInProgress = true;
   const p = new URLSearchParams({offset: String(app.offset), limit: String(app.limit),
-      q: app.taskQuery, kind: app.kind, status: app.status});
+      q: app.taskQuery, kind: app.kind, status: app.status, date: app.selectedDay});
   try {
     const response = await fetch("/api/tasks?" + p.toString(), {cache:"no-store"});
     if (!response.ok) throw new Error("HTTP " + response.status);
@@ -136,7 +132,9 @@ function filterChanged() {
   app.taskQuery = $("task-search").value.trim();
   app.status = $("status-filter").value;
   app.kind = $("kind-filter").value;
-  loadTasks();
+  const newDay = $("task-date").value;
+  if (newDay !== app.selectedDay) selectDay(newDay, {scrollToReport:false});
+  else loadTasks();
 }
 function detailField(name, value) {
   const box = textNode("div", "");
@@ -244,6 +242,167 @@ function openDetail(id) {
   if (!$("task-dialog").open) $("task-dialog").showModal();
   fetchDetail(id);
 }
+
+/* Day summaries and dated job inspections. All dates use laptop-local YYYY-MM-DD. */
+const localToday = () => {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2,"0") +
+         "-" + String(d.getDate()).padStart(2,"0");
+};
+function renderDiaryTiles() {
+  const diary = $("diary-list");
+  diary.replaceChildren();
+  for (const day of app.diaryCache) {
+    const item = textNode("button", "", "diary-row" + (day.date === app.selectedDay ? " selected" : ""));
+    item.type = "button";
+    item.setAttribute("aria-label", "View learning on " + day.date);
+    const head = textNode("div", "", "day-head");
+    const parts = day.date.split("-").map(Number);
+    const label = new Date(parts[0], parts[1]-1, parts[2]).toLocaleDateString(undefined,
+       {day:"numeric", month:"short", year:"numeric"});
+    head.append(textNode("span", label), textNode("span", "↗", "day-icon"));
+    const lines = textNode("div", "", "day-lines");
+    lines.append(textNode("small", "Assigned: " + format(day.assignments) +
+       "  •  Findings: " + format(day.findings)),
+       textNode("b", "Finished: " + format(day.completed) + "  •  Failed: " + format(day.failed)));
+    item.append(head, lines);
+    item.addEventListener("click", () => selectDay(day.date, {scrollToReport:true}));
+    diary.append(item);
+  }
+  if (!diary.childElementCount)
+    diary.append(textNode("div", "No dated activity recorded yet. Choose a date above to check.", "empty-state"));
+}
+async function selectDay(day, {scrollToReport=false}={}) {
+  if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+  app.selectedDay = day;
+  $("diary-date").value = day;
+  $("task-date").value = day;
+  $("clear-date").hidden = !day;
+  app.offset = 0; app.lastList = "";
+  renderDiaryTiles();
+  loadTasks();
+  const report = $("diary-report"); report.replaceChildren();
+  if (!day) {
+    report.append(textNode("div",
+      "Select a date to see assigned work, findings, current terminal outcomes, and a clickable list of that day's tasks.",
+      "diary-report-intro"));
+  } else {
+    report.append(textNode("div", "Loading learning activity for " + day + "…", "empty-state"));
+    await loadDiaryDay(day);
+  }
+  if (scrollToReport) $("diary-report").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+async function loadDiaryDay(day) {
+  const report = $("diary-report");
+  try {
+    const [statsResponse, tasksResponse] = await Promise.all([
+      fetch("/api/diary?date=" + encodeURIComponent(day), {cache:"no-store"}),
+      fetch("/api/tasks?date=" + encodeURIComponent(day) + "&limit=10", {cache:"no-store"})
+    ]);
+    if (!statsResponse.ok || !tasksResponse.ok) throw new Error("Daily activity is temporarily unavailable");
+    const stats = await statsResponse.json();
+    const activity = await tasksResponse.json();
+    if (app.selectedDay !== day) return;
+    report.replaceChildren();
+    const title = textNode("div", "", "diary-report-head");
+    const titleLeft = textNode("div", "");
+    titleLeft.append(textNode("h3", "Learning activity · " + day),
+                     textNode("p", "Assignments are grouped when created, completed, failed or saved as findings on this date."));
+    title.append(titleLeft, textNode("span", format(activity.total) + " related tasks", "eyebrow-chip"));
+    report.append(title);
+    const counters = textNode("div", "", "diary-stats");
+    for (const [value,label] of [[stats.assignments,"Assigned"],[stats.findings,"Findings saved"],
+                                 [stats.completed,"Worker completed"],[stats.failed,"Worker failed"]]) {
+      const item = textNode("div", "", "diary-stat");
+      item.append(textNode("strong", format(value)), textNode("small", label));
+      counters.append(item);
+    }
+    report.append(counters, textNode("div", "Tasks active or updated on this date", "diary-task-title"));
+    if (!activity.tasks.length)
+      report.append(textNode("div", "No matching activity was recorded for this date.", "empty-state"));
+    for (const task of activity.tasks) {
+      const btn = textNode("button", "", "diary-task");
+      btn.type = "button";
+      btn.append(textNode("span", "#" + task.id + " · " + (task.title || task.url), "diary-task-name"),
+                 textNode("span", task.status + "  ↗", "diary-task-state"));
+      btn.addEventListener("click", () => openDetail(task.id));
+      report.append(btn);
+    }
+    if (activity.total > activity.tasks.length) {
+      const more = textNode("button", "View all " + format(activity.total) + " tasks for this date ↗", "diary-view-all");
+      more.type = "button";
+      more.addEventListener("click", () => $("assignments").scrollIntoView({behavior:"smooth"}));
+      report.append(more);
+    }
+  } catch (error) {
+    if (app.selectedDay === day)
+      report.replaceChildren(textNode("div", "Date lookup failed: " + error.message, "empty-state"));
+  }
+}
+/* The worker writes its own heartbeat. No invented task start times or progress percentages. */
+function renderOperations(data) {
+  const worker = data.worker || {};
+  const state = worker.state || "offline";
+  $("worker-state-label").textContent = "Worker: " + state.toUpperCase();
+  const running = data.current || [];
+  $("queue-count").textContent = format(data.queued_total || 0);
+  if (running.length) {
+    const first = running[0];
+    $("active-work").textContent = "#" + first.id + " · " + first.kind.toUpperCase();
+    $("active-details").textContent = first.url + " · Started " + dateTime(first.started_at) +
+      " · Percentage not instrumented";
+  } else {
+    $("active-work").textContent = state === "paused" ? "Paused by resource guard" :
+      state === "offline" ? "No active worker heartbeat" : "Idle / looking for tasks";
+    $("active-details").textContent = worker.reason || "No assignment currently marked running.";
+  }
+  $("next-check").textContent = worker.next_check_at ? new Date(worker.next_check_at * 1000).toLocaleTimeString() : "Not scheduled";
+  $("worker-details").textContent = state === "offline" ?
+    "Dashboard is live, but the worker is not reporting." :
+    "Check interval: " + (worker.interval_seconds || "—") + " seconds · " + (worker.reason || state);
+  const types = data.by_source || {};
+  $("source-queue-counts").textContent =
+    "▶ Video " + format(types.youtube?.queued || 0) +
+    " · ▤ PDF " + format(types.pdf?.queued || 0) +
+    " · ◎ Web " + format(types.website?.queued || 0) +
+    " · Other " + format(types.other?.queued || 0);
+  const upcoming = $("upcoming-jobs"); upcoming.replaceChildren();
+  for (const task of (data.upcoming || [])) {
+    const item = textNode("div", "", "operation-queue-item");
+    item.append(textNode("span", "#" + task.id + " · " + task.kind.toUpperCase() +
+       " · " + task.url));
+    const btn = textNode("button", "Inspect ↗");
+    btn.type = "button";
+    btn.addEventListener("click", () => openDetail(task.id));
+    item.append(btn);upcoming.append(item);
+  }
+  if (!(data.upcoming || []).length)
+    upcoming.append(textNode("div", "No queued tasks in the current ledger.", "empty-state"));
+  $("operations-note").textContent = worker.note || "No forecast available.";
+  const connections = data.connections || {};
+  for (const key of ["krishna","brahmagyan","rishi"]) {
+    const detail = connections[key] || {};
+    const connected = detail.connected === true;
+    const led = $(key + "-led");
+    led.className = "led" + (connected ? " green" : "");
+    led.title = detail.detail || "Not connected";
+    $(key + "-led-label").textContent = connected ? "Connected" : "Not connected";
+  }
+}
+async function pollOperations() {
+  try {
+    const response = await fetch("/api/operations", {cache:"no-store"});
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    renderOperations(await response.json());
+  } catch (e) {
+    $("worker-state-label").textContent = "Worker telemetry unavailable";
+    for (const key of ["krishna","brahmagyan","rishi"]) {
+      $(key+"-led").className = "led";
+      $(key+"-led-label").textContent = "Unknown";
+    }
+  }
+}
+
 $("close-detail").addEventListener("click", () => $("task-dialog").close());
 $("task-dialog").addEventListener("close", () => { app.taskId = null; app.lastDetail = ""; });
 $("task-search").addEventListener("input", (() => {
@@ -253,8 +412,15 @@ $("status-filter").addEventListener("change", filterChanged);
 $("kind-filter").addEventListener("change", filterChanged);
 $("page-prev").addEventListener("click", () => {app.offset = Math.max(0, app.offset - app.limit);app.lastList = "";loadTasks();});
 $("page-next").addEventListener("click", () => {app.offset += app.limit;app.lastList = "";loadTasks();});
+$("diary-date").addEventListener("change", () => selectDay($("diary-date").value, {scrollToReport:false}));
+$("task-date").addEventListener("change", filterChanged);
+$("diary-today").addEventListener("click", () => selectDay(localToday(), {scrollToReport:false}));
+$("diary-clear").addEventListener("click", () => selectDay("", {scrollToReport:false}));
+$("clear-date").addEventListener("click", () => selectDay("", {scrollToReport:false}));
 clockTick();setInterval(clockTick, 1000);
-pollLive();loadTasks();
+pollLive();pollOperations();loadTasks();
 setInterval(pollLive, 5000);
+setInterval(pollOperations, 5000);
+setInterval(() => {if (app.selectedDay) loadDiaryDay(app.selectedDay);}, 30000);
 setInterval(loadTasks, 10000);
 setInterval(() => {if (app.taskId && $("task-dialog").open) fetchDetail(app.taskId);}, 15000);
