@@ -153,7 +153,13 @@
     "mobile_openrouter_key_android_keystore": true,
     "mobile_cloud_pc_fallback_only": true,
     "mobile_cloud_findings_pc_sync_rate_limited": true,
-    "main_ui_conversation_first": true
+    "main_ui_conversation_first": true,
+    "natural_language_visual_target_lock": true,
+    "session_local_target_identity": true,
+    "fail_closed_target_ambiguity": true,
+    "edge_reflex_ready": true,
+    "target_reacquisition_contract": true,
+    "weapon_actuation": false
   },
   "research_integration": {
     "google_lens": "optional external handoff only; not required for HAWKEYE capture/OCR/search",
@@ -243,5 +249,8 @@
       "KRISHNA PC private/heavy"
     ],
     "mobile_cloud_strategy": "mobile-direct-live-zero-price-first"
+  },
+  "notes": {
+    "hawkeye_target_lock": "Natural-language visible-description acquisition (for example blue shirt person) remains session-local; ambiguous matches fail closed. Edge reflex accepts tracking metadata only and camera framing hints are non-weapon."
   }
 }
