@@ -12,6 +12,7 @@ from suryadev import Library
 from suryadev_feeder import read_plan, feed_once, feed_links, allowed_source
 from suryadev_ingest import caption_cues, caption_report, ingest_pdf, ingest_youtube
 from suryadev_summary import summarize_all
+from suryadev_mission import mission
 from suryadev_task_details import task_detail
 
 
@@ -153,6 +154,33 @@ class PipelineTests(unittest.TestCase):
             self.assertTrue(any(step["name"] == "YouTube timed caption processing" for step in detail["steps"]))
             self.assertEqual(detail["steps"][-2]["state"], "unverified")
             lib.db.close()
+
+    @patch("suryadev.validate_url", return_value="https://example.com/sample.pdf")
+    @patch("suryadev_ingest.ingest_pdf",
+           return_value=("Sample PDF", "[PDF page 1/2] first\\n[PDF page 2/2] second",
+                         {"kind":"pdf","coverage_status":"all_pages_text_extracted",
+                          "pages_total":2,"pages_extracted":2,"pages_missing_text":[],
+                          "full_document_visuals_verified":False}))
+    def test_pdf_queue_to_evidence_and_page_receipt(self, pdf, validate):
+        with tempfile.TemporaryDirectory() as directory:
+            lib = Library(directory)
+            job_id = lib.add("https://example.com/sample.pdf")
+            result = lib.run_next(use_ollama=False)
+            self.assertEqual(result["status"], "done")
+            detail = task_detail(lib.db, directory, job_id)
+            self.assertEqual(detail["coverage"]["pages_extracted"],2)
+            self.assertTrue(any(step["name"] == "PDF page text extraction" and
+                                step["state"] == "done" for step in detail["steps"]))
+            self.assertFalse(detail["complete_verified"])
+            lib.db.close()
+
+    def test_mission_rejects_invalid_runtime_bounds(self):
+        with self.assertRaises(ValueError):
+            mission("unused", "unused.json", duration_hours=0)
+        with self.assertRaises(ValueError):
+            mission("unused", "unused.json", refill_minutes=1)
+        with self.assertRaises(ValueError):
+            mission("unused", "unused.json", check_seconds=1)
 
     def test_feed_links_and_host_allowlist(self):
         rss = b"<rss><channel><item><link>https://example.com/one</link></item></channel></rss>"
