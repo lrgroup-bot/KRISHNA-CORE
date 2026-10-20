@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 from suryadev import Library, summarize
 from suryadev_resources import snapshot, admission
 from suryadev_sources import breakdown
+from suryadev_task_details import list_tasks, task_detail
 from mimetypes import guess_type
 from suryadev_lock import worker_lock
 from suryadev_evidence import save_evidence, backup_database, verify_evidence
@@ -95,6 +96,34 @@ def serve(lib, port=8769):
                 mime = "text/html; charset=utf-8" if route.path == "/" else (
                     "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
                 return self.respond(200, content, mime)
+            if route.path == "/api/tasks":
+                args = parse_qs(route.query)
+                try:
+                    reader = Library(lib.root)
+                    try:
+                        payload = list_tasks(
+                            reader.db, offset=int(args.get("offset", ["0"])[0]),
+                            limit=int(args.get("limit", ["25"])[0]),
+                            q=args.get("q", [""])[0],
+                            status=args.get("status", [""])[0],
+                            kind=args.get("kind", [""])[0])
+                    finally:
+                        reader.db.close()
+                except (ValueError, OverflowError):
+                    return self.respond(400, json.dumps({"error": "Invalid task filter"}), "application/json")
+                return self.respond(200, json.dumps(payload), "application/json")
+            if route.path.startswith("/api/tasks/"):
+                part = route.path[len("/api/tasks/"):]
+                if not part.isascii() or not part.isdecimal() or len(part) > 12:
+                    return self.respond(400, json.dumps({"error": "Invalid task ID"}), "application/json")
+                reader = Library(lib.root)
+                try:
+                    payload = task_detail(reader.db, lib.root, int(part))
+                finally:
+                    reader.db.close()
+                if payload is None:
+                    return self.respond(404, json.dumps({"error": "Task not found"}), "application/json")
+                return self.respond(200, json.dumps(payload), "application/json")
             if route.path == "/api/live":
                 reader = Library(lib.root)
                 try:
