@@ -49,3 +49,14 @@ main{min-width:0;flex:1;max-width:1660px;padding:32px clamp(20px,3.35vw,56px) 28
 .diary-task .diary-task-name small{display:block;color:#77768e;font-size:10px;white-space:normal}
 .operation-queue-item span{min-width:0;overflow-wrap:anywhere}
 @media(max-width:750px){.led-row{font-size:11px}.status-leds{margin-top:15px;padding:12px;background:#ffffff12;border-radius:12px}.led-state{color:#fff4f7}.operations-panel{padding:16px}}
+
+/* v4 visible sidebar connections */
+.sidebar{padding:18px 16px 12px;overflow:hidden}
+.sidebar-label{margin:20px 10px 8px}
+.sidebar .navigation{min-height:0;overflow-y:auto;gap:2px}
+.sidebar .nav-item{padding:8px 10px;min-height:34px}
+.sidebar-bottom{margin-top:auto;flex-shrink:0}
+.sidebar-bottom .status-leds{margin-top:8px;padding:12px;border:1px solid #ffffff44;border-radius:13px;background:#ffffff19}
+.sidebar-bottom .node-card{margin:9px 0 0;padding:10px}
+.sidebar-bottom .sidebar-footer{margin:6px 0 0}
+.sidebar-bottom .led-note{display:block;margin-top:9px;font-size:9px;color:#e9e1ff}
