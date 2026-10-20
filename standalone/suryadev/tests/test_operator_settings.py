@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import sqlite3
+from contextlib import closing
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
@@ -91,7 +92,7 @@ class StorageAndCleanupTests(unittest.TestCase):
         with patch("suryadev_storage.MIN_FREE_BYTES",0), patch("suryadev_storage.SAFETY_BYTES",0):
             report = inspect_storage(self.root, str(self.base / "new-data"))
         self.assertTrue(report["ready_to_migrate"])
-        self.assertEqual(report["current_root"], str(self.root))
+        self.assertEqual(report["current_root"], str(self.root.resolve()))
         self.assertGreaterEqual(report["free_bytes"],0)
         with self.assertRaises(ValueError):
             inspect_storage(self.root, str(self.root / "inside"))
@@ -109,10 +110,10 @@ class StorageAndCleanupTests(unittest.TestCase):
         self.assertTrue((copy_path / "suryadev.sqlite3").is_file())
         self.assertTrue((copy_path / "evidence" / digest[:2] / (digest+".txt")).is_file())
         self.assertTrue((self.root / "evidence" / digest[:2] / (digest+".txt")).is_file())
-        with sqlite3.connect(copy_path / "suryadev.sqlite3") as moved:
+        with closing(sqlite3.connect(copy_path / "suryadev.sqlite3")) as moved:
             self.assertEqual(moved.execute("SELECT COUNT(*) FROM jobs").fetchone()[0], 1)
             self.assertEqual(moved.execute("PRAGMA integrity_check").fetchone()[0], "ok")
-        self.assertEqual(read_settings(self.root)["pending_data_root"], str(copy_path))
+        self.assertEqual(read_settings(self.root)["pending_data_root"], str(copy_path.resolve()))
         self.assertEqual(read_settings(copy_path)["pending_data_root"], "")
 
     def test_refuse_nonempty_destination(self):
