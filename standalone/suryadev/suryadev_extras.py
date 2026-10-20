@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 from suryadev import Library, summarize
 from suryadev_resources import snapshot, admission
 from suryadev_sources import breakdown
-from suryadev_task_details import list_tasks, task_detail
+from suryadev_task_details import list_tasks, task_detail, diary_days, diary_day
 from mimetypes import guess_type
 from suryadev_lock import worker_lock
 from suryadev_evidence import save_evidence, backup_database, verify_evidence
@@ -96,6 +96,19 @@ def serve(lib, port=8769):
                 mime = "text/html; charset=utf-8" if route.path == "/" else (
                     "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
                 return self.respond(200, content, mime)
+            if route.path == "/api/diary":
+                args = parse_qs(route.query)
+                try:
+                    reader = Library(lib.root)
+                    try:
+                        day_value = args.get("date", [""])[0]
+                        payload = diary_day(reader.db, day_value) if day_value else {
+                            "days": diary_days(reader.db, limit=365)}
+                    finally:
+                        reader.db.close()
+                except (ValueError, OverflowError):
+                    return self.respond(400, json.dumps({"error": "Invalid date; use YYYY-MM-DD"}), "application/json")
+                return self.respond(200, json.dumps(payload), "application/json")
             if route.path == "/api/tasks":
                 args = parse_qs(route.query)
                 try:
@@ -106,7 +119,8 @@ def serve(lib, port=8769):
                             limit=int(args.get("limit", ["25"])[0]),
                             q=args.get("q", [""])[0],
                             status=args.get("status", [""])[0],
-                            kind=args.get("kind", [""])[0])
+                            kind=args.get("kind", [""])[0],
+                            day=args.get("date", [""])[0])
                     finally:
                         reader.db.close()
                 except (ValueError, OverflowError):
@@ -130,11 +144,7 @@ def serve(lib, port=8769):
                     status = reader.stats()
                     sources = breakdown(reader.db)
                     findings = reader.db.execute("SELECT count(*) FROM findings").fetchone()[0]
-                    days = reader.db.execute(
-                        "SELECT date(created,'unixepoch','localtime'),count(*),"
-                        "sum(CASE WHEN status='done' THEN 1 ELSE 0 END) "
-                        "FROM jobs GROUP BY 1 ORDER BY 1 DESC LIMIT 365"
-                    ).fetchall()
+                    days = diary_days(reader.db, limit=365)
                     jobs = reader.db.execute(
                         "SELECT j.id,j.url,j.status,j.created,j.error,f.title,f.summary,f.summary_method "
                         "FROM jobs j LEFT JOIN findings f ON f.job_id=j.id "
@@ -144,8 +154,7 @@ def serve(lib, port=8769):
                     reader.db.close()
                 payload = {"time": time.time(), "status": status, "sources": sources,
                            "total": sum(status.values()), "findings": findings,
-                           "diary": [{"date": d, "assignments": n, "completed": done or 0}
-                                     for d,n,done in days],
+                           "diary": days,
                            "jobs": [{"id": i, "url": url, "status": state, "created": created,
                                      "error": error, "title": title or "", "summary": summary or "",
                                      "method": method or ""}
