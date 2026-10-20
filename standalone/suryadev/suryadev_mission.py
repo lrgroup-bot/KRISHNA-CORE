@@ -27,29 +27,26 @@ def mission(data, plan_path, *, duration_hours=6, refill_minutes=30,
     plan = read_plan(plan_path)
     root = Path(data).expanduser().resolve()
     deadline = time.time() + duration_hours * 3600
-    refresh_at = 0
-    result = None
     with worker_lock(root):
         lib = Library(root)
+        adaptive = AdaptiveResearchWorkers(
+            root, use_ollama=use_ollama, model=model, check_seconds=check_seconds)
         try:
             lib.recover()
-            adaptive = AdaptiveResearchWorkers(
-                root, use_ollama=use_ollama, model=model, check_seconds=check_seconds)
+            return _run_research_session(lib, adaptive, plan, root, deadline,
+                                         duration_hours, refill_minutes, check_seconds)
+        finally:
+            adaptive.close()
+            lib.db.close()
+            worker_note(root, "stopped", check_seconds, "Research session stopped")
+            state_file = root / FEED_STATE
             try:
-                return _run_research_session(lib, adaptive, plan, root, deadline,
-                                             duration_hours, refill_minutes, check_seconds)
-            finally:
-                adaptive.close()
-                lib.db.close()
-                worker_note(root, "stopped", check_seconds, "Research session stopped")
-                state_file = root / FEED_STATE
-                try:
-                    state = json.loads(state_file.read_text(encoding="utf-8"))
-                    state["next_run"] = None
-                    state["loop_enabled"] = False
-                    atomic_json(root, FEED_STATE, state)
-                except (OSError, ValueError, TypeError):
-                    pass
+                state = json.loads(state_file.read_text(encoding="utf-8"))
+                state["next_run"] = None
+                state["loop_enabled"] = False
+                atomic_json(root, FEED_STATE, state)
+            except (OSError, ValueError, TypeError):
+                pass
 
 def _run_research_session(lib, adaptive, plan, root, deadline,
                           duration_hours, refill_minutes, check_seconds):
