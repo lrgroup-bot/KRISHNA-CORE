@@ -63,6 +63,13 @@ def run():
                         raise RuntimeError("Parallel source processing did not finish within 65 seconds")
             statuses = dict(lib.db.execute("SELECT id,status FROM jobs"))
             evidence = [task_detail(lib.db, root, job_id) for job_id in ids.values()]
+            print("PARALLEL_DIAGNOSTICS=" + json.dumps([
+                {"id":item["id"],"status":item["status"],
+                 "evidence_state":item["evidence_state"],
+                 "error":item["error"],
+                 "browser_engine":item.get("coverage",{}).get("browser_engine")}
+                for item in evidence],ensure_ascii=False),flush=True)
+            print("PARALLEL_COMPLETED=" + json.dumps(completed,ensure_ascii=False),flush=True)
             if any(item["status"]!="done" or item["evidence_state"]!="verified" for item in evidence):
                 raise RuntimeError("Parallel run did not durably verify every real source")
             if max_active < 3 or max_tabs < 2:
