@@ -44,7 +44,7 @@ if ($UseOllama) {
 Write-Host "Starting ONE self-refilling SURYADEV worker from the approved plan."
 Write-Host "YouTube rate limits remain respected; website/PDF work is independent."
 Write-Host "Stop with Ctrl+C. Do not launch another worker or mission for this data root."
-& $Python @args
+& $Python @workerArgs
 if ($LASTEXITCODE -ne 0) {
     throw "SURYADEV worker returned a nonzero exit status. Check worker console."
 }
