@@ -235,3 +235,79 @@ before copying. New task-inspection regression tests cover pagination,
 filtering, finding evidence integrity and honest completion labels.
 The current revisions have not yet been validated by an interactive
 Chromium test on the user's Windows laptop.
+
+## Date-wise learning diary and live operations
+
+The colorful laptop dashboard now provides:
+- **Date selection:** choose any YYYY-MM-DD day, or click an active-day tile.
+  Daily cards distinguish assignments **created**, findings **saved**, jobs
+  currently recorded as completed and jobs currently recorded as failed on
+  that day. Completing a job later does not move its creation date.
+  Completion/failed totals use the job's latest status and updated timestamp;
+  this database does not preserve a full transition event log.
+- **Date-filtered task history:** the same date applies to the All Assignments
+  list and its pagination; click any task to inspect real evidence and errors.
+  Use **All dates** to clear the filter. All times follow the laptop's configured
+  local timezone.
+- **Live Learning:** shows each SQLite `running` job, nearest jobs queued,
+  per-source running/queued counts (YouTube, PDFs, websites and other),
+  resource-admission pause state, and the next queue check only when the worker
+  has recorded that time. Processing percentage and individual start ETAs
+  are **not** measured or fabricated.
+- **LEDs:** KRISHNA, BRAHMAGYAN and Rishi are red until authenticated and
+  verified. A recent successful authorized HTTPS bridge read is **amber** for
+  KRISHNA, **not green**, because it does not establish authenticated KRISHNA
+  server enrollment. BRAHMAGYAN and Rishi remain red until their authenticated
+  acceptance/acknowledgement protocol is implemented.
+
+Read-only localhost endpoints:
+`GET /api/operations`, `GET /api/diary`,
+`GET /api/diary?date=YYYY-MM-DD`, and
+`GET /api/tasks?date=YYYY-MM-DD&limit=25`.
+The browser polls operations every 5 seconds and selected-day summaries every
+30 seconds. The dashboard itself does not run learning jobs.
+
+The worker is **not** started automatically. To enable queued, user-approved
+research in another PowerShell terminal, run:
+
+```powershell
+cd "D:\\Work\\SURYADEV"
+python suryadev_extras.py --data "D:\\Work\\SURYADEV-DATA" worker --interval 60 --model qwen3.5:9b
+```
+
+This requires the local Ollama model and resource-admission conditions;
+use `--no-ollama` for extractive mode. The 85% guard is a check before
+starting each job; it is **not** a hard OS CPU/RAM cap.
+
+## Optional approved KRISHNA live reader bridge
+
+`suryadev_bridge.py` makes the date diary, operations, hardware and
+task APIs available over **explicitly enabled read-only HTTPS** to
+an allowlisted Core reader. It is **off by default**: the Windows installer
+does not create services, firewall exceptions, certificates or tokens.
+Operator must provide a valid TLS PEM certificate and private key,
+a private IP bound to SURYADEV, an approved client IP and a separate
+strong bearer-token file. Do not run it without manually validating
+the Core identity and enforcing your network/firewall policy.
+
+Example with placeholders (do not put tokens directly in shell history):
+
+```powershell
+python suryadev_bridge.py --data "D:\\Work\\SURYADEV-DATA" --bind YOUR_LAPTOP_PRIVATE_IP --port 8770 --cert PATH_TO_TLS_CERT.pem --key PATH_TO_PRIVATE_KEY.pem --token-file PATH_TO_PRIVATE_TOKEN_FILE --allow-ip YOUR_CORE_PRIVATE_IP
+```
+
+On an approved Core machine, the corresponding command-line client
+`suryadev_core_reader.py` pins the exact TLS leaf certificate
+SHA-256 **before** sending its token and only permits GETs to approved
+read-only paths:
+
+```powershell
+python suryadev_core_reader.py --endpoint https://YOUR_LAPTOP_PRIVATE_IP:8770/api/operations --cert-sha256 YOUR_VERIFIED_CERT_SHA256 --token-file PATH_TO_OWNER_SHARED_TOKEN_FILE
+```
+
+These two commands are a *manual opt-in secure transport*, not a
+verified automatic KRISHNA enrollment or BRAHMAGYAN handoff.
+The green KRISHNA/BRAHMAGYAN/Rishi indicators require future Core-side
+authenticated pairing and explicit learning-bundle acceptance receipts.
+Never expose the bridge on the public internet or change its private-IP
+allowlist to a wildcard.
