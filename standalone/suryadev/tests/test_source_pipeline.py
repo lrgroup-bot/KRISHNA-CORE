@@ -125,7 +125,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(len(preview), 2000)
 
     @patch("suryadev.validate_url", return_value="https://example.com/test")
-    @patch("suryadev.fetch_text", return_value=("Test website", "Evidence across complete sample"))
+    @patch("suryadev_garudanetra.render_website", return_value=("Test website", "Evidence across complete sample", {"kind":"website","coverage_status":"garudanetra_rendered_text_unverified","browser_tab_opened":True,"full_rendered_page_verified":False}))
     def test_website_worker_saves_provenance(self, fetch, validate):
         with tempfile.TemporaryDirectory() as directory:
             lib = Library(directory)
