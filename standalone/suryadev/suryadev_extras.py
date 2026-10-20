@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from suryadev import Library, summarize
 from suryadev_resources import snapshot, admission
+from suryadev_sources import breakdown
 from suryadev_lock import worker_lock
 from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
@@ -101,6 +102,7 @@ def serve(lib, port=8769):
             reader = Library(lib.root)
             try:
                 counts = reader.stats()
+                by_source = breakdown(reader.db)
                 jobs = reader.db.execute(
                     "SELECT j.id,j.url,j.status,j.created,j.updated,j.error,"
                     "f.id,f.title,f.summary,f.sha256,f.summary_method "
@@ -114,6 +116,15 @@ def serve(lib, port=8769):
                 return html.escape(str(value or ""), quote=True)
             def stamp(value):
                 return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(value))
+            source_cards = "".join(
+                '<div class="stat"><strong>' + esc(kind.upper()) + '</strong>' +
+                '<div>Queued: ' + esc(data["queued"]) + '</div>' +
+                '<div>Processing: ' + esc(data["running"]) + '</div>' +
+                '<div>Completed: ' + esc(data["done"]) + '</div>' +
+                '<div>Failed: ' + esc(data["failed"]) + '</div>' +
+                '<div>Total: ' + esc(data["total"]) + '</div></div>'
+                for kind,data in by_source.items()
+            )
             cards = []
             for job_id, source, state, created, updated, error, finding_id, title, summary, digest, method in jobs:
                 if term and term.casefold() not in (" ".join([str(source),str(title),str(summary),str(state)])).casefold():
@@ -150,6 +161,8 @@ def serve(lib, port=8769):
                 ''.join('<div class="stat"><strong>' + esc(counts.get(k,0)) + '</strong>' + esc(k.title()) + '</div>'
                         for k in ('queued','running','done','failed')) +
                 '<div class="stat"><strong>' + esc(total_findings) + '</strong>Findings</div></div>'
+                '<h2>Sources: YouTube, PDF and websites</h2><div class="stats">' + source_cards + '</div>' +
+                '<p class="muted">Counts reflect recorded assignments only. A completed transcript import is not proof of full video coverage or visual viewing. PDF reading is not yet supported by the web worker.</p>' +
                 '<h2>Assigned work and learning evidence</h2>'
                 '<form action="/" method="get"><input name="q" placeholder="Filter by source, title, status or learned text" value="' +
                 esc(term) + '"><button>Filter</button></form>' +
