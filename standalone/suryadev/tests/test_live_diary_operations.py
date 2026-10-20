@@ -8,7 +8,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from suryadev_task_details import diary_day, diary_days, list_tasks, validate_day
+from suryadev_task_details import diary_day, diary_days, list_tasks, validate_day, task_detail
 from suryadev_liveops import (operations_snapshot, connection_indicators,
                              atomic_json, READER_FILE, worker_note)
 from suryadev_bridge import authorized, private_address, load_token
@@ -124,6 +124,41 @@ class DiaryAndOperationsTests(unittest.TestCase):
         self.assertFalse(stopped["worker_running"])
         self.assertEqual(stopped["capacity"]["max_total"],0)
         self.assertEqual(stopped["hardware"]["source"],"dashboard_read_only")
+
+    def test_queued_youtube_reports_worker_offline_without_false_processing(self):
+        self.db.execute("UPDATE jobs SET status='queued' WHERE id=2")
+        details = task_detail(self.db, self.root, 2)
+        self.assertEqual(details["status"], "queued")
+        self.assertIsNone(details["finding_id"])
+        self.assertEqual(details["queue_diagnosis"]["worker_state"], "offline")
+        self.assertIn("No recent", details["queue_diagnosis"]["message"])
+        execution = next(x for x in details["steps"] if x["name"] == "Worker execution")
+        self.assertEqual(execution["state"], "pending")
+        self.assertIn("read-only", execution["detail"])
+
+    def test_queued_task_state_distinguishes_heartbeat_and_paused_worker(self):
+        self.db.execute("UPDATE jobs SET status='queued' WHERE id=2")
+        worker_note(self.root, "idle", 10, "No pending threads")
+        current = task_detail(self.db, self.root, 2)
+        self.assertEqual(current["queue_diagnosis"]["worker_state"], "idle")
+        self.assertIn("heartbeat present", current["queue_diagnosis"]["message"])
+        worker_note(self.root, "paused", 10, "RAM above 85%")
+        paused = task_detail(self.db, self.root, 2)
+        self.assertEqual(paused["queue_diagnosis"]["worker_state"], "paused")
+        self.assertIn("RAM above 85%", paused["queue_diagnosis"]["message"])
+        worker_note(self.root, "stopped", 10, "Stopped by operator")
+        stopped = task_detail(self.db, self.root, 2)
+        self.assertEqual(stopped["queue_diagnosis"]["worker_state"], "stopped")
+        atomic_json(self.root, "worker-runtime.json",
+                    {"state":"busy", "interval_seconds":10,
+                     "heartbeat_at":time.time()-400})
+        old = task_detail(self.db, self.root, 2)
+        self.assertEqual(old["queue_diagnosis"]["worker_state"], "offline")
+
+    def test_queued_detail_frontend_does_not_call_unprocessed_sources_legacy(self):
+        js = (Path(__file__).resolve().parents[1] / "dashboard.js").read_text(encoding="utf-8")
+        self.assertIn('task.queue_diagnosis?.message', js)
+        self.assertIn("Not processed yet. Evidence and source coverage", js)
 
     def test_connection_leds_fail_closed(self):
         self.assertFalse(connection_indicators(self.root)["krishna"]["connected"])
