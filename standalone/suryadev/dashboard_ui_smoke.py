@@ -78,6 +78,8 @@ async def browser_offline_check(port):
             assert "worker offline" in label, label
             assert "learning-plan.json file is missing" in reason, reason
             assert "RAM" in reason and "CPU" in reason, reason
+            await expect(page.locator("#netra-youtube-access")).to_contain_text(
+                "YouTube HTTP 429",timeout=12000)
             assert await page.locator(".netra-workspace-tab").count()==0
             assert not errors, "Browser JS errors: " + str(errors)
             return {"status":"PASS", "worker_state":"offline",
@@ -132,6 +134,9 @@ def main():
             with lib.db:
                 lib.db.execute("UPDATE jobs SET status='queued' WHERE status='running'")
             worker_note(root,"stopped",10,"UI test transitions worker to offline")
+            atomic_json(root,"youtube-access-state.json", {
+                "state":"rate_limited","recorded_at":time.time(),
+                "cooldown_until":time.time()+3000})
             offline=asyncio.run(browser_offline_check(port))
             print("GARUDANETRA_OFFLINE_UI_REPORT="+json.dumps(offline),flush=True)
         finally:
