@@ -15,6 +15,7 @@
     <div class="sidebar-label">MISSION MENU</div>
     <nav class="navigation">
       <a href="#overview" class="nav-item selected"><span>✦</span> Overview</a>
+      <a href="#live-learning" class="nav-item"><span>●</span> Live learning</a>
       <a href="#assignments" class="nav-item"><span>▣</span> All assignments</a>
       <a href="#sources" class="nav-item"><span>◈</span> Sources & learning</a>
       <a href="#diary" class="nav-item"><span>◷</span> Daily diary</a>
@@ -25,7 +26,13 @@
       <strong id="connection">Connecting…</strong>
       <small>KRISHNA approval not yet connected</small>
     </div>
-    <div class="sidebar-footer">Private by default · Local-first<br>Research dashboard v2</div>
+    <div class="status-leds" aria-label="Authenticated connections">
+      <div class="status-led-title">SYSTEM CONNECTIONS</div>
+      <div class="led-row"><span class="led-name">KRISHNA Core</span><span class="led-state" id="krishna-led-state"><i class="led" id="krishna-led"></i><span id="krishna-led-label">Not connected</span></span></div>
+      <div class="led-row"><span class="led-name">BRAHMAGYAN</span><span class="led-state"><i class="led" id="brahmagyan-led"></i><span id="brahmagyan-led-label">Not connected</span></span></div>
+      <div class="led-row"><span class="led-name">Rishi Council</span><span class="led-state"><i class="led" id="rishi-led"></i><span id="rishi-led-label">Not connected</span></span></div>
+    </div>
+    <div class="sidebar-footer">Private by default · Local-first<br>Research dashboard v3</div>
   </aside>
   <main>
     <header class="hero" id="overview">
@@ -45,6 +52,20 @@
         <div class="metric peach"><div class="metric-icon" aria-hidden="true">◷</div><div class="metric-label">Queued</div><strong id="queued">—</strong><small>Waiting for execution</small></div>
         <div class="metric sky"><div class="metric-icon" aria-hidden="true">✧</div><div class="metric-label">Saved findings</div><strong id="findings">—</strong><small>Recorded learning results</small></div>
       </div>
+    </section>
+    <section class="operations-panel" id="live-learning" aria-labelledby="operations-title">
+      <div class="section-heading compact">
+        <div><div class="overline">REAL-TIME LEARNING CONTROL</div><h2 id="operations-title">What SURYADEV is doing now</h2><p>Actual queue order, active work and worker check times—refreshed automatically.</p></div>
+        <span class="health-label" id="worker-state-label">Checking worker…</span>
+      </div>
+      <div class="operations-grid">
+        <div class="operation-cell now"><div class="operation-label">● NOW PROCESSING</div><strong class="operation-value" id="active-work">Reading current work…</strong><small class="operation-sub" id="active-details">Looking for active assignments.</small></div>
+        <div class="operation-cell next"><div class="operation-label">◷ NEXT QUEUE CHECK</div><strong class="operation-value" id="next-check">—</strong><small class="operation-sub" id="worker-details">Waiting for worker heartbeat.</small></div>
+        <div class="operation-cell"><div class="operation-label">▣ PENDING WORK</div><strong class="operation-value" id="queue-count">—</strong><small class="operation-sub" id="source-queue-counts">YouTube · PDF · Websites</small></div>
+      </div>
+      <div class="diary-task-title">Next assignments in queue</div>
+      <div id="upcoming-jobs" class="operations-queue"><div class="empty-state">Loading queue…</div></div>
+      <p class="operations-bottom-note" id="operations-note">Processing percentage and exact start time are not available until recorded by the worker.</p>
     </section>
     <section class="task-section" id="assignments" aria-labelledby="tasks-title">
       <div class="section-heading"><div><div class="overline">INTERACTIVE TASK EXPLORER</div><h2 id="tasks-title">All assignments <span class="title-count" id="filtered-count">—</span></h2><p>Click any task to inspect what SURYADEV did, its evidence and what is still pending.</p></div><span class="section-decoration" aria-hidden="true">✦</span></div>
