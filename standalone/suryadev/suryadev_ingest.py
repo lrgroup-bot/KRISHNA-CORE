@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from html import unescape
 from io import BytesIO
+import os
 import re
 from pathlib import Path
 import tempfile
@@ -145,6 +146,18 @@ def _youtube_url(url):
     return candidate
 
 
+def selected_caption_language():
+    """Request ONE caption language to avoid 3 independent subtitle downloads.
+
+    Operator may choose en / hi / or via SURYADEV_CAPTION_LANG.  No implicit
+    fallback to extra languages is attempted when a track is rate-limited.
+    """
+    language = os.environ.get("SURYADEV_CAPTION_LANG", "en").strip().lower()
+    if language not in {"en", "hi", "or"}:
+        raise ValueError("SURYADEV_CAPTION_LANG must be en, hi, or or")
+    return language
+
+
 def ingest_youtube(url):
     """Download available subtitles only; no private playback or bypass behavior."""
     video_id = _youtube_url(url)
@@ -152,17 +165,29 @@ def ingest_youtube(url):
         import yt_dlp
     except ImportError as exc:
         raise RuntimeError("YouTube captions require: python -m pip install yt-dlp") from exc
+    language = selected_caption_language()
     with tempfile.TemporaryDirectory(prefix="suryadev-captions-") as directory:
         folder = Path(directory)
         opts = {
             "skip_download": True, "writesubtitles": True, "writeautomaticsub": True,
-            "subtitleslangs": ["en", "hi", "or"], "subtitlesformat": "vtt",
+            "subtitleslangs": [language], "subtitlesformat": "vtt",
             "outtmpl": str(folder / "%(id)s.%(ext)s"),
             "noplaylist": True, "quiet": True,
-            "ignoreerrors": False, "socket_timeout": 20, "retries": 1,
+            "ignoreerrors": False, "socket_timeout": 20,
+            "retries": 0, "fragment_retries": 0, "extractor_retries": 0,
+            "sleep_interval_requests": 1.5, "sleep_interval_subtitles": 2,
         }
-        with yt_dlp.YoutubeDL(opts) as downloader:
-            info = downloader.extract_info(url, download=True)
+        try:
+            with yt_dlp.YoutubeDL(opts) as downloader:
+                info = downloader.extract_info(url, download=True)
+        except Exception as exc:
+            error_text = str(exc)
+            if "429" in error_text or "too many requests" in error_text.casefold():
+                raise RuntimeError(
+                    "YouTube HTTP 429 Too Many Requests while downloading " +
+                    language + " captions. No automatic retry; stop requests " +
+                    "and respect the provider's rate limit.") from exc
+            raise
         if not isinstance(info, dict) or info.get("id") != video_id:
             raise ValueError("YouTube returned unexpected video metadata")
         if info.get("is_live") is True or info.get("live_status") == "is_live":
@@ -199,6 +224,7 @@ def ingest_youtube(url):
         report.update({
             "kind": "youtube", "video_id": video_id,
             "caption_file": selected.name, "caption_language": selected.suffixes[-2].lstrip("."),
+            "caption_language_requested": language,
             "coverage_status": "caption_timeline_only_unverified",
         })
         return str(info.get("title") or "YouTube video")[:500], text, report
