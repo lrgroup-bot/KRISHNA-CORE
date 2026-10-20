@@ -61,6 +61,32 @@ async def browser_check(port):
             await browser.close()
 
 
+async def browser_offline_check(port):
+    """An offline worker must not be mislabelled as a failing laptop."""
+    from playwright.async_api import async_playwright, expect
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        try:
+            page = await browser.new_page()
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
+            await expect(page.locator("#netra-capacity-heading")).to_have_text(
+                "Learning worker offline — dashboard is running", timeout=12000)
+            label = await page.locator("#netra-total-capacity").inner_text()
+            reason = await page.locator("#netra-capacity-reason").inner_text()
+            assert "worker offline" in label, label
+            assert "learning-plan.json file is missing" in reason, reason
+            assert "RAM" in reason and "CPU" in reason, reason
+            assert await page.locator(".netra-workspace-tab").count()==0
+            assert not errors, "Browser JS errors: " + str(errors)
+            return {"status":"PASS", "worker_state":"offline",
+                    "capacity_label":label, "plan_missing_reported":True,
+                    "javascript_errors":errors}
+        finally:
+            await browser.close()
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix="suryadev-dashboard-smoke-") as root:
         lib=Library(root)
@@ -103,6 +129,11 @@ def main():
                     time.sleep(.1)
             result=asyncio.run(browser_check(port))
             print("GARUDANETRA_DASHBOARD_UI_REPORT="+json.dumps(result),flush=True)
+            with lib.db:
+                lib.db.execute("UPDATE jobs SET status='queued' WHERE status='running'")
+            worker_note(root,"stopped",10,"UI test transitions worker to offline")
+            offline=asyncio.run(browser_offline_check(port))
+            print("GARUDANETRA_OFFLINE_UI_REPORT="+json.dumps(offline),flush=True)
         finally:
             lib.db.close()
 
