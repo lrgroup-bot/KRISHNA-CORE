@@ -201,14 +201,24 @@ class Library:
             from suryadev_sources import source_kind
             if kind not in {"website", "youtube", "pdf"}:
                 raise ValueError("Unknown requested research lane")
-            selected = next((job_id for job_id, source in
-                             self.db.execute("SELECT id,url FROM jobs WHERE status='queued' ORDER BY id")
-                             if source_kind(source) == kind), None)
-            row = self.db.execute(
-                "UPDATE jobs SET status='running',updated=? "
-                "WHERE id=? AND status='queued' RETURNING id,url",
-                (time.time(), selected)).fetchone() if selected is not None else None
-        self.db.commit()
+            # BEGIN IMMEDIATE ensures two same-type threads cannot both see
+            # and try to claim the same first queued assignment. One worker
+            # chooses and atomically commits before the next examines the queue.
+            try:
+                self.db.execute("BEGIN IMMEDIATE")
+                selected = next((job_id for job_id, source in
+                                 self.db.execute("SELECT id,url FROM jobs WHERE status='queued' ORDER BY id")
+                                 if source_kind(source) == kind), None)
+                row = self.db.execute(
+                    "UPDATE jobs SET status='running',updated=? "
+                    "WHERE id=? AND status='queued' RETURNING id,url",
+                    (time.time(), selected)).fetchone() if selected is not None else None
+                self.db.commit()
+            except Exception:
+                self.db.rollback()
+                raise
+        if kind is None:
+            self.db.commit()
         if not row:
             # Revisit eligible older temporary work copies even when the queue
             # is empty; verified retained evidence is never removed.
