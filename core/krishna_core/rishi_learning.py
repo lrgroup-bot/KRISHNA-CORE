@@ -56,6 +56,16 @@ RISHI_RESEARCH_CHARTERS = {
             "classical innovation narratives with provenance review",
         ),
     },
+    "tvasta": {
+        "primary_subjects": ("computer science","computer architecture","operating systems","semiconductors","networking","distributed systems","AI infrastructure","storage systems","emerging computing"),
+        "frontier_focus": ("new computing substrates","efficient AI systems","chip and systems co-design","future compute architectures"),
+        "classical_lens": ("Tvaṣṭā is a KRISHNA role label; modern computing assignments are not claims of historical practice",),
+    },
+    "marichi": {
+        "primary_subjects": ("aerospace engineering","rocket science","propulsion","guidance navigation and control","avionics","spacecraft","satellites","mission design","reusable launch vehicles"),
+        "frontier_focus": ("reusable launch systems","advanced propulsion","autonomous spacecraft","safer and more efficient space systems"),
+        "classical_lens": ("Marichi is a KRISHNA role label; modern aerospace assignments are not claims of historical practice",),
+    },
     "vishvakarma": {
         "primary_subjects": (
             "design systems","UI","UX","frontend architecture","typography","spacing",

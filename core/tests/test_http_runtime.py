@@ -332,7 +332,7 @@ class HTTPRuntimeTests(unittest.TestCase):
     def test_lab_bot_rishi_experiment_runtime(self):
         code,status=self.call("/api/lab/status")
         self.assertEqual(code,200)
-        self.assertEqual(status["version"],"krishna-lab-bot-v1")
+        self.assertEqual(status["version"],"krishna-lab-bot-v2")
         self.assertTrue(status["policy"]["rishi_can_request"])
         self.assertEqual(status["physical_adapters_connected"],0)
 

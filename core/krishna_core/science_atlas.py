@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .subject_ontology import find_subject, gap_report, FRONTIER_AXES
 
 import json
 import os
@@ -24,13 +25,13 @@ FIELD_RISHI_MAP = {
     "business, management and accounting": ("vashistha","bharadvaja","gautama","veda-vyasa"),
     "chemical engineering": ("nagarjuna","kanada","vishwamitra","bharadvaja","jamadagni","gautama"),
     "chemistry": ("nagarjuna","kanada","bharadvaja","gautama","veda-vyasa"),
-    "computer science": ("vishwamitra","pingala","madhava","bharadvaja","jamadagni","panini","gautama","veda-vyasa"),
+    "computer science": ("tvasta","vishwamitra","pingala","madhava","bharadvaja","jamadagni","panini","gautama","veda-vyasa"),
     "decision sciences": ("chanakya","gautama","bhaskaracharya","vashistha","bharadvaja","veda-vyasa"),
     "dentistry": ("sushruta","charaka","gautama","veda-vyasa"),
     "earth and planetary sciences": ("varahamihira","atri","kanada","kashyapa","gautama","veda-vyasa"),
     "economics, econometrics and finance": ("chanakya","gautama","bhaskaracharya","vashistha","bharadvaja","veda-vyasa"),
     "energy": ("vishwamitra","kanada","jamadagni","bharadvaja","gautama"),
-    "engineering": ("bharadvaja","vishwamitra","baudhayana","bhaskaracharya","kanada","jamadagni","gautama","veda-vyasa"),
+    "engineering": ("vishvakarma","tvasta","bharadvaja","vishwamitra","baudhayana","bhaskaracharya","kanada","jamadagni","gautama","veda-vyasa"),
     "environmental science": ("varahamihira","parashara","kashyapa","agastya","kanada","atri","gautama"),
     "health professions": ("sushruta","charaka","vashistha","gautama","veda-vyasa"),
     "immunology and microbiology": ("kashyapa","sushruta","charaka","gautama","veda-vyasa"),
@@ -57,6 +58,10 @@ KEYWORD_TEAMS = (
      ("kapila","sushruta","patanjali","bharadvaja","gautama","veda-vyasa")),
     (("artificial intelligence","machine learning","deep learning","robotics","computer vision"),
      ("vishwamitra","pingala","madhava","bharadvaja","jamadagni","gautama","veda-vyasa")),
+    (("computer architecture","operating system","kernel","compiler","semiconductor","chip design","vlsi","fpga","asic","pcie","nvme","datacenter","distributed systems","kubernetes","gpu","npu"),
+     ("tvasta","vishwamitra","vishvakarma","pingala","jamadagni","bharadvaja","gautama","veda-vyasa")),
+    (("rocket","rocket engine","propulsion","aerospace","avionics","spacecraft","launch vehicle","reusable launch","orbital mission","hypersonic"),
+     ("marichi","atri","aryabhata","kanada","vishvakarma","tvasta","vishwamitra","bharadvaja","gautama","veda-vyasa")),
     (("mathematics","algebra","number theory","optimization","differential equations","numerical analysis"),
      ("aryabhata","brahmagupta","bhaskaracharya","madhava","pingala","gautama","veda-vyasa")),
     (("drug discovery","pharmacology","therapeutics","precision medicine","clinical pharmacology"),
@@ -279,6 +284,18 @@ class ScienceAtlas:
             "rishis":[self.council.get(x) for x in ids],
             "safety":self.safety_mode(subject),
             "policy":"routing assigns modern KRISHNA research roles; it does not claim historical figures practiced these modern sciences",
+        }
+
+    def subject_depth(self, subject):
+        """Return ontology matches plus council ownership/gap diagnostics."""
+        matches=find_subject(subject)
+        council_ids=[row["id"] for row in self.council.list()]
+        return {
+            "subject":str(subject or ""),
+            "matches":matches[:25],
+            "frontier_axes":list(FRONTIER_AXES),
+            "ownership_gaps":gap_report(council_ids),
+            "policy":"expand depth through ontology/specialist cells before creating duplicate permanent Rishis",
         }
 
     def frontier_questions(self,subject,field=None,domain=None,limit=12):
