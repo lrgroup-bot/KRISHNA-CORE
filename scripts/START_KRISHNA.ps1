@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$false)][string]$KrishnaRoot = "E:\Krishna-The GOD",
-    [Parameter(Mandatory=$false)][int]$Port = 8766,
+    [Parameter(Mandatory=$false)][int]$Port = 0,
     [Parameter(Mandatory=$false)][string]$SourceRoot = "",
     [Parameter(Mandatory=$false)][switch]$PrivateRemote,
     [Parameter(Mandatory=$false)][switch]$MobileLan,
@@ -9,6 +9,13 @@ param(
 )
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+$networkConstantsScript=Join-Path $PSScriptRoot "KRISHNA_NETWORK_CONSTANTS.ps1"
+if(!(Test-Path -LiteralPath $networkConstantsScript)){throw "KRISHNA network constants loader missing: $networkConstantsScript"}
+. $networkConstantsScript
+$networkConstants=Get-KrishnaNetworkConstants
+if($Port -le 0){$Port=[int]$networkConstants.Core}
+elseif($Port -ne [int]$networkConstants.Core){throw ("KRISHNA live Core port is fixed at {0}; requested {1}" -f $networkConstants.Core,$Port)}
 
 $KrishnaRoot=[IO.Path]::GetFullPath($KrishnaRoot)
 $authoritative = if($SourceRoot){[IO.Path]::GetFullPath($SourceRoot)}elseif(Test-Path "E:\KRISHNA-SOURCE\.git"){"E:\KRISHNA-SOURCE"}else{""}
