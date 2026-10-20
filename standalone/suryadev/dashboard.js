@@ -196,6 +196,30 @@ function renderDetail(task) {
     content.append(textNode("h3", "Recorded error", "detail-subtitle"),
                    textNode("div", task.error, "result-pane error-pane"));
   }
+  const coverage = task.coverage || {};
+  content.append(textNode("h3", "Source coverage & learning provenance", "detail-subtitle"));
+  if (Object.keys(coverage).length) {
+    const coverFields = [
+      ["Extraction status", coverage.coverage_status],
+      ["PDF pages read as text", coverage.pages_total ? String(coverage.pages_extracted ?? 0) + "/" + String(coverage.pages_total) : ""],
+      ["Timed caption cues", coverage.cue_count],
+      ["Video duration (seconds)", coverage.duration_seconds],
+      ["Transcript last cue (seconds)", coverage.last_cue_seconds],
+      ["Caption gaps over 60 seconds", Array.isArray(coverage.long_uncaptioned_gaps) ? coverage.long_uncaptioned_gaps.length : ""],
+      ["Text chunks presented to LLM", coverage.chunks_total ? String(coverage.chunks_summarized) + "/" + String(coverage.chunks_total) : ""],
+      ["Summary coverage", coverage.summary_coverage],
+      ["Evidence extracted (characters)", coverage.source_characters],
+    ];
+    const coverageGrid = textNode("div", "", "detail-grid");
+    for (const [label, value] of coverFields) {
+      if (value !== undefined && value !== null && value !== "")
+        coverageGrid.append(detailField(label, String(value)));
+    }
+    content.append(coverageGrid);
+    content.append(textNode("div", coverage.note || "These receipts describe text extraction, not full audiovisual comprehension.", "detail-banner info"));
+  } else {
+    content.append(textNode("div", "Legacy task has no source-by-source coverage receipt. Treat entire-source learning as unverified.", "detail-banner"));
+  }
   content.append(textNode("h3", "What SURYADEV recorded", "detail-subtitle"),
       textNode("div", task.summary || "No learning summary has been saved.", "result-pane"));
   if (task.excerpt) {
