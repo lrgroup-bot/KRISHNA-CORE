@@ -27,6 +27,7 @@ from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
+UI_VERSION = "2026-10-21-v4-leds-calendar"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -90,6 +91,12 @@ def serve(lib, port=8769):
 
         def do_GET(self):
             route = urlsplit(self.path)
+            if route.path == "/api/ui-version":
+                return self.respond(
+                    200, json.dumps({"version": UI_VERSION,
+                                     "has_connection_leds": True,
+                                     "has_date_picker": True}),
+                    "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js"):
                 filename = {"/": "dashboard.html", "/dashboard.css": "dashboard.css",
                             "/dashboard.js": "dashboard.js"}[route.path]
