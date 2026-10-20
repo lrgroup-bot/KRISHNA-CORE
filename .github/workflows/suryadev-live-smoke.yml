@@ -4,6 +4,7 @@ on:
     paths:
       - 'standalone/suryadev/live_smoke.py'
       - 'standalone/suryadev/parallel_smoke.py'
+      - 'standalone/suryadev/dashboard_ui_smoke.py'
       - 'standalone/suryadev/suryadev_ingest.py'
       - '.github/workflows/suryadev-live-smoke.yml'
   workflow_dispatch:
@@ -28,3 +29,6 @@ jobs:
       - name: Verify two concurrent real Garudanetra browser tabs with PDF processing
         working-directory: standalone/suryadev
         run: python -u parallel_smoke.py
+      - name: Verify rendered v6 dashboard source counts and clickable workspaces
+        working-directory: standalone/suryadev
+        run: python -u dashboard_ui_smoke.py
