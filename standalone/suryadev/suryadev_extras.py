@@ -17,6 +17,7 @@ import time
 from urllib.parse import parse_qs, urlsplit
 
 from suryadev import Library, summarize
+from suryadev_resources import snapshot, admission
 from suryadev_lock import worker_lock
 from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
@@ -85,6 +86,8 @@ def serve(lib, port=8769):
 
         def do_GET(self):
             route = urlsplit(self.path)
+            if route.path == "/api/resources":
+                return self.respond(200, json.dumps(snapshot(lib.root)), "application/json")
             if route.path == "/health":
                 reader = Library(lib.root)
                 try:
@@ -172,6 +175,11 @@ def work_loop(lib, interval, use_ollama, model):
     lib.recover()
     print("SURYDEV worker started. Ctrl+C to stop.", flush=True)
     while True:
+        allowed, reason, _ = admission(lib.root)
+        if not allowed:
+            print("SURYADEV paused: " + reason, flush=True)
+            time.sleep(interval)
+            continue
         result = lib.run_next(use_ollama, model)
         if result:
             print(json.dumps(result, ensure_ascii=False), flush=True)
