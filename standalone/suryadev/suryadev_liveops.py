@@ -164,14 +164,16 @@ def operations_snapshot(db, root):
     # not confuse an absent plan with a hardware admission failure.
     plan_file = Path(root).resolve() / "learning-plan.json"
     plan = {"present": plan_file.is_file(), "valid": False, "approved_urls": 0,
-            "approved_feeds": 0}
+            "approved_feeds": 0, "approved_publisher_transcripts": 0}
     if plan["present"]:
         try:
             from suryadev_feeder import read_plan
             approved = read_plan(plan_file)
             plan.update(valid=True,
                         approved_urls=len(approved["approved_urls"]),
-                        approved_feeds=len(approved["approved_feeds"]))
+                        approved_feeds=len(approved["approved_feeds"]),
+                        approved_publisher_transcripts=len(
+                            approved.get("approved_publisher_transcripts", [])))
         except (OSError, ValueError, TypeError) as exc:
             plan["error"] = "Research plan needs review: " + str(exc)[:150]
     netra = _safe_read(root, "garudanetra-runtime.json", max_bytes=16384)
@@ -198,6 +200,8 @@ def operations_snapshot(db, root):
         "connections": connection_indicators(root),
         "feeder": _safe_read(root, "feeder-runtime.json"),
         "continuity": _safe_read(root, "continuity-runtime.json", max_bytes=16384),
+        "publisher_recovery": _safe_read(root, "publisher-recovery-runtime.json",
+                                         max_bytes=8192),
         "capacity": capacity, "garudanetra": netra,
         "hardware": hardware, "research_plan": plan,
         "worker_running": worker_running, "capacity_sample_age_seconds": (
