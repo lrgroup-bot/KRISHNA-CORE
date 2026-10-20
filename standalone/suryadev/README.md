@@ -168,3 +168,9 @@ From Windows PowerShell inside the standalone/suryadev folder, run `powershell -
 ## Secure enrollment client (integration pending)
 
 The optional `suryadev_enroll.py` command requires a documented HTTPS Core enrollment URL, a SHA-256 fingerprint of its verified TLS certificate, and a one-time code entered interactively. It refuses HTTP and certificate mismatches. Example syntax: `python suryadev_enroll.py --endpoint https://core.example/enroll --cert-sha256 YOUR_VERIFIED_64_HEX_FINGERPRINT`. This is a client-side protocol proposal, not confirmation that KRISHNA Core exposes this endpoint or accepts the proposed JSON. No automatic pairing, credential persistence, or command channel is active. A compatible Core server implementation and hardware integration tests are still required.
+
+## Standalone Windows installation and live acceptance
+
+From a clean Git checkout on the laptop, open PowerShell in `standalone/suryadev` and run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1`. The script first runs the bundled unit tests and then copies application files to `%LOCALAPPDATA%\SURYADEV`; evidence and SQLite data stay under `%USERPROFILE%\SURYADEV-DATA`. It does not install Python, Ollama or optional media dependencies, and it does not schedule background jobs or pair with KRISHNA Core.
+
+Then run `cd "$env:LOCALAPPDATA\SURYADEV"`, `python suryadev.py status`, and `python suryadev_discovery.py`. For live learning, add a user-approved public HTTPS URL with `python suryadev.py add "https://example.com/"` and process it using `python suryadev.py run --no-ollama` first. Test Ollama only after verifying that `qwen3.5:9b` is installed locally. Confirm evidence integrity with `python suryadev_extras.py verify-evidence`. A production-ready authenticated Core joining workflow is still blocked on the server-side pairing contract and real laptop tests.
