@@ -461,6 +461,15 @@ $("page-next").addEventListener("click", () => {app.offset += app.limit;app.last
 $("date-main").addEventListener("change", () => selectDay($("date-main").value));
 $("date-today-main").addEventListener("click", () => selectDay(localToday()));
 $("date-clear-main").addEventListener("click", () => selectDay(""));
+function shiftDate(delta) {
+  const parts = (app.selectedDay || localToday()).split("-").map(Number);
+  const d = new Date(parts[0], parts[1]-1, parts[2]+delta, 12);
+  const value = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" +
+                String(d.getDate()).padStart(2,"0");
+  selectDay(value);
+}
+$("date-previous-main").addEventListener("click", () => shiftDate(-1));
+$("date-next-main").addEventListener("click", () => shiftDate(1));
 $("diary-date").addEventListener("change", () => selectDay($("diary-date").value, {scrollToReport:false}));
 $("task-date").addEventListener("change", filterChanged);
 $("diary-today").addEventListener("click", () => selectDay(localToday(), {scrollToReport:false}));
