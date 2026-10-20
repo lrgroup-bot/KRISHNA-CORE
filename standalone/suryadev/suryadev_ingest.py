@@ -204,7 +204,8 @@ def ingest_youtube(url):
         return str(info.get("title") or "YouTube video")[:500], text, report
 
 
-def ingest_source(url):
+def ingest_source(url, *, garudanetra=None, data_root=None, job_id=None):
+    """Route all website reads through Garudanetra, never ordinary urllib."""
     from suryadev_sources import source_kind
     kind = source_kind(url)
     if kind == "pdf":
@@ -212,16 +213,14 @@ def ingest_source(url):
     if kind == "youtube":
         return ingest_youtube(url)
     if kind == "website":
-        from suryadev import fetch_text
-        title, text = fetch_text(url)
+        from suryadev_garudanetra import render_website
+        if garudanetra is None:
+            title, text, receipt = render_website(url, root=data_root, job_id=job_id)
+        else:
+            title, text, receipt = garudanetra.render(url, job_id=job_id)
         if not text:
-            raise ValueError("website contains no extractable text")
+            raise ValueError("Garudanetra returned no readable webpage text")
         if len(text) > MAX_LEARNING_CHARS:
-            raise ValueError("Website text exceeds supported full-processing budget")
-        return title, text, {
-            "kind": "website", "extracted_characters": len(text),
-            "coverage_status": "html_text_extracted_not_browser_verified",
-            "full_rendered_page_verified": False,
-            "note": "HTML text does not prove JavaScript, embedded media or linked pages were studied."
-        }
+            raise ValueError("Rendered website text exceeds supported complete-processing budget")
+        return title, text, receipt
     raise ValueError("unsupported queued source type")
