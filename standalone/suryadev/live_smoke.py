@@ -21,6 +21,8 @@ from suryadev_task_details import task_detail
 TEST_SOURCES = (
     ("website", "https://www.python.org/about/"),
     ("pdf", "https://samplepdf.org/files/sample.pdf"),
+    ("pdf_multi", "https://pdftoolskit.org/samples/sample-10-pages.pdf"),
+    ("pdf_scanned", "https://pdftoolskit.org/samples/sample-scanned.pdf"),
     ("youtube", "https://www.youtube.com/watch?v=mgBpcQRDtl0"),
 )
 
@@ -44,7 +46,8 @@ def verify_result(detail, kind):
     if detail["evidence_state"] != "verified":
         return False, "Evidence SHA-256 did not verify"
     coverage = detail.get("coverage", {})
-    if coverage.get("kind") != kind:
+    actual_kind = "pdf" if kind.startswith("pdf_") else kind
+    if coverage.get("kind") != actual_kind:
         return False, "Source classification is incorrect"
     if coverage.get("summary_coverage") not in (
         "extractive_preview_only", "duplicate_reuses_existing_evidence"):
@@ -54,9 +57,11 @@ def verify_result(detail, kind):
     if kind == "website":
         ok = coverage.get("extracted_characters", 0) > 150
         return ok, "Extracted website HTML text" if ok else "Insufficient webpage text"
-    if kind == "pdf":
+    if kind in ("pdf", "pdf_multi"):
         pages = coverage.get("pages_total")
         ok = isinstance(pages, int) and pages >= 1 and pages == coverage.get("pages_extracted")
+        if kind == "pdf_multi":
+            ok = ok and pages == 10
         return ok, f"Verified text extracted on {pages} PDF pages" if ok else "PDF page count mismatch"
     if kind == "youtube":
         cues = coverage.get("cue_count")
@@ -84,11 +89,28 @@ def run_real_sources():
                     detail = task_detail(lib.db, root, job_id)
                     item["evidence_state"] = detail["evidence_state"]
                     item["coverage"] = detail.get("coverage", {})
-                    if result["status"] != "done":
+                    if kind == "pdf_scanned":
+                        err = detail.get("error") or result.get("error", "")
+                        if (result["status"] == "failed" and
+                                "PDF page text missing or scanned" in err and
+                                detail.get("finding_id") is None):
+                            item["status"] = "PASS_EXPECTED_REJECTION"
+                            item["detail"] = "Scanned PDF has no readable text. Job failed safely without saved finding."
+                        else:
+                            item["status"] = classify(err) if result["status"] == "failed" else "FAILED"
+                            item["detail"] = "Expected scanned PDF to fail without learning: " + err
+                    elif result["status"] != "done":
                         item["detail"] = detail.get("error") or result.get("error", "")
                         item["status"] = classify(item["detail"])
                     else:
                         passed, explanation = verify_result(detail, kind)
+                        if passed and kind == "pdf_multi":
+                            digest = detail["sha256"]
+                            saved = Path(root) / "evidence" / digest[:2] / (digest + ".txt")
+                            stored = saved.read_text(encoding="utf-8")
+                            passed = ("[PDF page 1/10]" in stored and
+                                      "[PDF page 10/10]" in stored)
+                            explanation = "All ten page markers verified in durable evidence" if passed else "Missing end-page content"
                         item["status"] = "PASS" if passed else "FAILED"
                         item["detail"] = explanation
                 except Exception as exc:
@@ -109,6 +131,7 @@ def main():
     print("TOTAL:", len(results), "PASS:", sum(s == "PASS" for s in by_kind.values()),
           "BLOCKED_EXTERNAL:", sum(s == "BLOCKED_EXTERNAL" for s in by_kind.values()),
           "FAILED:", sum(s == "FAILED" for s in by_kind.values()))
+    print("EXPECTED_REJECTION:", sum(s == "PASS_EXPECTED_REJECTION" for s in by_kind.values()))
     # A provider/network block is a testing limitation; report explicitly.
     # Actual extraction/checksum defects fail CI rather than being hidden.
     if any(r["status"] == "FAILED" for r in results):
