@@ -260,6 +260,26 @@ def task_detail(db, root, job_id):
             except (TypeError, ValueError):
                 provenance = {}
     task["coverage"] = provenance
+    task["publisher_recovery"] = None
+    has_publisher = db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' "
+        "AND name='publisher_caption_recoveries'"
+    ).fetchone()
+    if has_publisher:
+        entry = db.execute(
+            "SELECT transcript_url,recovered_at,previous_error,"
+            "previous_failed_at,evidence_sha256 "
+            "FROM publisher_caption_recoveries WHERE job_id=?", (job_id,)
+        ).fetchone()
+        if entry:
+            task["publisher_recovery"] = {
+                "transcript_url":entry[0], "recovered_at":entry[1],
+                "previous_error":entry[2],
+                "previous_failed_at":entry[3],
+                "evidence_sha256":entry[4],
+                "youtube_extraction_success":False,
+                "video_visuals_verified":False,
+            }
     task["steps"] = _checklist(task, state)
     task["queue_diagnosis"] = _queue_diagnosis(root) if task["status"] == "queued" else None
     if task["queue_diagnosis"]:
@@ -274,6 +294,14 @@ def task_detail(db, root, job_id):
                      and not provenance.get("pages_missing_text") else "unverified",
             "detail": f"{provenance.get('pages_extracted', 0)}/{provenance['pages_total']} pages with text. "
                       "PDF diagrams, images and visual details require separate review."
+        })
+    if task["publisher_recovery"]:
+        task["steps"].insert(4, {
+            "name":"Approved publisher subtitle recovery",
+            "state":"done" if state == "verified" else "blocked",
+            "detail":"Publisher-hosted timestamped text was saved with SHA-256 evidence. "
+                     "The original YouTube extraction failed; video visuals, "
+                     "uncaptioned speech and exact audiovisual equivalence remain unverified."
         })
     if provenance.get("cue_count"):
         task["steps"].insert(4, {
