@@ -165,7 +165,8 @@ function renderDetail(task) {
   meta.append(textNode("span", task.kind.toUpperCase(), "state-pill running"),
               textNode("span", task.status, "state-pill " + task.status));
   content.append(meta, safeSourceLink(task.url));
-  let banner = "This task is queued. Processing has not started.";
+  let banner = "This task is queued. Processing has not started." +
+      (task.queue_diagnosis?.message ? " " + task.queue_diagnosis.message : "");
   let bannerClass = "detail-banner";
   if (task.status === "running") {banner = "The worker is processing this task. Its result is not recorded yet.";bannerClass += " info";}
   if (task.status === "done") {banner = "Worker completed this assignment. Full-source coverage and KRISHNA acceptance are NOT verified.";bannerClass += " good";}
@@ -222,7 +223,12 @@ function renderDetail(task) {
     content.append(coverageGrid);
     content.append(textNode("div", coverage.note || "These receipts describe text extraction, not full audiovisual comprehension.", "detail-banner info"));
   } else {
-    content.append(textNode("div", "Legacy task has no source-by-source coverage receipt. Treat entire-source learning as unverified.", "detail-banner"));
+    const receiptMessage = task.status === "queued"
+      ? "Not processed yet. Evidence and source coverage will be recorded after successful extraction."
+      : task.status === "failed"
+      ? "Processing failed before a source coverage receipt was saved. Check the recorded error."
+      : "No source-by-source coverage receipt is available. Entire-source learning remains unverified.";
+    content.append(textNode("div", receiptMessage, "detail-banner"));
   }
   content.append(textNode("h3", "What SURYADEV recorded", "detail-subtitle"),
       textNode("div", task.summary || "No learning summary has been saved.", "result-pane"));
