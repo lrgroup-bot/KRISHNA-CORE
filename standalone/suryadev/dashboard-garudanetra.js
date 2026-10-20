@@ -7,6 +7,12 @@
     const capacity = data.capacity || {};
     const netra = data.garudanetra || {};
     const processing = data.processing || {};
+    const worker = data.worker || {};
+    const hardware = data.hardware || {};
+    const plan = data.research_plan || {};
+    const workerOnline = !!worker.state &&
+      !["offline", "stopped"].includes(worker.state);
+    const schedulerOnline = workerOnline && capacity.state !== "offline";
     const limits = capacity.limits || {};
     const web = processing.website || {}, video = processing.youtube || {},
           pdf = processing.pdf || {};
@@ -26,17 +32,45 @@
     const active = Number(capacity.active_total || 0);
     const max = Number(capacity.max_total || 0);
     el("netra-total-capacity").textContent = num(active) + " active / " + num(max) + " allowed";
-    const healthy = capacity.safe === true;
-    el("netra-capacity-heading").textContent =
-      healthy ? "Automatic hardware admission enabled" : "New tasks paused for laptop safety";
-    const cpu = Number.isFinite(Number(capacity.cpu_percent)) && capacity.cpu_percent != null ?
-       Math.round(Number(capacity.cpu_percent)) + "% CPU" : "CPU unavailable";
-    const ram = Number.isFinite(Number(capacity.ram_percent)) && capacity.ram_percent != null ?
-       Math.round(Number(capacity.ram_percent)) + "% RAM" : "RAM unavailable";
-    el("netra-capacity-reason").textContent =
-      cpu + " · " + ram + " · " +
-      (capacity.browser_error || capacity.reason || "Waiting for worker telemetry") +
+    const healthy = schedulerOnline && capacity.safe === true;
+    const reported = schedulerOnline ? capacity : hardware;
+    const measured = key => reported[key] != null && Number.isFinite(Number(reported[key]))
+      ? Math.round(Number(reported[key])) + "%" : "Unavailable";
+    const cpu = measured("cpu_percent") + " CPU";
+    const ram = measured("ram_percent") + " RAM";
+    const missingPlan = !plan.present;
+    const noSources = !Number(data.queued_total || 0) && !Number(data.running_total || 0);
+    let heading, reason;
+    if (!workerOnline) {
+      heading = "Learning worker offline — dashboard is running";
+      reason = cpu + " · " + ram +
+        " · No active scheduler. Start one worker or the six-hour mission." +
+        (missingPlan ? " The learning-plan.json file is missing." : "");
+    } else if (!schedulerOnline) {
+      heading = "Worker starting — awaiting fresh capacity readings";
+      reason = cpu + " · " + ram +
+        " · No recent scheduler sample. Check worker console for errors.";
+    } else if (!healthy) {
+      heading = "New research paused by live hardware guard";
+      reason = cpu + " · " + ram + " · " +
+        (capacity.reason || "Insufficient safe processing headroom");
+    } else if (noSources) {
+      heading = "Learning worker ready — approved queue is empty";
+      reason = cpu + " · " + ram +
+        " · Add approved sources or run the six-hour mission with a valid research plan.";
+    } else {
+      heading = "Automatic hardware admission enabled";
+      reason = cpu + " · " + ram + " · " +
+        (capacity.browser_error || capacity.reason || "Within hardware limits");
+    }
+    el("netra-capacity-heading").textContent = heading;
+    el("netra-capacity-reason").textContent = reason +
       " · Local AI model: 1 generation at a time";
+    if (!workerOnline) {
+      const slots = Number(hardware.potential_total_if_worker_started || 0);
+      el("netra-total-capacity").textContent =
+        "0 active / worker offline" + (hardware.available ? " · " + num(slots) + " possible" : "");
+    }
     el("netra-tab-heading").textContent =
       "Garudanetra Chromium: " + num(netra.open_tabs) +
       " actual browser tabs · limit " + num(netra.tab_limit || 4);
@@ -51,9 +85,13 @@
     if (!running.length) {
       const empty = document.createElement("div");
       empty.className = "empty-state";
-      empty.textContent = healthy
-          ? "No source jobs running. SURYADEV will open approved queued work when capacity permits."
-          : "No jobs active. Check worker and hardware admission status above.";
+      empty.textContent = !workerOnline
+          ? "No learning worker is running. The dashboard observes activity but does not start a worker."
+          : noSources
+          ? "The learning queue is empty. Add approved sources or start the research mission."
+          : healthy
+          ? "No sources running yet. The worker will open approved queued work when slots are available."
+          : "No jobs active. Resource limits or worker startup are preventing new tasks.";
       tabs.append(empty);
       return;
     }
