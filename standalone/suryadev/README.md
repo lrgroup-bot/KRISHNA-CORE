@@ -577,3 +577,108 @@ is an honest network limitation, not successful learning. Even when
 caption extraction succeeds, the full-video visuals and complete audio
 coverage remain unverified. No authentication cookies should be pasted
 into logs or committed to the repository.
+
+
+## v6 · Garudanetra lightweight browser + adaptive parallel source lanes
+
+### Existing KRISHNA browser audit
+
+KRISHNA already has `core/krishna_core/browser_fabric.py`,
+`garudanetra_session.py` and `garudanetra_research.py`.
+They establish a single Garudanetra authority with canonical
+**Playwright/Chromium**, private contexts, managed tabs and bounded evidence.
+SURYADEV now ships `suryadev_garudanetra.py`: a **small isolated laptop
+adapter using that canonical engine**, not an independent full-browser
+product. It is not the same authenticated session as the KRISHNA Core host
+and does not change the remote Core's Garudanetra or pairing state.
+
+The standalone website worker no longer silently uses ordinary urllib text
+fetching as its normal learning route. It launches only **Playwright-managed
+Chromium** in a new private, headless context, using browser-rendered visible
+text and recording a `garudanetra_rendered_text_unverified` receipt. It
+blocks unapproved-host requests plus image, font, media and stylesheet
+traffic to limit CPU/RAM/network use. Each webpage tab closes after
+extraction; the Chromium process is shared for the duration of the mission.
+Scripts, embedded media, inaccessible pages, visual content and linked
+pages are **not fully verified**. No personal Chrome/Edge profile,
+background desktop browser window or sign-in cookies are used.
+
+### How many jobs at the same time?
+
+`suryadev_parallel.py` now supplies one bounded, monitored scheduler to
+both the normal worker and the time-boxed research mission. Hardware
+capacity comes from *real* `psutil` CPU/RAM/disk readings and supported
+GPU telemetry. The 85% resource ceiling, minimum 2 GiB free storage,
+2 GiB RAM reserve and proportional free RAM/CPU-core calculation prevent
+unbounded launching. It admits **at most six total concurrent jobs**
+and at most four actual Garudanetra website Chromium tabs, with at most
+two YouTube caption-extraction jobs and two PDF extraction jobs. Those are
+hard upper bounds, **not fixed targets**. A low-resource laptop might
+run just one job or pause new work entirely. High-load sampling stops
+new work from opening but does not abruptly corrupt already-running
+evidence saves. Expensive local Ollama summarization is serialized to
+one generation at a time.
+
+The main-menu **Garudanetra browser** screen now reports live values:
+website jobs running/allowed/queued and *actual open Chromium tabs*;
+YouTube jobs running/allowed/queued; and PDF jobs running/allowed/queued.
+Clickable workspaces show currently-running source/job URLs. YouTube/PDF
+workspace tabs are truthful job cards, **not Chromium playback tabs**.
+The adapter shuts down when the worker stops; stale/unknown telemetry
+is shown as offline, not a fabricated green status.
+
+### Install and test on the laptop
+
+Stop existing SURYADEV workers/mission and dashboard before reinstall.
+The installer copies source; it does **not** download browser binaries or
+run background services. In your SURYADEV Python environment install the
+free optional dependencies once:
+
+```powershell
+cd "D:\\Work\\SURYADEV"
+python -m pip install psutil playwright pypdf yt-dlp
+python -m playwright install chromium
+```
+
+The browser binary is pinned and private to Playwright. Test with *real
+approved public sources* and temporary test data (does not modify your
+active SURYADEV SQLite/evidence):
+
+```powershell
+python live_smoke.py
+python parallel_smoke.py
+```
+
+`parallel_smoke.py` uses **controlled hardware readings** to verify the
+capacity planner and opens two real Python.org pages in Chromium tabs
+while a real public PDF is processed. The production scheduler instead
+samples actual laptop hardware via psutil. GitHub Actions has verified a
+3-job real run with **2 simultaneously open Chromium tabs**, 3 completed
+source extractions and 3 SHA-256-verified findings.
+
+For a live six-hour study using your previously approved research plan,
+run the dashboard in one console:
+
+```powershell
+python suryadev_extras.py --data "D:\\Work\\SURYADEV-DATA" dashboard --port 8769
+```
+
+Then in a separate console, without another worker running, run the
+mission (initial extraction-only test; no model required):
+
+```powershell
+python suryadev_mission.py --data "D:\\Work\\SURYADEV-DATA" --plan "D:\\Work\\SURYADEV-DATA\\learning-plan.json" --duration-hours 6 --check-seconds 60 --no-ollama
+```
+
+Remove `--no-ollama` only after confirming your chosen local Ollama
+model is available. Replace both `--data` paths with your actual migrated
+storage directory if changed. The six-hour feeder revisits approved
+feeds at its configured interval; it does not perform unrestricted
+internet/YouTube searches or auto-create unauthorized research topics.
+When the queue is empty, capacity can be ready while **0 jobs are running**.
+
+After reinstall, `GET http://127.0.0.1:8769/api/ui-version` reports
+`2026-10-21-v6-garudanetra-parallel`. The live worker and browser
+telemetry is read-only at `GET /api/operations`, under `capacity`,
+`garudanetra`, and `processing`. Counts reflect recorded processing,
+not guaranteed full video watching, image understanding or Rishi ACK.
