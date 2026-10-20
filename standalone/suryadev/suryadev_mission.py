@@ -14,7 +14,7 @@ from suryadev import Library
 from suryadev_feeder import read_plan, feed_once, FEED_STATE
 from suryadev_liveops import atomic_json, worker_note
 from suryadev_lock import worker_lock
-from suryadev_resources import admission
+from suryadev_parallel import AdaptiveResearchWorkers
 
 def mission(data, plan_path, *, duration_hours=6, refill_minutes=30,
             check_seconds=60, use_ollama=True, model="qwen3.5:9b"):
@@ -33,55 +33,56 @@ def mission(data, plan_path, *, duration_hours=6, refill_minutes=30,
         lib = Library(root)
         try:
             lib.recover()
-            worker_note(root, "starting", check_seconds,
-                        "Owner-approved six-hour research session started")
-            while time.time() < deadline:
-                now = time.time()
-                if now >= refresh_at:
-                    try:
-                        outcome = feed_once(lib, plan)
-                        print(json.dumps({"feeder": outcome}, ensure_ascii=False), flush=True)
-                        note = ""
-                    except (ValueError, OSError, RuntimeError) as exc:
-                        outcome = {"added_total": 0, "feed_errors": [{"error": str(exc)[:180]}]}
-                        note = type(exc).__name__ + ": " + str(exc)[:150]
-                        print(json.dumps({"feeder_error": note}), flush=True)
-                    refresh_at = time.time() + refill_minutes * 60
-                    atomic_json(root, FEED_STATE, {
-                        "last_run": now, "next_run": refresh_at,
-                        "session_ends_at": deadline, "period_minutes": refill_minutes,
-                        "loop_enabled": True, "added_total": outcome.get("added_total", 0),
-                        "feed_error_count": len(outcome.get("feed_errors", [])),
-                        "error": note,
-                    })
-                allowed, reason, _ = admission(root)
-                if allowed:
-                    worker_note(root, "checking", check_seconds,
-                                "Source queue admission granted")
-                    result = lib.run_next(use_ollama=use_ollama, model=model)
-                    worker_note(root, "idle", check_seconds,
-                                "Waiting for next approved source check",
-                                next_check_at=time.time() + check_seconds,
-                                last_result=(result if isinstance(result,dict) else None))
-                    if result:
-                        print(json.dumps({"work": result}, ensure_ascii=False), flush=True)
-                else:
-                    worker_note(root, "paused", check_seconds, reason,
-                                next_check_at=time.time() + check_seconds)
-                time.sleep(max(0, min(check_seconds, deadline - time.time(),
-                                       refresh_at - time.time())))
-            return {"session": "finished", "duration_hours": duration_hours}
-        finally:
-            worker_note(root, "stopped", check_seconds, "Research session stopped")
-            state_file = root / FEED_STATE
+            adaptive = AdaptiveResearchWorkers(
+                root, use_ollama=use_ollama, model=model, check_seconds=check_seconds)
             try:
-                state = json.loads(state_file.read_text(encoding="utf-8"))
-                state["next_run"] = None
-                state["loop_enabled"] = False
-                atomic_json(root, FEED_STATE, state)
-            except (OSError, ValueError, TypeError):
-                pass
-            lib.db.close()
+                return _run_research_session(lib, adaptive, plan, root, deadline,
+                                             duration_hours, refill_minutes, check_seconds)
+            finally:
+                adaptive.close()
+                lib.db.close()
+                worker_note(root, "stopped", check_seconds, "Research session stopped")
+                state_file = root / FEED_STATE
+                try:
+                    state = json.loads(state_file.read_text(encoding="utf-8"))
+                    state["next_run"] = None
+                    state["loop_enabled"] = False
+                    atomic_json(root, FEED_STATE, state)
+                except (OSError, ValueError, TypeError):
+                    pass
+
+def _run_research_session(lib, adaptive, plan, root, deadline,
+                          duration_hours, refill_minutes, check_seconds):
+    refresh_at = 0
+    worker_note(root, "starting", check_seconds,
+                "Owner-approved adaptive Garudanetra session started")
+    while time.time() < deadline:
+        now = time.time()
+        if now >= refresh_at:
+            try:
+                outcome = feed_once(lib, plan)
+                print(json.dumps({"feeder": outcome}, ensure_ascii=False), flush=True)
+                note = ""
+            except (ValueError, OSError, RuntimeError) as exc:
+                outcome = {"added_total":0,"feed_errors":[{"error":str(exc)[:180]}]}
+                note = type(exc).__name__ + ": " + str(exc)[:150]
+                print(json.dumps({"feeder_error": note}), flush=True)
+            refresh_at = time.time() + refill_minutes * 60
+            atomic_json(root, FEED_STATE, {
+                "last_run": now, "next_run": refresh_at, "session_ends_at": deadline,
+                "period_minutes": refill_minutes, "loop_enabled": True,
+                "added_total": outcome.get("added_total", 0),
+                "feed_error_count": len(outcome.get("feed_errors", [])),
+                "error": note,
+            })
+        update = adaptive.pump()
+        for job_result in update["finished"]:
+            print(json.dumps({"work":job_result},ensure_ascii=False),flush=True)
+        interval = 2 if update["capacity"]["active_total"] else check_seconds
+        time.sleep(max(0, min(interval, deadline-time.time(),
+                               refresh_at-time.time())))
+    return {"session":"finished","duration_hours":duration_hours,
+            "last_completed":adaptive.last_result}
 
 def main(argv=None):
     p = argparse.ArgumentParser(description="Time-boxed 6-hour approved-source SURYADEV study session")
