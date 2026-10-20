@@ -197,6 +197,7 @@ def operations_snapshot(db, root):
         "by_source": summary,
         "connections": connection_indicators(root),
         "feeder": _safe_read(root, "feeder-runtime.json"),
+        "continuity": _safe_read(root, "continuity-runtime.json", max_bytes=16384),
         "capacity": capacity, "garudanetra": netra,
         "hardware": hardware, "research_plan": plan,
         "worker_running": worker_running, "capacity_sample_age_seconds": (
