@@ -5,6 +5,7 @@ No claims of complete video, PDF or website coverage are inferred from a 'done' 
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import date as CalendarDate
 from pathlib import Path
 import time
@@ -209,7 +210,45 @@ def task_detail(db, root, job_id):
     task = _row_to_task(row)
     state = _evidence_state(root, task["sha256"])
     task["evidence_state"] = state
+    provenance = {}
+    has_receipts = db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='job_provenance'"
+    ).fetchone()
+    if has_receipts:
+        record = db.execute(
+            "SELECT report_json FROM job_provenance WHERE job_id=?", (job_id,)
+        ).fetchone()
+        if record:
+            try:
+                provenance = json.loads(record[0])
+            except (TypeError, ValueError):
+                provenance = {}
+    task["coverage"] = provenance
     task["steps"] = _checklist(task, state)
+    if provenance.get("pages_total"):
+        task["steps"].insert(4, {
+            "name": "PDF page text extraction",
+            "state": "done" if provenance.get("pages_total") == provenance.get("pages_extracted")
+                     and not provenance.get("pages_missing_text") else "unverified",
+            "detail": f"{provenance.get('pages_extracted', 0)}/{provenance['pages_total']} pages with text. "
+                      "PDF diagrams, images and visual details require separate review."
+        })
+    if provenance.get("cue_count"):
+        task["steps"].insert(4, {
+            "name": "YouTube timed caption processing",
+            "state": "done",
+            "detail": f"{provenance['cue_count']} timed cues processed; last cue "
+                      f"{provenance.get('last_cue_seconds')} seconds. "
+                      "Visual content and uncaptained speech are not verified."
+        })
+    if provenance.get("chunks_total"):
+        task["steps"].insert(5, {
+            "name": "Text chunks presented to local model",
+            "state": "done" if provenance.get("chunks_total") == provenance.get("chunks_summarized")
+                     else "unverified",
+            "detail": f"{provenance.get('chunks_summarized')}/{provenance.get('chunks_total')} "
+                      "extracted text chunks processed. Factual validity is not certified."
+        })
     task["complete_verified"] = False  # No coverage or approval receipts currently exist.
     task["stale_running"] = task["status"] == "running" and (
         time.time() - task["updated"] > 7200)
