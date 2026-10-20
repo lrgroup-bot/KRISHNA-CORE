@@ -6,6 +6,7 @@ import sqlite3
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 from suryadev_task_details import diary_day, diary_days, list_tasks, validate_day
 from suryadev_liveops import (operations_snapshot, connection_indicators,
@@ -84,6 +85,45 @@ class DiaryAndOperationsTests(unittest.TestCase):
         self.assertEqual(status["upcoming"][0]["id"], 2)
         self.assertIsNone(status["upcoming"][0]["scheduled_at"])
         self.assertEqual(status["by_source"]["youtube"]["queued"], 1)
+
+    def test_offline_dashboard_reports_real_hardware_without_starting_worker(self):
+        reading = {"available":True, "cpu_percent":15, "ram_percent":47,
+                   "ram_total_gb":15.73,"ram_used_gb":7.39,
+                   "disk_free_gb":192.14, "disk_percent":31.2,
+                   "gpu":{"available":False}}
+        with patch("suryadev_resources.snapshot", return_value=reading):
+            view = operations_snapshot(self.db, self.root)
+        self.assertEqual(view["worker"]["state"], "offline")
+        self.assertFalse(view["worker_running"])
+        self.assertEqual(view["capacity"]["max_total"],0)
+        self.assertEqual(view["hardware"]["cpu_percent"],15)
+        self.assertEqual(view["hardware"]["ram_percent"],47)
+        self.assertGreater(view["hardware"]["potential_total_if_worker_started"],0)
+        self.assertFalse(view["research_plan"]["present"])
+        self.assertFalse((self.root / "learning-plan.json").exists())
+        self.assertFalse((self.root / "worker-runtime.json").exists())
+
+    def test_idle_worker_capacity_sample_survives_60_second_interval(self):
+        now = time.time()
+        worker_note(self.root, "idle", 60, "Next refresh in one minute",
+                    next_check_at=now + 60)
+        atomic_json(self.root, "capacity-runtime.json", {
+            "sample_time": now-48, "state":"idle",
+            "safe":True,"max_total":3,
+            "limits":{"website":2,"youtube":1,"pdf":1},
+            "cpu_percent":5,"ram_percent":47,
+        })
+        view = operations_snapshot(self.db, self.root)
+        self.assertTrue(view["worker_running"])
+        self.assertEqual(view["capacity"]["max_total"],3)
+        self.assertEqual(view["hardware"]["source"],"worker_scheduler")
+        worker_note(self.root, "stopped", 60, "Worker stopped")
+        with patch("suryadev_resources.snapshot", return_value={
+            "available":False,"reason":"no psutil installed"}):
+            stopped = operations_snapshot(self.db, self.root)
+        self.assertFalse(stopped["worker_running"])
+        self.assertEqual(stopped["capacity"]["max_total"],0)
+        self.assertEqual(stopped["hardware"]["source"],"dashboard_read_only")
 
     def test_connection_leds_fail_closed(self):
         self.assertFalse(connection_indicators(self.root)["krishna"]["connected"])
