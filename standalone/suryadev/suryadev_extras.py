@@ -114,7 +114,8 @@ def serve(lib, port=8769):
                                      "has_dashboard_hardware_preview": True,
                                      "has_youtube_cooldown": True,
                                      "has_youtube_language_selection": True,
-                                     "has_approved_source_continuity": True}),
+                                     "has_approved_source_continuity": True,
+                                     "has_official_publisher_caption_recovery": True}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
