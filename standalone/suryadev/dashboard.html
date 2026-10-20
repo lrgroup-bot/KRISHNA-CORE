@@ -18,21 +18,24 @@
       <a href="#live-learning" class="nav-item"><span>●</span> Live learning</a>
       <a href="#assignments" class="nav-item"><span>▣</span> All assignments</a>
       <a href="#sources" class="nav-item"><span>◈</span> Sources & learning</a>
-      <a href="#diary" class="nav-item"><span>◷</span> Daily diary</a>
+      <a href="#date-center" class="nav-item"><span>◷</span> Date-wise learning</a>
       <a href="#hardware" class="nav-item"><span>◉</span> Hardware</a>
     </nav>
-    <div class="node-card">
-      <div class="node-title"><span class="pulse-dot" id="connection-dot"></span> Local node</div>
-      <strong id="connection">Connecting…</strong>
-      <small>KRISHNA approval not yet connected</small>
+    <div class="sidebar-bottom" aria-label="Live connection status at bottom of main menu">
+      <div class="status-leds" aria-label="KRISHNA, BRAHMAGYAN and Rishi connections">
+        <div class="status-led-title"><span aria-hidden="true">◉</span> CONNECTION STATUS</div>
+        <div class="led-row"><span class="led-name">KRISHNA Core</span><span class="led-state" id="krishna-led-state"><i class="led" id="krishna-led" aria-hidden="true"></i><span id="krishna-led-label">Not connected</span></span></div>
+        <div class="led-row"><span class="led-name">BRAHMAGYAN</span><span class="led-state"><i class="led" id="brahmagyan-led" aria-hidden="true"></i><span id="brahmagyan-led-label">Not connected</span></span></div>
+        <div class="led-row"><span class="led-name">Rishi Council</span><span class="led-state"><i class="led" id="rishi-led" aria-hidden="true"></i><span id="rishi-led-label">Not connected</span></span></div>
+        <small class="led-note">Red = not authenticated · Amber = unpaired reader · Green = verified</small>
+      </div>
+      <div class="node-card">
+        <div class="node-title"><span class="pulse-dot" id="connection-dot" aria-hidden="true"></span> SURYADEV local dashboard</div>
+        <strong id="connection">Connecting…</strong>
+        <small>KRISHNA pairing is separate from local connectivity.</small>
+      </div>
+      <div class="sidebar-footer">UI v4 · 21 Oct 2026 · Local-first</div>
     </div>
-    <div class="status-leds" aria-label="Authenticated connections">
-      <div class="status-led-title">SYSTEM CONNECTIONS</div>
-      <div class="led-row"><span class="led-name">KRISHNA Core</span><span class="led-state" id="krishna-led-state"><i class="led" id="krishna-led"></i><span id="krishna-led-label">Not connected</span></span></div>
-      <div class="led-row"><span class="led-name">BRAHMAGYAN</span><span class="led-state"><i class="led" id="brahmagyan-led"></i><span id="brahmagyan-led-label">Not connected</span></span></div>
-      <div class="led-row"><span class="led-name">Rishi Council</span><span class="led-state"><i class="led" id="rishi-led"></i><span id="rishi-led-label">Not connected</span></span></div>
-    </div>
-    <div class="sidebar-footer">Private by default · Local-first<br>Research dashboard v3</div>
   </aside>
   <main>
     <header class="hero" id="overview">
@@ -44,6 +47,26 @@
       </div>
       <div class="hero-aside"><div class="live-chip" id="live-chip"><span class="pulse-dot"></span> LIVE · 5 SEC</div><div class="hero-time" id="clock">--:--:--</div><div class="hero-caption">Laptop-local mission control</div></div>
     </header>
+    <section class="date-center" id="date-center" aria-labelledby="date-center-title">
+      <div class="date-center-heading">
+        <div class="date-center-icon" aria-hidden="true">▦</div>
+        <div><div class="date-center-eyebrow">LEARNING HISTORY & ACTIVITY</div><h2 id="date-center-title">Explore learning date-wise</h2><p>Choose a day to filter assignments and open that day's learning record.</p></div>
+      </div>
+      <div class="date-center-controls">
+        <label class="date-main-label" for="date-main">Select date
+          <input type="date" id="date-main" aria-label="Select date for learning history">
+        </label>
+        <button type="button" id="date-today-main" class="date-main-btn">Today</button>
+        <button type="button" id="date-previous-main" class="date-main-btn light" aria-label="Previous calendar day">← Previous day</button>
+        <button type="button" id="date-next-main" class="date-main-btn light" aria-label="Next calendar day">Next day →</button>
+        <button type="button" id="date-clear-main" class="date-main-btn secondary">All dates</button>
+      </div>
+      <div class="date-selection-summary" id="date-selection-summary" aria-live="polite">
+        <strong id="date-selected-label">Showing all recorded dates</strong>
+        <span id="date-selected-count">Choose a date above to view its assignments and findings.</span>
+        <a href="#diary" class="date-report-link">Open detailed diary ↗</a>
+      </div>
+    </section>
     <section class="overview" aria-labelledby="overview-title">
       <div class="section-heading"><div><div class="overline">OVERVIEW</div><h2 id="overview-title">Mission pulse</h2></div><span class="freshness" id="updated" aria-live="polite">Connecting to telemetry…</span></div>
       <div class="metric-grid">
