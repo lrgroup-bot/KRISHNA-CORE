@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from suryadev import Library, summarize
 from suryadev_resources import snapshot, admission
+from suryadev_parallel import AdaptiveResearchWorkers
 from suryadev_sources import breakdown
 from suryadev_task_details import list_tasks, task_detail, diary_days, diary_day
 from suryadev_liveops import operations_snapshot, worker_note
@@ -29,7 +30,7 @@ from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-21-v5-server-storage"
+UI_VERSION = "2026-10-21-v6-garudanetra-parallel"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -105,7 +106,9 @@ def serve(lib, port=8769):
                                      "has_connection_leds": True,
                                      "has_date_picker": True,
                                      "has_server_settings": True,
-                                     "has_storage_settings": True}),
+                                     "has_storage_settings": True,
+                                     "has_garudanetra": True,
+                                     "has_adaptive_parallel": True}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js", "/dashboard-settings.css", "/dashboard-settings.js"):
                 filename = {"/": "dashboard.html", "/dashboard.css": "dashboard.css",
@@ -331,31 +334,17 @@ def work_loop(lib, interval, use_ollama, model):
     if interval < 10:
         raise ValueError("interval must be at least 10 seconds")
     lib.recover()
-    print("SURYDEV worker started. Ctrl+C to stop.", flush=True)
-    worker_note(lib.root, "starting", interval)
+    print("SURYADEV Garudanetra adaptive worker started. Ctrl+C to stop.", flush=True)
+    worker_note(lib.root, "starting", interval, "Adaptive source lanes starting")
     try:
-        while True:
-            allowed, reason, _ = admission(lib.root)
-            if not allowed:
-                worker_note(lib.root, "paused", interval, reason,
-                            next_check_at=time.time() + interval)
-                print("SURYADEV paused: " + reason, flush=True)
-                time.sleep(interval)
-                continue
-            worker_note(lib.root, "checking", interval, "Resource admission passed")
-            # The DB's 'running' row identifies the actual assignment, without
-            # guessing video duration, page count, ETA or percent complete.
-            result = lib.run_next(use_ollama, model)
-            if result:
-                print(json.dumps(result, ensure_ascii=False), flush=True)
-            receipt = None if not result else {
-                "job_id": result.get("job_id"), "status": result.get("status"),
-                "title": str(result.get("title", ""))[:140],
-                "error": str(result.get("error", ""))[:140],
-            }
-            worker_note(lib.root, "idle", interval, "Awaiting next queue check",
-                        next_check_at=time.time() + interval, last_result=receipt)
-            time.sleep(interval)
+        with AdaptiveResearchWorkers(lib.root, use_ollama=use_ollama,
+                                     model=model, check_seconds=interval) as adaptive:
+            while True:
+                update = adaptive.pump()
+                for result in update["finished"]:
+                    print(json.dumps(result, ensure_ascii=False), flush=True)
+                # Refresh live CPU and tab counts while sources process.
+                time.sleep(2 if update["capacity"]["active_total"] else interval)
     finally:
         worker_note(lib.root, "stopped", interval, "Worker stopped")
 
