@@ -301,7 +301,12 @@ async function selectDay(day, {scrollToReport=false}={}) {
   app.selectedDay = day;
   $("diary-date").value = day;
   $("task-date").value = day;
+  $("date-main").value = day;
   $("clear-date").hidden = !day;
+  $("date-selected-label").textContent = day ? "Selected learning date: " + day : "Showing all recorded dates";
+  $("date-selected-count").textContent = day
+      ? "Loading assignments and findings for this date…"
+      : "All dates selected · the complete assignment history is visible.";
   app.offset = 0; app.lastList = "";
   renderDiaryTiles();
   loadTasks();
@@ -327,6 +332,10 @@ async function loadDiaryDay(day) {
     const stats = await statsResponse.json();
     const activity = await tasksResponse.json();
     if (app.selectedDay !== day) return;
+    $("date-selected-count").textContent =
+        format(stats.assignments) + " assigned · " + format(stats.findings) + " findings · " +
+        format(stats.completed) + " worker completed · " + format(stats.failed) + " failed · " +
+        format(activity.total) + " related tasks.";
     report.replaceChildren();
     const title = textNode("div", "", "diary-report-head");
     const titleLeft = textNode("div", "");
@@ -362,8 +371,10 @@ async function loadDiaryDay(day) {
       report.append(more);
     }
   } catch (error) {
-    if (app.selectedDay === day)
+    if (app.selectedDay === day) {
       report.replaceChildren(textNode("div", "Date lookup failed: " + error.message, "empty-state"));
+      $("date-selected-count").textContent = "Could not load this date: " + error.message;
+    }
   }
 }
 /* The worker writes its own heartbeat. No invented task start times or progress percentages. */
