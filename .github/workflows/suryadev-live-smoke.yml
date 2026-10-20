@@ -1,0 +1,24 @@
+name: SURYADEV Real Source Smoke
+on:
+  pull_request:
+    paths:
+      - 'standalone/suryadev/live_smoke.py'
+      - 'standalone/suryadev/suryadev_ingest.py'
+      - '.github/workflows/suryadev-live-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-source-read-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install free PDF and YouTube readers
+        run: python -m pip install --disable-pip-version-check pypdf yt-dlp
+      - name: Exercise public website, PDF and caption pipelines with real inputs
+        working-directory: standalone/suryadev
+        run: python -u live_smoke.py
