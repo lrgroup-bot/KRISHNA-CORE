@@ -10,7 +10,7 @@ const textNode = (tag, value, className) => {
   return el;
 };
 const app = { offset: 0, limit: 25, total: 0, taskId: null,
-              lastList: "", taskQuery: "", status: "", kind: "", refreshInProgress: false };
+              lastList: "", lastDetail: "", taskQuery: "", status: "", kind: "", refreshInProgress: false };
 
 function clockTick() { $("clock").textContent = new Date().toLocaleTimeString(); }
 function resourceGauge(name, value) {
@@ -222,21 +222,30 @@ async function fetchDetail(id) {
     const response = await fetch("/api/tasks/" + encodeURIComponent(id), {cache:"no-store"});
     if (!response.ok) throw new Error("HTTP " + response.status);
     const task = await response.json();
-    if (app.taskId === id && $("task-dialog").open) renderDetail(task);
+    if (app.taskId === id && $("task-dialog").open) {
+      const serialized = JSON.stringify(task);
+      if (serialized !== app.lastDetail) {
+        const scroller = $("detail-content");
+        const scroll = scroller.scrollTop;
+        renderDetail(task);
+        scroller.scrollTop = scroll;
+        app.lastDetail = serialized;
+      }
+    }
   } catch (error) {
     if (app.taskId === id && $("task-dialog").open)
       $("detail-content").replaceChildren(textNode("div", "Could not load task detail: " + error.message, "empty-state"));
   }
 }
 function openDetail(id) {
-  app.taskId = id;
+  app.taskId = id; app.lastDetail = "";
   $("detail-title").textContent = "Assignment #" + id;
   $("detail-content").replaceChildren(textNode("div", "Loading task evidence and completion checklist…", "empty-state"));
   if (!$("task-dialog").open) $("task-dialog").showModal();
   fetchDetail(id);
 }
 $("close-detail").addEventListener("click", () => $("task-dialog").close());
-$("task-dialog").addEventListener("close", () => { app.taskId = null; });
+$("task-dialog").addEventListener("close", () => { app.taskId = null; app.lastDetail = ""; });
 $("task-search").addEventListener("input", (() => {
   let timer;return () => {clearTimeout(timer);timer = setTimeout(filterChanged, 300);};
 })());
