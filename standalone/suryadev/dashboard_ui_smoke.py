@@ -61,6 +61,34 @@ async def browser_check(port):
             await browser.close()
 
 
+async def browser_continuity_check(port):
+    """YouTube provider restriction never disables independent approved web/PDF lanes."""
+    from playwright.async_api import async_playwright, expect
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        try:
+            page = await browser.new_page()
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            await page.goto(f"http://127.0.0.1:{port}/", wait_until="domcontentloaded")
+            await expect(page.locator("#netra-capacity-heading")).to_have_text(
+                "YouTube rate-limited — website/PDF research continues", timeout=12000)
+            await expect(page.locator("#netra-continuity-status")).to_contain_text(
+                "YouTube rate-limited", timeout=12000)
+            await expect(page.locator("#netra-youtube-access")).to_contain_text(
+                "YouTube HTTP 429", timeout=12000)
+            assert await page.locator("#netra-video-capacity").inner_text() == "0"
+            assert await page.locator("#netra-web-capacity").inner_text() == "3"
+            assert await page.locator("#netra-pdf-capacity").inner_text() == "1"
+            assert not errors, errors
+            return {"status":"PASS","youtube_capacity":0,
+                    "website_capacity":3,"pdf_capacity":1,
+                    "continuity_label":"YouTube rate-limited",
+                    "javascript_errors":errors}
+        finally:
+            await browser.close()
+
+
 async def browser_offline_check(port):
     """An offline worker must not be mislabelled as a failing laptop."""
     from playwright.async_api import async_playwright, expect
@@ -131,6 +159,32 @@ def main():
                     time.sleep(.1)
             result=asyncio.run(browser_check(port))
             print("GARUDANETRA_DASHBOARD_UI_REPORT="+json.dumps(result),flush=True)
+            with lib.db:
+                lib.db.execute("UPDATE jobs SET status='queued' WHERE status='running'")
+                lib.db.execute("UPDATE jobs SET status='failed',error=? "
+                               "WHERE url LIKE '%youtube.com%'",
+                               ("HTTP 429: Too Many Requests",))
+            worker_note(root,"idle",10,"Approved websites remain eligible")
+            atomic_json(root,"capacity-runtime.json",{
+                "sample_time":time.time(),"state":"idle","safe":True,
+                "active_total":0,"max_total":4,
+                "limits":{"website":3,"youtube":0,"pdf":1},
+                "active":{"website":0,"youtube":0,"pdf":0},
+                "cpu_percent":19,"ram_percent":44,
+                "reason":"Simulated ready worker with YouTube blocked",
+                "youtube_access":{"state":"rate_limited",
+                    "cooldown_until":time.time()+3000},
+            })
+            atomic_json(root,"youtube-access-state.json",{
+                "state":"rate_limited","recorded_at":time.time(),
+                "cooldown_until":time.time()+3000})
+            atomic_json(root,"continuity-runtime.json",{
+                "active":True,"source_policy":"only_operator_approved_urls_and_feeds",
+                "last_refresh":time.time(),"next_refresh":time.time()+300,
+                "added_total":2,"feed_error_count":0,
+                "youtube_blocked":True,"youtube_video_equivalence_claimed":False})
+            continuity=asyncio.run(browser_continuity_check(port))
+            print("GARUDANETRA_CONTINUITY_UI_REPORT="+json.dumps(continuity),flush=True)
             with lib.db:
                 lib.db.execute("UPDATE jobs SET status='queued' WHERE status='running'")
             worker_note(root,"stopped",10,"UI test transitions worker to offline")
