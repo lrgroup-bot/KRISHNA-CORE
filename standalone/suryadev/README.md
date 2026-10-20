@@ -682,3 +682,26 @@ After reinstall, `GET http://127.0.0.1:8769/api/ui-version` reports
 telemetry is read-only at `GET /api/operations`, under `capacity`,
 `garudanetra`, and `processing`. Counts reflect recorded processing,
 not guaranteed full video watching, image understanding or Rishi ACK.
+
+### Verified browser-level frontend contract
+
+The `dashboard_ui_smoke.py` command launches a disposable local SURYADEV
+dashboard, seeds synthetic **test-only** running-job and hardware telemetry,
+and uses **real Playwright Chromium** to verify the rendered frontend:
+two websites running, one YouTube-caption job running, two actual
+Garudanetra browser tabs, three clickable workspaces, and the correct
+allowed slot totals. It opens assignment details and checks for browser
+JavaScript exceptions. The seed data is a UI fixture, not a claim about
+the laptop's measured hardware.
+
+```powershell
+cd "D:\\Work\\SURYADEV"
+python dashboard_ui_smoke.py
+```
+
+GitHub Actions verified `GARUDANETRA_DASHBOARD_UI_REPORT` with three
+visible cards, two actual browser tabs, and **zero page JavaScript errors**.
+All source jobs use a separate SQLite test directory during this check.
+The UI script and stylesheet must be served by the local dashboard's
+asset routes, and the unit suite enforces those routes to avoid a blank
+counter display.
