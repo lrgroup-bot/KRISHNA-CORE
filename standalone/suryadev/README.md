@@ -749,3 +749,78 @@ running a six-hour mission, make sure no other SURYADEV worker or
 mission holds that same data root's worker lock. Do not delete the lock
 file or terminate unrelated Python processes. Run either the ordinary
 worker **or** the mission, not both.
+
+
+## v6.2 · YouTube subtitle HTTP 429 safety and runtime checks
+
+In the laptop test on October 21, 2026, SURYADEV correctly claimed YouTube
+job #6 but the provider refused a Hindi subtitle response with HTTP 429.
+This is **not** an offline worker, exhausted RAM, an absent job or verified
+learning. The source evidence is not recorded for a failed job.
+
+### What changed
+
+- Requests **one** caption language per job, English (`en`) by default,
+  rather than automatically downloading English/Hindi/Odia together. An
+  operator can choose one of those supported languages before starting a
+  worker by setting `SURYADEV_CAPTION_LANG` in its PowerShell environment.
+  Missing captions in that language are a clean failure; no fallback silently
+  generates extra requests.
+- Disabled automatic yt-dlp HTTP/extractor/fragment retries; added modest
+  pacing between requests/subtitle downloads. An HTTP 429 remains a failed
+  assignment, not a saved finding.
+- Limits the YouTube extractor lane to **one job** at a time, regardless
+  of spare CPU. After an observed HTTP 429, the worker records a **one-hour
+  cooldown** in `youtube-access-state.json` and will not launch other
+  queued YouTube jobs while it is active, including after worker restart.
+  This is conservative local load reduction, **not a promise** that the
+  provider will allow access when the timer expires.
+- Websites and PDFs are not paused by YouTube's separate access restriction.
+  The dashboard shows the cooldown and never calls it successful learning.
+- Adds a lock-protected, explicitly operator-initiated `retry-failed <id>`
+  command, accepted only for a failed YouTube job and only after both the
+  job's HTTP 429 age and the persisted cooldown permit an attempt. The prior
+  failure is preserved in `job_attempt_history`; no automatic retry or
+  duplicate new assignment is created.
+
+### Install a supported free JavaScript runtime
+
+The official yt-dlp EJS guide documents that pip packages need
+`yt-dlp[default]` to include `yt-dlp-ejs`; Deno 2.3 or later is
+recommended and enabled by default. Missing JavaScript support is a
+**compatibility warning**, not a cure for HTTP 429.
+See: https://github.com/yt-dlp/yt-dlp/wiki/EJS
+
+Stop the existing worker or mission, then in your SURYADEV Python
+environment run:
+
+```powershell
+cd "D:\\Work\\SURYADEV"
+python -m pip install -U "yt-dlp[default]"
+scoop install deno
+# Open a new PowerShell session if the deno command is not recognized
+deno --version
+python suryadev_youtube_preflight.py
+```
+
+Do not paste browser cookies or sign-in data into scripts. No special
+account authentication or impersonation workarounds are enabled by
+SURYADEV. The optional impersonation warning is distinct from the
+429 response and is not proof of its cause.
+
+After **at least one hour since the failed job** and only when the
+worker or mission is stopped, you can manually try that same job again:
+
+```powershell
+cd "D:\\Work\\SURYADEV"
+python suryadev.py --data "D:\\Work\\SURYADEV-DATA" retry-failed 6
+```
+
+Then start **either** the regular worker or six-hour mission to process
+that queued job. If YouTube again responds with HTTP 429, stop requests
+and leave the restriction in place. For approved externally obtained
+official publisher captions, the separate `import-transcript` path can
+save timestamped text evidence without claiming the YouTube video was
+watched. The official publisher transcript must be obtained lawfully.
+
+Dashboard UI version: `2026-10-21-v6.2-youtube-cooldown`.
