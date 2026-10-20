@@ -175,7 +175,7 @@
   const formatCleanup = (r, preview) =>
     (preview ? "Preview: " + r.eligible_jobs + " eligible staged jobs (" :
       "Cleanup: " + r.deleted_jobs + " staged jobs removed (") +
-    gb(preview ? 0 : r.deleted_bytes) + " processed). " +
+    gb(preview ? r.eligible_bytes : r.deleted_bytes) + " processed). " +
     "Other skipped: " + r.skipped + ". Errors: " + r.errors +
     ". Database, original media and evidence retained.";
   node("preview-cleanup").addEventListener("click", () => busy(node("preview-cleanup"), async () => {
