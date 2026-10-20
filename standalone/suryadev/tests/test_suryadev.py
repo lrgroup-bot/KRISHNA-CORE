@@ -20,7 +20,7 @@ class StandaloneTests(unittest.TestCase):
                 validate_url(url)
 
     @patch("suryadev.validate_url", return_value="https://example.com/doc")
-    @patch("suryadev.fetch_text", return_value=("Example", "A test research finding."))
+    @patch("suryadev_garudanetra.render_website", return_value=("Example", "A test research finding.", {"kind":"website","coverage_status":"garudanetra_rendered_text_unverified","browser_tab_opened":True,"full_rendered_page_verified":False}))
     def test_persist_and_recover(self, fetch, validate):
         with tempfile.TemporaryDirectory() as temp:
             lib = Library(temp)
@@ -34,7 +34,7 @@ class StandaloneTests(unittest.TestCase):
             reopened.db.close()
 
     @patch("suryadev.validate_url", return_value="https://example.com/doc")
-    @patch("suryadev.fetch_text", side_effect=ValueError("blocked"))
+    @patch("suryadev_garudanetra.render_website", side_effect=ValueError("blocked"))
     def test_failure_recorded(self, fetch, validate):
         with tempfile.TemporaryDirectory() as temp:
             lib = Library(temp)
