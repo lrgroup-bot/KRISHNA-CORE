@@ -29,7 +29,7 @@ if ($ActivateOfficialTech) {
 if (-not (Test-Path -LiteralPath $plan -PathType Leaf)) {
     throw "Missing approved research plan: $plan. Use -ActivateOfficialTech to opt in."
 }
-$args = @(
+$workerArgs = @(
     (Join-Path $source "suryadev_extras.py"),
     "--data", $root,
     "worker", "--plan", $plan,
@@ -37,9 +37,9 @@ $args = @(
     "--interval", [string]$CheckSeconds
 )
 if ($UseOllama) {
-    $args += @("--model",$Model)
+    $workerArgs += @("--model",$Model)
 } else {
-    $args += "--no-ollama"
+    $workerArgs += "--no-ollama"
 }
 Write-Host "Starting ONE self-refilling SURYADEV worker from the approved plan."
 Write-Host "YouTube rate limits remain respected; website/PDF work is independent."
