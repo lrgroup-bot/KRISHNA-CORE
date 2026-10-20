@@ -24,7 +24,7 @@ class WorkerSafetyTests(unittest.TestCase):
                 a.db.execute("INSERT INTO jobs(url,status,created,updated) VALUES (?,?,?,?)",
                              ("https://example.org", "queued", 1, 1))
                 a.db.commit()
-                with patch("suryadev.fetch_text", return_value=("Example", "Research text")):
+                with patch("suryadev_garudanetra.render_website", return_value=("Example", "Research text", {"kind":"website","coverage_status":"garudanetra_rendered_text_unverified","browser_tab_opened":True,"full_rendered_page_verified":False})):
                     self.assertEqual(a.run_next(use_ollama=False)["status"], "done")
                     self.assertIsNone(b.run_next(use_ollama=False))
                 self.assertEqual(a.db.execute("SELECT count(*) FROM findings").fetchone()[0], 1)
