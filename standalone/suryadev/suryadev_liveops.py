@@ -42,10 +42,10 @@ def worker_note(root, state, interval, reason="", *, next_check_at=None, last_re
     })
 
 
-def _safe_read(root, name):
+def _safe_read(root, name, *, max_bytes=4096):
     path = Path(root).resolve() / name
     try:
-        if path.stat().st_size > 4096:
+        if path.stat().st_size > max_bytes:
             return {}
         obj = json.loads(path.read_text(encoding="utf-8"))
         return obj if isinstance(obj, dict) else {}
@@ -114,14 +114,14 @@ def operations_snapshot(db, root):
                  "queued_at": created, "scheduled_at": None}
                 for job,url,created in queue_rows]
     last = state.get("last_result") if fresh else None
-    capacity = _safe_read(root, "capacity-runtime.json")
+    capacity = _safe_read(root, "capacity-runtime.json", max_bytes=16384)
     capacity_age = now - float(capacity.get("sample_time") or 0)
     if not (0 <= capacity_age <= 45):
         capacity = {"state":"offline", "safe":False, "max_total":0,
                     "limits":{k:0 for k in ("website","youtube","pdf")},
                     "active_total":0, "active":{k:0 for k in ("website","youtube","pdf")},
                     "reason":"No recent scheduler sample"}
-    netra = _safe_read(root, "garudanetra-runtime.json")
+    netra = _safe_read(root, "garudanetra-runtime.json", max_bytes=16384)
     browser_age = now - float(netra.get("heartbeat_at") or 0)
     if not (0 <= browser_age <= 20) or netra.get("state") != "running":
         netra = {"state":"offline", "open_tabs":0, "tabs":[],
