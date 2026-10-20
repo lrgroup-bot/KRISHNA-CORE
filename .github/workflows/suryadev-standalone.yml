@@ -27,6 +27,10 @@ jobs:
         working-directory: standalone/suryadev
         run: python -m unittest discover -s tests -v
 
+      - name: Verify installer diagnostic test gate
+        working-directory: standalone/suryadev
+        run: python install_test_gate.py --source .
+
       - name: Validate Windows laptop preflight PowerShell syntax
         if: runner.os == 'Windows'
         shell: pwsh
