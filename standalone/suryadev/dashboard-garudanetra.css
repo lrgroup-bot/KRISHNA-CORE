@@ -47,3 +47,9 @@
 
 .netra-access-note{margin:11px 0 0;padding:8px 10px;font-size:11px;line-height:1.5;color:#765378;background:#fff8fb;border:1px solid #f4dce8;border-radius:10px}
 .netra-access-note.rate-limited{background:#fff2e7;color:#925a27;border-color:#efc7a0}
+
+.netra-continuity{margin:14px 0 17px;border-radius:12px;border:1px solid #d9e3f8;
+  background:#f6f9ff;padding:12px 15px;display:flex;flex-wrap:wrap;gap:8px;
+  align-items:baseline;font-size:12px;line-height:1.5;color:#3e5375}
+.netra-continuity strong{font-weight:850;color:#263c68}
+.netra-continuity span{flex:1;min-width:240px}
