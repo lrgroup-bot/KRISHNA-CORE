@@ -201,6 +201,42 @@ def _checklist(task, evidence_state):
     return stages
 
 
+def _queue_diagnosis(root):
+    """Explain queued work without pretending to inspect the laptop process.
+
+    A stale heartbeat proves only that no *recent heartbeat* was recorded;
+    an unrelated or stuck process could still be holding the worker lock.
+    """
+    from suryadev_liveops import _safe_read
+    record = _safe_read(root, "worker-runtime.json")
+    heartbeat = record.get("heartbeat_at")
+    try:
+        poll_interval = max(10, min(3600, int(record.get("interval_seconds", 60))))
+        age = time.time() - float(heartbeat)
+    except (TypeError, ValueError):
+        age = float("inf")
+        poll_interval = 60
+    fresh = 0 <= age < max(180, poll_interval * 3)
+    state = record.get("state", "offline") if fresh else "offline"
+    if state == "offline":
+        return {"worker_state": "offline",
+                "message": ("No recent SURYADEV learning-worker heartbeat. "
+                            "The dashboard is read-only and cannot execute queued tasks. "
+                            "Check for a stopped or stalled mission before launching another worker.")}
+    if state == "stopped":
+        return {"worker_state": "stopped",
+                "message": ("The learning worker last reported stopped. "
+                            "Run either the mission or the worker, not both.")}
+    if state == "paused":
+        why = str(record.get("reason") or "Resource admission paused")[:160]
+        return {"worker_state": "paused",
+                "message": "Worker paused new tasks: " + why}
+    return {"worker_state": state,
+            "message": ("Worker heartbeat present (" + state +
+                        "), but this assignment is still queued. "
+                        "It will be claimed when scheduling and hardware admission allow it.")}
+
+
 def task_detail(db, root, job_id):
     if not isinstance(job_id, int) or job_id < 1:
         raise ValueError("invalid task ID")
@@ -225,6 +261,12 @@ def task_detail(db, root, job_id):
                 provenance = {}
     task["coverage"] = provenance
     task["steps"] = _checklist(task, state)
+    task["queue_diagnosis"] = _queue_diagnosis(root) if task["status"] == "queued" else None
+    if task["queue_diagnosis"]:
+        for step in task["steps"]:
+            if step["name"] == "Worker execution":
+                step["detail"] = task["queue_diagnosis"]["message"]
+                break
     if provenance.get("pages_total"):
         task["steps"].insert(4, {
             "name": "PDF page text extraction",
