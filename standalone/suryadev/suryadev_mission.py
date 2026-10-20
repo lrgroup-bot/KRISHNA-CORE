@@ -13,6 +13,7 @@ import time
 from suryadev import Library
 from suryadev_feeder import read_plan, FEED_STATE
 from suryadev_continuity import ContinuityFeeder
+from suryadev_mission_renewal import renewal_tick
 from suryadev_liveops import atomic_json, worker_note
 from suryadev_lock import worker_lock
 from suryadev_parallel import AdaptiveResearchWorkers
@@ -75,6 +76,9 @@ def _run_research_session(lib, adaptive, plan_path, root, deadline,
             update = adaptive.pump()
             for job_result in update["finished"]:
                 print(json.dumps({"work":job_result}, ensure_ascii=False), flush=True)
+            renewal_tick(lib, youtube_blocked=(
+                adaptive.youtube_access["state"] == "rate_limited"),
+                session_ends_at=deadline)
             interval = 2 if update["capacity"]["active_total"] else check_seconds
             time.sleep(max(0, min(interval, deadline-time.time(),
                                    feeder.next_due-time.time())))
