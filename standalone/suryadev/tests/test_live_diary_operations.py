@@ -11,6 +11,7 @@ from suryadev_task_details import diary_day, diary_days, list_tasks, validate_da
 from suryadev_liveops import (operations_snapshot, connection_indicators,
                              atomic_json, READER_FILE, worker_note)
 from suryadev_bridge import authorized, private_address, load_token
+from suryadev_core_reader import validate_endpoint
 
 
 class DiaryAndOperationsTests(unittest.TestCase):
@@ -110,6 +111,21 @@ class BridgeAuthTests(unittest.TestCase):
             with self.subTest(address=address):
                 with self.assertRaises(ValueError):
                     private_address(address)
+
+    def test_core_reader_rejects_unpinned_and_public_endpoints(self):
+        fingerprint = "a" * 64
+        url, pin = validate_endpoint("https://192.168.1.50:8770/api/operations", fingerprint)
+        self.assertEqual(url.hostname, "192.168.1.50")
+        self.assertEqual(pin, fingerprint)
+        for endpoint in ("http://192.168.1.50:8770/api/live",
+                         "https://8.8.8.8/api/live",
+                         "https://192.168.1.50/control/start",
+                         "https://me:pass@192.168.1.50/api/live"):
+            with self.subTest(endpoint=endpoint):
+                with self.assertRaises(ValueError):
+                    validate_endpoint(endpoint, fingerprint)
+        with self.assertRaises(ValueError):
+            validate_endpoint("https://192.168.1.50/api/live", "fake-pin")
 
     def test_token_from_file_without_logging_it(self):
         with tempfile.TemporaryDirectory() as directory:
