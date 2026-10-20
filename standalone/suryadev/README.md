@@ -705,3 +705,47 @@ All source jobs use a separate SQLite test directory during this check.
 The UI script and stylesheet must be served by the local dashboard's
 asset routes, and the unit suite enforces those routes to avoid a blank
 counter display.
+
+
+### v6.1: dashboard-only state is not a hardware failure
+
+When you open only `python suryadev_extras.py ... dashboard --port 8769`,
+the dashboard has no active research worker. Previous versions displayed
+`0 allowed` / `CPU unavailable` / `New tasks paused for laptop safety`
+even when the laptop had plenty of resources; default 60-second worker
+intervals could also cause the scheduler's last report to expire after
+only 45 seconds.
+
+The updated Garudanetra workspaces differentiate:
+
+- **Learning worker offline — dashboard is running:** read-only CPU/RAM
+  data from the laptop can still be displayed, but no source tab is
+  launched. The potential slots estimate is not an active scheduler.
+- **Learning worker ready — approved queue is empty:** worker is
+  operational, but there are no new source jobs to start.
+- **Worker starting — awaiting fresh capacity readings:** the worker
+  heartbeat exists but the scheduler has not yet published new readings.
+- **New research paused by live hardware guard:** actual fresh CPU, RAM,
+  GPU or storage thresholds prevent launching another job.
+
+A healthy worker polling every 60 seconds now keeps its capacity report
+valid across the normal idle interval. `/api/operations` also returns
+`worker_running`, `hardware` (read-only snapshot if worker offline),
+`research_plan` (whether `learning-plan.json` exists and is valid), and
+`capacity_sample_age_seconds` when recent. It does **not** start a
+worker or create a research plan on its own.
+
+The installed dashboard identifies this fix via:
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8769/api/ui-version"
+```
+
+Version `2026-10-21-v6.1-worker-status`.
+
+If `learning-plan.json` is missing in the **active data folder**,
+manually review and copy `learning-plan.example.json` into it. Before
+running a six-hour mission, make sure no other SURYADEV worker or
+mission holds that same data root's worker lock. Do not delete the lock
+file or terminate unrelated Python processes. Run either the ordinary
+worker **or** the mission, not both.
