@@ -189,28 +189,49 @@ python suryadev_extras.py --data "$env:USERPROFILE\SURYADEV-DATA" dashboard --po
 
 The `--data` option is a global argument and must appear before the subcommand. The dashboard runs on laptop loopback only; visit `http://127.0.0.1:8769/` on that laptop.
 
-## Learning Control Room (October 2026)
+## Live, colorful Learning Mission Control (October 2026)
 
-The read-only dashboard now displays the 100 newest assigned jobs, their source URLs,
-status, assigned/updated timestamps, errors, saved findings, SHA-256 evidence digests,
-and summary provenance. Search filters source, title, status, and saved learning text.
-It refreshes every 30 seconds and binds only to 127.0.0.1. It never starts a job
-or sends information to KRISHNA by itself.
+The laptop-only dashboard at http://127.0.0.1:8769/ uses a responsive
+violet/coral/mint/sky theme, a mission overview, CPU/RAM/disk/GPU
+telemetry when supported, YouTube/PDF/website counters, and a date-wise diary.
+It polls live telemetry every 5 seconds and the assignment ledger every
+10 seconds; it is not an automatic worker scheduler.
 
-Run on the D-drive laptop after pulling and reinstalling:
+**All assignments are available**, not only the newest 40. Filter by source
+type, worker state, source URL, title, or task number; use Previous/Next to
+page through the complete local SQLite history. Clicking any task opens a
+read-only inspector showing recorded timestamps, source, summary method,
+summary and excerpt, error details, the SHA-256 digest and its evidence file
+verification, and a per-stage done/pending/blocked/unverified checklist.
+The detail updates every 15 seconds without discarding the reading position.
+
+The local read-only endpoints are:
+- `GET /api/live` — high-level status, sources, diary, recent summary and resources.
+- `GET /api/tasks?offset=0&limit=25&q=&kind=&status=` — bounded history, max page size 50.
+- `GET /api/tasks/{integer_id}` — per-task record and evidence verification.
+
+**Important honesty boundary:** A worker status of `done` means a processing
+result was stored, **not** that an entire video was watched, every PDF page
+was read, all website text was captured, or BRAHMAGYAN accepted the knowledge.
+Those checks remain explicitly unverified or pending. PDF ingestion and
+complete YouTube transcript/timeline/visual coverage verification still need
+implementation. Legacy findings remain `legacy_unverified` when their original
+method was not recorded. The dashboard does not start jobs, send data to
+KRISHNA, open any network-facing listener or authenticate an unpaired node.
+
+Run from your actual D-drive checkout:
 
 ```powershell
-cd D:\\Work\\SURYADEV-SOURCE
+cd "D:\\Work\\SURYADEV-SOURCE"
 git pull --ff-only origin feat/suryadev-standalone-laptop-20261019
-cd D:\\Work\\SURYADEV-SOURCE\\standalone\\suryadev
-powershell -NoProfile -ExecutionPolicy Bypass -File .\\install-windows.ps1 -InstallDir D:\\Work\\SURYADEV -DataDir D:\\Work\\SURYADEV-DATA
-cd D:\\Work\\SURYADEV
-python suryadev_extras.py --data D:\\Work\\SURYADEV-DATA dashboard --port 8769
+cd "D:\\Work\\SURYADEV-SOURCE\\standalone\\suryadev"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\\install-windows.ps1 -InstallDir "D:\\Work\\SURYADEV" -DataDir "D:\\Work\\SURYADEV-DATA"
+cd "D:\\Work\\SURYADEV"
+python suryadev_extras.py --data "D:\\Work\\SURYADEV-DATA" dashboard --port 8769
 ```
 
-Previously saved findings are labeled `legacy_unverified`, because their original
-summarization method was not recorded. New Ollama failures cause a failed job
-instead of silent extractive fallback. AI summaries are still unverified claims,
-not BRAHMAGYAN-approved knowledge. Secure KRISHNA enrollment and the existing
-SURYDEV distributed-bundle protocol are **not yet integrated** into this laptop
-worker; no automatic handoff or 24/7 learning is claimed.
+The installer runs `python -m unittest discover -s tests -v` in source
+before copying. New task-inspection regression tests cover pagination,
+filtering, finding evidence integrity and honest completion labels.
+The current revisions have not yet been validated by an interactive
+Chromium test on the user's Windows laptop.
