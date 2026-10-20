@@ -186,6 +186,9 @@ class DashboardV6Contract(unittest.TestCase):
         self.assertIn("openDetail(job.id)",js)
         self.assertIn('src="/dashboard-garudanetra.js"',html)
         self.assertIn('href="/dashboard-garudanetra.css"',html)
+        assets=(folder/"suryadev_extras.py").read_text(encoding="utf-8")
+        self.assertIn('"/dashboard-garudanetra.js": "dashboard-garudanetra.js"', assets)
+        self.assertIn('"/dashboard-garudanetra.css": "dashboard-garudanetra.css"', assets)
 
 
 if __name__ == "__main__":
