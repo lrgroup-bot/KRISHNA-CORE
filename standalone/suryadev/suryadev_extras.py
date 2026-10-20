@@ -21,6 +21,7 @@ from suryadev import Library, summarize
 from suryadev_resources import snapshot, admission
 from suryadev_parallel import AdaptiveResearchWorkers
 from suryadev_continuity import ContinuityFeeder
+from suryadev_mission_renewal import renewal_tick
 from suryadev_sources import breakdown
 from suryadev_task_details import list_tasks, task_detail, diary_days, diary_day
 from suryadev_liveops import operations_snapshot, worker_note
@@ -364,6 +365,11 @@ def work_loop(lib, interval, use_ollama, model, *,
                 update = adaptive.pump()
                 for result in update["finished"]:
                     print(json.dumps(result, ensure_ascii=False), flush=True)
+                if feeder:
+                    # Prepare a six-hour request when eligible research runs low.
+                    # This is a LOCAL OUTBOX, not a claimed KRISHNA delivery.
+                    renewal_tick(lib, youtube_blocked=(
+                        adaptive.youtube_access["state"] == "rate_limited"))
                 # One worker can both discover approved sources and process them;
                 # no second feeder process or duplicate worker is required.
                 wait = 2 if update["capacity"]["active_total"] else interval
