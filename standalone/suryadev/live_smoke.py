@@ -17,6 +17,10 @@ import traceback
 
 from suryadev import Library
 from suryadev_task_details import task_detail
+from suryadev_ingest import caption_cues, caption_report
+from suryadev import validate_url, StrictRedirect
+from suryadev_extras import import_transcript
+from urllib.request import Request, build_opener, ProxyHandler
 
 TEST_SOURCES = (
     ("website", "https://www.python.org/about/"),
@@ -24,6 +28,7 @@ TEST_SOURCES = (
     ("pdf_multi", "https://raw.githubusercontent.com/tinytoolkit-org/pdf-sample-files/master/out/sample-10-pages.pdf"),
     ("pdf_scanned", "https://raw.githubusercontent.com/tinytoolkit-org/pdf-sample-files/master/out/sample-scanned.pdf"),
     ("youtube", "https://www.youtube.com/watch?v=mgBpcQRDtl0"),
+    ("publisher_srt", "https://cdn.cs50.net/2017/fall/shorts/python/lang/en/python.srt"),
 )
 
 
@@ -72,6 +77,45 @@ def verify_result(detail, kind):
     return False, "Unknown source kind"
 
 
+
+def publisher_transcript_smoke(lib, root, url):
+    """Publisher-hosted real timed subtitles; NOT a successful YouTube video fetch."""
+    validate_url(url)
+    opener = build_opener(ProxyHandler({}), StrictRedirect())
+    with opener.open(Request(url, headers={"Accept":"text/plain",
+                                              "User-Agent":"SuryadevStandalone/0.3"}),
+                     timeout=20) as response:
+        raw = response.read(2_000_001)
+    if not raw or len(raw) > 2_000_000:
+        raise ValueError("Publisher transcript empty or exceeds the 2 MB limit")
+    cues = caption_cues(raw.decode("utf-8-sig"))
+    if len(cues) < 30:
+        raise RuntimeError("Too few timestamped publisher cues")
+    span = caption_report(cues, max(end for _,end,_ in cues))
+    filename = Path(root) / "cs50-official-subtitles.srt"
+    filename.write_bytes(raw)
+    learning = import_transcript(lib, filename,
+        "https://www.youtube.com/watch?v=mgBpcQRDtl0", use_ollama=False)
+    saved = lib.db.execute("SELECT job_id FROM findings WHERE sha256=?",
+                           (learning["sha256"],)).fetchone()
+    if not saved:
+        raise RuntimeError("Publisher captions did not reach the finding ledger")
+    detail = task_detail(lib.db, root, saved[0])
+    if detail["evidence_state"] != "verified" or detail["complete_verified"]:
+        raise RuntimeError("Transcript evidence integrity failed or video falsely verified")
+    return {
+        "status": "PASS_TRANSCRIPT_ONLY", "evidence_state":"verified",
+        "detail": f"Real CS50 publisher transcript: {len(cues)} timestamped cues; "
+                  "imported and hash-verified. YouTube download/visuals NOT verified.",
+        "coverage": {
+            "cue_count":len(cues), "last_cue_seconds":span["last_cue_seconds"],
+            "full_video_visuals_verified":False,
+            "full_audio_coverage_verified":False,
+            "learning_mode":"official_publisher_subtitles_manual_import",
+        },
+    }
+
+
 def run_real_sources():
     results = []
     with tempfile.TemporaryDirectory(prefix="suryadev-live-smoke-") as root:
@@ -84,6 +128,12 @@ def run_real_sources():
                         "duration_seconds": 0, "evidence_state": "not_recorded",
                         "detail": "", "coverage": {}}
                 try:
+                    if kind == "publisher_srt":
+                        item.update(publisher_transcript_smoke(lib, root, url))
+                        item["duration_seconds"] = round(time.monotonic() - started, 2)
+                        results.append(item)
+                        print("LIVE SOURCE RESULT:", json.dumps(item, ensure_ascii=False), flush=True)
+                        continue
                     job_id = lib.add(url)
                     result = lib.run_next(use_ollama=False)
                     detail = task_detail(lib.db, root, job_id)
@@ -132,6 +182,7 @@ def main():
           "BLOCKED_EXTERNAL:", sum(s == "BLOCKED_EXTERNAL" for s in by_kind.values()),
           "FAILED:", sum(s == "FAILED" for s in by_kind.values()))
     print("EXPECTED_REJECTION:", sum(s == "PASS_EXPECTED_REJECTION" for s in by_kind.values()))
+    print("REAL_PUBLISHER_TRANSCRIPTS:", sum(s == "PASS_TRANSCRIPT_ONLY" for s in by_kind.values()))
     # A provider/network block is a testing limitation; report explicitly.
     # Actual extraction/checksum defects fail CI rather than being hidden.
     if any(r["status"] == "FAILED" for r in results):
