@@ -194,6 +194,13 @@ class Library:
         row = self.db.execute("UPDATE jobs SET status='running',updated=? WHERE id=(SELECT id FROM jobs WHERE status='queued' ORDER BY id LIMIT 1) RETURNING id,url", (time.time(),)).fetchone()
         self.db.commit()
         if not row:
+            # Revisit eligible older temporary work copies even when the queue
+            # is empty; verified retained evidence is never removed.
+            try:
+                from suryadev_cleanup import cleanup_completed
+                cleanup_completed(self.db, self.root)
+            except (OSError, ValueError, RuntimeError):
+                pass
             return None
         job_id, url = row
         try:
