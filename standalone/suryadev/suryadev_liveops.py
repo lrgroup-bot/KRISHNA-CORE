@@ -121,6 +121,45 @@ def operations_snapshot(db, root):
                     "limits":{k:0 for k in ("website","youtube","pdf")},
                     "active_total":0, "active":{k:0 for k in ("website","youtube","pdf")},
                     "reason":"No recent scheduler sample"}
+    # The dashboard may run by itself. Sample *read-only* hardware metrics
+    # even if no worker has recently produced a capacity receipt. This is
+    # informational only: an offline worker still has zero active job slots.
+    if capacity.get("state") == "offline":
+        try:
+            from suryadev_resources import snapshot
+            reading = snapshot(root, sample_seconds=0.1)
+            from suryadev_parallel import plan_capacity
+            potential = plan_capacity(reading)
+        except (OSError, RuntimeError, ValueError, TypeError) as exc:
+            reading = {"available": False, "reason": type(exc).__name__}
+            potential = {"max_total": 0, "safe": False,
+                         "reason": "No reliable laptop resource reading"}
+        hardware = {"source": "dashboard_read_only", **reading,
+                    "potential_total_if_worker_started": potential.get("max_total", 0),
+                    "potential_reason": potential.get("reason", ""),
+                    "note": "Read-only laptop snapshot: no background research or worker started."}
+    else:
+        hardware = {"source": "worker_scheduler",
+                    "available": capacity.get("safe") is not None,
+                    "cpu_percent": capacity.get("cpu_percent"),
+                    "ram_percent": capacity.get("ram_percent"),
+                    "disk_free_gb": capacity.get("disk_free_gb"),
+                    "potential_total_if_worker_started": capacity.get("max_total", 0)}
+
+    # Operator hint only; do not create an autonomous research plan and do
+    # not confuse an absent plan with a hardware admission failure.
+    plan_file = Path(root).resolve() / "learning-plan.json"
+    plan = {"present": plan_file.is_file(), "valid": False, "approved_urls": 0,
+            "approved_feeds": 0}
+    if plan["present"]:
+        try:
+            from suryadev_feeder import read_plan
+            approved = read_plan(plan_file)
+            plan.update(valid=True,
+                        approved_urls=len(approved["approved_urls"]),
+                        approved_feeds=len(approved["approved_feeds"]))
+        except (OSError, ValueError, TypeError) as exc:
+            plan["error"] = "Research plan needs review: " + str(exc)[:150]
     netra = _safe_read(root, "garudanetra-runtime.json", max_bytes=16384)
     browser_age = now - float(netra.get("heartbeat_at") or 0)
     if not (0 <= browser_age <= 20) or netra.get("state") != "running":
@@ -145,6 +184,7 @@ def operations_snapshot(db, root):
         "connections": connection_indicators(root),
         "feeder": _safe_read(root, "feeder-runtime.json"),
         "capacity": capacity, "garudanetra": netra,
+        "hardware": hardware, "research_plan": plan,
         "processing": {
             "website": {"running":summary["website"]["running"],
                         "queued":summary["website"]["queued"],
