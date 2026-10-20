@@ -16,12 +16,53 @@ import time
 from suryadev import Library
 from suryadev_sources import source_kind
 from suryadev_resources import snapshot
-from suryadev_liveops import atomic_json, worker_note
+from suryadev_liveops import atomic_json, worker_note, _safe_read
 from suryadev_garudanetra import GarudanetraLite
 
 CAPACITY_FILE = "capacity-runtime.json"
 KINDS = ("website", "youtube", "pdf")
 MAX_PARALLEL = 6
+YOUTUBE_ACCESS_FILE = "youtube-access-state.json"
+YOUTUBE_RATE_LIMIT_PAUSE_SECONDS = 3600
+
+
+def youtube_rate_limited(error):
+    """Classify provider HTTP 429; never retry this request automatically."""
+    msg = str(error or "").casefold()
+    return "http 429" in msg or "http error 429" in msg or "too many requests" in msg
+
+
+def youtube_access(root, now=None):
+    """Bound persisted retry window to prevent repeatedly hitting an HTTP 429.
+
+    Reports 429 only for requests actually observed by the current worker or
+    an earlier worker. This does not signal the provider has restored access.
+    """
+    now = time.time() if now is None else now
+    data = _safe_read(root, YOUTUBE_ACCESS_FILE)
+    try:
+        until = float(data.get("cooldown_until", 0))
+    except (TypeError, ValueError, OverflowError):
+        until = 0.0
+    # Malformed data must not impose an indefinite ban or cause launches.
+    if not math.isfinite(until) or until > now + YOUTUBE_RATE_LIMIT_PAUSE_SECONDS:
+        until = now + YOUTUBE_RATE_LIMIT_PAUSE_SECONDS
+    blocked = until > now
+    return {"state": "rate_limited" if blocked else "ready",
+            "cooldown_until": round(until, 2) if blocked else None,
+            "reason": ("YouTube HTTP 429; awaiting rate-limit cooldown. "
+                       "Previously failed jobs require an operator-approved retry."
+                       if blocked else "No currently recorded YouTube cooldown.")}
+
+
+def record_youtube_rate_limit(root, now=None):
+    now = time.time() if now is None else now
+    result = {"state": "rate_limited",
+              "recorded_at": now,
+              "cooldown_until": now + YOUTUBE_RATE_LIMIT_PAUSE_SECONDS,
+              "reason": "YouTube subtitle HTTP 429. Pause new caption requests for one hour."}
+    atomic_json(root, YOUTUBE_ACCESS_FILE, result)
+    return result
 
 
 def plan_capacity(reading, *, logical_cpus=None):
@@ -89,6 +130,7 @@ class AdaptiveResearchWorkers:
         self.last_result = None
         self.rotation = 0
         self.closed = False
+        self.youtube_access = youtube_access(self.root)
 
     def _work(self, kind):
         lib = Library(self.root)
@@ -109,6 +151,11 @@ class AdaptiveResearchWorkers:
             except Exception as exc:
                 result = {"status":"worker_error", "kind":kind,
                           "error":type(exc).__name__ + ": " + str(exc)[:180]}
+            if (kind == "youtube" and isinstance(result, dict)
+                    and result.get("status") in ("failed", "worker_error")
+                    and youtube_rate_limited(result.get("error"))):
+                # Only an observed provider 429 triggers the shared cooldown.
+                self.youtube_access = record_youtube_rate_limit(self.root)
             if result is not None:
                 self.last_result = result
                 results.append(result)
@@ -120,6 +167,13 @@ class AdaptiveResearchWorkers:
         finished = self._reap()
         reading = telemetry if telemetry is not None else snapshot(self.root)
         capacity = plan_capacity(reading)
+        # The cooldown is on disk to remain effective across worker restarts.
+        self.youtube_access = youtube_access(self.root)
+        if self.youtube_access["state"] == "rate_limited":
+            capacity["limits"]["youtube"] = 0
+        else:
+            # One remote subtitle request at a time regardless of spare CPU.
+            capacity["limits"]["youtube"] = min(1, capacity["limits"]["youtube"])
         active = {k:0 for k in KINDS}
         for kind in self.futures.values():
             active[kind] += 1
@@ -159,15 +213,20 @@ class AdaptiveResearchWorkers:
                 queued[choice] -= 1
                 launched.append(choice)
                 self.rotation = (KINDS.index(choice) + 1) % len(KINDS)
+        youtube_blocked = (self.youtube_access["state"] == "rate_limited"
+                           and queued["youtube"] > 0)
         state = ("busy" if self.futures else "paused" if not capacity["safe"]
-                 else "paused" if self.browser_error and queued["website"] else "idle")
+                 else "paused" if self.browser_error and queued["website"]
+                 else "paused" if youtube_blocked else "idle")
         detail = (self.browser_error if self.browser_error and queued["website"] else
                   capacity["reason"] if not capacity["safe"] else
+                  self.youtube_access["reason"] if youtube_blocked else
                   f"{len(self.futures)} learning jobs active · {sum(queued.values())} queued")
         record = {**capacity,
                   "sample_time":time.time(), "state":state,
                   "engine":"Garudanetra Lite / Playwright Chromium",
                   "browser_error":self.browser_error or None,
+                  "youtube_access":self.youtube_access,
                   "active":active, "queued":queued,
                   "launched_this_cycle":launched,
                   "active_total":len(self.futures),
