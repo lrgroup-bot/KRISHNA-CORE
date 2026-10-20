@@ -116,7 +116,12 @@ def operations_snapshot(db, root):
     last = state.get("last_result") if fresh else None
     capacity = _safe_read(root, "capacity-runtime.json", max_bytes=16384)
     capacity_age = now - float(capacity.get("sample_time") or 0)
-    if not (0 <= capacity_age <= 45):
+    # The worker intentionally sleeps up to --interval seconds while idle.
+    # A fixed 45s expiry incorrectly reported 'worker offline / zero slots'
+    # every cycle of a healthy default 60s worker.
+    capacity_ttl = max(45, min(300, interval * 2 + 10))
+    worker_running = fresh and state.get("state") not in ("stopped", "offline")
+    if not worker_running or not (0 <= capacity_age <= capacity_ttl):
         capacity = {"state":"offline", "safe":False, "max_total":0,
                     "limits":{k:0 for k in ("website","youtube","pdf")},
                     "active_total":0, "active":{k:0 for k in ("website","youtube","pdf")},
@@ -185,6 +190,8 @@ def operations_snapshot(db, root):
         "feeder": _safe_read(root, "feeder-runtime.json"),
         "capacity": capacity, "garudanetra": netra,
         "hardware": hardware, "research_plan": plan,
+        "worker_running": worker_running, "capacity_sample_age_seconds": (
+            round(capacity_age, 1) if capacity.get("state") != "offline" else None),
         "processing": {
             "website": {"running":summary["website"]["running"],
                         "queued":summary["website"]["queued"],
