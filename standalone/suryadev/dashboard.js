@@ -381,6 +381,12 @@ function renderOperations(data) {
   }
   if (!(data.upcoming || []).length)
     upcoming.append(textNode("div", "No queued tasks in the current ledger.", "empty-state"));
+  const feeder = data.feeder || {};
+  $("feeder-status").textContent = feeder.last_run
+    ? "Six-hour research feeder · Last discovery: " + dateTime(feeder.last_run) +
+      " · New sources: " + format(feeder.added_total) +
+      " · Next refresh: " + (feeder.next_run ? dateTime(feeder.next_run) : "not scheduled")
+    : "Six-hour research feeder is not running. Only explicit queued sources can be learned.";
   $("operations-note").textContent = worker.note || "No forecast available.";
   const connections = data.connections || {};
   for (const key of ["krishna","brahmagyan","rishi"]) {
