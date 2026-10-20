@@ -75,3 +75,10 @@ main{min-width:0;flex:1;max-width:1660px;padding:32px clamp(20px,3.35vw,56px) 28
 .date-main-label{display:flex;flex-direction:column;gap:4px;min-width:195px;font-size:11px;font-weight:850;color:#584198}
 .date-main-label input{min-height:44px;padding:9px 12px;background:#fff;color:#33255a;border:1px solid #bfa9e9;border-radius:11px;font-size:14px}
 .date-main-btn{min-height:44px;padding:10px 13px;border:0;border-radius:11px;background:#7750d5;color:#fff;font-size:12px;font-weight:850}
+
+.date-main-btn.light{background:#f0eaff;color:#6446b5;border:1px solid #ddcef8}
+.date-main-btn.secondary{background:#ffe8f1;color:#a43b70;border:1px solid #f8cee0}
+.date-main-btn:hover{filter:brightness(1.06)}
+.date-selection-summary{display:flex;flex-wrap:wrap;align-items:center;gap:9px 16px;border:1px solid #e4d6f6;background:#f4efff;padding:12px 13px;border-radius:13px;font-size:12px}
+.date-selection-summary strong{color:#643bae}.date-selection-summary>span{flex:1 1 200px;color:#696581}.date-report-link{color:#633cb6;font-weight:850;text-decoration:none}
+@media(max-width:750px){.date-center{padding:16px;margin-top:13px}.date-center-heading h2{font-size:19px}.date-center-controls{align-items:stretch;gap:8px}.date-main-label{flex:1 1 100%}.date-main-btn{flex:1 1 120px;min-height:41px}.date-selection-summary{align-items:start}}
