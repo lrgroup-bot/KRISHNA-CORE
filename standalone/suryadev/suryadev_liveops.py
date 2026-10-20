@@ -200,6 +200,7 @@ def operations_snapshot(db, root):
         "connections": connection_indicators(root),
         "feeder": _safe_read(root, "feeder-runtime.json"),
         "continuity": _safe_read(root, "continuity-runtime.json", max_bytes=16384),
+        "mission_renewal": _safe_read(root, "krishna-mission-renewal.json", max_bytes=8192),
         "publisher_recovery": _safe_read(root, "publisher-recovery-runtime.json",
                                          max_bytes=8192),
         "capacity": capacity, "garudanetra": netra,
