@@ -190,8 +190,24 @@ class Library:
         self.db.commit()
         return cur.lastrowid
 
-    def run_next(self, use_ollama=True, model="qwen3.5:9b"):
-        row = self.db.execute("UPDATE jobs SET status='running',updated=? WHERE id=(SELECT id FROM jobs WHERE status='queued' ORDER BY id LIMIT 1) RETURNING id,url", (time.time(),)).fetchone()
+    def run_next(self, use_ollama=True, model="qwen3.5:9b", *, kind=None,
+                 garudanetra=None, summary_lock=None):
+        if kind is None:
+            row = self.db.execute(
+                "UPDATE jobs SET status='running',updated=? "
+                "WHERE id=(SELECT id FROM jobs WHERE status='queued' ORDER BY id LIMIT 1) "
+                "RETURNING id,url", (time.time(),)).fetchone()
+        else:
+            from suryadev_sources import source_kind
+            if kind not in {"website", "youtube", "pdf"}:
+                raise ValueError("Unknown requested research lane")
+            selected = next((job_id for job_id, source in
+                             self.db.execute("SELECT id,url FROM jobs WHERE status='queued' ORDER BY id")
+                             if source_kind(source) == kind), None)
+            row = self.db.execute(
+                "UPDATE jobs SET status='running',updated=? "
+                "WHERE id=? AND status='queued' RETURNING id,url",
+                (time.time(), selected)).fetchone() if selected is not None else None
         self.db.commit()
         if not row:
             # Revisit eligible older temporary work copies even when the queue
@@ -206,7 +222,8 @@ class Library:
         try:
             from suryadev_ingest import ingest_source
             from suryadev_summary import summarize_all
-            title, text, coverage = ingest_source(url)
+            title, text, coverage = ingest_source(
+                url, garudanetra=garudanetra, data_root=self.root, job_id=job_id)
             from suryadev_cleanup import stage_extracted_text
             staged_sha = stage_extracted_text(self.root, job_id, text)
             evidence = save_evidence(self.root, text, source=url, kind=coverage["kind"])
@@ -221,8 +238,15 @@ class Library:
                           "source_characters": len(text), "chunks_total": 0,
                           "chunks_summarized": 0}
             else:
-                summary, report = summarize_all(
-                    text, model=model, use_ollama=use_ollama, summarize_fn=summarize)
+                if use_ollama and summary_lock is not None:
+                    # Multiple source acquisitions run concurrently, but one
+                    # expensive local LLM generation runs at a time.
+                    with summary_lock:
+                        summary, report = summarize_all(
+                            text, model=model, use_ollama=True, summarize_fn=summarize)
+                else:
+                    summary, report = summarize_all(
+                        text, model=model, use_ollama=use_ollama, summarize_fn=summarize)
             coverage.update(report)
             coverage["evidence_sha256"] = digest
             coverage["extraction_completed"] = True
