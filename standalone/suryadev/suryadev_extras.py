@@ -20,6 +20,7 @@ from suryadev import Library, summarize
 from suryadev_resources import snapshot, admission
 from suryadev_sources import breakdown
 from suryadev_task_details import list_tasks, task_detail, diary_days, diary_day
+from suryadev_liveops import operations_snapshot, worker_note
 from mimetypes import guess_type
 from suryadev_lock import worker_lock
 from suryadev_evidence import save_evidence, backup_database, verify_evidence
@@ -96,6 +97,13 @@ def serve(lib, port=8769):
                 mime = "text/html; charset=utf-8" if route.path == "/" else (
                     "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
                 return self.respond(200, content, mime)
+            if route.path == "/api/operations":
+                reader = Library(lib.root)
+                try:
+                    payload = operations_snapshot(reader.db, lib.root)
+                finally:
+                    reader.db.close()
+                return self.respond(200, json.dumps(payload), "application/json")
             if route.path == "/api/diary":
                 args = parse_qs(route.query)
                 try:
@@ -264,16 +272,33 @@ def work_loop(lib, interval, use_ollama, model):
         raise ValueError("interval must be at least 10 seconds")
     lib.recover()
     print("SURYDEV worker started. Ctrl+C to stop.", flush=True)
-    while True:
-        allowed, reason, _ = admission(lib.root)
-        if not allowed:
-            print("SURYADEV paused: " + reason, flush=True)
+    worker_note(lib.root, "starting", interval)
+    try:
+        while True:
+            allowed, reason, _ = admission(lib.root)
+            if not allowed:
+                worker_note(lib.root, "paused", interval, reason,
+                            next_check_at=time.time() + interval)
+                print("SURYADEV paused: " + reason, flush=True)
+                time.sleep(interval)
+                continue
+            worker_note(lib.root, "checking", interval, "Resource admission passed")
+            # The DB's 'running' row identifies the actual assignment, without
+            # guessing video duration, page count, ETA or percent complete.
+            result = lib.run_next(use_ollama, model)
+            if result:
+                print(json.dumps(result, ensure_ascii=False), flush=True)
+            receipt = None if not result else {
+                "job_id": result.get("job_id"), "status": result.get("status"),
+                "title": str(result.get("title", ""))[:140],
+                "error": str(result.get("error", ""))[:140],
+            }
+            worker_note(lib.root, "idle", interval, "Awaiting next queue check",
+                        next_check_at=time.time() + interval, last_result=receipt)
             time.sleep(interval)
-            continue
-        result = lib.run_next(use_ollama, model)
-        if result:
-            print(json.dumps(result, ensure_ascii=False), flush=True)
-        time.sleep(interval)
+    finally:
+        worker_note(lib.root, "stopped", interval, "Worker stopped")
+
 
 def main():
     ap = argparse.ArgumentParser(description="SURYDEV standalone extensions")
