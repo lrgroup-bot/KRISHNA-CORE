@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import gzip
+import io
 import html
 from html.parser import HTMLParser
 import ipaddress
@@ -99,7 +101,7 @@ class StrictRedirect(HTTPRedirectHandler, NoRedirect):
 def fetch_text(url):
     validate_url(url)
     opener = build_opener(ProxyHandler({}), StrictRedirect())
-    request = Request(url, headers={"User-Agent": "SuryadevStandalone/0.1 (approved research)"})
+    request = Request(url, headers={"User-Agent": "SuryadevStandalone/0.1 (approved research)", "Accept-Encoding": "identity"})
     with opener.open(request, timeout=20) as response:
         mime = response.headers.get_content_type()
         if mime not in ("text/html", "text/plain", "application/xhtml+xml"):
@@ -110,7 +112,28 @@ def fetch_text(url):
         raw = response.read(MAX_BYTES + 1)
         if len(raw) > MAX_BYTES:
             raise ValueError("source exceeds size limit")
-        decoded = raw.decode("utf-8", errors="replace")
+        encoding = response.headers.get("Content-Encoding", "identity").lower().strip()
+        if encoding in ("gzip", "x-gzip"):
+            try:
+                with gzip.GzipFile(fileobj=io.BytesIO(raw)) as stream:
+                    decoded_bytes = stream.read(MAX_BYTES + 1)
+            except (OSError, EOFError) as exc:
+                raise ValueError("invalid gzip response") from exc
+        elif encoding in ("identity", ""):
+            decoded_bytes = raw
+        else:
+            raise ValueError("unsupported content encoding: " + encoding[:40])
+        if len(decoded_bytes) > MAX_BYTES:
+            raise ValueError("decompressed source exceeds size limit")
+        charset = response.headers.get_content_charset() or "utf-8"
+        try:
+            decoded = decoded_bytes.decode(charset, errors="replace")
+        except LookupError as exc:
+            raise ValueError("unsupported text charset") from exc
+        if decoded.count(chr(0xfffd)) > max(8, len(decoded) // 100):
+            raise ValueError("response contains excessive undecodable text")
+        if chr(0) in decoded:
+            raise ValueError("binary response cannot be used as research text")
         if mime == "text/plain":
             return url, decoded[:100_000]
         parser = TextExtractor()
