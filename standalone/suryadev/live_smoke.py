@@ -20,6 +20,8 @@ from suryadev_task_details import task_detail
 from suryadev_ingest import caption_cues, caption_report
 from suryadev import validate_url, StrictRedirect
 from suryadev_extras import import_transcript
+from suryadev_publisher import recover_failed_video_from_publisher
+from suryadev_feeder import read_plan
 from urllib.request import Request, build_opener, ProxyHandler
 
 TEST_SOURCES = (
@@ -29,6 +31,7 @@ TEST_SOURCES = (
     ("pdf_scanned", "https://raw.githubusercontent.com/tinytoolkit-org/pdf-sample-files/master/out/sample-scanned.pdf"),
     ("youtube", "https://www.youtube.com/watch?v=mgBpcQRDtl0"),
     ("publisher_srt", "https://cdn.cs50.net/2017/fall/shorts/python/lang/en/python.srt"),
+    ("publisher_auto_fallback", "https://cdn.cs50.net/2017/fall/shorts/python/lang/en/python.srt"),
 )
 
 
@@ -116,6 +119,49 @@ def publisher_transcript_smoke(lib, root, url):
     }
 
 
+def publisher_auto_recovery_smoke(lib, root, transcript_url):
+    """Real direct CS50 CDN subtitle fallback, without a fresh YouTube request."""
+    video="https://www.youtube.com/watch?v=mgBpcQRDtl0"
+    plan_path=Path(root)/"approved-cs50-recovery.json"
+    plan_path.write_text(json.dumps({
+        "approved_urls":[],"approved_feeds":[],
+        "allowed_source_hosts":["cdn.cs50.net"],
+        "approved_publisher_transcripts":[{
+            "video_url":video,"transcript_url":transcript_url}],
+        "max_new_per_cycle":1,"max_queued":5}),encoding="utf-8")
+    plan=read_plan(plan_path)
+    job=lib.add(video)
+    with lib.db:
+        lib.db.execute(
+            "UPDATE jobs SET status='failed',error=?,updated=? WHERE id=?",
+            ("DownloadError: HTTP Error 429: Too Many Requests",
+             time.time()-30,job))
+    result=recover_failed_video_from_publisher(lib,plan,use_ollama=False)
+    if result["status"] != "publisher_transcript_recovered":
+        raise RuntimeError("CS50 publisher recovery not completed: " + str(result))
+    detail=task_detail(lib.db,root,job)
+    report=detail.get("coverage",{})
+    if (detail["evidence_state"] != "verified" or
+            detail.get("complete_verified") is not False or
+            not detail.get("publisher_recovery") or
+            report.get("cue_count",0) < 30 or
+            report.get("youtube_extraction_success") is not False or
+            report.get("full_video_visuals_verified") is not False):
+        raise RuntimeError("Publisher-only recovery verification or provenance failed")
+    return {
+        "status":"PASS_PUBLISHER_RECOVERY_ONLY",
+        "evidence_state":"verified",
+        "detail":"Official publisher timed captions recovered for a previously "
+                 "failed YouTube assignment; no YouTube access, visuals or "
+                 "full audiovisual comprehension verified.",
+        "coverage":{"cue_count":report["cue_count"],
+                    "last_cue_seconds":report["last_cue_seconds"],
+                    "publisher_transcript_only":True,
+                    "youtube_video_verified":False,
+                    "previous_youtube_error_audited":True},
+    }
+
+
 def run_real_sources():
     results = []
     with tempfile.TemporaryDirectory(prefix="suryadev-live-smoke-") as root:
@@ -130,6 +176,12 @@ def run_real_sources():
                 try:
                     if kind == "publisher_srt":
                         item.update(publisher_transcript_smoke(lib, root, url))
+                        item["duration_seconds"] = round(time.monotonic() - started, 2)
+                        results.append(item)
+                        print("LIVE SOURCE RESULT:", json.dumps(item, ensure_ascii=False), flush=True)
+                        continue
+                    if kind == "publisher_auto_fallback":
+                        item.update(publisher_auto_recovery_smoke(lib, root, url))
                         item["duration_seconds"] = round(time.monotonic() - started, 2)
                         results.append(item)
                         print("LIVE SOURCE RESULT:", json.dumps(item, ensure_ascii=False), flush=True)
@@ -183,6 +235,8 @@ def main():
           "FAILED:", sum(s == "FAILED" for s in by_kind.values()))
     print("EXPECTED_REJECTION:", sum(s == "PASS_EXPECTED_REJECTION" for s in by_kind.values()))
     print("REAL_PUBLISHER_TRANSCRIPTS:", sum(s == "PASS_TRANSCRIPT_ONLY" for s in by_kind.values()))
+    print("REAL_PUBLISHER_RECOVERIES:",sum(
+        s == "PASS_PUBLISHER_RECOVERY_ONLY" for s in by_kind.values()))
     # A provider/network block is a testing limitation; report explicitly.
     # Actual extraction/checksum defects fail CI rather than being hidden.
     if any(r["status"] == "FAILED" for r in results):
