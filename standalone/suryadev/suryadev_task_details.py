@@ -109,7 +109,8 @@ WITH activity AS (
   UNION ALL
   SELECT date(created,'unixepoch','localtime'),0,0,0,1 FROM findings
 )
-SELECT day,SUM(assigned) AS assigned,SUM(completed) AS completed,\n       SUM(failed) AS failed,SUM(findings) AS findings
+SELECT day,SUM(assigned) AS assigned,SUM(completed) AS completed,
+       SUM(failed) AS failed,SUM(findings) AS findings
 FROM activity
 WHERE day IS NOT NULL
 GROUP BY day
