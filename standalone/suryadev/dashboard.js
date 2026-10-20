@@ -201,6 +201,10 @@ function renderDetail(task) {
   if (Object.keys(coverage).length) {
     const coverFields = [
       ["Extraction status", coverage.coverage_status],
+      ["Browser engine", coverage.browser_engine],
+      ["Garudanetra Chromium tab opened", coverage.browser_tab_opened === true ? "Yes · closed after extraction" : ""],
+      ["Rendered visible text characters", coverage.rendered_visible_characters],
+      ["Browser final HTTPS URL", coverage.browser_final_url],
       ["PDF pages read as text", coverage.pages_total ? String(coverage.pages_extracted ?? 0) + "/" + String(coverage.pages_total) : ""],
       ["Timed caption cues", coverage.cue_count],
       ["Video duration (seconds)", coverage.duration_seconds],
