@@ -17,7 +17,7 @@ from urllib.request import urlopen
 
 from suryadev import Library
 from suryadev_extras import serve
-from suryadev_liveops import atomic_json
+from suryadev_liveops import atomic_json, worker_note
 
 
 def available_port():
@@ -74,6 +74,7 @@ def main():
                     lib.db.execute(
                         "INSERT INTO jobs(url,status,created,updated,error) VALUES (?,?,?,?,?)",
                         (url,"running",now,now,""))
+            worker_note(root, "busy", 10, "Simulated worker heartbeat for Chromium UI test")
             atomic_json(root,"capacity-runtime.json",{
                 "sample_time":now,"state":"busy","safe":True,"active_total":3,
                 "max_total":4,"limits":{"website":3,"youtube":2,"pdf":1},
