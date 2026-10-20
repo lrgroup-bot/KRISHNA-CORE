@@ -11,7 +11,8 @@ from pathlib import Path
 import time
 
 from suryadev import Library
-from suryadev_feeder import read_plan, feed_once, FEED_STATE
+from suryadev_feeder import read_plan, FEED_STATE
+from suryadev_continuity import ContinuityFeeder
 from suryadev_liveops import atomic_json, worker_note
 from suryadev_lock import worker_lock
 from suryadev_parallel import AdaptiveResearchWorkers
@@ -24,7 +25,7 @@ def mission(data, plan_path, *, duration_hours=6, refill_minutes=30,
         raise ValueError("refill-minutes must be between 5 and 360")
     if not (10 <= check_seconds <= 3600):
         raise ValueError("check-seconds must be between 10 and 3600")
-    plan = read_plan(plan_path)
+    read_plan(plan_path)
     root = Path(data).expanduser().resolve()
     deadline = time.time() + duration_hours * 3600
     with worker_lock(root):
@@ -33,7 +34,7 @@ def mission(data, plan_path, *, duration_hours=6, refill_minutes=30,
             root, use_ollama=use_ollama, model=model, check_seconds=check_seconds)
         try:
             lib.recover()
-            return _run_research_session(lib, adaptive, plan, root, deadline,
+            return _run_research_session(lib, adaptive, plan_path, root, deadline,
                                          duration_hours, refill_minutes, check_seconds)
         finally:
             adaptive.close()
@@ -48,38 +49,40 @@ def mission(data, plan_path, *, duration_hours=6, refill_minutes=30,
             except (OSError, ValueError, TypeError):
                 pass
 
-def _run_research_session(lib, adaptive, plan, root, deadline,
+def _run_research_session(lib, adaptive, plan_path, root, deadline,
                           duration_hours, refill_minutes, check_seconds):
-    refresh_at = 0
+    feeder = ContinuityFeeder(root, plan_path, refill_seconds=refill_minutes * 60)
     worker_note(root, "starting", check_seconds,
-                "Owner-approved adaptive Garudanetra session started")
-    while time.time() < deadline:
-        now = time.time()
-        if now >= refresh_at:
-            try:
-                outcome = feed_once(lib, plan)
-                print(json.dumps({"feeder": outcome}, ensure_ascii=False), flush=True)
-                note = ""
-            except (ValueError, OSError, RuntimeError) as exc:
-                outcome = {"added_total":0,"feed_errors":[{"error":str(exc)[:180]}]}
-                note = type(exc).__name__ + ": " + str(exc)[:150]
-                print(json.dumps({"feeder_error": note}), flush=True)
-            refresh_at = time.time() + refill_minutes * 60
-            atomic_json(root, FEED_STATE, {
-                "last_run": now, "next_run": refresh_at, "session_ends_at": deadline,
-                "period_minutes": refill_minutes, "loop_enabled": True,
-                "added_total": outcome.get("added_total", 0),
-                "feed_error_count": len(outcome.get("feed_errors", [])),
-                "error": note,
-            })
-        update = adaptive.pump()
-        for job_result in update["finished"]:
-            print(json.dumps({"work":job_result},ensure_ascii=False),flush=True)
-        interval = 2 if update["capacity"]["active_total"] else check_seconds
-        time.sleep(max(0, min(interval, deadline-time.time(),
-                               refresh_at-time.time())))
-    return {"session":"finished","duration_hours":duration_hours,
-            "last_completed":adaptive.last_result}
+                "Owner-approved adaptive Garudanetra learning and continuity started")
+    try:
+        while time.time() < deadline:
+            now = time.time()
+            update_feeder = feeder.tick(
+                lib, youtube_blocked=adaptive.youtube_access["state"] == "rate_limited")
+            if update_feeder is not None:
+                print(json.dumps({"continuity":update_feeder}, ensure_ascii=False), flush=True)
+                atomic_json(root, FEED_STATE, {
+                    "last_run":update_feeder["last_refresh"],
+                    "next_run":update_feeder["next_refresh"],
+                    "session_ends_at":deadline,
+                    "period_minutes":refill_minutes,
+                    "loop_enabled":True,
+                    "added_total":update_feeder["added_total"],
+                    "feed_error_count":update_feeder["feed_error_count"],
+                    "error":update_feeder["error"],
+                    "youtube_blocked":update_feeder["youtube_blocked"],
+                })
+            update = adaptive.pump()
+            for job_result in update["finished"]:
+                print(json.dumps({"work":job_result}, ensure_ascii=False), flush=True)
+            interval = 2 if update["capacity"]["active_total"] else check_seconds
+            time.sleep(max(0, min(interval, deadline-time.time(),
+                                   feeder.next_due-time.time())))
+        return {"session":"finished","duration_hours":duration_hours,
+                "last_completed":adaptive.last_result}
+    finally:
+        feeder.stop()
+
 
 def main(argv=None):
     p = argparse.ArgumentParser(description="Time-boxed 6-hour approved-source SURYADEV study session")
