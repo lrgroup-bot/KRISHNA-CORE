@@ -53,6 +53,31 @@ def read_plan(path):
             raise ValueError("approved feed URLs must use HTTPS without credentials")
         if parsed.port not in (None, 443):
             raise ValueError("approved feed URL uses nonstandard port")
+    # Publisher-hosted timed transcripts are NOT discovered or downloaded
+    # implicitly. Each video-to-caption mapping is expressly approved, on
+    # a public HTTPS host already named in the source allowlist.
+    publisher = data.get("approved_publisher_transcripts", [])
+    if not isinstance(publisher, list) or len(publisher) > 20:
+        raise ValueError("approved_publisher_transcripts must be an array of at most 20 mappings")
+    from suryadev_ingest import _youtube_url
+    known_videos = set()
+    approved_publisher = []
+    for entry in publisher:
+        if not isinstance(entry, dict) or set(entry) != {"video_url", "transcript_url"}:
+            raise ValueError("publisher mapping must contain exactly video_url and transcript_url")
+        video, transcript = entry["video_url"], entry["transcript_url"]
+        if not isinstance(video, str) or not isinstance(transcript, str):
+            raise ValueError("publisher mapping URLs must be strings")
+        video_id = _youtube_url(video)
+        if video_id in known_videos:
+            raise ValueError("duplicate approved publisher mapping for a video")
+        if not allowed_source(transcript, hosts):
+            raise ValueError("publisher transcript URL must be HTTPS on an explicitly allowed host")
+        if not urlsplit(transcript).path.lower().endswith((".srt", ".vtt")):
+            raise ValueError("publisher alternate must be a timestamped .srt or .vtt URL")
+        known_videos.add(video_id)
+        approved_publisher.append({"video_url":video, "transcript_url":transcript})
+
     budget = data.get("max_new_per_cycle", 20)
     backlog = data.get("max_queued", 75)
     if not isinstance(budget, int) or not (1 <= budget <= 100):
@@ -60,7 +85,9 @@ def read_plan(path):
     if not isinstance(backlog, int) or not (1 <= backlog <= 1000):
         raise ValueError("max_queued must be from 1 to 1000")
     return {"approved_urls": approved_urls, "approved_feeds": approved_feeds,
-            "allowed_source_hosts": hosts, "max_new_per_cycle": budget,
+            "allowed_source_hosts": hosts,
+            "approved_publisher_transcripts":approved_publisher,
+            "max_new_per_cycle": budget,
             "max_queued": backlog}
 
 
