@@ -824,3 +824,71 @@ save timestamped text evidence without claiming the YouTube video was
 watched. The official publisher transcript must be obtained lawfully.
 
 Dashboard UI version: `2026-10-21-v6.2-youtube-cooldown`.
+
+
+## v6.3 · Learning continuity without bypassing YouTube 429
+
+The earlier 60-minute YouTube cooldown is an **outbound caption
+rate-limit guard**, not a ban on learning. SURYADEV can immediately study
+other **explicitly approved** HTTPS websites, PDFs and opted-in RSS/Atom
+entries. It must never treat alternative documentation as a transcript
+of the blocked YouTube video; job #6 remains failed until a successful,
+operator-authorized retry after the provider restriction.
+
+### Activate a free official technology research pack
+
+The following action is **opt-in**; it merges a bounded set of public
+Python, Playwright, GitHub and Cloudflare documentation URLs and the
+official Python and GitHub RSS feeds into the **existing** approved
+`learning-plan.json`. It preserves the original URLs, feeds,
+host allowlist and per-cycle/queue quotas. A preexisting plan is backed
+up before atomic replacement. No app process is started or DB reset.
+
+```powershell
+cd "D:\\Work\\SURYADEV"
+python suryadev_continuity.py --data "D:\\Work\\SURYADEV-DATA" activate-official-tech
+```
+
+Sources are independent public documentation relevant to agents,
+automation, secure networks and code. New sources are **not**
+unrestricted external search results. RSS only admits entry URLs on
+explicitly allowlisted hosts, with HTTPS and public-DNS validation.
+These publishers may refuse or change URLs: failed reads remain
+failed with evidence excluded, never silently marked learned.
+
+### Start one self-refilling worker
+
+After stopping any old mission or worker (dashboard may remain running):
+
+```powershell
+cd "D:\\Work\\SURYADEV"
+python suryadev_extras.py --data "D:\\Work\\SURYADEV-DATA" worker --plan "D:\\Work\\SURYADEV-DATA\\learning-plan.json" --refill-minutes 5 --interval 10 --no-ollama
+```
+
+The worker immediately queues new approved sources, drives separate
+website/PDF/YouTube jobs within measured CPU/RAM/disk headroom, and
+reloads the plan every five minutes. An observed YouTube HTTP 429 stops
+*new YouTube downloads*, but **not** independent Garudanetra or PDF
+processing. One process owns the file lock; do not start a second
+worker or six-hour mission simultaneously.
+
+The existing six-hour mission also reloads an approved plan every
+refill; it can be run with `--refill-minutes 5`. Neither mode can
+guarantee endlessly fresh articles: after all approved sources are
+learned and RSS has nothing new, the queue will truthfully become idle.
+Add more approved sources, feeds or research categories rather than
+fabricating completed work.
+
+### Read status
+
+Dashboard `http://127.0.0.1:8769/` shows YouTube cooldown separately
+from *Approved-source continuity*. The read-only API includes
+`/api/operations` → `continuity` with last/next refresh, feed
+errors and queued counts. It never says a blocked video was fully
+watched, visually understood or accepted by BRAHMAGYAN.
+
+`--no-ollama` saves real source evidence with a **preview-only**
+summary. To get chunked, locally generated topic summaries, configure
+a working compatible Ollama model first and run the same worker
+without `--no-ollama` using the installed `--model` option. This does
+not prove correctness or complete comprehension.
