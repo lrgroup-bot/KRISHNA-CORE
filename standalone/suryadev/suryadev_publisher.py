@@ -119,7 +119,8 @@ def recover_failed_video_from_publisher(lib, plan, *, fetcher=download_publisher
                 summary, summary_report = summarize_all(
                     text, model=model, use_ollama=True, summarize_fn=summarize)
             else:
-                summary, summary_report = summarize_all(text, use_ollama=False)
+                summary, summary_report = summarize_all(
+                    text, model=model, use_ollama=False, summarize_fn=lambda *a: "")
             coverage = {
                 **report, **summary_report,
                 "kind":"youtube",
