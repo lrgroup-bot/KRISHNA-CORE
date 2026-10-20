@@ -527,3 +527,53 @@ Invoke-RestMethod "http://127.0.0.1:8769/api/ui-version"
 Expected: `2026-10-21-v5-server-storage`. The loopback diagnostics API is
 `GET /api/operator/settings`; state-changing POST requests are limited
 to the same-origin UI and require the transient dashboard CSRF header.
+
+
+## Real YouTube, PDF and website live-source acceptance test
+
+The normal Windows/Ubuntu unit suite mocks external providers. A separate
+opt-in real-source smoke test now contacts six clearly identified public
+sources via HTTPS using **temporary test data**, not the user's configured
+SURYADEV history. It is also run in GitHub Actions by
+`.github/workflows/suryadev-live-smoke.yml` on code changes.
+
+After installing the newest branch:
+
+```powershell
+cd "D:\\Work\\SURYADEV"
+python -m pip install pypdf yt-dlp
+python live_smoke.py
+```
+
+The script exercises: (1) real Python.org website extraction and hash;
+(2) a one-page public text PDF; (3) a CC0 10-page PDF, checking page 1 and
+page 10 in the stored evidence; (4) a scanned PDF, which **must fail
+without a saved learning record**; (5) a real Harvard CS50 Python YouTube
+video via the `yt-dlp` caption path; (6) the **official Harvard publisher
+SRT** for the same CS50 video. The publisher SRT path is deliberately
+reported `PASS_TRANSCRIPT_ONLY` and is not equivalent to downloading or
+watching the YouTube video.
+
+On GitHub-hosted test infrastructure in October 2026, the website,
+one-page PDF, and 10-page PDF passed, scanned PDF correctly rejected,
+and the Harvard publisher SRT imported 778 timestamped cues with a verified
+evidence hash. The actual YouTube fetch was
+`BLOCKED_EXTERNAL` by YouTube's bot-verification sign-in response;
+no video learning was recorded. The program reports network/provider
+blocks distinctly from code failures and does not circumvent authentication.
+
+To test the **real local learner** after ensuring no other worker is running:
+
+```powershell
+cd "D:\\Work\\SURYADEV"
+python suryadev.py --data "D:\\Work\\SURYADEV-DATA" add "https://www.youtube.com/watch?v=mgBpcQRDtl0"
+python suryadev.py --data "D:\\Work\\SURYADEV-DATA" run --no-ollama
+```
+
+Adjust `--data` if you have already migrated the live research database.
+Check the returned job ID in the dashboard, then
+`GET /api/tasks/<job-id>`. A `failed` status due to anti-bot restrictions
+is an honest network limitation, not successful learning. Even when
+caption extraction succeeds, the full-video visuals and complete audio
+coverage remain unverified. No authentication cookies should be pasted
+into logs or committed to the repository.
