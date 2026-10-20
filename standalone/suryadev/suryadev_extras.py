@@ -30,7 +30,7 @@ from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-21-v6-garudanetra-parallel"
+UI_VERSION = "2026-10-21-v6.1-worker-status"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -108,7 +108,9 @@ def serve(lib, port=8769):
                                      "has_server_settings": True,
                                      "has_storage_settings": True,
                                      "has_garudanetra": True,
-                                     "has_adaptive_parallel": True}),
+                                     "has_adaptive_parallel": True,
+                                     "has_offline_worker_diagnostics": True,
+                                     "has_dashboard_hardware_preview": True}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
