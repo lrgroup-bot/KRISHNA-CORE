@@ -84,7 +84,7 @@ def recover_failed_video_from_publisher(lib, plan, *, fetcher=download_publisher
     mapping_by_id = {_youtube_url(x["video_url"]): x["transcript_url"] for x in approved}
     for job_id,url,error,failed_at in lib.db.execute(
         "SELECT id,url,error,updated FROM jobs WHERE status='failed' "
-        "ORDER BY updated DESC LIMIT 1000"
+        "ORDER BY id DESC LIMIT 1000"
     ).fetchall():
         try:
             video_id = _youtube_url(url)
