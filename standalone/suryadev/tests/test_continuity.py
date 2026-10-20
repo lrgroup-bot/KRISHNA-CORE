@@ -168,6 +168,8 @@ class ContinuityRefillTests(unittest.TestCase):
         self.assertIn("'start-continuous-learning.ps1'",installer)
         self.assertIn('activate-official-tech',launcher)
         self.assertIn('"--plan", $plan',launcher)
+        self.assertIn('& $Python @workerArgs',launcher)
+        self.assertNotIn('& $Python @args',launcher)
         self.assertNotIn('retry-failed',launcher)
 
 
