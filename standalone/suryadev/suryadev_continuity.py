@@ -53,9 +53,15 @@ OFFICIAL_TECH_FEEDS = (
     "https://blog.python.org/rss.xml",
     "https://github.blog/feed/",
 )
+# Official CS50 publisher captions already exercised by the real-source
+# smoke test. The pairing is opt-in; it does not certify video visuals.
+OFFICIAL_PUBLISHER_TRANSCRIPTS = (
+    {"video_url":"https://www.youtube.com/watch?v=mgBpcQRDtl0",
+     "transcript_url":"https://cdn.cs50.net/2017/fall/shorts/python/lang/en/python.srt"},
+)
 OFFICIAL_TECH_HOSTS = (
     "docs.python.org", "developers.cloudflare.com", "playwright.dev",
-    "docs.github.com", "blog.python.org", "github.blog",
+    "docs.github.com", "blog.python.org", "github.blog", "cdn.cs50.net",
 )
 
 
@@ -91,6 +97,11 @@ def activate_official_pack(root):
             if value not in items:
                 items.append(value)
         data[key] = items
+    previous = list(data.get("approved_publisher_transcripts", []))
+    for mapping in OFFICIAL_PUBLISHER_TRANSCRIPTS:
+        if mapping not in previous:
+            previous.append(dict(mapping))
+    data["approved_publisher_transcripts"] = previous
     # All feed-discovered article hosts must be approved explicitly.
     # Validate bounds without network calls before touching existing plan.
     fd, staged_name = tempfile.mkstemp(prefix=".continuity-plan-", suffix=".tmp",
