@@ -47,7 +47,7 @@ class PipelineTests(unittest.TestCase):
         self.assertFalse(report["full_audio_coverage_verified"])
 
     @patch("suryadev.validate_url", return_value="https://example.com/paper.pdf")
-    @patch("urllib.request.build_opener")
+    @patch("suryadev_ingest.build_opener")
     def test_pdf_extracts_all_pages(self, opener, validate):
         class Response:
             headers = {"Content-Encoding":"identity", "Content-Length":"23"}
@@ -63,7 +63,7 @@ class PipelineTests(unittest.TestCase):
         self.assertFalse(report["full_document_visuals_verified"])
 
     @patch("suryadev.validate_url", return_value="https://example.com/paper.pdf")
-    @patch("urllib.request.build_opener")
+    @patch("suryadev_ingest.build_opener")
     def test_scanned_pdf_fails_not_marked_complete(self, opener, validate):
         class Response:
             headers = {"Content-Encoding":"identity"}
