@@ -940,3 +940,41 @@ summary. To get chunked, locally generated topic summaries, configure
 a working compatible Ollama model first and run the same worker
 without `--no-ollama` using the installed `--model` option. This does
 not prove correctness or complete comprehension.
+
+
+## Six-hour task renewal outbox (experimental, request-only)
+
+When the opt-in self-refilling worker or the bounded mission has fewer than
+three **executable** website/PDF/YouTube jobs (rate-limited YouTube jobs do
+not count), it writes one durable six-hour research renewal request:
+
+`SURYADEV-DATA/krishna-mission-renewal.json`
+
+The request is idempotent while pending. The existing TLS-only, approved-reader
+`/api/operations` response includes `mission_renewal`, so a future
+KRISHNA task dispatcher can see that SURYADEV wants a fresh six-hour batch.
+The request records a stable ID, research duration, queue state and whether
+publisher YouTube is unavailable; it intentionally contains no credentials.
+
+**Important:** An outbox request is not a delivered message, a KRISHNA
+assignment or an acknowledgment. The new feature does **not** enable an
+inbound command endpoint, modify approved host policy, start extra workers,
+silently enqueue arbitrary internet sources or connect BRAHMAGYAN/Rishi.
+`delivered_to_krishna`, `krishna_assignment_acknowledged` and
+`brahmagyan_acknowledged` remain false until independent, authenticated
+integration exists. KRISHNA must implement its own persistent task backlog,
+verified assignment/ACK protocol and source approval before truly providing
+back-to-back six-hour missions.
+
+Operator verification after safe Windows deployment:
+
+```powershell
+$ops = Invoke-RestMethod "http://127.0.0.1:8769/api/operations"
+$ops.mission_renewal | Format-List *
+# Local direct inspection, including if dashboard is stopped:
+Get-Content "D:\\Work\\SURYADEV-DATA\\krishna-mission-renewal.json"
+```
+
+Retain the existing single-worker lock. Never start `suryadev_mission.py`
+beside the continuous worker, and never mistake this request for an active
+six-hour task contract or a guarantee of six hours of unique source content.
