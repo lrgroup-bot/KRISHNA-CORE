@@ -1139,3 +1139,29 @@ Audit, dependencies, per-source limits and evidence-truth rules are
 documented in the repository root:
 `docs/SURYADEV_MULTIMODAL_RESEARCH.md`.
 Do NOT load XTUFE or other unaudited browser extension into Garudanetra.
+
+
+## v6.7: entire books in original order, line by line
+
+SURYADEV includes the **independent free local** `suryadev_book_reader.py`
+book ledger (not SoBrief's ten-minute summary API). It accepts operator-
+provided DRM-free EPUB, TXT, Markdown and PDF books, indexes **every line**
+of the EPUB spine/PDF pages in source order, and does not mark a partial
+import successful. For scanned PDFs, use `book-import --ocr-scanned`
+with local Tesseract and pypdfium2. Reading uses a separate persistent
+`book-learning.sqlite3` and does not modify the web/video evidence DB.
+
+Use `book-import <local-file>` to get a book ID and then
+`book-read <book-id> --model gemma3:4b --lines-per-step 1` to send each
+line to a locally installed Ollama model with durable after-each-step
+checkpointing; the default is until the last line. On interruption
+rerunning the same command resumes at exactly the next unread line.
+`book-status <book-id>` shows completion and measured seconds;
+`book-verify <book-id>` verifies original line hashes and no gaps in
+the sequential journal. `--no-ollama` is text recording only, NOT AI
+reading. No complete knowledge or BRAHMAGYAN acceptance is claimed.
+
+This workflow is opt-in and obeys the same single-worker data-root lock:
+stop the continuous website worker before a long book reading session.
+See the full deployment and use guide in
+`docs/SURYADEV_BOOK_LINE_BY_LINE.md` at the repo root.
