@@ -21,6 +21,34 @@ PERMITTED_ROLES=frozenset({"rishi_research","rishi_exam_author","rishi_exam_revi
 LOOPBACK_OLLAMA="http://127.0.0.1:11434/api/generate"
 
 
+def inference_admission(*, threshold=85, sampler=None):
+    """Measured admission guard. No synthetic zeros for unavailable sensors."""
+    if sampler is None:
+        try:
+            import psutil
+        except ImportError:
+            return {"safe":False,"reason":"psutil unavailable; inference admission refused"}
+        try:
+            sampler=lambda: (psutil.cpu_percent(interval=0.15),
+                             psutil.virtual_memory().percent,
+                             psutil.disk_usage(__import__("os").getcwd()).percent)
+        except Exception:
+            return {"safe":False,"reason":"hardware sampler unavailable"}
+    try:
+        import math
+        raw=sampler()
+        if (not isinstance(raw,(list,tuple)) or len(raw)!=3 or
+                any(type(x) not in (int,float) or not math.isfinite(x)
+                    or not 0<=x<=100 for x in raw)):
+            raise ValueError("CPU/RAM/disk measurements unavailable")
+        values=dict(zip(("cpu_percent","ram_percent","disk_percent"),(float(x) for x in raw)))
+    except Exception as exc:
+        return {"safe":False,"reason":type(exc).__name__+": missing measurements"}
+    return {"safe":max(values.values())<threshold,
+            "reason":"below admission ceiling" if max(values.values())<threshold else "85% resource admission threshold reached",
+            **values}
+
+
 def infer(payload, *, models, timeout=100, opener=request.urlopen):
     if not isinstance(payload,dict):
         raise ValueError("request object required")
@@ -77,6 +105,10 @@ def handler_factory(*, secret, models, concurrency=1):
                 payload=json.loads(self.rfile.read(int(size)))
             except (ValueError,UnicodeError):
                 return self.reply(400,{"error":"invalid request JSON"})
+            health=inference_admission()
+            if health["safe"] is not True:
+                return self.reply(503,{"error":"local inference capacity unavailable",
+                                       "reason":health["reason"]})
             if not limiter.acquire(blocking=False):
                 return self.reply(429,{"error":"local inference busy; retry with backoff"})
             try:
