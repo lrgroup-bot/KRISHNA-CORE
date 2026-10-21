@@ -271,6 +271,11 @@ class ChandradevQC:
                     rows.append(row)
         return list(reversed(rows[-max(1, min(int(limit or 50), 500)):]))
 
+    def inspect_suryadev_fleet(self, node_snapshot, *, now=None):
+        """Read-only, fresh authenticated node health assessment, not dispatch."""
+        from .chandradev_fleet_guard import inspect_fleet
+        return inspect_fleet(node_snapshot,now=now)
+
     def status(self):
         count = 0
         open_debates = 0
