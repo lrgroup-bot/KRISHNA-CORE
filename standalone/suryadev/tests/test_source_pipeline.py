@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from suryadev import Library
-from suryadev_feeder import read_plan, feed_once, feed_links, allowed_source
+from suryadev_feeder import read_plan, feed_once, feed_links, allowed_source, fetch_feed, MAX_FEED_BYTES
 from suryadev_ingest import caption_cues, caption_report, ingest_pdf, ingest_youtube, selected_caption_language
 from suryadev_summary import summarize_all
 from suryadev_mission import mission
@@ -243,6 +243,53 @@ class PipelineTests(unittest.TestCase):
             feed_links(b'<!DOCTYPE doc [ <!ENTITY x "evil"> ]><rss/>')
         self.assertFalse(allowed_source("https://unapproved.net/",{"example.com"}))
         self.assertTrue(allowed_source("https://example.com/yes",{"example.com"}))
+
+    def test_large_approved_feed_stays_bounded_and_parsable(self):
+        """A GitHub Blog-sized publisher response should not be rejected at 1 MiB."""
+        html = b"x" * 1_400_000
+        xml = b"<rss><channel><item><description>" + html + (
+            b"</description><link>https://example.com/article</link>"
+            b"</item></channel></rss>")
+        class Response:
+            headers = {"Content-Encoding": "identity"}
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, limit):
+                self.limit = limit
+                return xml[:limit]
+        response = Response()
+        with patch("suryadev_feeder.validate_url"), patch(
+                "suryadev_feeder.build_opener") as opener:
+            opener.return_value.open.return_value = response
+            data = fetch_feed("https://example.com/rss.xml")
+        self.assertEqual(data, xml)
+        self.assertEqual(response.limit, MAX_FEED_BYTES + 1)
+        self.assertEqual(feed_links(data), ["https://example.com/article"])
+        self.assertLessEqual(MAX_FEED_BYTES, 8 * 1024 * 1024)
+
+    def test_oversized_feed_rejected_by_header_and_body(self):
+        class HeaderTooLarge:
+            headers = {"Content-Encoding": "identity",
+                       "Content-Length": str(MAX_FEED_BYTES + 1)}
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, limit):
+                raise AssertionError("oversized feed must fail before reading")
+        class BodyTooLarge:
+            headers = {"Content-Encoding": "identity"}
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, limit):
+                assert limit == MAX_FEED_BYTES + 1
+                return b"x" * limit
+        with patch("suryadev_feeder.validate_url"), patch(
+                "suryadev_feeder.build_opener") as opener:
+            opener.return_value.open.return_value = HeaderTooLarge()
+            with self.assertRaisesRegex(ValueError, "feed is too large"):
+                fetch_feed("https://example.com/rss.xml")
+            opener.return_value.open.return_value = BodyTooLarge()
+            with self.assertRaisesRegex(ValueError, "feed is too large"):
+                fetch_feed("https://example.com/rss.xml")
 
     @patch("suryadev.validate_url", return_value="https://example.com/one")
     def test_six_hour_feeder_adds_only_approved_new_urls(self, validate):
