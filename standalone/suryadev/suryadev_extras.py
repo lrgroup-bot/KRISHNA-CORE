@@ -427,6 +427,10 @@ def main():
                      help="Already installed LOCAL Ollama vision model")
     lab.add_argument("--visual-interval-seconds", type=float, default=1)
     lab.add_argument("--max-visual-frames", type=int, default=300)
+    lab.add_argument("--every-frame-vision", action="store_true",
+                     help="Attempt model interpretation on EVERY decoded frame; expensive, strict budget")
+    lab.add_argument("--source-url", default="",
+                     help="Provenance-only approved YouTube video URL; does not download")
     imp = sub.add_parser("import-transcript")
     imp.add_argument("file")
     imp.add_argument("--source", default="")
@@ -453,7 +457,9 @@ def main():
                 whisper_model_dir=args.whisper_model_dir,
                 vision_model=args.vision_model,
                 visual_interval_seconds=args.visual_interval_seconds,
-                max_visual_frames=args.max_visual_frames)
+                max_visual_frames=args.max_visual_frames,
+                every_frame_vision=args.every_frame_vision,
+                source_url=args.source_url)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return
     lib = Library(args.data)
