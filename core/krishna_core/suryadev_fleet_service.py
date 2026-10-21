@@ -38,7 +38,8 @@ class SuryadevFleetService:
     def _load(self):
         if not self.file.exists():
             return {"schema": SCHEMA, "leases": {}, "receipts": {},
-                    "attempts": {}, "rejected_by": {}, "failures": {}}
+                    "attempts": {}, "rejected_by": {}, "failures": {},
+                    "youtube_pause_until": 0}
         state = json.loads(self.file.read_text(encoding="utf-8"))
         if not isinstance(state, dict) or state.get("schema") != SCHEMA:
             raise ValueError("corrupt SURYADEV fleet ledger; refusing overwrite")
@@ -112,7 +113,9 @@ class SuryadevFleetService:
                         state["attempts"].get(tid, 0) < MAX_ATTEMPTS and
                         (tid not in state["leases"] or state["leases"][tid].get("expires_at", 0) <= now)
                         for tid in tasks),
-                    "knowledge_verified": False, "protocol": SCHEMA,
+                    "knowledge_verified": False,
+                    "youtube_pause_until": state.get("youtube_pause_until",0),
+                    "protocol": SCHEMA,
                     "source_policy": "owner-approved Core curriculum only"}
 
     def claim(self, *, device_id, known_task_ids=None):
@@ -147,7 +150,10 @@ class SuryadevFleetService:
                           and state["attempts"].get(tid, 0) < MAX_ATTEMPTS
                           and device_id not in state["rejected_by"].get(tid, [])]
             capabilities = node.get("capabilities") or []
-            candidates = [task for task in candidates if task["kind"] in capabilities]
+            candidates = [task for task in candidates
+                          if task["kind"] in capabilities
+                          and not (task["kind"]=="youtube" and
+                                   now < float(state.get("youtube_pause_until") or 0))]
             if not candidates:
                 return {"status": "no_approved_work", "pending_claimable": 0}
             # Balance among Rishis by finished-plus-active assignments.
@@ -224,6 +230,13 @@ class SuryadevFleetService:
                 state["failures"].setdefault(task_id, []).append(
                     {"device_id": device_id, "at": now, "outcome": outcome,
                      "detail": str(detail)[:300]})
+                if outcome == "rate_limited" and tasks[task_id]["kind"] == "youtube":
+                    state["youtube_pause_until"] = max(
+                        float(state.get("youtube_pause_until") or 0), now+3600)
+                if outcome == "failed":
+                    state["rejected_by"].setdefault(task_id, [])
+                    if device_id not in state["rejected_by"][task_id]:
+                        state["rejected_by"][task_id].append(device_id)
             del state["leases"][task_id]
             self._save(state)
             return {"acknowledged": True, "idempotent": False,
