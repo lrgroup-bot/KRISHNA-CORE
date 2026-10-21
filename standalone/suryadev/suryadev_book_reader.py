@@ -417,6 +417,40 @@ class BookLedger:
                 "brahmagyan_acknowledged":False,
                 "comprehension_verified":False}
 
+    def search(self, query, *, limit=20):
+        """Read-only source-line search across indexed books with exact citations."""
+        if not isinstance(query,str) or not 2<=len(query.strip())<=120:
+            raise ValueError("book search must contain 2..120 characters")
+        if type(limit) is not int or not 1<=limit<=50:
+            raise ValueError("book search limit must be 1..50")
+        key=query.strip()
+        rows=self.db.execute(
+            "SELECT l.book_id,b.title,b.source_sha256,l.ordinal,l.section,"
+            "l.page_number,l.line_in_section,l.text,l.line_sha256 "
+            "FROM book_lines l JOIN books b ON b.id=l.book_id "
+            "WHERE instr(lower(l.text),lower(?))>0 "
+            "ORDER BY b.imported_at DESC,l.ordinal LIMIT ?",
+            (key,limit+1)).fetchall()
+        hits=[]
+        for bid,title,source_sha,ordinal,section,page,line,text,digest in rows[:limit]:
+            if _sha(text.encode("utf-8"))!=digest:
+                raise RuntimeError("book search encountered modified source evidence")
+            ai=self.db.execute(
+                "SELECT mode FROM book_sessions WHERE book_id=? "
+                "AND mode LIKE 'ollama:%' AND next_ordinal>? "
+                "ORDER BY updated_at DESC LIMIT 1",(bid,ordinal)).fetchone()
+            hits.append({"book_id":bid,"title":title,"source_sha256":source_sha,
+                         "section":section,"page_number":page,
+                         "ordinal":ordinal,"line_in_section":line,
+                         "source_line":text[:MAX_LINE_CHARS],
+                         "line_sha256":digest,
+                         "ai_reading_mode":ai[0] if ai else None,
+                         "comprehension_verified":False})
+        return {"query":key,"matches":hits,
+                "returned":len(hits),"has_more":len(rows)>limit,
+                "line_hashes_verified":True,
+                "ai_comprehension_verified":False}
+
     def verify(self, book_id):
         title,total,digest = self._book(book_id)
         count=0
