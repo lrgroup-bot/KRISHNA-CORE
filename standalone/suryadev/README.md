@@ -1041,3 +1041,68 @@ To continue independent learning without verified Core TLS pairing:
 After a guarded reinstall, version-check the dashboard for
 `2026-10-21-v6.4-rss-and-mission-relay`; this verifies installed
 software assets, not an actual KRISHNA-to-laptop assignment.
+
+
+## v6.5: truthful timing and source-coverage diagnostics
+
+The default `start-continuous-learning.ps1 -ActivateOfficialTech`
+**does not use Ollama**: it runs `--no-ollama` unless the owner explicitly
+adds `-UseOllama` and selects an already installed model via `-Model`.
+In preview mode it saves the complete *extracted* source evidence when
+possible, but the per-source result is only a **2,000-character extractive
+preview**, never an all-chunk AI study. The per-source `summary_method`
+in the database proves which mode actually ran.
+
+The source-ingest rules are:
+- PDF: up to 20 MiB and 500 pages; extract text from EVERY page, fail
+  if any page lacks selectable text; cap at 220,000 extracted characters.
+  Images/diagrams/scans are not verified.
+- Website: Playwright navigates with a 25-second navigation timeout and
+  then reads visible `main` or `body` text; max 220,000 characters.
+  It does not traverse all links or view multimedia; coverage remains
+  unverified.
+- YouTube: captions in one requested language via yt-dlp, no video media,
+  no audio/visual frame processing. Timed cues may be incomplete; HTTP
+  429 never triggers an immediate alternate bypass. The CS50 publisher
+  recovery provides timed TEXT cues only.
+
+With Ollama enabled, `suryadev_summary.summarize_all` sends ALL extracted
+text in sequential chunks of 9,000 characters, up to 25 chunks. Each local
+Ollama HTTP generation request has a 120-second timeout. A successful
+summary is a model output, not proof of comprehension.
+
+**New timing telemetry applies only to new v6.5 jobs**, not existing
+completed/failed entries. The worker stores, in SQLite `job_timing`,
+monotonic processing elapsed seconds, acquisition seconds and the summary
+phase seconds. These are exposed in read-only
+`http://127.0.0.1:8769/api/operations` as `timing.by_source` and
+`timing.recent`. Queue-wait time is excluded, and the summary phase can
+include local Ollama-lock waiting. Check:
+
+```powershell
+$ops = Invoke-RestMethod "http://127.0.0.1:8769/api/operations"
+$ops.timing
+$ops.timing.by_source
+$ops.timing.recent
+```
+
+To distinguish prior preview-only jobs from actual model chunk passes,
+query the **existing** SQLite findings summary methods read-only:
+
+```powershell
+@'
+import sqlite3
+db = sqlite3.connect(r"D:\Work\SURYADEV-DATA\suryadev.sqlite3")
+for method,n in db.execute("SELECT summary_method, COUNT(*) FROM findings GROUP BY summary_method"):
+    print(method, n)
+print("FAILED JOBS:")
+for i,url,error in db.execute("SELECT id,url,error FROM jobs WHERE status='failed' ORDER BY id DESC LIMIT 15"):
+    print(i, url[:100], error[:240])
+db.close()
+'@ | python -
+```
+
+RSS articles that merely quote `<!DOCTYPE html>` or `<!ENTITY>`
+inside CDATA/comments are now accepted by the parser. Actual XML DTD
+or entity declarations are still rejected using expat structural hooks.
+An oversized RSS feed is still rejected by the bounded 8 MiB policy.
