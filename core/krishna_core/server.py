@@ -1090,6 +1090,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/chandradev/status":
             return self._json(200,{
                 **orch.chandradev.status(),
+                "suryadev_fleet_health":orch.chandradev.inspect_suryadev_fleet(orch.suryadev.device_status()),
                 "nodes":orch.compute_nodes.status(),
                 "bridge":orch.external_observers.status(),
             })
