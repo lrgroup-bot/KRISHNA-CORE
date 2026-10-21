@@ -7,7 +7,7 @@ import unittest
 from krishna_core.brahma_local_inference import LocalBrahmaInference
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/"standalone"/"brahma"))
-from local_ollama_gateway import infer, handler_factory
+from local_ollama_gateway import infer, handler_factory, inference_admission
 
 class FakeResponse:
     def __enter__(self):return self
@@ -56,6 +56,13 @@ class LocalInferenceTests(unittest.TestCase):
                 (root/"config.json").write_text(json.dumps(settings),encoding="utf-8")
                 with self.assertRaises(ValueError):
                     LocalBrahmaInference(config_path=root/"config.json")
+    def test_central_inference_refuses_85_percent_hardware_pressure(self):
+        self.assertTrue(inference_admission(sampler=lambda:(30,44,60))["safe"])
+        self.assertFalse(inference_admission(sampler=lambda:(85,44,60))["safe"])
+        self.assertFalse(inference_admission(sampler=lambda:(30,85,60))["safe"])
+        self.assertFalse(inference_admission(sampler=lambda:(30,44,85))["safe"])
+        self.assertFalse(inference_admission(sampler=lambda:(None,44,60))["safe"])
+
     def test_requires_explicit_long_token(self):
         with self.assertRaises(ValueError):
             handler_factory(secret="short",models={"qwen3.5:4b"})
