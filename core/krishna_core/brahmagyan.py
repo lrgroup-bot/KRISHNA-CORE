@@ -583,8 +583,8 @@ class BrahmagyanRuntime:
             profile=self.council.get(issuer)
         except KeyError as exc:
             raise ValueError("Exam issuer must be an existing Rishi Council member") from exc
-        if profile["tier"]!="rishi":
-            raise ValueError("Exam issuer must be a Rishi, not a Shishya or collector")
+        if profile["tier"] not in {"rishi","acharya"}:
+            raise ValueError("Exam issuer must be a Rishi Council specialist, not a Shishya or collector")
         import datetime
         day=exam_date or datetime.date.today().isoformat()
         if not isinstance(day,str) or len(day)!=10 or day[4]!="-" or day[7]!="-":
@@ -647,7 +647,7 @@ class BrahmagyanRuntime:
             grader_profile=self.council.get(grader)
         except KeyError as exc:
             raise ValueError("An independent Rishi Council grader is required") from exc
-        if grader_profile["tier"]!="rishi":
+        if grader_profile["tier"] not in {"rishi","acharya"}:
             raise ValueError("An independent Rishi Council grader is required")
         if method!="independent_rishi_review":
             raise ValueError("Rishi examinations require independent_rishi_review method")
