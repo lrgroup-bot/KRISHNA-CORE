@@ -70,6 +70,7 @@ class FleetIntegrationTests(unittest.TestCase):
                               task_id=payload["task_id"],lease_id=payload["lease_id"],
                               outcome=payload["outcome"],
                               evidence_sha256=payload.get("evidence_sha256",""),
+                              source_excerpt=payload.get("source_excerpt",""),
                               detail=payload.get("detail",""))
             self.fail("unexpected route "+path)
         self.transport=transport
@@ -106,6 +107,9 @@ class FleetIntegrationTests(unittest.TestCase):
             self.clock[0]+=1
             self.client.tick(self.lib)
             self.assertEqual(self.core.fleet.status()["collected"],1)
+            receipt=self.core.fleet._load()["receipts"][first["task_id"]]
+            self.assertEqual(receipt["source_excerpt"],"text")
+            self.assertTrue(receipt["untrusted_source_text"])
             self.assertFalse(self.client.state["receipts"][first["task_id"]]["brahmagyan_accepted"])
             resumed=FleetClient(self.local,self.plan,self.config,
                                 transport=self.transport,clock=lambda:self.clock[0])
