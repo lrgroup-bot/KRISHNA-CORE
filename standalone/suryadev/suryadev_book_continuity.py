@@ -102,6 +102,62 @@ def approve_book(root, source, *, lines_per_step=1, ocr=None):
             "approved_books":len(raw["books"]),"source_sha256":digest}
 
 
+
+class BookEvidenceCollector:
+    """Index approved local books into a verifiable source ledger; NEVER call an LLM.
+
+    Safe to run in the existing single worker. A collection receipt means source
+    lines were indexed, not that the model understood or tested the contents.
+    """
+    def __init__(self, root, plan, *, clock=time.time, min_gap_seconds=20):
+        self.root=Path(root).expanduser().resolve()
+        self.plan=read_book_plan(plan)
+        self.clock=clock
+        self.next_at=0
+        self.cursor=0
+        self.handled=set()
+        self.min_gap_seconds=min_gap_seconds
+
+    def tick(self, *, available=True):
+        now=float(self.clock())
+        if not available or now < self.next_at:
+            return None
+        self.next_at=now+self.min_gap_seconds
+        for _ in range(len(self.plan["books"])):
+            item=self.plan["books"][self.cursor % len(self.plan["books"])]
+            self.cursor+=1
+            path=item["path"]
+            source_key=(str(path),item["sha256"])
+            if source_key in self.handled:
+                continue
+            self.handled.add(source_key)
+            try:
+                if file_sha256(path)!=item["sha256"]:
+                    raise ValueError("Approved book source SHA-256 changed; collection refused")
+                ledger=BookLedger(self.root)
+                try:
+                    result=ledger.import_book(path)
+                    check=ledger.verify(result["book_id"])
+                finally:
+                    ledger.close()
+                if file_sha256(path)!=item["sha256"]:
+                    raise RuntimeError("Approved book source changed during collection")
+                state={"state":"indexed_evidence_only","book_id":result["book_id"],
+                       "title":result["title"],"source_sha256":item["sha256"],
+                       "lines_indexed":check["indexed_lines_verified"],
+                       "already_indexed":result.get("already_imported",False),
+                       "model_calls":0,"knowledge_verified":False,
+                       "brahmagyan_acknowledged":False,"updated_at":time.time()}
+            except (OSError,RuntimeError,ValueError,ImportError) as exc:
+                state={"state":"collection_failed","source_sha256":item["sha256"],
+                       "error":type(exc).__name__+": "+str(exc)[:240],
+                       "model_calls":0,"knowledge_verified":False,
+                       "updated_at":time.time()}
+            atomic_json(self.root,"book-collection-runtime.json",state)
+            return state
+        return None
+
+
 def may_study_books(capacity, pending_urls, *, youtube_rate_limited):
     """Read-only safe admission to idle research; cooldown is lane-specific."""
     from suryadev_sources import source_kind
