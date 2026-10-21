@@ -31,7 +31,11 @@ class LocalBrahmaInference:
             ip=ipaddress.ip_address(uri.hostname)
         except ValueError as exc:
             raise ValueError("explicit private inference IPv4 required") from exc
-        if ip.version!=4 or not (ip.is_private or ip.is_loopback) or ip.is_unspecified:
+        lan=any(ip in n for n in (ipaddress.ip_network("10.0.0.0/8"),
+                ipaddress.ip_network("172.16.0.0/12"),
+                ipaddress.ip_network("192.168.0.0/16"),
+                ipaddress.ip_network("127.0.0.0/8")))
+        if ip.version!=4 or not lan:
             raise ValueError("public inference endpoints forbidden")
         digest=str(cfg.get("cert_sha256") or "").replace(":","").lower()
         if len(digest)!=64 or any(c not in "0123456789abcdef" for c in digest):
@@ -58,8 +62,8 @@ class LocalBrahmaInference:
         body=json.dumps({"model":self.model,"role":role,"prompt":prompt,
                          "num_predict":num_predict,"num_ctx":num_ctx}).encode("utf-8")
         ctx=ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        ctx.verify_mode=ssl.CERT_NONE
         ctx.check_hostname=False
+        ctx.verify_mode=ssl.CERT_NONE
         conn=http.client.HTTPSConnection(self.host,self.port,timeout=110,context=ctx)
         try:
             conn.connect()
