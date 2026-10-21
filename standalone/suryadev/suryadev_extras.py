@@ -22,6 +22,7 @@ from suryadev_resources import snapshot, admission
 from suryadev_parallel import AdaptiveResearchWorkers
 from suryadev_continuity import ContinuityFeeder
 from suryadev_mission_renewal import renewal_tick
+from suryadev_krishna_mission import MissionRelay
 from suryadev_sources import breakdown
 from suryadev_task_details import list_tasks, task_detail, diary_days, diary_day
 from suryadev_liveops import operations_snapshot, worker_note
@@ -343,13 +344,17 @@ def serve(lib, port=8769):
         server.server_close()
 
 def work_loop(lib, interval, use_ollama, model, *,
-              plan_path=None, refill_minutes=5):
+              plan_path=None, refill_minutes=5, core_mission_config=None):
     if interval < 10:
         raise ValueError("interval must be at least 10 seconds")
     if not 1 <= refill_minutes <= 360:
         raise ValueError("refill-minutes must be 1..360")
+    if core_mission_config and not plan_path:
+        raise ValueError("Core mission relay requires an explicit approved --plan")
     feeder = (ContinuityFeeder(lib.root, plan_path,
                refill_seconds=refill_minutes * 60) if plan_path else None)
+    relay = (MissionRelay(lib.root, plan_path, core_mission_config)
+             if core_mission_config else None)
     lib.recover()
     print("SURYADEV Garudanetra adaptive worker started. Ctrl+C to stop.", flush=True)
     worker_note(lib.root, "starting", interval, "Adaptive source lanes starting")
@@ -368,8 +373,12 @@ def work_loop(lib, interval, use_ollama, model, *,
                 if feeder:
                     # Prepare a six-hour request when eligible research runs low.
                     # This is a LOCAL OUTBOX, not a claimed KRISHNA delivery.
-                    renewal_tick(lib, youtube_blocked=(
+                    renewal = renewal_tick(lib, youtube_blocked=(
                         adaptive.youtube_access["state"] == "rate_limited"))
+                    if relay:
+                        result = relay.tick(lib, renewal)
+                        if result is not None:
+                            print(json.dumps({"krishna_mission":result}, ensure_ascii=False), flush=True)
                 # One worker can both discover approved sources and process them;
                 # no second feeder process or duplicate worker is required.
                 wait = 2 if update["capacity"]["active_total"] else interval
@@ -395,6 +404,8 @@ def main():
     worker.add_argument("--plan", default=None,
                         help="Opt-in existing learning-plan.json for continual approved-source refilling")
     worker.add_argument("--refill-minutes", type=int, default=5)
+    worker.add_argument("--core-mission-config", default=None,
+                        help="Explicit opt-in TLS-pinned paired KRISHNA mission connection JSON")
     imp = sub.add_parser("import-transcript")
     imp.add_argument("file")
     imp.add_argument("--source", default="")
@@ -416,7 +427,8 @@ def main():
     elif args.command == "worker":
         with worker_lock(lib.root):
             work_loop(lib, args.interval, not args.no_ollama, args.model,
-                      plan_path=args.plan, refill_minutes=args.refill_minutes)
+                      plan_path=args.plan, refill_minutes=args.refill_minutes,
+                      core_mission_config=args.core_mission_config)
     else:
         print(json.dumps(import_transcript(lib, args.file, args.source, not args.no_ollama, args.model), indent=2))
 
