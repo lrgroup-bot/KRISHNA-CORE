@@ -1184,7 +1184,7 @@ web/PDF/YouTube queue.
   The visual audit includes explicit failure if a required illustration,
   inline SVG/MathML or raster page could not be analyzed; semantic quality
   stays unverified.
-- Read-only dashboard `#book-learning`, `/api/books` and
+- Read-only dashboard `#garudanetra` (Books lane), `/api/books` and
   `/api/book-search?q=...` display per-book text progress, figure counts,
   candidate Core receipts and exact source-line SHA citations; CLI
   `book-search "term"` works without the dashboard.
@@ -1200,3 +1200,17 @@ Full owner approval, long-running book OCR/vision and SSL/pairing
 requirements: `docs/SURYADEV_BOOK_LINE_BY_LINE.md`.
 Never declare the physical laptop rollout or Core connectivity tested
 based only on CI success.
+
+
+## v6.9 — Books inside existing Garudanetra, coverage and hardware panels
+
+Garudanetra now contains a fourth Books workspace lane, integrated
+book checkpoints and read-only book citation search; the separate Book
+learning sidebar and panel have been removed. Source Coverage reports
+indexed, completed, pending and failed book reading separately from normal
+website, PDF and YouTube jobs. Laptop Health shows measured local Ollama
+book work and visual observations; a stopped worker and empty queue
+truthfully show zero live work even when measured hardware utilization is low.
+
+Imported books in SURYADEV-TEST-DATA do not appear in SURYADEV-DATA;
+explicitly approve a real book in the production data root.
