@@ -43,17 +43,25 @@ class DailyExamTests(unittest.TestCase):
     def tearDown(self):self.tmp.cleanup()
 
     def test_difficult_exam_requires_sources_why_how_conflicts_and_practical(self):
+        with self.assertRaisesRegex(ValueError,"Rishi issuer"):
+            self.bg.create_daily_exam(self.m["mission_id"],questions())
+        with self.assertRaisesRegex(ValueError,"existing Rishi"):
+            self.bg.create_daily_exam(self.m["mission_id"],questions(),issued_by="suryadev")
         with self.assertRaisesRegex(ValueError,"5..30"):
-            self.bg.create_daily_exam(self.m["mission_id"],questions()[:4])
+            self.bg.create_daily_exam(self.m["mission_id"],questions()[:4],issued_by="vishvakarma")
         missing=[dict(x) for x in questions()]
         missing[0]["source_refs"]=[]
         with self.assertRaisesRegex(ValueError,"source references"):
-            self.bg.create_daily_exam(self.m["mission_id"],missing)
-        exam=self.bg.create_daily_exam(self.m["mission_id"],questions(),"2026-10-21")
+            self.bg.create_daily_exam(self.m["mission_id"],missing,issued_by="vishvakarma")
+        exam=self.bg.create_daily_exam(self.m["mission_id"],questions(),"2026-10-21",issued_by="vishvakarma")
         self.assertEqual(exam["status"],"prepared")
+        self.assertEqual(exam["issued_by_rishi_id"],"vishvakarma")
+        self.assertEqual(exam["registered_by"],"brahmagyan_ledger")
+        with self.assertRaisesRegex(ValueError,"independent Rishi"):
+            self.bg.record_daily_exam_attempt(exam["exam_id"],results(),"vishvakarma","independent_rishi_review")
         self.assertFalse(self.bg.daily_exam_status(self.m["mission_id"])["mastery_gate_satisfied"])
         with self.assertRaisesRegex(ValueError,"already exists"):
-            self.bg.create_daily_exam(self.m["mission_id"],questions(),"2026-10-21")
+            self.bg.create_daily_exam(self.m["mission_id"],questions(),"2026-10-21",issued_by="vishvakarma")
         with self.assertRaisesRegex(ValueError,"independent"):
             self.bg.record_daily_exam_attempt(exam["exam_id"],results(),"suryadev","human_review")
         altered=results()
@@ -83,7 +91,7 @@ class DailyExamTests(unittest.TestCase):
         self.bg.advance_claim(cid,"L6",{"test_evidence":["reproducible bench-test evidence"]})
         with self.assertRaisesRegex(ValueError,"daily exam"):
             self.bg.advance_claim(cid,"L7",{"synthesis":"Complete synthesis","teach_back":"Explain mechanism"})
-        exam=self.bg.create_daily_exam(self.m["mission_id"],questions(),"2026-10-21")
+        exam=self.bg.create_daily_exam(self.m["mission_id"],questions(),"2026-10-21",issued_by="vishvakarma")
         self.bg.record_daily_exam_attempt(exam["exam_id"],results(),"gautama","independent_rishi_review")
         promoted=self.bg.advance_claim(cid,"L7",{"synthesis":"Complete synthesis","teach_back":"Explain mechanism"})
         self.assertEqual(promoted["maturity"],"L7")
