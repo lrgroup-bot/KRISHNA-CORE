@@ -23,6 +23,7 @@ from suryadev_parallel import AdaptiveResearchWorkers
 from suryadev_continuity import ContinuityFeeder
 from suryadev_mission_renewal import renewal_tick
 from suryadev_krishna_mission import MissionRelay
+from suryadev_fleet_client import FleetClient
 from suryadev_book_continuity import BookContinuity, BookEvidenceCollector, may_study_books
 from suryadev_book_handoff import BookHandoff
 from suryadev_sources import breakdown
@@ -408,19 +409,23 @@ def serve(lib, port=8769):
 def work_loop(lib, interval, use_ollama, model, *,
               plan_path=None, refill_minutes=5, core_mission_config=None,
               book_plan_path=None, sync_book_handoff=False,
-              book_visual_model=None, book_collect_plan_path=None):
+              book_visual_model=None, book_collect_plan_path=None, fleet_mode=False):
     if book_collect_plan_path and (book_plan_path or sync_book_handoff or book_visual_model):
         raise ValueError('Collector-only books cannot run model-reading, visual AI or Core candidate handoff')
     if interval < 10:
         raise ValueError("interval must be at least 10 seconds")
     if not 1 <= refill_minutes <= 360:
         raise ValueError("refill-minutes must be 1..360")
+    if fleet_mode and not core_mission_config:
+        raise ValueError("fleet mode requires a pinned paired --core-mission-config")
     if core_mission_config and not plan_path:
         raise ValueError("Core mission relay requires an explicit approved --plan")
     feeder = (ContinuityFeeder(lib.root, plan_path,
                refill_seconds=refill_minutes * 60) if plan_path else None)
     relay = (MissionRelay(lib.root, plan_path, core_mission_config)
-             if core_mission_config else None)
+             if core_mission_config and not fleet_mode else None)
+    fleet = (FleetClient(lib.root, plan_path, core_mission_config)
+             if fleet_mode else None)
     if sync_book_handoff and not (book_plan_path and core_mission_config):
         raise ValueError("Book BRAHMAGYAN handoff requires approved --book-plan and paired --core-mission-config")
     if book_visual_model and not book_plan_path:
@@ -455,6 +460,10 @@ def work_loop(lib, interval, use_ollama, model, *,
                         result = relay.tick(lib, renewal)
                         if result is not None:
                             print(json.dumps({"krishna_mission":result}, ensure_ascii=False), flush=True)
+                if fleet:
+                    fleet_event = fleet.tick(lib)
+                    if fleet_event and fleet_event.get("state") != "no_approved_work":
+                        print(json.dumps({"fleet": fleet_event}, ensure_ascii=False), flush=True)
                 if books:
                     # Low-priority background books never compete with queued
                     # web/PDF/YouTube jobs or bypass one-worker ownership.
@@ -520,6 +529,8 @@ def main():
                         help="Owner-approved SHA-256-pinned local books, learned during idle cycles only")
     worker.add_argument("--book-collect-plan", default=None,
                         help="Owner-approved books INDEXED WITHOUT Ollama or comprehension claims")
+    worker.add_argument("--fleet-mode", action="store_true",
+                        help="Opt in to owner-paired fleet task claims and evidence receipts")
     worker.add_argument("--core-mission-config", default=None,
                         help="Explicit opt-in TLS-pinned paired KRISHNA mission connection JSON")
     lab = sub.add_parser("analyze-local-video",
@@ -665,7 +676,8 @@ def main():
                       book_plan_path=args.book_plan,
                       book_collect_plan_path=args.book_collect_plan,
                       sync_book_handoff=args.sync_book_handoff,
-                      book_visual_model=args.book_visual_model)
+                      book_visual_model=args.book_visual_model,
+                      fleet_mode=args.fleet_mode)
     else:
         print(json.dumps(import_transcript(lib, args.file, args.source, not args.no_ollama, args.model), indent=2))
 
