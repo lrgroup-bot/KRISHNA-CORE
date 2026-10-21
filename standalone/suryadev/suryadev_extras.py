@@ -23,6 +23,7 @@ from suryadev_parallel import AdaptiveResearchWorkers
 from suryadev_continuity import ContinuityFeeder
 from suryadev_mission_renewal import renewal_tick
 from suryadev_krishna_mission import MissionRelay
+from suryadev_book_continuity import BookContinuity
 from suryadev_sources import breakdown
 from suryadev_task_details import list_tasks, task_detail, diary_days, diary_day
 from suryadev_liveops import operations_snapshot, worker_note
@@ -353,7 +354,8 @@ def serve(lib, port=8769):
         server.server_close()
 
 def work_loop(lib, interval, use_ollama, model, *,
-              plan_path=None, refill_minutes=5, core_mission_config=None):
+              plan_path=None, refill_minutes=5, core_mission_config=None,
+              book_plan_path=None):
     if interval < 10:
         raise ValueError("interval must be at least 10 seconds")
     if not 1 <= refill_minutes <= 360:
@@ -364,6 +366,8 @@ def work_loop(lib, interval, use_ollama, model, *,
                refill_seconds=refill_minutes * 60) if plan_path else None)
     relay = (MissionRelay(lib.root, plan_path, core_mission_config)
              if core_mission_config else None)
+    books = (BookContinuity(lib.root, book_plan_path, model=model, use_ollama=use_ollama)
+             if book_plan_path else None)
     lib.recover()
     print("SURYADEV Garudanetra adaptive worker started. Ctrl+C to stop.", flush=True)
     worker_note(lib.root, "starting", interval, "Adaptive source lanes starting")
@@ -388,6 +392,17 @@ def work_loop(lib, interval, use_ollama, model, *,
                         result = relay.tick(lib, renewal)
                         if result is not None:
                             print(json.dumps({"krishna_mission":result}, ensure_ascii=False), flush=True)
+                if books:
+                    # Low-priority background books never compete with queued
+                    # web/PDF/YouTube jobs or bypass one-worker ownership.
+                    idle = (update["capacity"]["active_total"] == 0 and
+                            lib.stats().get("queued", 0) == 0 and
+                            lib.stats().get("running", 0) == 0)
+                    if idle:
+                        with adaptive.summary_lock:
+                            book_result = books.tick(available=True)
+                        if book_result:
+                            print(json.dumps({"book_learning":book_result}, ensure_ascii=False), flush=True)
                 # One worker can both discover approved sources and process them;
                 # no second feeder process or duplicate worker is required.
                 wait = 2 if update["capacity"]["active_total"] else interval
@@ -413,6 +428,8 @@ def main():
     worker.add_argument("--plan", default=None,
                         help="Opt-in existing learning-plan.json for continual approved-source refilling")
     worker.add_argument("--refill-minutes", type=int, default=5)
+    worker.add_argument("--book-plan", default=None,
+                        help="Owner-approved SHA-256-pinned local books, learned during idle cycles only")
     worker.add_argument("--core-mission-config", default=None,
                         help="Explicit opt-in TLS-pinned paired KRISHNA mission connection JSON")
     lab = sub.add_parser("analyze-local-video",
@@ -517,7 +534,8 @@ def main():
         with worker_lock(lib.root):
             work_loop(lib, args.interval, not args.no_ollama, args.model,
                       plan_path=args.plan, refill_minutes=args.refill_minutes,
-                      core_mission_config=args.core_mission_config)
+                      core_mission_config=args.core_mission_config,
+                      book_plan_path=args.book_plan)
     else:
         print(json.dumps(import_transcript(lib, args.file, args.source, not args.no_ollama, args.model), indent=2))
 
