@@ -8,6 +8,7 @@ third-party assets and semantic understanding remain unverified.
 from __future__ import annotations
 
 import hashlib
+from itertools import islice
 from html.parser import HTMLParser
 from io import BytesIO
 from pathlib import Path, PurePosixPath
@@ -80,17 +81,23 @@ class BookVisualAuditor:
           elapsed_seconds REAL NOT NULL, recorded_at REAL NOT NULL,
           PRIMARY KEY(book_id, ordinal))
         """)
+        self.ledger.db.execute("""
+        CREATE TABLE IF NOT EXISTS book_visual_runs(
+          book_id TEXT PRIMARY KEY, completed_at REAL NOT NULL,
+          items_total INTEGER NOT NULL)
+        """)
         self.ledger.db.commit()
 
     def close(self):
         self.ledger.close()
 
-    def _sources(self, path, *, pdf_frames=None, epub_images=None):
+    def _sources(self, path, *, pdf_frames=None, epub_images=None, skip=0):
         if path.suffix.lower()==".epub":
-            yield from (epub_images(path) if epub_images else epub_media(path))
+            yield from islice(
+                (epub_images(path) if epub_images else epub_media(path)),skip,None)
             return
         if pdf_frames is not None:
-            yield from pdf_frames(path)
+            yield from islice(pdf_frames(path),skip,None)
             return
         try:
             import pypdfium2 as pdfium
@@ -98,7 +105,7 @@ class BookVisualAuditor:
             raise RuntimeError("Local PDF visuals require pypdfium2") from exc
         document=pdfium.PdfDocument(str(path))
         try:
-            for index in range(len(document)):
+            for index in range(skip,len(document)):
                 image=document[index].render(scale=1.6).to_pil()
                 buff=BytesIO();image.save(buff,format="PNG")
                 yield ("PDF page "+str(index+1),buff.getvalue())
@@ -134,8 +141,11 @@ class BookVisualAuditor:
                 raise RuntimeError("PDF visual book audit needs Pillow, pytesseract, Tesseract") from exc
             ocr=lambda data,label:pytesseract.image_to_string(
                 Image.open(BytesIO(data)).convert("RGB"))
-        seen=0;added=0
-        for label,blob in self._sources(file,pdf_frames=pdf_frames,epub_images=epub_images):
+        already=self.ledger.db.execute(
+            "SELECT COUNT(*) FROM book_visuals WHERE book_id=?",(book_id,)).fetchone()[0]
+        seen=already;added=0;completed_pass=True
+        for label,blob in self._sources(file,pdf_frames=pdf_frames,
+                                        epub_images=epub_images,skip=already):
             seen+=1
             if seen>MAX_VISUAL_ITEMS:
                 raise ValueError("book exceeds 20,000 visual item safety limit")
@@ -148,6 +158,7 @@ class BookVisualAuditor:
                     raise RuntimeError("book visual checkpoint/source mismatch at item "+str(seen))
                 continue
             if max_items and added>=max_items:
+                completed_pass=False
                 break
             if not blob or len(blob)>MAX_IMAGE_BYTES:
                 raise ValueError("visual image missing or over 10 MiB at "+label)
@@ -165,11 +176,16 @@ class BookVisualAuditor:
             added+=1
         total=self.ledger.db.execute(
             "SELECT COUNT(*) FROM book_visuals WHERE book_id=?",(book_id,)).fetchone()[0]
+        if completed_pass:
+            with self.ledger.db:
+                self.ledger.db.execute(
+                    "INSERT OR REPLACE INTO book_visual_runs VALUES(?,?,?)",
+                    (book_id,time.time(),total))
         return {"book_id":book_id,"visual_items_processed":total,
                 "new_visual_items_this_run":added,
                 "inventory_walked_this_run":seen,
-                "reached_known_end":(seen==total),
-                "every_detected_visual_explained_by_model":seen==total,
+                "reached_known_end":completed_pass and seen==total,
+                "every_detected_visual_explained_by_model":completed_pass and seen==total,
                 "full_semantic_understanding_verified":False,
                 "external_assets_and_css_covered":False,
                 "brahmagyan_acknowledged":False}
