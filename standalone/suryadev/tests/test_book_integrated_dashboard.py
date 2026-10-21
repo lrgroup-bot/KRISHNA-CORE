@@ -61,6 +61,19 @@ class UnifiedBookSnapshotTests(unittest.TestCase):
         done=book_learning_snapshot(self.root)
         self.assertEqual(done["completed"],1)
         self.assertEqual(done["lines_processed"],3)
+        # A second model may read the same book independently. Live
+        # averages and processed-line counts must come from ONE same session.
+        with ledger.db:
+            ledger.db.execute(
+                "UPDATE book_journal SET elapsed_seconds=42 WHERE mode='ollama:local'")
+        ledger.read(bid,model="second-local",max_steps=1,
+                    observe=lambda p,m:"second model one line")
+        with ledger.db:
+            ledger.db.execute(
+                "UPDATE book_journal SET elapsed_seconds=11 WHERE mode='ollama:second-local'")
+        second=book_learning_snapshot(self.root)
+        self.assertEqual(second["lines_processed"],1)
+        self.assertEqual(second["model_seconds"],11)
         ledger.close()
 
     def test_in_progress_and_stale_activity_are_different(self):
