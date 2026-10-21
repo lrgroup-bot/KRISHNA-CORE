@@ -225,7 +225,7 @@ class BookHandoffTests(unittest.TestCase):
                          transport=lambda config,path,payload:{
                              "job_id":payload["bundle"]["job_id"],
                              "bundle_sha256":canonical_digest(payload["bundle"]),
-                             "receipt_id":"SURYA-ACK", "accepted_chunks":1,
+                             "receipt_id":"SURYA-ACK-test", "accepted_chunks":1,
                              "cleanup_authorized":True},clock=lambda:1100.0)
         self.assertEqual(good.tick(approved_book_ids=[book])["status"],
                          "candidate_receipts_recorded")
