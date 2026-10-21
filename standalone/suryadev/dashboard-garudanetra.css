@@ -3,11 +3,15 @@
 .netra-live-pill{font-size:11px;font-weight:850;color:#665085;border:1px solid #dcd0fa;background:#f1eaff;padding:8px 13px;border-radius:100px;white-space:nowrap}
 .netra-live-pill.live{background:#dcfff0;border-color:#95e7c6;color:#137754}
 .netra-live-pill.paused{background:#fff2e1;border-color:#f0ca97;color:#9b6522}
-.netra-source-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-top:17px}
+.netra-source-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-top:17px}
 .netra-source{border-radius:15px;border:1px solid #e5dff3;background:white;padding:17px;min-width:0;box-shadow:0 2px 14px #3f2b7110}
 .netra-web{background:linear-gradient(137deg,#fff,#f2f0ff);border-top:4px solid #7a55d9}
 .netra-youtube{background:linear-gradient(137deg,#fff,#fff1f5);border-top:4px solid #e1638b}
 .netra-pdf{background:linear-gradient(137deg,#fff,#e9faf4);border-top:4px solid #2ab9a0}
+.netra-books{background:linear-gradient(137deg,#fff,#fff2df);border-top:4px solid #e9a554}
+.netra-books .netra-icon,.netra-books .netra-big strong{color:#946023}
+.netra-books .netra-label{margin-left:0}
+.netra-books .netra-metrics b{overflow-wrap:anywhere}
 .netra-source-top{display:flex;flex-wrap:wrap;align-items:center;gap:7px;color:#352c6f}
 .netra-source-top strong{font-size:14px;font-weight:900}
 .netra-icon{width:28px;height:28px;display:grid;place-items:center;color:#714dbe;font-size:17px;background:#ffffffb2;border:1px solid #e0d9f0;border-radius:9px}
@@ -34,6 +38,7 @@
 .netra-workspace-tab{display:flex;align-items:flex-start;gap:11px;min-width:0;border:1px solid #e5ddf3;border-left:4px solid #8960ce;background:#fff;border-radius:12px;padding:12px;cursor:pointer;text-align:left;font-family:inherit}
 .netra-workspace-tab:hover{background:#f6f2ff;border-color:#c9b5f3}
 .netra-workspace-tab.youtube{border-left-color:#e85f91}.netra-workspace-tab.pdf{border-left-color:#1bb69c}
+.netra-workspace-tab.book{border-left-color:#e9a554}.netra-workspace-tab.book .tab-icon{background:#fff1df;color:#946023}
 .netra-workspace-tab .tab-icon{flex:none;width:28px;height:28px;border-radius:8px;background:#f1ebff;color:#704bb3;display:grid;place-items:center;font-size:17px}
 .netra-workspace-tab.youtube .tab-icon{background:#ffecf5;color:#bc467b}
 .netra-workspace-tab.pdf .tab-icon{background:#e4faf1;color:#128975}
@@ -53,3 +58,11 @@
   align-items:baseline;font-size:12px;line-height:1.5;color:#3e5375}
 .netra-continuity strong{font-weight:850;color:#263c68}
 .netra-continuity span{flex:1;min-width:240px}
+
+/* Books live inside Garudanetra; not a separate dashboard area. */
+.netra-book-ledger{margin:13px 0 0}
+.netra-book-ledger .netra-tab-title{margin-bottom:12px}
+.netra-book-ledger .netra-tab-title span{font-size:11px;font-weight:650}
+.netra-book-ledger .books-grid{grid-template-columns:repeat(auto-fit,minmax(270px,1fr))}
+@media(max-width:1040px){.netra-books{grid-column:span 2}}
+@media(max-width:750px){.netra-books{grid-column:auto}.netra-book-ledger .books-grid{grid-template-columns:minmax(0,1fr)}}
