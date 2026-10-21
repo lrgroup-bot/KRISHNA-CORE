@@ -141,9 +141,9 @@
       heading = ytBlocked ? "YouTube paused — no independent source ready" :
                  "No live source jobs — previous research remains saved";
       reason = cpu + " · " + ram +
-        " · History: " + num(processing.website?.done) + " web done, " +
-        num(processing.pdf?.done) + " PDF done, " +
-        num(processing.youtube?.done) + " YouTube done. " +
+        " · History: " + num(data.by_source?.website?.done) + " web done, " +
+        num(data.by_source?.pdf?.done) + " PDF done, " +
+        num(data.by_source?.youtube?.done) + " YouTube done. " +
         (books.indexed ? num(books.indexed) + " indexed books. " : "") +
         (continuityOnline
            ? "Approved source refill is scheduled."
@@ -180,9 +180,9 @@
           ? "No learning worker is running. The dashboard observes activity but does not start a worker."
           : noSources
           ? "No live work right now: " +
-            num(processing.website?.done) + " websites, " +
-            num(processing.pdf?.done) + " PDFs and " +
-            num(processing.youtube?.done) + " YouTube sources previously completed. " +
+            num(data.by_source?.website?.done) + " websites, " +
+            num(data.by_source?.pdf?.done) + " PDFs and " +
+            num(data.by_source?.youtube?.done) + " YouTube sources previously completed. " +
             num(books.indexed) + " books indexed. Historical work is not a running tab."
           : healthy
           ? "No sources running yet. The worker will open approved queued work when slots are available."
