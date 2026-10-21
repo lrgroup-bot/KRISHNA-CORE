@@ -50,6 +50,8 @@ class PrivateRemotePolicy:
         "/api/suryadev/device/heartbeat",
         "/api/suryadev/device/status",
         "/api/suryadev/learning-bundle",
+        "/api/suryadev/mission/request",
+        "/api/suryadev/mission/ack",
     })
     MOBILE_ROUTE_PREFIXES=("/api/gita/verse/","/api/gita/chapter/","/api/gita/performance/")
 
