@@ -198,10 +198,16 @@ class SuryadevFleetService:
             return {"renewed": True, "task_id": task_id,
                     "lease_id": lease_id, "expires_at": lease["expires_at"]}
 
-    def complete(self, *, device_id, task_id, lease_id, outcome, evidence_sha256="", detail=""):
+    def complete(self, *, device_id, task_id, lease_id, outcome, evidence_sha256="", detail="", source_excerpt="", locator=None):
         now = float(self.clock())
         if outcome not in {"collected", "failed", "rejected", "rate_limited"}:
             raise ValueError("invalid collection outcome")
+        if not isinstance(source_excerpt,str) or len(source_excerpt)>700:
+            raise ValueError("fleet source excerpt must be <=700 characters")
+        if locator is not None and (not isinstance(locator,dict)
+                or any(k not in ("page","section","start_seconds","end_seconds","line_start","line_end","url_fragment")
+                       for k in locator)):
+            raise ValueError("only measured source locator fields permitted")
         if outcome == "collected" and (not isinstance(evidence_sha256, str)
                 or len(evidence_sha256) != 64 or any(c not in "0123456789abcdef" for c in evidence_sha256)):
             raise ValueError("collected evidence requires SHA-256")
@@ -229,7 +235,10 @@ class SuryadevFleetService:
                            "topic":tasks[task_id]["topic"],
                            "kind":tasks[task_id]["kind"],
                            "evidence_sha256": evidence_sha256, "received_at": now,
-                           "source_evidence_unverified": True, "brahmagyan_accepted": False}
+                           "source_evidence_unverified": True, "brahmagyan_accepted": False,
+                           "source_excerpt": source_excerpt[:700],
+                           "untrusted_source_text": True,
+                           "locator":dict(locator or {})}
                 state["receipts"][task_id] = receipt
             elif outcome == "rejected":
                 state["rejected_by"].setdefault(task_id, [])
