@@ -1,5 +1,8 @@
 """Dynamic 1/5/10 SURYADEV machine scheduling across Council research tasks."""
 import unittest
+import tempfile
+from pathlib import Path
+from krishna_core.brahmagyan import BrahmagyanRuntime
 from krishna_core.suryadev_fleet_policy import plan_rishi_collection
 
 
@@ -102,6 +105,27 @@ class FleetPolicyTests(unittest.TestCase):
         result=self.run_plan(work,[node(1)])
         self.assertEqual(result["assignments"],[])
         self.assertEqual(len(result["deferred"]),3)
+
+
+    def test_brahmagyan_rishi_roster_drives_real_mission_plan(self):
+        class Memory:
+            def audit(self, *args, **kwargs): pass
+        with tempfile.TemporaryDirectory() as folder:
+            brain = BrahmagyanRuntime(Path(folder), object(), Memory())
+            mission = brain.create_mission("KRISHNA","Materials science",knowledge_track="engineering")
+            work = [{"task_id":"research-001","mission_id":mission["mission_id"],
+                     "rishi_id":"kanada","kind":"website","priority":90,
+                     "approved":True,"status":"queued"}]
+            plan = brain.draft_suryadev_fleet_plan(
+                mission["mission_id"],work,[node(1)],now=NOW)
+            self.assertEqual(len(plan["assignments"]),1)
+            self.assertEqual(plan["assignments"][0]["rishi_id"],"kanada")
+            self.assertEqual(plan["rishi_count"],len(brain.council.list()))
+            self.assertEqual(plan["execution_authority"],
+                             "BRAHMA authenticated task lease (not implemented)")
+            with self.assertRaisesRegex(ValueError,"belong"):
+                brain.draft_suryadev_fleet_plan(mission["mission_id"],[
+                    {**work[0],"mission_id":"other"}],[node(1)],now=NOW)
 
 
 if __name__=="__main__":
