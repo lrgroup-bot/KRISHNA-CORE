@@ -2494,7 +2494,9 @@ class Handler(BaseHTTPRequestHandler):
                             device_id=device,task_id=data.get("task_id"),
                             lease_id=data.get("lease_id"),outcome=data.get("outcome"),
                             evidence_sha256=data.get("evidence_sha256",""),
-                            detail=data.get("detail",""))
+                            detail=data.get("detail",""),
+                            source_excerpt=data.get("source_excerpt",""),
+                            locator=data.get("locator"))
                         receipt=result.get("receipt")
                         if isinstance(receipt,dict) and receipt.get("evidence_sha256"):
                             # The collector's only claim is "evidence collected".
