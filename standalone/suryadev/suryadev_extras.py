@@ -35,7 +35,7 @@ from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-21-v6.7-complete-book-ledger"
+UI_VERSION = "2026-10-21-v6.8-book-learning-integration"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -128,7 +128,11 @@ def serve(lib, port=8769):
                                      "has_opt_in_deep_pdf": True,
                                      "has_opt_in_deep_web": True,
                                      "has_local_full_frame_video_audit": True,
-                                     "has_local_book_line_by_line_reader": True}),
+                                     "has_local_book_line_by_line_reader": True,
+                                     "has_idle_book_scheduler": True,
+                                     "has_book_visual_ocr_audit": True,
+                                     "has_book_core_candidate_handoff": True,
+                                     "has_read_only_book_dashboard": True}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
@@ -143,6 +147,22 @@ def serve(lib, port=8769):
                 mime = "text/html; charset=utf-8" if route.path == "/" else (
                     "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
                 return self.respond(200, content, mime)
+            if route.path == "/api/books":
+                from suryadev_book_reader import BookLedger
+                path = Path(lib.root) / "book-learning.sqlite3"
+                if not path.is_file():
+                    return self.respond(200, json.dumps({"books":[],
+                        "note":"No local books registered yet"}),"application/json")
+                reader = BookLedger(lib.root)
+                try:
+                    payload=reader.status()
+                except (OSError,ValueError,RuntimeError) as exc:
+                    return self.respond(503,json.dumps({
+                        "error":"Local book ledger unavailable: "+type(exc).__name__}),
+                        "application/json")
+                finally:
+                    reader.close()
+                return self.respond(200,json.dumps(payload),"application/json")
             if route.path == "/api/operations":
                 reader = Library(lib.root)
                 try:
