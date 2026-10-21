@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from suryadev_book_reader import BookLedger, file_sha256
-from suryadev_book_continuity import BookContinuity, read_book_plan
+from suryadev_book_continuity import BookContinuity, read_book_plan, may_study_books
 from suryadev_book_visuals import BookVisualAuditor
 from suryadev_book_handoff import BookHandoff, canonical_digest, bundle_for_step
 from suryadev_liveops import _safe_read
@@ -76,6 +76,22 @@ class BookContinuityTests(unittest.TestCase):
         ledger = BookLedger(self.root)
         self.assertEqual(ledger.status()["books"], [])
         ledger.close()
+
+    def test_idle_book_admission_respects_hardware_and_youtube_429(self):
+        cap={"safe":True,"max_total":2,"active_total":0}
+        video="https://www.youtube.com/watch?v=abcdefghijk"
+        page="https://docs.python.org/3/library/asyncio.html"
+        self.assertTrue(may_study_books(cap,[],youtube_rate_limited=False))
+        self.assertFalse(may_study_books(cap,[video],youtube_rate_limited=False))
+        self.assertTrue(may_study_books(cap,[video],youtube_rate_limited=True))
+        self.assertFalse(may_study_books(cap,[page],youtube_rate_limited=True))
+        self.assertFalse(may_study_books(cap,[video,page],youtube_rate_limited=True))
+        self.assertFalse(may_study_books({**cap,"safe":False},[],
+                                         youtube_rate_limited=True))
+        self.assertFalse(may_study_books({**cap,"active_total":1},[],
+                                         youtube_rate_limited=True))
+        self.assertFalse(may_study_books({**cap,"max_total":0},[],
+                                         youtube_rate_limited=True))
 
     def test_no_auto_approval_or_preview_only_learning(self):
         with self.assertRaisesRegex(ValueError,"explicitly enabled Ollama"):
