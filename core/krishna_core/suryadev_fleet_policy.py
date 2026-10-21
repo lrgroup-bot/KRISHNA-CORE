@@ -79,7 +79,7 @@ def plan_rishi_collection(tasks, nodes, *, council_ids, now=None,
             reason = "no unleased slots"
         lanes = node.get("capabilities")
         if reason is None and (not isinstance(lanes, list)
-                               or not all(isinstance(x, str) and x in LANES for x in lanes)):
+                               or not lanes or not all(isinstance(x, str) and x in LANES for x in lanes)):
             reason = "capability profile missing"
         if reason:
             excluded.append({"node_id": ident, "reason": reason})
