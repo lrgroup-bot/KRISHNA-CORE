@@ -755,8 +755,11 @@ class Handler(BaseHTTPRequestHandler):
         if not local and not paired and not public:
             self._json(401, {"error": "pairing required"})
             return False
-        if not local and paired and not public and not _remote_policy.mobile_route_allowed(request_path):
-            self._json(403, {"error": "paired remote devices are restricted to KRISHNA conversation/mobile APIs"})
+        chandradev_reader=(request_path=="/api/chandradev/fleet/health"
+                            and device.startswith("chandradev-"))
+        if not local and paired and not public and not (
+                _remote_policy.mobile_route_allowed(request_path) or chandradev_reader):
+            self._json(403, {"error": "paired remote device cannot access this API"})
             return False
         if paired:
             touch_mobile(device, self.path)
@@ -1091,6 +1094,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403,{"error":"device may read only its own Suryadev status"})
             try:return self._json(200,orch.suryadev.device_status(requested))
             except KeyError:return self._json(404,{"error":"Suryadev node has not sent a heartbeat yet"})
+        if path == "/api/chandradev/fleet/health":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                device,token=self._device_auth()
+                if not device.startswith("chandradev-") or not _pairing.verify(device,token):
+                    return self._json(403,{"error":"owner-paired CHANDRADEV reader required"})
+            return self._json(200,orch.chandradev.inspect_suryadev_fleet(
+                orch.suryadev.device_status()))
         if path == "/api/chandradev/status":
             return self._json(200,{
                 **orch.chandradev.status(),
