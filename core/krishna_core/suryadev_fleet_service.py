@@ -220,6 +220,9 @@ class SuryadevFleetService:
                 receipt = {"task_id": task_id, "device_id": device_id,
                            "lease_id": lease_id, "source_url": tasks[task_id]["url"],
                            "rishi_id": tasks[task_id]["rishi_id"],
+                           "mission_id":tasks[task_id]["mission_id"],
+                           "topic":tasks[task_id]["topic"],
+                           "kind":tasks[task_id]["kind"],
                            "evidence_sha256": evidence_sha256, "received_at": now,
                            "source_evidence_unverified": True, "brahmagyan_accepted": False}
                 state["receipts"][task_id] = receipt
