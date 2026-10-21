@@ -190,6 +190,7 @@ def ingest_youtube(url):
     language = selected_caption_language()
     with tempfile.TemporaryDirectory(prefix="suryadev-captions-") as directory:
         folder = Path(directory)
+        comments_opt_in = os.getenv("SURYADEV_YT_COMMENTS", "").strip().lower() in ("1","true","yes")
         opts = {
             "skip_download": True, "writesubtitles": True, "writeautomaticsub": True,
             "subtitleslangs": [language], "subtitlesformat": "vtt",
@@ -199,6 +200,11 @@ def ingest_youtube(url):
             "retries": 0, "fragment_retries": 0, "extractor_retries": 0,
             "sleep_interval_requests": 1.5, "sleep_interval_subtitles": 2,
         }
+        if comments_opt_in:
+            # Limited, explicit ONE-TIME comment collection: never retry 429.
+            # Comments are opinions and cannot be promoted to verified facts.
+            opts["getcomments"] = True
+            opts["extractor_args"] = {"youtube": {"max_comments": ["50","50","0","0","1"]}}
         try:
             with yt_dlp.YoutubeDL(opts) as downloader:
                 info = downloader.extract_info(url, download=True)
@@ -240,14 +246,42 @@ def ingest_youtube(url):
             if speech != previous:
                 lines.append(f"[{start:.2f}-{end:.2f}s] {speech}")
             previous = speech
+        # Video description and chapter metadata are text evidence from the
+        # same approved metadata response. The footage/audio are NOT decoded.
+        description = str(info.get("description") or "").strip()
+        if len(description) > 30_000:
+            raise ValueError("YouTube description exceeds complete evidence budget")
+        chapters = info.get("chapters") if isinstance(info.get("chapters"), list) else []
+        chapter_lines = []
+        for ch in chapters[:200]:
+            if isinstance(ch, dict):
+                chapter_lines.append("[{}-{}s] {}".format(
+                    ch.get("start_time"), ch.get("end_time"),
+                    str(ch.get("title") or "")[:180]))
+        comments = info.get("comments") if isinstance(info.get("comments"), list) else []
+        comments_text = []
+        for item in comments[:50]:
+            if isinstance(item, dict):
+                comments_text.append(str(item.get("text") or "")[:1600])
         text = "\n".join(lines)
+        text += "\n\n[VIDEO DESCRIPTION - PUBLISHER METADATA]\n" + description
+        text += "\n\n[VIDEO CHAPTER MARKERS]\n" + "\n".join(chapter_lines)
+        if comments_opt_in:
+            text += "\n\n[PUBLIC COMMENTS - UNVERIFIED OPINIONS]\n" + "\n".join(comments_text)
         if len(text) > MAX_LEARNING_CHARS:
             raise ValueError("Caption transcript exceeds supported full-processing budget")
         report.update({
             "kind": "youtube", "video_id": video_id,
             "caption_file": selected.name, "caption_language": selected.suffixes[-2].lstrip("."),
             "caption_language_requested": language,
-            "coverage_status": "caption_timeline_only_unverified",
+            "coverage_status": "caption_description_chapters_comments_only_unverified",
+            "description_characters": len(description),
+            "chapter_markers": len(chapter_lines),
+            "comments_requested": comments_opt_in,
+            "comments_received": len(comments_text),
+            "comments_completeness_verified": False,
+            "full_video_visuals_verified": False,
+            "full_audio_coverage_verified": False,
         })
         return str(info.get("title") or "YouTube video")[:500], text, report
 
