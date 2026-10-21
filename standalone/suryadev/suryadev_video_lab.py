@@ -182,7 +182,7 @@ def video_research(media, root, *, title="", description_file=None,
         raise ValueError("local video exceeds size limit")
     description = _read_text(description_file)
     comments, comment_report = read_comments(comments_file)
-    visual_fn = (lambda frame, at: _vision_frame(frame, at, vision_model)
+    visual_fn = ((lambda frame, at: _vision_frame(frame, at, vision_model))
                  if vision_model else None)
     scan = scanner(media, visual_fn=visual_fn,
                    visual_interval_seconds=visual_interval_seconds,
@@ -199,8 +199,9 @@ def video_research(media, root, *, title="", description_file=None,
                {"cue_count": 0, "coverage_status": "no_caption_cues"})}
     elif whisper_model_dir:
         cues, transcript_status = local_audio_transcript(media, whisper_model_dir)
+    media_digest = _file_sha256(media)
     text_sections = ["[VIDEO TITLE] " + str(title)[:500],
-                     "[VIDEO FILE SHA256] " + _file_sha256(media),
+                     "[VIDEO FILE SHA256] " + media_digest,
                      "[DESCRIPTION] " + description,
                      "[TIMED TRANSCRIPT / AUDIO TEXT]"]
     text_sections.extend("[{start:.2f}-{end:.2f}s] {text}".format(**r) for r in cues)
@@ -215,7 +216,7 @@ def video_research(media, root, *, title="", description_file=None,
         raise ValueError("multi-modal text exceeds complete-processing budget; split chapters")
     result = {
         "schema": "suryadev.local-video-coverage.v1", "media_file_name":media.name,
-        "media_sha256":_file_sha256(media), "recorded_at":time.time(),
+        "media_sha256":media_digest, "recorded_at":time.time(),
         "video":{k:v for k,v in scan.items() if k!="visual_samples"},
         "description_chars":len(description), "comments":comment_report,
         "transcript":transcript_status,
