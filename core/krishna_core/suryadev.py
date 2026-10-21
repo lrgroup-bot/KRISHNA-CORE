@@ -349,45 +349,9 @@ class SuryadevAgent:
             "thermal_state": self._text(payload.get("thermal_state") or "unknown", 60).lower(),
             "last_error": self._text(payload.get("last_error"), 1000),
         }
-        # Only paired Core request routing may call this interface. The
-        # self-reported telemetry is useful for cautious admission, but it is
-        # not independent hardware attestation. Missing/stale readings refuse
-        # fleet dispatch; legacy status heartbeats remain accepted.
-        sample = payload.get("telemetry")
-        metrics = {}
-        if isinstance(sample, dict):
-            age = sample.get("sample_age_seconds")
-            required = ("cpu_percent", "ram_percent", "disk_percent")
-            valid = type(age) in (int, float) and math.isfinite(age) and 0 <= age <= 10
-            for field in required:
-                value = sample.get(field)
-                if type(value) not in (float, int) or not math.isfinite(value) or not 0 <= value <= 100:
-                    valid = False
-                else:
-                    metrics[field] = round(float(value), 2)
-            slots = sample.get("max_total")
-            caps = sample.get("capabilities")
-            if (type(slots) is not int or not 0 <= slots <= 12 or
-                    not isinstance(caps, list) or
-                    not all(x in ("website","youtube","pdf","book","experiment") for x in caps)):
-                valid = False
-            if valid:
-                metrics.update({
-                    "available_slots": slots, "capabilities": list(dict.fromkeys(caps)),
-                    "telemetry_sample_at": now,
-                    "logical_cpus": max(1,min(512,int(sample.get("logical_cpus") or 1))),
-                    "ram_total_gb": sample.get("ram_total_gb"),
-                    "disk_free_gb": sample.get("disk_free_gb"),
-                    "gpu_inference": bool(sample.get("gpu_inference") is True),
-                    "hardware_profile": {
-                        "cpu_name": self._text(sample.get("cpu_name"),120),
-                        "gpu_name": self._text(sample.get("gpu_name"),120),
-                        "platform": self._text(sample.get("platform"),120),
-                    }
-                })
         hardware = payload.get("hardware")
         capacity = payload.get("capacity")
-        # Installed fleet clients send one normalized telemetry object.
+        # Existing installed fleet clients send one normalized telemetry object.
         # Translate at the authenticated Core boundary; keep all bounds checks.
         telemetry = payload.get("telemetry")
         if hardware is None and capacity is None and isinstance(telemetry, dict):
@@ -451,7 +415,6 @@ class SuryadevAgent:
             for field in ("available_slots", "capabilities", "telemetry_sample_at",
                           "cpu_percent", "ram_percent", "disk_percent"):
                 previous.pop(field, None)
-            row.update(metrics)
             previous.update(row)
             rows[device_id] = previous
             self._save_nodes(rows)
