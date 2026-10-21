@@ -39,7 +39,7 @@ class FleetTests(unittest.TestCase):
         self.temp.cleanup()
     def node(self, n, **changes):
         identity="suryadev-"+str(n)
-        row={"device_id":identity,"worker_running":True,"network_online":True,
+        row={"device_id":identity,"authenticated":True,"worker_running":True,"network_online":True,
              "last_error":"","thermal_state":"normal",
              "last_seen":self.now[0], "telemetry_sample_at":self.now[0],
              "cpu_percent":40,"ram_percent":50,"disk_percent":35,
