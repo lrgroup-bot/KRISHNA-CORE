@@ -19,7 +19,7 @@ class RishiExamAuthor:
         snippets=[]
         for cid in mission.get("claim_ids",[])[:20]:
             claim=self.brain.claim(cid)
-            body=str(claim.get("claim") or claim.get("text") or "").strip()[:650]
+            body=str(claim.get("claim") or claim.get("text") or "").strip()[:440]
             sources=(claim.get("sources") or [])+(claim.get("supporting_evidence") or [])
             for source in sources[:5]:
                 if not isinstance(source,dict):continue
@@ -33,7 +33,7 @@ class RishiExamAuthor:
                                  "section":str(source.get("section") or "")[:100]})
         # Model cannot make a source valid by generating a link. Only actual
         # source refs from approved BRAHMAGYAN claims may appear in questions.
-        return list(dict.fromkeys(refs)),snippets[:30]
+        return list(dict.fromkeys(refs)),snippets[:12]
 
     def draft(self, assignment):
         if not isinstance(assignment,dict):
