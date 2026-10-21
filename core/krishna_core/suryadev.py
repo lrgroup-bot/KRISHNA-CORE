@@ -387,6 +387,26 @@ class SuryadevAgent:
                 })
         hardware = payload.get("hardware")
         capacity = payload.get("capacity")
+        # Installed fleet clients send one normalized telemetry object.
+        # Translate at the authenticated Core boundary; keep all bounds checks.
+        telemetry = payload.get("telemetry")
+        if hardware is None and capacity is None and isinstance(telemetry, dict):
+            hardware = {
+                "available": True,
+                "sample_age_seconds": telemetry.get("sample_age_seconds"),
+                "cpu_percent": telemetry.get("cpu_percent"),
+                "ram_percent": telemetry.get("ram_percent"),
+                "disk_percent": telemetry.get("disk_percent"),
+                "logical_cpus": telemetry.get("logical_cpus"),
+                "ram_total_gb": telemetry.get("ram_total_gb"),
+                "disk_free_gb": telemetry.get("disk_free_gb"),
+                "gpu_inference": telemetry.get("gpu_inference") is True,
+                "gpu": {"name": telemetry.get("gpu_name","unknown")},
+            }
+            capacity = {
+                "available_slots": telemetry.get("max_total"),
+                "capabilities": telemetry.get("capabilities"),
+            }
         if hardware is not None or capacity is not None:
             if not isinstance(hardware, dict) or not isinstance(capacity, dict):
                 raise ValueError("fleet heartbeat needs hardware and capacity objects")
