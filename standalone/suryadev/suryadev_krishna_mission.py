@@ -58,7 +58,8 @@ def load_config(path):
 
 
 def post_core(config, path, payload):
-    if path not in ("/api/suryadev/mission/request", "/api/suryadev/mission/ack"):
+    if path not in ("/api/suryadev/mission/request", "/api/suryadev/mission/ack",
+                    "/api/suryadev/learning-bundle"):
         raise ValueError("unsupported Core mission API")
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     # Explicit leaf certificate pinning is the trust anchor for local Core.
