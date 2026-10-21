@@ -476,6 +476,12 @@ def main():
     book_read.add_argument("--lines-per-step", type=int, default=1)
     book_read.add_argument("--max-steps", type=int, default=0,
                            help="0 means continue until every line is processed")
+    book_visual = sub.add_parser("book-visuals",
+                         help="Resume local full-page PDF or EPUB image vision/OCR audit")
+    book_visual.add_argument("book_id")
+    book_visual.add_argument("--model", default="gemma3:4b")
+    book_visual.add_argument("--max-items", type=int, default=0,
+                             help="0 means through the last detected visual; 1 for checkpoint step")
     book_status = sub.add_parser("book-status")
     book_status.add_argument("book_id", nargs="?")
     book_verify = sub.add_parser("book-verify")
@@ -494,6 +500,17 @@ def main():
         return
     if args.command == "verify-evidence":
         print(json.dumps(verify_evidence(args.data), indent=2))
+        return
+    if args.command == "book-visuals":
+        from suryadev_book_visuals import BookVisualAuditor
+        with worker_lock(args.data):
+            auditor = BookVisualAuditor(args.data)
+            try:
+                result = auditor.run(args.book_id,model=args.model,
+                                     max_items=args.max_items)
+            finally:
+                auditor.close()
+        print(json.dumps(result,ensure_ascii=False,indent=2))
         return
     if args.command in ("book-import","book-read","book-status","book-verify"):
         from suryadev_book_reader import BookLedger, default_pdf_ocr
