@@ -107,6 +107,16 @@ class RishiExamAuthor:
         row=next((x for x in pending if x["assignment_id"]==assignment_id),None)
         if row is None or row["issued_by_rishi"]!=proposal.get("issuer_rishi"):
             raise ValueError("exam proposal does not match a due BRAHMA assignment")
+        approved_sources=set(self._evidence(self.brain.mission(proposal["mission_id"]))[0])
+        if not approved_sources:
+            raise ValueError("exam cannot be issued without BRAHMAGYAN source claims")
+        qs=proposal.get("questions")
+        if not isinstance(qs,list) or any(
+                not isinstance(q,dict) or not isinstance(q.get("source_refs"),list)
+                or not q["source_refs"] or any(ref not in approved_sources
+                                                for ref in q["source_refs"])
+                for q in qs):
+            raise ValueError("Rishi exam sources must match the mission's original evidence")
         exam=self.brain.create_daily_exam(
             proposal["mission_id"],proposal["questions"],proposal["date"],
             issued_by=proposal["issuer_rishi"])
