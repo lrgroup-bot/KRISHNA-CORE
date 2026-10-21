@@ -10,6 +10,7 @@ from pathlib import Path
 import time
 
 from suryadev_book_reader import BookLedger, file_sha256
+from suryadev_book_visuals import BookVisualAuditor
 from suryadev_liveops import atomic_json
 
 PLAN_SCHEMA = "suryadev.book-plan.v1"
@@ -53,13 +54,14 @@ def read_book_plan(path):
 
 class BookContinuity:
     def __init__(self, root, plan, *, model, use_ollama, clock=time.time,
-                 min_gap_seconds=10):
+                 min_gap_seconds=10, vision_model=None):
         self.root = Path(root).resolve()
         self.path = Path(plan).resolve()
         self.plan = read_book_plan(self.path)
         if not use_ollama:
             raise ValueError("Book continuity needs explicitly enabled Ollama; no preview-only learning")
         self.model = model
+        self.vision_model = vision_model
         self.clock = clock
         self.next_at = 0
         self.min_gap_seconds = min_gap_seconds
@@ -89,6 +91,22 @@ class BookContinuity:
                     current = ledger.status(book_id)
                     session = current["sessions"].get("ollama:"+self.model)
                     if session and session["reached_end"]:
+                        if self.vision_model and path.suffix.lower() in (".pdf",".epub"):
+                            audit = BookVisualAuditor(self.root)
+                            try:
+                                completed = audit.ledger.db.execute(
+                                    "SELECT completed_at FROM book_visual_runs WHERE book_id=?",
+                                    (book_id,)).fetchone()
+                                if completed:
+                                    continue
+                                visual = audit.run(book_id,model=self.vision_model,max_items=1)
+                                result={"state":"book_visual_step","book_id":book_id,
+                                        "visual":visual,"model":self.vision_model,
+                                        "brahmagyan_acknowledged":False,"updated_at":now}
+                                atomic_json(self.root,RUNTIME,result)
+                                return result
+                            finally:
+                                audit.close()
                         continue
                     receipt = ledger.read(book_id, model=self.model,
                         lines_per_step=self.plan["lines_per_step"],
