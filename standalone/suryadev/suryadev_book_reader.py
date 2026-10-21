@@ -110,10 +110,15 @@ def _text_units(path, *, ocr=None):
             for tag in package.iter():
                 if tag.tag.endswith("item") and "id" in tag.attrib:
                     manifest[tag.attrib["id"]] = tag.attrib
-            order = [tag.attrib.get("idref") for tag in package.iter()
-                     if tag.tag.endswith("itemref") and
-                     tag.attrib.get("linear","yes") != "no"]
-            if not order:
+            spine = [tag for tag in package.iter() if tag.tag.endswith("itemref")]
+            main = [tag.attrib.get("idref") for tag in spine
+                    if tag.attrib.get("linear","yes") != "no"]
+            extra = [tag.attrib.get("idref") for tag in spine
+                     if tag.attrib.get("linear","yes") == "no"]
+            # Preserve narrative order, then include ALL non-linear notes/
+            # appendices; never silently lose supplementary book chapters.
+            order = main + extra
+            if not main:
                 raise ValueError("EPUB has no linear spine")
             for chapter, ref in enumerate(order, 1):
                 item = manifest.get(ref)
@@ -453,6 +458,10 @@ class BookLedger:
 
     def verify(self, book_id):
         title,total,digest = self._book(book_id)
+        original=self.db.execute("SELECT filename FROM books WHERE id=?",
+                                 (book_id,)).fetchone()[0]
+        if not Path(original).is_file() or file_sha256(original)!=digest:
+            raise RuntimeError("Original book file absent or SHA-256 changed")
         count=0
         for n,text,stored in self.db.execute(
             "SELECT ordinal,text,line_sha256 FROM book_lines WHERE book_id=? ORDER BY ordinal",
