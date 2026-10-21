@@ -47,6 +47,23 @@ class ApprovedBookPlanTests(unittest.TestCase):
         ledger.close()
         self.assertEqual(len(read_book_plan(first["plan"])["books"]),1)
 
+    def test_exact_source_line_search_remains_cited_and_never_fakes_learning(self):
+        approved=approve_book(self.root,self.first)
+        ledger=BookLedger(self.root)
+        match=ledger.search("Original volume",limit=10)
+        self.assertEqual(match["returned"],1)
+        row=match["matches"][0]
+        self.assertEqual(row["source_line"],"Original volume one")
+        self.assertEqual(row["line_in_section"],1)
+        self.assertEqual(row["book_id"],approved["book_id"])
+        self.assertIsNone(row["ai_reading_mode"])
+        self.assertEqual(len(row["line_sha256"]),64)
+        self.assertFalse(row["comprehension_verified"])
+        self.assertEqual(ledger.search("' OR 1=1 --")["returned"],0)
+        with self.assertRaisesRegex(ValueError,"2..120"):
+            ledger.search("")
+        ledger.close()
+
     def test_existing_approval_unmodified_if_new_book_is_invalid(self):
         first=approve_book(self.root,self.first)
         malformed=self.root/"corrupt.epub"
@@ -84,6 +101,10 @@ class BookDashboardContractTests(unittest.TestCase):
         self.assertIn('"--book-visual-model"',server)
         self.assertIn('"book-approve"',server)
         self.assertIn('"book-visuals"',server)
+        self.assertIn('route.path == "/api/book-search"',server)
+        self.assertIn('id="book-search-form"',html)
+        self.assertIn('fetch("/api/book-search?q="',js)
+        self.assertIn('"book-search"',server)
 
 
 if __name__=="__main__":
