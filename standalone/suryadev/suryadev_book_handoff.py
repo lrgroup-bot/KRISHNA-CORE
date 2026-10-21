@@ -132,7 +132,9 @@ class BookHandoff:
                 "AND s.next_ordinal > b.lines_total "
                 "AND j.end_ordinal < s.next_ordinal AND d.job_id IS NULL "
                 "ORDER BY j.recorded_at ASC LIMIT ?")
-            candidates = ledger.db.execute(sql, (*ids,max_per_cycle)).fetchall()
+            candidates = ledger.db.execute(
+                sql, (*ids,max_per_cycle if not require_visual_complete
+                      else max(max_per_cycle, len(ids)*120))).fetchall()
             if require_visual_complete:
                 # Avoid a misleading knowledge ACK before owner-requested
                 # per-page PDF/EPUB images are all audited.
@@ -150,7 +152,7 @@ class BookHandoff:
                         if not complete:
                             continue
                     filtered.append((bid,mode,start))
-                candidates=filtered
+                candidates=filtered[:max_per_cycle]
             if not candidates:
                 return None
             sent = []
@@ -166,12 +168,14 @@ class BookHandoff:
                         raise ValueError("approved book source changed before Core handoff")
                     reply = self.transport(self.config, "/api/suryadev/learning-bundle", {
                         "device_id":self.config["device_id"],"bundle":bundle})
-                    if (reply.get("job_id") != job_id or
+                    if (not isinstance(reply,dict) or
+                            reply.get("job_id") != job_id or
                             reply.get("bundle_sha256") != digest or
-                            not isinstance(reply.get("accepted_chunks"),int) or
+                            type(reply.get("accepted_chunks")) is not int or
                             reply["accepted_chunks"] < 1 or
-                            not reply.get("cleanup_authorized") or
-                            not reply.get("receipt_id")):
+                            reply.get("cleanup_authorized") is not True or
+                            not isinstance(reply.get("receipt_id"),str) or
+                            not reply["receipt_id"].startswith("SURYA-ACK-")):
                         raise ValueError("KRISHNA BRAHMAGYAN receipt mismatch or not routed")
                     with ledger.db:
                         ledger.db.execute(
