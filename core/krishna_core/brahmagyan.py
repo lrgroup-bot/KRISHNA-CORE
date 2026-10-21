@@ -984,6 +984,27 @@ class BrahmagyanRuntime:
             "policy":"checkpoint and release resources whenever production workloads need CPU/GPU/RAM; no autonomous background daemon in v1",
         }
 
+    def draft_suryadev_fleet_plan(self,mission_id,tasks,nodes,*,now=None):
+        """Expose Rishi work placement proposals without dispatching node commands.
+
+        BRAHMAGYAN manages mission and specialist attribution. BRAHMA must
+        authorize and lease every physical execution. Node identities and
+        telemetry must be supplied by the authenticated fleet registry.
+        """
+        from .suryadev_fleet_policy import plan_rishi_collection
+        m=self.mission(mission_id)
+        if not isinstance(tasks,list):
+            raise TypeError("Rishi task list is required")
+        if any(not isinstance(t,dict) or t.get("mission_id")!=mission_id for t in tasks):
+            raise ValueError("all fleet tasks must belong to this BRAHMAGYAN mission")
+        out=plan_rishi_collection(tasks,nodes,council_ids=[
+            row["id"] for row in self.council.list()],now=now)
+        return {"mission_id":mission_id,"topic":m["topic"],
+                "planning_authority":"BRAHMAGYAN",
+                "execution_authority":"BRAHMA authenticated task lease (not implemented)",
+                "examination_authority":"Rishi Council, routed through BRAHMAGYAN",
+                **out}
+
     def shishya_plan(self,mission_id,specialties=None,count=None,parent_rishi=None,assignments=None):
         m=self.mission(mission_id)
         parent=str(parent_rishi or m["lead_rishi"]).strip().lower()
