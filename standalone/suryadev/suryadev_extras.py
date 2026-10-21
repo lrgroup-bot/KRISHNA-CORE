@@ -251,7 +251,10 @@ def serve(lib, port=8769):
                     ).fetchall()
                 finally:
                     reader.db.close()
+                from suryadev_book_dashboard import book_learning_snapshot
+                books = book_learning_snapshot(lib.root)
                 payload = {"time": time.time(), "status": status, "sources": sources,
+                           "book_learning": books,
                            "total": sum(status.values()), "findings": findings,
                            "diary": days,
                            "jobs": [{"id": i, "url": url, "status": state, "created": created,
