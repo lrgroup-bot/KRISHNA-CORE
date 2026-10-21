@@ -22,6 +22,8 @@ from threading import RLock
 
 from .field_perception import FieldPerceptionPolicy
 from .suryadev_mission_backlog import SuryadevMissionBacklog
+from .suryadev_fleet_queue import SuryadevFleetQueue
+import math
 from .suryadev_fleet_service import SuryadevFleetService
 from .rishi_council import RishiCouncil
 
@@ -78,6 +80,7 @@ class SuryadevAgent:
         self.ui_reviewer = ui_reviewer
         self.memory = memory
         self.mission_backlog = SuryadevMissionBacklog(self.root / "mission-authority")
+        self.fleet_queue = SuryadevFleetQueue(self.root / "mission-authority")
         self.fleet = SuryadevFleetService(
             self.root / "fleet-authority", curriculum=self.mission_backlog,
             council=self.council or RishiCouncil(),
@@ -328,13 +331,14 @@ class SuryadevAgent:
         tmp.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(self.nodes_file)
 
-    def device_heartbeat(self, payload):
+    def device_heartbeat(self, payload, *, authenticated=False):
         payload = dict(payload or {})
         device_id = self._text(payload.get("device_id"), 200)
         if not device_id:
             raise ValueError("device_id is required")
         now = time.time()
         row = {
+            "authenticated": bool(authenticated),
             "device_id": device_id,
             "node_name": self._text(payload.get("node_name") or device_id, 200),
             "platform": self._text(payload.get("platform"), 100),
@@ -384,6 +388,45 @@ class SuryadevAgent:
                         "platform": self._text(sample.get("platform"),120),
                     }
                 })
+        hardware = payload.get("hardware")
+        capacity = payload.get("capacity")
+        if hardware is not None or capacity is not None:
+            if not isinstance(hardware, dict) or not isinstance(capacity, dict):
+                raise ValueError("fleet heartbeat needs hardware and capacity objects")
+            if hardware.get("available") is not True:
+                raise ValueError("fleet heartbeat requires measured hardware telemetry")
+            age = hardware.get("sample_age_seconds")
+            if (type(age) not in (int, float) or not math.isfinite(age)
+                    or not 0 <= age <= 15):
+                raise ValueError("hardware telemetry age must be measured and <=15 seconds")
+            for name in ("cpu_percent", "ram_percent", "disk_percent"):
+                n = hardware.get(name)
+                if type(n) not in (int,float) or not math.isfinite(n) or not 0 <= n <= 100:
+                    raise ValueError("invalid fleet telemetry for " + name)
+                row[name] = round(float(n), 2)
+            slots = capacity.get("available_slots")
+            if type(slots) is not int or not 0 <= slots <= 128:
+                raise ValueError("fleet capacity needs measured 0..128 available slots")
+            caps = capacity.get("capabilities")
+            allowed = {"website", "pdf", "youtube", "book", "experiment"}
+            if (not isinstance(caps,list) or len(caps)>5
+                    or any(not isinstance(x,str) or x not in allowed for x in caps)):
+                raise ValueError("fleet capabilities must be supported lanes")
+            row.update({
+                "telemetry_sample_at": now-float(age),
+                "available_slots": slots,
+                "capabilities": list(dict.fromkeys(caps)),
+                "gpu_inference": hardware.get("gpu_inference") is True,
+                "logical_cpus": hardware.get("logical_cpus"),
+                "ram_total_gb": hardware.get("ram_total_gb"),
+                "disk_free_gb": hardware.get("disk_free_gb"),
+                "gpu": dict(hardware.get("gpu") or {}) if isinstance(hardware.get("gpu"),dict) else {},
+                "hardware_profile_version": "suryadev.hardware.v1",
+            })
+        else:
+            # Old heartbeats cannot continue to advertise stale fleet capacity.
+            row.update({"telemetry_sample_at": None, "available_slots": 0,
+                        "capabilities": [], "gpu_inference": False})
         with self._node_lock:
             rows = self._load_nodes()
             previous = dict(rows.get(device_id) or {})
@@ -615,6 +658,43 @@ class SuryadevAgent:
             )
         return receipt
 
+    def fleet_enqueue(self, payload, *, brahmagyan):
+        """Local KRISHNA operator-only: queue one evidence collection task."""
+        if not isinstance(payload,dict) or payload.get("approved") is not True:
+            raise PermissionError("fleet tasks require explicit owner approval")
+        mid = payload.get("mission_id")
+        brahmagyan.mission(mid)  # Real canonical existing BRAHMAGYAN mission.
+        curriculum, _ = self.mission_backlog._catalogue()
+        urls = {url for packet in curriculum for url in packet["approved_urls"]}
+        return self.fleet_queue.enqueue(
+            mission_id=mid, task_id=payload.get("task_id"),
+            rishi_id=payload.get("rishi_id"), kind=payload.get("kind"),
+            url=payload.get("url"), priority=payload.get("priority",50),
+            approved_urls=urls, council_ids=[r["id"] for r in self.council.list()])
+
+    def fleet_offer(self, *, device_id):
+        if not device_id.startswith("suryadev-"):
+            raise PermissionError("SURYADEV paired identity required")
+        # The queue handles lease expiry, idempotent offer replay and only
+        # measured compatible machine slots. The task never carries commands.
+        nodes = self.device_status()["nodes"]
+        return self.fleet_queue.offer(
+            device_id=device_id, nodes=nodes,
+            council_ids=[r["id"] for r in self.council.list()])
+
+    def fleet_renew(self, payload, *, device_id):
+        return self.fleet_queue.renew(
+            payload.get("task_id"), device_id=device_id,
+            lease_token=payload.get("lease_token"))
+
+    def fleet_complete(self, payload, *, device_id):
+        return self.fleet_queue.complete(
+            payload.get("task_id"), device_id=device_id,
+            lease_token=payload.get("lease_token"),
+            outcome=payload.get("outcome"),
+            evidence_sha256=payload.get("evidence_sha256") or "",
+            error=payload.get("error") or "")
+
     def mission_offer(self, request, *, device_id):
         return self.mission_backlog.offer(request, device_id=device_id)
 
@@ -630,6 +710,7 @@ class SuryadevAgent:
             "agent": "SURYDEV",
             "version": self.VERSION,
             "mission_backlog": self.mission_backlog.status(),
+            "fleet_queue": self.fleet_queue.status(),
             "fleet": self.fleet.status(),
             "role": "external overall eye + ear + UI/research reviewer",
             "capabilities": list(self.CAPABILITIES),
