@@ -119,7 +119,7 @@ class FleetClient:
             lease = row["lease_id"]
             local_id = row["job_id"]
             result = lib.db.execute(
-                "SELECT jobs.status, jobs.error, findings.sha256 FROM jobs "
+                "SELECT jobs.status, jobs.error, findings.sha256, findings.excerpt FROM jobs "
                 "LEFT JOIN findings ON findings.job_id=jobs.id "
                 "WHERE jobs.id=? ORDER BY findings.id DESC LIMIT 1",
                 (local_id,)).fetchone()
@@ -127,7 +127,7 @@ class FleetClient:
                 row["state"] = "missing_local_job"
                 self._save()
                 continue
-            status, error, digest = result
+            status, error, digest, excerpt = result
             if status == "done" and digest:
                 outcome = "collected"
             elif status == "failed":
@@ -139,6 +139,7 @@ class FleetClient:
                 reply = self._send("fleet/complete", {
                     "task_id": task_id, "lease_id": lease,
                     "outcome": outcome, "evidence_sha256": digest if outcome == "collected" else "",
+                    "source_excerpt":str(excerpt or "")[:500] if outcome=="collected" else "",
                     "detail": str(error or "")[:300]})
                 if not reply.get("acknowledged"):
                     raise RuntimeError("Core did not acknowledge result")
