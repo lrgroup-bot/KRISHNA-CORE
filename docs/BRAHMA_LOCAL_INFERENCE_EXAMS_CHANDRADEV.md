@@ -35,6 +35,16 @@ Configure KRISHNA_BRAHMA_LOCAL_INFERENCE_CONFIG to point to an operator-owned JS
 
 The 85% threshold is an admission/throttle limit, not an OS-level hard CPU/RAM/GPU cap. The fleet client reports measured CPU/RAM/disk and cached real Windows CPU/GPU identities where available. Unsupported GPU load and temperatures are unknown. No unapproved source URLs or full-video downloads are initiated by the new modules.
 
+## Independent CHANDRADEV watcher
+
+Run standalone/chandradev/fleet_watch.py on its own owner-controlled monitoring PC with Python and an operator-created config JSON (schema chandradev.fleet-observer.v1, endpoint private HTTPS Core origin, cert_sha256, token_file, device_id with chandradev- prefix). Example invocation:
+
+    python standalone/chandradev/fleet_watch.py --config C:/secure/chandradev-watch.json --data D:/CHANDRADEV-DATA --interval 60
+
+The paired device needs explicit KRISHNA Core owner approval. Its only remote route is GET /api/chandradev/fleet/health. It does not read conversations, request source material, start models, restart PCs or execute jobs. A failed cert pin sends no token. Device states are stored in fleet-health-history.json; changes are retained for local inspection and the original camera-QC workflow is unaffected. 60 seconds is the minimum poll interval.
+
+This is a durable monitoring process and state journal, NOT a remote OS recovery engine or a notification delivery system. Test against actual paired machines and their network failures before relying on the alerts.
+
 ## Still required before merge/pull
 
 - CI green on the same head: Core Windows/Linux, standalone Windows/Linux, browser and security smoke.
