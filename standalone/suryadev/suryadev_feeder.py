@@ -18,7 +18,9 @@ import xml.etree.ElementTree as ET
 from suryadev import Library, validate_url, StrictRedirect
 from suryadev_liveops import atomic_json
 
-MAX_FEED_BYTES = 1_000_000
+# Some approved publisher RSS feeds embed article HTML and exceed 1 MiB.
+# Keep a strict finite per-response size; never allow unbounded downloads.
+MAX_FEED_BYTES = 8 * 1024 * 1024
 FEED_STATE = "feeder-runtime.json"
 HOST_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,250}[a-z0-9])?$")
 
@@ -102,7 +104,7 @@ def fetch_feed(url):
             raise ValueError("compressed feed not supported")
         length = response.headers.get("Content-Length")
         if length and int(length) > MAX_FEED_BYTES:
-            raise ValueError("feed is too large")
+            raise ValueError(f"feed is too large (maximum {MAX_FEED_BYTES} bytes)")
         data = response.read(MAX_FEED_BYTES + 1)
     if len(data) > MAX_FEED_BYTES:
         raise ValueError("feed is too large")
