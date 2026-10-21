@@ -35,7 +35,7 @@ from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-21-v6.8-book-learning-integration"
+UI_VERSION = "2026-10-21-v6.9-integrated-learning-workspaces"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -132,7 +132,10 @@ def serve(lib, port=8769):
                                      "has_idle_book_scheduler": True,
                                      "has_book_visual_ocr_audit": True,
                                      "has_book_core_candidate_handoff": True,
-                                     "has_read_only_book_dashboard": True}),
+                                     "has_read_only_book_dashboard": True,
+                                     "has_books_in_garudanetra": True,
+                                     "has_books_in_source_coverage": True,
+                                     "has_books_in_laptop_health": True}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
