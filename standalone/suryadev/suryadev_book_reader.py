@@ -245,6 +245,10 @@ class BookLedger:
                     (book_id,lines_total,section,page,line_no,text,_sha(text.encode("utf-8"))))
             if lines_total == 0:
                 raise ValueError("Empty book cannot be registered")
+            # Import can run a long time. Detect content changing mid-scan
+            # BEFORE committing the permanent indexed source fingerprint.
+            if file_sha256(path)!=digest:
+                raise RuntimeError("Book changed while being indexed; no partial book committed")
             self.db.execute("UPDATE books SET lines_total=? WHERE id=?",
                             (lines_total,book_id))
         return {"book_id":book_id,"lines_total":lines_total,
