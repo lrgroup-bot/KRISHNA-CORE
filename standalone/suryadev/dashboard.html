@@ -22,7 +22,6 @@
     <nav class="navigation">
       <a href="#overview" class="nav-item selected"><span>✦</span> Overview</a>
       <a href="#live-learning" class="nav-item"><span>●</span> Live learning</a>
-      <a href="#book-learning" class="nav-item"><span>▧</span> Book learning</a>
       <a href="#garudanetra" class="nav-item"><span>◉</span> Garudanetra browser</a>
       <a href="#assignments" class="nav-item"><span>▣</span> All assignments</a>
       <a href="#sources" class="nav-item"><span>◈</span> Sources & learning</a>
@@ -102,26 +101,6 @@
       <div id="upcoming-jobs" class="operations-queue"><div class="empty-state">Loading queue…</div></div>
       <p class="operations-bottom-note" id="operations-note">Processing percentage and exact start time are not available until recorded by the worker.</p>
     </section>
-    <section id="book-learning" class="surface books-panel" aria-labelledby="book-title">
-      <div class="section-heading compact">
-        <div><div class="overline">SOURCE-ORDER BOOK RESEARCH</div>
-          <h2 id="book-title">Complete book learning</h2>
-          <p>Line-by-line evidence checkpoints · page/figure vision audit · KRISHNA candidate receipts.</p>
-        </div>
-        <span id="book-ledger-state" class="health-label">Checking local books…</span>
-      </div>
-      <div id="book-ledger-list" class="books-grid" aria-live="polite">
-        <div class="empty-state">Loading book-ledger status…</div>
-      </div>
-      <form id="book-search-form" class="book-search-form">
-        <label for="book-search-input">Find exact book source lines</label>
-        <input type="search" id="book-search-input" maxlength="120"
-               placeholder="Search a technical concept across imported books">
-        <button type="submit">Search book evidence</button>
-      </form>
-      <div id="book-search-results" class="book-search-results" aria-live="polite"></div>
-      <p class="small-note">Processed means a local model response was recorded, not verified understanding. BRAHMAGYAN routing is a candidate receipt, not factual approval. Book imports and owner approval are performed using explicit local commands.</p>
-    </section>
     <section id="garudanetra" class="netra-control" aria-labelledby="netra-title">
       <div class="section-heading compact">
         <div>
@@ -148,6 +127,12 @@
           <div class="netra-big"><strong id="netra-pdf-running">—</strong><span>processing now</span></div>
           <div class="netra-metrics"><span>Allowed <b id="netra-pdf-capacity">—</b></span><span>Queued <b id="netra-pdf-queued">—</b></span><span>Visual OCR <b>Not verified</b></span></div>
         </article>
+        <article class="netra-source netra-books" aria-label="Books source lane">
+          <div class="netra-source-top"><span class="netra-icon">▧</span><strong>Books</strong><span class="netra-label">Local Ollama · sequential reading</span></div>
+          <div class="netra-big"><strong id="netra-books-running">0</strong><span>reading now</span></div>
+          <div class="netra-metrics"><span>Owner approved <b id="netra-books-approved">0</b></span><span>Indexed <b id="netra-books-indexed">0</b></span><span>Text progress <b id="netra-books-lines">0 / 0</b></span></div>
+          <p class="netra-access-note" id="netra-books-state">No books have been indexed in this data folder.</p>
+        </article>
       </div>
       <div class="netra-bottom-row">
         <div class="netra-admission"><span aria-hidden="true">◈</span><div><strong id="netra-capacity-heading">Measuring laptop headroom…</strong><small id="netra-capacity-reason">Auto-admission is disabled unless hardware telemetry is available.</small></div><span class="netra-capacity-badge" id="netra-total-capacity">— active / — allowed</span></div>
@@ -157,9 +142,21 @@
         <strong>Approved-source continuity</strong>
         <span>Awaiting read-only learning worker status.</span>
       </div>
-      <div class="netra-tab-title">Source tabs currently being processed <span id="netra-workspace-count">0</span></div>
+      <div class="netra-tab-title">Live source and book workspaces <span id="netra-workspace-count">0</span></div>
       <div id="netra-workspace-tabs" class="netra-workspace-tabs" aria-live="polite"><div class="empty-state">No processing slots active.</div></div>
-      <p class="netra-disclaimer">Workspace cards for YouTube and PDF represent real extraction jobs, not hidden video playback or Chromium tabs. Browser tabs are counted separately. SURYADEV never claims complete learning from simply opening a source.</p>
+      <div class="netra-book-ledger">
+        <div class="netra-tab-title">Book reading checkpoints <span id="book-ledger-state">Checking local books…</span></div>
+        <div id="book-ledger-list" class="books-grid" aria-live="polite">
+          <div class="empty-state">Reading book progress…</div>
+        </div>
+        <form id="book-search-form" class="book-search-form">
+          <label for="book-search-input">Search original book lines</label>
+          <input type="search" id="book-search-input" maxlength="120" placeholder="Find a concept in indexed books">
+          <button type="submit">Search evidence</button>
+        </form>
+        <div id="book-search-results" class="book-search-results" aria-live="polite"></div>
+      </div>
+      <p class="netra-disclaimer">Website tabs are actual Garudanetra Chromium tabs; YouTube/PDF/book processing use separate lanes. Completed jobs are historical, not live. Book model observations and Core candidate receipts do not prove factual understanding.</p>
     </section>
     <section class="task-section" id="assignments" aria-labelledby="tasks-title">
       <div class="section-heading"><div><div class="overline">INTERACTIVE TASK EXPLORER</div><h2 id="tasks-title">All assignments <span class="title-count" id="filtered-count">—</span></h2><p>Click any task to inspect what SURYADEV did, its evidence and what is still pending.</p></div><span class="section-decoration" aria-hidden="true">✦</span></div>
@@ -177,8 +174,8 @@
       </div>
     </section>
     <div class="middle-grid">
-      <section id="sources" class="surface source-surface" aria-labelledby="sources-title"><div class="section-heading compact"><div><div class="overline">SOURCE COVERAGE</div><h2 id="sources-title">What it's learning</h2></div><span class="decor-orbit" aria-hidden="true">◎</span></div><div class="source-grid" id="source-grid"></div><p class="small-note">A recorded “done” result is not proof of watching an entire video or reading every PDF page.</p></section>
-      <section id="hardware" class="surface hardware-surface" aria-labelledby="hardware-title"><div class="section-heading compact"><div><div class="overline">REAL-TIME TELEMETRY</div><h2 id="hardware-title">Laptop health</h2></div><span class="health-label">85% guard</span></div><div id="gauges" class="gauge-list"><div class="empty-state">Waiting for hardware…</div></div><div class="network" id="network"></div><p class="small-note">Counters are cumulative, not internet speed. GPU telemetry requires compatible hardware.</p></section>
+      <section id="sources" class="surface source-surface" aria-labelledby="sources-title"><div class="section-heading compact"><div><div class="overline">SOURCE COVERAGE</div><h2 id="sources-title">What it's learning</h2></div><span class="decor-orbit" aria-hidden="true">◎</span></div><div class="source-grid" id="source-grid"></div><p class="small-note">Books are counted separately from website/PDF/YouTube jobs. A recorded “done” or fully indexed book is not proof of understanding.</p></section>
+      <section id="hardware" class="surface hardware-surface" aria-labelledby="hardware-title"><div class="section-heading compact"><div><div class="overline">REAL-TIME TELEMETRY</div><h2 id="hardware-title">Laptop health</h2></div><span class="health-label">85% guard</span></div><div id="gauges" class="gauge-list"><div class="empty-state">Waiting for hardware…</div></div><div class="network" id="network"></div><div class="book-health" id="book-health" aria-live="polite">Book study: checking local progress…</div><p class="small-note">Counters are cumulative, not internet speed. Book inference time is measured model time, not a promise of learning speed. GPU telemetry requires compatible hardware.</p></section>
     </div>
     <section id="diary" class="surface diary-surface" aria-labelledby="diary-title">
       <div class="section-heading compact"><div><div class="overline">DATE-WISE LEARNING</div><h2 id="diary-title">Daily learning diary</h2><p>Pick any day or click a date below to open its activity and assignments.</p></div><span class="eyebrow-chip">Date-wise activity</span></div>
