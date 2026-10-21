@@ -5,6 +5,7 @@ param(
     [string]$Python = "python",
     [switch]$ActivateOfficialTech,
     [switch]$UseOllama,
+    [string]$CoreMissionConfig = "",
     [string]$Model = "qwen3.5:9b"
 )
 $ErrorActionPreference = "Stop"
@@ -36,6 +37,12 @@ $workerArgs = @(
     "--refill-minutes", [string]$RefillMinutes,
     "--interval", [string]$CheckSeconds
 )
+if ($CoreMissionConfig) {
+    if (-not (Test-Path -LiteralPath $CoreMissionConfig -PathType Leaf)) {
+        throw "Core mission configuration does not exist: $CoreMissionConfig"
+    }
+    $workerArgs += @("--core-mission-config",$CoreMissionConfig)
+}
 if ($UseOllama) {
     $workerArgs += @("--model",$Model)
 } else {
