@@ -9,6 +9,7 @@ param(
     [switch]$DeepPDF,
     [switch]$AnalyzeYoutubeComments,
     [string]$BookPlan = "",
+    [string]$BookVisualModel = "",
     [switch]$SyncBookHandoff,
     [string]$VisionModel = "",
     [string]$CoreMissionConfig = "",
@@ -49,6 +50,10 @@ if ($BookPlan) {
     }
     if (-not $UseOllama) { throw "BookPlan requires -UseOllama; do not claim preview-only reading" }
     $workerArgs += @("--book-plan",$BookPlan)
+}
+if ($BookVisualModel) {
+    if (-not $BookPlan) { throw "-BookVisualModel requires -BookPlan" }
+    $workerArgs += @("--book-visual-model",$BookVisualModel)
 }
 if ($SyncBookHandoff) {
     if (-not ($BookPlan -and $CoreMissionConfig)) {
