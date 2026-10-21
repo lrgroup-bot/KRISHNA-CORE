@@ -86,7 +86,12 @@ class BrahmaExamScheduler:
                 scheduled_on_day=any(
                     x["mission_id"]==mid and x["exam_date"]==day.isoformat()
                     for x in state["assignments"].values())
-                if day.isoformat() not in past_days and not scheduled_on_day:
+                unissued_initial=any(
+                    x["mission_id"]==mid and x["phase"]=="initial"
+                    and x["status"]=="awaiting_independently_authored_questions"
+                    for x in state["assignments"].values())
+                if (day.isoformat() not in past_days and not scheduled_on_day
+                        and not unissued_initial):
                     future.insert(0,(day,0))
                 seen_dates=set()
                 for due,offset in sorted(future,key=lambda x:x[0]):
