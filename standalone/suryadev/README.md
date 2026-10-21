@@ -1165,3 +1165,38 @@ This workflow is opt-in and obeys the same single-worker data-root lock:
 stop the continuous website worker before a long book reading session.
 See the full deployment and use guide in
 `docs/SURYADEV_BOOK_LINE_BY_LINE.md` at the repo root.
+
+
+## v6.8: integrated book learning and BRAHMAGYAN candidate receipts
+
+The earlier v6.7 instructions for a manual `book-read` command still work,
+but books may now join the SAME continuous worker using explicitly approved
+local file hashes, without starting a duplicate process or abandoning the
+web/PDF/YouTube queue.
+
+- `book-approve <local-DRM-free-book>`: import every readable line and add
+  its absolute source path and SHA to backed-up `book-plan.json`.
+- `start-continuous-learning.ps1 -UseOllama -LearnApprovedBooks`: during
+  idle approved-source windows, consume one locally installed Ollama
+  line-by-line reading step and atomically update the separate book ledger.
+- Add `-BookVisuals -VisionModel gemma3:4b` to opt into one image/page
+  local model observation per idle book cycle after the text reaches its end.
+  The visual audit includes explicit failure if a required illustration,
+  inline SVG/MathML or raster page could not be analyzed; semantic quality
+  stays unverified.
+- Read-only dashboard `#book-learning`, `/api/books` and
+  `/api/book-search?q=...` display per-book text progress, figure counts,
+  candidate Core receipts and exact source-line SHA citations; CLI
+  `book-search "term"` works without the dashboard.
+- `-SyncBookHandoff` is only accepted with an explicitly approved book
+  plan and an independently paired, pinned HTTPS
+  `-CoreMissionConfig`. It routes full-book candidate knowledge through
+  KRISHNA's existing BRAHMA/Rishi intake and verifies Core's canonical
+  bundle SHA receipt before recording a locally acknowledged delivery.
+  The books and page images stay on the laptop. A receipt is NOT a
+  validated scientific or factual understanding certification.
+
+Full owner approval, long-running book OCR/vision and SSL/pairing
+requirements: `docs/SURYADEV_BOOK_LINE_BY_LINE.md`.
+Never declare the physical laptop rollout or Core connectivity tested
+based only on CI success.
