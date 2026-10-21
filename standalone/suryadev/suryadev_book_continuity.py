@@ -52,6 +52,51 @@ def read_book_plan(path):
     return {"books":accepted,"lines_per_step":lines_per_step}
 
 
+def approve_book(root, source, *, lines_per_step=1, ocr=None):
+    """Explicit operator action, not autonomous source selection/approval."""
+    from suryadev_book_reader import file_sha256
+    import shutil
+    root=Path(root).expanduser().resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    path=Path(source).expanduser().resolve(strict=True)
+    if not path.is_file() or path.suffix.lower() not in (".txt",".md",".pdf",".epub"):
+        raise ValueError("approve only an existing local supported book")
+    if type(lines_per_step) is not int or not 1<=lines_per_step<=40:
+        raise ValueError("lines_per_step must be 1..40")
+    # Read all pages and reject OCR/EPUB errors BEFORE changing approvals.
+    ledger=BookLedger(root)
+    try:
+        imported=ledger.import_book(path,ocr=ocr)
+    finally:
+        ledger.close()
+    digest=file_sha256(path)
+    if digest != imported["book_id"][5:]:
+        raise RuntimeError("local book changed during import; approval refused")
+    plan=root/"book-plan.json"
+    if plan.is_file():
+        raw=json.loads(plan.read_text(encoding="utf-8"))
+        validated=read_book_plan(plan)
+        if any(str(item["path"]).casefold()==str(path).casefold() and
+               item["sha256"]!=digest for item in validated["books"]):
+            raise ValueError("previously approved book changed; manual review/reapproval required")
+        if not any(str(item["path"]).casefold()==str(path).casefold()
+                   for item in validated["books"]):
+            if len(raw["books"])>=MAX_APPROVED_BOOKS:
+                raise ValueError("owner-approved book limit reached")
+            raw["books"].append({"path":str(path),"sha256":digest})
+            backup=plan.with_name("book-plan.backup-"+str(int(time.time()))+".json")
+            shutil.copy2(plan,backup)
+        else:
+            return {"status":"already_approved","book_id":imported["book_id"],
+                    "plan":str(plan),"approved_books":len(raw["books"])}
+    else:
+        raw={"schema":PLAN_SCHEMA,"books":[{"path":str(path),"sha256":digest}],
+             "lines_per_step":lines_per_step}
+    atomic_json(root,"book-plan.json",raw)
+    return {"status":"approved","book_id":imported["book_id"],"plan":str(plan),
+            "approved_books":len(raw["books"]),"source_sha256":digest}
+
+
 class BookContinuity:
     def __init__(self, root, plan, *, model, use_ollama, clock=time.time,
                  min_gap_seconds=10, vision_model=None):
