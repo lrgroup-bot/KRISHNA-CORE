@@ -978,3 +978,33 @@ Get-Content "D:\\Work\\SURYADEV-DATA\\krishna-mission-renewal.json"
 Retain the existing single-worker lock. Never start `suryadev_mission.py`
 beside the continuous worker, and never mistake this request for an active
 six-hour task contract or a guarantee of six hours of unique source content.
+
+
+## 2026-10-21 live laptop acceptance and RSS fix
+
+The operator's installed v6.3 laptop reported: 26 completed source jobs,
+no failed source jobs; YouTube job #6 recovered from **778 timestamped
+official CS50 publisher caption cues** (not video/audio observation).
+One independent feeder diagnostic was observed:
+`https://github.blog/feed/` exceeded the previous 1 MiB XML cap.
+The parser now accepts a bounded **8 MiB maximum uncompressed RSS/XML body**
+and still refuses any larger Content-Length/body and compressed responses.
+The official GitHub Engineering RSS is also available as an opt-in source
+(`https://github.blog/engineering/feed/`) on reactivation of the
+official technology pack. The user's actual response length is not yet known,
+so a feed over 8 MiB can still produce a truthful per-feed error.
+
+The observed renewal request showed `awaiting_assignment`,
+`eligible_queued_or_running=0`, and all KRISHNA/BRAHMAGYAN delivery
+acknowledgment flags false. This is correct: the prior 20-item queue
+snapshot was recorded earlier in the five-minute refill cycle.
+`requested_hours=6` is a desired assignment window, not a verified
+six-hour completion guarantee.
+
+After pulling the new PR head, stop the old worker and dashboard
+using Ctrl+C in their own terminals before safe install. Run
+`-ActivateOfficialTech` again to append the smaller Engineering feed
+without replacing existing approvals or SQLite data. Restart exactly one
+continuous worker, refresh `/api/operations` after a refill, then
+verify evidence integrity. The Core-side paired dispatcher and explicit
+acceptance receipt are still needed.
