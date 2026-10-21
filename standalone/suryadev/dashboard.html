@@ -11,6 +11,8 @@
 <script src="/dashboard.js" defer></script>
 <script src="/dashboard-settings.js" defer></script>
 <script src="/dashboard-garudanetra.js" defer></script>
+<link rel="stylesheet" href="/dashboard-books.css">
+<script src="/dashboard-books.js" defer></script>
 </head>
 <body>
 <div class="app-shell">
@@ -20,6 +22,7 @@
     <nav class="navigation">
       <a href="#overview" class="nav-item selected"><span>✦</span> Overview</a>
       <a href="#live-learning" class="nav-item"><span>●</span> Live learning</a>
+      <a href="#book-learning" class="nav-item"><span>▧</span> Book learning</a>
       <a href="#garudanetra" class="nav-item"><span>◉</span> Garudanetra browser</a>
       <a href="#assignments" class="nav-item"><span>▣</span> All assignments</a>
       <a href="#sources" class="nav-item"><span>◈</span> Sources & learning</a>
@@ -98,6 +101,19 @@
       <div class="diary-task-title">Next assignments in queue</div>
       <div id="upcoming-jobs" class="operations-queue"><div class="empty-state">Loading queue…</div></div>
       <p class="operations-bottom-note" id="operations-note">Processing percentage and exact start time are not available until recorded by the worker.</p>
+    </section>
+    <section id="book-learning" class="surface books-panel" aria-labelledby="book-title">
+      <div class="section-heading compact">
+        <div><div class="overline">SOURCE-ORDER BOOK RESEARCH</div>
+          <h2 id="book-title">Complete book learning</h2>
+          <p>Line-by-line evidence checkpoints · page/figure vision audit · KRISHNA candidate receipts.</p>
+        </div>
+        <span id="book-ledger-state" class="health-label">Checking local books…</span>
+      </div>
+      <div id="book-ledger-list" class="books-grid" aria-live="polite">
+        <div class="empty-state">Loading book-ledger status…</div>
+      </div>
+      <p class="small-note">Processed means a local model response was recorded, not verified understanding. BRAHMAGYAN routing is a candidate receipt, not factual approval. Book imports and owner approval are performed using explicit local commands.</p>
     </section>
     <section id="garudanetra" class="netra-control" aria-labelledby="netra-title">
       <div class="section-heading compact">
