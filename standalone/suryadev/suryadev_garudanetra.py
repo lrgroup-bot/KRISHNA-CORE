@@ -2,8 +2,9 @@
 
 Uses KRISHNA's canonical Playwright/Chromium engine and isolated incognito
 context; not a competing browser or an authenticated KRISHNA Core session.
-Only the exact owner-approved HTTPS site may load. Image/media/font requests
-are denied to keep the learner lightweight. Pages close after extraction.
+Only the exact owner-approved HTTPS site may load. Deep mode is explicitly
+opt-in and permits SAME-HOST styles/images for vision; cross-host requests,
+YouTube media and unapproved linked-page navigation remain blocked.
 """
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ import time
 from urllib.parse import urlsplit
 
 from suryadev_liveops import atomic_json
+from suryadev_deep_web import deep_web_settings, inspect_page
 
 MAX_VISIBLE_CHARS = 220_000
 MAX_BROWSER_TABS = 4
@@ -28,6 +30,7 @@ class GarudanetraLite:
             raise ValueError("Garudanetra tabs must be between 1 and 4")
         self.root = Path(root).expanduser().resolve()
         self.max_tabs = max_tabs
+        self.deep_mode, self.vision_model = deep_web_settings()
         self._lock = threading.RLock()
         self._tabs = {}
         self._allowed_hosts = set()
@@ -50,7 +53,8 @@ class GarudanetraLite:
                 "heartbeat_at": time.time(), "started_at": self._started,
                 "tab_limit": self.max_tabs, "open_tabs": len(self._tabs),
                 "tabs": list(self._tabs.values())[:MAX_BROWSER_TABS],
-                "network_policy": "approved-https-same-host, no media/image/font/css",
+                "network_policy": ("approved HTTPS SAME HOST, deep images/styles; no media/fonts"
+                                   if self.deep_mode else "approved-https-same-host, no media/image/font/css"),
                 "full_video_visuals_verified": False,
             })
 
@@ -113,10 +117,12 @@ class GarudanetraLite:
         parsed = urlsplit(address)
         with self._lock:
             approved = parsed.hostname in self._allowed_hosts
+        blocked_types = {"media", "font", "websocket", "manifest"}
+        if not self.deep_mode:
+            blocked_types |= {"image", "stylesheet"}
         if (parsed.scheme != "https" or not approved or parsed.username or
                 parsed.password or parsed.port not in (None,443) or
-                route.request.resource_type in
-                {"image", "media", "font", "stylesheet", "websocket", "manifest"}):
+                route.request.resource_type in blocked_types):
             await route.abort()
         else:
             await route.continue_()
@@ -148,9 +154,13 @@ class GarudanetraLite:
                 final = urlsplit(page.url)
                 if final.scheme != "https" or final.hostname != parsed.hostname:
                     raise ValueError("Garudanetra navigated outside the approved HTTPS host")
-                # Load modest same-host script-delivered text if available,
-                # without waiting for endless long-polling networkidle.
-                await page.wait_for_timeout(450)
+                # Deep research scans all bounded scroll positions and records
+                # same-origin image/link metadata and actual local-vision attempts.
+                deep_report = None
+                if self.deep_mode:
+                    deep_report = await inspect_page(page, model=self.vision_model)
+                else:
+                    await page.wait_for_timeout(450)
                 try:
                     main = page.locator("main").first
                     selected = main if await main.count() else page.locator("body")
@@ -159,6 +169,21 @@ class GarudanetraLite:
                     text = (await page.locator("body").inner_text(timeout=5000)).strip()
                 if not text:
                     raise ValueError("Garudanetra found no visible text on the page")
+                if deep_report is not None:
+                    from urllib.parse import urlsplit as split_link
+                    fragments = ["[PAGE LINKS — discovered, not automatically followed]"]
+                    for link in deep_report["links"]:
+                        if split_link(link["href"]).hostname == parsed.hostname:
+                            fragments.append(str(link["label"]) + ": " + str(link["href"]))
+                    fragments.append("[PAGE IMAGE DESCRIPTIONS / ALT TEXT]")
+                    fragments.extend(
+                        str(x["alt"]) + " " + str(x["src"])
+                        for x in deep_report["image_sources"] if x["alt"])
+                    fragments.append("[LOCAL VISUAL OBSERVATIONS — UNVERIFIED]")
+                    fragments.extend(
+                        "Viewport {}: {}".format(x["viewport"], x["observation"])
+                        for x in deep_report["vision_observations"])
+                    text += "\n\n" + "\n".join(fragments)
                 if len(text) > MAX_VISIBLE_CHARS:
                     raise ValueError("Rendered website exceeds supported extraction budget")
                 title = (await page.title()) or url
@@ -171,12 +196,18 @@ class GarudanetraLite:
                     "rendered_visible_characters": len(text),
                     "extracted_characters": len(text),
                     "browser_final_url": page.url,
-                    "coverage_status": "garudanetra_rendered_text_unverified",
+                    "coverage_status": ("deep_web_dom_scroll_visuals_attempted_unverified"
+                                        if deep_report else
+                                        "garudanetra_rendered_text_unverified"),
                     "full_rendered_page_verified": False,
                     "embedded_video_audio_verified": False,
-                    "note": "Garudanetra rendered visible text only; scripts or external assets "
-                            "blocked for privacy/lightness, and no video, image or linked page "
-                            "was comprehensively learned.",
+                    "note": ("Garudanetra deep inspected bounded full-scroll DOM and visual "
+                             "viewports on the approved host; off-host media and arbitrary linked "
+                             "pages remain excluded." if deep_report else
+                             "Garudanetra rendered visible text only; scripts or external assets "
+                             "blocked for privacy/lightness, and no video, image or linked page "
+                             "was comprehensively learned."),
+                    "deep_web": deep_report,
                 }
                 return title[:500], text, report
             finally:
@@ -199,7 +230,8 @@ class GarudanetraLite:
             raise RuntimeError("Garudanetra Lite is already stopping")
         task = asyncio.run_coroutine_threadsafe(self._render(url, job_id), self._loop)
         try:
-            return task.result(timeout=45)
+            return task.result(timeout=(3600 if self.deep_mode and self.vision_model
+                                        else 90 if self.deep_mode else 45))
         except Exception:
             task.cancel()
             raise
