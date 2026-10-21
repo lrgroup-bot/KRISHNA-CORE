@@ -4,10 +4,20 @@ on:
     paths:
       - 'standalone/suryadev/**'
       - '.github/workflows/suryadev-standalone.yml'
+      - 'core/krishna_core/suryadev.py'
+      - 'core/krishna_core/suryadev_mission_backlog.py'
+      - 'core/krishna_core/server.py'
+      - 'core/krishna_core/remote_access.py'
+      - 'core/tests/test_suryadev_mission_backlog.py'
   push:
     paths:
       - 'standalone/suryadev/**'
       - '.github/workflows/suryadev-standalone.yml'
+      - 'core/krishna_core/suryadev.py'
+      - 'core/krishna_core/suryadev_mission_backlog.py'
+      - 'core/krishna_core/server.py'
+      - 'core/krishna_core/remote_access.py'
+      - 'core/tests/test_suryadev_mission_backlog.py'
 jobs:
   unit:
     runs-on: ${{ matrix.os }}
@@ -26,6 +36,11 @@ jobs:
       - name: Run tests
         working-directory: standalone/suryadev
         run: python -m unittest discover -s tests -v
+
+      - name: Verify Core six-hour mission scheduler and paired route contract
+        env:
+          PYTHONPATH: core
+        run: python -m unittest discover -s core/tests -p test_suryadev_mission_backlog.py -v
 
       - name: Verify installer diagnostic test gate
         working-directory: standalone/suryadev
