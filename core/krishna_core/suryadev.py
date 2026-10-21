@@ -61,8 +61,9 @@ class SuryadevAgent:
         "frame_bytes", "audio_bytes", "video_bytes",
     }
 
-    def __init__(self, state_root, *, brahma=None, council=None, ui_reviewer=None, memory=None):
+    def __init__(self, state_root, *, brahma=None, council=None, ui_reviewer=None, memory=None, clock=time.time):
         self.root = Path(state_root)
+        self.clock = clock
         self.root.mkdir(parents=True, exist_ok=True)
         self.jobs_dir = self.root / "jobs"
         self.reports_dir = self.root / "reports"
@@ -333,7 +334,7 @@ class SuryadevAgent:
         device_id = self._text(payload.get("device_id"), 200)
         if not device_id:
             raise ValueError("device_id is required")
-        now = time.time()
+        now = float(self.clock())
         row = {
             "authenticated": bool(authenticated),
             "device_id": device_id,
@@ -434,7 +435,7 @@ class SuryadevAgent:
         }
 
     def device_status(self, device_id=None):
-        now = time.time()
+        now = float(self.clock())
         with self._node_lock:
             rows = self._load_nodes()
         out = []
