@@ -63,7 +63,7 @@ class BrahmagyanRuntime:
         self.cognitive_brain=None
         self.lock=RLock()
         self.state={
-            "missions":{},"claims":{},"debates":{},"daily_exams":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
+            "missions":{},"claims":{},"debates":{},"daily_exams":{},"collector_candidates":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
             "created_at":time.time(),"version":self.VERSION,
         }
         self.load_error=None
@@ -87,7 +87,7 @@ class BrahmagyanRuntime:
         try:
             raw=json.loads(self.path.read_text(encoding="utf-8"))
             if isinstance(raw,dict):
-                for key in ("missions","claims","debates","daily_exams","curiosity","shishya_archive","council_proposals"):
+                for key in ("missions","claims","debates","daily_exams","collector_candidates","curiosity","shishya_archive","council_proposals"):
                     if key in raw:self.state[key]=raw[key]
         except Exception as exc:
             self.load_error=f"{type(exc).__name__}: {exc}"
@@ -569,6 +569,64 @@ class BrahmagyanRuntime:
             if key:keys.add(key)
         return len(keys)
 
+
+    def intake_suryadev_collection(self, receipt):
+        """Persist only provenance of a paired, lease-acknowledged collection.
+
+        This is a Rishi research *candidate*, not a claim, comprehension score,
+        verified citation or learned fact. The underlying Core lease service
+        already checks the device and recorded source allowlist.
+        """
+        import re
+        if not isinstance(receipt,dict):
+            raise TypeError("fleet receipt must be an object")
+        tid=receipt.get("task_id")
+        url=receipt.get("source_url")
+        rishi=receipt.get("rishi_id")
+        digest=receipt.get("evidence_sha256")
+        if not isinstance(tid,str) or not tid.startswith("fleet-") or len(tid)>100:
+            raise ValueError("trusted fleet task ID required")
+        if not isinstance(url,str) or len(url)>2000 or urlparse(url).scheme!="https":
+            raise ValueError("HTTPS source required")
+        if not isinstance(digest,str) or not re.fullmatch(r"[0-9a-f]{64}",digest):
+            raise ValueError("source evidence SHA-256 required")
+        self.council.get(rishi)
+        device=receipt.get("device_id")
+        if not isinstance(device,str) or not device.startswith("suryadev-"):
+            raise ValueError("paired SURYADEV source identity required")
+        candidate={
+            "task_id":tid,"device_id":device,"rishi_id":rishi,
+            "source_url":url,"source_kind":str(receipt.get("kind") or "unknown")[:40],
+            "curriculum_id":str(receipt.get("mission_id") or "")[:100],
+            "topic":str(receipt.get("topic") or "")[:200],
+            "evidence_sha256":digest,"retrieved_at":receipt.get("received_at"),
+            "knowledge_status":"collected_unverified",
+            "claim_id":None,"citation_verified":False,
+            "comprehension_verified":False,"independent_rishi_review":False,
+        }
+        with self.lock:
+            self._healthy()
+            candidates=self.state.setdefault("collector_candidates",{})
+            existing=candidates.get(tid)
+            if existing is not None:
+                if existing != candidate:
+                    raise RuntimeError("conflicting fleet evidence provenance for same task")
+                return {"recorded":True,"idempotent":True,"candidate":dict(existing)}
+            if len(candidates)>=10000:
+                raise RuntimeError("collector candidate ledger requires archival")
+            candidates[tid]=candidate
+            self._save()
+        self.memory.audit("brahmagyan_collector","candidate_recorded",tid)
+        return {"recorded":True,"idempotent":False,"candidate":dict(candidate)}
+
+    def collector_candidates(self, *, limit=100):
+        limit=max(1,min(int(limit),500))
+        with self.lock:
+            self._healthy()
+            rows=list(self.state.get("collector_candidates",{}).values())
+            return {"items":json.loads(json.dumps(rows[-limit:])),
+                    "total":len(rows),
+                    "authority":"evidence inbox only; a Rishi must independently investigate and verify claims"}
 
     def create_daily_exam(self,mission_id,questions,exam_date=None,*,issued_by=None):
         """Record a Rishi-issued examination; BRAHMAGYAN does not set questions.
@@ -1183,6 +1241,7 @@ class BrahmagyanRuntime:
             "deep_learning_loop":["discover","read","understand_context","extract_claims","verify_sources","cross_check","find_contradictions","apply","test","evaluate","connect","store"],
             "missions":missions,"claims":claims,"debates":debates,"curiosity_queued":curiosity,
             "daily_exams":len(self.state.get("daily_exams") or {}),
+            "collector_candidates":len(self.state.get("collector_candidates") or {}),
             "daily_exam_policy":"Rishi-issued questions and different-Rishi review: 3 theory / 2 practical; why/how/contradiction; 85% theory and 90% practical; documented evidence before L7/L8",
             "council_proposals":len(self.state.get("council_proposals") or []),
             "council":self.council.status(),
