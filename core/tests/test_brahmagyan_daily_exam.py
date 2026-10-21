@@ -43,7 +43,7 @@ class DailyExamTests(unittest.TestCase):
     def tearDown(self):self.tmp.cleanup()
 
     def test_difficult_exam_requires_sources_why_how_conflicts_and_practical(self):
-        with self.assertRaisesRegex(ValueError,"3 theory"):
+        with self.assertRaisesRegex(ValueError,"5..30"):
             self.bg.create_daily_exam(self.m["mission_id"],questions()[:4])
         missing=[dict(x) for x in questions()]
         missing[0]["source_refs"]=[]
