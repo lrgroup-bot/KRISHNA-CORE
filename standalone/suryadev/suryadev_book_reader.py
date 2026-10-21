@@ -289,9 +289,26 @@ class BookLedger:
         visual_count = (self.db.execute(
             "SELECT COUNT(*) FROM book_visuals WHERE book_id=?",(book_id,)
         ).fetchone()[0] if visual_exists else 0)
+        visual_done = False
+        if self.db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='book_visual_runs'"
+        ).fetchone():
+            visual_done=bool(self.db.execute(
+                "SELECT completed_at FROM book_visual_runs WHERE book_id=?",
+                (book_id,)).fetchone())
+        delivered = 0
+        if self.db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='book_delivery'"
+        ).fetchone():
+            delivered=self.db.execute(
+                "SELECT COUNT(*) FROM book_delivery WHERE book_id=?",
+                (book_id,)).fetchone()[0]
         return {"book_id":book_id,"title":title,"source_sha256":digest,
                 "lines_indexed":total,"index_status":"complete",
                 "sessions":sessions,"visual_items_examined":visual_count,
+                "visual_inventory_finished":visual_done,
+                "brahmagyan_candidate_receipts":delivered,
+                "rishi_factual_verification_complete":False,
                 "visuals_full_semantic_coverage_verified":False,
                 "comprehension_verified":False}
 
