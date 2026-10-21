@@ -356,7 +356,8 @@ def serve(lib, port=8769):
 
 def work_loop(lib, interval, use_ollama, model, *,
               plan_path=None, refill_minutes=5, core_mission_config=None,
-              book_plan_path=None, sync_book_handoff=False):
+              book_plan_path=None, sync_book_handoff=False,
+              book_visual_model=None):
     if interval < 10:
         raise ValueError("interval must be at least 10 seconds")
     if not 1 <= refill_minutes <= 360:
@@ -369,7 +370,10 @@ def work_loop(lib, interval, use_ollama, model, *,
              if core_mission_config else None)
     if sync_book_handoff and not (book_plan_path and core_mission_config):
         raise ValueError("Book BRAHMAGYAN handoff requires approved --book-plan and paired --core-mission-config")
-    books = (BookContinuity(lib.root, book_plan_path, model=model, use_ollama=use_ollama)
+    if book_visual_model and not book_plan_path:
+        raise ValueError("Automatic book visuals require --book-plan")
+    books = (BookContinuity(lib.root, book_plan_path, model=model,
+                            use_ollama=use_ollama,vision_model=book_visual_model)
              if book_plan_path else None)
     handoff = (BookHandoff(lib.root,core_mission_config) if sync_book_handoff else None)
     lib.recover()
@@ -409,7 +413,8 @@ def work_loop(lib, interval, use_ollama, model, *,
                             print(json.dumps({"book_learning":book_result}, ensure_ascii=False), flush=True)
                 if handoff and books:
                     approved_ids = ["book-"+b["sha256"] for b in books.plan["books"]]
-                    book_ack = handoff.tick(approved_book_ids=approved_ids)
+                    book_ack = handoff.tick(approved_book_ids=approved_ids,
+                                            require_visual_complete=bool(book_visual_model))
                     if book_ack:
                         print(json.dumps({"brahmagyan_candidate_receipt":book_ack},
                                          ensure_ascii=False), flush=True)
@@ -438,6 +443,8 @@ def main():
     worker.add_argument("--plan", default=None,
                         help="Opt-in existing learning-plan.json for continual approved-source refilling")
     worker.add_argument("--refill-minutes", type=int, default=5)
+    worker.add_argument("--book-visual-model", default=None,
+                        help="Opt into one PDF page/EPUB figure local visual model call per idle book step")
     worker.add_argument("--sync-book-handoff", action="store_true",
                         help="Explicitly authorize pinned paired Core upload of book candidate observations")
     worker.add_argument("--book-plan", default=None,
@@ -565,7 +572,8 @@ def main():
                       plan_path=args.plan, refill_minutes=args.refill_minutes,
                       core_mission_config=args.core_mission_config,
                       book_plan_path=args.book_plan,
-                      sync_book_handoff=args.sync_book_handoff)
+                      sync_book_handoff=args.sync_book_handoff,
+                      book_visual_model=args.book_visual_model)
     else:
         print(json.dumps(import_transcript(lib, args.file, args.source, not args.no_ollama, args.model), indent=2))
 
