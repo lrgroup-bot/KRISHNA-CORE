@@ -113,8 +113,18 @@ def fetch_feed(url):
 
 def feed_links(raw):
     """Extract RSS item or Atom entry URLs. No recursive crawling or content exec."""
-    if b"<!DOCTYPE" in raw.upper() or b"<!ENTITY" in raw.upper():
+    # A raw-byte substring search incorrectly flags examples inside CDATA,
+    # including articles quoting an HTML <!DOCTYPE>. Parse XML structure
+    # instead, rejecting *actual* DTD/ENTITY declarations before ElementTree
+    # builds a document. This retains the strict no-entity-expansion policy.
+    from xml.parsers import expat
+    def reject_declaration(*_args):
         raise ValueError("DTD/ENTITY declarations are forbidden in feeds")
+    probe = expat.ParserCreate()
+    probe.StartDoctypeDeclHandler = reject_declaration
+    probe.EntityDeclHandler = reject_declaration
+    probe.ExternalEntityRefHandler = reject_declaration
+    probe.Parse(raw, True)
     root = ET.fromstring(raw)
     urls = []
     for item in root.iter():
