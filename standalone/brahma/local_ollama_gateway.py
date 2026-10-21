@@ -33,7 +33,7 @@ def infer(payload, *, models, timeout=100, opener=request.urlopen):
         raise ValueError("bounded substantive research prompt required")
     n=int(payload.get("num_predict",384))
     context=int(payload.get("num_ctx",4096))
-    if not 1<=n<=1024 or not 512<=context<=8192:
+    if not 1<=n<=3072 or not 512<=context<=8192:
         raise ValueError("Ollama context/prediction limits exceeded")
     request_body={"model":model,"prompt":prompt,"stream":False,"think":False,
                   "keep_alive":"30s",
