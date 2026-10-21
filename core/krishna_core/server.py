@@ -2407,7 +2407,8 @@ class Handler(BaseHTTPRequestHandler):
             except PermissionError as exc:
                 return self._json(400, {"error": str(exc)})
 
-        if post_path in ("/api/suryadev/device/heartbeat","/api/suryadev/learning-bundle"):
+        if post_path in ("/api/suryadev/device/heartbeat","/api/suryadev/learning-bundle",
+                         "/api/suryadev/mission/request","/api/suryadev/mission/ack"):
             device,token=self._device_auth()
             if not _pairing.verify(device,token):
                 return self._json(401,{"error":"paired Suryadev device required"})
@@ -2417,6 +2418,14 @@ class Handler(BaseHTTPRequestHandler):
             if post_path.endswith("/heartbeat"):
                 data["device_id"]=device
                 return self._json(200,orch.suryadev.device_heartbeat(data))
+            if post_path.endswith("/mission/request"):
+                # Only deliver operator-curated URLs to the paired requester.
+                # The laptop must independently validate its own allowlist.
+                return self._json(200,orch.suryadev.mission_offer(
+                    data.get("request"), device_id=device))
+            if post_path.endswith("/mission/ack"):
+                return self._json(200,orch.suryadev.mission_acknowledge(
+                    data, device_id=device))
             bundle=data.get("bundle") if isinstance(data.get("bundle"),dict) else data
             if bundle is data:
                 bundle={k:v for k,v in data.items() if k!="device_id"}
