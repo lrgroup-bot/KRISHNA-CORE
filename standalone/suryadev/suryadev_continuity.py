@@ -53,6 +53,7 @@ OFFICIAL_TECH_URLS = (
 OFFICIAL_TECH_FEEDS = (
     "https://blog.python.org/rss.xml",
     "https://github.blog/feed/",
+    "https://github.blog/engineering/feed/",
 )
 # Official CS50 publisher captions already exercised by the real-source
 # smoke test. The pairing is opt-in; it does not certify video visuals.
