@@ -136,13 +136,16 @@ def serve(lib, port=8769):
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
-                              "/dashboard-garudanetra.css", "/dashboard-garudanetra.js"):
+                              "/dashboard-garudanetra.css", "/dashboard-garudanetra.js",
+                              "/dashboard-books.css", "/dashboard-books.js"):
                 filename = {"/": "dashboard.html", "/dashboard.css": "dashboard.css",
                             "/dashboard.js": "dashboard.js",
                             "/dashboard-settings.css": "dashboard-settings.css",
                             "/dashboard-settings.js": "dashboard-settings.js",
                             "/dashboard-garudanetra.css": "dashboard-garudanetra.css",
-                            "/dashboard-garudanetra.js": "dashboard-garudanetra.js"}[route.path]
+                            "/dashboard-garudanetra.js": "dashboard-garudanetra.js",
+                            "/dashboard-books.css": "dashboard-books.css",
+                            "/dashboard-books.js": "dashboard-books.js"}[route.path]
                 content = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
                 mime = "text/html; charset=utf-8" if route.path == "/" else (
                     "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
