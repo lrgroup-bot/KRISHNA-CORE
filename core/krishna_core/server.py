@@ -672,6 +672,9 @@ def _brahma_consolidation_tick():
                 int(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_MAX_ITEMS","250"))
             )
             decay=orch.brahma.decay_scan()
+            # BRAHMA schedules Rishi exam assignments only: no model loaded
+            # and no automatic grade or claimed mastery on KRISHNA.
+            exams=orch.brahma_exam_scheduler.plan()
     except RuntimeError as exc:
         if "resource governor busy" in str(exc).lower():
             return {"status":"skipped_resource_governor_busy"}
@@ -682,6 +685,7 @@ def _brahma_consolidation_tick():
         "memory_percent":memory,
         "consolidation":consolidation,
         "decay":decay,
+        "rishi_exam_assignments_created":exams["created"],
     }
     orch.memory.audit(
         "brahma_sleep_learning","completed",
@@ -1107,6 +1111,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, orch.garuda_status())
         if path == "/api/brahmagyan/status":
             return self._json(200,orch.brahmagyan_status())
+        if path == "/api/brahma/exams/schedule":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"BRAHMA exam schedule available only on KRISHNA PC"})
+            return self._json(200,{
+                "status":orch.brahma_exam_scheduler.status(),
+                "due":orch.brahma_exam_scheduler.due()})
+
         if path == "/api/brahmagyan/council":
             return self._json(200,orch.brahmagyan_council())
         if path == "/api/brahmagyan/missions":
@@ -1861,6 +1872,39 @@ class Handler(BaseHTTPRequestHandler):
             data = self._body()
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
+
+        if post_path == "/api/brahma/exams/plan":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"local BRAHMA exam planning only"})
+            return self._json(200,orch.brahma_exam_scheduler.plan(
+                as_of=data.get("date"),include_unready=False))
+        if post_path == "/api/brahma/exams/draft":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"local Rishi examiner draft only"})
+            config=os.getenv("KRISHNA_BRAHMA_LOCAL_INFERENCE_CONFIG")
+            if not config:
+                return self._json(503,{"error":"private local Ollama gateway not configured"})
+            from .brahma_local_inference import LocalBrahmaInference
+            from .brahma_rishi_exam_author import RishiExamAuthor
+            assignments=orch.brahma_exam_scheduler.due(limit=500)["items"]
+            assignment=next((a for a in assignments
+                             if a["assignment_id"]==data.get("assignment_id")),None)
+            if assignment is None:
+                return self._json(404,{"error":"due Rishi exam assignment not found"})
+            result=RishiExamAuthor(orch.agi.brahmagyan,
+                orch.brahma_exam_scheduler,
+                LocalBrahmaInference(config_path=config)).draft(assignment)
+            return self._json(200,result)
+        if post_path == "/api/brahma/exams/issue":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"local owner Rishi exam authorization required"})
+            if data.get("issuer_approved") is not True:
+                return self._json(403,{"error":"explicit issuer exam approval is required"})
+            from .brahma_rishi_exam_author import RishiExamAuthor
+            result=RishiExamAuthor(orch.agi.brahmagyan,
+                orch.brahma_exam_scheduler,None).register_approved_draft(
+                    data.get("proposal"),issuer_approved=True)
+            return self._json(200,result)
 
         if post_path == "/api/hawkeye/ruview/wifi/connect":
             if self.client_address[0] not in ("127.0.0.1","::1"):
