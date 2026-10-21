@@ -4,6 +4,7 @@ No network download is performed. Real paired HTTPS/TLS transport is tested
 separately; this exercise uses its dependency-injected authenticated interface.
 """
 import json
+import time
 from pathlib import Path
 import sys
 import tempfile
@@ -46,7 +47,7 @@ class FleetIntegrationTests(unittest.TestCase):
             "endpoint":"https://127.0.0.1:8766",
             "cert_sha256":"a"*64,"device_id":"suryadev-test-one",
             "token_file":str(self.cred)}),encoding="utf-8")
-        self.clock=[10000.0]
+        self.clock=[time.time()]
         self.core.fleet.clock=lambda:self.clock[0]
         self.calls=[]
         def transport(config,path,payload):
@@ -109,7 +110,7 @@ class FleetIntegrationTests(unittest.TestCase):
             self.assertIn(second["task_id"],resumed.state["assignments"])
             self.assertIn(first["task_id"],resumed.state["receipts"])
     def test_locally_unapproved_url_never_enters_sqlite(self):
-        self.plan.write_text(json.dumps({"approved_urls":["https://docs.example.org/b"],
+        self.plan.write_text(json.dumps({"approved_urls":[],
              "allowed_source_hosts":["docs.example.org"]}),encoding="utf-8")
         with patch("suryadev_fleet_client.hardware_report",return_value=self.telemetry):
             result=self.client.tick(self.lib)
