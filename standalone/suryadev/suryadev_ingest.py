@@ -274,7 +274,7 @@ def ingest_youtube(url):
             "kind": "youtube", "video_id": video_id,
             "caption_file": selected.name, "caption_language": selected.suffixes[-2].lstrip("."),
             "caption_language_requested": language,
-            "coverage_status": "caption_description_chapters_comments_only_unverified",
+            "coverage_status": "caption_timeline_only_unverified",
             "description_characters": len(description),
             "chapter_markers": len(chapter_lines),
             "comments_requested": comments_opt_in,
