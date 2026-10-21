@@ -180,6 +180,14 @@ class Library:
             "job_id INTEGER PRIMARY KEY REFERENCES jobs(id),"
             "kind TEXT NOT NULL,report_json TEXT NOT NULL,recorded REAL NOT NULL)"
         )
+        self.db.execute(
+            "CREATE TABLE IF NOT EXISTS job_timing ("
+            "job_id INTEGER PRIMARY KEY REFERENCES jobs(id),"
+            "kind TEXT NOT NULL, started_at REAL NOT NULL,"
+            "acquisition_seconds REAL, summary_phase_seconds REAL,"
+            "elapsed_seconds REAL NOT NULL, outcome TEXT NOT NULL,"
+            "recorded REAL NOT NULL)"
+        )
         self.db.commit()
 
     def add(self, url):
@@ -229,11 +237,16 @@ class Library:
                 pass
             return None
         job_id, url = row
+        start_clock = time.perf_counter()
+        start_wall = time.time()
+        acquisition_seconds = None
+        summary_phase_seconds = None
         try:
             from suryadev_ingest import ingest_source
             from suryadev_summary import summarize_all
             title, text, coverage = ingest_source(
                 url, garudanetra=garudanetra, data_root=self.root, job_id=job_id)
+            acquisition_seconds = round(time.perf_counter() - start_clock, 3)
             from suryadev_cleanup import stage_extracted_text
             staged_sha = stage_extracted_text(self.root, job_id, text)
             evidence = save_evidence(self.root, text, source=url, kind=coverage["kind"])
@@ -248,6 +261,7 @@ class Library:
                           "source_characters": len(text), "chunks_total": 0,
                           "chunks_summarized": 0}
             else:
+                summary_start = time.perf_counter()
                 if use_ollama and summary_lock is not None:
                     # Multiple source acquisitions run concurrently, but one
                     # expensive local LLM generation runs at a time.
@@ -257,6 +271,7 @@ class Library:
                 else:
                     summary, report = summarize_all(
                         text, model=model, use_ollama=use_ollama, summarize_fn=summarize)
+                summary_phase_seconds = round(time.perf_counter() - summary_start, 3)
             coverage.update(report)
             coverage["evidence_sha256"] = digest
             coverage["extraction_completed"] = True
@@ -270,6 +285,13 @@ class Library:
                     (job_id, coverage["kind"], json.dumps(coverage, ensure_ascii=False), time.time()))
                 self.db.execute("UPDATE jobs SET status='done',updated=?,error='' WHERE id=?",
                                 (time.time(), job_id))
+                self.db.execute(
+                    "INSERT OR REPLACE INTO job_timing "
+                    "(job_id,kind,started_at,acquisition_seconds,summary_phase_seconds,"
+                    "elapsed_seconds,outcome,recorded) VALUES (?,?,?,?,?,?,?,?)",
+                    (job_id, coverage["kind"], start_wall, acquisition_seconds,
+                     summary_phase_seconds, round(time.perf_counter() - start_clock, 3),
+                     "done", time.time()))
             # Cleanup is non-critical to the recorded learning result: never
             # incorrectly convert an already committed success to a failed job.
             try:
@@ -280,9 +302,17 @@ class Library:
             return {"job_id": job_id, "status": "done", "title": title,
                     "sha256": digest, "coverage_status": coverage["coverage_status"]}
         except Exception as exc:
+            from suryadev_sources import source_kind
             with self.db:
                 self.db.execute("UPDATE jobs SET status='failed',updated=?,error=? WHERE id=?",
                                 (time.time(), type(exc).__name__ + ": " + str(exc)[:300], job_id))
+                self.db.execute(
+                    "INSERT OR REPLACE INTO job_timing "
+                    "(job_id,kind,started_at,acquisition_seconds,summary_phase_seconds,"
+                    "elapsed_seconds,outcome,recorded) VALUES (?,?,?,?,?,?,?,?)",
+                    (job_id, source_kind(url), start_wall, acquisition_seconds,
+                     summary_phase_seconds, round(time.perf_counter() - start_clock, 3),
+                     "failed", time.time()))
             return {"job_id": job_id, "status": "failed", "error": str(exc)[:300]}
 
     def retry_failed(self, job_id):
