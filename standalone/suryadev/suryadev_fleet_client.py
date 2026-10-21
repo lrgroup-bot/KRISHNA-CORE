@@ -14,7 +14,7 @@ import time
 from suryadev_feeder import read_plan
 from suryadev_krishna_mission import load_config, post_core
 from suryadev_liveops import atomic_json, _safe_read
-from suryadev_resources import snapshot
+from suryadev_resources import snapshot, hardware_identity
 from suryadev_parallel import plan_capacity
 from suryadev_sources import source_kind
 
@@ -29,6 +29,11 @@ def hardware_report(root, *, sample=None, now=None):
     report = snapshot(root) if sample is None else sample
     if not report.get("available"):
         return None
+    moment=time.time() if now is None else float(now)
+    stamp=report.get("sample_time")
+    if stamp is not None and (not isinstance(stamp,(int,float))
+                             or not 0<=moment-float(stamp)<=10):
+        return None
     capacity = plan_capacity(report)
     required = ("cpu_percent", "ram_percent", "disk_percent", "ram_total_gb")
     if any(report.get(k) is None for k in required):
@@ -37,8 +42,9 @@ def hardware_report(root, *, sample=None, now=None):
     ram = report["ram_percent"]
     disk = report["disk_percent"]
     # Source acquisition is permitted independently of CPU-only model work.
+    ident=hardware_identity()
     return {
-        "sample_age_seconds": 0,
+        "sample_age_seconds": max(0.0,moment-float(stamp)) if stamp is not None else 0,
         "cpu_percent": round(float(cpu),2),
         "ram_percent": round(float(ram),2),
         "disk_percent": round(float(disk),2),
@@ -46,10 +52,11 @@ def hardware_report(root, *, sample=None, now=None):
         "disk_free_gb": report.get("disk_free_gb"),
         "max_total": max(0, min(12, int(capacity.get("max_total") or 0))),
         "capabilities": ["website","youtube","pdf","book"],
-        "logical_cpus": os.cpu_count() or 1,
-        "cpu_name": platform.processor()[:120],
-        "platform": platform.platform()[:120],
-        "gpu_name": "unknown",
+        "logical_cpus": ident["logical_cpus"],
+        "cpu_name": ident["cpu_name"],
+        "platform": ident["platform"],
+        "gpu_name": ident["gpu_name"],
+        "gpu_inventory_verified": ident["gpu_inventory_verified"],
         "gpu_inference": False,
     }
 
