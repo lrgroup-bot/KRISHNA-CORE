@@ -9,6 +9,8 @@ param(
     [switch]$DeepPDF,
     [switch]$AnalyzeYoutubeComments,
     [string]$BookPlan = "",
+    [switch]$LearnApprovedBooks,
+    [switch]$BookVisuals,
     [string]$BookVisualModel = "",
     [switch]$SyncBookHandoff,
     [string]$VisionModel = "",
@@ -44,6 +46,15 @@ $workerArgs = @(
     "--refill-minutes", [string]$RefillMinutes,
     "--interval", [string]$CheckSeconds
 )
+if ($LearnApprovedBooks -and -not $BookPlan) {
+    $BookPlan = Join-Path $root "book-plan.json"
+}
+if ($BookVisuals -and -not $BookVisualModel) {
+    if (-not $VisionModel) {
+        throw "-BookVisuals requires -VisionModel or -BookVisualModel for installed local vision"
+    }
+    $BookVisualModel=$VisionModel
+}
 if ($BookPlan) {
     if (-not (Test-Path -LiteralPath $BookPlan -PathType Leaf)) {
         throw "Owner-approved book plan does not exist: $BookPlan"
