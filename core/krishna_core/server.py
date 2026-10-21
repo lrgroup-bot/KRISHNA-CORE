@@ -1074,6 +1074,10 @@ class Handler(BaseHTTPRequestHandler):
                 "nodes":orch.compute_nodes.status(),
                 "bridge":orch.external_observers.status(),
             })
+        if path == "/api/suryadev/fleet/status":
+            if self.client_address[0] not in ("127.0.0.1", "::1"):
+                return self._json(403, {"error": "fleet ledger is KRISHNA PC only"})
+            return self._json(200,orch.suryadev.fleet.status())
         if path == "/api/suryadev/device/status":
             device,token=self._device_auth()
             if not _pairing.verify(device,token):
@@ -2419,7 +2423,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403,{"error":"authenticated Suryadev Node ID does not match payload"})
             if post_path.endswith("/heartbeat"):
                 data["device_id"]=device
-                return self._json(200,orch.suryadev.device_heartbeat(data))
+                return self._json(200,orch.suryadev.device_heartbeat(data,authenticated=True))
             if post_path.startswith("/api/suryadev/fleet/"):
                 if not device.startswith("suryadev-"):
                     return self._json(403,{"error":"owner-paired SURYADEV identity required"})
