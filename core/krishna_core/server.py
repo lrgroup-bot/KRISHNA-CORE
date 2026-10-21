@@ -2418,7 +2418,7 @@ class Handler(BaseHTTPRequestHandler):
             if post_path.endswith("/heartbeat"):
                 data["device_id"]=device
                 return self._json(200,orch.suryadev.device_heartbeat(data))
-            if post_path in ("/api/suryadev/mission/request", "/api/suryadev/mission/ack") and not device.startswith("suryadev-"):
+            if post_path.startswith("/api/suryadev/mission/") and not device.startswith("suryadev-"):
                 return self._json(403, {"error": "mission exchange requires an owner-paired SURYADEV identity"})
             if post_path.endswith("/mission/request"):
                 # Only deliver operator-curated URLs to the paired requester.
