@@ -570,8 +570,21 @@ class BrahmagyanRuntime:
         return len(keys)
 
 
-    def create_daily_exam(self,mission_id,questions,exam_date=None):
-        """Prepare a difficult evidence-linked theory/practical exam; no model grades itself."""
+    def create_daily_exam(self,mission_id,questions,exam_date=None,*,issued_by=None):
+        """Record a Rishi-issued examination; BRAHMAGYAN does not set questions.
+
+        The caller is responsible for obtaining questions from the authorized
+        Rishi workflow. An ID in this ledger is attribution, NOT authentication.
+        """
+        issuer=str(issued_by or "").strip().lower()
+        if not issuer:
+            raise ValueError("A Rishi issuer is required; BRAHMAGYAN does not give examinations")
+        try:
+            profile=self.council.get(issuer)
+        except KeyError as exc:
+            raise ValueError("Exam issuer must be an existing Rishi Council member") from exc
+        if profile["tier"]!="rishi":
+            raise ValueError("Exam issuer must be a Rishi, not a Shishya or collector")
         import datetime
         day=exam_date or datetime.date.today().isoformat()
         if not isinstance(day,str) or len(day)!=10 or day[4]!="-" or day[7]!="-":
@@ -614,6 +627,8 @@ class BrahmagyanRuntime:
                 raise ValueError("daily exam already exists for this mission and date")
             exam_id=str(uuid.uuid4())
             exam={"exam_id":exam_id,"mission_id":mission_id,"date":day,
+                  "issued_by_rishi_id":issuer,"issued_by_rishi_name":profile["display_name"],
+                  "registered_by":"brahmagyan_ledger",
                   "questions":cleaned,"attempts":[],"status":"prepared",
                   "theory_min_percent":85.0,"practical_min_percent":90.0,
                   "created_at":self._now(),
@@ -621,22 +636,31 @@ class BrahmagyanRuntime:
             self.state["daily_exams"][exam_id]=exam
             m.setdefault("daily_exam_ids",[]).append(exam_id)
             m["updated_at"]=self._now();self._save()
-        self.memory.audit("brahmagyan_exam","prepared",f"{mission_id}:{exam_id}:{day}")
+        self.memory.audit("brahmagyan_exam","rishi_issued_recorded",f"{mission_id}:{exam_id}:{day}:{issuer}")
         return json.loads(json.dumps(exam))
 
     def record_daily_exam_attempt(self,exam_id,results,grader,method):
         """Grade only an explicitly reviewed attempt with attributable evidence."""
         grader=str(grader or "").strip().lower()
         method=str(method or "").strip()
-        if grader not in {"gautama","bharadvaja","veda-vyasa","human-examiner"}:
-            raise ValueError("independent Gautama/Bharadvaja/Vyasa or human examiner required")
-        if method not in {"independent_rishi_review","human_review","deterministic_test"}:
-            raise ValueError("unsupported independent grading method")
+        try:
+            grader_profile=self.council.get(grader)
+        except KeyError as exc:
+            raise ValueError("An independent Rishi Council grader is required") from exc
+        if grader_profile["tier"]!="rishi":
+            raise ValueError("An independent Rishi Council grader is required")
+        if method!="independent_rishi_review":
+            raise ValueError("Rishi examinations require independent_rishi_review method")
         if not isinstance(results,list):
             raise ValueError("exam results must be a list")
         with self.lock:
             exam=self.state["daily_exams"].get(str(exam_id))
             if exam is None:raise KeyError(exam_id)
+            issuer=exam.get("issued_by_rishi_id")
+            if not issuer:
+                raise ValueError("Unattributed exam cannot be graded as a Rishi examination")
+            if issuer==grader:
+                raise ValueError("An independent Rishi must grade an exam issued by another Rishi")
             expected={q["id"]:q for q in exam["questions"]}
             if len(results)!=len(expected):
                 raise ValueError("every question must be graded")
@@ -677,6 +701,8 @@ class BrahmagyanRuntime:
                     and practical>=exam["practical_min_percent"]
                     and all(row["score"]>=60 for row in graded))
             attempt={"attempt_id":str(uuid.uuid4()),"grader":grader,
+                     "grader_rishi_name":grader_profile["display_name"],
+                     "issuer_rishi_id":issuer,
                      "method":method,"graded_at":self._now(),
                      "theory_percent":round(theory,2),"practical_percent":round(practical,2),
                      "passed":passed,"results":graded,
@@ -1136,7 +1162,7 @@ class BrahmagyanRuntime:
             "deep_learning_loop":["discover","read","understand_context","extract_claims","verify_sources","cross_check","find_contradictions","apply","test","evaluate","connect","store"],
             "missions":missions,"claims":claims,"debates":debates,"curiosity_queued":curiosity,
             "daily_exams":len(self.state.get("daily_exams") or {}),
-            "daily_exam_policy":"3 theory / 2 practical; why/how/contradiction; 85% theory and 90% practical; recorded independent review before L7/L8",
+            "daily_exam_policy":"Rishi-issued questions and different-Rishi review: 3 theory / 2 practical; why/how/contradiction; 85% theory and 90% practical; documented evidence before L7/L8",
             "council_proposals":len(self.state.get("council_proposals") or []),
             "council":self.council.status(),
             "trusted_store":"Gyan-Bhandar","authority":"Sudarshan permissioned Action/Job architecture",
