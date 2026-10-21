@@ -102,6 +102,17 @@ def approve_book(root, source, *, lines_per_step=1, ocr=None):
             "approved_books":len(raw["books"]),"source_sha256":digest}
 
 
+def may_study_books(capacity, pending_urls, *, youtube_rate_limited):
+    """Read-only safe admission to idle research; cooldown is lane-specific."""
+    from suryadev_sources import source_kind
+    if (not isinstance(capacity,dict) or capacity.get("safe") is not True
+            or capacity.get("max_total",0)<=0
+            or capacity.get("active_total",0)!=0):
+        return False
+    return all(youtube_rate_limited and source_kind(url)=="youtube"
+               for url in pending_urls)
+
+
 class BookContinuity:
     def __init__(self, root, plan, *, model, use_ollama, clock=time.time,
                  min_gap_seconds=10, vision_model=None):
