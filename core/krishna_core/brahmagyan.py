@@ -61,9 +61,10 @@ class BrahmagyanRuntime:
         self.council=RishiCouncil()
         self.gyan_qc=None
         self.cognitive_brain=None
+        self.exam_verifier=None  # Never trust model-assigned scores for actual mastery.
         self.lock=RLock()
         self.state={
-            "missions":{},"claims":{},"debates":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
+            "missions":{},"claims":{},"debates":{},"daily_exams":{},"collector_candidates":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
             "created_at":time.time(),"version":self.VERSION,
         }
         self.load_error=None
@@ -73,6 +74,18 @@ class BrahmagyanRuntime:
         """Bind BRAHMA's QC gate without changing Gyan-Bhandar storage authority."""
         self.gyan_qc=qc
         return {"bound":qc is not None,"authority":"BRAHMA QC -> Gyan proposal/approval"}
+
+    def bind_exam_verifier(self, verifier):
+        """Bind owner-trusted external practical/reviewer verifier.
+
+        This must replay evidence from a separate trusted tool/service.
+        BRAHMAGYAN does not automatically trust a signed-looking model string.
+        """
+        if verifier is not None and not callable(verifier):
+            raise TypeError("trusted exam verifier must be callable")
+        self.exam_verifier=verifier
+        return {"bound":verifier is not None,
+                "policy":"requires independent practical replay attestation; not an AI score"}
 
     def bind_cognitive_brain(self, cognitive_brain):
         """Bind BRAHMA's associative concept memory without changing research authority."""
@@ -87,7 +100,7 @@ class BrahmagyanRuntime:
         try:
             raw=json.loads(self.path.read_text(encoding="utf-8"))
             if isinstance(raw,dict):
-                for key in ("missions","claims","debates","curiosity","shishya_archive","council_proposals"):
+                for key in ("missions","claims","debates","daily_exams","collector_candidates","curiosity","shishya_archive","council_proposals"):
                     if key in raw:self.state[key]=raw[key]
         except Exception as exc:
             self.load_error=f"{type(exc).__name__}: {exc}"
@@ -132,6 +145,16 @@ class BrahmagyanRuntime:
             "retracted":bool(source.get("retracted",False)),
             "parent_source":str(source.get("parent_source") or "").strip()[:500],
             "evidence":source.get("evidence"),
+            "locator":{
+                "url_fragment":str(source.get("url_fragment") or "").strip()[:300],
+                "page":source.get("page"),
+                "chapter":str(source.get("chapter") or "").strip()[:300],
+                "section":str(source.get("section") or "").strip()[:300],
+                "line_start":source.get("line_start"),
+                "line_end":source.get("line_end"),
+                "start_seconds":source.get("start_seconds"),
+                "end_seconds":source.get("end_seconds"),
+            },
             "content_hash":source.get("content_hash"),
             "citation_verified":source.get("citation_verified"),
             "citation_relation":source.get("citation_relation"),
@@ -178,7 +201,7 @@ class BrahmagyanRuntime:
             "source_policy":"prefer primary sources; secondary summaries cannot inherit primary-source weight",
             "dual_track_rule":"modern scientific evidence and Vedic/classical material stay separately labeled; similarities never imply scientific identity",
             "priority":priority or {},
-            "phase":"scope","phase_history":[{"phase":"scope","at":self._now(),"evidence":[]}],
+            "daily_exam_gate_required":True,"daily_exam_ids":[],"phase":"scope","phase_history":[{"phase":"scope","at":self._now(),"evidence":[]}],
             "perspectives":[],"debate_ids":[],
             "claim_ids":[],"research_questions":[],"shishya_batches":[],
         }
@@ -559,6 +582,278 @@ class BrahmagyanRuntime:
             if key:keys.add(key)
         return len(keys)
 
+
+    def intake_suryadev_collection(self, receipt):
+        """Persist only provenance of a paired, lease-acknowledged collection.
+
+        This is a Rishi research *candidate*, not a claim, comprehension score,
+        verified citation or learned fact. The underlying Core lease service
+        already checks the device and recorded source allowlist.
+        """
+        import re
+        if not isinstance(receipt,dict):
+            raise TypeError("fleet receipt must be an object")
+        tid=receipt.get("task_id")
+        url=receipt.get("source_url")
+        rishi=receipt.get("rishi_id")
+        digest=receipt.get("evidence_sha256")
+        if not isinstance(tid,str) or not tid.startswith("fleet-") or len(tid)>100:
+            raise ValueError("trusted fleet task ID required")
+        if not isinstance(url,str) or len(url)>2000 or urlparse(url).scheme!="https":
+            raise ValueError("HTTPS source required")
+        if not isinstance(digest,str) or not re.fullmatch(r"[0-9a-f]{64}",digest):
+            raise ValueError("source evidence SHA-256 required")
+        self.council.get(rishi)
+        device=receipt.get("device_id")
+        if not isinstance(device,str) or not device.startswith("suryadev-"):
+            raise ValueError("paired SURYADEV source identity required")
+        candidate={
+            "task_id":tid,"device_id":device,"rishi_id":rishi,
+            "source_url":url,"source_kind":str(receipt.get("kind") or "unknown")[:40],
+            "curriculum_id":str(receipt.get("mission_id") or "")[:100],
+            "topic":str(receipt.get("topic") or "")[:200],
+            "evidence_sha256":digest,"retrieved_at":receipt.get("received_at"),
+            "source_excerpt":str(receipt.get("source_excerpt") or "")[:700],
+            "source_excerpt_untrusted":True,
+            "locator":dict(receipt.get("locator") or {}),
+            "knowledge_status":"collected_unverified",
+            "claim_id":None,"citation_verified":False,
+            "comprehension_verified":False,"independent_rishi_review":False,
+        }
+        with self.lock:
+            self._healthy()
+            candidates=self.state.setdefault("collector_candidates",{})
+            existing=candidates.get(tid)
+            if existing is not None:
+                if existing != candidate:
+                    raise RuntimeError("conflicting fleet evidence provenance for same task")
+                return {"recorded":True,"idempotent":True,"candidate":dict(existing)}
+            if len(candidates)>=10000:
+                raise RuntimeError("collector candidate ledger requires archival")
+            candidates[tid]=candidate
+            self._save()
+        self.memory.audit("brahmagyan_collector","candidate_recorded",tid)
+        return {"recorded":True,"idempotent":False,"candidate":dict(candidate)}
+
+    def collector_candidates(self, *, limit=100):
+        limit=max(1,min(int(limit),500))
+        with self.lock:
+            self._healthy()
+            rows=list(self.state.get("collector_candidates",{}).values())
+            return {"items":json.loads(json.dumps(rows[-limit:])),
+                    "total":len(rows),
+                    "authority":"evidence inbox only; a Rishi must independently investigate and verify claims"}
+
+    def create_daily_exam(self,mission_id,questions,exam_date=None,*,issued_by=None):
+        """Record a Rishi-issued examination; BRAHMAGYAN does not set questions.
+
+        The caller is responsible for obtaining questions from the authorized
+        Rishi workflow. An ID in this ledger is attribution, NOT authentication.
+        """
+        issuer=str(issued_by or "").strip().lower()
+        if not issuer:
+            raise ValueError("A Rishi issuer is required; BRAHMAGYAN does not give examinations")
+        try:
+            profile=self.council.get(issuer)
+        except KeyError as exc:
+            raise ValueError("Exam issuer must be an existing Rishi Council member") from exc
+        if profile["tier"] not in {"rishi","acharya"}:
+            raise ValueError("Exam issuer must be a Rishi Council specialist, not a Shishya or collector")
+        import datetime
+        day=exam_date or datetime.date.today().isoformat()
+        if not isinstance(day,str) or len(day)!=10 or day[4]!="-" or day[7]!="-":
+            raise ValueError("exam_date must be YYYY-MM-DD")
+        try:
+            datetime.date.fromisoformat(day)
+        except ValueError as exc:
+            raise ValueError("invalid examination date") from exc
+        if not isinstance(questions,list) or not 5<=len(questions)<=30:
+            raise ValueError("daily exam needs 5..30 challenging questions")
+        allowed={"why","how","what","when","where","contradiction","transfer","diagnosis","experiment"}
+        cleaned=[];ids=set();competencies=set()
+        for q in questions:
+            if not isinstance(q,dict):
+                raise ValueError("exam questions must be objects")
+            qid=str(q.get("id") or "").strip()
+            kind=str(q.get("kind") or "").strip().lower()
+            competency=str(q.get("competency") or "").strip().lower()
+            prompt=str(q.get("question") or "").strip()
+            rubric=str(q.get("rubric") or "").strip()
+            refs=q.get("source_refs")
+            if (not qid or len(qid)>80 or qid in ids or kind not in {"theory","practical"}
+                    or competency not in allowed or len(prompt)<20 or len(rubric)<20
+                    or not isinstance(refs,list) or not refs
+                    or any(not isinstance(ref,str) or not ref.strip() or len(ref)>2000 for ref in refs)):
+                raise ValueError("question requires unique ID, kind, competency, substantive prompt/rubric and source references")
+            ids.add(qid);competencies.add(competency)
+            cleaned.append({"id":qid,"kind":kind,"competency":competency,
+                            "question":prompt[:3000],"rubric":rubric[:3000],
+                            "source_refs":[ref.strip() for ref in refs[:15]]})
+        if (sum(q["kind"]=="theory" for q in cleaned)<3
+                or sum(q["kind"]=="practical" for q in cleaned)<2
+                or not {"why","how","contradiction"}.issubset(competencies)):
+            raise ValueError("exam requires 3 theory, 2 practical and why/how/contradiction challenges")
+        with self.lock:
+            m=self.state["missions"].get(str(mission_id))
+            if not m:raise KeyError(mission_id)
+            if any(self.state["daily_exams"].get(eid,{}).get("date")==day
+                   for eid in m.get("daily_exam_ids",[])):
+                raise ValueError("daily exam already exists for this mission and date")
+            exam_id=str(uuid.uuid4())
+            exam={"exam_id":exam_id,"mission_id":mission_id,"date":day,
+                  "issued_by_rishi_id":issuer,"issued_by_rishi_name":profile["display_name"],
+                  "registered_by":"brahmagyan_ledger",
+                  "questions":cleaned,"attempts":[],"status":"prepared",
+                  "theory_min_percent":85.0,"practical_min_percent":90.0,
+                  "created_at":self._now(),
+                  "policy":"Question rubrics and model-reported grades are not proof of independent verification. Practical tests require evidence artifacts."}
+            self.state["daily_exams"][exam_id]=exam
+            m.setdefault("daily_exam_ids",[]).append(exam_id)
+            m["updated_at"]=self._now();self._save()
+        self.memory.audit("brahmagyan_exam","rishi_issued_recorded",f"{mission_id}:{exam_id}:{day}:{issuer}")
+        return json.loads(json.dumps(exam))
+
+    def record_daily_exam_attempt(self,exam_id,results,grader,method):
+        """Grade only an explicitly reviewed attempt with attributable evidence."""
+        grader=str(grader or "").strip().lower()
+        method=str(method or "").strip()
+        try:
+            grader_profile=self.council.get(grader)
+        except KeyError as exc:
+            raise ValueError("An independent Rishi Council grader is required") from exc
+        if grader_profile["tier"] not in {"rishi","acharya"}:
+            raise ValueError("An independent Rishi Council grader is required")
+        if method!="independent_rishi_review":
+            raise ValueError("Rishi examinations require independent_rishi_review method")
+        if not isinstance(results,list):
+            raise ValueError("exam results must be a list")
+        with self.lock:
+            exam=self.state["daily_exams"].get(str(exam_id))
+            if exam is None:raise KeyError(exam_id)
+            issuer=exam.get("issued_by_rishi_id")
+            if not issuer:
+                raise ValueError("Unattributed exam cannot be graded as a Rishi examination")
+            if issuer==grader:
+                raise ValueError("An independent Rishi must grade an exam issued by another Rishi")
+            expected={q["id"]:q for q in exam["questions"]}
+            if len(results)!=len(expected):
+                raise ValueError("every question must be graded")
+            found=set();graded=[];scores={"theory":[],"practical":[]}
+            for result in results:
+                if not isinstance(result,dict):
+                    raise ValueError("invalid examination result")
+                qid=str(result.get("id") or "").strip()
+                if qid not in expected or qid in found:
+                    raise ValueError("unknown or duplicated exam question")
+                found.add(qid)
+                score=result.get("score")
+                if isinstance(score,bool) or not isinstance(score,(int,float)) or not 0<=score<=100:
+                    raise ValueError("exam score must be from 0 to 100")
+                rationale=str(result.get("evaluation") or "").strip()
+                answer=str(result.get("response") or "").strip()
+                refs=result.get("evidence_refs")
+                if len(rationale)<25 or len(answer)<40 or not isinstance(refs,list) or not refs or any(
+                        not isinstance(ref,str) or not ref.strip() or len(ref)>2000 for ref in refs):
+                    raise ValueError("exam grading needs substantial candidate response, written justification and evidence references")
+                if expected[qid]["kind"]=="practical":
+                    digest=str(result.get("artifact_sha256") or "").strip().lower()
+                    tests=result.get("test_results")
+                    if (len(digest)!=64 or any(c not in "0123456789abcdef" for c in digest)
+                            or not isinstance(tests,list) or not tests
+                            or any(not isinstance(test,str) or len(test)<10 for test in tests)):
+                        raise ValueError("practical grade requires artifact SHA-256 and test evidence")
+                else:
+                    digest=None;tests=[]
+                scores[expected[qid]["kind"]].append(float(score))
+                graded.append({"id":qid,"kind":expected[qid]["kind"],"score":float(score),
+                               "response":answer[:8000],
+                               "evaluation":rationale[:3000],"evidence_refs":refs[:20],
+                               "artifact_sha256":digest,"test_results":tests[:30]})
+            theory=sum(scores["theory"])/len(scores["theory"])
+            practical=sum(scores["practical"])/len(scores["practical"])
+            passed=(theory>=exam["theory_min_percent"]
+                    and practical>=exam["practical_min_percent"]
+                    and all(row["score"]>=60 for row in graded))
+            attempt={"attempt_id":str(uuid.uuid4()),"grader":grader,
+                     "grader_rishi_name":grader_profile["display_name"],
+                     "issuer_rishi_id":issuer,
+                     "method":method,"graded_at":self._now(),
+                     "theory_percent":round(theory,2),"practical_percent":round(practical,2),
+                     "passed":passed,"results":graded,
+                     "independence_verified":False,
+                     "note":"Recorded named review, not cryptographic grader attestation or independent mastery proof."}
+            exam["attempts"].append(attempt)
+            exam["status"]="passed_recorded" if passed else "failed_recorded"
+            self._save()
+        self.memory.audit("brahmagyan_exam","passed_recorded" if passed else "failed_recorded",
+                          f"{exam_id}:{grader}:{method}")
+        return json.loads(json.dumps(attempt))
+
+    def verify_daily_exam_attempt(self, exam_id, attempt_id, *, evidence_receipt):
+        """Complete an independent verified practical Rishi exam.
+
+        A separately bound trusted executor must verify the reviewer
+        identity, original source evidence and actual artifact replays.
+        Mere model claims or caller-supplied booleans cannot authorize L7.
+        """
+        if self.exam_verifier is None:
+            raise PermissionError("trusted independent exam verifier not configured")
+        if not isinstance(evidence_receipt,dict):
+            raise ValueError("trusted practical replay receipt required")
+        with self.lock:
+            self._healthy()
+            exam=self.state["daily_exams"].get(str(exam_id))
+            if exam is None:raise KeyError(exam_id)
+            attempt=next((a for a in exam.get("attempts",[])
+                          if a["attempt_id"]==attempt_id),None)
+            if attempt is None:raise KeyError(attempt_id)
+            if attempt["passed"] is not True:
+                raise ValueError("failed exam cannot be verified as passed")
+            if attempt["grader"]==exam.get("issued_by_rishi_id"):
+                raise PermissionError("exam reviewer cannot be the issuing Rishi")
+            if exam["status"]=="passed_verified" and attempt.get("independence_verified"):
+                return {"verified":True,"idempotent":True,"exam_id":exam_id}
+            exam_copy=json.loads(json.dumps(exam))
+            attempt_copy=json.loads(json.dumps(attempt))
+        verification=self.exam_verifier(exam_copy,attempt_copy,dict(evidence_receipt))
+        if (not isinstance(verification,dict)
+                or verification.get("reviewer_identity_verified") is not True
+                or verification.get("practical_artifacts_replayed") is not True
+                or not isinstance(verification.get("test_run_id"),str)
+                or len(verification["test_run_id"].strip())<12):
+            raise PermissionError("trusted examiner did not independently verify practical evidence")
+        proof=hashlib.sha256(json.dumps(
+            {"exam_id":exam_id,"attempt_id":attempt_id,
+             "receipt":evidence_receipt,"verification":verification},
+            ensure_ascii=False,sort_keys=True).encode("utf-8")).hexdigest()
+        with self.lock:
+            exam=self.state["daily_exams"].get(str(exam_id))
+            attempt=next((a for a in exam.get("attempts",[])
+                          if a["attempt_id"]==attempt_id),None)
+            if attempt is None:raise KeyError(attempt_id)
+            if not attempt["passed"]:raise RuntimeError("exam result changed before verification")
+            attempt["independence_verified"]=True
+            attempt["practical_replay_verified"]=True
+            attempt["trusted_test_run_id"]=verification["test_run_id"][:200]
+            attempt["verification_receipt_sha256"]=proof
+            exam["status"]="passed_verified"
+            self._save()
+        self.memory.audit("brahmagyan_exam","passed_verified",f"{exam_id}:{attempt_id}:{proof[:16]}")
+        return {"verified":True,"idempotent":False,"exam_id":exam_id,
+                "proof_sha256":proof,"knowledge_verification_gate_satisfied":True}
+
+    def daily_exam_status(self,mission_id):
+        m=self.mission(mission_id)
+        with self.lock:
+            exams=[json.loads(json.dumps(self.state["daily_exams"][eid]))
+                   for eid in m.get("daily_exam_ids",[])
+                   if eid in self.state.get("daily_exams",{})]
+        return {"mission_id":mission_id,"exams":exams,
+                "passed_recorded":sum(e["status"] in ("passed_recorded","passed_verified") for e in exams),
+                "passed_verified":sum(e["status"]=="passed_verified" for e in exams),
+                "mastery_gate_satisfied":any(e["status"]=="passed_verified" for e in exams),
+                "automatic_end_of_day_scheduling_enabled":False}
+
     def _validate_advance(self,c,target,detail):
         i=LEVEL_INDEX[c["maturity"]];j=LEVEL_INDEX[target]
         if j!=i+1:raise ValueError("knowledge maturity must advance exactly one level at a time")
@@ -592,6 +887,13 @@ class BrahmagyanRuntime:
         with self.lock:
             c=self.state["claims"].get(str(claim_id))
             if not c:raise KeyError(claim_id)
+            mission=self.state["missions"].get(c["mission_id"],{})
+            if target in {"L7","L8"} and mission.get("daily_exam_gate_required",False):
+                if not any(
+                    self.state["daily_exams"].get(eid,{}).get("status")=="passed_verified"
+                    for eid in mission.get("daily_exam_ids",[])
+                ):
+                    raise ValueError("L7/L8 mastery needs an independently verified Rishi exam and replayed practical evidence")
             self._validate_advance(c,target,detail)
             if "context_summary" in detail:c["context_summary"]=str(detail["context_summary"])
             if "source_notes" in detail:c["source_notes"]=list(detail["source_notes"] or [])
@@ -810,6 +1112,27 @@ class BrahmagyanRuntime:
             "policy":"checkpoint and release resources whenever production workloads need CPU/GPU/RAM; no autonomous background daemon in v1",
         }
 
+    def draft_suryadev_fleet_plan(self,mission_id,tasks,nodes,*,now=None):
+        """Expose Rishi work placement proposals without dispatching node commands.
+
+        BRAHMAGYAN manages mission and specialist attribution. BRAHMA must
+        authorize and lease every physical execution. Node identities and
+        telemetry must be supplied by the authenticated fleet registry.
+        """
+        from .suryadev_fleet_policy import plan_rishi_collection
+        m=self.mission(mission_id)
+        if not isinstance(tasks,list):
+            raise TypeError("Rishi task list is required")
+        if any(not isinstance(t,dict) or t.get("mission_id")!=mission_id for t in tasks):
+            raise ValueError("all fleet tasks must belong to this BRAHMAGYAN mission")
+        out=plan_rishi_collection(tasks,nodes,council_ids=[
+            row["id"] for row in self.council.list()],now=now)
+        return {"mission_id":mission_id,"topic":m["topic"],
+                "planning_authority":"BRAHMAGYAN",
+                "execution_authority":"BRAHMA authenticated task lease (not implemented)",
+                "examination_authority":"Rishi Council, routed through BRAHMAGYAN",
+                **out}
+
     def shishya_plan(self,mission_id,specialties=None,count=None,parent_rishi=None,assignments=None):
         m=self.mission(mission_id)
         parent=str(parent_rishi or m["lead_rishi"]).strip().lower()
@@ -987,6 +1310,9 @@ class BrahmagyanRuntime:
             "research_phases":[{"code":c,"name":n} for c,n in RESEARCH_PHASES],
             "deep_learning_loop":["discover","read","understand_context","extract_claims","verify_sources","cross_check","find_contradictions","apply","test","evaluate","connect","store"],
             "missions":missions,"claims":claims,"debates":debates,"curiosity_queued":curiosity,
+            "daily_exams":len(self.state.get("daily_exams") or {}),
+            "collector_candidates":len(self.state.get("collector_candidates") or {}),
+            "daily_exam_policy":"Rishi-issued questions and different-Rishi review: 3 theory / 2 practical; why/how/contradiction; 85% theory and 90% practical; documented evidence before L7/L8",
             "council_proposals":len(self.state.get("council_proposals") or []),
             "council":self.council.status(),
             "trusted_store":"Gyan-Bhandar","authority":"Sudarshan permissioned Action/Job architecture",

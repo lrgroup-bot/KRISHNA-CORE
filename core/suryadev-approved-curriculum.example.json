@@ -1,0 +1,30 @@
+{
+  "schema": "krishna.suryadev.approved-curriculum.v1",
+  "allowed_source_hosts": [
+    "docs.python.org",
+    "playwright.dev"
+  ],
+  "missions": [
+    {
+      "id": "python-event-loop-2026",
+      "topic": "Python event-loop scheduling and cancellation",
+      "approved_urls": [
+        "https://docs.python.org/3/library/asyncio-eventloop.html"
+      ]
+    },
+    {
+      "id": "python-sqlite-2026",
+      "topic": "SQLite transactions and durable evidence storage",
+      "approved_urls": [
+        "https://docs.python.org/3/library/sqlite3.html"
+      ]
+    },
+    {
+      "id": "playwright-context-2026",
+      "topic": "Browser context isolation and safe test lifecycle",
+      "approved_urls": [
+        "https://playwright.dev/python/docs/api/class-browsercontext"
+      ]
+    }
+  ]
+}

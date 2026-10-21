@@ -1,0 +1,61 @@
+/* SURYADEV v5: operator settings – luminous violet, ocean, coral. */
+.sidebar .settings-menu-label{font-size:10px;letter-spacing:1.7px;color:#d2c8ff;margin:10px 11px 4px;font-weight:850}
+.sidebar .nav-settings{width:100%;font-family:inherit;text-align:left;border:1px solid transparent;background:transparent;line-height:1.4}
+.sidebar .nav-settings:hover,.sidebar .nav-settings:focus-visible{background:#ffffff2b;border-color:#ffffff42}
+.settings-dialog{padding:0;color:#272347;background:#fff;border:1px solid #e6dcfb;border-radius:22px;width:min(630px,calc(100vw - 24px));max-height:min(90vh,850px);box-shadow:0 25px 90px #20114d54;overflow:hidden}
+.settings-dialog.wide{width:min(790px,calc(100vw - 24px))}
+.settings-dialog::backdrop{background:#1e1944b6;backdrop-filter:blur(5px)}
+.settings-dialog-header{display:flex;align-items:center;gap:14px;padding:24px 24px;color:white;position:relative}
+.server-header{background:linear-gradient(115deg,#4d39ac,#7960df 64%,#d46ead)}
+.storage-header{background:linear-gradient(115deg,#116f9c,#397dd0 58%,#3dbab3)}
+.settings-header-icon{width:54px;height:54px;border-radius:17px;background:#ffffff30;border:1px solid #ffffff5f;display:grid;place-items:center;font-size:27px;flex-shrink:0}
+.settings-header-text{min-width:0;flex:1}
+.settings-kicker{font-size:10px;letter-spacing:2px;font-weight:800;color:#fff1be}
+.settings-header-text h2{margin:3px 0;font-size:26px;letter-spacing:-.6px;color:#fff}
+.settings-header-text p{font-size:12px;color:#fff;margin:0;line-height:1.55}
+.settings-close{align-self:flex-start;width:34px;height:34px;border:1px solid #ffffff70;border-radius:9px;background:#ffffff30;color:white;display:grid;place-items:center;font-size:17px}
+.settings-close:hover{background:#ffffff55}
+.settings-dialog-body{padding:23px 25px;overflow:auto;max-height:calc(min(90vh,850px) - 121px)}
+.settings-alert{background:linear-gradient(110deg,#fff3e2,#fff8ef);border-left:4px solid #e8a249;border-radius:10px;padding:13px 14px;font-size:12px;color:#704a23;margin:0 0 21px}
+.settings-fields{display:flex;gap:13px;align-items:flex-end}
+.settings-field{display:flex;flex-direction:column;flex:1;gap:7px;color:#545078;font-size:12px;font-weight:800;min-width:0}
+.settings-field.port-field{flex:0 0 130px}
+.settings-field input,.settings-field select{height:44px;border:1px solid #d8d3e9;background:#fafaff;color:#312d59;padding:10px 12px;border-radius:11px;font-size:14px;min-width:0;max-width:100%}
+.settings-field input:focus,.settings-field select:focus{border-color:#865fdb;outline:2px solid #865fdb33}
+.settings-actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:17px 0 13px}
+.settings-actions button,.path-controls button{min-height:42px;padding:10px 15px;border-radius:11px;font-size:12px;font-weight:850;border:1px solid transparent}
+.settings-primary{background:linear-gradient(120deg,#7750d6,#9467e2);color:#fff}
+.settings-primary:hover{filter:brightness(1.05)}
+.settings-secondary{background:#eeeafd;border-color:#ddd4f8!important;color:#6646b3}
+.settings-secondary:hover{background:#e2d9ff}
+.settings-danger-soft{background:#fff0ec;color:#a54f41;border-color:#f7cebf!important}
+.settings-danger-soft:hover{background:#ffe2d9}
+.settings-actions button:disabled,.path-controls button:disabled{opacity:.5;cursor:not-allowed}
+.settings-result{border:1px solid #e7e1f4;background:#f8f5ff;border-radius:11px;padding:11px 13px;color:#666282;font-size:12px;line-height:1.65;overflow-wrap:anywhere;min-height:41px}
+.settings-result.success{border-color:#b9e8d9;background:#eafff5;color:#196b54}
+.settings-result.error{border-color:#f5c7cb;background:#fff0f1;color:#a93c47}
+.diagnostic-panel{margin-top:20px;border:1px solid #e5def7;border-radius:14px;overflow:hidden}
+.diagnostic-title{background:#f3effd;padding:11px 14px;color:#5e42ab;font-weight:900;font-size:12px}
+.diagnostic-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:14px}
+.diagnostic-grid>div{border-radius:10px;background:#f9f8fe;padding:12px}
+.diagnostic-grid small{display:block;color:#827b9d;font-size:10px;font-weight:850;letter-spacing:1px}
+.diagnostic-grid strong{font-size:13px;color:#594092;display:block;margin-top:5px}
+.diagnostic-panel p{font-size:12px;color:#676180;margin:3px 14px 17px;line-height:1.6}
+.settings-section+.settings-section{border-top:1px solid #e9e3f4;margin-top:26px;padding-top:22px}
+.settings-section h3{font-size:16px;color:#45377e;margin:0 0 11px}
+.current-storage{padding:14px;border:1px solid #d8e8fa;border-radius:13px;background:linear-gradient(110deg,#eef7ff,#f1fbfc);display:flex;gap:9px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.current-storage>span:first-child{font-family:Consolas,monospace;font-size:12px;overflow-wrap:anywhere;color:#27517d;font-weight:800}
+.space-pill{font-size:11px;white-space:nowrap;color:#176c68;background:#d2f7e9;padding:6px 10px;border-radius:100px;font-weight:800}
+.space-pill.low{background:#ffe4dc;color:#9c4933}
+.settings-muted{font-size:12px;color:#75718e;line-height:1.7;margin:11px 0 18px}
+.path-controls{display:flex;gap:8px}
+.path-controls input{flex:1;min-width:0}
+.path-controls button{white-space:nowrap}
+.settings-restart{padding:13px;border:1px solid #bbe3d8;background:#eafef5;border-radius:11px;color:#18574c;font-size:12px;line-height:1.7;margin-top:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.settings-restart[hidden]{display:none}
+.cleanup-controls{align-items:center}
+.toggle-label{display:flex;align-items:center;gap:9px;background:#ebfaf3;border:1px solid #bde8d6;padding:11px 13px;border-radius:12px;min-height:44px;color:#175e4a;font-weight:850;font-size:12px;flex:1}
+.toggle-label input{accent-color:#159c76;width:19px;height:19px;flex-shrink:0}
+.cleanup-controls .settings-field{flex:1.3}
+.settings-section code{background:#efeafa;color:#7347a5;padding:2px 4px;border-radius:4px}
+@media(max-width:750px){.sidebar .settings-menu-label{display:none}.sidebar .nav-settings{flex:0 0 auto;width:auto;white-space:nowrap}.settings-dialog-header{padding:16px;gap:9px}.settings-header-icon{width:39px;height:39px;font-size:22px}.settings-header-text h2{font-size:21px}.settings-header-text p{font-size:11px}.settings-close{width:30px;height:30px}.settings-dialog-body{padding:14px;max-height:calc(90vh - 97px)}.settings-fields,.path-controls{flex-wrap:wrap;align-items:stretch}.settings-field.port-field{flex:1 1 110px}.settings-fields .settings-field{flex:1 1 145px}.path-controls button{flex:1 1 100%}.settings-actions button{flex:1 1 155px}.cleanup-controls{flex-direction:column;align-items:stretch}.diagnostic-grid{gap:7px;padding:10px}}

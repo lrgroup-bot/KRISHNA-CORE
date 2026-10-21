@@ -1,0 +1,21 @@
+/* Book-learning state is deliberately neutral until actual evidence receipts exist. */
+.books-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:13px}
+.book-session{background:#fbfaff;border:1px solid #e7e0f6;border-radius:15px;padding:16px;min-width:0}
+.book-session h3{margin:0 0 7px;overflow-wrap:anywhere;font-size:15px}
+.book-method{font-size:11px;color:#6b638c;overflow-wrap:anywhere}
+.book-progress-count{display:flex;justify-content:space-between;gap:12px;margin-top:12px;font-size:12px}
+.book-progress-count strong{font-variant-numeric:tabular-nums}
+.book-progress-track{height:9px;background:#e9e5f1;overflow:hidden;border-radius:999px;margin:8px 0 12px}
+.book-progress-fill{height:100%;background:linear-gradient(90deg,#7461c6,#3ab09b);border-radius:999px}
+.book-fine{font-size:11px;color:#5c6280;margin:5px 0;line-height:1.55}
+.book-error{font-size:12px;color:#a23b52;background:#fff0f2;border:1px solid #ffd6dd;border-radius:8px;padding:8px;overflow-wrap:anywhere}
+@media(max-width:750px){.books-panel{padding:15px}.books-grid{grid-template-columns:minmax(0,1fr)}}
+
+.book-search-form{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:17px 0 10px}
+.book-search-form label{font-weight:750;font-size:12px}
+.book-search-form input{flex:1 1 220px;min-width:0;padding:10px 12px;border:1px solid #d6cdec;border-radius:10px;background:#fcfbff;color:#242443}
+.book-search-form button{border:0;padding:11px 15px;border-radius:10px;background:#6f4bc6;color:white;font-weight:750}
+.book-search-results{display:grid;gap:8px;max-height:360px;overflow:auto}
+.book-search-match{border:1px solid #eee8f6;border-radius:11px;padding:10px;background:#fcfbff;overflow-wrap:anywhere}
+.book-search-match strong{font-size:12px}
+.book-search-match small{display:block;font-size:10px;color:#767b90;overflow-wrap:anywhere}

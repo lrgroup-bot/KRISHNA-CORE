@@ -116,6 +116,7 @@ from .node_registry import NodeRegistry
 from .node_execution import TrustedNodeExecutor
 from .hawkeye_ui_reviewer import HawkeyeUIReviewer
 from .suryadev import SuryadevAgent
+from .brahma_exam_scheduler import BrahmaExamScheduler
 from .chandradev import ChandradevQC
 from .chandradev_camera import ChandradevOsmoCameraAdapter, OSMO_ACTION_ORIGINAL_PROFILE
 from .vision_adapter import VisionAdapter
@@ -407,6 +408,8 @@ class Orchestrator:
             ui_reviewer=HawkeyeUIReviewer(),
             memory=self.memory,
         )
+        self.brahma_exam_scheduler = BrahmaExamScheduler(
+            runtime_state / "brahma" / "rishi-exams", self.agi.brahmagyan)
         self.chandradev = ChandradevQC(runtime_state / "chandradev", memory=self.memory)
         self.chandradev_camera_vision = VisionAdapter()
         self.chandradev_camera = ChandradevOsmoCameraAdapter(

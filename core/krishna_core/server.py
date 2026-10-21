@@ -34,6 +34,7 @@ from .avatar_asset_pipeline import AvatarAssetInspector
 from .video_avatar import VideoAvatarFabric
 from .science_atlas import ScienceFrontierScheduler
 from .brahma_memory_intelligence import BrahmaConsolidationScheduler
+from .brahma_rishi_exam_author import RishiExamAuthor
 from .windows_desktop_fabric import WindowsDesktopFabric
 from .android_test_fabric import AndroidTestFabric
 from .http_server_runtime import KrishnaThreadingHTTPServer
@@ -672,6 +673,9 @@ def _brahma_consolidation_tick():
                 int(os.getenv("KRISHNA_BRAHMA_CONSOLIDATION_MAX_ITEMS","250"))
             )
             decay=orch.brahma.decay_scan()
+            # BRAHMA schedules Rishi exam assignments only: no model loaded
+            # and no automatic grade or claimed mastery on KRISHNA.
+            exams=orch.brahma_exam_scheduler.plan()
     except RuntimeError as exc:
         if "resource governor busy" in str(exc).lower():
             return {"status":"skipped_resource_governor_busy"}
@@ -682,6 +686,7 @@ def _brahma_consolidation_tick():
         "memory_percent":memory,
         "consolidation":consolidation,
         "decay":decay,
+        "rishi_exam_assignments_created":exams["created"],
     }
     orch.memory.audit(
         "brahma_sleep_learning","completed",
@@ -751,8 +756,11 @@ class Handler(BaseHTTPRequestHandler):
         if not local and not paired and not public:
             self._json(401, {"error": "pairing required"})
             return False
-        if not local and paired and not public and not _remote_policy.mobile_route_allowed(request_path):
-            self._json(403, {"error": "paired remote devices are restricted to KRISHNA conversation/mobile APIs"})
+        chandradev_reader=(request_path=="/api/chandradev/fleet/health"
+                            and device.startswith("chandradev-"))
+        if not local and paired and not public and not (
+                _remote_policy.mobile_route_allowed(request_path) or chandradev_reader):
+            self._json(403, {"error": "paired remote device cannot access this API"})
             return False
         if paired:
             touch_mobile(device, self.path)
@@ -1074,6 +1082,10 @@ class Handler(BaseHTTPRequestHandler):
                 "nodes":orch.compute_nodes.status(),
                 "bridge":orch.external_observers.status(),
             })
+        if path == "/api/suryadev/fleet/status":
+            if self.client_address[0] not in ("127.0.0.1", "::1"):
+                return self._json(403, {"error": "fleet ledger is KRISHNA PC only"})
+            return self._json(200,orch.suryadev.fleet.status())
         if path == "/api/suryadev/device/status":
             device,token=self._device_auth()
             if not _pairing.verify(device,token):
@@ -1083,9 +1095,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403,{"error":"device may read only its own Suryadev status"})
             try:return self._json(200,orch.suryadev.device_status(requested))
             except KeyError:return self._json(404,{"error":"Suryadev node has not sent a heartbeat yet"})
+        if path == "/api/chandradev/fleet/health":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                device,token=self._device_auth()
+                if not device.startswith("chandradev-") or not _pairing.verify(device,token):
+                    return self._json(403,{"error":"owner-paired CHANDRADEV reader required"})
+            return self._json(200,orch.chandradev.inspect_suryadev_fleet(
+                orch.suryadev.device_status()))
         if path == "/api/chandradev/status":
             return self._json(200,{
                 **orch.chandradev.status(),
+                "suryadev_fleet_health":orch.chandradev.inspect_suryadev_fleet(orch.suryadev.device_status()),
                 "nodes":orch.compute_nodes.status(),
                 "bridge":orch.external_observers.status(),
             })
@@ -1102,6 +1122,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, orch.garuda_status())
         if path == "/api/brahmagyan/status":
             return self._json(200,orch.brahmagyan_status())
+        if path == "/api/brahma/exams/schedule":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"BRAHMA exam schedule available only on KRISHNA PC"})
+            return self._json(200,{
+                "status":orch.brahma_exam_scheduler.status(),
+                "due":orch.brahma_exam_scheduler.due()})
+
         if path == "/api/brahmagyan/council":
             return self._json(200,orch.brahmagyan_council())
         if path == "/api/brahmagyan/missions":
@@ -1857,6 +1884,37 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             return self._json(400, {"error": f"invalid json: {exc}"})
 
+        if post_path == "/api/brahma/exams/plan":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"local BRAHMA exam planning only"})
+            return self._json(200,orch.brahma_exam_scheduler.plan(
+                as_of=data.get("date"),include_unready=False))
+        if post_path == "/api/brahma/exams/draft":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"local Rishi examiner draft only"})
+            config=os.getenv("KRISHNA_BRAHMA_LOCAL_INFERENCE_CONFIG")
+            if not config:
+                return self._json(503,{"error":"private local Ollama gateway not configured"})
+            from .brahma_local_inference import LocalBrahmaInference
+            assignments=orch.brahma_exam_scheduler.due(limit=500)["items"]
+            assignment=next((a for a in assignments
+                             if a["assignment_id"]==data.get("assignment_id")),None)
+            if assignment is None:
+                return self._json(404,{"error":"due Rishi exam assignment not found"})
+            result=RishiExamAuthor(orch.agi.brahmagyan,
+                orch.brahma_exam_scheduler,
+                LocalBrahmaInference(config_path=config)).draft(assignment)
+            return self._json(200,result)
+        if post_path == "/api/brahma/exams/issue":
+            if self.client_address[0] not in ("127.0.0.1","::1"):
+                return self._json(403,{"error":"local owner Rishi exam authorization required"})
+            if data.get("issuer_approved") is not True:
+                return self._json(403,{"error":"explicit issuer exam approval is required"})
+            result=RishiExamAuthor(orch.agi.brahmagyan,
+                orch.brahma_exam_scheduler,None).register_approved_draft(
+                    data.get("proposal"),issuer_approved=True)
+            return self._json(200,result)
+
         if post_path == "/api/hawkeye/ruview/wifi/connect":
             if self.client_address[0] not in ("127.0.0.1","::1"):
                 return self._json(403,{"error":"RuView Wi-Fi credentials may be entered only on the KRISHNA PC"})
@@ -2407,7 +2465,10 @@ class Handler(BaseHTTPRequestHandler):
             except PermissionError as exc:
                 return self._json(400, {"error": str(exc)})
 
-        if post_path in ("/api/suryadev/device/heartbeat","/api/suryadev/learning-bundle"):
+        if post_path in ("/api/suryadev/device/heartbeat","/api/suryadev/learning-bundle",
+                         "/api/suryadev/mission/request","/api/suryadev/mission/ack",
+                         "/api/suryadev/fleet/claim","/api/suryadev/fleet/renew",
+                         "/api/suryadev/fleet/complete"):
             device,token=self._device_auth()
             if not _pairing.verify(device,token):
                 return self._json(401,{"error":"paired Suryadev device required"})
@@ -2416,7 +2477,46 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403,{"error":"authenticated Suryadev Node ID does not match payload"})
             if post_path.endswith("/heartbeat"):
                 data["device_id"]=device
-                return self._json(200,orch.suryadev.device_heartbeat(data))
+                return self._json(200,orch.suryadev.device_heartbeat(data,authenticated=True))
+            if post_path.startswith("/api/suryadev/fleet/"):
+                if not device.startswith("suryadev-"):
+                    return self._json(403,{"error":"owner-paired SURYADEV identity required"})
+                try:
+                    if post_path.endswith("/claim"):
+                        return self._json(200,orch.suryadev.fleet.claim(
+                            device_id=device,known_task_ids=data.get("known_task_ids")))
+                    if post_path.endswith("/renew"):
+                        return self._json(200,orch.suryadev.fleet.renew(
+                            device_id=device,task_id=data.get("task_id"),
+                            lease_id=data.get("lease_id")))
+                    if post_path.endswith("/complete"):
+                        result=orch.suryadev.fleet.complete(
+                            device_id=device,task_id=data.get("task_id"),
+                            lease_id=data.get("lease_id"),outcome=data.get("outcome"),
+                            evidence_sha256=data.get("evidence_sha256",""),
+                            detail=data.get("detail",""),
+                            source_excerpt=data.get("source_excerpt",""),
+                            locator=data.get("locator"))
+                        receipt=result.get("receipt")
+                        if isinstance(receipt,dict) and receipt.get("evidence_sha256"):
+                            # The collector's only claim is "evidence collected".
+                            # Do NOT automatically create verified concepts.
+                            inbox=orch.agi.brahmagyan.intake_suryadev_collection(receipt)
+                            result["candidate_recorded"]=bool(inbox.get("recorded"))
+                            result["brahmagyan_accepted"]=False
+                        return self._json(200,result)
+                except (ValueError,PermissionError,KeyError,RuntimeError) as exc:
+                    return self._json(400,{"error":type(exc).__name__+": "+str(exc)[:240]})
+            if post_path.startswith("/api/suryadev/mission/") and not device.startswith("suryadev-"):
+                return self._json(403, {"error": "mission exchange requires an owner-paired SURYADEV identity"})
+            if post_path.endswith("/mission/request"):
+                # Only deliver operator-curated URLs to the paired requester.
+                # The laptop must independently validate its own allowlist.
+                return self._json(200,orch.suryadev.mission_offer(
+                    data.get("request"), device_id=device))
+            if post_path.endswith("/mission/ack"):
+                return self._json(200,orch.suryadev.mission_acknowledge(
+                    data, device_id=device))
             bundle=data.get("bundle") if isinstance(data.get("bundle"),dict) else data
             if bundle is data:
                 bundle={k:v for k,v in data.items() if k!="device_id"}

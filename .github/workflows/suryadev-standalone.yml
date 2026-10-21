@@ -1,0 +1,62 @@
+name: SURYADEV Standalone Checks
+on:
+  pull_request:
+    paths:
+      - 'standalone/suryadev/**'
+      - '.github/workflows/suryadev-standalone.yml'
+      - 'core/krishna_core/suryadev.py'
+      - 'core/krishna_core/suryadev_mission_backlog.py'
+      - 'core/krishna_core/server.py'
+      - 'core/krishna_core/remote_access.py'
+      - 'core/tests/test_suryadev_mission_backlog.py'
+  push:
+    paths:
+      - 'standalone/suryadev/**'
+      - '.github/workflows/suryadev-standalone.yml'
+      - 'core/krishna_core/suryadev.py'
+      - 'core/krishna_core/suryadev_mission_backlog.py'
+      - 'core/krishna_core/server.py'
+      - 'core/krishna_core/remote_access.py'
+      - 'core/tests/test_suryadev_mission_backlog.py'
+jobs:
+  unit:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile all modules
+        run: python -m compileall -q standalone/suryadev
+      - name: Run tests
+        working-directory: standalone/suryadev
+        run: python -m unittest discover -s tests -v
+
+      - name: Verify Core six-hour mission scheduler and paired route contract
+        env:
+          PYTHONPATH: core
+        run: python -m unittest discover -s core/tests -p test_suryadev_mission_backlog.py -v
+
+      - name: Verify installer diagnostic test gate
+        working-directory: standalone/suryadev
+        run: python install_test_gate.py --source .
+
+      - name: Validate Windows laptop preflight PowerShell syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'standalone/suryadev/laptop-preflight.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'standalone/suryadev/install-windows.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'standalone/suryadev/start-continuous-learning.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
