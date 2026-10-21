@@ -48,6 +48,27 @@ def bundle_for_step(ledger, book_id, mode, start_ordinal):
     job_id = ("suryadev-book-" + source_hash[:24] + "-" +
               hashlib.sha256(mode.encode("utf-8")).hexdigest()[:8] +
               "-" + str(start))
+    # Share only hashes and descriptive metadata of already-observed
+    # images; never send raw pages, artwork, scans, or copyrighted book text.
+    selected_visuals = []
+    if ledger.db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='book_visuals'"
+    ).fetchone():
+        pages = {p for _,_,p,_,_ in lines if p is not None}
+        sections = {s for _,s,_,_,_ in lines}
+        for label, image_sha, observation in ledger.db.execute(
+            "SELECT label,image_sha256,observation FROM book_visuals "
+            "WHERE book_id=? ORDER BY ordinal", (book_id,)):
+            relevant = (label.startswith("PDF page ") and label[9:].isdigit()
+                        and int(label[9:]) in pages) or any(
+                        label.startswith(section+":visual:") for section in sections)
+            if relevant and len(selected_visuals)<20:
+                selected_visuals.append({
+                    "sha256":image_sha, "subject":label[:250],
+                    "reason":"Book visual observation exists; local model output unverified.",
+                    "research_question":str(observation)[:700],
+                    "lab_relevance":False,
+                    "timestamp_seconds":0})
     text = (
         "Candidate book reading observation, NOT independently fact-checked. "
         "Book SHA-256: "+source_hash+", source lines "+str(start)+"-"+str(end)+
@@ -66,7 +87,7 @@ def bundle_for_step(ledger, book_id, mode, start_ordinal):
             "modality":"book_text_interpretation_unverified",
             "confidence":0.40
         }],
-        "visual_evidence":[]
+        "visual_evidence":selected_visuals
     }
 
 
