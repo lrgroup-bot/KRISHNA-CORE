@@ -63,16 +63,21 @@ def approve_book(root, source, *, lines_per_step=1, ocr=None):
         raise ValueError("approve only an existing local supported book")
     if type(lines_per_step) is not int or not 1<=lines_per_step<=40:
         raise ValueError("lines_per_step must be 1..40")
+    digest=file_sha256(path)
+    plan=root/"book-plan.json"
+    if plan.is_file():
+        prior=read_book_plan(plan)
+        if any(str(item["path"]).casefold()==str(path).casefold() and
+               item["sha256"]!=digest for item in prior["books"]):
+            raise ValueError("previously approved book changed; manual review/reapproval required")
     # Read all pages and reject OCR/EPUB errors BEFORE changing approvals.
     ledger=BookLedger(root)
     try:
         imported=ledger.import_book(path,ocr=ocr)
     finally:
         ledger.close()
-    digest=file_sha256(path)
-    if digest != imported["book_id"][5:]:
+    if file_sha256(path)!=digest or digest != imported["book_id"][5:]:
         raise RuntimeError("local book changed during import; approval refused")
-    plan=root/"book-plan.json"
     if plan.is_file():
         raw=json.loads(plan.read_text(encoding="utf-8"))
         validated=read_book_plan(plan)
@@ -84,7 +89,7 @@ def approve_book(root, source, *, lines_per_step=1, ocr=None):
             if len(raw["books"])>=MAX_APPROVED_BOOKS:
                 raise ValueError("owner-approved book limit reached")
             raw["books"].append({"path":str(path),"sha256":digest})
-            backup=plan.with_name("book-plan.backup-"+str(int(time.time()))+".json")
+            backup=plan.with_name("book-plan.backup-"+str(time.time_ns())+".json")
             shutil.copy2(plan,backup)
         else:
             return {"status":"already_approved","book_id":imported["book_id"],
