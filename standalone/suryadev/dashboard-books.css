@@ -1,5 +1,4 @@
 /* Book-learning state is deliberately neutral until actual evidence receipts exist. */
-.books-panel{margin:24px 0;padding:23px}
 .books-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:13px}
 .book-session{background:#fbfaff;border:1px solid #e7e0f6;border-radius:15px;padding:16px;min-width:0}
 .book-session h3{margin:0 0 7px;overflow-wrap:anywhere;font-size:15px}
