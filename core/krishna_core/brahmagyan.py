@@ -63,7 +63,7 @@ class BrahmagyanRuntime:
         self.cognitive_brain=None
         self.lock=RLock()
         self.state={
-            "missions":{},"claims":{},"debates":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
+            "missions":{},"claims":{},"debates":{},"daily_exams":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
             "created_at":time.time(),"version":self.VERSION,
         }
         self.load_error=None
@@ -87,7 +87,7 @@ class BrahmagyanRuntime:
         try:
             raw=json.loads(self.path.read_text(encoding="utf-8"))
             if isinstance(raw,dict):
-                for key in ("missions","claims","debates","curiosity","shishya_archive","council_proposals"):
+                for key in ("missions","claims","debates","daily_exams","curiosity","shishya_archive","council_proposals"):
                     if key in raw:self.state[key]=raw[key]
         except Exception as exc:
             self.load_error=f"{type(exc).__name__}: {exc}"
@@ -178,7 +178,7 @@ class BrahmagyanRuntime:
             "source_policy":"prefer primary sources; secondary summaries cannot inherit primary-source weight",
             "dual_track_rule":"modern scientific evidence and Vedic/classical material stay separately labeled; similarities never imply scientific identity",
             "priority":priority or {},
-            "phase":"scope","phase_history":[{"phase":"scope","at":self._now(),"evidence":[]}],
+            "daily_exam_gate_required":True,"daily_exam_ids":[],"phase":"scope","phase_history":[{"phase":"scope","at":self._now(),"evidence":[]}],
             "perspectives":[],"debate_ids":[],
             "claim_ids":[],"research_questions":[],"shishya_batches":[],
         }
@@ -559,6 +559,135 @@ class BrahmagyanRuntime:
             if key:keys.add(key)
         return len(keys)
 
+
+    def create_daily_exam(self,mission_id,questions,exam_date=None):
+        """Prepare a difficult evidence-linked theory/practical exam; no model grades itself."""
+        import datetime
+        day=exam_date or datetime.date.today().isoformat()
+        if not isinstance(day,str) or len(day)!=10 or day[4]!="-" or day[7]!="-":
+            raise ValueError("exam_date must be YYYY-MM-DD")
+        try:
+            datetime.date.fromisoformat(day)
+        except ValueError as exc:
+            raise ValueError("invalid examination date") from exc
+        if not isinstance(questions,list) or not 5<=len(questions)<=30:
+            raise ValueError("daily exam needs 5..30 challenging questions")
+        allowed={"why","how","what","when","where","contradiction","transfer","diagnosis","experiment"}
+        cleaned=[];ids=set();competencies=set()
+        for q in questions:
+            if not isinstance(q,dict):
+                raise ValueError("exam questions must be objects")
+            qid=str(q.get("id") or "").strip()
+            kind=str(q.get("kind") or "").strip().lower()
+            competency=str(q.get("competency") or "").strip().lower()
+            prompt=str(q.get("question") or "").strip()
+            rubric=str(q.get("rubric") or "").strip()
+            refs=q.get("source_refs")
+            if (not qid or len(qid)>80 or qid in ids or kind not in {"theory","practical"}
+                    or competency not in allowed or len(prompt)<20 or len(rubric)<20
+                    or not isinstance(refs,list) or not refs
+                    or any(not isinstance(ref,str) or not ref.strip() or len(ref)>2000 for ref in refs)):
+                raise ValueError("question requires unique ID, kind, competency, substantive prompt/rubric and source references")
+            ids.add(qid);competencies.add(competency)
+            cleaned.append({"id":qid,"kind":kind,"competency":competency,
+                            "question":prompt[:3000],"rubric":rubric[:3000],
+                            "source_refs":[ref.strip() for ref in refs[:15]]})
+        if (sum(q["kind"]=="theory" for q in cleaned)<3
+                or sum(q["kind"]=="practical" for q in cleaned)<2
+                or not {"why","how","contradiction"}.issubset(competencies)):
+            raise ValueError("exam requires 3 theory, 2 practical and why/how/contradiction challenges")
+        with self.lock:
+            m=self.state["missions"].get(str(mission_id))
+            if not m:raise KeyError(mission_id)
+            if any(self.state["daily_exams"].get(eid,{}).get("date")==day
+                   for eid in m.get("daily_exam_ids",[])):
+                raise ValueError("daily exam already exists for this mission and date")
+            exam_id=str(uuid.uuid4())
+            exam={"exam_id":exam_id,"mission_id":mission_id,"date":day,
+                  "questions":cleaned,"attempts":[],"status":"prepared",
+                  "theory_min_percent":85.0,"practical_min_percent":90.0,
+                  "created_at":self._now(),
+                  "policy":"Question rubrics and model-reported grades are not proof of independent verification. Practical tests require evidence artifacts."}
+            self.state["daily_exams"][exam_id]=exam
+            m.setdefault("daily_exam_ids",[]).append(exam_id)
+            m["updated_at"]=self._now();self._save()
+        self.memory.audit("brahmagyan_exam","prepared",f"{mission_id}:{exam_id}:{day}")
+        return json.loads(json.dumps(exam))
+
+    def record_daily_exam_attempt(self,exam_id,results,grader,method):
+        """Grade only an explicitly reviewed attempt with attributable evidence."""
+        grader=str(grader or "").strip().lower()
+        method=str(method or "").strip()
+        if grader not in {"gautama","bharadvaja","veda-vyasa","human-examiner"}:
+            raise ValueError("independent Gautama/Bharadvaja/Vyasa or human examiner required")
+        if method not in {"independent_rishi_review","human_review","deterministic_test"}:
+            raise ValueError("unsupported independent grading method")
+        if not isinstance(results,list):
+            raise ValueError("exam results must be a list")
+        with self.lock:
+            exam=self.state["daily_exams"].get(str(exam_id))
+            if exam is None:raise KeyError(exam_id)
+            expected={q["id"]:q for q in exam["questions"]}
+            if len(results)!=len(expected):
+                raise ValueError("every question must be graded")
+            found=set();graded=[];scores={"theory":[],"practical":[]}
+            for result in results:
+                if not isinstance(result,dict):
+                    raise ValueError("invalid examination result")
+                qid=str(result.get("id") or "").strip()
+                if qid not in expected or qid in found:
+                    raise ValueError("unknown or duplicated exam question")
+                found.add(qid)
+                score=result.get("score")
+                if isinstance(score,bool) or not isinstance(score,(int,float)) or not 0<=score<=100:
+                    raise ValueError("exam score must be from 0 to 100")
+                rationale=str(result.get("evaluation") or "").strip()
+                refs=result.get("evidence_refs")
+                if len(rationale)<25 or not isinstance(refs,list) or not refs or any(
+                        not isinstance(ref,str) or not ref.strip() or len(ref)>2000 for ref in refs):
+                    raise ValueError("exam grading needs written justification and evidence references")
+                if expected[qid]["kind"]=="practical":
+                    digest=str(result.get("artifact_sha256") or "").strip().lower()
+                    tests=result.get("test_results")
+                    if (len(digest)!=64 or any(c not in "0123456789abcdef" for c in digest)
+                            or not isinstance(tests,list) or not tests
+                            or any(not isinstance(test,str) or len(test)<10 for test in tests)):
+                        raise ValueError("practical grade requires artifact SHA-256 and test evidence")
+                else:
+                    digest=None;tests=[]
+                scores[expected[qid]["kind"]].append(float(score))
+                graded.append({"id":qid,"kind":expected[qid]["kind"],"score":float(score),
+                               "evaluation":rationale[:3000],"evidence_refs":refs[:20],
+                               "artifact_sha256":digest,"test_results":tests[:30]})
+            theory=sum(scores["theory"])/len(scores["theory"])
+            practical=sum(scores["practical"])/len(scores["practical"])
+            passed=(theory>=exam["theory_min_percent"]
+                    and practical>=exam["practical_min_percent"]
+                    and all(row["score"]>=60 for row in graded))
+            attempt={"attempt_id":str(uuid.uuid4()),"grader":grader,
+                     "method":method,"graded_at":self._now(),
+                     "theory_percent":round(theory,2),"practical_percent":round(practical,2),
+                     "passed":passed,"results":graded,
+                     "independence_verified":False,
+                     "note":"Recorded named review, not cryptographic grader attestation or independent mastery proof."}
+            exam["attempts"].append(attempt)
+            exam["status"]="passed_recorded" if passed else "failed_recorded"
+            self._save()
+        self.memory.audit("brahmagyan_exam","passed_recorded" if passed else "failed_recorded",
+                          f"{exam_id}:{grader}:{method}")
+        return json.loads(json.dumps(attempt))
+
+    def daily_exam_status(self,mission_id):
+        m=self.mission(mission_id)
+        with self.lock:
+            exams=[json.loads(json.dumps(self.state["daily_exams"][eid]))
+                   for eid in m.get("daily_exam_ids",[])
+                   if eid in self.state.get("daily_exams",{})]
+        return {"mission_id":mission_id,"exams":exams,
+                "passed_recorded":sum(e["status"]=="passed_recorded" for e in exams),
+                "mastery_gate_satisfied":any(e["status"]=="passed_recorded" for e in exams),
+                "automatic_end_of_day_scheduling_enabled":False}
+
     def _validate_advance(self,c,target,detail):
         i=LEVEL_INDEX[c["maturity"]];j=LEVEL_INDEX[target]
         if j!=i+1:raise ValueError("knowledge maturity must advance exactly one level at a time")
@@ -592,6 +721,13 @@ class BrahmagyanRuntime:
         with self.lock:
             c=self.state["claims"].get(str(claim_id))
             if not c:raise KeyError(claim_id)
+            mission=self.state["missions"].get(c["mission_id"],{})
+            if target in {"L7","L8"} and mission.get("daily_exam_gate_required",False):
+                if not any(
+                    self.state["daily_exams"].get(eid,{}).get("status")=="passed_recorded"
+                    for eid in mission.get("daily_exam_ids",[])
+                ):
+                    raise ValueError("L7/L8 mastery needs a recorded passing theory + practical daily exam")
             self._validate_advance(c,target,detail)
             if "context_summary" in detail:c["context_summary"]=str(detail["context_summary"])
             if "source_notes" in detail:c["source_notes"]=list(detail["source_notes"] or [])
@@ -987,6 +1123,8 @@ class BrahmagyanRuntime:
             "research_phases":[{"code":c,"name":n} for c,n in RESEARCH_PHASES],
             "deep_learning_loop":["discover","read","understand_context","extract_claims","verify_sources","cross_check","find_contradictions","apply","test","evaluate","connect","store"],
             "missions":missions,"claims":claims,"debates":debates,"curiosity_queued":curiosity,
+            "daily_exams":len(self.state.get("daily_exams") or {}),
+            "daily_exam_policy":"3 theory / 2 practical; why/how/contradiction; 85% theory and 90% practical; recorded independent review before L7/L8",
             "council_proposals":len(self.state.get("council_proposals") or []),
             "council":self.council.status(),
             "trusted_store":"Gyan-Bhandar","authority":"Sudarshan permissioned Action/Job architecture",
