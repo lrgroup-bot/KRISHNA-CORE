@@ -150,6 +150,28 @@ def serve(lib, port=8769):
                 mime = "text/html; charset=utf-8" if route.path == "/" else (
                     "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
                 return self.respond(200, content, mime)
+            if route.path == "/api/book-search":
+                from suryadev_book_reader import BookLedger
+                options=parse_qs(route.query)
+                key=options.get("q",[""])[0]
+                if not (Path(lib.root)/"book-learning.sqlite3").is_file():
+                    return self.respond(200,json.dumps({
+                        "query":key,"matches":[],"returned":0,"has_more":False
+                    }),"application/json")
+                ledger=BookLedger(lib.root)
+                try:
+                    result=ledger.search(key,limit=20)
+                except ValueError as exc:
+                    return self.respond(400,json.dumps({"error":str(exc)[:160]}),
+                                       "application/json")
+                except (OSError,RuntimeError):
+                    return self.respond(503,json.dumps({
+                        "error":"Book evidence unavailable or integrity mismatch"}),
+                        "application/json")
+                finally:
+                    ledger.close()
+                return self.respond(200,json.dumps(result,ensure_ascii=False),
+                                    "application/json")
             if route.path == "/api/books":
                 from suryadev_book_reader import BookLedger
                 path = Path(lib.root) / "book-learning.sqlite3"
@@ -517,6 +539,9 @@ def main():
     book_visual.add_argument("--model", default="gemma3:4b")
     book_visual.add_argument("--max-items", type=int, default=0,
                              help="0 means through the last detected visual; 1 for checkpoint step")
+    book_search = sub.add_parser("book-search")
+    book_search.add_argument("query")
+    book_search.add_argument("--limit", type=int, default=20)
     book_status = sub.add_parser("book-status")
     book_status.add_argument("book_id", nargs="?")
     book_verify = sub.add_parser("book-verify")
@@ -556,7 +581,8 @@ def main():
                                 ocr=default_pdf_ocr if args.ocr_scanned else None)
         print(json.dumps(result,ensure_ascii=False,indent=2))
         return
-    if args.command in ("book-import","book-read","book-status","book-verify"):
+    if args.command in ("book-import","book-read","book-status","book-verify",
+                         "book-search"):
         from suryadev_book_reader import BookLedger, default_pdf_ocr
         if args.command in ("book-import","book-read"):
             # No concurrent mutation of the same learning library.
@@ -579,6 +605,8 @@ def main():
             ledger = BookLedger(args.data)
             try:
                 result = (ledger.status(args.book_id) if args.command == "book-status"
+                          else ledger.search(args.query,limit=args.limit)
+                          if args.command == "book-search"
                           else ledger.verify(args.book_id))
             finally:
                 ledger.close()
