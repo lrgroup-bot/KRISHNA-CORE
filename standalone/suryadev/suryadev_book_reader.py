@@ -324,6 +324,10 @@ class BookLedger:
                 "\n\n" + "\n".join(
                     "[source-ordinal {} | {} | local-line {}] {}".format(n,s,l,t)
                     for n,s,p,l,t in lines))
+            # The shared Ollama helper accepts only the first 12,000
+            # characters. Never silently truncate book lines or mark them read.
+            if use_ollama and len(prompt) > 12000:
+                raise ValueError("Reading step exceeds Ollama prompt budget; decrease --lines-per-step")
             start = time.monotonic()
             try:
                 if use_ollama:
