@@ -48,6 +48,7 @@ class FleetIntegrationTests(unittest.TestCase):
             "cert_sha256":"a"*64,"device_id":"suryadev-test-one",
             "token_file":str(self.cred)}),encoding="utf-8")
         self.clock=[time.time()]
+        self.core.clock=lambda:self.clock[0]
         self.core.fleet.clock=lambda:self.clock[0]
         self.calls=[]
         def transport(config,path,payload):
