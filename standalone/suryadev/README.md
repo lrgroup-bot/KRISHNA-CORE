@@ -1106,3 +1106,36 @@ RSS articles that merely quote `<!DOCTYPE html>` or `<!ENTITY>`
 inside CDATA/comments are now accepted by the parser. Actual XML DTD
 or entity declarations are still rejected using expat structural hooks.
 An oversized RSS feed is still rejected by the bounded 8 MiB policy.
+
+
+## v6.6 opt-in multimodal research lab
+
+Source code now includes:
+- `suryadev_deep_web.py`: bounded full-scroll same-host website image/style
+  loading, image and link inventory, screenshot-by-screenshot **local** vision
+  observations. Off-host assets and linked pages remain excluded.
+- `suryadev_deep_pdf.py`: every-page pypdfium2 raster/OCR and local Ollama
+  vision observations in addition to the existing PDF text extraction. A
+  missing page/modality fails closed instead of silently claiming coverage.
+- `suryadev_video_lab.py`: lawful local video files with every decoded
+  frame hashed, optional sampled or explicitly each-frame local vision,
+  user-provided descriptions/comments/timed captions and optional
+  pre-downloaded faster-whisper audio model. This local analyzer does NOT
+  download YouTube videos or bypass rate limits.
+- `suryadev_ingest.py`: publisher description/chapters plus opt-in capped
+  50 YouTube public-comment retrieval from the same approved video
+  metadata path; captions-only visual/audio coverage remains unverified.
+
+Continuous worker opt-in flags:
+`-DeepWeb -DeepPDF -VisionModel gemma3:4b -UseOllama -Model gemma3:4b`
+(use only an installed model and required free OCR/PDF dependencies).
+Local video command: `python suryadev_extras.py --data ... analyze-local-video
+<local-video.mp4> --vision-model gemma3:4b --every-frame-vision
+--max-visual-frames 1800` for a small authorized clip, or use sampled
+vision for larger videos. Run the heavy video lab only with the ordinary
+worker stopped, so one data-root lock is respected.
+
+Audit, dependencies, per-source limits and evidence-truth rules are
+documented in the repository root:
+`docs/SURYADEV_MULTIMODAL_RESEARCH.md`.
+Do NOT load XTUFE or other unaudited browser extension into Garudanetra.
