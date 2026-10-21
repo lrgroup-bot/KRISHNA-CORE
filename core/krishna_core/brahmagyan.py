@@ -132,6 +132,16 @@ class BrahmagyanRuntime:
             "retracted":bool(source.get("retracted",False)),
             "parent_source":str(source.get("parent_source") or "").strip()[:500],
             "evidence":source.get("evidence"),
+            "locator":{
+                "url_fragment":str(source.get("url_fragment") or "").strip()[:300],
+                "page":source.get("page"),
+                "chapter":str(source.get("chapter") or "").strip()[:300],
+                "section":str(source.get("section") or "").strip()[:300],
+                "line_start":source.get("line_start"),
+                "line_end":source.get("line_end"),
+                "start_seconds":source.get("start_seconds"),
+                "end_seconds":source.get("end_seconds"),
+            },
             "content_hash":source.get("content_hash"),
             "citation_verified":source.get("citation_verified"),
             "citation_relation":source.get("citation_relation"),
@@ -642,10 +652,11 @@ class BrahmagyanRuntime:
                 if isinstance(score,bool) or not isinstance(score,(int,float)) or not 0<=score<=100:
                     raise ValueError("exam score must be from 0 to 100")
                 rationale=str(result.get("evaluation") or "").strip()
+                answer=str(result.get("response") or "").strip()
                 refs=result.get("evidence_refs")
-                if len(rationale)<25 or not isinstance(refs,list) or not refs or any(
+                if len(rationale)<25 or len(answer)<40 or not isinstance(refs,list) or not refs or any(
                         not isinstance(ref,str) or not ref.strip() or len(ref)>2000 for ref in refs):
-                    raise ValueError("exam grading needs written justification and evidence references")
+                    raise ValueError("exam grading needs substantial candidate response, written justification and evidence references")
                 if expected[qid]["kind"]=="practical":
                     digest=str(result.get("artifact_sha256") or "").strip().lower()
                     tests=result.get("test_results")
@@ -657,6 +668,7 @@ class BrahmagyanRuntime:
                     digest=None;tests=[]
                 scores[expected[qid]["kind"]].append(float(score))
                 graded.append({"id":qid,"kind":expected[qid]["kind"],"score":float(score),
+                               "response":answer[:8000],
                                "evaluation":rationale[:3000],"evidence_refs":refs[:20],
                                "artifact_sha256":digest,"test_results":tests[:30]})
             theory=sum(scores["theory"])/len(scores["theory"])
