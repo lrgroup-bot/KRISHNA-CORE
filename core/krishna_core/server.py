@@ -2425,7 +2425,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(403,{"error":"owner-paired SURYADEV identity required"})
                 try:
                     if post_path.endswith("/claim"):
-                        return self._json(200,orch.suryadev.fleet.claim(device_id=device))
+                        return self._json(200,orch.suryadev.fleet.claim(
+                            device_id=device,known_task_ids=data.get("known_task_ids")))
                     if post_path.endswith("/renew"):
                         return self._json(200,orch.suryadev.fleet.renew(
                             device_id=device,task_id=data.get("task_id"),
