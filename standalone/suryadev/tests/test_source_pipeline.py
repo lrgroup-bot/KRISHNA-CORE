@@ -241,6 +241,21 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(feed_links(atom),["https://example.com/two"])
         with self.assertRaisesRegex(ValueError, "DTD/ENTITY"):
             feed_links(b'<!DOCTYPE doc [ <!ENTITY x "evil"> ]><rss/>')
+        # Literal XML/HTML declarations quoted in an article's CDATA or
+        # comments are DATA, not XML DTD or entity declarations.
+        safe = (b'<rss><channel><item><description><![CDATA['
+                b'Example: <!DOCTYPE html> and <!ENTITY demo>'
+                b']]></description><link>https://example.com/cdata</link>'
+                b'</item></channel></rss>')
+        self.assertEqual(feed_links(safe), ["https://example.com/cdata"])
+        commented = (b'<rss><!-- <!DOCTYPE html> -->'
+                     b'<channel><item><link>https://example.com/comment</link>'
+                     b'</item></channel></rss>')
+        self.assertEqual(feed_links(commented), ["https://example.com/comment"])
+        with self.assertRaisesRegex(ValueError, "DTD/ENTITY"):
+            feed_links(b'<!DOCTYPE rss [<!ENTITY x "EXPAND">]>'
+                       b'<rss><channel><item><link>&x;</link></item>'
+                       b'</channel></rss>')
         self.assertFalse(allowed_source("https://unapproved.net/",{"example.com"}))
         self.assertTrue(allowed_source("https://example.com/yes",{"example.com"}))
 
