@@ -283,9 +283,17 @@ class BookLedger:
                 "average_seconds_per_line":(
                     round(timing[1]/read,3) if read else None),
                 "brahmagyan_acknowledged":False}
+        visual_exists=self.db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='book_visuals'"
+        ).fetchone()
+        visual_count = (self.db.execute(
+            "SELECT COUNT(*) FROM book_visuals WHERE book_id=?",(book_id,)
+        ).fetchone()[0] if visual_exists else 0)
         return {"book_id":book_id,"title":title,"source_sha256":digest,
                 "lines_indexed":total,"index_status":"complete",
-                "sessions":sessions,"comprehension_verified":False}
+                "sessions":sessions,"visual_items_examined":visual_count,
+                "visuals_full_semantic_coverage_verified":False,
+                "comprehension_verified":False}
 
     @staticmethod
     def _step_digest(lines):
