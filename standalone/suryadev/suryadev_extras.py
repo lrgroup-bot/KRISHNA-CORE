@@ -33,7 +33,7 @@ from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-21-v6.5-source-timing-and-feed-safety"
+UI_VERSION = "2026-10-21-v6.6-multimodal-research-lab"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -122,7 +122,10 @@ def serve(lib, port=8769):
                                      "has_six_hour_renewal_request": True,
                                      "has_bounded_large_rss": True,
                                      "has_per_source_processing_timing": True,
-                                     "has_xml_aware_feed_safety": True}),
+                                     "has_xml_aware_feed_safety": True,
+                                     "has_opt_in_deep_pdf": True,
+                                     "has_opt_in_deep_web": True,
+                                     "has_local_full_frame_video_audit": True}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
@@ -411,6 +414,19 @@ def main():
     worker.add_argument("--refill-minutes", type=int, default=5)
     worker.add_argument("--core-mission-config", default=None,
                         help="Explicit opt-in TLS-pinned paired KRISHNA mission connection JSON")
+    lab = sub.add_parser("analyze-local-video",
+                         help="Whole-file frame scan of operator-provided lawful local media, no YouTube requests")
+    lab.add_argument("media")
+    lab.add_argument("--title", default="")
+    lab.add_argument("--description-file")
+    lab.add_argument("--comments-file")
+    lab.add_argument("--transcript-file")
+    lab.add_argument("--whisper-model-dir",
+                     help="Already downloaded LOCAL faster-whisper model directory")
+    lab.add_argument("--vision-model",
+                     help="Already installed LOCAL Ollama vision model")
+    lab.add_argument("--visual-interval-seconds", type=float, default=1)
+    lab.add_argument("--max-visual-frames", type=int, default=300)
     imp = sub.add_parser("import-transcript")
     imp.add_argument("file")
     imp.add_argument("--source", default="")
@@ -425,6 +441,20 @@ def main():
         return
     if args.command == "verify-evidence":
         print(json.dumps(verify_evidence(args.data), indent=2))
+        return
+    if args.command == "analyze-local-video":
+        from suryadev_video_lab import video_research
+        with worker_lock(args.data):
+            result = video_research(
+                args.media, args.data, title=args.title,
+                description_file=args.description_file,
+                comments_file=args.comments_file,
+                transcript_file=args.transcript_file,
+                whisper_model_dir=args.whisper_model_dir,
+                vision_model=args.vision_model,
+                visual_interval_seconds=args.visual_interval_seconds,
+                max_visual_frames=args.max_visual_frames)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return
     lib = Library(args.data)
     if args.command == "dashboard":
