@@ -43,6 +43,52 @@ function renderLive(data) {
                     "  ·  Failed " + format(values.failed), "detail"));
     source.append(card);
   }
+  // Books are stored in a separate ledger and are not counted as web/PDF jobs.
+  const books = data.book_learning || {};
+  const bookCard = textNode("div", "", "source-card books");
+  bookCard.append(
+    textNode("div", "▧ Books · local reading", "type"),
+    textNode("strong", format(books.indexed)),
+    textNode("div", "Approved " + format(books.approved) +
+      " · Pending " + format(books.pending) +
+      " · Reading " + format(books.reading) +
+      " · Complete " + format(books.completed) +
+      " · Errors " + format(books.failed), "detail"),
+    textNode("div", "Indexed source lines " + format(books.lines_total) +
+      " · Ollama processed " + format(books.lines_processed) +
+      " · Visuals " + format(books.visual_items_examined) +
+      " · Core candidate receipts " +
+      format(books.brahmagyan_candidate_receipts), "detail")
+  );
+  if (books.error || books.plan_error) bookCard.append(
+    textNode("div", books.error || books.plan_error, "detail"));
+  source.append(bookCard);
+  const bookHealth = $("book-health");
+  if (bookHealth) {
+    const activity = books.activity || {};
+    const current = activity.active
+      ? (activity.state === "book_visual_in_progress"
+         ? "Examining book figures/pages"
+         : "Reading book lines with local Ollama") +
+        (activity.title ? " · " + activity.title : "")
+      : books.indexed ? "No live book generation reported" :
+        "No books indexed in the production data folder";
+    const seconds = Number(books.model_seconds || 0);
+    const average = Number(books.lines_processed || 0) > 0
+      ? " · Avg " + (seconds / books.lines_processed).toFixed(1) + " s/line"
+      : "";
+    bookHealth.replaceChildren(
+      textNode("strong", "▧ Book learning · " + current),
+      textNode("span", format(books.lines_processed) + " / " +
+        format(books.lines_total) + " lines model-processed · " +
+        format(books.visual_items_examined) + " images/pages observed · " +
+        seconds.toFixed(1) + "s recorded model time" + average),
+      textNode("small", format(books.approved) + " owner-approved · " +
+        format(books.indexed) + " indexed · " +
+        format(books.brahmagyan_candidate_receipts) +
+        " BRAHMAGYAN candidate receipts · factual verification pending")
+    );
+  }
   const gauges = $("gauges"); gauges.replaceChildren();
   const r = data.resources || {};
   if (r.available) {
