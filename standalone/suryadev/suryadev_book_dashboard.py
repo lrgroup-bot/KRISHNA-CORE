@@ -32,7 +32,7 @@ def book_learning_snapshot(root, *, now=None):
             if plan_path.stat().st_size > 65536:
                 raise ValueError("approved book plan is oversized")
             plan = json.loads(plan_path.read_text(encoding="utf-8"))
-            if plan.get("schema") != "suryadev.book-plan.v1" or not isinstance(plan.get("books"),list):
+            if not isinstance(plan,dict) or plan.get("schema") != "suryadev.book-plan.v1" or not isinstance(plan.get("books"),list):
                 raise ValueError("approved book plan schema is invalid")
             if len(plan["books"]) > 100:
                 raise ValueError("too many approved books")
@@ -45,7 +45,7 @@ def book_learning_snapshot(root, *, now=None):
     dbfile = root / "book-learning.sqlite3"
     if dbfile.is_file():
         try:
-            uri = "file:" + quote(str(dbfile),safe="/:") + "?mode=ro"
+            uri = "file:" + quote(dbfile.as_posix(),safe="/:") + "?mode=ro"
             con = sqlite3.connect(uri,uri=True,timeout=2)
             try:
                 # Query only existing book ledger structures, not production
