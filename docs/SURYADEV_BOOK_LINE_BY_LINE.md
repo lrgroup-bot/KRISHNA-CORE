@@ -95,15 +95,114 @@ python suryadev_extras.py --data "D:\Work\SURYADEV-DATA" book-verify "BOOK_ID_FR
 **No Ollama mode** `--no-ollama` is an evidence recording tool only. It
 must not be described as AI reading or learning.
 
-## Further steps not yet implemented
-- Automatic scheduling of each book alongside the existing continuous web
-  worker; presently the operator selects a local file and invokes the book
-  reader with the single-worker lock.
-- Model-backed sentence-level factual verification, end-of-chapter exams,
-  semantic cross-book search, references and links between books.
-- Full page/figure extraction for EPUB and scanned PDFs as a unified book
-  multimodal evidence record.
-- Authenticated acceptance into Core BRAHMAGYAN and Rishi council with
-  explicit digest ACK; do not mark acceptance before that exists.
-- Real physical Windows laptop Ollama end-to-end book acceptance; GitHub
-  CI simulates the model responses but cannot confirm knowledge quality.
+## v6.8 — Books join the continuous learner (opt-in)
+
+The book engine is now integrated with SURYADEV's ONE existing worker,
+not a second background service. All four components are included in
+the guarded Windows installer:
+- `suryadev_book_reader.py`: durable complete text index, per-line journal,
+  source digest, source-line search and exact reading-time counters.
+- `suryadev_book_continuity.py`: only owner-approved absolute local book
+  paths with SHA-256 fingerprint. Schedules **one local model step** when
+  normal approved web/PDF/YouTube queues are idle. No manual six-hour reset,
+  no duplicate new worker, no unapproved book discovery.
+- `suryadev_book_visuals.py`: optional every-page local PDF page vision/OCR,
+  and original-spine-order EPUB referenced image interpretation. Stores
+  independent per-item image hashes and resume markers. Inline SVG/MathML,
+  CSS background art and externally hosted assets are not automatically
+  supported; the audit rejects problematic markers rather than silently
+  claiming all images were understood.
+- `suryadev_book_handoff.py`: **explicit owner opt-in** to route locally
+  acquired book model observations and selected figure SHA metadata through
+  KRISHNA's existing paired `/api/suryadev/learning-bundle` route. It
+  rechecks SHA-256 of the book, requires reading to have reached the last
+  line, and validates `job_id`, canonical bundle digest, positive chunk
+  count and real `SURYA-ACK-` receipt. A candidate routing receipt is NOT a
+  Rishi factual-validation/comprehension certificate.
+
+### Operator approves a book in one step
+
+Stop any existing SURYADEV worker with Ctrl+C, preserving
+`D:\Work\SURYADEV-DATA` (the lock protects a running worker). After
+pulling and passing the guarded installer, copy your DRM-free/authorized
+book to the laptop's local `D:\Books` folder and run:
+
+```powershell
+cd "D:\Work\SURYADEV"
+python suryadev_extras.py --data "D:\Work\SURYADEV-DATA" book-approve "D:\Books\my-book.epub" --lines-per-step 1
+```
+
+For a scanned PDF that has pages without selectable text, install local
+Tesseract + pypdfium2 + pytesseract, then use `book-approve
+"D:\Books\my-book.pdf" --ocr-scanned`.
+The command validates the entire text, registers every line, and writes
+`D:\Work\SURYADEV-DATA\book-plan.json` with the canonical local
+source path and SHA-256. Additional explicit approvals append to that plan
+after preserving a timestamped backup. Changed previously approved files
+require operator review; they are never silently re-approved.
+
+### Automatic learning alongside normal research
+
+After confirming an **installed local** Ollama model in `ollama list`:
+
+```powershell
+.\start-continuous-learning.ps1 -DataDir "D:\Work\SURYADEV-DATA" `
+  -ActivateOfficialTech -UseOllama -Model "gemma3:4b" `
+  -LearnApprovedBooks
+```
+
+This reads approved books sequentially during idle periods and resumes
+from exact saved line checkpoints. It does not starve the normal web queue,
+does not acquire books from paid/download services, and does not mark
+preview-only runs as learning. The model cannot be guaranteed to understand
+everything simply because every line was processed.
+
+To additionally audit one image/page per idle book cycle (requires installed
+local image-capable model, Pillow, pypdfium2, pytesseract and Tesseract):
+
+```powershell
+.\start-continuous-learning.ps1 -DataDir "D:\Work\SURYADEV-DATA" `
+  -ActivateOfficialTech -UseOllama -Model "gemma3:4b" `
+  -LearnApprovedBooks -BookVisuals -VisionModel "gemma3:4b"
+```
+
+Manual deep book-visual pass also exists:
+`python suryadev_extras.py --data ... book-visuals <book-id>
+--model gemma3:4b --max-items 0`.
+The visible dashboard at `http://127.0.0.1:8769/` now contains a
+**Book learning** panel, backed by read-only `/api/books`, along with
+`/api/book-search?q=<term>` that returns the exact source line, chapter/
+page citation and line SHA. The equivalent local CLI is
+`book-search "my technical term" --limit 20`.
+
+### Opt-in BRAHMAGYAN handoff, not automatic by default
+
+Only after both machines have been formally paired, and KRISHNA is
+really accessible through an owner-verified TLS-pinned HTTPS listener,
+may the owner add the following flags to the *same* learner:
+
+```powershell
+-CoreMissionConfig "D:\Work\SURYADEV-DATA\paired-core-mission.json" `
+-SyncBookHandoff
+```
+
+The Core transport uses the existing pair-checked route, not a second
+Rishi/knowledge authority. Book data remain local if either flag is
+absent. `/api/operations` exposes `book_continuity` and
+`book_handoff`; candidate receipt status is not factual acceptance.
+
+### What still needs real-device verification
+
+GitHub's Windows and Ubuntu CI tests exercise fake model/website/media
+adapters and expected receipts. They **cannot** prove that:
+- the actual laptop has enough CPU/RAM to finish a multi-hundred-page
+  PDF's OCR/vision or many thousands of line-by-line Ollama calls;
+- the purchased/publisher-controlled YouTube video can lawfully be
+  fetched or decoded, or that all 429 constraints can be lifted;
+- a vision model understands every equation, diagram, SVG or image;
+- the Main Core TLS-pairing config is already running on the laptop;
+- BRAHMAGYAN and the Rishis independently verified all model output.
+
+Those remain live acceptance gates for an operator, not fake 'all green'
+claims. No source file, user data, database, or old journal is deleted
+during a safe install.
