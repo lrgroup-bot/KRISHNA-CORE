@@ -2436,11 +2436,19 @@ class Handler(BaseHTTPRequestHandler):
                             device_id=device,task_id=data.get("task_id"),
                             lease_id=data.get("lease_id")))
                     if post_path.endswith("/complete"):
-                        return self._json(200,orch.suryadev.fleet.complete(
+                        result=orch.suryadev.fleet.complete(
                             device_id=device,task_id=data.get("task_id"),
                             lease_id=data.get("lease_id"),outcome=data.get("outcome"),
                             evidence_sha256=data.get("evidence_sha256",""),
-                            detail=data.get("detail","")))
+                            detail=data.get("detail",""))
+                        receipt=result.get("receipt")
+                        if isinstance(receipt,dict) and receipt.get("evidence_sha256"):
+                            # The collector's only claim is "evidence collected".
+                            # Do NOT automatically create verified concepts.
+                            inbox=orch.agi.brahmagyan.intake_suryadev_collection(receipt)
+                            result["candidate_recorded"]=bool(inbox.get("recorded"))
+                            result["brahmagyan_accepted"]=False
+                        return self._json(200,result)
                 except (ValueError,PermissionError,KeyError,RuntimeError) as exc:
                     return self._json(400,{"error":type(exc).__name__+": "+str(exc)[:240]})
             if post_path.startswith("/api/suryadev/mission/") and not device.startswith("suryadev-"):
