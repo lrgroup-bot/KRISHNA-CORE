@@ -83,9 +83,10 @@ class SuryadevFleetService:
         if not isinstance(node, dict) or node.get("device_id") != device_id:
             return False
         profile = dict(node)
-        # Authentication is established by server routing, NOT by a device's
-        # self-assertion. Do not persist 'authenticated' from user payloads.
-        profile["authenticated"] = True
+        # Paired status originates ONLY at the verified Core API boundary.
+        # A fabricated local heartbeat may not obtain fleet work.
+        if profile.get("authenticated") is not True:
+            return False
         capacity = profile.get("available_slots")
         if type(capacity) is not int:
             return False
