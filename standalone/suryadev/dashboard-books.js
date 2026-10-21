@@ -70,6 +70,43 @@
                                   String(error.message || error), "book-error"));
     }
   }
+  const form = document.getElementById("book-search-form");
+  const input = document.getElementById("book-search-input");
+  const matches = document.getElementById("book-search-results");
+  if (form && input && matches) {
+    form.addEventListener("submit", async function(event) {
+      event.preventDefault();
+      const query = input.value.trim();
+      matches.replaceChildren();
+      if (query.length < 2 || query.length > 120) {
+        matches.append(node("p", "Enter 2–120 characters.", "book-fine"));
+        return;
+      }
+      matches.append(node("p", "Searching original source lines…", "book-fine"));
+      try {
+        const response = await fetch("/api/book-search?q=" + encodeURIComponent(query),
+             {credentials:"same-origin",cache:"no-store"});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Book search unavailable");
+        matches.replaceChildren(node("p", (result.returned || 0) +
+            " cited source matches" + (result.has_more ? " (more available)" : ""),
+            "book-fine"));
+        for (const row of (result.matches || [])) {
+          const box = node("article", undefined, "book-search-match");
+          box.append(node("strong", row.title + " — " +
+              row.section + ", line " + row.line_in_section));
+          box.append(node("p", row.source_line, "book-fine"));
+          box.append(node("small", "SHA-256 line: " + row.line_sha256 +
+              " · AI processed: " + (row.ai_reading_mode || "not recorded") +
+              " · factual understanding unverified"));
+          matches.append(box);
+        }
+      } catch (error) {
+        matches.replaceChildren(node("p",
+          "Search failed: " + String(error.message || error), "book-error"));
+      }
+    });
+  }
   refresh();
   window.setInterval(refresh, 15000);
 })();
