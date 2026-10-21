@@ -33,7 +33,7 @@ from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-21-v6.6-multimodal-research-lab"
+UI_VERSION = "2026-10-21-v6.7-complete-book-ledger"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -125,7 +125,8 @@ def serve(lib, port=8769):
                                      "has_xml_aware_feed_safety": True,
                                      "has_opt_in_deep_pdf": True,
                                      "has_opt_in_deep_web": True,
-                                     "has_local_full_frame_video_audit": True}),
+                                     "has_local_full_frame_video_audit": True,
+                                     "has_local_book_line_by_line_reader": True}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
@@ -431,6 +432,25 @@ def main():
                      help="Attempt model interpretation on EVERY decoded frame; expensive, strict budget")
     lab.add_argument("--source-url", default="",
                      help="Provenance-only approved YouTube video URL; does not download")
+    # All book commands share the existing SURYADEV persistent root, but use
+    # their own book-reading SQLite ledger and page/line checkpoint journal.
+    book_import = sub.add_parser("book-import", help="Index every line of a local EPUB/PDF/TXT/MD")
+    book_import.add_argument("file")
+    book_import.add_argument("--title", default=None)
+    book_import.add_argument("--ocr-scanned", action="store_true",
+                             help="Use local Tesseract OCR only for PDF pages lacking text")
+    book_read = sub.add_parser("book-read", help="Resume exact next unread line to the end")
+    book_read.add_argument("book_id")
+    book_read.add_argument("--model", default="gemma3:4b")
+    book_read.add_argument("--no-ollama", action="store_true",
+                           help="Record line evidence only, NEVER claim AI learning")
+    book_read.add_argument("--lines-per-step", type=int, default=1)
+    book_read.add_argument("--max-steps", type=int, default=0,
+                           help="0 means continue until every line is processed")
+    book_status = sub.add_parser("book-status")
+    book_status.add_argument("book_id", nargs="?")
+    book_verify = sub.add_parser("book-verify")
+    book_verify.add_argument("book_id")
     imp = sub.add_parser("import-transcript")
     imp.add_argument("file")
     imp.add_argument("--source", default="")
@@ -445,6 +465,34 @@ def main():
         return
     if args.command == "verify-evidence":
         print(json.dumps(verify_evidence(args.data), indent=2))
+        return
+    if args.command in ("book-import","book-read","book-status","book-verify"):
+        from suryadev_book_reader import BookLedger, default_pdf_ocr
+        if args.command in ("book-import","book-read"):
+            # No concurrent mutation of the same learning library.
+            with worker_lock(args.data):
+                ledger = BookLedger(args.data)
+                try:
+                    if args.command == "book-import":
+                        result = ledger.import_book(
+                            args.file, title=args.title,
+                            ocr=default_pdf_ocr if args.ocr_scanned else None)
+                    else:
+                        result = ledger.read(
+                            args.book_id, model=args.model,
+                            use_ollama=not args.no_ollama,
+                            lines_per_step=args.lines_per_step,
+                            max_steps=args.max_steps)
+                finally:
+                    ledger.close()
+        else:
+            ledger = BookLedger(args.data)
+            try:
+                result = (ledger.status(args.book_id) if args.command == "book-status"
+                          else ledger.verify(args.book_id))
+            finally:
+                ledger.close()
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return
     if args.command == "analyze-local-video":
         from suryadev_video_lab import video_research
