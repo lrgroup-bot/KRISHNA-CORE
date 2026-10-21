@@ -493,6 +493,11 @@ def main():
                      help="Provenance-only approved YouTube video URL; does not download")
     # All book commands share the existing SURYADEV persistent root, but use
     # their own book-reading SQLite ledger and page/line checkpoint journal.
+    book_approve = sub.add_parser("book-approve",
+                                 help="Explicitly owner-approve and index one local SHA-pinned book")
+    book_approve.add_argument("file")
+    book_approve.add_argument("--ocr-scanned", action="store_true")
+    book_approve.add_argument("--lines-per-step",type=int,default=1)
     book_import = sub.add_parser("book-import", help="Index every line of a local EPUB/PDF/TXT/MD")
     book_import.add_argument("file")
     book_import.add_argument("--title", default=None)
@@ -540,6 +545,15 @@ def main():
                                      max_items=args.max_items)
             finally:
                 auditor.close()
+        print(json.dumps(result,ensure_ascii=False,indent=2))
+        return
+    if args.command == "book-approve":
+        from suryadev_book_reader import default_pdf_ocr
+        from suryadev_book_continuity import approve_book
+        with worker_lock(args.data):
+            result=approve_book(args.data,args.file,
+                                lines_per_step=args.lines_per_step,
+                                ocr=default_pdf_ocr if args.ocr_scanned else None)
         print(json.dumps(result,ensure_ascii=False,indent=2))
         return
     if args.command in ("book-import","book-read","book-status","book-verify"):
