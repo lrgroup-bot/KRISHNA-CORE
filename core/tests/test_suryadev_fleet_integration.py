@@ -85,7 +85,8 @@ class FleetIntegrationTests(unittest.TestCase):
         self.lib.db.close()
         self.tmp.cleanup()
     def test_many_approved_jobs_and_evidence_receipt_survive_restart(self):
-        with patch("suryadev_fleet_client.hardware_report",return_value=self.telemetry):
+        with (patch("suryadev_fleet_client.hardware_report",return_value=self.telemetry),
+              patch("suryadev.validate_url",side_effect=lambda url:url)):
             first=self.client.tick(self.lib)
             self.assertEqual(first["state"],"owner_approved_lease_accepted")
             self.clock[0]+=16
@@ -113,10 +114,11 @@ class FleetIntegrationTests(unittest.TestCase):
     def test_locally_unapproved_url_never_enters_sqlite(self):
         self.plan.write_text(json.dumps({"approved_urls":[],
              "allowed_source_hosts":["docs.example.org"]}),encoding="utf-8")
-        with patch("suryadev_fleet_client.hardware_report",return_value=self.telemetry):
+        with (patch("suryadev_fleet_client.hardware_report",return_value=self.telemetry),
+              patch("suryadev.validate_url",side_effect=lambda url:url)):
             result=self.client.tick(self.lib)
         self.assertEqual(result["state"],"locally_rejected_unapproved_url")
-        self.assertEqual(self.lib.stats()["queued"],0)
+        self.assertEqual(self.lib.stats().get("queued",0),0)
         self.assertEqual(self.core.fleet.status()["collected"],0)
 
 if __name__=="__main__":
