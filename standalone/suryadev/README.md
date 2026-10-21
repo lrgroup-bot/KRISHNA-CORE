@@ -1008,3 +1008,36 @@ without replacing existing approvals or SQLite data. Restart exactly one
 continuous worker, refresh `/api/operations` after a refill, then
 verify evidence integrity. The Core-side paired dispatcher and explicit
 acceptance receipt are still needed.
+
+
+## v6.4: bounded RSS + opt-in KRISHNA six-hour mission relay
+
+- The former 1 MB RSS feed limit is now **8 MiB maximum** (still bounded);
+  official GitHub Engineering RSS may be added by re-running
+  `-ActivateOfficialTech`, preserving existing plan and SQLite findings.
+- Each active worker records a low-water `mission_renewal` request for a
+  new six-hour assignment while it has fewer than 3 executable jobs.
+- When *and only when* `-CoreMissionConfig` is explicitly configured,
+  that same SINGLE worker contacts the approved paired KRISHNA Core over
+  pinned HTTPS to request one prepared Core mission. Source URLs must
+  exactly match the laptop's owner-approved plan; unknown URLs are refused.
+  It never launches another process or bypasses YouTube cooldown.
+- Core `SuryadevAgent` can prepare two six-hour research packets from a
+  separate reviewed catalogue and supports paired request/delivery ACK.
+  The catalogue is **not auto-installed** and finite curricula may run out.
+- A Core delivery ACK is not a completed research session or proof that
+  BRAHMAGYAN/Rishis ingested anything. Source evidence still requires
+  the existing verified learning-bundle contract/receipt.
+
+Full opt-in pairing, HTTPS, source-plan and Core deployment requirements:
+`docs/SURYADEV_SIX_HOUR_MISSION_PROTOCOL.md` at the repository root.
+**Do not point the TLS-pinned client at the ordinary HTTP port 8766.**
+To continue independent learning without verified Core TLS pairing:
+
+```powershell
+.\start-continuous-learning.ps1 -DataDir "D:\Work\SURYADEV-DATA" -ActivateOfficialTech
+```
+
+After a guarded reinstall, version-check the dashboard for
+`2026-10-21-v6.4-rss-and-mission-relay`; this verifies installed
+software assets, not an actual KRISHNA-to-laptop assignment.
