@@ -5,10 +5,43 @@ Optional psutil: pip install psutil. No metrics are fabricated if unavailable.
 """
 from __future__ import annotations
 import json
+import os
+import platform
+from functools import lru_cache
 import shutil
 import subprocess
 import time
 from pathlib import Path
+
+@lru_cache(maxsize=1)
+def hardware_identity():
+    """Best-effort static inventory, sampled once and never mistaken for utilization."""
+    identity={"cpu_name":platform.processor()[:120] or "unknown",
+              "gpu_name":"unavailable","gpu_inventory_verified":False,
+              "platform":platform.platform()[:120],
+              "logical_cpus":os.cpu_count() or 1}
+    if os.name=="nt":
+        command=(
+            "$cpu=Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Name;"
+            "$g=Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name;"
+            "@{cpu_name=$cpu;gpu_names=@($g)} | ConvertTo-Json -Compress"
+        )
+        try:
+            process=subprocess.run(["powershell.exe","-NoProfile","-NonInteractive",
+                                   "-Command",command],capture_output=True,
+                                  text=True,timeout=5,check=True)
+            payload=json.loads(process.stdout)
+            names=payload.get("gpu_names") or []
+            if isinstance(names,str):names=[names]
+            if isinstance(names,list) and names:
+                identity["gpu_name"]=", ".join(str(x)[:100] for x in names[:4])
+                identity["gpu_inventory_verified"]=True
+            if payload.get("cpu_name"):
+                identity["cpu_name"]=str(payload["cpu_name"])[:120]
+        except (OSError,ValueError,subprocess.SubprocessError):
+            pass
+    return identity
+
 
 def snapshot(data_dir, sample_seconds=0.2):
     try:
