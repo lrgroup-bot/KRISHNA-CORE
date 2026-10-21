@@ -56,7 +56,7 @@ class FleetIntegrationTests(unittest.TestCase):
             self.assertEqual(device,payload["device_id"])
             if path.endswith("/device/heartbeat"):
                 # This path represents the successful paired-auth Core route.
-                result=self.core.device_heartbeat({**payload,"device_id":device})
+                result=self.core.device_heartbeat({**payload,"device_id":device}, authenticated=True)
                 return result
             if path.endswith("/fleet/claim"):
                 return self.core.fleet.claim(device_id=device,
