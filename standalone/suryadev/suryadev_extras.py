@@ -23,7 +23,7 @@ from suryadev_parallel import AdaptiveResearchWorkers
 from suryadev_continuity import ContinuityFeeder
 from suryadev_mission_renewal import renewal_tick
 from suryadev_krishna_mission import MissionRelay
-from suryadev_book_continuity import BookContinuity, may_study_books
+from suryadev_book_continuity import BookContinuity, BookEvidenceCollector, may_study_books
 from suryadev_book_handoff import BookHandoff
 from suryadev_sources import breakdown
 from suryadev_task_details import list_tasks, task_detail, diary_days, diary_day
@@ -408,7 +408,9 @@ def serve(lib, port=8769):
 def work_loop(lib, interval, use_ollama, model, *,
               plan_path=None, refill_minutes=5, core_mission_config=None,
               book_plan_path=None, sync_book_handoff=False,
-              book_visual_model=None):
+              book_visual_model=None, book_collect_plan_path=None):
+    if book_collect_plan_path and (book_plan_path or sync_book_handoff or book_visual_model):
+        raise ValueError('Collector-only books cannot run model-reading, visual AI or Core candidate handoff')
     if interval < 10:
         raise ValueError("interval must be at least 10 seconds")
     if not 1 <= refill_minutes <= 360:
@@ -426,6 +428,8 @@ def work_loop(lib, interval, use_ollama, model, *,
     books = (BookContinuity(lib.root, book_plan_path, model=model,
                             use_ollama=use_ollama,vision_model=book_visual_model)
              if book_plan_path else None)
+    collect_books = (BookEvidenceCollector(lib.root, book_collect_plan_path)
+                     if book_collect_plan_path else None)
     handoff = (BookHandoff(lib.root,core_mission_config) if sync_book_handoff else None)
     lib.recover()
     print("SURYADEV Garudanetra adaptive worker started. Ctrl+C to stop.", flush=True)
@@ -465,6 +469,17 @@ def work_loop(lib, interval, use_ollama, model, *,
                             book_result = books.tick(available=True)
                         if book_result:
                             print(json.dumps({"book_learning":book_result}, ensure_ascii=False), flush=True)
+                if collect_books:
+                    # Index one owner-approved source without Ollama, including
+                    # when source research remains queued. Admission is measured;
+                    # original local book bytes and separate model journals persist.
+                    capacity=update["capacity"]
+                    available=bool(capacity.get("safe") and
+                                   capacity.get("active_total",0)<capacity.get("max_total",0))
+                    collected=collect_books.tick(available=available)
+                    if collected:
+                        print(json.dumps({"book_evidence_collection":collected},
+                                         ensure_ascii=False),flush=True)
                 if handoff and books:
                     approved_ids = ["book-"+b["sha256"] for b in books.plan["books"]]
                     book_ack = handoff.tick(approved_book_ids=approved_ids,
@@ -503,6 +518,8 @@ def main():
                         help="Explicitly authorize pinned paired Core upload of book candidate observations")
     worker.add_argument("--book-plan", default=None,
                         help="Owner-approved SHA-256-pinned local books, learned during idle cycles only")
+    worker.add_argument("--book-collect-plan", default=None,
+                        help="Owner-approved books INDEXED WITHOUT Ollama or comprehension claims")
     worker.add_argument("--core-mission-config", default=None,
                         help="Explicit opt-in TLS-pinned paired KRISHNA mission connection JSON")
     lab = sub.add_parser("analyze-local-video",
@@ -646,6 +663,7 @@ def main():
                       plan_path=args.plan, refill_minutes=args.refill_minutes,
                       core_mission_config=args.core_mission_config,
                       book_plan_path=args.book_plan,
+                      book_collect_plan_path=args.book_collect_plan,
                       sync_book_handoff=args.sync_book_handoff,
                       book_visual_model=args.book_visual_model)
     else:
