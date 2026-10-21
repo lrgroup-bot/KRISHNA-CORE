@@ -11,6 +11,9 @@
     const hardware = data.hardware || {};
     const plan = data.research_plan || {};
     const continuity = data.continuity || {};
+    const books = data.book_learning || {};
+    const bookActivity = books.activity || {};
+    const bookActive = bookActivity.active === true;
     const workerOnline = !!worker.state &&
       !["offline", "stopped"].includes(worker.state);
     const schedulerOnline = workerOnline && capacity.state !== "offline";
@@ -21,10 +24,33 @@
       ["web",web,"website"], ["video",video,"youtube"],["pdf",pdf,"pdf"]
     ]) {
       el("netra-"+key+"-running").textContent = num(values.running);
-      el("netra-"+key+"-capacity").textContent = num(limits[name]);
+      el("netra-"+key+"-capacity").textContent =
+        schedulerOnline ? num(limits[name]) : "— · worker offline";
       el("netra-"+key+"-queued").textContent = num(values.queued);
     }
     el("netra-web-tabs").textContent = num(web.browser_tabs);
+    el("netra-books-running").textContent = bookActive ? "1" : "0";
+    el("netra-books-approved").textContent = num(books.approved);
+    el("netra-books-indexed").textContent = num(books.indexed);
+    el("netra-books-lines").textContent =
+      num(books.lines_processed) + " / " + num(books.lines_total);
+    const bookNote = el("netra-books-state");
+    if (books.error) {
+      bookNote.textContent = books.error;
+    } else if (bookActive) {
+      bookNote.textContent =
+        (bookActivity.state === "book_visual_in_progress"
+          ? "Local vision audit in progress" : "Local Ollama reading in progress") +
+        (bookActivity.title ? " · " + bookActivity.title : "");
+    } else if (books.indexed) {
+      bookNote.textContent = num(books.completed) + " text-complete · " +
+        num(books.reading) + " partly read · " + num(books.visual_items_examined) +
+        " visuals examined · understanding unverified";
+    } else {
+      bookNote.textContent = books.plan_present
+        ? "Approved book plan found; no matching indexed book yet"
+        : "No books indexed here. The separate test-data book is not in this production folder.";
+    }
     const ytAccess = capacity.youtube_access || {};
     const ytNote = el("netra-youtube-access");
     if (ytAccess.state === "rate_limited") {
@@ -40,8 +66,10 @@
     }
     const badge = el("netra-engine-state");
     const alive = netra.state === "running";
-    badge.textContent = alive ? "● Chromium browser ready" :
-      capacity.browser_error ? "◉ Browser unavailable" : "○ Browser standby";
+    badge.textContent = alive ? "● Chromium browser active" :
+      capacity.browser_error ? "◉ Browser unavailable" :
+      workerOnline ? "○ Chromium idle · no website tab" :
+      "○ Browser standby · worker offline";
     badge.className = "netra-live-pill" + (alive ? " live" : capacity.browser_error ? " paused" : "");
     const active = Number(capacity.active_total || 0);
     const max = Number(capacity.max_total || 0);
@@ -101,14 +129,25 @@
       heading = "YouTube rate-limited — website/PDF research continues";
       reason = cpu + " · " + ram +
         " · Only approved independent sources are being studied; blocked video remains unverified.";
+    } else if (bookActive) {
+      heading = bookActivity.state === "book_visual_in_progress"
+        ? "Book image/page inspection in progress"
+        : "Book reading in progress on local Ollama";
+      reason = cpu + " · " + ram + " · " +
+        (bookActivity.title || "Approved local book") +
+        " · Website browser remains idle unless a website is queued.";
     } else if (noSources || (ytBlocked && alternatives === 0 &&
                Number(processing.youtube?.queued || 0) > 0)) {
       heading = ytBlocked ? "YouTube paused — no independent source ready" :
-                 "Learning worker ready — approved queue is empty";
+                 "No live source jobs — previous research remains saved";
       reason = cpu + " · " + ram +
+        " · History: " + num(processing.website?.done) + " web done, " +
+        num(processing.pdf?.done) + " PDF done, " +
+        num(processing.youtube?.done) + " YouTube done. " +
+        (books.indexed ? num(books.indexed) + " indexed books. " : "") +
         (continuityOnline
-           ? " · Approved feed refill is scheduled; no fabricated learning during an empty queue."
-           : " · Activate official tech sources and start a worker with --plan.");
+           ? "Approved source refill is scheduled."
+           : "No approved source refill is active.");
     } else {
       heading = "Automatic hardware admission enabled";
       reason = cpu + " · " + ram + " · " +
@@ -132,19 +171,47 @@
     const running = Array.isArray(data.current) ? data.current : [];
     const tabs = el("netra-workspace-tabs");
     tabs.replaceChildren();
-    el("netra-workspace-count").textContent = num(running.length);
-    if (!running.length) {
+    el("netra-workspace-count").textContent =
+      num(running.length + (bookActive ? 1 : 0));
+    if (!running.length && !bookActive) {
       const empty = document.createElement("div");
       empty.className = "empty-state";
       empty.textContent = !workerOnline
           ? "No learning worker is running. The dashboard observes activity but does not start a worker."
           : noSources
-          ? "The learning queue is empty. Add approved sources or start the research mission."
+          ? "No live work right now: " +
+            num(processing.website?.done) + " websites, " +
+            num(processing.pdf?.done) + " PDFs and " +
+            num(processing.youtube?.done) + " YouTube sources previously completed. " +
+            num(books.indexed) + " books indexed. Historical work is not a running tab."
           : healthy
           ? "No sources running yet. The worker will open approved queued work when slots are available."
           : "No jobs active. Resource limits or worker startup are preventing new tasks.";
       tabs.append(empty);
       return;
+    }
+    if (bookActive) {
+      const card = document.createElement("div");
+      card.className = "netra-workspace-tab book";
+      const ico = document.createElement("span");
+      ico.className = "tab-icon";
+      ico.textContent = "▧";
+      const details = document.createElement("div");
+      details.className = "tab-info";
+      const title = document.createElement("strong");
+      title.textContent = bookActivity.title || "Approved local book";
+      const stage = document.createElement("small");
+      stage.textContent = (bookActivity.state === "book_visual_in_progress"
+        ? "Examining PDF pages / EPUB artwork using local vision"
+        : "Reading original book lines on local Ollama") +
+        " · " + num(bookActivity.processed_lines) + " / " +
+        num(bookActivity.total_lines) + " lines at last checkpoint";
+      const tag = document.createElement("span");
+      tag.className = "tab-badge";
+      tag.textContent = "Local book";
+      details.append(title,stage);
+      card.append(ico,details,tag);
+      tabs.append(card);
     }
     for (const job of running) {
       const type = ["website","youtube","pdf"].includes(job.kind) ? job.kind : "other";
