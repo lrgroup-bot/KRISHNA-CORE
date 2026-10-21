@@ -87,6 +87,30 @@ class VideoLabTests(unittest.TestCase):
             self.assertTrue(report["all_decoded_frames_scanned"])
             self.assertEqual(len(report["frame_pixel_chain_sha256"]),64)
 
+    def test_each_frame_vision_mode_is_explicit_and_strict(self):
+        with tempfile.TemporaryDirectory() as td:
+            file = Path(td)/"approved.mp4"
+            file.write_bytes(b"locally provided")
+            cap = Capture(3)
+            fake_cv2 = types.SimpleNamespace(CAP_PROP_FPS=1,CAP_PROP_FRAME_COUNT=2)
+            with patch.dict(sys.modules, {"cv2":fake_cv2}):
+                report=scan_video(
+                    file, capture=cap, visual_fn=lambda frame,at:"interpreted",
+                    every_frame_vision=True,max_visual_frames=3)
+            self.assertEqual(report["frames_decoded"],3)
+            self.assertEqual(report["frames_semantically_interpreted"],3)
+            self.assertTrue(report["all_frames_semantically_interpreted"])
+            reject = Capture(3)
+            with patch.dict(sys.modules, {"cv2":fake_cv2}):
+                with self.assertRaisesRegex(ValueError, "model-call budget"):
+                    scan_video(file, capture=reject,
+                               visual_fn=lambda frame,at:"interpreted",
+                               every_frame_vision=True,max_visual_frames=2)
+            self.assertTrue(reject.closed)
+            with self.assertRaisesRegex(ValueError, "requires a local"):
+                scan_video(file, capture=Capture(1),
+                           every_frame_vision=True,visual_fn=None)
+
     def test_local_video_sidecars_comments_not_automatically_scraped(self):
         with tempfile.TemporaryDirectory() as td:
             path=Path(td)/"approved.mp4";path.write_bytes(b"legal local video")
