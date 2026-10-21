@@ -119,9 +119,12 @@ class MissionRelay:
             return self._attempt(lib, request, state, now)
         except (OSError, RuntimeError, ValueError, ssl.SSLError) as exc:
             # Remote Core failure cannot stop local Garudanetra/SQLite work.
+            committed = _safe_read(self.root, STATE_FILE, max_bytes=8192)
             event = {"request_id": rid, "acknowledged": False,
                      "next_attempt_at": now + RETRY_SECONDS,
-                     "state": "retry_later", "last_error": type(exc).__name__ +
+                     "state": "retry_later",
+                     "receipt": committed.get("receipt") if committed.get("request_id") == rid else None,
+                     "last_error": type(exc).__name__ +
                      ": " + str(exc)[:160], "updated_at": now}
             atomic_json(self.root, STATE_FILE, event)
             return event
