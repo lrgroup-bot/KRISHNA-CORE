@@ -150,6 +150,9 @@ class SuryadevMissionBacklog:
                                 if row["id"] == offer["mission_id"]), None)
                 if mission is None:
                     raise RuntimeError("previously offered curriculum was removed; require manual review")
+                digest = hashlib.sha256(json.dumps(mission, sort_keys=True).encode("utf-8")).hexdigest()
+                if offer.get("mission_sha256") != digest:
+                    raise RuntimeError("offered curriculum changed since first delivery; require manual review")
                 return {"status": "offered", "mission": mission,
                         "request_id": rid, "delivery_acknowledged": bool(offer.get("acknowledged")),
                         "replay": True}
@@ -160,6 +163,8 @@ class SuryadevMissionBacklog:
             mid = state["prepared"].pop(0)
             mission = next(row for row in curriculum if row["id"] == mid)
             state["offers"][rid] = {"mission_id": mid, "device_id": device_id,
+                                    "mission_sha256": hashlib.sha256(
+                                        json.dumps(mission, sort_keys=True).encode("utf-8")).hexdigest(),
                                     "issued_at": time.time(), "acknowledged": False}
             state["used"].append(mid)
             self._refill(state, curriculum)
