@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 import time
 
-from suryadev_book_reader import BookLedger
+from suryadev_book_reader import BookLedger, file_sha256
 from suryadev_krishna_mission import load_config, post_core
 from suryadev_liveops import atomic_json
 
@@ -125,9 +125,11 @@ class BookHandoff:
             sql = (
                 "SELECT j.book_id,j.mode,j.start_ordinal FROM book_journal j "
                 "JOIN book_sessions s ON s.book_id=j.book_id AND s.mode=j.mode "
+                "JOIN books b ON b.id=j.book_id "
                 "LEFT JOIN book_delivery d ON d.book_id=j.book_id AND "
                 "d.mode=j.mode AND d.start_ordinal=j.start_ordinal "
                 "WHERE j.mode LIKE 'ollama:%' AND j.book_id IN ("+marks+") "
+                "AND s.next_ordinal > b.lines_total "
                 "AND j.end_ordinal < s.next_ordinal AND d.job_id IS NULL "
                 "ORDER BY j.recorded_at ASC LIMIT ?")
             candidates = ledger.db.execute(sql, (*ids,max_per_cycle)).fetchall()
@@ -157,6 +159,11 @@ class BookHandoff:
                 digest = canonical_digest(bundle)
                 job_id = bundle["job_id"]
                 try:
+                    origin=ledger.db.execute(
+                        "SELECT filename,source_sha256 FROM books WHERE id=?",
+                        (book_id,)).fetchone()
+                    if not origin or file_sha256(origin[0])!=origin[1]:
+                        raise ValueError("approved book source changed before Core handoff")
                     reply = self.transport(self.config, "/api/suryadev/learning-bundle", {
                         "device_id":self.config["device_id"],"bundle":bundle})
                     if (reply.get("job_id") != job_id or
