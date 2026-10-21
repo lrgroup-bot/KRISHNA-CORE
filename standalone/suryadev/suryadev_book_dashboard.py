@@ -71,8 +71,11 @@ def book_learning_snapshot(root, *, now=None):
                 receipts = dict(con.execute(
                     "SELECT book_id,COUNT(*) FROM book_delivery GROUP BY book_id")
                     ) if "book_delivery" in present else {}
+                selected_models = []
                 for bid,title,total,digest in books:
                     read = history.get(bid)
+                    if read:
+                        selected_models.append((bid,read[0]))
                     processed = min(total,max(0,int(read[1])-1)) if read else 0
                     complete = bool(read and processed>=total)
                     failure = bool(read and read[2])
@@ -102,10 +105,14 @@ def book_learning_snapshot(root, *, now=None):
                     elif failure:result["failed"]+=1
                     elif processed:result["reading"]+=1
                     else:result["pending"]+=1
-                model_time=con.execute(
+                # Keep elapsed time aligned to the SAME most-recent local
+                # model session used for processed-line counters, rather than
+                # double-counting a second model's reread of the same book.
+                model_time = sum(float(con.execute(
                     "SELECT COALESCE(SUM(elapsed_seconds),0) FROM book_journal "
-                    "WHERE mode LIKE 'ollama:%'").fetchone()[0]
-                result["model_seconds"]=round(float(model_time),2)
+                    "WHERE book_id=? AND mode=?", pair).fetchone()[0])
+                    for pair in selected_models)
+                result["model_seconds"]=round(model_time,2)
             finally:
                 con.close()
         except (OSError,sqlite3.Error,ValueError,TypeError) as exc:
