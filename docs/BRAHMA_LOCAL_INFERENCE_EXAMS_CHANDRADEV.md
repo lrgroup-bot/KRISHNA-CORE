@@ -28,7 +28,7 @@ Configure KRISHNA_BRAHMA_LOCAL_INFERENCE_CONFIG to point to an operator-owned JS
 2. Local-only GET /api/brahma/exams/schedule shows due assignments. The issuer and reviewer are distinct Council members.
 3. Local-only POST /api/brahma/exams/draft with assignment_id asks the dedicated gateway for structured difficult questions based only on actual BRAHMAGYAN claim source references. Malformed output and invented source links are rejected.
 4. Local-only POST /api/brahma/exams/issue requires explicit issuer_approved:true and the draft proposal; original references are verified again before BRAHMAGYAN records the exam.
-5. A different Council specialist evaluates actual submitted responses and practical artifacts. An AI persona is NOT cryptographic proof of examiner independence. A passing recorded grade is NOT proof of physical tests unless its artifacts are independently reproduced.
+5. A different Council specialist evaluates actual submitted responses and practical artifacts. An AI persona is NOT cryptographic proof of examiner independence. BRAHMAGYAN now marks model/reviewer scores as provisional; L7/L8 will **not** pass without a separately bound trusted verifier that independently authenticates the reviewer and replays practical artifacts. Production verification is deliberately fail-closed until that service is provisioned.
 6. Recorded passes schedule 1-, 7- and 30-day recall tasks from the actual exam date, not arbitrary fake completion times.
 
 ## 85 percent and evidence
