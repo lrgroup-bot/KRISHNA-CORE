@@ -13,6 +13,8 @@ from pathlib import Path
 from threading import RLock
 import time
 import uuid
+from urllib.parse import urlsplit
+from pathlib import PurePosixPath
 
 from .suryadev_fleet_policy import plan_rishi_collection
 
@@ -64,9 +66,13 @@ class SuryadevFleetService:
                 task_id = "fleet-" + hashlib.sha256(
                     json.dumps([item["id"], url], separators=(",", ":")).encode()
                 ).hexdigest()[:28]
-                kind = ("youtube" if "youtu" in __import__("urllib.parse", fromlist=["urlsplit"]).urlsplit(url).hostname.lower()
-                        else "pdf" if __import__("urllib.parse", fromlist=["urlsplit"]).urlsplit(url).path.lower().endswith(".pdf")
-                        else "website")
+                parsed = urlsplit(url)
+                host = (parsed.hostname or "").lower()
+                kind = ("youtube" if host in {
+                    "youtube.com", "www.youtube.com", "m.youtube.com",
+                    "youtu.be", "www.youtu.be"}
+                    else "pdf" if PurePosixPath(parsed.path.lower()).suffix == ".pdf"
+                    else "website")
                 tasks[task_id] = {"task_id": task_id, "mission_id": item["id"],
                                   "rishi_id": rishi, "url": url, "kind": kind,
                                   "topic": item["topic"]}
@@ -109,7 +115,13 @@ class SuryadevFleetService:
                     "knowledge_verified": False, "protocol": SCHEMA,
                     "source_policy": "owner-approved Core curriculum only"}
 
-    def claim(self, *, device_id):
+    def claim(self, *, device_id, known_task_ids=None):
+        if known_task_ids is None:
+            known_task_ids = []
+        if (not isinstance(known_task_ids,list) or len(known_task_ids)>MAX_ACTIVE_PER_NODE
+                or any(not isinstance(t,str) or len(t)>100 for t in known_task_ids)):
+            raise ValueError("known_task_ids must be a bounded list")
+        known = set(known_task_ids)
         now = float(self.clock())
         with self.lock:
             tasks = self._tasks()
@@ -118,18 +130,17 @@ class SuryadevFleetService:
                       if lease.get("expires_at", 0) > now and tid in tasks]
             owned = [(tid, lease) for tid, lease in active if lease.get("device_id") == device_id]
             for tid, lease in owned:
-                # Same device retry -> same valid lease; never duplicate work.
-                return {"status": "leased", "task": tasks[tid], "lease_id": lease["lease_id"],
-                        "expires_at": lease["expires_at"], "replay": True}
+                # Client crashed before persisting claim? Replay the still-owned
+                # lease. Once it reports a durable local job, offer a next slot.
+                if tid not in known:
+                    return {"status": "leased", "task": tasks[tid], "lease_id": lease["lease_id"],
+                            "expires_at": lease["expires_at"], "replay": True}
             try:
                 node = self.node_reader(device_id)
             except KeyError:
                 return {"status": "no_eligible_capacity", "reason": "device heartbeat missing"}
             if not self._eligible(device_id, now, node, len(owned)):
                 return {"status": "no_eligible_capacity", "reason": "paired node hardware admission refused"}
-            for tid, _ in active:
-                # Preserve active lease ownership, including lease migrations.
-                pass
             occupied = {tid for tid, _ in active}
             candidates = [task for tid, task in tasks.items()
                           if tid not in occupied and tid not in state["receipts"]
