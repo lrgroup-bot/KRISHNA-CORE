@@ -91,7 +91,8 @@ class BrahmaExamScheduler:
                     and x["status"]=="awaiting_independently_authored_questions"
                     for x in state["assignments"].values())
                 if (day.isoformat() not in past_days and not scheduled_on_day
-                        and not unissued_initial):
+                        and not unissued_initial
+                        and not any(due==day for due,_ in future)):
                     future.insert(0,(day,0))
                 seen_dates=set()
                 for due,offset in sorted(future,key=lambda x:x[0]):
