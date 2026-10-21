@@ -37,5 +37,37 @@ class ExamScheduleTests(unittest.TestCase):
             self.scheduler.register_issued_exam(row["assignment_id"],"missing")
         self.assertEqual(self.scheduler.due(as_of="2026-10-21")["pending"],1)
 
+    def test_recall_from_pass_date_and_no_colliding_daily_exam(self):
+        assignment=self.scheduler.plan(as_of="2026-10-21",include_unready=True)["new"][0]
+        kinds=[("theory","why"),("theory","how"),("theory","contradiction"),
+               ("practical","experiment"),("practical","transfer")]
+        questions=[{"id":"q"+str(i),"kind":kind,"competency":skill,
+                    "question":"Explain or demonstrate a falsifiable engineering mechanism, with alternatives.",
+                    "rubric":"Check exact causal predictions, reproducibility and all supported measurements.",
+                    "source_refs":["https://www.example.com/primary"]}
+                   for i,(kind,skill) in enumerate(kinds)]
+        exam=self.brain.create_daily_exam(self.m["mission_id"],questions(),"2026-10-21",
+                                           issued_by=assignment["issued_by_rishi"])
+        self.scheduler.register_issued_exam(assignment["assignment_id"],exam["exam_id"])
+        rows=[]
+        for q in questions:
+            x={"id":q["id"],"score":95,
+               "response":"The candidate provides testable steps, measurements, counterexamples and source evidence.",
+               "evaluation":"An independent reviewer compared the stated result to predicted measurable evidence.",
+               "evidence_refs":["https://www.example.com/primary"]}
+            if q["kind"]=="practical":
+                x.update(artifact_sha256="a"*64,
+                         test_results=["PASS: controlled simulation measurement recorded"])
+            rows.append(x)
+        self.brain.record_daily_exam_attempt(exam["exam_id"],rows,
+                assignment["review_by_rishi"],"independent_rishi_review")
+        new=self.scheduler.plan(as_of="2026-10-22",include_unready=True)["new"]
+        self.assertEqual({x["exam_date"] for x in new if x["phase"]=="recall"},
+                         {"2026-10-22","2026-10-28","2026-11-20"})
+        self.assertFalse(any(x["phase"]=="initial" and x["exam_date"]=="2026-10-22"
+                             for x in new))
+        self.assertEqual(self.scheduler.plan(as_of="2026-10-22",include_unready=True)["created"],0)
+
+
 if __name__=="__main__":
     unittest.main()
