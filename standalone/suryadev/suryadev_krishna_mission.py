@@ -111,7 +111,7 @@ class MissionRelay:
         state = _safe_read(self.root, STATE_FILE, max_bytes=8192)
         now = float(self.clock())
         if (state.get("request_id") == rid and state.get("acknowledged")):
-            return state
+            return None  # Already acknowledged; avoid repeatedly logging the same receipt.
         if (state.get("request_id") == rid and
                 float(state.get("next_attempt_at", 0)) > now):
             return None
