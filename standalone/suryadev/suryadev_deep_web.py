@@ -34,19 +34,6 @@ async def inspect_page(page, *, model="", max_viewports=24,
         def vision(raw):
             image = Image.open(BytesIO(raw)).convert("RGB")
             return ollama_vision(image, model)
-    meta = await page.evaluate("""() => ({
-      images: Array.from(document.images).slice(0,2000).map(i => ({
-        src:i.currentSrc||i.src||'', alt:i.alt||'', width:i.naturalWidth||0,
-        height:i.naturalHeight||0, complete:!!i.complete
-      })),
-      links: Array.from(document.querySelectorAll('a[href]')).slice(0,2000)
-        .map(a=>({href:a.href, label:(a.innerText||a.title||'').slice(0,180)})),
-      embeds: Array.from(document.querySelectorAll('video,audio,iframe'))
-        .slice(0,300).map(e=>({tag:e.tagName,src:e.currentSrc||e.src||''})),
-      tables:document.querySelectorAll('table').length,
-      canvas:document.querySelectorAll('canvas').length,
-      svg:document.querySelectorAll('svg').length
-    })""")
     viewport = await page.evaluate("""() => ({
       height:window.innerHeight, documentHeight:Math.max(
        document.documentElement.scrollHeight,document.body.scrollHeight)
@@ -79,6 +66,19 @@ async def inspect_page(page, *, model="", max_viewports=24,
     if int(end_height) > full + height:
         raise ValueError("lazy webpage grew after scroll; cannot claim all sections inspected")
     await page.evaluate("(y) => window.scrollTo(0,y)", 0)
+    meta = await page.evaluate("""() => ({
+      images: Array.from(document.images).slice(0,2000).map(i => ({
+        src:i.currentSrc||i.src||'', alt:i.alt||'', width:i.naturalWidth||0,
+        height:i.naturalHeight||0, complete:!!i.complete
+      })),
+      links: Array.from(document.querySelectorAll('a[href]')).slice(0,2000)
+        .map(a=>({href:a.href, label:(a.innerText||a.title||'').slice(0,180)})),
+      embeds: Array.from(document.querySelectorAll('video,audio,iframe'))
+        .slice(0,300).map(e=>({tag:e.tagName,src:e.currentSrc||e.src||''})),
+      tables:document.querySelectorAll('table').length,
+      canvas:document.querySelectorAll('canvas').length,
+      svg:document.querySelectorAll('svg').length
+    })""")
     image_rows = meta["images"]
     return {
         "viewports_visited":len(positions), "total_height_px":full,
