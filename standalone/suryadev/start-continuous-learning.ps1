@@ -10,6 +10,7 @@ param(
     [switch]$AnalyzeYoutubeComments,
     [string]$BookPlan = "",
     [switch]$LearnApprovedBooks,
+    [switch]$CollectApprovedBooks,
     [switch]$BookVisuals,
     [string]$BookVisualModel = "",
     [switch]$SyncBookHandoff,
@@ -46,7 +47,13 @@ $workerArgs = @(
     "--refill-minutes", [string]$RefillMinutes,
     "--interval", [string]$CheckSeconds
 )
-if ($LearnApprovedBooks -and -not $BookPlan) {
+if ($LearnApprovedBooks -and $CollectApprovedBooks) {
+    throw "-LearnApprovedBooks and -CollectApprovedBooks are mutually exclusive"
+}
+if ($CollectApprovedBooks -and $UseOllama) {
+    throw "-CollectApprovedBooks is strictly local evidence indexing and cannot enable Ollama"
+}
+if (($LearnApprovedBooks -or $CollectApprovedBooks) -and -not $BookPlan) {
     $BookPlan = Join-Path $root "book-plan.json"
 }
 if ($BookVisuals -and -not $BookVisualModel) {
@@ -59,12 +66,22 @@ if ($BookPlan) {
     if (-not (Test-Path -LiteralPath $BookPlan -PathType Leaf)) {
         throw "Owner-approved book plan does not exist: $BookPlan"
     }
-    if (-not $UseOllama) { throw "BookPlan requires -UseOllama; do not claim preview-only reading" }
-    $workerArgs += @("--book-plan",$BookPlan)
+    if ($CollectApprovedBooks) {
+        $workerArgs += @("--book-collect-plan",$BookPlan)
+    } else {
+        if (-not $UseOllama) { throw "Model book reading requires -UseOllama; use -CollectApprovedBooks for evidence-only indexing" }
+        $workerArgs += @("--book-plan",$BookPlan)
+    }
 }
 if ($BookVisualModel) {
     if (-not $BookPlan) { throw "-BookVisualModel requires -BookPlan" }
     $workerArgs += @("--book-visual-model",$BookVisualModel)
+}
+if ($BookVisuals -and $CollectApprovedBooks) {
+    throw "-CollectApprovedBooks cannot perform Ollama visual interpretation"
+}
+if ($SyncBookHandoff -and $CollectApprovedBooks) {
+    throw "Book collection does not create candidate knowledge to send to BRAHMAGYAN"
 }
 if ($SyncBookHandoff) {
     if (-not ($BookPlan -and $CoreMissionConfig)) {
@@ -91,6 +108,9 @@ if ($UseOllama) {
     $workerArgs += "--no-ollama"
 }
 Write-Host "Starting ONE self-refilling SURYADEV worker from the approved plan."
+if ($CollectApprovedBooks) {
+    Write-Host "Evidence-only collection: no Ollama model is loaded; books are indexed, not understood."
+}
 Write-Host "YouTube rate limits remain respected; website/PDF work is independent."
 Write-Host "Stop with Ctrl+C. Do not launch another worker or mission for this data root."
 & $Python @workerArgs
