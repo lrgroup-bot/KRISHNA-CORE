@@ -5,6 +5,10 @@ param(
     [string]$Python = "python",
     [switch]$ActivateOfficialTech,
     [switch]$UseOllama,
+    [switch]$DeepWeb,
+    [switch]$DeepPDF,
+    [switch]$AnalyzeYoutubeComments,
+    [string]$VisionModel = "",
     [string]$CoreMissionConfig = "",
     [string]$Model = "qwen3.5:9b"
 )
@@ -43,6 +47,13 @@ if ($CoreMissionConfig) {
     }
     $workerArgs += @("--core-mission-config",$CoreMissionConfig)
 }
+if (($DeepWeb -or $DeepPDF) -and -not $VisionModel) {
+    throw "DeepWeb/DeepPDF visual understanding requires -VisionModel and a locally installed image-capable Ollama model"
+}
+if ($DeepWeb) { $env:SURYADEV_DEEP_WEB = "1" }
+if ($DeepPDF) { $env:SURYADEV_DEEP_PDF = "1" }
+if ($DeepWeb -or $DeepPDF) { $env:SURYADEV_VISION_MODEL = $VisionModel }
+if ($AnalyzeYoutubeComments) { $env:SURYADEV_YT_COMMENTS = "1" }
 if ($UseOllama) {
     $workerArgs += @("--model",$Model)
 } else {
