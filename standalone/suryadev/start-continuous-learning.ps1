@@ -8,6 +8,8 @@ param(
     [switch]$DeepWeb,
     [switch]$DeepPDF,
     [switch]$AnalyzeYoutubeComments,
+    [string]$BookPlan = "",
+    [switch]$SyncBookHandoff,
     [string]$VisionModel = "",
     [string]$CoreMissionConfig = "",
     [string]$Model = "qwen3.5:9b"
@@ -41,6 +43,19 @@ $workerArgs = @(
     "--refill-minutes", [string]$RefillMinutes,
     "--interval", [string]$CheckSeconds
 )
+if ($BookPlan) {
+    if (-not (Test-Path -LiteralPath $BookPlan -PathType Leaf)) {
+        throw "Owner-approved book plan does not exist: $BookPlan"
+    }
+    if (-not $UseOllama) { throw "BookPlan requires -UseOllama; do not claim preview-only reading" }
+    $workerArgs += @("--book-plan",$BookPlan)
+}
+if ($SyncBookHandoff) {
+    if (-not ($BookPlan -and $CoreMissionConfig)) {
+        throw "Book handoff needs -BookPlan and -CoreMissionConfig; Core pairing is not automatic"
+    }
+    $workerArgs += "--sync-book-handoff"
+}
 if ($CoreMissionConfig) {
     if (-not (Test-Path -LiteralPath $CoreMissionConfig -PathType Leaf)) {
         throw "Core mission configuration does not exist: $CoreMissionConfig"
