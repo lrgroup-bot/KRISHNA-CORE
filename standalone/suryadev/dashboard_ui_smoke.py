@@ -61,6 +61,37 @@ async def browser_check(port):
             await browser.close()
 
 
+async def browser_books_check(port):
+    """Books render inside three existing panels, never a separate tab/section."""
+    from playwright.async_api import async_playwright, expect
+    async with async_playwright() as p:
+        browser=await p.chromium.launch(headless=True)
+        try:
+            page=await browser.new_page(viewport={"width":1366,"height":768})
+            errors=[]
+            page.on("pageerror",lambda err:errors.append(str(err)))
+            await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
+            await expect(page.locator("#netra-books-running")).to_have_text("1",timeout=12000)
+            await expect(page.locator("#netra-books-indexed")).to_have_text("1")
+            await expect(page.locator("#netra-books-lines")).to_have_text("1 / 3")
+            await expect(page.locator("#netra-workspace-count")).to_have_text("4")
+            await expect(page.locator(".netra-workspace-tab.book")).to_have_count(1)
+            await expect(page.locator(".source-card.books strong")).to_have_text("1",timeout=12000)
+            await expect(page.locator("#book-health")).to_contain_text(
+                "1 / 3 lines model-processed",timeout=12000)
+            await expect(page.locator("#book-ledger-list .book-session")).to_have_count(
+                1,timeout=12000)
+            await expect(page.locator("#book-search-form")).to_have_count(1)
+            assert await page.locator("#book-learning").count()==0
+            assert await page.locator('a[href="#book-learning"]').count()==0
+            assert not errors, "Book dashboard JS runtime errors: "+str(errors)
+            return {"status":"PASS","source_cards":4,"book_running":1,
+                    "book_indexed":1,"processed_lines":1,"inline_book_cards":1,
+                    "legacy_book_sections":0,"javascript_errors":errors}
+        finally:
+            await browser.close()
+
+
 async def browser_continuity_check(port):
     """YouTube provider restriction never disables independent approved web/PDF lanes."""
     from playwright.async_api import async_playwright, expect
@@ -159,6 +190,33 @@ def main():
                     time.sleep(.1)
             result=asyncio.run(browser_check(port))
             print("GARUDANETRA_DASHBOARD_UI_REPORT="+json.dumps(result),flush=True)
+            from suryadev_book_reader import BookLedger
+            local_book = Path(root) / "approved-sample-book.txt"
+            local_book.write_text("Source line one\\nSource line two\\nSource line three",
+                                  encoding="utf-8")
+            ledger = BookLedger(root)
+            try:
+                imported = ledger.import_book(local_book)
+                ledger.read(imported["book_id"], model="smoke-local",
+                            max_steps=1, observe=lambda prompt,model:
+                            "Unverified source explanation")
+            finally:
+                ledger.close()
+            atomic_json(root,"book-continuity-runtime.json",{
+                "state":"book_reading_in_progress",
+                "book_id":imported["book_id"],
+                "title":"approved-sample-book",
+                "model":"smoke-local",
+                "processed_lines":1,"total_lines":3,
+                "updated_at":time.time(),
+                "brahmagyan_acknowledged":False})
+            books = asyncio.run(browser_books_check(port))
+            print("GARUDANETRA_BOOK_UI_REPORT="+json.dumps(books),flush=True)
+            # After the book test, clear its in-flight activity so offline
+            # source UI checks cannot report a fictitious active book.
+            atomic_json(root,"book-continuity-runtime.json",{
+                "state":"approved_books_complete_or_in_cooldown",
+                "updated_at":time.time()})
             with lib.db:
                 lib.db.execute("UPDATE jobs SET status='queued' WHERE status='running'")
                 lib.db.execute("UPDATE jobs SET status='failed',error=? "
