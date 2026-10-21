@@ -43,22 +43,20 @@ class BrahmaExamScheduler:
         os.replace(tmp,self.path)
 
     def plan(self, *, as_of=None, include_unready=False):
-        """Plan exams; never grade, generate fake answers or advance mastery."""
+        """Schedule initial Rishi exam and recall anchored to a passed exam date."""
         day=date.fromisoformat(as_of) if as_of is not None else datetime.fromtimestamp(self.clock(),timezone.utc).date()
         missions=self.brain.missions(limit=500)
-        if isinstance(missions,dict):
-            missions=missions.get("missions",[])
         with self.lock:
             state=self._load()
             added=[]
+            candidates=self.brain.collector_candidates(limit=500).get("items",[])
             for mission in missions:
                 if not isinstance(mission,dict):
                     continue
                 mid=mission.get("mission_id")
                 if not mid or mission.get("status") in ("cancelled","rejected"):
                     continue
-                evidence=sum(1 for c in self.brain.collector_candidates(limit=500).get("items",[])
-                             if c.get("topic")==mission.get("topic"))
+                evidence=sum(1 for c in candidates if c.get("topic")==mission.get("topic"))
                 claim_count=len(mission.get("claim_ids") or [])
                 if not (include_unready or claim_count or evidence):
                     continue
@@ -73,18 +71,37 @@ class BrahmaExamScheduler:
                 if reviewer is None:
                     raise RuntimeError("No separate Rishi examiner is available")
                 exam_state=self.brain.daily_exam_status(mid)
-                for offset in (0,)+REVIEW_DAYS:
-                    due=day+timedelta(days=offset)
-                    key=mid+":"+due.isoformat()+":"+str(offset)
-                    if key in state["assignments"]:
+                exams=exam_state["exams"]
+                past_days={e["date"] for e in exams}
+                # A daily exam must not collide with a scheduled recall on
+                # the same mission/date. Rishi evaluation stays outside BRAHMA.
+                future=[]
+                for e in exams:
+                    if e["status"]=="passed_recorded":
+                        base=date.fromisoformat(e["date"])
+                        for delay in REVIEW_DAYS:
+                            future.append((base+timedelta(days=delay),delay))
+                # Initial assignment only if no exam or scheduled recall owns
+                # that day. This also prevents repeated daemon ticks.
+                scheduled_on_day=any(
+                    x["mission_id"]==mid and x["exam_date"]==day.isoformat()
+                    for x in state["assignments"].values())
+                if day.isoformat() not in past_days and not scheduled_on_day:
+                    future.insert(0,(day,0))
+                seen_dates=set()
+                for due,offset in sorted(future,key=lambda x:x[0]):
+                    label=due.isoformat()
+                    if label in past_days or label in seen_dates:
                         continue
-                    if offset and not any(x["status"]=="passed_recorded"
-                                          for x in exam_state["exams"]):
+                    seen_dates.add(label)
+                    if any(x["mission_id"]==mid and x["exam_date"]==label
+                           for x in state["assignments"].values()):
                         continue
+                    key=mid+":"+label+":"+str(offset)
                     row={"assignment_id":key,"mission_id":mid,"topic":topic,
                          "issued_by_rishi":leader["id"],
                          "review_by_rishi":reviewer["id"],
-                         "exam_date":due.isoformat(),"phase":"initial" if offset==0 else "recall",
+                         "exam_date":label,"phase":"initial" if offset==0 else "recall",
                          "recall_delay_days":offset,
                          "status":"awaiting_independently_authored_questions",
                          "questions_generated":False,"responses_graded":False,
