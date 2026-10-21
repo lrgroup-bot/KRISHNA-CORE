@@ -20,6 +20,7 @@ import uuid
 from threading import RLock
 
 from .field_perception import FieldPerceptionPolicy
+from .suryadev_mission_backlog import SuryadevMissionBacklog
 
 
 class SuryadevAgent:
@@ -73,6 +74,7 @@ class SuryadevAgent:
         self.council = council
         self.ui_reviewer = ui_reviewer
         self.memory = memory
+        self.mission_backlog = SuryadevMissionBacklog(self.root / "mission-authority")
 
     @staticmethod
     def _text(value, limit=8000):
@@ -564,12 +566,21 @@ class SuryadevAgent:
             )
         return receipt
 
+    def mission_offer(self, request, *, device_id):
+        return self.mission_backlog.offer(request, device_id=device_id)
+
+    def mission_acknowledge(self, payload, *, device_id):
+        return self.mission_backlog.acknowledge(
+            request_id=payload.get("request_id"), device_id=device_id,
+            accepted=payload.get("accepted"), queued_urls=payload.get("queued_urls", 0))
+
     def status(self):
         jobs = len(list(self.jobs_dir.glob("SURYA-*.json")))
         reports = len(list(self.reports_dir.glob("*.json")))
         return {
             "agent": "SURYDEV",
             "version": self.VERSION,
+            "mission_backlog": self.mission_backlog.status(),
             "role": "external overall eye + ear + UI/research reviewer",
             "capabilities": list(self.CAPABILITIES),
             "job_types": sorted(self.JOB_TYPES),
