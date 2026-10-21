@@ -181,8 +181,45 @@ def operations_snapshot(db, root):
     if not (0 <= browser_age <= 20) or netra.get("state") != "running":
         netra = {"state":"offline", "open_tabs":0, "tabs":[],
                  "engine":"Garudanetra Lite / Playwright Chromium"}
+    # New v6.5 jobs have monotonic durations. Historical jobs cannot be
+    # retroactively timed: created->updated includes arbitrary queue delays.
+    durations = {"measured_jobs": 0, "historical_jobs_unmeasured": sum(
+                 row.get("done", 0) + row.get("failed", 0)
+                 for row in summary.values()), "by_source": {}, "recent": [],
+                 "unit": "seconds",
+                 "note": "Elapsed is actual claimed-job processing time, not queued wait; summary phase includes Ollama lock wait and generation."}
+    has_timing = db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='job_timing'"
+    ).fetchone()
+    if has_timing:
+        rows = db.execute(
+            "SELECT kind,outcome,COUNT(*),ROUND(AVG(elapsed_seconds),3),"
+            "ROUND(AVG(acquisition_seconds),3),"
+            "ROUND(AVG(summary_phase_seconds),3) "
+            "FROM job_timing GROUP BY kind,outcome"
+        ).fetchall()
+        for kind, outcome, count, mean, acquisition, summary_seconds in rows:
+            group = durations["by_source"].setdefault(kind, {})
+            group[outcome] = {"jobs": count, "average_seconds": mean,
+                              "average_acquisition_seconds": acquisition,
+                              "average_summary_phase_seconds": summary_seconds}
+            durations["measured_jobs"] += count
+        durations["historical_jobs_unmeasured"] = max(
+            0, durations["historical_jobs_unmeasured"] - durations["measured_jobs"])
+        durations["recent"] = [
+            {"job_id": job_id, "kind": kind, "outcome": outcome,
+             "elapsed_seconds": elapsed,
+             "acquisition_seconds": acquisition,
+             "summary_phase_seconds": summary_seconds}
+            for job_id, kind, outcome, elapsed, acquisition, summary_seconds
+            in db.execute(
+                "SELECT job_id,kind,outcome,elapsed_seconds,"
+                "acquisition_seconds,summary_phase_seconds "
+                "FROM job_timing ORDER BY recorded DESC LIMIT 12")
+        ]
     return {
         "sample_time": now,
+        "timing": durations,
         "worker": {
             "state": state.get("state", "offline") if fresh else "offline",
             "heartbeat_at": heartbeat if fresh else None,
@@ -190,8 +227,8 @@ def operations_snapshot(db, root):
             "interval_seconds": interval if fresh else None,
             "next_check_at": state.get("next_check_at") if fresh else None,
             "last_result": last if isinstance(last, dict) else None,
-            "note": ("Queue order is known, but per-task start times and processing "
-                     "percentages are not scheduled or measured."),
+            "note": ("Queue order is known; in-flight progress percentages "
+                     "are not measured. Finished v6.5 jobs have timing receipts."),
         },
         "current": current, "upcoming": upcoming,
         "queued_total": pending.get("queued", 0),
