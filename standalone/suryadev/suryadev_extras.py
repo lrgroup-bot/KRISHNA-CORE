@@ -24,6 +24,7 @@ from suryadev_continuity import ContinuityFeeder
 from suryadev_mission_renewal import renewal_tick
 from suryadev_krishna_mission import MissionRelay
 from suryadev_book_continuity import BookContinuity
+from suryadev_book_handoff import BookHandoff
 from suryadev_sources import breakdown
 from suryadev_task_details import list_tasks, task_detail, diary_days, diary_day
 from suryadev_liveops import operations_snapshot, worker_note
@@ -355,7 +356,7 @@ def serve(lib, port=8769):
 
 def work_loop(lib, interval, use_ollama, model, *,
               plan_path=None, refill_minutes=5, core_mission_config=None,
-              book_plan_path=None):
+              book_plan_path=None, sync_book_handoff=False):
     if interval < 10:
         raise ValueError("interval must be at least 10 seconds")
     if not 1 <= refill_minutes <= 360:
@@ -366,8 +367,11 @@ def work_loop(lib, interval, use_ollama, model, *,
                refill_seconds=refill_minutes * 60) if plan_path else None)
     relay = (MissionRelay(lib.root, plan_path, core_mission_config)
              if core_mission_config else None)
+    if sync_book_handoff and not (book_plan_path and core_mission_config):
+        raise ValueError("Book BRAHMAGYAN handoff requires approved --book-plan and paired --core-mission-config")
     books = (BookContinuity(lib.root, book_plan_path, model=model, use_ollama=use_ollama)
              if book_plan_path else None)
+    handoff = (BookHandoff(lib.root,core_mission_config) if sync_book_handoff else None)
     lib.recover()
     print("SURYADEV Garudanetra adaptive worker started. Ctrl+C to stop.", flush=True)
     worker_note(lib.root, "starting", interval, "Adaptive source lanes starting")
@@ -403,6 +407,12 @@ def work_loop(lib, interval, use_ollama, model, *,
                             book_result = books.tick(available=True)
                         if book_result:
                             print(json.dumps({"book_learning":book_result}, ensure_ascii=False), flush=True)
+                if handoff and books:
+                    approved_ids = ["book-"+b["sha256"] for b in books.plan["books"]]
+                    book_ack = handoff.tick(approved_book_ids=approved_ids)
+                    if book_ack:
+                        print(json.dumps({"brahmagyan_candidate_receipt":book_ack},
+                                         ensure_ascii=False), flush=True)
                 # One worker can both discover approved sources and process them;
                 # no second feeder process or duplicate worker is required.
                 wait = 2 if update["capacity"]["active_total"] else interval
@@ -428,6 +438,8 @@ def main():
     worker.add_argument("--plan", default=None,
                         help="Opt-in existing learning-plan.json for continual approved-source refilling")
     worker.add_argument("--refill-minutes", type=int, default=5)
+    worker.add_argument("--sync-book-handoff", action="store_true",
+                        help="Explicitly authorize pinned paired Core upload of book candidate observations")
     worker.add_argument("--book-plan", default=None,
                         help="Owner-approved SHA-256-pinned local books, learned during idle cycles only")
     worker.add_argument("--core-mission-config", default=None,
@@ -535,7 +547,8 @@ def main():
             work_loop(lib, args.interval, not args.no_ollama, args.model,
                       plan_path=args.plan, refill_minutes=args.refill_minutes,
                       core_mission_config=args.core_mission_config,
-                      book_plan_path=args.book_plan)
+                      book_plan_path=args.book_plan,
+                      sync_book_handoff=args.sync_book_handoff)
     else:
         print(json.dumps(import_transcript(lib, args.file, args.source, not args.no_ollama, args.model), indent=2))
 
