@@ -429,7 +429,7 @@ class SuryadevAgent:
             "suryadev_working_green": bool(row["worker_running"] and row["network_online"] and not row["last_error"]),
             "learning_green": bool(learning_active and not row["last_error"]),
             "heartbeat_at": now,
-            "fresh_capacity_reported": bool(metrics),
+            "fresh_capacity_reported": bool(row.get("telemetry_sample_at") is not None and row.get("available_slots") is not None),
             "stale_after_seconds": 150,
         }
 
