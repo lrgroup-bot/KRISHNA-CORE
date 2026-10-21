@@ -217,8 +217,11 @@ def operations_snapshot(db, root):
                 "acquisition_seconds,summary_phase_seconds "
                 "FROM job_timing ORDER BY recorded DESC LIMIT 12")
         ]
+    from suryadev_book_dashboard import book_learning_snapshot
+    books = book_learning_snapshot(root, now=now)
     return {
         "sample_time": now,
+        "book_learning": books,
         "timing": durations,
         "worker": {
             "state": state.get("state", "offline") if fresh else "offline",
