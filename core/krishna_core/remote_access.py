@@ -52,7 +52,7 @@ class PrivateRemotePolicy:
         "/api/suryadev/learning-bundle",
         "/api/suryadev/mission/request",
         "/api/suryadev/mission/ack",
-        "/api/suryadev/fleet/offer",
+        "/api/suryadev/fleet/claim",
         "/api/suryadev/fleet/renew",
         "/api/suryadev/fleet/complete",
     })
