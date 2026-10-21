@@ -34,6 +34,7 @@ from .avatar_asset_pipeline import AvatarAssetInspector
 from .video_avatar import VideoAvatarFabric
 from .science_atlas import ScienceFrontierScheduler
 from .brahma_memory_intelligence import BrahmaConsolidationScheduler
+from .brahma_rishi_exam_author import RishiExamAuthor
 from .windows_desktop_fabric import WindowsDesktopFabric
 from .android_test_fabric import AndroidTestFabric
 from .http_server_runtime import KrishnaThreadingHTTPServer
@@ -1895,7 +1896,6 @@ class Handler(BaseHTTPRequestHandler):
             if not config:
                 return self._json(503,{"error":"private local Ollama gateway not configured"})
             from .brahma_local_inference import LocalBrahmaInference
-            from .brahma_rishi_exam_author import RishiExamAuthor
             assignments=orch.brahma_exam_scheduler.due(limit=500)["items"]
             assignment=next((a for a in assignments
                              if a["assignment_id"]==data.get("assignment_id")),None)
@@ -1910,7 +1910,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403,{"error":"local owner Rishi exam authorization required"})
             if data.get("issuer_approved") is not True:
                 return self._json(403,{"error":"explicit issuer exam approval is required"})
-            from .brahma_rishi_exam_author import RishiExamAuthor
             result=RishiExamAuthor(orch.agi.brahmagyan,
                 orch.brahma_exam_scheduler,None).register_approved_draft(
                     data.get("proposal"),issuer_approved=True)
