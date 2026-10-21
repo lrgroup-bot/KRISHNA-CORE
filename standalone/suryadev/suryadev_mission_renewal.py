@@ -69,6 +69,10 @@ def renewal_tick(lib, *, youtube_blocked=False, low_water=LOW_WATER_JOBS,
         deadline = float(session_ends_at)
         if deadline <= 0 or deadline > 1e12:
             raise ValueError("invalid session end")
+    relay_state = _safe_read(root, "krishna-mission-sync.json", max_bytes=8192)
+    confirmed = bool(existing and relay_state.get("request_id") == existing["request_id"]
+                     and relay_state.get("acknowledged") is True
+                     and relay_state.get("state") == "core_delivery_acknowledged")
     value = {
         "protocol": "suryadev-krishna-renewal-v1",
         "status": status,
@@ -80,12 +84,14 @@ def renewal_tick(lib, *, youtube_blocked=False, low_water=LOW_WATER_JOBS,
         "low_water_jobs": low_water,
         "session_ends_at": deadline,
         "transport": "read_only_bridge_outbox",
-        "delivered_to_krishna": False,
-        "krishna_assignment_acknowledged": False,
+        "delivered_to_krishna": confirmed,
+        "krishna_assignment_acknowledged": confirmed,
         "brahmagyan_acknowledged": False,
-        "note": ("Renewal request is durable locally and visible to an approved "
-                 "reader. No authenticated KRISHNA assignment or six-hour "
-                 "work guarantee exists yet."),
+        "note": ("KRISHNA accepted and acknowledged local mission delivery; "
+                 "completed learning and BRAHMAGYAN intake remain unverified."
+                 if confirmed else
+                 "Renewal request is durable locally; no authenticated KRISHNA "
+                 "mission delivery has been acknowledged."),
     }
     # Avoid rewriting the outbox on every 2-second active-worker poll.
     if value != previous:
