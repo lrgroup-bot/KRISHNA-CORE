@@ -23,9 +23,9 @@ from suryadev_parallel import AdaptiveResearchWorkers
 from suryadev_continuity import ContinuityFeeder
 from suryadev_mission_renewal import renewal_tick
 from suryadev_krishna_mission import MissionRelay
-from suryadev_book_continuity import BookContinuity
+from suryadev_book_continuity import BookContinuity, may_study_books
 from suryadev_book_handoff import BookHandoff
-from suryadev_sources import breakdown, source_kind
+from suryadev_sources import breakdown
 from suryadev_task_details import list_tasks, task_detail, diary_days, diary_day
 from suryadev_liveops import operations_snapshot, worker_note
 from suryadev_operator_api import settings_snapshot, handle_operator_action
@@ -448,16 +448,12 @@ def work_loop(lib, interval, use_ollama, model, *,
                 if books:
                     # Low-priority background books never compete with queued
                     # web/PDF/YouTube jobs or bypass one-worker ownership.
-                    blocked_youtube = (
-                        adaptive.youtube_access["state"] == "rate_limited")
-                    eligible_pending = sum(
-                        1 for (url,) in lib.db.execute(
-                            "SELECT url FROM jobs WHERE status IN ('queued','running')")
-                        if not (blocked_youtube and source_kind(url) == "youtube"))
-                    idle = (bool(update["capacity"]["safe"]) and
-                            update["capacity"].get("max_total",0) > 0 and
-                            update["capacity"]["active_total"] == 0 and
-                            eligible_pending == 0)
+                    pending = (url for (url,) in lib.db.execute(
+                        "SELECT url FROM jobs WHERE status IN ('queued','running')"))
+                    idle = may_study_books(
+                        update["capacity"],pending,
+                        youtube_rate_limited=(
+                            adaptive.youtube_access["state"]=="rate_limited"))
                     if idle:
                         with adaptive.summary_lock:
                             book_result = books.tick(available=True)
