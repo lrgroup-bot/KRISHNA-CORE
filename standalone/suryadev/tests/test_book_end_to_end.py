@@ -210,7 +210,7 @@ class BookHandoffTests(unittest.TestCase):
 
     def test_partially_read_book_never_routed_to_core(self):
         file=self.root/"longer.txt"
-        file.write_text("first\\nsecond\\nthird",encoding="utf-8")
+        file.write_text("first\nsecond\nthird",encoding="utf-8")
         book=self.ledger.import_book(file)["book_id"]
         self.ledger.read(book,model="local",max_steps=1,
                          observe=lambda *args:"Only first line studied")
