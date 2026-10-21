@@ -114,7 +114,26 @@ def ingest_pdf(url):
         if not contents:
             missing.append(number)
         chunks.append(f"[PDF page {number}/{count}]\n{contents}")
-    if missing:
+    from suryadev_deep_pdf import deep_pdf_settings
+    deep_enabled, model = deep_pdf_settings()
+    extra = {}
+    if deep_enabled:
+        from suryadev_deep_pdf import inspect_pdf_pages, ollama_vision
+        if not model:
+            raise RuntimeError("SURYADEV_DEEP_PDF requires SURYADEV_VISION_MODEL for all page visuals")
+        pages, extra = inspect_pdf_pages(
+            raw, pdf, vision=lambda image: ollama_vision(image, model),
+            analyze_visuals=True)
+        chunks = []
+        for page in pages:
+            chunks.append(
+                "[PDF page {}/{}]\\n{}\\n[OCR of page {}]\\n{}\\n"
+                "[LOCAL MODEL VISUAL OBSERVATIONS, UNVERIFIED]\\n{}".format(
+                    page["page"], count, page["selectable_text"],
+                    page["page"], page["ocr_text"],
+                    page["visual_observations"]))
+        missing = []
+    elif missing:
         raise ValueError("PDF page text missing or scanned; OCR review required for pages " +
                          ",".join(map(str, missing[:20])))
     text = "\n\n".join(chunks)
@@ -124,9 +143,12 @@ def ingest_pdf(url):
     return title, text, {
         "kind": "pdf", "pages_total": count, "pages_extracted": count,
         "pages_missing_text": [], "bytes_downloaded": len(raw),
-        "coverage_status": "all_pages_text_extracted",
-        "full_document_visuals_verified": False,
-        "note": "Every PDF page has selectable text; diagrams, equations and images not verified."
+        "coverage_status": extra.get("coverage_status", "all_pages_text_extracted"),
+        "deep_pdf_enabled": deep_enabled, "full_document_visuals_verified": False,
+        "note": ("Each PDF page was rasterized, OCR read and sent to a local visual model; "
+                 "model comprehension is not independently validated." if deep_enabled else
+                 "Every PDF page has selectable text; diagrams, equations and images not verified."),
+        **extra,
     }
 
 
