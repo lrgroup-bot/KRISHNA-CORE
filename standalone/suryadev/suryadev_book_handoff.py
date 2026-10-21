@@ -99,7 +99,8 @@ class BookHandoff:
         self.clock = clock
         self.next_due = 0
 
-    def tick(self, *, approved_book_ids, max_per_cycle=1):
+    def tick(self, *, approved_book_ids, max_per_cycle=1,
+             require_visual_complete=False):
         now = self.clock()
         if now < self.next_due:
             return None
@@ -130,6 +131,24 @@ class BookHandoff:
                 "AND j.end_ordinal < s.next_ordinal AND d.job_id IS NULL "
                 "ORDER BY j.recorded_at ASC LIMIT ?")
             candidates = ledger.db.execute(sql, (*ids,max_per_cycle)).fetchall()
+            if require_visual_complete:
+                # Avoid a misleading knowledge ACK before owner-requested
+                # per-page PDF/EPUB images are all audited.
+                filtered=[]
+                for bid,mode,start in candidates:
+                    fmt=ledger.db.execute(
+                        "SELECT format FROM books WHERE id=?",(bid,)).fetchone()[0]
+                    if fmt in (".pdf",".epub"):
+                        ready=ledger.db.execute(
+                            "SELECT 1 FROM sqlite_master WHERE type='table' "
+                            "AND name='book_visual_runs'").fetchone()
+                        complete=(ledger.db.execute(
+                            "SELECT 1 FROM book_visual_runs WHERE book_id=?",
+                            (bid,)).fetchone() if ready else None)
+                        if not complete:
+                            continue
+                    filtered.append((bid,mode,start))
+                candidates=filtered
             if not candidates:
                 return None
             sent = []
