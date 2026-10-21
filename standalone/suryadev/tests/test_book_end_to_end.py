@@ -208,6 +208,40 @@ class BookHandoffTests(unittest.TestCase):
         ).fetchone(),("book_delivery",))
         self.assertEqual(self.ledger.db.execute("SELECT count(*) FROM book_delivery").fetchone()[0],0)
 
+    def test_partially_read_book_never_routed_to_core(self):
+        file=self.root/"longer.txt"
+        file.write_text("first\\nsecond\\nthird",encoding="utf-8")
+        book=self.ledger.import_book(file)["book_id"]
+        self.ledger.read(book,model="local",max_steps=1,
+                         observe=lambda *args:"Only first line studied")
+        calls=[]
+        relay=BookHandoff(self.root,self.config,
+                          transport=lambda *args:calls.append(args),
+                          clock=lambda:1000.0)
+        self.assertIsNone(relay.tick(approved_book_ids=[book]))
+        self.assertEqual(calls,[])
+        self.ledger.read(book,model="local",observe=lambda *args:"Next line studied")
+        good=BookHandoff(self.root,self.config,
+                         transport=lambda config,path,payload:{
+                             "job_id":payload["bundle"]["job_id"],
+                             "bundle_sha256":canonical_digest(payload["bundle"]),
+                             "receipt_id":"SURYA-ACK", "accepted_chunks":1,
+                             "cleanup_authorized":True},clock=lambda:1100.0)
+        self.assertEqual(good.tick(approved_book_ids=[book])["status"],
+                         "candidate_receipts_recorded")
+
+    def test_book_changed_after_learning_cannot_be_uploaded(self):
+        file=self.root/"book.txt"
+        file.write_text("changed after study",encoding="utf-8")
+        calls=[]
+        relay=BookHandoff(self.root,self.config,
+                          transport=lambda *args:calls.append(args),
+                          clock=lambda:1000.0)
+        result=relay.tick(approved_book_ids=[self.book])
+        self.assertEqual(result["status"],"retry_later")
+        self.assertIn("source changed",result["error"])
+        self.assertEqual(calls,[])
+
     def test_extractive_only_is_not_uploaded(self):
         self.ledger.read(self.book,use_ollama=False)
         with self.assertRaisesRegex(ValueError,"NOT learned knowledge"):
