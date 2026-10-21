@@ -100,7 +100,7 @@ class DailyExamTests(unittest.TestCase):
         self.bg.advance_claim(cid,"L4",{"verified_by":"gautama","cross_check_notes":["independent replication"]})
         self.bg.advance_claim(cid,"L5",{"application_notes":["Applied measurements"]})
         self.bg.advance_claim(cid,"L6",{"test_evidence":["reproducible bench-test evidence"]})
-        with self.assertRaisesRegex(ValueError,"daily exam"):
+        with self.assertRaisesRegex(ValueError,"independently verified"):
             self.bg.advance_claim(cid,"L7",{"synthesis":"Complete synthesis","teach_back":"Explain mechanism"})
         exam=self.bg.create_daily_exam(self.m["mission_id"],questions(),"2026-10-21",issued_by="vishvakarma")
         attempt=self.bg.record_daily_exam_attempt(exam["exam_id"],results(),"gautama","independent_rishi_review")
