@@ -61,6 +61,7 @@ class BrahmagyanRuntime:
         self.council=RishiCouncil()
         self.gyan_qc=None
         self.cognitive_brain=None
+        self.exam_verifier=None  # Never trust model-assigned scores for actual mastery.
         self.lock=RLock()
         self.state={
             "missions":{},"claims":{},"debates":{},"daily_exams":{},"collector_candidates":{},"curiosity":[],"shishya_archive":[],"council_proposals":[],
@@ -73,6 +74,18 @@ class BrahmagyanRuntime:
         """Bind BRAHMA's QC gate without changing Gyan-Bhandar storage authority."""
         self.gyan_qc=qc
         return {"bound":qc is not None,"authority":"BRAHMA QC -> Gyan proposal/approval"}
+
+    def bind_exam_verifier(self, verifier):
+        """Bind owner-trusted external practical/reviewer verifier.
+
+        This must replay evidence from a separate trusted tool/service.
+        BRAHMAGYAN does not automatically trust a signed-looking model string.
+        """
+        if verifier is not None and not callable(verifier):
+            raise TypeError("trusted exam verifier must be callable")
+        self.exam_verifier=verifier
+        return {"bound":verifier is not None,
+                "policy":"requires independent practical replay attestation; not an AI score"}
 
     def bind_cognitive_brain(self, cognitive_brain):
         """Bind BRAHMA's associative concept memory without changing research authority."""
@@ -776,6 +789,59 @@ class BrahmagyanRuntime:
                           f"{exam_id}:{grader}:{method}")
         return json.loads(json.dumps(attempt))
 
+    def verify_daily_exam_attempt(self, exam_id, attempt_id, *, evidence_receipt):
+        """Complete an independent verified practical Rishi exam.
+
+        A separately bound trusted executor must verify the reviewer
+        identity, original source evidence and actual artifact replays.
+        Mere model claims or caller-supplied booleans cannot authorize L7.
+        """
+        if self.exam_verifier is None:
+            raise PermissionError("trusted independent exam verifier not configured")
+        if not isinstance(evidence_receipt,dict):
+            raise ValueError("trusted practical replay receipt required")
+        with self.lock:
+            self._healthy()
+            exam=self.state["daily_exams"].get(str(exam_id))
+            if exam is None:raise KeyError(exam_id)
+            attempt=next((a for a in exam.get("attempts",[])
+                          if a["attempt_id"]==attempt_id),None)
+            if attempt is None:raise KeyError(attempt_id)
+            if attempt["passed"] is not True:
+                raise ValueError("failed exam cannot be verified as passed")
+            if attempt["grader"]==exam.get("issued_by_rishi_id"):
+                raise PermissionError("exam reviewer cannot be the issuing Rishi")
+            if exam["status"]=="passed_verified" and attempt.get("independence_verified"):
+                return {"verified":True,"idempotent":True,"exam_id":exam_id}
+            exam_copy=json.loads(json.dumps(exam))
+            attempt_copy=json.loads(json.dumps(attempt))
+        verification=self.exam_verifier(exam_copy,attempt_copy,dict(evidence_receipt))
+        if (not isinstance(verification,dict)
+                or verification.get("reviewer_identity_verified") is not True
+                or verification.get("practical_artifacts_replayed") is not True
+                or not isinstance(verification.get("test_run_id"),str)
+                or len(verification["test_run_id"].strip())<12):
+            raise PermissionError("trusted examiner did not independently verify practical evidence")
+        proof=hashlib.sha256(json.dumps(
+            {"exam_id":exam_id,"attempt_id":attempt_id,
+             "receipt":evidence_receipt,"verification":verification},
+            ensure_ascii=False,sort_keys=True).encode("utf-8")).hexdigest()
+        with self.lock:
+            exam=self.state["daily_exams"].get(str(exam_id))
+            attempt=next((a for a in exam.get("attempts",[])
+                          if a["attempt_id"]==attempt_id),None)
+            if attempt is None:raise KeyError(attempt_id)
+            if not attempt["passed"]:raise RuntimeError("exam result changed before verification")
+            attempt["independence_verified"]=True
+            attempt["practical_replay_verified"]=True
+            attempt["trusted_test_run_id"]=verification["test_run_id"][:200]
+            attempt["verification_receipt_sha256"]=proof
+            exam["status"]="passed_verified"
+            self._save()
+        self.memory.audit("brahmagyan_exam","passed_verified",f"{exam_id}:{attempt_id}:{proof[:16]}")
+        return {"verified":True,"idempotent":False,"exam_id":exam_id,
+                "proof_sha256":proof,"knowledge_verification_gate_satisfied":True}
+
     def daily_exam_status(self,mission_id):
         m=self.mission(mission_id)
         with self.lock:
@@ -783,8 +849,9 @@ class BrahmagyanRuntime:
                    for eid in m.get("daily_exam_ids",[])
                    if eid in self.state.get("daily_exams",{})]
         return {"mission_id":mission_id,"exams":exams,
-                "passed_recorded":sum(e["status"]=="passed_recorded" for e in exams),
-                "mastery_gate_satisfied":any(e["status"]=="passed_recorded" for e in exams),
+                "passed_recorded":sum(e["status"] in ("passed_recorded","passed_verified") for e in exams),
+                "passed_verified":sum(e["status"]=="passed_verified" for e in exams),
+                "mastery_gate_satisfied":any(e["status"]=="passed_verified" for e in exams),
                 "automatic_end_of_day_scheduling_enabled":False}
 
     def _validate_advance(self,c,target,detail):
@@ -823,10 +890,10 @@ class BrahmagyanRuntime:
             mission=self.state["missions"].get(c["mission_id"],{})
             if target in {"L7","L8"} and mission.get("daily_exam_gate_required",False):
                 if not any(
-                    self.state["daily_exams"].get(eid,{}).get("status")=="passed_recorded"
+                    self.state["daily_exams"].get(eid,{}).get("status")=="passed_verified"
                     for eid in mission.get("daily_exam_ids",[])
                 ):
-                    raise ValueError("L7/L8 mastery needs a recorded passing theory + practical daily exam")
+                    raise ValueError("L7/L8 mastery needs an independently verified Rishi exam and replayed practical evidence")
             self._validate_advance(c,target,detail)
             if "context_summary" in detail:c["context_summary"]=str(detail["context_summary"])
             if "source_notes" in detail:c["source_notes"]=list(detail["source_notes"] or [])
