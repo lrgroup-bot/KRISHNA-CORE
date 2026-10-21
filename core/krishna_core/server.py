@@ -2408,7 +2408,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"error": str(exc)})
 
         if post_path in ("/api/suryadev/device/heartbeat","/api/suryadev/learning-bundle",
-                         "/api/suryadev/mission/request","/api/suryadev/mission/ack"):
+                         "/api/suryadev/mission/request","/api/suryadev/mission/ack",
+                         "/api/suryadev/fleet/claim","/api/suryadev/fleet/renew",
+                         "/api/suryadev/fleet/complete"):
             device,token=self._device_auth()
             if not _pairing.verify(device,token):
                 return self._json(401,{"error":"paired Suryadev device required"})
@@ -2418,6 +2420,24 @@ class Handler(BaseHTTPRequestHandler):
             if post_path.endswith("/heartbeat"):
                 data["device_id"]=device
                 return self._json(200,orch.suryadev.device_heartbeat(data))
+            if post_path.startswith("/api/suryadev/fleet/"):
+                if not device.startswith("suryadev-"):
+                    return self._json(403,{"error":"owner-paired SURYADEV identity required"})
+                try:
+                    if post_path.endswith("/claim"):
+                        return self._json(200,orch.suryadev.fleet.claim(device_id=device))
+                    if post_path.endswith("/renew"):
+                        return self._json(200,orch.suryadev.fleet.renew(
+                            device_id=device,task_id=data.get("task_id"),
+                            lease_id=data.get("lease_id")))
+                    if post_path.endswith("/complete"):
+                        return self._json(200,orch.suryadev.fleet.complete(
+                            device_id=device,task_id=data.get("task_id"),
+                            lease_id=data.get("lease_id"),outcome=data.get("outcome"),
+                            evidence_sha256=data.get("evidence_sha256",""),
+                            detail=data.get("detail","")))
+                except (ValueError,PermissionError,KeyError,RuntimeError) as exc:
+                    return self._json(400,{"error":type(exc).__name__+": "+str(exc)[:240]})
             if post_path.startswith("/api/suryadev/mission/") and not device.startswith("suryadev-"):
                 return self._json(403, {"error": "mission exchange requires an owner-paired SURYADEV identity"})
             if post_path.endswith("/mission/request"):
