@@ -44,7 +44,7 @@ class HawkeyeRepairReference:
             if not isinstance(row,dict):
                 continue
             url=row.get("url","")
-            if not isinstance(url,str) or not re.match(r"^https://(?:www\\.)?ifixit\\.com/",url,re.I):
+            if not isinstance(url,str) or not re.match(r"^https://(?:www\.)?ifixit\.com/",url,re.I):
                 continue
             results.append({"title":str(row.get("title") or row.get("subject") or "")[:200],
                             "url":url,"kind":str(row.get("dataType") or "")[:40],
