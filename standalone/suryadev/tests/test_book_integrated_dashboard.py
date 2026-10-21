@@ -124,6 +124,11 @@ class UnifiedBookSnapshotTests(unittest.TestCase):
         self.assertIn('renderLive(await response.json())',main)
         self.assertIn('fetch("/api/books"',books)
         self.assertIn('"book_learning": books',srv)
+        self.assertIn('2026-10-21-v6.9-integrated-learning-workspaces',srv)
+        for feature in ('has_books_in_garudanetra',
+                        'has_books_in_source_coverage',
+                        'has_books_in_laptop_health'):
+            self.assertIn(feature,srv)
         self.assertIn('"book_learning": books',ops)
         self.assertIn("'suryadev_book_dashboard.py'",installer)
         self.assertNotIn("innerHTML",books)
