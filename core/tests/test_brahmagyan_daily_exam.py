@@ -73,6 +73,17 @@ class DailyExamTests(unittest.TestCase):
         good=self.bg.record_daily_exam_attempt(exam["exam_id"],results(),"bharadvaja","independent_rishi_review")
         self.assertTrue(good["passed"])
         self.assertFalse(good["independence_verified"])
+        self.assertFalse(self.bg.daily_exam_status(self.m["mission_id"])["mastery_gate_satisfied"])
+        with self.assertRaises(PermissionError):
+            self.bg.verify_daily_exam_attempt(exam["exam_id"],good["attempt_id"],
+                evidence_receipt={"source":"simulated_test"})
+        self.bg.bind_exam_verifier(lambda exam,attempt,receipt: {
+            "reviewer_identity_verified":True,
+            "practical_artifacts_replayed":True,
+            "test_run_id":"separate-lab-run-0001"})
+        verified=self.bg.verify_daily_exam_attempt(exam["exam_id"],good["attempt_id"],
+            evidence_receipt={"source":"simulated_test","artifact_digest":"a"*64})
+        self.assertTrue(verified["verified"])
         self.assertTrue(self.bg.daily_exam_status(self.m["mission_id"])["mastery_gate_satisfied"])
         reloaded=BrahmagyanRuntime(Path(self.tmp.name),Gyan(),Stub())
         self.assertEqual(reloaded.daily_exam_status(self.m["mission_id"])["passed_recorded"],1)
@@ -92,7 +103,14 @@ class DailyExamTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"daily exam"):
             self.bg.advance_claim(cid,"L7",{"synthesis":"Complete synthesis","teach_back":"Explain mechanism"})
         exam=self.bg.create_daily_exam(self.m["mission_id"],questions(),"2026-10-21",issued_by="vishvakarma")
-        self.bg.record_daily_exam_attempt(exam["exam_id"],results(),"gautama","independent_rishi_review")
+        attempt=self.bg.record_daily_exam_attempt(exam["exam_id"],results(),"gautama","independent_rishi_review")
+        with self.assertRaisesRegex(ValueError,"independently verified"):
+            self.bg.advance_claim(cid,"L7",{"synthesis":"Complete synthesis","teach_back":"Explain mechanism"})
+        self.bg.bind_exam_verifier(lambda exam,attempt,receipt: {
+            "reviewer_identity_verified":True,"practical_artifacts_replayed":True,
+            "test_run_id":"simulated-separate-rishi-run-002"})
+        self.bg.verify_daily_exam_attempt(exam["exam_id"],attempt["attempt_id"],
+            evidence_receipt={"lab":"simulated verified separate process"})
         promoted=self.bg.advance_claim(cid,"L7",{"synthesis":"Complete synthesis","teach_back":"Explain mechanism"})
         self.assertEqual(promoted["maturity"],"L7")
 
