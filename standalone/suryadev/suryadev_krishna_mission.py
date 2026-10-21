@@ -164,17 +164,23 @@ class MissionRelay:
                         lib.stats().get("queued", 0) - lib.stats().get("running", 0))
             budget = min(plan["max_new_per_cycle"], space)
             queued = []
+            receipt = {"mission_id": mission.get("id"), "queued": queued,
+                       "queued_urls": 0, "request_id": rid}
             for url in urls:
                 if url not in known and len(queued) < budget:
                     queued.append({"url": url, "job_id": lib.add(url)})
                     known.add(url)
-            receipt = {"mission_id": mission.get("id"), "queued": queued,
-                       "queued_urls": len(queued), "request_id": rid}
-            # Persist the local jobs receipt before contacting Core for ACK;
-            # replay uses this receipt even when all URLs are now duplicates.
-            atomic_json(self.root, STATE_FILE, {"request_id": rid, "receipt": receipt,
-                "state": "local_jobs_persisted", "acknowledged": False,
-                "updated_at": now})
+                    receipt["queued_urls"] = len(queued)
+                    # SQLite commits each job independently. Persist its
+                    # receipt immediately so a crash mid-batch never results
+                    # in silent duplicate intake or a lost Core ACK.
+                    atomic_json(self.root, STATE_FILE, {"request_id": rid,
+                        "receipt": receipt, "state": "local_jobs_persisted",
+                        "acknowledged": False, "updated_at": now})
+            if not queued:
+                atomic_json(self.root, STATE_FILE, {"request_id": rid,
+                    "receipt": receipt, "state": "no_new_approved_sources",
+                    "acknowledged": False, "updated_at": now})
         if not receipt["queued_urls"]:
             result = {"request_id": rid, "state": "no_new_approved_sources",
                       "receipt": receipt, "acknowledged": False,
