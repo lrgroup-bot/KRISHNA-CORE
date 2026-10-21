@@ -11,6 +11,7 @@ param(
     [string]$BookPlan = "",
     [switch]$LearnApprovedBooks,
     [switch]$CollectApprovedBooks,
+    [switch]$FleetMode,
     [switch]$BookVisuals,
     [string]$BookVisualModel = "",
     [switch]$SyncBookHandoff,
@@ -89,11 +90,13 @@ if ($SyncBookHandoff) {
     }
     $workerArgs += "--sync-book-handoff"
 }
+if ($FleetMode -and -not $CoreMissionConfig) { throw "-FleetMode requires -CoreMissionConfig with owner-approved pairing" }
 if ($CoreMissionConfig) {
     if (-not (Test-Path -LiteralPath $CoreMissionConfig -PathType Leaf)) {
         throw "Core mission configuration does not exist: $CoreMissionConfig"
     }
     $workerArgs += @("--core-mission-config",$CoreMissionConfig)
+    if ($FleetMode) { $workerArgs += "--fleet-mode" }
 }
 if (($DeepWeb -or $DeepPDF) -and -not $VisionModel) {
     throw "DeepWeb/DeepPDF visual understanding requires -VisionModel and a locally installed image-capable Ollama model"
