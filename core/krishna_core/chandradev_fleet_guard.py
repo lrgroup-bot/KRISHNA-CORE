@@ -55,11 +55,13 @@ def inspect_fleet(snapshot, *, now=None, ceiling=85, caution=75):
             level="caution"
         elif reasons:
             level="degraded"
+        elif missing:
+            level="partial_monitoring"
         else:
             level="healthy"
         out.append({"device_id":ident,"state":level,"reasons":sorted(set(reasons)),
                     "unmeasured":sorted(set(missing)),
-                    "new_job_admission_recommended":level in ("healthy","caution")
+                    "new_job_admission_recommended":level in ("healthy","caution","partial_monitoring")
                        and "telemetry_stale" not in reasons,
                     "heartbeat_age_seconds":round(max(0,age),2),
                     "sample_age_seconds":round(max(0,sample_age),2)})
