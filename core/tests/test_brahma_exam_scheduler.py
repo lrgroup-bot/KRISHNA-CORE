@@ -46,7 +46,7 @@ class ExamScheduleTests(unittest.TestCase):
                     "rubric":"Check exact causal predictions, reproducibility and all supported measurements.",
                     "source_refs":["https://www.example.com/primary"]}
                    for i,(kind,skill) in enumerate(kinds)]
-        exam=self.brain.create_daily_exam(self.m["mission_id"],questions(),"2026-10-21",
+        exam=self.brain.create_daily_exam(self.m["mission_id"],questions,"2026-10-21",
                                            issued_by=assignment["issued_by_rishi"])
         self.scheduler.register_issued_exam(assignment["assignment_id"],exam["exam_id"])
         rows=[]
