@@ -163,7 +163,12 @@ class SuryadevFleetService:
                 task = tasks.get(tid)
                 if task:
                     totals[task["rishi_id"]] = totals.get(task["rishi_id"], 0) + 1
+            # Reassign expired, unacknowledged work before opening fresh
+            # research. The previous node can no longer complete its old lease.
+            expired = {tid for tid, lease in state["leases"].items()
+                       if lease.get("expires_at",0) <= now and tid not in state["receipts"]}
             chosen = min(candidates, key=lambda x: (
+                0 if x["task_id"] in expired else 1,
                 totals.get(x["rishi_id"], 0), state["attempts"].get(x["task_id"], 0),
                 x["mission_id"], x["task_id"]))
             tid = chosen["task_id"]
