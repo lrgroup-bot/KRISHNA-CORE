@@ -1,0 +1,13 @@
+/* Book-learning state is deliberately neutral until actual evidence receipts exist. */
+.books-panel{margin:24px 0;padding:23px}
+.books-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:13px}
+.book-session{background:#fbfaff;border:1px solid #e7e0f6;border-radius:15px;padding:16px;min-width:0}
+.book-session h3{margin:0 0 7px;overflow-wrap:anywhere;font-size:15px}
+.book-method{font-size:11px;color:#6b638c;overflow-wrap:anywhere}
+.book-progress-count{display:flex;justify-content:space-between;gap:12px;margin-top:12px;font-size:12px}
+.book-progress-count strong{font-variant-numeric:tabular-nums}
+.book-progress-track{height:9px;background:#e9e5f1;overflow:hidden;border-radius:999px;margin:8px 0 12px}
+.book-progress-fill{height:100%;background:linear-gradient(90deg,#7461c6,#3ab09b);border-radius:999px}
+.book-fine{font-size:11px;color:#5c6280;margin:5px 0;line-height:1.55}
+.book-error{font-size:12px;color:#a23b52;background:#fff0f2;border:1px solid #ffd6dd;border-radius:8px;padding:8px;overflow-wrap:anywhere}
+@media(max-width:750px){.books-panel{padding:15px}.books-grid{grid-template-columns:minmax(0,1fr)}}
