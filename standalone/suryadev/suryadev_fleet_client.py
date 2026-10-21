@@ -105,6 +105,8 @@ class FleetClient:
                 # Keep source evidence/job checkpoints; never claim an expired
                 # lease completed nor overwrite new Core ownership.
                 row["state"] = "lease_expired_manual_reconcile"
+                self.state.setdefault("orphaned", {})[task_id] = row
+                del self.state["assignments"][task_id]
                 self._save()
                 continue
             lease = row["lease_id"]
@@ -147,14 +149,19 @@ class FleetClient:
                 self._save()
 
     def _claim(self, lib, now):
-        if now < self.next_claim or self.state["assignments"]:
+        if now < self.next_claim:
             return None
         self.next_claim = now + 15
+        measure = hardware_report(self.root)
+        if measure is None or measure["max_total"] <= len(self.state["assignments"]):
+            return None
         pending = lib.db.execute(
             "SELECT COUNT(*) FROM jobs WHERE status IN ('queued','running')").fetchone()[0]
         if pending >= MAX_LOCAL_QUEUED:
             return None
-        reply = self._send("fleet/claim", {})
+        reply = self._send("fleet/claim", {
+            "known_task_ids": list(self.state["assignments"]),
+        })
         if reply.get("status") != "leased":
             return {"state": reply.get("status"), "reason": reply.get("reason")}
         task = reply.get("task") or {}
