@@ -27,6 +27,7 @@ def results(theory=92,practical=96):
     for q in questions():
         row={"id":q["id"],"score":theory if q["kind"]=="theory" else practical,
              "evaluation":"Independent evidence-based grading documents the method and observations.",
+             "response":"The answer explains the causal mechanism, counterexamples, test results and evidence.",
              "evidence_refs":["https://example.org/lab#measurement-1"]}
         if q["kind"]=="practical":
             row.update(artifact_sha256="a"*64,
