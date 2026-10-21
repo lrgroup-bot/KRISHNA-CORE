@@ -192,7 +192,7 @@ def main():
             print("GARUDANETRA_DASHBOARD_UI_REPORT="+json.dumps(result),flush=True)
             from suryadev_book_reader import BookLedger
             local_book = Path(root) / "approved-sample-book.txt"
-            local_book.write_text("Source line one\\nSource line two\\nSource line three",
+            local_book.write_text("Source line one" + chr(10) + "Source line two" + chr(10) + "Source line three",
                                   encoding="utf-8")
             ledger = BookLedger(root)
             try:
