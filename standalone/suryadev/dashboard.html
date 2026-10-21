@@ -113,6 +113,13 @@
       <div id="book-ledger-list" class="books-grid" aria-live="polite">
         <div class="empty-state">Loading book-ledger status…</div>
       </div>
+      <form id="book-search-form" class="book-search-form">
+        <label for="book-search-input">Find exact book source lines</label>
+        <input type="search" id="book-search-input" maxlength="120"
+               placeholder="Search a technical concept across imported books">
+        <button type="submit">Search book evidence</button>
+      </form>
+      <div id="book-search-results" class="book-search-results" aria-live="polite"></div>
       <p class="small-note">Processed means a local model response was recorded, not verified understanding. BRAHMAGYAN routing is a candidate receipt, not factual approval. Book imports and owner approval are performed using explicit local commands.</p>
     </section>
     <section id="garudanetra" class="netra-control" aria-labelledby="netra-title">
