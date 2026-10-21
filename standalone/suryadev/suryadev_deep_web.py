@@ -78,7 +78,7 @@ async def inspect_page(page, *, model="", max_viewports=24,
       document.documentElement.scrollHeight,document.body.scrollHeight)""")
     if int(end_height) > full + height:
         raise ValueError("lazy webpage grew after scroll; cannot claim all sections inspected")
-    await page.evaluate("() => window.scrollTo(0,0)")
+    await page.evaluate("(y) => window.scrollTo(0,y)", 0)
     image_rows = meta["images"]
     return {
         "viewports_visited":len(positions), "total_height_px":full,
