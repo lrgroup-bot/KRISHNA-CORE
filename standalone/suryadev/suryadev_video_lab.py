@@ -89,7 +89,8 @@ def _file_sha256(path):
 
 
 def scan_video(path, *, capture=None, visual_fn=None, visual_interval_seconds=1,
-               max_visual_frames=300, frame_limit=MAX_VIDEO_FRAMES):
+               max_visual_frames=300, frame_limit=MAX_VIDEO_FRAMES,
+               every_frame_vision=False):
     """Scan EVERY frame for count and digested pixels; optional sampled AI.
 
     All-frame checksum is NOT equivalent to visual semantic comprehension.
@@ -100,6 +101,8 @@ def scan_video(path, *, capture=None, visual_fn=None, visual_interval_seconds=1,
         raise ValueError("video must be a regular local file <=12 GiB")
     if not 0.25 <= visual_interval_seconds <= 60:
         raise ValueError("visual sample interval must be 0.25..60 seconds")
+    if every_frame_vision and visual_fn is None:
+        raise ValueError("every_frame_vision requires a local installed vision model")
     if not 0 <= max_visual_frames <= 50_000:
         raise ValueError("max_visual_frames must be 0..50000")
     if not 1 <= frame_limit <= MAX_VIDEO_FRAMES:
@@ -122,7 +125,10 @@ def scan_video(path, *, capture=None, visual_fn=None, visual_interval_seconds=1,
         expected = int(reader.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
         if expected and expected > frame_limit:
             raise ValueError("Video exceeds frame budget; split into audited chapters")
-        frame_period = max(1, int(round(visual_interval_seconds * fps)))
+        if every_frame_vision and expected and expected > max_visual_frames:
+            raise ValueError("each-frame vision exceeds explicit model-call budget")
+        frame_period = (1 if every_frame_vision else
+                        max(1, int(round(visual_interval_seconds * fps))))
         while True:
             success, frame = reader.read()
             if not success:
@@ -140,6 +146,8 @@ def scan_video(path, *, capture=None, visual_fn=None, visual_interval_seconds=1,
             processed += 1
         if expected and abs(processed - expected) > max(2, round(expected * 0.01)):
             raise RuntimeError("Video ended before expected frames decoded")
+        if every_frame_vision and len(visual) != processed:
+            raise ValueError("Not every decoded frame received visual model interpretation")
         if processed == 0:
             raise RuntimeError("No video frames decoded")
         duration = processed / fps
@@ -150,7 +158,8 @@ def scan_video(path, *, capture=None, visual_fn=None, visual_interval_seconds=1,
             "frame_pixel_chain_sha256": chain.hexdigest(),
             "all_decoded_frames_scanned": True,
             "frames_semantically_interpreted": len(visual),
-            "all_frames_semantically_interpreted": len(visual) == processed,
+            "all_frames_semantically_interpreted": bool(
+                visual_fn and len(visual) == processed),
             "visual_samples": visual,
             "visual_coverage": ("local_vision_on_selected_frames_unverified"
                                 if visual else "full_frame_scan_no_semantic_vision"),
@@ -173,6 +182,7 @@ def video_research(media, root, *, title="", description_file=None,
                    comments_file=None, transcript_file=None,
                    whisper_model_dir=None, vision_model=None,
                    visual_interval_seconds=1, max_visual_frames=300,
+                   every_frame_vision=False, source_url="",
                    scanner=scan_video):
     """Create bounded evidence, not a claim of finished YouTube watching."""
     media = Path(media).expanduser().resolve(strict=True)
@@ -184,9 +194,15 @@ def video_research(media, root, *, title="", description_file=None,
     comments, comment_report = read_comments(comments_file)
     visual_fn = ((lambda frame, at: _vision_frame(frame, at, vision_model))
                  if vision_model else None)
+    if every_frame_vision and not vision_model:
+        raise ValueError("each-frame vision requires an explicitly selected local model")
+    if source_url:
+        from suryadev_ingest import _youtube_url
+        _youtube_url(source_url)  # source provenance only; no network request.
     scan = scanner(media, visual_fn=visual_fn,
                    visual_interval_seconds=visual_interval_seconds,
-                   max_visual_frames=max_visual_frames)
+                   max_visual_frames=max_visual_frames,
+                   every_frame_vision=every_frame_vision)
     cues = []
     transcript_status = {"status": "not_supplied"}
     if transcript_file:
@@ -215,7 +231,8 @@ def video_research(media, root, *, title="", description_file=None,
     if len(evidence) > MAX_RESULT_CHARS:
         raise ValueError("multi-modal text exceeds complete-processing budget; split chapters")
     result = {
-        "schema": "suryadev.local-video-coverage.v1", "media_file_name":media.name,
+        "schema": "suryadev.local-video-coverage.v1",
+        "source_url": source_url, "media_file_name":media.name,
         "media_sha256":media_digest, "recorded_at":time.time(),
         "video":{k:v for k,v in scan.items() if k!="visual_samples"},
         "description_chars":len(description), "comments":comment_report,
@@ -228,10 +245,12 @@ def video_research(media, root, *, title="", description_file=None,
     root = Path(root).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
     artifact = "video-audit-" + result["media_sha256"][:16] + ".json"
-    atomic_json(root, artifact, result)
     evidence_name = "video-evidence-" + result["media_sha256"][:16] + ".txt"
     target = root / evidence_name
-    target.write_text(evidence, encoding="utf-8")
+    temp = target.with_suffix(".txt.tmp")
+    temp.write_text(evidence, encoding="utf-8")
+    temp.replace(target)
+    atomic_json(root, artifact, result)
     result["audit_file"] = str(root / artifact)
     result["evidence_file"] = str(target)
     return result
