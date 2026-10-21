@@ -33,7 +33,7 @@ from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-21-v6.3-learning-continuity"
+UI_VERSION = "2026-10-21-v6.4-rss-and-mission-relay"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -117,7 +117,10 @@ def serve(lib, port=8769):
                                      "has_youtube_cooldown": True,
                                      "has_youtube_language_selection": True,
                                      "has_approved_source_continuity": True,
-                                     "has_official_publisher_caption_recovery": True}),
+                                     "has_official_publisher_caption_recovery": True,
+                                     "has_core_mission_relay_opt_in": True,
+                                     "has_six_hour_renewal_request": True,
+                                     "has_bounded_large_rss": True}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
