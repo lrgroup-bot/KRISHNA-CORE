@@ -74,18 +74,22 @@ class ApprovedBookPlanTests(unittest.TestCase):
 
 
 class BookDashboardContractTests(unittest.TestCase):
-    def test_books_sidebar_panel_are_read_only_and_escaped(self):
+    def test_books_integrated_in_garudanetra_and_escaped(self):
         source=Path(__file__).resolve().parents[1]
         html=(source/"dashboard.html").read_text(encoding="utf-8")
         js=(source/"dashboard-books.js").read_text(encoding="utf-8")
         css=(source/"dashboard-books.css").read_text(encoding="utf-8")
         server=(source/"suryadev_extras.py").read_text(encoding="utf-8")
         installer=(source/"install-windows.ps1").read_text(encoding="utf-8")
-        for token in ("id=\"book-learning\"","id=\"book-ledger-list\"",
-                      "href=\"#book-learning\"",
+        for token in ("id=\"garudanetra\"","id=\"book-ledger-list\"",
+                      "id=\"netra-books-running\"",
                       'src="/dashboard-books.js"',
                       'href="/dashboard-books.css"'):
             self.assertIn(token,html)
+        self.assertNotIn('id="book-learning"',html)
+        self.assertNotIn('href="#book-learning"',html)
+        self.assertIn('id="book-health"',html)
+        self.assertIn('id="source-grid"',html)
         for token in ('fetch("/api/books"','textContent','replaceChildren'):
             self.assertIn(token,js)
         self.assertNotIn("innerHTML",js)
