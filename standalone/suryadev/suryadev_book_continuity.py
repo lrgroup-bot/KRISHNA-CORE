@@ -160,15 +160,28 @@ class BookContinuity:
                                     (book_id,)).fetchone()
                                 if completed:
                                     continue
+                                atomic_json(self.root,RUNTIME,{
+                                    "state":"book_visual_in_progress","book_id":book_id,
+                                    "title":current["title"],"model":self.vision_model,
+                                    "processed_lines":session["lines_processed"],
+                                    "total_lines":current["lines_indexed"],
+                                    "updated_at":time.time(),
+                                    "brahmagyan_acknowledged":False})
                                 visual = audit.run(book_id,model=self.vision_model,max_items=1)
                                 result={"state":"book_visual_step","book_id":book_id,
                                         "visual":visual,"model":self.vision_model,
-                                        "brahmagyan_acknowledged":False,"updated_at":now}
+                                        "brahmagyan_acknowledged":False,"updated_at":time.time()}
                                 atomic_json(self.root,RUNTIME,result)
                                 return result
                             finally:
                                 audit.close()
                         continue
+                    atomic_json(self.root,RUNTIME,{
+                        "state":"book_reading_in_progress","book_id":book_id,
+                        "title":current["title"],"model":self.model,
+                        "processed_lines":session["lines_processed"] if session else 0,
+                        "total_lines":current["lines_indexed"],
+                        "updated_at":time.time(),"brahmagyan_acknowledged":False})
                     receipt = ledger.read(book_id, model=self.model,
                         lines_per_step=self.plan["lines_per_step"],
                         max_steps=1, observe=observe)
@@ -178,7 +191,7 @@ class BookContinuity:
                               "total_lines":receipt["lines_total"],
                               "complete":receipt["reached_end"],
                               "model":self.model,
-                              "brahmagyan_acknowledged":False,"updated_at":now}
+                              "brahmagyan_acknowledged":False,"updated_at":time.time()}
                     atomic_json(self.root, RUNTIME, result)
                     return result
                 except (ValueError, RuntimeError, OSError, ImportError) as exc:
