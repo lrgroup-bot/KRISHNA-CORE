@@ -119,6 +119,34 @@ class BookLearningTests(unittest.TestCase):
         self.assertEqual(self.ledger.verify(obj["book_id"])["indexed_lines_verified"],
                          obj["lines_total"])
 
+    def test_epub_includes_supplemental_nonlinear_spine_appendix(self):
+        path=self.root/"with-appendix.epub"
+        with zipfile.ZipFile(path,"w") as z:
+            z.writestr("META-INF/container.xml",
+                '<container><rootfile full-path="OPS/book.opf"/></container>')
+            z.writestr("OPS/book.opf",
+                '<package><manifest><item id="primary" href="p.xhtml" media-type="application/xhtml+xml"/>'
+                '<item id="notes" href="notes.xhtml" media-type="application/xhtml+xml"/></manifest>'
+                '<spine><itemref idref="notes" linear="no"/><itemref idref="primary"/></spine></package>')
+            z.writestr("OPS/p.xhtml","<html><body><p>Main text</p></body></html>")
+            z.writestr("OPS/notes.xhtml","<html><body><p>Important appendix</p></body></html>")
+        bid=self.ledger.import_book(path)["book_id"]
+        rows=[x[0] for x in self.ledger.db.execute(
+            "SELECT text FROM book_lines WHERE book_id=? ORDER BY ordinal",(bid,))]
+        self.assertIn("Main text",rows)
+        self.assertIn("Important appendix",rows)
+        self.assertLess(rows.index("Main text"),rows.index("Important appendix"))
+        self.assertEqual(self.ledger.verify(bid)["indexed_lines_verified"],len(rows))
+
+    def test_source_changes_after_reading_detected_in_verification(self):
+        path=self.root/"changed.txt"
+        path.write_text("original reference",encoding="utf-8")
+        bid=self.ledger.import_book(path)["book_id"]
+        self.ledger.read(bid,use_ollama=False)
+        path.write_text("changed reference",encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError,"Original book file"):
+            self.ledger.verify(bid)
+
     def test_malformed_epub_has_no_partial_committed_book(self):
         path=self.root/"bad.epub"
         with zipfile.ZipFile(path,"w") as z:
