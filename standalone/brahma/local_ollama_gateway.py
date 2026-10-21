@@ -116,7 +116,11 @@ def main(argv=None):
     a=p.parse_args(argv)
     import ipaddress
     ip=ipaddress.ip_address(a.bind)
-    if ip.version!=4 or not (ip.is_private or ip.is_loopback):
+    lan=any(ip in net for net in (ipaddress.ip_network("10.0.0.0/8"),
+        ipaddress.ip_network("172.16.0.0/12"),
+        ipaddress.ip_network("192.168.0.0/16"),
+        ipaddress.ip_network("127.0.0.0/8")))
+    if ip.version!=4 or not lan:
         p.error("Only explicit private LAN IPv4 or loopback is allowed")
     secret=a.token_file.read_text(encoding="utf-8").strip()
     host=ThreadingHTTPServer((a.bind,a.port),handler_factory(secret=secret,models=set(a.model)))
