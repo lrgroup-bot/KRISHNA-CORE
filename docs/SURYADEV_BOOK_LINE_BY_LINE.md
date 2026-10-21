@@ -206,3 +206,25 @@ adapters and expected receipts. They **cannot** prove that:
 Those remain live acceptance gates for an operator, not fake 'all green'
 claims. No source file, user data, database, or old journal is deleted
 during a safe install.
+
+
+## v6.9 — Integrated learning dashboard
+
+The standalone Book learning section and its sidebar link are removed. The
+existing Garudanetra area has four lanes: Websites, YouTube, PDF, and Books.
+Indexed-book checkpoint cards and source-line search live inside Garudanetra.
+Source Coverage adds a separately counted Books card. Laptop Health reports
+actual model-processed source lines, book figure observations, Ollama inference
+seconds and averaged time per processed line. No completion means verified
+semantic comprehension or factual acceptance by BRAHMAGYAN.
+
+An idle browser with zero queued and running jobs is correct even when CPU
+and RAM have ample headroom. Without an active learning worker, allowed
+processing slots are unavailable; history remains displayed. Historical
+successes are not active Chromium tabs.
+
+The three-line test book in D:\\Work\\SURYADEV-TEST-DATA is intentionally
+separate from D:\\Work\\SURYADEV-DATA. Approve a lawful local book against
+the production data directory before expecting it in the main dashboard.
+After pulling, rerun install-windows.ps1 with the worker stopped to deploy
+updated local dashboard JS, CSS and Python modules.
