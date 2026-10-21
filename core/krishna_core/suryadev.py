@@ -15,12 +15,15 @@ from pathlib import Path
 import hashlib
 import json
 import re
+import math
 import time
 import uuid
 from threading import RLock
 
 from .field_perception import FieldPerceptionPolicy
 from .suryadev_mission_backlog import SuryadevMissionBacklog
+from .suryadev_fleet_service import SuryadevFleetService
+from .rishi_council import RishiCouncil
 
 
 class SuryadevAgent:
@@ -75,6 +78,10 @@ class SuryadevAgent:
         self.ui_reviewer = ui_reviewer
         self.memory = memory
         self.mission_backlog = SuryadevMissionBacklog(self.root / "mission-authority")
+        self.fleet = SuryadevFleetService(
+            self.root / "fleet-authority", curriculum=self.mission_backlog,
+            council=self.council or RishiCouncil(),
+            node_reader=self.device_status)
 
     @staticmethod
     def _text(value, limit=8000):
@@ -341,9 +348,50 @@ class SuryadevAgent:
             "thermal_state": self._text(payload.get("thermal_state") or "unknown", 60).lower(),
             "last_error": self._text(payload.get("last_error"), 1000),
         }
+        # Only paired Core request routing may call this interface. The
+        # self-reported telemetry is useful for cautious admission, but it is
+        # not independent hardware attestation. Missing/stale readings refuse
+        # fleet dispatch; legacy status heartbeats remain accepted.
+        sample = payload.get("telemetry")
+        metrics = {}
+        if isinstance(sample, dict):
+            age = sample.get("sample_age_seconds")
+            required = ("cpu_percent", "ram_percent", "disk_percent")
+            valid = type(age) in (int, float) and math.isfinite(age) and 0 <= age <= 10
+            for field in required:
+                value = sample.get(field)
+                if type(value) not in (float, int) or not math.isfinite(value) or not 0 <= value <= 100:
+                    valid = False
+                else:
+                    metrics[field] = round(float(value), 2)
+            slots = sample.get("max_total")
+            caps = sample.get("capabilities")
+            if (type(slots) is not int or not 0 <= slots <= 12 or
+                    not isinstance(caps, list) or
+                    not all(x in ("website","youtube","pdf","book","experiment") for x in caps)):
+                valid = False
+            if valid:
+                metrics.update({
+                    "available_slots": slots, "capabilities": list(dict.fromkeys(caps)),
+                    "telemetry_sample_at": now,
+                    "logical_cpus": max(1,min(512,int(sample.get("logical_cpus") or 1))),
+                    "ram_total_gb": sample.get("ram_total_gb"),
+                    "disk_free_gb": sample.get("disk_free_gb"),
+                    "gpu_inference": bool(sample.get("gpu_inference") is True),
+                    "hardware_profile": {
+                        "cpu_name": self._text(sample.get("cpu_name"),120),
+                        "gpu_name": self._text(sample.get("gpu_name"),120),
+                        "platform": self._text(sample.get("platform"),120),
+                    }
+                })
         with self._node_lock:
             rows = self._load_nodes()
             previous = dict(rows.get(device_id) or {})
+            # Never reuse an old metric after a heartbeat missing fresh data.
+            for field in ("available_slots", "capabilities", "telemetry_sample_at",
+                          "cpu_percent", "ram_percent", "disk_percent"):
+                previous.pop(field, None)
+            row.update(metrics)
             previous.update(row)
             rows[device_id] = previous
             self._save_nodes(rows)
@@ -358,6 +406,7 @@ class SuryadevAgent:
             "suryadev_working_green": bool(row["worker_running"] and row["network_online"] and not row["last_error"]),
             "learning_green": bool(learning_active and not row["last_error"]),
             "heartbeat_at": now,
+            "fresh_capacity_reported": bool(metrics),
             "stale_after_seconds": 150,
         }
 
@@ -581,6 +630,7 @@ class SuryadevAgent:
             "agent": "SURYDEV",
             "version": self.VERSION,
             "mission_backlog": self.mission_backlog.status(),
+            "fleet": self.fleet.status(),
             "role": "external overall eye + ear + UI/research reviewer",
             "capabilities": list(self.CAPABILITIES),
             "job_types": sorted(self.JOB_TYPES),
