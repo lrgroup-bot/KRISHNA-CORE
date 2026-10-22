@@ -1,0 +1,30 @@
+name: GARUDA Repair Studio Tests
+on:
+  push:
+    branches: [feat/lr-lifecycle-integration-20261022]
+  pull_request:
+    paths:
+      - 'core/krishna_core/garuda_*'
+      - 'core/krishna_core/hawkeye_repair_reference.py'
+      - 'core/tests/test_garuda_*'
+      - 'core/tests/test_hawkeye_repair_reference.py'
+      - '.github/workflows/garuda-repair-tests.yml'
+  workflow_dispatch:
+jobs:
+  repair-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile modules
+        run: python -m compileall -q core/krishna_core/garuda_diagnostics.py core/krishna_core/garuda_repair_studio.py core/krishna_core/garuda_repair_guides.py core/krishna_core/garuda_repair_workflow.py core/krishna_core/garuda_repair_knowledge.py core/krishna_core/hawkeye_repair_reference.py
+      - name: Run repair regression tests
+        env:
+          PYTHONPATH: core
+        run: |
+          python -m unittest discover -s core/tests -p 'test_garuda_diagnostics.py' -v
+          python -m unittest discover -s core/tests -p 'test_garuda_repair_*.py' -v
+          python -m unittest discover -s core/tests -p 'test_hawkeye_repair_reference.py' -v

@@ -5,6 +5,8 @@ from .idea_intake import IdeaIntake
 from .sudarshan_design_policy import SudarshanDesignPolicy
 from .sudarshan_design_engine import DesignJob, SudarshanDesignEngine
 from .vishvakarma_team import VishvakarmaTeam
+from .sudarshan_lean_review import SudarshanLeanReview
+from .sudarshan_duplicate_review import duplicate_candidates
 
 
 class SudarshanProjectOrchestrator:
@@ -30,6 +32,19 @@ class SudarshanProjectOrchestrator:
             agentic_browser=bool(agentic_browser),
             topic=str(topic or task_type),
         ))
+
+    def lean_review(self, source_root, changed_files, *, mode='full', proposed_dependencies=()):
+        """Read-only advisory before the existing design/verification gates."""
+        return SudarshanLeanReview(source_root).review(
+            changed_files, mode=mode, proposed_dependencies=proposed_dependencies,
+        )
+
+    def duplicate_review(self, source_root):
+        """Advisory structural-clone scan, never an automatic deletion gate."""
+        return duplicate_candidates(source_root)
+
+    def lean_debt(self, source_root):
+        return SudarshanLeanReview(source_root).debt()
 
     def status(self):
         return {
