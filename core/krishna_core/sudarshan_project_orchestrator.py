@@ -6,6 +6,7 @@ from .sudarshan_design_policy import SudarshanDesignPolicy
 from .sudarshan_design_engine import DesignJob, SudarshanDesignEngine
 from .vishvakarma_team import VishvakarmaTeam
 from .sudarshan_lean_review import SudarshanLeanReview
+from .sudarshan_duplicate_review import duplicate_candidates
 
 
 class SudarshanProjectOrchestrator:
@@ -37,6 +38,10 @@ class SudarshanProjectOrchestrator:
         return SudarshanLeanReview(source_root).review(
             changed_files, mode=mode, proposed_dependencies=proposed_dependencies,
         )
+
+    def duplicate_review(self, source_root):
+        """Advisory structural-clone scan, never an automatic deletion gate."""
+        return duplicate_candidates(source_root)
 
     def lean_debt(self, source_root):
         return SudarshanLeanReview(source_root).debt()
