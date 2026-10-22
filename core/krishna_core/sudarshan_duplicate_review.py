@@ -38,7 +38,7 @@ def duplicate_candidates(root, *, max_files=3000, max_pairs=150):
         except (OSError,UnicodeError,SyntaxError):continue
         for node in ast.walk(tree):
             if not isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef)):continue
-            if len(node.body)<3:continue
+            if len(list(ast.walk(node)))<12:continue
             signature=_shape(node)
             groups[signature].append({"file":str(path.relative_to(root)),
                                       "symbol":node.name,"line":node.lineno})
