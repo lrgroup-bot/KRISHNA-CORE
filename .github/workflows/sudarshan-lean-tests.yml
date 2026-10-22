@@ -4,14 +4,18 @@ on:
     branches: [feat/lr-lifecycle-integration-20261022]
     paths:
       - 'core/krishna_core/sudarshan_lean_review.py'
+      - 'core/krishna_core/sudarshan_duplicate_review.py'
       - 'core/krishna_core/sudarshan_project_orchestrator.py'
       - 'core/tests/test_sudarshan_lean_review.py'
+      - 'core/tests/test_sudarshan_duplicate_review.py'
       - '.github/workflows/sudarshan-lean-tests.yml'
   pull_request:
     paths:
       - 'core/krishna_core/sudarshan_lean_review.py'
+      - 'core/krishna_core/sudarshan_duplicate_review.py'
       - 'core/krishna_core/sudarshan_project_orchestrator.py'
       - 'core/tests/test_sudarshan_lean_review.py'
+      - 'core/tests/test_sudarshan_duplicate_review.py'
       - '.github/workflows/sudarshan-lean-tests.yml'
   workflow_dispatch:
 jobs:
@@ -24,8 +28,8 @@ jobs:
         with:
           python-version: '3.11'
       - name: Compile
-        run: python -m py_compile core/krishna_core/sudarshan_lean_review.py core/krishna_core/sudarshan_project_orchestrator.py
+        run: python -m py_compile core/krishna_core/sudarshan_lean_review.py core/krishna_core/sudarshan_duplicate_review.py core/krishna_core/sudarshan_project_orchestrator.py
       - name: Unit tests
         env:
           PYTHONPATH: core
-        run: python -m unittest discover -s core/tests -p 'test_sudarshan_lean_review.py' -v
+        run: python -m unittest discover -s core/tests -p 'test_sudarshan_*review.py' -v
