@@ -3,32 +3,9 @@
 (() => {
   'use strict';
   document.addEventListener('DOMContentLoaded', () => {
-    const sources = document.getElementById('sources');
-    if (!sources) return;
-    const section = document.createElement('section');
-    section.id = 'video-review';
-    section.className = 'surface video-review-panel';
-    section.innerHTML = `
-      <div class="section-heading compact"><div><div class="overline">SUPERVISED OBSERVATION</div>
-      <h2>Browser video review</h2></div></div>
-      <p>Adaptive speed: <strong>1×</strong> important technical/safety material, <strong>1.5×</strong> explanations, <strong>2×</strong> ordinary talk, <strong>4×</strong> confirmed small talk only. Reverts to 1× when captions stop or audio-only transcription is used. High-speed audiovisual coverage is not certified.</p>
-      <p>KRISHNA-approved jobs only. Browser observation stays local until separately verified KRISHNA evidence acceptance. No background recording starts here.</p>
-      <label for="video-review-json">KRISHNA video_research job JSON</label>
-      <textarea id="video-review-json" rows="5" spellcheck="false" placeholder='{"schema":"krishna.suryadev.job.v1","job_id":"lesson-01","kind":"video_research","target":"https://...","constraints":{"duration_seconds":60}}'></textarea>
-      <div class="video-review-actions"><button id="video-review-import" type="button">Import for review</button><button id="video-review-refresh" type="button">Refresh jobs</button></div>
-      <p class="video-review-hint">The complete target URL must already be in your local approved learning-plan.json. The exact URL, including query parameters, stays visible before approval.</p>
-      <div id="video-review-status" role="status" aria-live="polite"></div>
-      <div id="video-review-list"></div>`;
-    sources.parentNode.insertBefore(section, sources);
-    const nav = document.querySelector('.navigation');
-    if (nav) {
-      const link = document.createElement('a');
-      link.href = '#video-review';
-      link.className = 'nav-item';
-      link.textContent = '▶ Video review';
-      const assigned = nav.querySelector('a[href="#assignments"]');
-      if (assigned) nav.insertBefore(link, assigned); else nav.append(link);
-    }
+    // The sole Video Review panel is authored in dashboard.html.
+    // Do not inject a second panel or duplicate navigation entry.
+    if (!document.getElementById('video-review')) return;
     const el = id => document.getElementById(id);
     let csrf = null;
     const setStatus = value => { el('video-review-status').textContent = String(value); };
