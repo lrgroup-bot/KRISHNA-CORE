@@ -76,9 +76,11 @@ async def browser_books_check(port):
             await expect(page.locator("#netra-books-lines")).to_have_text("1 / 3")
             await expect(page.locator("#netra-workspace-count")).to_have_text("4")
             await expect(page.locator(".netra-workspace-tab.book")).to_have_count(1)
-            await expect(page.locator(".source-card.books strong")).to_have_text("1",timeout=12000)
-            await expect(page.locator("#book-health")).to_contain_text(
-                "1 / 3 lines model-processed",timeout=12000)
+            await expect(page.locator(".source-card.books")).to_have_count(0)
+            await expect(page.locator("#book-health")).to_have_count(0)
+            await expect(page.locator("#netra-books-lines")).to_have_text("1 / 3")
+            # The learning book ledger is canonical; hardware/source summaries
+            # no longer duplicate its details.
             await expect(page.locator("#book-ledger-list .book-session")).to_have_count(
                 1,timeout=12000)
             await expect(page.locator("#book-search-form")).to_have_count(1)
@@ -162,8 +164,11 @@ async def browser_video_review_check(port, approved_url):
             errors=[]
             page.on("pageerror", lambda exc: errors.append(str(exc)))
             await page.goto(f"http://127.0.0.1:{port}/", wait_until="domcontentloaded")
+            await expect(page.locator("#video-review")).to_have_count(1)
             await expect(page.locator("#video-review")).to_be_visible(timeout=12000)
             await expect(page.locator('a[href="#video-review"]')).to_have_count(1)
+            await expect(page.locator('input[type="date"]')).to_have_count(1)
+            await expect(page.locator("#ui-version")).to_contain_text("2026-10-23-v7", timeout=12000)
             await page.locator("#video-review-refresh").click()
             rejected={"schema":"krishna.suryadev.job.v1", "job_id":"not-approved",
                       "kind":"video_research",
