@@ -167,8 +167,17 @@ async def browser_video_review_check(port, approved_url):
             await expect(page.locator("#video-review")).to_have_count(1)
             await expect(page.locator("#video-review")).to_be_visible(timeout=12000)
             await expect(page.locator('a[href="#video-review"]')).to_have_count(1)
+            # Mission Pulse is now first; History belongs below primary workspaces.
+            order = await page.evaluate("""() => {
+                const ys = ids => ids.map(id => document.getElementById(id).getBoundingClientRect().top + window.scrollY);
+                return ys(['garudanetra','assignments','date-center']);
+            }""")
+            assert order[0] < order[1] < order[2], "Mission/history sections rendered out of order"
+            await expect(page.locator("#learning-start")).to_be_visible(timeout=12000)
+            await expect(page.locator("#video-auto-toggle")).to_be_visible(timeout=12000)
+            await page.locator(".video-manual-details summary").click()
             await expect(page.locator('input[type="date"]')).to_have_count(1)
-            await expect(page.locator("#ui-version")).to_contain_text("2026-10-23-v7", timeout=12000)
+            await expect(page.locator("#ui-version")).to_contain_text("2026-10-23-v7.1", timeout=12000)
             await page.locator("#video-review-refresh").click()
             rejected={"schema":"krishna.suryadev.job.v1", "job_id":"not-approved",
                       "kind":"video_research",
