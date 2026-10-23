@@ -63,6 +63,40 @@ class DashboardWorkerControl:
         return {"configured":True,"ready":True,
                 "reason":"Pinned TLS configuration validated locally; server connection unverified"}
 
+    def set_core_delegation(self, enabled):
+        """One-time operator approval of paired-Core source selection by host.
+
+        Preserves existing exact URLs, quotas, feeds, evidence and backups.
+        All remote work still requires a TLS-pinned paired Core and the
+        Core's own approved mission catalogue.
+        """
+        if type(enabled) is not bool:
+            raise ValueError("Delegation state must be true or false")
+        if enabled and not self.core_pairing()["ready"]:
+            raise ValueError("Pair KRISHNA with verified HTTPS certificate and device token first")
+        from suryadev_feeder import read_plan
+        import shutil
+        import secrets
+        plan = self.root/"learning-plan.json"
+        parsed = read_plan(plan)
+        if enabled and not parsed["allowed_source_hosts"]:
+            raise ValueError("Approve one or more permitted research hosts first")
+        original = json.loads(plan.read_text(encoding="utf-8"))
+        if original.get("paired_core_host_delegation",False) is enabled:
+            return {"ok":True,"enabled":enabled,"state":"unchanged"}
+        updated = dict(original, paired_core_host_delegation=enabled)
+        temp = plan.with_name(".core-delegation-"+secrets.token_hex(6)+".json")
+        temp.write_text(json.dumps(updated,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+        try:
+            read_plan(temp)
+            backup = plan.with_name("learning-plan.before-core-delegation-"+secrets.token_hex(8)+".json")
+            shutil.copy2(plan, backup)
+            os.replace(temp,plan)
+        finally:
+            temp.unlink(missing_ok=True)
+        return {"ok":True,"enabled":enabled,"state":"updated",
+                "source_policy":"paired KRISHNA only, existing approved HTTPS hostnames"}
+
     def snapshot(self):
         with self.lock:
             owned = self.process
@@ -77,7 +111,17 @@ class DashboardWorkerControl:
         # proves that an external process still owns the worker lane.
         external_lock = False if active else self._external_lock_held()
         core = self.core_pairing()
+        try:
+            from suryadev_feeder import read_plan
+            policy=read_plan(self.root/"learning-plan.json")
+            delegated = bool(policy.get("paired_core_host_delegation"))
+            host_count = len(policy.get("allowed_source_hosts", []))
+        except (OSError, ValueError, TypeError):
+            delegated = False
+            host_count = 0
         return {
+            "paired_core_host_delegation":delegated,
+            "paired_core_approved_host_count":host_count,
             "core_dispatch": core,
             "dispatch_mode": "krishna_fleet_configured" if core["ready"] else "local_only",
             "managed_running": active,
