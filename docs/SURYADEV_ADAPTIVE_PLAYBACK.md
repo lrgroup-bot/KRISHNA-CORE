@@ -15,7 +15,7 @@ The adapter requests one of exactly 1.0, 1.5, 2.0 or 4.0 via the browser's HTMLV
 ## Job specification
 Provide this JSON in the existing GitHub SURYADEV dashboard's **Video Review** section, after adding the **exact** URL to the local learning-plan.json. The example URL is a placeholder, not automatically approved.
 
-\`\`\`json
+```json
 {
   "schema": "krishna.suryadev.job.v1",
   "job_id": "video-speed-smoke-01",
@@ -28,21 +28,21 @@ Provide this JSON in the existing GitHub SURYADEV dashboard's **Video Review** s
     "allow_audio_asr_fallback": true
   }
 }
-\`\`\`
+```
 
-A new, explicitly approved job starts with default-safe 1×. The video replay engine is the canonical repository file \`scripts/SURYDEV_VIDEO_LEARNING_ADAPTER.py\`; the Windows installer copies it as \`suryadev_r39_adapter.py\` within the existing SURYADEV app. The ZIP frontend is not used.
+A new, explicitly approved job starts with default-safe 1×. The video replay engine is the canonical repository file `scripts/SURYDEV_VIDEO_LEARNING_ADAPTER.py`; the Windows installer copies it as `suryadev_r39_adapter.py` within the existing SURYADEV app. The ZIP frontend is not used.
 
 ## Live observability and truthful evidence
-- The source video adapter writes \`video-review/runtime/jobs/JOB-ID/playback-speed.json\` with browser-readback speed, content classification and video timestamp.
-- \`GET /api/video/review\` exposes current playback data only for an active supervised job. Use **Refresh jobs** in Video Review to see current speed.
-- Final \`learning-bundle.json\` records recent speed transitions, number of transitions, whether 4× was observed, and explicitly records \`complete_caption_coverage_verified: false\`.
+- The source video adapter writes `video-review/runtime/jobs/JOB-ID/playback-speed.json` with browser-readback speed, content classification and video timestamp.
+- `GET /api/video/review` exposes current playback data only for an active supervised job. Use **Refresh jobs** in Video Review to see current speed.
+- Final `learning-bundle.json` records recent speed transitions, number of transitions, whether 4× was observed, and explicitly records `complete_caption_coverage_verified: false`.
 - Neither speeding up nor finishing a video proves that SURYADEV comprehended its content or that BRAHMAGYAN/Rishis accepted evidence.
 - Connection to KRISHNA still requires pinned HTTPS and authorized evidence receipts. Do not use R39 HTTP bearer sync.
 
 ## Testing and release gates
-The additional automated test module \`standalone/suryadev/tests/test_adaptive_video_playback.py\` covers ordinary, explanations, technical, owner terms, chatter stability, Hindi/Odia safety, missing captions, ASR mode, stalls, speed disabled and player readback. Source-level and Windows/Linux CI tests are necessary but insufficient.
+The additional automated test module `standalone/suryadev/tests/test_adaptive_video_playback.py` covers ordinary, explanations, technical, owner terms, chatter stability, Hindi/Odia safety, missing captions, ASR mode, stalls, speed disabled and player readback. Source-level and Windows/Linux CI tests are necessary but insufficient.
 
 For Windows real-device acceptance: use one approved short public video with captions, inspect the running dashboard readout and actual browser video speed, ensure technical material returns to 1×, verify 4× only for clear chatter, and inspect pending evidence without promoting or deleting it. Repeat with captions disabled and with unknown-language captions; both must stay at safe 1×. If 4× is unsupported in that browser, report the actual supported speed; never bypass the player.
 
 ## Status
-Code implemented on \`feature/suryadev-r39-unified-repo-ui-20261023\` as part of draft PR #231. **No unattended deployment and no real-device 4× acceptance claim until Windows test evidence is received.**
+Code implemented on `feature/suryadev-r39-unified-repo-ui-20261023` as part of draft PR #231. **No unattended deployment and no real-device 4× acceptance claim until Windows test evidence is received.**
