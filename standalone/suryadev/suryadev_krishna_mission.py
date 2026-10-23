@@ -17,7 +17,7 @@ import ssl
 import time
 from urllib.parse import urlsplit
 
-from suryadev_feeder import read_plan
+from suryadev_feeder import read_plan, paired_core_source_allowed
 from suryadev_liveops import atomic_json, _safe_read
 
 STATE_FILE = "krishna-mission-sync.json"
@@ -158,10 +158,9 @@ class MissionRelay:
             if not isinstance(urls, list) or not 1 <= len(urls) <= 20:
                 raise ValueError("Core mission URLs missing or oversized")
             plan = read_plan(self.plan_path)
-            # Exact source approval by the laptop owner; host approval alone
-            # must never let remote instructions expand the crawling scope.
-            approved = set(plan["approved_urls"])
-            if any(not isinstance(url, str) or url not in approved for url in urls):
+            # Host delegation is authorized separately, and is available
+            # only to requests from the TLS-pinned authenticated KRISHNA Core.
+            if any(not paired_core_source_allowed(url, plan) for url in urls):
                 raise ValueError("Core mission contains a URL not explicitly approved on laptop")
             known = {x[0] for x in lib.db.execute("SELECT url FROM jobs")}
             space = max(0, plan["max_queued"] -
