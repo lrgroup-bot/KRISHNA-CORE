@@ -174,12 +174,15 @@ async def browser_video_review_check(port, approved_url):
                       "kind":"video_research",
                       "target":"https://www.youtube.com/watch?v=not-approved",
                       "constraints":{"duration_seconds":60}}
-            await page.locator("#video-review-json").fill(json.dumps(rejected))
+            # User-friendly path: paste a URL; owner-unapproved URLs must fail.
+            await page.locator("#video-review-url").fill(rejected["target"])
             await page.locator("#video-review-import").click()
             await expect(page.locator("#video-review-status")).to_contain_text(
                 "Import rejected:", timeout=12000)
             await expect(page.locator("#video-review-list .video-review-job")).to_have_count(0)
+            # Existing KRISHNA mission contracts still support advanced JSON.
             accepted=dict(rejected, job_id="smoke-approved-video", target=approved_url)
+            await page.locator(".video-job-details summary").click()
             await page.locator("#video-review-json").fill(json.dumps(accepted))
             await page.locator("#video-review-import").click()
             await expect(page.locator("#video-review-list .video-review-job")).to_have_count(1)
