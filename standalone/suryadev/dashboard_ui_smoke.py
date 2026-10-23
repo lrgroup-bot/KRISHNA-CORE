@@ -37,6 +37,7 @@ async def browser_check(port):
             await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
             await expect(page.locator("#netra-web-running")).to_have_text("2",timeout=12000)
             await expect(page.locator("#netra-video-running")).to_have_text("1",timeout=12000)
+            await expect(page.locator("#netra-engine-state")).to_contain_text("Chromium browsing", timeout=12000)
             web=await page.locator("#netra-web-tabs").inner_text()
             tabs=await page.locator(".netra-workspace-tab").count()
             cap=await page.locator("#netra-total-capacity").inner_text()
@@ -173,6 +174,7 @@ async def browser_video_review_check(port, approved_url):
                 return ys(['garudanetra','assignments','date-center']);
             }""")
             assert order[0] < order[1] < order[2], "Mission/history sections rendered out of order"
+            await expect(page.locator("#learning-enable-sources")).to_be_visible(timeout=12000)
             await expect(page.locator("#learning-start")).to_be_visible(timeout=12000)
             # Starting a local worker must be possible when the exclusive lock
             # is free; the browser test never actually starts the worker.
