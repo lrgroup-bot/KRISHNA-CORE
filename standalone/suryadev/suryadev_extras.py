@@ -32,6 +32,7 @@ from suryadev_liveops import operations_snapshot, worker_note
 from suryadev_operator_api import settings_snapshot, handle_operator_action
 from mimetypes import guess_type
 from suryadev_lock import worker_lock
+from suryadev_video_review import VideoReview
 from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
@@ -88,6 +89,7 @@ def serve(lib, port=8769):
     """Dashboard binds only to loopback; state changes require same-origin CSRF."""
     csrf_token = secrets.token_urlsafe(32)
     settings_lock = threading.Lock()
+    video_review = VideoReview(lib.root, Path(__file__).resolve().parent)
     class Handler(BaseHTTPRequestHandler):
         def respond(self, status, content, mime="text/html; charset=utf-8"):
             body = content.encode("utf-8")
@@ -102,6 +104,8 @@ def serve(lib, port=8769):
 
         def do_GET(self):
             route = urlsplit(self.path)
+            if route.path == "/api/video/review":
+                return self.respond(200, json.dumps(video_review.snapshot()), "application/json")
             if route.path == "/api/operator/settings":
                 payload = settings_snapshot(lib.root)
                 payload["csrf_token"] = csrf_token
@@ -109,6 +113,7 @@ def serve(lib, port=8769):
             if route.path == "/api/ui-version":
                 return self.respond(
                     200, json.dumps({"version": UI_VERSION,
+                                     "has_repo_r39_video_review": True,
                                      "has_connection_leds": True,
                                      "has_date_picker": True,
                                      "has_server_settings": True,
@@ -141,7 +146,8 @@ def serve(lib, port=8769):
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
                               "/dashboard-garudanetra.css", "/dashboard-garudanetra.js",
-                              "/dashboard-books.css", "/dashboard-books.js"):
+                              "/dashboard-books.css", "/dashboard-books.js",
+                              "/dashboard-video.css", "/dashboard-video.js"):
                 filename = {"/": "dashboard.html", "/dashboard.css": "dashboard.css",
                             "/dashboard.js": "dashboard.js",
                             "/dashboard-settings.css": "dashboard-settings.css",
@@ -149,7 +155,9 @@ def serve(lib, port=8769):
                             "/dashboard-garudanetra.css": "dashboard-garudanetra.css",
                             "/dashboard-garudanetra.js": "dashboard-garudanetra.js",
                             "/dashboard-books.css": "dashboard-books.css",
-                            "/dashboard-books.js": "dashboard-books.js"}[route.path]
+                            "/dashboard-books.js": "dashboard-books.js",
+                            "/dashboard-video.css": "dashboard-video.css",
+                            "/dashboard-video.js": "dashboard-video.js"}[route.path]
                 content = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
                 mime = "text/html; charset=utf-8" if route.path == "/" else (
                     "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
@@ -382,7 +390,13 @@ def serve(lib, port=8769):
             try:
                 body = json.loads(self.rfile.read(length))
                 with settings_lock:
-                    outcome = handle_operator_action(lib.root, route.path, body)
+                    if route.path == "/api/operator/video/import":
+                        outcome = video_review.import_job(body.get("job"))
+                    elif route.path == "/api/operator/video/run":
+                        outcome = video_review.run_job(
+                            body.get("job_id"), body.get("approved"), body.get("expected_sha256"))
+                    else:
+                        outcome = handle_operator_action(lib.root, route.path, body)
                 return self.respond(200, json.dumps(outcome), "application/json")
             except (ValueError, TypeError) as exc:
                 return self.respond(400, json.dumps({"error": str(exc)[:230]}),
