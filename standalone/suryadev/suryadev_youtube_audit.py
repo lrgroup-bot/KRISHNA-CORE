@@ -21,9 +21,9 @@ MAX_BUNDLE_BYTES = 3_000_000
 
 def _read(path, max_bytes):
     path = Path(path)
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > max_bytes:
-        return {}
     try:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > max_bytes:
+            return {}
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError, UnicodeError):
         return {}
@@ -191,3 +191,33 @@ def youtube_audit(root, db, limit=30):
         "explanation":"YouTube caption extraction is not video watching. Browser playback position is not wall-clock watched time or verified coverage. Summaries/chunks are candidate knowledge; BRAHMAGYAN exams are not recorded here.",
         "read_only":True,
     }
+
+
+def main(argv=None):
+    """Run a read-only laptop audit without modifying the live worker/SQLite."""
+    import argparse
+    import sqlite3
+    parser = argparse.ArgumentParser(description="Inspect real YouTube time and candidate learning without starting a worker")
+    parser.add_argument("--data", required=True)
+    parser.add_argument("--limit", type=int, default=20)
+    options = parser.parse_args(argv)
+    folder = Path(options.data).expanduser().resolve()
+    database = folder / "suryadev.sqlite3"
+    if database.is_file():
+        conn = sqlite3.connect(database.as_uri() + "?mode=ro", uri=True, timeout=10)
+        try:
+            conn.execute("PRAGMA query_only=ON")
+            data = youtube_audit(folder,conn,limit=options.limit)
+        finally:
+            conn.close()
+    else:
+        data = {"schema":"suryadev.youtube-learning-audit.v1",
+                "caption_extraction":[],
+                "browser_observations":observer_jobs(folder,options.limit),
+                "read_only":True, "database_missing":True,
+                "note":"No SQLite source database present; it was not created."}
+    print(json.dumps(data,ensure_ascii=False,indent=2))
+
+
+if __name__=="__main__":
+    main()
