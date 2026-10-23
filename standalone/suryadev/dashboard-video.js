@@ -87,6 +87,92 @@
         if (!data.jobs?.length) list.append(document.createTextNode('No imported video jobs.'));
       } catch (err) { setStatus('Video review unavailable: ' + err.message); }
     };
+    const auditTarget = el('youtube-audit-results');
+    const durationText = seconds => {
+      if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0) return 'not recorded';
+      if (seconds < 60) return seconds.toFixed(1) + 's';
+      return Math.floor(seconds / 60) + 'm ' + Math.floor(seconds % 60) + 's';
+    };
+    const addLine = (parent, value, strong=false) => {
+      const item = document.createElement('p');
+      item.textContent = String(value);
+      if (strong) item.style.fontWeight = '600';
+      parent.append(item);
+    };
+    async function refreshAudit() {
+      try {
+        const response = await window.suryadevRead('/api/youtube/audit', {cache:'no-store'});
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const audit = await response.json();
+        if (audit.schema !== 'suryadev.youtube-learning-audit.v1') {
+          throw new Error('Update SURYADEV backend to enable evidence audit');
+        }
+        auditTarget.replaceChildren();
+        const captions = audit.caption_extraction || [];
+        const observed = audit.browser_observations || [];
+        addLine(auditTarget, captions.length + ' caption jobs · ' + observed.length +
+          ' browser observation jobs · Independent Rishi verification not established', true);
+        if (!captions.length && !observed.length) {
+          addLine(auditTarget, 'No measured YouTube learning found in this local data directory yet.');
+          return;
+        }
+        const section = title => {
+          const h = document.createElement('h4');
+          h.textContent = title;
+          auditTarget.append(h);
+        };
+        section('Caption extraction · NO video playback claimed');
+        for (const item of captions.slice(0,12)) {
+          const card = document.createElement('article');
+          card.className = 'video-review-job';
+          addLine(card, '#' + item.job_id + ' · ' + (item.title || item.url) + ' · ' + item.status, true);
+          addLine(card, 'Actual wall time: collection ' + durationText(item.acquisition_wall_seconds) +
+            ' · analysis ' + durationText(item.analysis_wall_seconds) +
+            ' · total ' + durationText(item.total_wall_seconds));
+          addLine(card, 'Video duration: ' + durationText(item.video_duration_seconds) +
+            ' · timed caption cues: ' + (item.caption_cues ?? 'unknown') +
+            ' · last cue: ' + durationText(item.last_caption_seconds) +
+            ' · missing-caption gaps: ' + item.long_caption_gaps);
+          addLine(card, 'Analysis: ' + (item.analysis_method || 'not available') +
+            ' · chunks summarized: ' + (item.chunks_summarized ?? '?') +
+            '/' + (item.chunks_total ?? '?'));
+          addLine(card, 'What text says (not verified learning): ' +
+            (item.what_extracted_or_summarized || item.error || 'No saved finding yet'));
+          addLine(card, 'Video footage watched: NO · BRAHMAGYAN exam verified: NO');
+          auditTarget.append(card);
+        }
+        section('Browser playback observation · completeness UNVERIFIED');
+        for (const item of observed.slice(0,12)) {
+          const card = document.createElement('article');
+          card.className = 'video-review-job';
+          addLine(card, item.job_id + ' · ' + (item.title || item.url) + ' · ' + item.status, true);
+          addLine(card, 'Actual wall time: ' + durationText(item.wall_clock_seconds) +
+            ' · last video position: ' + durationText(item.last_playback_position_seconds) +
+            ' / ' + durationText(item.source_duration_seconds) +
+            ' · ended: ' + (item.video_ended ? 'yes' : 'not verified'));
+          addLine(card, 'Captured: ' + (item.captured_caption_lines ?? '?') +
+            ' caption/ASR lines · ' + item.learning_candidate_chunks +
+            ' candidate topic chunks · ' + item.visual_frame_samples +
+            ' selected frame samples');
+          addLine(card, 'Recorded source: ' + item.caption_or_asr_source +
+            ' · high-speed 4x observed: ' + (item.four_x_observed ? 'yes' : 'no') +
+            ' · KRISHNA receipt: ' + (item.receipt_recorded ? 'recorded; independently unverified' :
+              item.awaiting_server_ack ? 'pending' : 'not recorded'));
+          for (const chunk of item.what_was_collected || []) {
+            addLine(card, 'Candidate topic ' + (chunk.topic || 'unclassified') +
+              ' [' + durationText(chunk.start_seconds) + '–' +
+              durationText(chunk.end_seconds) + ']: ' + chunk.candidate_text);
+          }
+          addLine(card, 'Full audio/visual understanding: NOT VERIFIED · Rishi exam: NOT VERIFIED');
+          auditTarget.append(card);
+        }
+      } catch (err) {
+        auditTarget.textContent = 'YouTube learning audit unavailable: ' + (err.message || err);
+      }
+    }
+    el('youtube-audit-refresh').addEventListener('click', refreshAudit);
+    setInterval(refreshAudit, 15000);
+
     el('video-auto-approve').addEventListener('click', async () => {
       const btn = el('video-auto-approve');
       btn.disabled = true;
@@ -159,5 +245,6 @@
     });
     el('video-review-refresh').addEventListener('click', refresh);
     refresh();
+    refreshAudit();
   });
 })();
