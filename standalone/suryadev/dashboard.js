@@ -109,7 +109,7 @@ function renderLive(data) {
 }
 async function pollLive() {
   try {
-    const response = await fetch("/api/live", {cache:"no-store"});
+    const response = await window.suryadevRead("/api/live", {cache:"no-store"});
     if (!response.ok) throw new Error("HTTP " + response.status);
     renderLive(await response.json());
     $("connection").textContent = "Online · local service";
@@ -143,7 +143,7 @@ async function loadTasks() {
   const p = new URLSearchParams({offset: String(app.offset), limit: String(app.limit),
       q: app.taskQuery, kind: app.kind, status: app.status, date: app.selectedDay});
   try {
-    const response = await fetch("/api/tasks?" + p.toString(), {cache:"no-store"});
+    const response = await window.suryadevRead("/api/tasks?" + p.toString(), {cache:"no-store"});
     if (!response.ok) throw new Error("HTTP " + response.status);
     const data = await response.json();
     const key = JSON.stringify(data);
@@ -310,7 +310,7 @@ function renderDetail(task) {
 }
 async function fetchDetail(id) {
   try {
-    const response = await fetch("/api/tasks/" + encodeURIComponent(id), {cache:"no-store"});
+    const response = await window.suryadevRead("/api/tasks/" + encodeURIComponent(id), {cache:"no-store"});
     if (!response.ok) throw new Error("HTTP " + response.status);
     const task = await response.json();
     if (app.taskId === id && $("task-dialog").open) {
@@ -394,8 +394,8 @@ async function loadDiaryDay(day) {
   const report = $("diary-report");
   try {
     const [statsResponse, tasksResponse] = await Promise.all([
-      fetch("/api/diary?date=" + encodeURIComponent(day), {cache:"no-store"}),
-      fetch("/api/tasks?date=" + encodeURIComponent(day) + "&limit=10", {cache:"no-store"})
+      window.suryadevRead("/api/diary?date=" + encodeURIComponent(day), {cache:"no-store"}),
+      window.suryadevRead("/api/tasks?date=" + encodeURIComponent(day) + "&limit=10", {cache:"no-store"})
     ]);
     if (!statsResponse.ok || !tasksResponse.ok) throw new Error("Daily activity is temporarily unavailable");
     const stats = await statsResponse.json();
@@ -506,7 +506,7 @@ function renderOperations(data) {
 }
 async function pollOperations() {
   try {
-    const response = await fetch("/api/operations", {cache:"no-store"});
+    const response = await window.suryadevRead("/api/operations", {cache:"no-store"});
     if (!response.ok) throw new Error("HTTP " + response.status);
     renderOperations(await response.json());
   } catch (e) {
