@@ -54,6 +54,12 @@ def validate_job(job, plan_path):
     limits = job.get("constraints") or {}
     if not isinstance(limits, dict):
         raise ValueError("Constraints must be an object")
+    if "adaptive_playback" in limits and not isinstance(limits["adaptive_playback"], bool):
+        raise ValueError("adaptive_playback must be true or false")
+    if "capture_terms" in limits and (not isinstance(limits["capture_terms"], list)
+            or len(limits["capture_terms"]) > 80
+            or any(not isinstance(t, str) or len(t) > 100 for t in limits["capture_terms"])):
+        raise ValueError("capture_terms must be a list of up to 80 short important terms")
     duration = limits.get("duration_seconds", 60)
     if isinstance(duration, bool) or not isinstance(duration, (float, int)) or not 1 <= duration <= 3600:
         raise ValueError("Supervised observations are limited to 1-3600 seconds")
@@ -127,8 +133,27 @@ class VideoReview:
                                      "QUEUED_FOR_REVIEW", "FAILED", "EVIDENCE_REQUIRED", "ADAPTER_REQUIRED")})
                 except (OSError, ValueError, KeyError, TypeError):
                     continue
+        playback = None
+        if active and JOB_ID.fullmatch(active):
+            # Verified readback of actual HTML video playback rate, not guessed speed.
+            speed_file = self.root / "runtime" / "jobs" / active / "playback-speed.json"
+            if speed_file.is_file() and not speed_file.is_symlink() and speed_file.stat().st_size <= 8192:
+                try:
+                    reading = json.loads(speed_file.read_text(encoding="utf-8"))
+                    if (reading.get("schema") == "krishna.suryadev.playback-speed.v1"
+                            and reading.get("job_id") == active):
+                        playback = {
+                            "observed_rate": reading.get("observed_rate"),
+                            "requested_rate": reading.get("requested_rate"),
+                            "category": reading.get("category"),
+                            "video_seconds": reading.get("video_seconds"),
+                            "coverage_verified": False,
+                        }
+                except (OSError, ValueError, TypeError):
+                    playback = None
         return {"active_job": active, "last_error": error, "jobs": jobs,
-                "policy": "One approved job; no automatic Core transfer or knowledge promotion",
+                "playback": playback,
+                "policy": "Adaptive 1x/1.5x/2x/4x with conservative caption heuristics; audiovisual coverage unverified",
                 "runtime_ready": self.worker_script.is_file() and self.adapter_script.is_file()}
 
     def snapshot_unlocked_jobs(self):
