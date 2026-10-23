@@ -173,8 +173,11 @@ def serve(lib, port=8769):
                                      "has_book_core_candidate_handoff": True,
                                      "has_read_only_book_dashboard": True,
                                      "has_books_in_garudanetra": True,
-                                     "has_books_in_source_coverage": True,
-                                     "has_books_in_laptop_health": True}),
+                                     "has_books_in_source_coverage": False,
+                                     "has_books_in_laptop_health": False,
+                                     "has_single_date_filter": True,
+                                     "has_static_video_review": True,
+                                     "has_unified_frontend": True}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
