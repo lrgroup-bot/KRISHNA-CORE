@@ -11,6 +11,7 @@
     section.innerHTML = `
       <div class="section-heading compact"><div><div class="overline">SUPERVISED OBSERVATION</div>
       <h2>Browser video review</h2></div></div>
+      <p>Adaptive speed: <strong>1×</strong> important technical/safety material, <strong>1.5×</strong> explanations, <strong>2×</strong> ordinary talk, <strong>4×</strong> confirmed small talk only. Reverts to 1× when captions stop or audio-only transcription is used. High-speed audiovisual coverage is not certified.</p>
       <p>KRISHNA-approved jobs only. Browser observation stays local until separately verified KRISHNA evidence acceptance. No background recording starts here.</p>
       <label for="video-review-json">KRISHNA video_research job JSON</label>
       <textarea id="video-review-json" rows="5" spellcheck="false" placeholder='{"schema":"krishna.suryadev.job.v1","job_id":"lesson-01","kind":"video_research","target":"https://...","constraints":{"duration_seconds":60}}'></textarea>
@@ -57,6 +58,16 @@
           (data.runtime_ready ? ' · Observer source installed; device prerequisites unverified' : ' · Worker installation required') +
           (data.last_error ? ' · Last error: ' + data.last_error : '');
         list.append(status);
+        if (data.playback) {
+          const current = document.createElement('p');
+          const rate = data.playback.observed_rate;
+          current.textContent = 'Measured playback: ' +
+            (rate == null ? 'unavailable' : String(rate) + '×') +
+            ' · Mode: ' + String(data.playback.category || 'unknown') +
+            ' · Video timestamp: ' + String(data.playback.video_seconds ?? '?') +
+            's · Completeness: unverified';
+          list.append(current);
+        }
         for (const job of data.jobs || []) {
           const card = document.createElement('article');
           card.className = 'video-review-job';
