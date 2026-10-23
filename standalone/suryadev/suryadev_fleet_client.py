@@ -11,7 +11,7 @@ import platform
 from pathlib import Path
 import time
 
-from suryadev_feeder import read_plan
+from suryadev_feeder import read_plan, paired_core_source_allowed
 from suryadev_krishna_mission import load_config, post_core
 from suryadev_liveops import atomic_json, _safe_read
 from suryadev_resources import snapshot, hardware_identity
@@ -180,8 +180,9 @@ class FleetClient:
                 or not isinstance(lease, str) or len(lease)!=32):
             raise ValueError("Untrusted Core fleet task response")
         plan = read_plan(self.plan_path)
-        # The local owner's exact approved URLs are authoritative, not Core.
-        if url not in plan["approved_urls"]:
+        # KRISHNA may select URLs only inside the owner-approved exact list
+        # or the separately enabled paired-Core host delegation.
+        if not paired_core_source_allowed(url, plan):
             self._send("fleet/complete", {"task_id": tid, "lease_id": lease,
                     "outcome": "rejected", "detail": "not exact owner-approved local URL"})
             return {"state": "locally_rejected_unapproved_url", "task_id": tid}
