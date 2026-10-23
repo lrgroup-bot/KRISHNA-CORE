@@ -7,6 +7,7 @@
     // Do not inject a second panel or duplicate navigation entry.
     if (!document.getElementById('video-review')) return;
     const el = id => document.getElementById(id);
+    let autoEnabled = false;
     let csrf = null;
     const setStatus = value => { el('video-review-status').textContent = String(value); };
     const post = async (url, body) => {
@@ -28,6 +29,15 @@
         const response = await window.suryadevRead('/api/video/review', {cache: 'no-store'});
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Read failed');
+        autoEnabled = data.auto_enabled === true;
+        const autoToggle = el('video-auto-toggle');
+        autoToggle.disabled = false;
+        autoToggle.textContent = autoEnabled ? 'Disable automatic video' : 'Enable automatic video';
+        el('video-auto-state').textContent = autoEnabled
+          ? 'Auto video: ' + (data.auto_status || 'enabled') +
+              (data.auto_error ? ' · ' + data.auto_error : '') +
+              (data.auto_status === 'waiting_for_research_worker' ? ' · Waits for the other learning worker to stop.' : '')
+          : 'Auto video is off. Enable it to process previously approved YouTube URLs without per-video review.';
         const list = el('video-review-list');
         list.replaceChildren();
         const status = document.createElement('p');
@@ -77,6 +87,19 @@
         if (!data.jobs?.length) list.append(document.createTextNode('No imported video jobs.'));
       } catch (err) { setStatus('Video review unavailable: ' + err.message); }
     };
+    el('video-auto-toggle').addEventListener('click', async () => {
+      const button = el('video-auto-toggle');
+      button.disabled = true;
+      try {
+        const outcome = await post('/api/operator/video/auto', {enabled: !autoEnabled});
+        el('video-auto-state').textContent = outcome.auto_enabled
+          ? 'Automatic approved-video observations enabled.'
+          : 'Automatic video observations disabled.';
+      } catch (err) {
+        el('video-auto-state').textContent = 'Video automation: ' + (err.message || err);
+      }
+      await refresh();
+    });
     el('video-review-import').addEventListener('click', async () => {
       try {
         const advanced = el('video-review-json').value.trim();
