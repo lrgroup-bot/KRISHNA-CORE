@@ -45,7 +45,7 @@ class AdaptiveVideoSpeedTests(unittest.TestCase):
         self.assertEqual(p.choose("Like and subscribe to the channel",
                                   video_seconds=3, caption_available=True), (4.0, "chatter"))
         self.assertEqual(p.choose("This is an important Python 3.12 example",
-                                  video_seconds=4, caption_available=True), ("important", 1.0))
+                                  video_seconds=4, caption_available=True), (1.0, "important"))
         self.assertEqual(p.chatter_streak, 0)
 
     def test_chatter_with_technical_keywords_stays_important(self):
