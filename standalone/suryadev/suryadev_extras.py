@@ -11,11 +11,12 @@ import hashlib
 import html
 import json
 import secrets
+import sqlite3
 from pathlib import Path
 import re
 import threading
 import time
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlsplit, quote
 
 from suryadev import Library, summarize
 from suryadev_resources import snapshot, admission
@@ -104,6 +105,25 @@ def _send_http_response(handler, status, mime, body):
     except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
         return False
     return True
+
+
+class DashboardReader:
+    """Read-only dashboard view, no schema migrations or write locks per poll.
+
+    The owning Library creates/migrates the DB before serve() starts. This
+    connection NEVER changes journal mode or initializes tables.
+    """
+    def __init__(self, root):
+        dbfile = Path(root).expanduser().resolve() / "suryadev.sqlite3"
+        if not dbfile.is_file():
+            raise FileNotFoundError("SURYADEV database is not initialized")
+        uri = "file:" + quote(dbfile.as_posix(), safe="/:") + "?mode=ro"
+        self.db = sqlite3.connect(uri, uri=True, timeout=10)
+        self.db.execute("PRAGMA query_only=ON")
+        self.db.execute("PRAGMA busy_timeout=10000")
+
+    def stats(self):
+        return dict(self.db.execute("SELECT status,count(*) FROM jobs GROUP BY status").fetchall())
 
 
 def serve(lib, port=8769):
@@ -214,7 +234,7 @@ def serve(lib, port=8769):
                     reader.close()
                 return self.respond(200,json.dumps(payload),"application/json")
             if route.path == "/api/operations":
-                reader = Library(lib.root)
+                reader = DashboardReader(lib.root)
                 try:
                     payload = operations_snapshot(reader.db, lib.root)
                 finally:
@@ -223,7 +243,7 @@ def serve(lib, port=8769):
             if route.path == "/api/diary":
                 args = parse_qs(route.query)
                 try:
-                    reader = Library(lib.root)
+                    reader = DashboardReader(lib.root)
                     try:
                         day_value = args.get("date", [""])[0]
                         payload = diary_day(reader.db, day_value) if day_value else {
@@ -236,7 +256,7 @@ def serve(lib, port=8769):
             if route.path == "/api/tasks":
                 args = parse_qs(route.query)
                 try:
-                    reader = Library(lib.root)
+                    reader = DashboardReader(lib.root)
                     try:
                         payload = list_tasks(
                             reader.db, offset=int(args.get("offset", ["0"])[0]),
@@ -254,7 +274,7 @@ def serve(lib, port=8769):
                 part = route.path[len("/api/tasks/"):]
                 if not part.isascii() or not part.isdecimal() or len(part) > 12:
                     return self.respond(400, json.dumps({"error": "Invalid task ID"}), "application/json")
-                reader = Library(lib.root)
+                reader = DashboardReader(lib.root)
                 try:
                     payload = task_detail(reader.db, lib.root, int(part))
                 finally:
@@ -263,7 +283,7 @@ def serve(lib, port=8769):
                     return self.respond(404, json.dumps({"error": "Task not found"}), "application/json")
                 return self.respond(200, json.dumps(payload), "application/json")
             if route.path == "/api/live":
-                reader = Library(lib.root)
+                reader = DashboardReader(lib.root)
                 try:
                     status = reader.stats()
                     sources = breakdown(reader.db)
@@ -291,7 +311,7 @@ def serve(lib, port=8769):
             if route.path == "/api/resources":
                 return self.respond(200, json.dumps(snapshot(lib.root)), "application/json")
             if route.path == "/health":
-                reader = Library(lib.root)
+                reader = DashboardReader(lib.root)
                 try:
                     status = reader.stats()
                 finally:
@@ -300,7 +320,7 @@ def serve(lib, port=8769):
             if route.path != "/":
                 return self.respond(404, "Not found", "text/plain")
             term = parse_qs(route.query).get("q", [""])[0][:200]
-            reader = Library(lib.root)
+            reader = DashboardReader(lib.root)
             try:
                 counts = reader.stats()
                 by_source = breakdown(reader.db)
