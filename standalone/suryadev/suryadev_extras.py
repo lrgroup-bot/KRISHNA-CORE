@@ -189,7 +189,7 @@ def serve(lib, port=8769):
                               "/dashboard-garudanetra.css", "/dashboard-garudanetra.js",
                               "/dashboard-books.css", "/dashboard-books.js",
                               "/dashboard-video.css", "/dashboard-video.js",
-                              "/dashboard-api.js"):
+                              "/dashboard-api.js", "/dashboard-learning.js"):
                 filename = {"/": "dashboard.html", "/dashboard.css": "dashboard.css",
                             "/dashboard.js": "dashboard.js",
                             "/dashboard-settings.css": "dashboard-settings.css",
@@ -200,7 +200,8 @@ def serve(lib, port=8769):
                             "/dashboard-books.js": "dashboard-books.js",
                             "/dashboard-video.css": "dashboard-video.css",
                             "/dashboard-video.js": "dashboard-video.js",
-                            "/dashboard-api.js": "dashboard-api.js"}[route.path]
+                            "/dashboard-api.js": "dashboard-api.js",
+                            "/dashboard-learning.js": "dashboard-learning.js"}[route.path]
                 content = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
                 mime = "text/html; charset=utf-8" if route.path == "/" else (
                     "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
