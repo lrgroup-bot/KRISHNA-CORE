@@ -133,6 +133,7 @@ def serve(lib, port=8769):
     settings_lock = threading.Lock()
     video_review = VideoReview(lib.root, Path(__file__).resolve().parent)
     worker_control = DashboardWorkerControl(lib.root, Path(__file__).resolve().parent)
+    video_review.start_auto_scheduler(worker_control)
     class Handler(BaseHTTPRequestHandler):
         def respond(self, status, content, mime="text/html; charset=utf-8"):
             return _send_http_response(self, status, mime, content.encode("utf-8"))
@@ -438,6 +439,8 @@ def serve(lib, port=8769):
                         outcome = worker_control.start(model=body.get("model", "qwen3.5:2b"))
                     elif route.path == "/api/operator/learning/stop":
                         outcome = worker_control.stop()
+                    elif route.path == "/api/operator/video/auto":
+                        outcome = video_review.set_auto(body.get("enabled"))
                     elif route.path == "/api/operator/video/import":
                         outcome = video_review.import_job(body.get("job"))
                     elif route.path == "/api/operator/video/run":
@@ -466,6 +469,7 @@ def serve(lib, port=8769):
     try:
         server.serve_forever()
     finally:
+        video_review.stop_auto_scheduler()
         worker_control.close()
         server.server_close()
 
