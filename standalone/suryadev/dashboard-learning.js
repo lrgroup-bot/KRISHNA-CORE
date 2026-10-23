@@ -7,7 +7,8 @@
     const el = id => document.getElementById(id);
     const start = el("learning-start");
     const stop = el("learning-stop");
-    if (!start || !stop) return;
+    const sources = el("learning-enable-sources");
+    if (!start || !stop || !sources) return;
     const state = el("learning-service-state");
     const note = el("learning-service-note");
     const responseText = el("learning-action-status");
@@ -57,18 +58,20 @@
               : "No learning plan yet. Start processes existing queued tasks; add approved sources for automatic replenishment.";
         el("activity-short-state").textContent = running ? "Worker active" : manual ? "External worker" : "Paused";
         start.disabled = !d.can_start || operation;
+        sources.disabled = Boolean(d.plan_exists) || operation;
+        sources.textContent = d.plan_exists ? "Research sources enabled" : "Enable research sources";
         stop.disabled = !running || operation;
         model.disabled = running || manual || operation;
       } catch (err) {
         state.textContent = "Worker control unavailable";
         note.textContent = "Cannot read worker status: " + String(err.message || err) +
           ". Check /api/learning/control and restart the updated dashboard if needed.";
-        start.disabled = true; stop.disabled = true;
+        start.disabled = true; stop.disabled = true; sources.disabled = true;
       }
     }
     async function execute(path, data) {
       operation = true;
-      start.disabled = true; stop.disabled = true;
+      start.disabled = true; stop.disabled = true; sources.disabled = true;
       try {
         const result = await post(path, data);
         responseText.textContent = result.note || result.status || "Operation accepted";
@@ -79,6 +82,7 @@
         await refresh();
       }
     }
+    sources.addEventListener("click", () => execute("/api/operator/learning/activate-sources", {}));
     start.addEventListener("click", () => execute("/api/operator/learning/start", {model:model.value}));
     stop.addEventListener("click", () => execute("/api/operator/learning/stop", {}));
     refresh();
