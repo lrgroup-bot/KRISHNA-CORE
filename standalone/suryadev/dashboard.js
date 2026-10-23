@@ -43,52 +43,8 @@ function renderLive(data) {
                     "  ·  Failed " + format(values.failed), "detail"));
     source.append(card);
   }
-  // Books are stored in a separate ledger and are not counted as web/PDF jobs.
-  const books = data.book_learning || {};
-  const bookCard = textNode("div", "", "source-card books");
-  bookCard.append(
-    textNode("div", "▧ Books · local reading", "type"),
-    textNode("strong", format(books.indexed)),
-    textNode("div", "Approved " + format(books.approved) +
-      " · Pending " + format(books.pending) +
-      " · Reading " + format(books.reading) +
-      " · Complete " + format(books.completed) +
-      " · Errors " + format(books.failed), "detail"),
-    textNode("div", "Indexed source lines " + format(books.lines_total) +
-      " · Ollama processed " + format(books.lines_processed) +
-      " · Visuals " + format(books.visual_items_examined) +
-      " · Core candidate receipts " +
-      format(books.brahmagyan_candidate_receipts), "detail")
-  );
-  if (books.error || books.plan_error) bookCard.append(
-    textNode("div", books.error || books.plan_error, "detail"));
-  source.append(bookCard);
-  const bookHealth = $("book-health");
-  if (bookHealth) {
-    const activity = books.activity || {};
-    const current = activity.active
-      ? (activity.state === "book_visual_in_progress"
-         ? "Examining book figures/pages"
-         : "Reading book lines with local Ollama") +
-        (activity.title ? " · " + activity.title : "")
-      : books.indexed ? "No live book generation reported" :
-        "No books indexed in the production data folder";
-    const seconds = Number(books.model_seconds || 0);
-    const average = Number(books.lines_processed || 0) > 0
-      ? " · Avg " + (seconds / books.lines_processed).toFixed(1) + " s/line"
-      : "";
-    bookHealth.replaceChildren(
-      textNode("strong", "▧ Book learning · " + current),
-      textNode("span", format(books.lines_processed) + " / " +
-        format(books.lines_total) + " lines model-processed · " +
-        format(books.visual_items_examined) + " images/pages observed · " +
-        seconds.toFixed(1) + "s recorded model time" + average),
-      textNode("small", format(books.approved) + " owner-approved · " +
-        format(books.indexed) + " indexed · " +
-        format(books.brahmagyan_candidate_receipts) +
-        " BRAHMAGYAN candidate receipts · factual verification pending")
-    );
-  }
+  // Book progress has one canonical detailed home in the Garudanetra
+  // learning workspace; do not duplicate it in source and hardware cards.
   const gauges = $("gauges"); gauges.replaceChildren();
   const r = data.resources || {};
   if (r.available) {
@@ -178,9 +134,7 @@ function filterChanged() {
   app.taskQuery = $("task-search").value.trim();
   app.status = $("status-filter").value;
   app.kind = $("kind-filter").value;
-  const newDay = $("task-date").value;
-  if (newDay !== app.selectedDay) selectDay(newDay, {scrollToReport:false});
-  else loadTasks();
+  loadTasks();
 }
 function detailField(name, value) {
   const box = textNode("div", "");
@@ -368,10 +322,7 @@ function renderDiaryTiles() {
 async function selectDay(day, {scrollToReport=false}={}) {
   if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
   app.selectedDay = day;
-  $("diary-date").value = day;
-  $("task-date").value = day;
   $("date-main").value = day;
-  $("clear-date").hidden = !day;
   $("date-selected-label").textContent = day ? "Selected learning date: " + day : "Showing all recorded dates";
   $("date-selected-count").textContent = day
       ? "Loading assignments and findings for this date…"
@@ -539,12 +490,14 @@ function shiftDate(delta) {
 }
 $("date-previous-main").addEventListener("click", () => shiftDate(-1));
 $("date-next-main").addEventListener("click", () => shiftDate(1));
-$("diary-date").addEventListener("change", () => selectDay($("diary-date").value, {scrollToReport:false}));
-$("task-date").addEventListener("change", filterChanged);
-$("diary-today").addEventListener("click", () => selectDay(localToday(), {scrollToReport:false}));
-$("diary-clear").addEventListener("click", () => selectDay("", {scrollToReport:false}));
-$("clear-date").addEventListener("click", () => selectDay("", {scrollToReport:false}));
+
+
 clockTick();setInterval(clockTick, 1000);
+window.suryadevRead("/api/ui-version").then(r => r.ok ? r.json() : null)
+  .then(data => {
+    const version = document.getElementById("ui-version");
+    if (version && data && data.version) version.textContent = "SURYADEV · " + data.version;
+  }).catch(() => {});
 pollLive();pollOperations();loadTasks();
 setInterval(pollLive, 5000);
 setInterval(pollOperations, 5000);
