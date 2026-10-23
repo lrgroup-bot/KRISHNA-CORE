@@ -515,6 +515,12 @@ def work_loop(lib, interval, use_ollama, model, *,
         raise ValueError("fleet mode requires a pinned paired --core-mission-config")
     if core_mission_config and not plan_path:
         raise ValueError("Core mission relay requires an explicit approved --plan")
+    # An existing owner-approved plan is a durable permission grant:
+    # workers need not be relaunched with --plan after every restart.
+    if plan_path is None and core_mission_config is None:
+        candidate = Path(lib.root)/"learning-plan.json"
+        if candidate.is_file():
+            plan_path=str(candidate)
     feeder = (ContinuityFeeder(lib.root, plan_path,
                refill_seconds=refill_minutes * 60) if plan_path else None)
     relay = (MissionRelay(lib.root, plan_path, core_mission_config)
@@ -537,8 +543,48 @@ def work_loop(lib, interval, use_ollama, model, *,
     try:
         with AdaptiveResearchWorkers(lib.root, use_ollama=use_ollama,
                                      model=model, check_seconds=interval) as adaptive:
+            next_configuration_probe = 0.0
             while True:
-                if feeder:
+                # Hot-attach an already approved source plan and a one-time
+                # paired Core device credential to THIS EXISTING worker.
+                # Never create another scheduler/process or automatically
+                # approve a new host. Idle external workers can adopt the
+                # plan without a manual stop/restart.
+                if time.monotonic() >= next_configuration_probe:
+                    next_configuration_probe = time.monotonic() + 30
+                    if feeder is None and core_mission_config is None:
+                        candidate=Path(lib.root)/"learning-plan.json"
+                        if candidate.is_file():
+                            try:
+                                feeder=ContinuityFeeder(
+                                    lib.root,candidate,refill_seconds=refill_minutes*60)
+                                plan_path=str(candidate)
+                                print('SURYADEV approved plan detected; local source continuity active.',flush=True)
+                            except (OSError, ValueError) as exc:
+                                print('SURYADEV source plan not ready: '+type(exc).__name__,flush=True)
+                    if fleet is None and relay is None and core_mission_config is None and feeder is not None:
+                        cfg=Path(lib.root)/"core-mission-connection.json"
+                        if cfg.is_file():
+                            try:
+                                from suryadev_krishna_mission import load_config
+                                core=load_config(cfg)
+                                if not core["device_id"].startswith("suryadev-"):
+                                    raise ValueError("Invalid Core paired device prefix")
+                                fleet=FleetClient(lib.root,plan_path,cfg)
+                                print('SURYADEV KRISHNA fleet channel configured; verified Core reply pending.',flush=True)
+                            except (OSError,ValueError,RuntimeError) as exc:
+                                print('SURYADEV KRISHNA fleet not ready: '+type(exc).__name__,flush=True)
+                # Prefer genuinely leased KRISHNA tasks. Use approved local
+                # feeds as fallback when the paired Core has no work or is
+                # offline, not as the primary dispatcher.
+                fleet_event = None
+                if fleet:
+                    fleet_event=fleet.tick(lib)
+                    if fleet_event and fleet_event.get("state") != "no_approved_work":
+                        print(json.dumps({"fleet":fleet_event},ensure_ascii=False),flush=True)
+                fallback_ok=(not fleet or (fleet_event is not None and
+                    fleet_event.get("state") in ("no_approved_work","offline_retry")))
+                if feeder and fallback_ok:
                     result = feeder.tick(lib, youtube_blocked=(
                         adaptive.youtube_access["state"] == "rate_limited"))
                     if result is not None:
@@ -555,10 +601,6 @@ def work_loop(lib, interval, use_ollama, model, *,
                         result = relay.tick(lib, renewal)
                         if result is not None:
                             print(json.dumps({"krishna_mission":result}, ensure_ascii=False), flush=True)
-                if fleet:
-                    fleet_event = fleet.tick(lib)
-                    if fleet_event and fleet_event.get("state") != "no_approved_work":
-                        print(json.dumps({"fleet": fleet_event}, ensure_ascii=False), flush=True)
                 if books:
                     # Low-priority background books never compete with queued
                     # web/PDF/YouTube jobs or bypass one-worker ownership.
@@ -594,7 +636,7 @@ def work_loop(lib, interval, use_ollama, model, *,
                 # One worker can both discover approved sources and process them;
                 # no second feeder process or duplicate worker is required.
                 wait = 2 if update["capacity"]["active_total"] else interval
-                if feeder:
+                if feeder and feeder.next_due:
                     wait = min(wait, max(0.1, feeder.next_due - time.time()))
                 time.sleep(wait)
     finally:
