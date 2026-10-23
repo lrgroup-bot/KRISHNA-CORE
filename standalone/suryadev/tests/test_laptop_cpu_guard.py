@@ -79,7 +79,7 @@ class OneJobProfileTests(unittest.TestCase):
                     outcome=workers.pump(telemetry=reading)
                     self.assertFalse(outcome["capacity"]["safe"])
                     self.assertEqual(outcome["capacity"]["max_total"],0)
-                    self.assertEqual(outcome["launched"],[])
+                    self.assertEqual(outcome["capacity"]["launched_this_cycle"],[])
 
 
 if __name__=="__main__":
