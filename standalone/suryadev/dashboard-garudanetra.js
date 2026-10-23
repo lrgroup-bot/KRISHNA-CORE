@@ -246,7 +246,7 @@
   }
   async function poll() {
     try {
-      const response = await fetch("/api/operations", {cache:"no-store"});
+      const response = await window.suryadevRead("/api/operations", {cache:"no-store"});
       if (!response.ok) throw new Error("HTTP " + response.status);
       refresh(await response.json());
     } catch (_err) {
