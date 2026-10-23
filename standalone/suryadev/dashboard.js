@@ -459,8 +459,12 @@ async function pollOperations() {
   try {
     const response = await window.suryadevRead("/api/operations", {cache:"no-store"});
     if (!response.ok) throw new Error("HTTP " + response.status);
-    renderOperations(await response.json());
+    const operations = await response.json();
+    renderOperations(operations);
+    // One request supplies both the mission pulse and Garudanetra workspace.
+    document.dispatchEvent(new CustomEvent("suryadev:operations", {detail: operations}));
   } catch (e) {
+    document.dispatchEvent(new CustomEvent("suryadev:operations-error"));
     $("worker-state-label").textContent = "Worker telemetry unavailable";
     for (const key of ["krishna","brahmagyan","rishi"]) {
       $(key+"-led").className = "led";
