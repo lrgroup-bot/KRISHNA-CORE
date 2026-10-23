@@ -87,6 +87,40 @@ class DashboardAutomationTests(unittest.TestCase):
         self.assertEqual(v.set_auto(False)["auto_enabled"],False)
         self.assertFalse(v.auto_enabled())
 
+    def test_approved_video_source_is_persisted_once_without_launch(self):
+        url="https://www.youtube.com/watch?v=mgBpcQRDtl0"
+        review=VideoReview(self.root,self.folder)
+        state=review.approve_source(url)
+        self.assertEqual(state["status"],"approved")
+        self.assertFalse(review.auto_enabled())
+        saved=json.loads((self.root/"learning-plan.json").read_text(encoding="utf-8"))
+        self.assertEqual(saved["approved_urls"],[url])
+        self.assertIn("www.youtube.com",saved["allowed_source_hosts"])
+        self.assertEqual(review.approve_source(url)["status"],"already_approved")
+        self.assertEqual(len(list(self.root.glob("learning-plan.before-video-*.json"))),0)
+        self.assertFalse((self.root/"video-review"/"approved-inbox").exists())
+
+    def test_video_approval_preserves_original_plan_and_backup(self):
+        url="https://www.youtube.com/watch?v=mgBpcQRDtl0"
+        existing="https://www.python.org/about/"
+        plan(self.root,[existing])
+        review=VideoReview(self.root,self.folder)
+        review.approve_source(url)
+        updated=json.loads((self.root/"learning-plan.json").read_text(encoding="utf-8"))
+        self.assertEqual(updated["approved_urls"],[existing,url])
+        backups=list(self.root.glob("learning-plan.before-video-*.json"))
+        self.assertEqual(len(backups),1)
+        original=json.loads(backups[0].read_text(encoding="utf-8"))
+        self.assertEqual(original["approved_urls"],[existing])
+        for invalid in ("https://127.0.0.1/watch?v=x",
+                        "http://www.youtube.com/watch?v=x",
+                        "https://www.youtube.com/"):
+            with self.subTest(url=invalid):
+                with self.assertRaises(ValueError):
+                    review.approve_source(invalid)
+        self.assertEqual(json.loads((self.root/"learning-plan.json").read_text(
+            encoding="utf-8"))["approved_urls"],[existing,url])
+
     def test_video_auto_rejects_missing_approval_and_starts_no_work(self):
         v=VideoReview(self.root,self.folder)
         with self.assertRaises((ValueError,OSError)):
