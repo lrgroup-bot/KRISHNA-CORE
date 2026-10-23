@@ -56,6 +56,11 @@ class UnifiedFrontendContractTests(unittest.TestCase):
         self.assertNotIn("bookHealth.replaceChildren", base)
         self.assertIn('window.suryadevRead("/api/live"', base)
         self.assertIn('window.suryadevRead("/api/tasks?"', base)
+        netra = (ROOT/"dashboard-garudanetra.js").read_text(encoding="utf-8")
+        self.assertEqual(base.count('window.suryadevRead("/api/operations"'), 1)
+        self.assertNotIn('window.suryadevRead("/api/operations"', netra)
+        self.assertIn('new CustomEvent("suryadev:operations"', base)
+        self.assertIn('addEventListener("suryadev:operations"', netra)
 
     def test_all_frontend_api_calls_share_read_only_retry_helper(self):
         api = (ROOT/"dashboard-api.js").read_text(encoding="utf-8")
