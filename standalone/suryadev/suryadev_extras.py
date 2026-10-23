@@ -136,7 +136,6 @@ def serve(lib, port=8769):
     settings_lock = threading.Lock()
     video_review = VideoReview(lib.root, Path(__file__).resolve().parent)
     worker_control = DashboardWorkerControl(lib.root, Path(__file__).resolve().parent)
-    video_review.start_auto_scheduler(worker_control)
     class Handler(BaseHTTPRequestHandler):
         def respond(self, status, content, mime="text/html; charset=utf-8"):
             return _send_http_response(self, status, mime, content.encode("utf-8"))
@@ -478,6 +477,22 @@ def serve(lib, port=8769):
 
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     server.daemon_threads = True
+    # Pairing is a one-time owner action. A validated pinned-TLS device
+    # credential and approved plan start the existing single fleet worker on
+    # dashboard boot; manual URL input or per-session Start clicks are NOT
+    # required. Never automatically pair or launch from LAN discovery alone.
+    paired = worker_control.core_pairing()
+    if paired["ready"]:
+        try:
+            outcome = worker_control.start(model="qwen3.5:2b")
+            print("SURYADEV KRISHNA fleet: "+outcome["status"]+
+                  " (authenticated Core reply pending)", flush=True)
+        except (RuntimeError, ValueError, OSError) as exc:
+            # A manual CLI worker already holding the lock is not an error or
+            # permission to kill its process. Report and reuse its telemetry.
+            print("SURYADEV KRISHNA fleet start blocked: "+
+                  type(exc).__name__+": "+str(exc)[:160], flush=True)
+    video_review.start_auto_scheduler(worker_control)
     print(f"SURYDEV dashboard: http://127.0.0.1:{port}/", flush=True)
     try:
         server.serve_forever()
