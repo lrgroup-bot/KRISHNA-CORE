@@ -39,6 +39,10 @@
         const res = await window.suryadevRead("/api/learning/control");
         if (!res.ok) throw Error("HTTP " + res.status);
         const d = await res.json();
+        if (typeof d.can_start !== "boolean" ||
+            typeof d.external_worker_active !== "boolean") {
+          throw Error("Dashboard backend is outdated; reinstall and restart SURYADEV to enable Start Learning");
+        }
         const running = Boolean(d.managed_running);
         // An old heartbeat is diagnostic history, not proof of a running worker.
         const manual = !running && Boolean(d.external_worker_active);
