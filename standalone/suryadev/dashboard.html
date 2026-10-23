@@ -27,7 +27,8 @@
       <a href="#garudanetra" class="nav-item"><span>◉</span> Live learning</a>
       <a href="#assignments" class="nav-item"><span>▣</span> Assignments</a>
       <a href="#video-review" class="nav-item"><span>▶</span> Video review</a>
-      <a href="#sources" class="nav-item"><span>◈</span> Evidence &amp; books</a>
+      <a href="#sources" class="nav-item"><span>◈</span> Evidence</a>
+      <a href="#books-evidence" class="nav-item"><span>▧</span> Books</a>
       <a href="#date-center" class="nav-item"><span>◷</span> History</a>
       <div class="settings-menu-label">CONFIGURATION</div>
       <button id="open-server-settings" type="button" class="nav-item nav-settings" aria-haspopup="dialog" aria-controls="server-settings-dialog"><span aria-hidden="true">◉</span> KRISHNA Server</button>
@@ -146,7 +147,7 @@
       </div>
       <div class="netra-tab-title">Live source and book workspaces <span id="netra-workspace-count">0</span></div>
       <div id="netra-workspace-tabs" class="netra-workspace-tabs" aria-live="polite"><div class="empty-state">No processing slots active.</div></div>
-      <div class="netra-book-ledger">
+      <div class="netra-book-ledger" id="books-evidence">
         <div class="netra-tab-title">Book reading checkpoints <span id="book-ledger-state">Checking local books…</span></div>
         <div id="book-ledger-list" class="books-grid" aria-live="polite">
           <div class="empty-state">Reading book progress…</div>
@@ -186,9 +187,26 @@
         <summary>How adaptive playback works</summary>
         <p><strong>1×</strong> critical details · <strong>1.5×</strong> explanations · <strong>2×</strong> normal talk · <strong>4×</strong> repeated casual chatter. Missing captions or audio-only fallback returns to 1×. Speed never proves complete learning.</p>
       </details>
-      <label for="video-review-json">Approved video job JSON</label>
-      <textarea id="video-review-json" rows="5" spellcheck="false" placeholder='{"schema":"krishna.suryadev.job.v1","job_id":"lesson-01","kind":"video_research","target":"https://...","constraints":{"duration_seconds":60}}'></textarea>
-      <div class="video-review-actions"><button id="video-review-import" type="button">Import job</button><button id="video-review-refresh" type="button">Refresh</button></div>
+      <div class="video-quick-add">
+        <label for="video-review-url">Video URL (must already be approved)
+          <input id="video-review-url" type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" maxlength="2048">
+        </label>
+        <label for="video-review-minutes">Observation length
+          <select id="video-review-minutes"><option value="2">2 minutes · first test</option><option value="10">10 minutes</option><option value="30">30 minutes</option><option value="60">60 minutes</option></select>
+        </label>
+        <label for="video-review-terms">Important terms (optional, comma-separated)
+          <input id="video-review-terms" type="text" maxlength="1000" placeholder="Example: voltage, code, formula" autocomplete="off">
+        </label>
+        <label class="video-adaptive-label" for="video-review-adaptive">
+          <input id="video-review-adaptive" type="checkbox" checked> Use importance-based playback (1× to 4×)
+        </label>
+      </div>
+      <details class="video-job-details">
+        <summary>Advanced: import an existing KRISHNA job JSON</summary>
+        <label for="video-review-json">Approved video job JSON (overrides the quick form when provided)</label>
+        <textarea id="video-review-json" rows="5" spellcheck="false" placeholder='{"schema":"krishna.suryadev.job.v1","job_id":"lesson-01","kind":"video_research","target":"https://...","constraints":{"duration_seconds":60}}'></textarea>
+      </details>
+      <div class="video-review-actions"><button id="video-review-import" type="button">Import for review</button><button id="video-review-refresh" type="button">Refresh jobs</button></div>
       <p class="video-review-hint">The full URL must already be approved in this test library's learning-plan.json. Review it again before running.</p>
       <p id="video-review-status" role="status" aria-live="polite"></p>
       <div id="video-review-list" aria-live="polite"></div>
