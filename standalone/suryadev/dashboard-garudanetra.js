@@ -244,18 +244,12 @@
       tabs.append(button);
     }
   }
-  async function poll() {
-    try {
-      const response = await window.suryadevRead("/api/operations", {cache:"no-store"});
-      if (!response.ok) throw new Error("HTTP " + response.status);
-      refresh(await response.json());
-    } catch (_err) {
-      el("netra-capacity-heading").textContent = "Parallel learning telemetry unavailable";
-      el("netra-capacity-reason").textContent =
-          "Cannot verify active source tabs or hardware admission until the dashboard API responds.";
-      el("netra-engine-state").textContent = "○ Offline / unknown";
-    }
-  }
-  poll();
-  setInterval(poll, 5000);
+  // Reuse the single operations request issued by dashboard.js.
+  document.addEventListener("suryadev:operations", event => refresh(event.detail));
+  document.addEventListener("suryadev:operations-error", () => {
+    el("netra-capacity-heading").textContent = "Parallel learning telemetry unavailable";
+    el("netra-capacity-reason").textContent =
+        "Cannot verify active source tabs or hardware admission until the local API responds.";
+    el("netra-engine-state").textContent = "○ Offline / unknown";
+  });
 })();
