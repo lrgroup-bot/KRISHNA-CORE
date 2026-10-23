@@ -34,11 +34,12 @@ from suryadev_operator_api import settings_snapshot, handle_operator_action
 from mimetypes import guess_type
 from suryadev_lock import worker_lock
 from suryadev_video_review import VideoReview
+from suryadev_dashboard_worker import DashboardWorkerControl
 from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-23-v7-unified-dashboard"
+UI_VERSION = "2026-10-23-v7.1-mission-first"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -131,12 +132,15 @@ def serve(lib, port=8769):
     csrf_token = secrets.token_urlsafe(32)
     settings_lock = threading.Lock()
     video_review = VideoReview(lib.root, Path(__file__).resolve().parent)
+    worker_control = DashboardWorkerControl(lib.root, Path(__file__).resolve().parent)
     class Handler(BaseHTTPRequestHandler):
         def respond(self, status, content, mime="text/html; charset=utf-8"):
             return _send_http_response(self, status, mime, content.encode("utf-8"))
 
         def do_GET(self):
             route = urlsplit(self.path)
+            if route.path == "/api/learning/control":
+                return self.respond(200, json.dumps(worker_control.snapshot()), "application/json")
             if route.path == "/api/video/review":
                 return self.respond(200, json.dumps(video_review.snapshot()), "application/json")
             if route.path == "/api/operator/settings":
@@ -177,7 +181,8 @@ def serve(lib, port=8769):
                                      "has_books_in_laptop_health": False,
                                      "has_single_date_filter": True,
                                      "has_static_video_review": True,
-                                     "has_unified_frontend": True}),
+                                     "has_unified_frontend": True,
+                                     "has_dashboard_worker_controls": True}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
@@ -428,7 +433,11 @@ def serve(lib, port=8769):
             try:
                 body = json.loads(self.rfile.read(length))
                 with settings_lock:
-                    if route.path == "/api/operator/video/import":
+                    if route.path == "/api/operator/learning/start":
+                        outcome = worker_control.start(model=body.get("model", "qwen3.5:2b"))
+                    elif route.path == "/api/operator/learning/stop":
+                        outcome = worker_control.stop()
+                    elif route.path == "/api/operator/video/import":
                         outcome = video_review.import_job(body.get("job"))
                     elif route.path == "/api/operator/video/run":
                         outcome = video_review.run_job(
@@ -456,6 +465,7 @@ def serve(lib, port=8769):
     try:
         server.serve_forever()
     finally:
+        worker_control.close()
         server.server_close()
 
 def work_loop(lib, interval, use_ollama, model, *,
