@@ -49,7 +49,7 @@
     } else {
       bookNote.textContent = books.plan_present
         ? "Approved book plan found; no matching indexed book yet"
-        : "No books indexed here. The separate test-data book is not in this production folder.";
+        : "No books indexed in this learning library yet.";
     }
     const ytAccess = capacity.youtube_access || {};
     const ytNote = el("netra-youtube-access");
