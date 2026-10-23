@@ -185,6 +185,8 @@
         <div><strong>Automatic approved-video learning</strong>
           <p id="video-auto-note">Add exact YouTube URLs to the approved source plan once; SURYADEV can then queue and observe them without repeated approval clicks. It respects the single-worker lock and never auto-approves Core evidence.</p>
         </div>
+        <input id="video-auto-url" type="url" placeholder="Paste a YouTube URL" maxlength="2048" aria-label="YouTube video to add to approved sources">
+        <button id="video-auto-approve" type="button">Add video to sources</button>
         <button id="video-auto-toggle" type="button" disabled>Checking automation…</button>
       </div>
       <p id="video-auto-state" role="status" aria-live="polite"></p>
