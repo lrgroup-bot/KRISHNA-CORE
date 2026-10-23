@@ -11,7 +11,8 @@ const textNode = (tag, value, className) => {
 };
 const app = { offset: 0, limit: 25, total: 0, taskId: null,
               lastList: "", lastDetail: "", taskQuery: "", status: "", kind: "", selectedDay: "",
-              diaryCache: [], refreshInProgress: false };
+              diaryCache: [], refreshInProgress: false,
+              lastPulseFingerprint: null };
 
 function clockTick() { $("clock").textContent = new Date().toLocaleTimeString(); }
 function resourceGauge(name, value) {
@@ -61,7 +62,18 @@ function renderLive(data) {
   }
   app.diaryCache = data.diary || [];
   renderDiaryTiles();
-
+  // Status counters are shown beside the task list and selected-day evidence.
+  // Refresh those views as soon as SQLite's committed totals change, rather
+  // than displaying a new Done count next to a stale Running task for 30s.
+  const fingerprint = JSON.stringify({
+    counts: data.status, findings: data.findings,
+    days: (data.diary || []).map(x => [x.date,x.assignments,x.completed,x.failed,x.findings])
+  });
+  if (fingerprint !== app.lastPulseFingerprint) {
+    app.lastPulseFingerprint = fingerprint;
+    loadTasks();
+    if (app.selectedDay) loadDiaryDay(app.selectedDay);
+  }
 }
 async function pollLive() {
   try {
@@ -506,5 +518,5 @@ pollLive();pollOperations();loadTasks();
 setInterval(pollLive, 5000);
 setInterval(pollOperations, 5000);
 setInterval(() => {if (app.selectedDay) loadDiaryDay(app.selectedDay);}, 30000);
-setInterval(loadTasks, 10000);
+setInterval(loadTasks, 5000);
 setInterval(() => {if (app.taskId && $("task-dialog").open) fetchDetail(app.taskId);}, 15000);
