@@ -175,7 +175,7 @@ async def browser_video_review_check(port, approved_url):
             assert order[0] < order[1] < order[2], "Mission/history sections rendered out of order"
             await expect(page.locator("#learning-start")).to_be_visible(timeout=12000)
             await expect(page.locator("#video-auto-toggle")).to_be_visible(timeout=12000)
-            await page.locator(".video-manual-details summary").click()
+            await page.locator(".video-manual-details > summary").click()
             await expect(page.locator('input[type="date"]')).to_have_count(1)
             await expect(page.locator("#ui-version")).to_contain_text("2026-10-23-v7.1", timeout=12000)
             await page.locator("#video-review-refresh").click()
