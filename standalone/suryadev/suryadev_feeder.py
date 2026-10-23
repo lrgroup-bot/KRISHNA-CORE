@@ -80,6 +80,9 @@ def read_plan(path):
         known_videos.add(video_id)
         approved_publisher.append({"video_url":video, "transcript_url":transcript})
 
+    delegate = data.get("paired_core_host_delegation", False)
+    if not isinstance(delegate, bool):
+        raise ValueError("paired_core_host_delegation must be a boolean")
     budget = data.get("max_new_per_cycle", 20)
     backlog = data.get("max_queued", 75)
     if not isinstance(budget, int) or not (1 <= budget <= 100):
@@ -88,9 +91,38 @@ def read_plan(path):
         raise ValueError("max_queued must be from 1 to 1000")
     return {"approved_urls": approved_urls, "approved_feeds": approved_feeds,
             "allowed_source_hosts": hosts,
+            "paired_core_host_delegation": delegate,
             "approved_publisher_transcripts":approved_publisher,
             "max_new_per_cycle": budget,
             "max_queued": backlog}
+
+
+def paired_core_source_allowed(url, plan):
+    """Admit only a paired KRISHNA task within the operator-delegated policy.
+
+    This is a *source permission*, not permission to execute source content,
+    authorize new hosts, accept knowledge or bypass provider restrictions.
+    The caller must already have authenticated KRISHNA using pinned TLS.
+    """
+    if not isinstance(url, str) or len(url) > 2048 or not url:
+        return False
+    if url in plan["approved_urls"]:
+        return True
+    if plan.get("paired_core_host_delegation") is not True:
+        return False
+    try:
+        parsed = urlsplit(url)
+        if (parsed.scheme != "https" or not parsed.hostname
+                or parsed.hostname not in plan["allowed_source_hosts"]
+                or parsed.username or parsed.password
+                or parsed.fragment or parsed.port not in (None,443)):
+            return False
+        # Resolves DNS and rejects loopback/private/non-public IPs.
+        from suryadev import validate_url
+        validate_url(url)
+    except (OSError, ValueError):
+        return False
+    return True
 
 
 def fetch_feed(url):
