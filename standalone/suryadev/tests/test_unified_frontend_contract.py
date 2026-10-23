@@ -72,6 +72,25 @@ class UnifiedFrontendContractTests(unittest.TestCase):
         self.assertIn('"/dashboard-api.js": "dashboard-api.js"', server)
         self.assertIn("'dashboard-api.js'", install)
 
+    def test_live_status_reconciles_assignments_and_history_without_waiting_30s(self):
+        frontend = (ROOT/"dashboard.js").read_text(encoding="utf-8")
+        self.assertIn("lastPulseFingerprint", frontend)
+        self.assertIn("fingerprint !== app.lastPulseFingerprint", frontend)
+        self.assertIn("if (app.selectedDay) loadDiaryDay(app.selectedDay)", frontend)
+        self.assertIn("setInterval(loadTasks, 5000)", frontend)
+        netra = (ROOT/"dashboard-garudanetra.js").read_text(encoding="utf-8")
+        self.assertIn("Chromium ready · 0 active tabs", netra)
+
+    def test_single_click_source_activation_is_clearly_opt_in(self):
+        markup = (ROOT/"dashboard.html").read_text(encoding="utf-8")
+        js = (ROOT/"dashboard-learning.js").read_text(encoding="utf-8")
+        backend = (ROOT/"suryadev_extras.py").read_text(encoding="utf-8")
+        self.assertEqual(markup.count('id="learning-enable-sources"'), 1)
+        self.assertIn("/api/operator/learning/activate-sources", js)
+        self.assertIn("sources.disabled = Boolean(d.plan_exists)", js)
+        self.assertIn('route.path == "/api/operator/learning/activate-sources"', backend)
+        self.assertIn("activate_official_pack(lib.root)", backend)
+
     def test_stale_folder_copy_removed(self):
         for name in ("dashboard.html", "dashboard.js",
                      "dashboard-garudanetra.js", "dashboard-books.js"):
