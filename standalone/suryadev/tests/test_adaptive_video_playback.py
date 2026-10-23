@@ -32,6 +32,12 @@ class AdaptiveVideoSpeedTests(unittest.TestCase):
         self.assertEqual(adapter.classify_video_caption("The session continues as expected"),
                          ("ordinary", 2.0))
 
+    def test_unknown_odia_hindi_and_other_scripts_default_to_one(self):
+        for caption in ("यहाँ एक महत्वपूर्ण बात है", "ଏହା ବହୁତ ଜରୁରୀ", "これは大切です"):
+            with self.subTest(caption=caption):
+                self.assertEqual(adapter.classify_video_caption(caption),
+                                 ("unclassified_language", 1.0))
+
     def test_chatter_needs_two_distinct_segments_before_4x(self):
         p = adapter.AdaptiveVideoSpeed()
         self.assertEqual(p.choose("Welcome back to my channel",
