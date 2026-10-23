@@ -148,6 +148,53 @@ async def browser_offline_check(port):
             await browser.close()
 
 
+
+async def browser_video_review_check(port, approved_url):
+    """Real Chromium: imported approved URL is visible, blocked URL rejected.
+
+    This UI smoke never clicks 'Run approved job' or starts a video observer.
+    """
+    from playwright.async_api import async_playwright, expect
+    async with async_playwright() as p:
+        browser=await p.chromium.launch(headless=True)
+        try:
+            page=await browser.new_page(viewport={"width":1366,"height":768})
+            errors=[]
+            page.on("pageerror", lambda exc: errors.append(str(exc)))
+            await page.goto(f"http://127.0.0.1:{port}/", wait_until="domcontentloaded")
+            await expect(page.locator("#video-review")).to_be_visible(timeout=12000)
+            await expect(page.locator('a[href="#video-review"]')).to_have_count(1)
+            await page.locator("#video-review-refresh").click()
+            rejected={"schema":"krishna.suryadev.job.v1", "job_id":"not-approved",
+                      "kind":"video_research",
+                      "target":"https://www.youtube.com/watch?v=not-approved",
+                      "constraints":{"duration_seconds":60}}
+            await page.locator("#video-review-json").fill(json.dumps(rejected))
+            await page.locator("#video-review-import").click()
+            await expect(page.locator("#video-review-status")).to_contain_text(
+                "Import rejected:", timeout=12000)
+            await expect(page.locator("#video-review-list .video-review-job")).to_have_count(0)
+            accepted=dict(rejected, job_id="smoke-approved-video", target=approved_url)
+            await page.locator("#video-review-json").fill(json.dumps(accepted))
+            await page.locator("#video-review-import").click()
+            await expect(page.locator("#video-review-list .video-review-job")).to_have_count(1)
+            preview=await page.locator("#video-review-list .video-review-job code").inner_text()
+            assert preview==approved_url, "Exact video URL including query must remain visible"
+            consent=page.locator("#video-review-list .video-review-job input[type=checkbox]")
+            assert not await consent.is_checked(), "A new job must not be automatically approved"
+            await page.locator("#video-review-refresh").click()
+            await expect(page.locator("#video-review-list .video-review-job")).to_have_count(1)
+            assert not errors, "Video Review JS runtime errors: " + str(errors)
+            return {"status":"PASS", "repo_frontend":True,
+                    "unapproved_source_rejected":True,
+                    "approved_source_imported_without_running":True,
+                    "exact_video_query_displayed":True,
+                    "approval_default_unchecked":True,
+                    "javascript_errors":errors}
+        finally:
+            await browser.close()
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix="suryadev-dashboard-smoke-") as root:
         lib=Library(root)
@@ -190,6 +237,14 @@ def main():
                     time.sleep(.1)
             result=asyncio.run(browser_check(port))
             print("GARUDANETRA_DASHBOARD_UI_REPORT="+json.dumps(result),flush=True)
+            approved_url = "https://www.youtube.com/watch?v=mgBpcQRDtl0"
+            temporary_plan = Path(root) / "learning-plan.json"
+            temporary_plan.write_text(json.dumps({"approved_urls":[approved_url]}), encoding="utf-8")
+            try:
+                video = asyncio.run(browser_video_review_check(port, approved_url))
+                print("SURYDEV_VIDEO_REVIEW_UI_REPORT="+json.dumps(video),flush=True)
+            finally:
+                temporary_plan.unlink(missing_ok=True)
             from suryadev_book_reader import BookLedger
             local_book = Path(root) / "approved-sample-book.txt"
             local_book.write_text("Source line one" + chr(10) + "Source line two" + chr(10) + "Source line three",
