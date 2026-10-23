@@ -56,7 +56,7 @@ class CoreDispatchTests(unittest.TestCase):
                     args=spawn.call_args.args[0]
                     self.assertIn("--fleet-mode",args)
                     self.assertIn("--core-mission-config",args)
-                    self.assertIn(str(cfg),args)
+                    self.assertIn(str(ctl.root / 'core-mission-connection.json'),args)
                     with self.assertRaises(RuntimeError):
                         ctl.start(model="qwen3.5:2b")
                     self.assertEqual(spawn.call_count,1)
