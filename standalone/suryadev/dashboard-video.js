@@ -34,7 +34,7 @@
     const setStatus = value => { el('video-review-status').textContent = String(value); };
     const post = async (url, body) => {
       if (!csrf) {
-        const response = await fetch('/api/operator/settings', {cache:'no-store'});
+        const response = await window.suryadevRead('/api/operator/settings', {cache:'no-store'});
         if (!response.ok) throw new Error('Cannot obtain local CSRF authorization');
         csrf = (await response.json()).csrf_token;
         if (!csrf) throw new Error('CSRF authorization missing');
@@ -48,7 +48,7 @@
     };
     const refresh = async () => {
       try {
-        const response = await fetch('/api/video/review', {cache: 'no-store'});
+        const response = await window.suryadevRead('/api/video/review', {cache: 'no-store'});
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Read failed');
         const list = el('video-review-list');
