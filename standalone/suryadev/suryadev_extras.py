@@ -146,6 +146,15 @@ def serve(lib, port=8769):
                 return self.respond(200, json.dumps(worker_control.snapshot()), "application/json")
             if route.path == "/api/video/review":
                 return self.respond(200, json.dumps(video_review.snapshot()), "application/json")
+            if route.path == "/api/youtube/audit":
+                from suryadev_youtube_audit import youtube_audit
+                reader = DashboardReader(lib.root)
+                try:
+                    payload = youtube_audit(lib.root, reader.db)
+                finally:
+                    reader.db.close()
+                return self.respond(200, json.dumps(payload, ensure_ascii=False),
+                                    "application/json")
             if route.path == "/api/operator/settings":
                 payload = settings_snapshot(lib.root)
                 payload["csrf_token"] = csrf_token
@@ -154,6 +163,7 @@ def serve(lib, port=8769):
                 return self.respond(
                     200, json.dumps({"version": UI_VERSION,
                                      "has_repo_r39_video_review": True,
+                                     "has_youtube_learning_audit": True,
                                      "has_connection_leds": True,
                                      "has_date_picker": True,
                                      "has_server_settings": True,
