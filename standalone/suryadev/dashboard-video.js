@@ -54,7 +54,7 @@
         list.replaceChildren();
         const status = document.createElement('p');
         status.textContent = (data.active_job ? 'Active: ' + data.active_job : 'No video currently running') +
-          (data.runtime_ready ? ' · Worker available' : ' · Worker installation required') +
+          (data.runtime_ready ? ' · Observer source installed; device prerequisites unverified' : ' · Worker installation required') +
           (data.last_error ? ' · Last error: ' + data.last_error : '');
         list.append(status);
         for (const job of data.jobs || []) {
