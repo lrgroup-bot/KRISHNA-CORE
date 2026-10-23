@@ -79,8 +79,42 @@
     };
     el('video-review-import').addEventListener('click', async () => {
       try {
-        const job = JSON.parse(el('video-review-json').value);
+        const advanced = el('video-review-json').value.trim();
+        let job;
+        if (advanced) {
+          job = JSON.parse(advanced);
+        } else {
+          const target = el('video-review-url').value.trim();
+          let parsed;
+          try { parsed = new URL(target); } catch (_) {
+            throw new Error('Enter a complete HTTPS video URL');
+          }
+          if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.hash) {
+            throw new Error('Only public HTTPS video URLs without credentials or fragments are supported');
+          }
+          const rawTerms = el('video-review-terms').value.trim();
+          const terms = rawTerms ? rawTerms.split(',').map(x => x.trim()).filter(Boolean) : [];
+          if (terms.length > 80 || terms.some(term => term.length > 100)) {
+            throw new Error('Use at most 80 important terms, each under 100 characters');
+          }
+          const duration = Number(el('video-review-minutes').value);
+          if (![2,10,30,60].includes(duration)) throw new Error('Invalid observation duration');
+          job = {
+            schema: 'krishna.suryadev.job.v1',
+            job_id: 'video-' + Date.now().toString(36) + '-' +
+              Math.random().toString(36).slice(2,8),
+            kind: 'video_research',
+            target,
+            constraints: {
+              duration_seconds: duration * 60,
+              adaptive_playback: el('video-review-adaptive').checked,
+              capture_terms: terms,
+              allow_audio_asr_fallback: false
+            }
+          };
+        }
         const result = await post('/api/operator/video/import', {job});
+        if (advanced) el('video-review-json').value = '';
         setStatus('Imported ' + result.job_id + ' for review; no recording has started.');
         await refresh();
       } catch (err) { setStatus('Import rejected: ' + err.message); }
