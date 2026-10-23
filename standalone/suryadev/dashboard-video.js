@@ -87,6 +87,21 @@
         if (!data.jobs?.length) list.append(document.createTextNode('No imported video jobs.'));
       } catch (err) { setStatus('Video review unavailable: ' + err.message); }
     };
+    el('video-auto-approve').addEventListener('click', async () => {
+      const btn = el('video-auto-approve');
+      btn.disabled = true;
+      try {
+        const url = el('video-auto-url').value.trim();
+        const result = await post('/api/operator/video/approve-source', {url});
+        el('video-auto-state').textContent = result.status === 'already_approved'
+          ? 'Video URL already approved. Enable automatic video observation.'
+          : 'Video source approved and saved. Enable automation to observe it.';
+      } catch (err) {
+        el('video-auto-state').textContent = 'Source approval: ' + (err.message || err);
+      } finally {
+        btn.disabled = false;
+      }
+    });
     el('video-auto-toggle').addEventListener('click', async () => {
       const button = el('video-auto-toggle');
       button.disabled = true;
