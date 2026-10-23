@@ -77,10 +77,16 @@ class DashboardWorkerControl:
             # Append only; retaining diagnostics is preferable to hiding worker failures.
             handle = logfile.open("ab", buffering=0)
             flags = getattr(subprocess,"CREATE_NEW_PROCESS_GROUP",0) if os.name=="nt" else 0
+            # Only the dashboard-managed child receives this laptop profile.
+            # Other KRISHNA workers and system-wide Ollama configuration stay untouched.
+            env = os.environ.copy()
+            env["SURYADEV_OLLAMA_THREADS"] = str(min(2, max(1, (os.cpu_count() or 2)//2)))
+            env["SURYADEV_MAX_PARALLEL"] = "1"
+            env["SURYADEV_BROWSER_TABS"] = "1"
             try:
                 proc = subprocess.Popen(args, cwd=str(self.application_dir),
                     stdin=subprocess.DEVNULL, stdout=handle, stderr=subprocess.STDOUT,
-                    shell=False, creationflags=flags)
+                    shell=False, creationflags=flags, env=env)
             except Exception:
                 handle.close()
                 raise
@@ -88,6 +94,8 @@ class DashboardWorkerControl:
             self.logfile = handle
             return {"ok": True, "status":"STARTING", "pid":proc.pid,
                     "model":model, "approved_plan_loaded":plan.is_file(),
+                    "cpu_thread_budget":int(env["SURYADEV_OLLAMA_THREADS"]),
+                    "max_parallel_research":1, "browser_tabs_limit":1,
                     "note":("Continuous approved-source research enabled."
                             if plan.is_file() else
                             "Existing queued tasks only. No new URLs are approved.")}
