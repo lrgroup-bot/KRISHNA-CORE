@@ -33,6 +33,33 @@ class DashboardAutomationTests(unittest.TestCase):
         self.assertFalse(ctl.snapshot()["plan_exists"])
         self.assertFalse((self.root/"dashboard-worker.log").exists())
 
+    def test_recent_heartbeat_without_lock_must_not_disable_start(self):
+        # A crashed or stopped worker may leave a fresh heartbeat for 180s.
+        from suryadev_liveops import worker_note
+        worker_note(self.root, "busy", 30, "Old process ended")
+        ctl = DashboardWorkerControl(self.root, self.folder)
+        try:
+            snapshot = ctl.snapshot()
+            self.assertTrue(snapshot["worker_heartbeat_recent"])
+            self.assertFalse(snapshot["external_worker_active"])
+            self.assertTrue(snapshot["can_start"])
+            self.assertFalse(snapshot["blocked_reason"])
+        finally:
+            ctl.close()
+
+    def test_actual_external_lock_disables_start_and_prevents_spawn(self):
+        ctl = DashboardWorkerControl(self.root, self.folder)
+        try:
+            with patch.object(ctl, "_external_lock_held", return_value=True):
+                self.assertFalse(ctl.snapshot()["can_start"])
+                self.assertTrue(ctl.snapshot()["external_worker_active"])
+                with patch("suryadev_dashboard_worker.subprocess.Popen") as launch:
+                    with self.assertRaisesRegex(RuntimeError, "worker lock"):
+                        ctl.start(model="qwen3.5:2b")
+                    launch.assert_not_called()
+        finally:
+            ctl.close()
+
     def test_start_requires_selected_safe_model(self):
         ctl = DashboardWorkerControl(self.root, self.folder)
         with self.assertRaises(ValueError):
