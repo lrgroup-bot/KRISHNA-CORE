@@ -169,6 +169,13 @@ class AdaptiveResearchWorkers:
         finished = self._reap()
         reading = telemetry if telemetry is not None else snapshot(self.root)
         capacity = plan_capacity(reading)
+        # A managed low-power worker advertises its actual laptop profile.
+        # Existing non-managed research retains the normal adaptive limits.
+        if os.environ.get("SURYADEV_MAX_PARALLEL") == "1":
+            capacity["max_total"] = min(1, capacity["max_total"])
+            capacity["limits"] = {kind:min(1,limit) for kind,limit in capacity["limits"].items()}
+            capacity["laptop_profile"] = "single-job"
+            capacity["local_model_concurrency"] = 1
         # The cooldown is on disk to remain effective across worker restarts.
         self.youtube_access = youtube_access(self.root)
         if self.youtube_access["state"] == "rate_limited":
@@ -202,7 +209,8 @@ class AdaptiveResearchWorkers:
                     break
                 if choice == "website" and self.browser is None:
                     try:
-                        self.browser = self.browser_factory(self.root, max_tabs=4)
+                        tabs = 1 if os.environ.get("SURYADEV_BROWSER_TABS") == "1" else 4
+                        self.browser = self.browser_factory(self.root, max_tabs=tabs)
                         self.browser.start()
                     except Exception as exc:
                         self.browser_error = type(exc).__name__ + ": " + str(exc)[:240]
