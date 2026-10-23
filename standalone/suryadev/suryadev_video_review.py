@@ -14,6 +14,7 @@ import secrets
 import subprocess
 import sys
 import threading
+import time
 from urllib.parse import urlsplit
 
 from suryadev_lock import worker_lock
@@ -91,6 +92,113 @@ class VideoReview:
         self.lock = threading.Lock()
         self.active = None
         self.last_error = ""
+        self.auto_file = self.data_root / "video-auto.json"
+        self.auto_error = ""
+        self.auto_status = "disabled"
+        self.auto_stop = threading.Event()
+        self.auto_thread = None
+
+    def auto_enabled(self):
+        try:
+            config = json.loads(self.auto_file.read_text(encoding="utf-8"))
+            return (isinstance(config, dict) and config.get("schema") ==
+                    "suryadev.video-auto.v1" and config.get("enabled") is True)
+        except (OSError, ValueError):
+            return False
+
+    def set_auto(self, enabled):
+        if not isinstance(enabled, bool):
+            raise ValueError("enabled must be a boolean")
+        if enabled:
+            from suryadev_feeder import read_plan
+            plan = read_plan(self.plan)
+            candidates = self._approved_videos(plan.get("approved_urls", []))
+            if not candidates:
+                raise ValueError("First add at least one exact YouTube URL to approved learning-plan.json")
+        record = {"schema":"suryadev.video-auto.v1", "enabled":enabled,
+                  "changed_at":time.time(),
+                  "policy":"only exact approved video URLs; no Core acceptance assertion"}
+        temp = self.auto_file.with_suffix(".json.tmp")
+        temp.parent.mkdir(parents=True,exist_ok=True)
+        temp.write_text(json.dumps(record), encoding="utf-8")
+        os.replace(temp,self.auto_file)
+        self.auto_status = "enabled" if enabled else "disabled"
+        return {"ok":True,"auto_enabled":enabled,"status":self.auto_status}
+
+    @staticmethod
+    def _approved_videos(urls):
+        videos = []
+        for url in urls:
+            if not isinstance(url,str) or len(url)>2048:
+                continue
+            try:
+                p = urlsplit(url)
+            except ValueError:
+                continue
+            if p.scheme=="https" and (p.hostname or "").lower() in (
+                    "www.youtube.com","youtube.com","m.youtube.com","youtu.be"):
+                videos.append(url)
+        return videos
+
+    def start_auto_scheduler(self, worker_control):
+        if self.auto_thread is not None:
+            return
+        self.auto_thread = threading.Thread(target=self._auto_loop,
+                   args=(worker_control,),daemon=True,name="suryadev-video-auto")
+        self.auto_thread.start()
+
+    def _auto_loop(self, worker_control):
+        from suryadev_liveops import _safe_read
+        from suryadev_lock import worker_lock
+        while not self.auto_stop.is_set():
+            try:
+                if not self.auto_enabled():
+                    self.auto_status="disabled"
+                elif self.active:
+                    self.auto_status="watching"
+                else:
+                    pulse=worker_control.snapshot()
+                    if pulse["managed_running"] or pulse["worker_heartbeat_recent"]:
+                        self.auto_status="waiting_for_research_worker"
+                    else:
+                        # Check the canonical single-worker lock; never compete
+                        # with an already running research or video process.
+                        try:
+                            with worker_lock(self.data_root):
+                                pass
+                        except RuntimeError:
+                            self.auto_status="waiting_for_worker_lock"
+                        else:
+                            self._auto_tick()
+            except (ValueError, OSError, RuntimeError, TypeError, KeyError) as exc:
+                self.auto_status="error"
+                self.auto_error=f"{type(exc).__name__}: {str(exc)[:140]}"
+            self.auto_stop.wait(10)
+
+    def _auto_tick(self):
+        from suryadev_feeder import read_plan
+        plan=read_plan(self.plan)
+        urls=self._approved_videos(plan.get("approved_urls", []))
+        # An imported auto job is a durable once-only attempt. A restart must
+        # never silently replay a video whose evidence may still be pending.
+        for url in urls[:80]:
+            jid="approved-video-"+hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+            path=self._path(jid)
+            if path.exists():
+                continue
+            job={"schema":"krishna.suryadev.job.v1","job_id":jid,
+                 "kind":"video_research","target":url,
+                 "constraints":{"duration_seconds":600, "adaptive_playback":True,
+                                "allow_audio_asr_fallback":False}}
+            result=self.import_job(job)
+            self.run_job(jid,True,result["sha256"])
+            self.auto_status="watching"
+            self.auto_error=""
+            return
+        self.auto_status="no_new_approved_videos"
+
+    def stop_auto_scheduler(self):
+        self.auto_stop.set()
 
     def _path(self, job_id):
         if not isinstance(job_id, str) or not JOB_ID.fullmatch(job_id):
@@ -152,6 +260,9 @@ class VideoReview:
                 except (OSError, ValueError, TypeError):
                     playback = None
         return {"active_job": active, "last_error": error, "jobs": jobs,
+                "auto_enabled": self.auto_enabled(),
+                "auto_status": self.auto_status,
+                "auto_error": self.auto_error,
                 "playback": playback,
                 "policy": "Adaptive 1x/1.5x/2x/4x with conservative caption heuristics; audiovisual coverage unverified",
                 "runtime_ready": self.worker_script.is_file() and self.adapter_script.is_file()}
