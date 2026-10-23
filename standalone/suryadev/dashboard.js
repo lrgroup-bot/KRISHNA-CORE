@@ -401,7 +401,7 @@ async function loadDiaryDay(day) {
 function renderOperations(data) {
   const worker = data.worker || {};
   const state = worker.state || "offline";
-  $("worker-state-label").textContent = "Worker: " + state.toUpperCase();
+  $("worker-state-label").textContent = state === "offline" ? "Worker paused" : "Worker: " + state.toUpperCase();
   const running = data.current || [];
   $("queue-count").textContent = format(data.queued_total || 0);
   if (running.length) {
@@ -411,12 +411,12 @@ function renderOperations(data) {
       " · Percentage not instrumented";
   } else {
     $("active-work").textContent = state === "paused" ? "Paused by resource guard" :
-      state === "offline" ? "No active worker heartbeat" : "Idle / looking for tasks";
-    $("active-details").textContent = worker.reason || "No assignment currently marked running.";
+      state === "offline" ? "Ready to start learning" : "Idle / looking for tasks";
+    $("active-details").textContent = state === "offline" ? "Use Start learning above to begin approved research." : (worker.reason || "No assignment currently marked running.");
   }
-  $("next-check").textContent = worker.next_check_at ? new Date(worker.next_check_at * 1000).toLocaleTimeString() : "Not scheduled";
+  $("next-check").textContent = worker.next_check_at ? new Date(worker.next_check_at * 1000).toLocaleTimeString() : "When started";
   $("worker-details").textContent = state === "offline" ?
-    "Dashboard is live, but the worker is not reporting." :
+    "Research polling is paused. Start learning above to activate it." :
     "Check interval: " + (worker.interval_seconds || "—") + " seconds · " + (worker.reason || state);
   const types = data.by_source || {};
   $("source-queue-counts").textContent =
@@ -441,7 +441,7 @@ function renderOperations(data) {
     ? "Six-hour research feeder · Last discovery: " + dateTime(feeder.last_run) +
       " · New sources: " + format(feeder.added_total) +
       " · Next refresh: " + (feeder.next_run ? dateTime(feeder.next_run) : "not scheduled")
-    : "Six-hour research feeder is not running. Only explicit queued sources can be learned.";
+    : "Automatic approved-source discovery starts with the learning worker when a source plan is configured.";
   $("operations-note").textContent = worker.note || "No forecast available.";
   const connections = data.connections || {};
   for (const key of ["krishna","brahmagyan","rishi"]) {
