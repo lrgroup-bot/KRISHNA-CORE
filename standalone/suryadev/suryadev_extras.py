@@ -438,7 +438,9 @@ def serve(lib, port=8769):
             try:
                 body = json.loads(self.rfile.read(length))
                 with settings_lock:
-                    if route.path == "/api/operator/learning/activate-sources":
+                    if route.path == "/api/operator/learning/delegate-core":
+                        outcome = worker_control.set_core_delegation(body.get("enabled"))
+                    elif route.path == "/api/operator/learning/activate-sources":
                         from suryadev_continuity import activate_official_pack
                         outcome = activate_official_pack(lib.root)
                         outcome["note"] = ("Official public sources approved. A running worker started "
