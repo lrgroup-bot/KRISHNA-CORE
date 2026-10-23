@@ -38,7 +38,7 @@ from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-21-v6.9-integrated-learning-workspaces"
+UI_VERSION = "2026-10-23-v7-unified-dashboard"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -180,7 +180,8 @@ def serve(lib, port=8769):
                               "/dashboard-settings.css", "/dashboard-settings.js",
                               "/dashboard-garudanetra.css", "/dashboard-garudanetra.js",
                               "/dashboard-books.css", "/dashboard-books.js",
-                              "/dashboard-video.css", "/dashboard-video.js"):
+                              "/dashboard-video.css", "/dashboard-video.js",
+                              "/dashboard-api.js"):
                 filename = {"/": "dashboard.html", "/dashboard.css": "dashboard.css",
                             "/dashboard.js": "dashboard.js",
                             "/dashboard-settings.css": "dashboard-settings.css",
@@ -190,7 +191,8 @@ def serve(lib, port=8769):
                             "/dashboard-books.css": "dashboard-books.css",
                             "/dashboard-books.js": "dashboard-books.js",
                             "/dashboard-video.css": "dashboard-video.css",
-                            "/dashboard-video.js": "dashboard-video.js"}[route.path]
+                            "/dashboard-video.js": "dashboard-video.js",
+                            "/dashboard-api.js": "dashboard-api.js"}[route.path]
                 content = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
                 mime = "text/html; charset=utf-8" if route.path == "/" else (
                     "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
