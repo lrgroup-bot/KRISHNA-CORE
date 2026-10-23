@@ -85,6 +85,27 @@ def import_transcript(lib, filename, source_url="", use_ollama=True, model="qwen
              'ollama:' + model if use_ollama else 'extractive'))
     return {"status": "done", "title": title, "sha256": digest}
 
+def _send_http_response(handler, status, mime, body):
+    """Ignore a client closing its socket; never conceal unrelated server failures.
+
+    Rapid dashboard refreshes can abort requests while the server writes a
+    completed response (Windows WinError 10053/10054). These disconnects
+    are not research failures and should not print a server traceback.
+    """
+    try:
+        handler.send_response(status)
+        handler.send_header("Content-Type", mime)
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("Cache-Control", "no-store")
+        handler.send_header("X-Content-Type-Options", "nosniff")
+        handler.send_header("Content-Security-Policy", "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'")
+        handler.end_headers()
+        handler.wfile.write(body)
+    except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+        return False
+    return True
+
+
 def serve(lib, port=8769):
     """Dashboard binds only to loopback; state changes require same-origin CSRF."""
     csrf_token = secrets.token_urlsafe(32)
@@ -92,15 +113,7 @@ def serve(lib, port=8769):
     video_review = VideoReview(lib.root, Path(__file__).resolve().parent)
     class Handler(BaseHTTPRequestHandler):
         def respond(self, status, content, mime="text/html; charset=utf-8"):
-            body = content.encode("utf-8")
-            self.send_response(status)
-            self.send_header("Content-Type", mime)
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'")
-            self.end_headers()
-            self.wfile.write(body)
+            return _send_http_response(self, status, mime, content.encode("utf-8"))
 
         def do_GET(self):
             route = urlsplit(self.path)
