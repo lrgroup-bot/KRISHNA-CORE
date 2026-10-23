@@ -16,6 +16,7 @@ import threading
 import time
 
 from suryadev_liveops import _safe_read
+from suryadev_lock import worker_lock
 
 
 class DashboardWorkerControl:
@@ -27,6 +28,20 @@ class DashboardWorkerControl:
         self.process = None
         self.logfile = None
 
+    def _external_lock_held(self):
+        """Probe the canonical OS worker lock without trusting a stale PID receipt.
+
+        The read-only probe releases a successfully acquired lock immediately.
+        An active background video or CLI learner still excludes duplicate work.
+        """
+        try:
+            with worker_lock(self.root):
+                return False
+        except RuntimeError as exc:
+            if str(exc) == "another SURYADEV worker holds the lock":
+                return True
+            raise
+
     def snapshot(self):
         with self.lock:
             owned = self.process
@@ -37,8 +52,16 @@ class DashboardWorkerControl:
             fresh = 0 <= time.time() - float(pulse.get("heartbeat_at")) < 180
         except (TypeError, ValueError, OverflowError):
             fresh = False
+        # Heartbeat receipts are historical telemetry; only the OS lock
+        # proves that an external process still owns the worker lane.
+        external_lock = False if active else self._external_lock_held()
         return {
             "managed_running": active,
+            "external_worker_active": external_lock,
+            "can_start": not (active or external_lock),
+            "blocked_reason": ("Dashboard worker is already running" if active else
+                               "Another learning/video process holds the worker lock" if external_lock else
+                               ""),
             "managed_pid": owned.pid if active else None,
             "managed_exit_code": code if owned is not None else None,
             "worker_heartbeat_recent": fresh and pulse.get("state") not in ("offline","stopped"),
@@ -54,16 +77,10 @@ class DashboardWorkerControl:
         with self.lock:
             if self.process is not None and self.process.poll() is None:
                 raise RuntimeError("Dashboard-managed worker already running")
-            pulse = _safe_read(self.root, "worker-runtime.json", max_bytes=8192)
-            try:
-                active = (0 <= time.time()-float(pulse.get("heartbeat_at")) < 180 and
-                          pulse.get("state") not in ("offline","stopped"))
-            except (ValueError, TypeError):
-                active = False
-            if active:
-                raise RuntimeError("Another worker has a recent heartbeat; do not start a duplicate")
-            # A lock holder may exist despite a stale heartbeat. The subprocess
-            # still performs the canonical worker_lock fail-closed check.
+            if self._external_lock_held():
+                raise RuntimeError("Another SURYADEV research or video process owns the worker lock")
+            # A recently written heartbeat alone is not an active process.
+            # The child independently acquires the lock before doing any work.
             plan = self.root/"learning-plan.json"
             args = [self.python, "-u", str(self.application_dir/"suryadev_extras.py"),
                     "--data", str(self.root), "worker", "--interval", "30",
