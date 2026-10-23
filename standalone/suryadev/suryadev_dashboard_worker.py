@@ -42,6 +42,27 @@ class DashboardWorkerControl:
                 return True
             raise
 
+    def core_pairing(self):
+        """Read only an existing, owner-provisioned pinned-TLS credential.
+
+        Merely entering a Core IP in Settings is NOT enrollment.
+        The caller gets no credential bytes, only a readiness reason.
+        """
+        config_file = self.root / "core-mission-connection.json"
+        if not config_file.is_file():
+            return {"configured":False,"ready":False,
+                    "reason":"KRISHNA paired TLS device configuration is not installed"}
+        try:
+            from suryadev_krishna_mission import load_config
+            cfg = load_config(config_file)
+            if not cfg["device_id"].startswith("suryadev-"):
+                raise ValueError("paired device ID must start with suryadev-")
+        except (OSError, ValueError, TypeError) as exc:
+            return {"configured":True,"ready":False,
+                    "reason":"Paired KRISHNA configuration invalid: "+type(exc).__name__}
+        return {"configured":True,"ready":True,
+                "reason":"Pinned TLS configuration validated locally; server connection unverified"}
+
     def snapshot(self):
         with self.lock:
             owned = self.process
@@ -55,7 +76,10 @@ class DashboardWorkerControl:
         # Heartbeat receipts are historical telemetry; only the OS lock
         # proves that an external process still owns the worker lane.
         external_lock = False if active else self._external_lock_held()
+        core = self.core_pairing()
         return {
+            "core_dispatch": core,
+            "dispatch_mode": "krishna_fleet_configured" if core["ready"] else "local_only",
             "managed_running": active,
             "external_worker_active": external_lock,
             "can_start": not (active or external_lock),
@@ -89,6 +113,17 @@ class DashboardWorkerControl:
                 from suryadev_feeder import read_plan
                 read_plan(plan)   # malformed plan prevents any launch
                 args += ["--plan", str(plan)]
+            # Once installed and authenticated by its existing pinned TLS
+            # device credential, KRISHNA owns the mission queue. Never
+            # derive permission from an unauthenticated LAN /health probe.
+            core = self.core_pairing()
+            if core["configured"] and not core["ready"]:
+                raise RuntimeError("Core pairing file is invalid; fix verified TLS device enrollment")
+            if core["ready"]:
+                if not plan.is_file():
+                    raise ValueError("KRISHNA mission dispatch requires an approved source plan")
+                args += ["--core-mission-config", str(self.root/"core-mission-connection.json"),
+                         "--fleet-mode"]
             logfile = self.root/"dashboard-worker.log"
             logfile.parent.mkdir(parents=True,exist_ok=True)
             # Append only; retaining diagnostics is preferable to hiding worker failures.
@@ -111,11 +146,14 @@ class DashboardWorkerControl:
             self.logfile = handle
             return {"ok": True, "status":"STARTING", "pid":proc.pid,
                     "model":model, "approved_plan_loaded":plan.is_file(),
+                    "core_dispatch_mode":"krishna_fleet" if core["ready"] else "local",
                     "cpu_thread_budget":int(env["SURYADEV_OLLAMA_THREADS"]),
                     "max_parallel_research":1, "browser_tabs_limit":1,
-                    "note":("Continuous approved-source research enabled."
+                    "note":("KRISHNA paired fleet mission polling enabled; Core acceptance not claimed."
+                            if core["ready"] else
+                            "Local approved-source research enabled; KRISHNA not paired."
                             if plan.is_file() else
-                            "Existing queued tasks only. No new URLs are approved.")}
+                            "Existing queued tasks only. KRISHNA not paired.")}
 
     def stop(self):
         with self.lock:
