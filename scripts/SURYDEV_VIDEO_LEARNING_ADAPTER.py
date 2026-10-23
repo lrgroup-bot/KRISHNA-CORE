@@ -251,6 +251,10 @@ def classify_video_caption(caption, *, important_terms=()):
         return "owner_important", 1.0
     if _CRITICAL_HINTS.search(text):
         return "important", 1.0
+    # No English-only heuristic is allowed to treat Odia/Hindi/other
+    # unfamiliar writing systems as known low-value chatter.
+    if re.search(r"[\u0900-\u0d7f\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]", text):
+        return "unclassified_language", 1.0
     if _EXPLANATION_HINTS.search(text):
         return "explanation", 1.5
     if _CHATTER_HINTS.search(text):
