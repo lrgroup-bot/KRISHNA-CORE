@@ -13,7 +13,7 @@ class DashboardVisibleTests(unittest.TestCase):
             with self.subTest(element=element):
                 self.assertIn(element, html)
         self.assertIn('href="#date-center"', html)
-        self.assertIn("UI v6", html)
+        self.assertIn('id="ui-version"', html)
 
     def test_controls_have_js_handlers(self):
         js = (ROOT/"dashboard.js").read_text(encoding="utf-8")
@@ -22,7 +22,7 @@ class DashboardVisibleTests(unittest.TestCase):
             with self.subTest(element=element):
                 self.assertIn('"'+element+'").addEventListener', js)
         self.assertIn('date: app.selectedDay', js)
-        self.assertIn('fetch("/api/diary?date="', js)
+        self.assertIn('window.suryadevRead("/api/diary?date="', js)
 
     def test_status_panel_stays_visible_at_mobile_width(self):
         css = (ROOT/"dashboard.css").read_text(encoding="utf-8")
