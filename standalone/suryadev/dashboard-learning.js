@@ -40,23 +40,25 @@
         if (!res.ok) throw Error("HTTP " + res.status);
         const d = await res.json();
         const running = Boolean(d.managed_running);
-        const manual = !running && Boolean(d.worker_heartbeat_recent);
+        // An old heartbeat is diagnostic history, not proof of a running worker.
+        const manual = !running && Boolean(d.external_worker_active);
         state.textContent = running ? "Learning active · local worker" :
           manual ? "Learning active · external worker" : "Learning paused · ready";
         note.textContent = running
           ? "Researching approved sources; 30-second idle checks. Worker PID " + d.managed_pid
           : manual
-            ? "Another worker is active. This dashboard will not start a duplicate."
+            ? (d.blocked_reason || "A separate research/video worker holds the OS lock.")
             : d.plan_exists
               ? "Ready for continuous approved-source research. No Core pairing required."
               : "No learning plan yet. Start processes existing queued tasks; add approved sources for automatic replenishment.";
         el("activity-short-state").textContent = running ? "Worker active" : manual ? "External worker" : "Paused";
-        start.disabled = running || manual || operation;
+        start.disabled = !d.can_start || operation;
         stop.disabled = !running || operation;
         model.disabled = running || manual || operation;
       } catch (err) {
         state.textContent = "Worker control unavailable";
-        note.textContent = String(err.message || err);
+        note.textContent = "Cannot read worker status: " + String(err.message || err) +
+          ". Check /api/learning/control and restart the updated dashboard if needed.";
         start.disabled = true; stop.disabled = true;
       }
     }
