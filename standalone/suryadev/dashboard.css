@@ -172,3 +172,9 @@ border:1px solid #d7e5df;background:#f5faf8;padding:13px;border-radius:12px;marg
 @media(max-width:750px){.hero{padding:15px}.learning-controls{align-items:stretch}
 .learning-controls>button,.video-auto-controls>button{flex:1 1 120px}
 #garudanetra .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+#video-auto-url{flex:1 1 220px;min-width:170px;max-width:390px;min-height:40px;
+padding:9px 11px;border:1px solid #bcc7cc;border-radius:9px;color:var(--ink);
+background:#fff;font:12px/1.5 inherit}
+#video-auto-url:focus-visible{outline:3px solid #92aade;outline-offset:2px}
+#video-auto-approve{background:#445f84}
