@@ -30,6 +30,29 @@ class ReadOnlyDashboardTests(unittest.TestCase):
             finally:
                 lib.db.close()
 
+    def test_multiple_counters_share_a_committed_sqlite_snapshot(self):
+        with tempfile.TemporaryDirectory() as root:
+            lib = Library(root)
+            try:
+                lib.add("https://www.python.org/about/")
+                reader = DashboardReader(root)
+                try:
+                    first = reader.stats()
+                    self.assertEqual(first.get("queued"), 1)
+                    # An active worker commits another job while this API
+                    # response is still reading. Do not mix two DB revisions.
+                    lib.add("https://docs.python.org/3/library/asyncio.html")
+                    self.assertEqual(reader.stats(), first)
+                finally:
+                    reader.db.close()
+                newer = DashboardReader(root)
+                try:
+                    self.assertEqual(newer.stats().get("queued"), 2)
+                finally:
+                    newer.db.close()
+            finally:
+                lib.db.close()
+
     def test_concurrent_api_polls_do_not_migrate_schema_or_drop_connections(self):
         with tempfile.TemporaryDirectory() as root:
             lib = Library(root)
