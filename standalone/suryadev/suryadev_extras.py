@@ -39,7 +39,7 @@ from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-23-v7.4-status-sync"
+UI_VERSION = "2026-10-23-v7.5-krishna-missions"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
