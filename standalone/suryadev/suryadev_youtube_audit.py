@@ -38,6 +38,14 @@ def _seconds(value):
         return None
 
 
+def _epoch(value):
+    try:
+        number = float(value)
+        return number if math.isfinite(number) and 1_000_000_000 <= number <= 4_000_000_000 else None
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
 def _short(value, chars=500):
     return str(value or "").strip()[:chars]
 
@@ -127,7 +135,7 @@ def observer_jobs(root, limit=30):
         chunks = bundle.get("learning_chunks") if isinstance(bundle.get("learning_chunks"),list) else []
         visuals = bundle.get("visual_evidence") if isinstance(bundle.get("visual_evidence"),list) else []
         actual_chunks = [c for c in chunks if isinstance(c,dict)]
-        started, ended = _seconds(session.get("started_at")),_seconds(session.get("ended_at"))
+        started, ended = _epoch(session.get("started_at")),_epoch(session.get("ended_at"))
         elapsed = round(ended-started,2) if started is not None and ended is not None and ended >= started else None
         previews = [{
             "topic":_short(c.get("topic"),160),
