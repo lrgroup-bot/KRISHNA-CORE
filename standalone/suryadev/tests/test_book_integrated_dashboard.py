@@ -124,7 +124,7 @@ class UnifiedBookSnapshotTests(unittest.TestCase):
         self.assertIn('renderLive(await response.json())',main)
         self.assertIn('window.suryadevRead("/api/books"',books)
         self.assertIn('"book_learning": books',srv)
-        self.assertIn('2026-10-23-v7.4-status-sync',srv)
+        self.assertIn('2026-10-23-v7.5-krishna-missions',srv)
         for feature in ('has_books_in_garudanetra',
                         'has_books_in_source_coverage',
                         'has_books_in_laptop_health'):
