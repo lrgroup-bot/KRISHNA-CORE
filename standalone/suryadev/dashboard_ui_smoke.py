@@ -177,7 +177,7 @@ async def browser_video_review_check(port, approved_url):
             await expect(page.locator("#video-auto-toggle")).to_be_visible(timeout=12000)
             await page.locator(".video-manual-details > summary").click()
             await expect(page.locator('input[type="date"]')).to_have_count(1)
-            await expect(page.locator("#ui-version")).to_contain_text("2026-10-23-v7.1", timeout=12000)
+            await expect(page.locator("#ui-version")).to_contain_text("2026-10-23-v7.2", timeout=12000)
             await page.locator("#video-review-refresh").click()
             rejected={"schema":"krishna.suryadev.job.v1", "job_id":"not-approved",
                       "kind":"video_research",
