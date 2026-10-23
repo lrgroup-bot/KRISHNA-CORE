@@ -66,11 +66,14 @@
     }
     const badge = el("netra-engine-state");
     const alive = netra.state === "running";
-    badge.textContent = alive ? "● Chromium browser active" :
+    const activeTabs = Number(netra.open_tabs || 0);
+    badge.textContent = alive && activeTabs > 0 ? "● Chromium browsing · " + num(activeTabs) + " tabs" :
+      alive ? "○ Chromium ready · 0 active tabs" :
       capacity.browser_error ? "◉ Browser unavailable" :
-      workerOnline ? "○ Chromium idle · no website tab" :
+      workerOnline ? "○ Chromium ready · no website tab" :
       "○ Browser standby · worker offline";
-    badge.className = "netra-live-pill" + (alive ? " live" : capacity.browser_error ? " paused" : "");
+    badge.className = "netra-live-pill" +
+      (alive && activeTabs > 0 ? " live" : capacity.browser_error ? " paused" : "");
     const active = Number(capacity.active_total || 0);
     const max = Number(capacity.max_total || 0);
     el("netra-total-capacity").textContent = num(active) + " active / " + num(max) + " allowed";
