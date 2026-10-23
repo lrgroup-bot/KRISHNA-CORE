@@ -22,7 +22,7 @@
     finally { button.disabled = false; button.textContent = original; }
   };
   async function readSettings() {
-    const response = await fetch("/api/operator/settings", {cache:"no-store"});
+    const response = await window.suryadevRead("/api/operator/settings", {cache:"no-store"});
     if (!response.ok) throw Error("Cannot read local operator settings ("+response.status+")");
     const data = await response.json();
     csrf = data.csrf_token || "";
