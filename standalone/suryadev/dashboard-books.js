@@ -49,7 +49,7 @@
       target.replaceChildren();
       state.textContent = books.length + " locally registered books";
       if (!books.length) {
-        target.append(node("div", "No books indexed in this production data folder. Your earlier three-line experiment used a separate test folder.", "empty-state"));
+        target.append(node("div", "No books indexed in this learning library yet.", "empty-state"));
         return;
       }
       for (const book of books.slice(0,100)) {
