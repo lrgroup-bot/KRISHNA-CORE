@@ -102,6 +102,17 @@ html{scroll-padding-top:20px}
 .video-speed-help{background:#f8f8fc;border:1px solid #e3e0f1;border-radius:11px;margin:12px 0;padding:9px 12px;color:#44466e}
 .video-speed-help summary{cursor:pointer;font-weight:750}
 .video-speed-help p{margin:8px 0 0;font-size:12px}
+.video-quick-add{display:grid;grid-template-columns:minmax(210px,2fr) minmax(150px,1fr);gap:10px 14px;margin:13px 0}
+.video-quick-add label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:650;color:var(--ink)}
+.video-quick-add input:not([type="checkbox"]),.video-quick-add select{width:100%;min-height:40px;border:1px solid #c7c7da;border-radius:10px;padding:8px 10px;background:#fff;font:inherit;color:var(--ink)}
+.video-quick-add label[for="video-review-terms"]{grid-column:1/-1}
+.video-quick-add .video-adaptive-label{display:flex;flex-direction:row;align-items:center;grid-column:1/-1}
+.video-quick-add input:focus-visible,.video-quick-add select:focus-visible{outline:3px solid #9d7bdf;outline-offset:2px}
+.video-job-details{margin:12px 0;border:1px solid #e1dfec;background:#f8f8fd;border-radius:10px;padding:10px 13px}
+.video-job-details summary{cursor:pointer;font-weight:750;font-size:12px}
+.video-job-details label{display:block;margin:10px 0 5px;font-size:12px}
+@media(max-width:650px){.video-quick-add{grid-template-columns:1fr}}
+
 .video-review-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
 .video-review-actions button{min-height:38px;padding:7px 16px;border-radius:10px}
 .video-review-hint{font-size:12px;color:#646680}
