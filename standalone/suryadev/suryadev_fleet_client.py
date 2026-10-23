@@ -105,6 +105,17 @@ class FleetClient:
         })
         if not reply.get("accepted") or reply.get("device_id") != self.config["device_id"]:
             raise RuntimeError("Core rejected signed SURYADEV heartbeat")
+        # This proof exists only after the pinned-TLS authenticated Core
+        # call completes with a matching acknowledged device ID. It does
+        # NOT indicate knowledge / BRAHMAGYAN / Rishi acceptance.
+        atomic_json(self.root, "krishna-fleet-heartbeat-ack.json", {
+            "schema":"suryadev.krishna-authenticated-heartbeat.v1",
+            "authenticated_core_reply":True,
+            "device_id":self.config["device_id"],
+            "acknowledged_at":now,
+            "knowledge_accepted":False,
+            "brahmagyan_accepted":False,
+        })
 
     def _reconcile(self, lib, now):
         for task_id, row in list(self.state["assignments"].items()):
