@@ -106,12 +106,69 @@ class VideoReview:
         except (OSError, ValueError):
             return False
 
+    def approve_source(self, url):
+        """Operator approves one exact video URL through same-origin CSRF.
+
+        Keeps existing owner quotas, feeds and allowed hosts intact. This
+        does not run the video or change KRISHNA enrollment.
+        """
+        if not isinstance(url, str) or not (1 <= len(url) <= 2048):
+            raise ValueError("Enter a complete approved HTTPS YouTube URL")
+        try:
+            parsed = urlsplit(url)
+            host = (parsed.hostname or "").lower()
+            port = parsed.port
+        except ValueError as exc:
+            raise ValueError("Invalid video URL") from exc
+        if (parsed.scheme != "https" or host not in
+            ("www.youtube.com", "youtube.com", "m.youtube.com", "youtu.be")
+            or parsed.username or parsed.password or parsed.fragment
+            or port not in (None,443)):
+            raise ValueError("Only public HTTPS YouTube URLs without fragments are supported")
+        if not parsed.path or parsed.path == "/" or (host.endswith("youtube.com") and
+            parsed.path == "/watch" and not "v=" in (parsed.query or "")):
+            raise ValueError("Enter a specific video URL, not a YouTube homepage")
+        from suryadev_feeder import read_plan
+        import shutil
+        if self.plan.is_file():
+            existing = json.loads(self.plan.read_text(encoding="utf-8"))
+            read_plan(self.plan)
+        else:
+            existing={"approved_urls":[],"approved_feeds":[],
+                 "allowed_source_hosts":[],"max_new_per_cycle":5,
+                 "max_queued":20}
+        if url in existing.get("approved_urls",[]):
+            return {"ok":True,"status":"already_approved","approved_url":url}
+        updated=dict(existing)
+        updated["approved_urls"]=list(existing.get("approved_urls",[]))+[url]
+        updated["allowed_source_hosts"]=list(dict.fromkeys(
+            list(existing.get("allowed_source_hosts",[]))+[host]))
+        # Do not modify an invalid/oversized pre-existing source policy.
+        temp=self.plan.with_suffix(".json.tmp")
+        temp.write_text(json.dumps(updated,indent=2,ensure_ascii=False)+"\n",encoding="utf-8")
+        try:
+            read_plan(temp)
+            if self.plan.is_file():
+                stamp=time.strftime("%Y%m%d-%H%M%S")
+                backup=self.plan.with_name("learning-plan.before-video-"+stamp+".json")
+                if backup.exists():
+                    backup=self.plan.with_name("learning-plan.before-video-"+stamp+"-"+secrets.token_hex(3)+".json")
+                shutil.copy2(self.plan,backup)
+            os.replace(temp,self.plan)
+        finally:
+            temp.unlink(missing_ok=True)
+        return {"ok":True,"status":"approved","approved_url":url,
+                "note":"URL approved once. Enable automatic video observation to learn it."}
+
     def set_auto(self, enabled):
         if not isinstance(enabled, bool):
             raise ValueError("enabled must be a boolean")
         if enabled:
             from suryadev_feeder import read_plan
-            plan = read_plan(self.plan)
+            try:
+                plan = read_plan(self.plan)
+            except (OSError, ValueError, TypeError) as exc:
+                raise ValueError("Approved learning-plan.json unavailable or invalid") from exc
             candidates = self._approved_videos(plan.get("approved_urls", []))
             if not candidates:
                 raise ValueError("First add at least one exact YouTube URL to approved learning-plan.json")
