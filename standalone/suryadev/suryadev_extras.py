@@ -439,6 +439,8 @@ def serve(lib, port=8769):
                         outcome = worker_control.start(model=body.get("model", "qwen3.5:2b"))
                     elif route.path == "/api/operator/learning/stop":
                         outcome = worker_control.stop()
+                    elif route.path == "/api/operator/video/approve-source":
+                        outcome = video_review.approve_source(body.get("url"))
                     elif route.path == "/api/operator/video/auto":
                         outcome = video_review.set_auto(body.get("enabled"))
                     elif route.path == "/api/operator/video/import":
