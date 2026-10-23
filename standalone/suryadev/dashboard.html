@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/dashboard.css">
 <link rel="stylesheet" href="/dashboard-settings.css">
 <link rel="stylesheet" href="/dashboard-garudanetra.css">
+<script src="/dashboard-api.js" defer></script>
 <script src="/dashboard.js" defer></script>
 <script src="/dashboard-settings.js" defer></script>
 <script src="/dashboard-garudanetra.js" defer></script>
@@ -22,13 +23,12 @@
     <a class="identity" href="#overview"><span class="identity-logo" aria-hidden="true">☀</span><span><strong>SURYADEV</strong><small>LEARNING INTELLIGENCE</small></span></a>
     <div class="sidebar-label">MISSION MENU</div>
     <nav class="navigation">
-      <a href="#overview" class="nav-item selected"><span>✦</span> Overview</a>
-      <a href="#live-learning" class="nav-item"><span>●</span> Live learning</a>
-      <a href="#garudanetra" class="nav-item"><span>◉</span> Garudanetra browser</a>
-      <a href="#assignments" class="nav-item"><span>▣</span> All assignments</a>
-      <a href="#sources" class="nav-item"><span>◈</span> Sources & learning</a>
-      <a href="#date-center" class="nav-item"><span>◷</span> Date-wise learning</a>
-      <a href="#hardware" class="nav-item"><span>◉</span> Hardware</a>
+      <a href="#overview" class="nav-item selected"><span>⌂</span> Overview</a>
+      <a href="#garudanetra" class="nav-item"><span>◉</span> Live learning</a>
+      <a href="#assignments" class="nav-item"><span>▣</span> Assignments</a>
+      <a href="#video-review" class="nav-item"><span>▶</span> Video review</a>
+      <a href="#sources" class="nav-item"><span>◈</span> Evidence &amp; books</a>
+      <a href="#date-center" class="nav-item"><span>◷</span> History</a>
       <div class="settings-menu-label">CONFIGURATION</div>
       <button id="open-server-settings" type="button" class="nav-item nav-settings" aria-haspopup="dialog" aria-controls="server-settings-dialog"><span aria-hidden="true">◉</span> KRISHNA Server</button>
       <button id="open-storage-settings" type="button" class="nav-item nav-settings" aria-haspopup="dialog" aria-controls="storage-settings-dialog"><span aria-hidden="true">▤</span> Storage & Cleanup</button>
@@ -46,15 +46,15 @@
         <strong id="connection">Connecting…</strong>
         <small>KRISHNA pairing is separate from local connectivity.</small>
       </div>
-      <div class="sidebar-footer">UI v6.9 · 21 Oct 2026 · Local-first</div>
+      <div class="sidebar-footer"><span id="ui-version">SURYADEV · Local-first</span></div>
     </div>
   </aside>
   <main>
     <header class="hero" id="overview">
       <div class="hero-glow"></div>
-      <div class="hero-content"><div class="eyebrow">✦ RESEARCH INTELLIGENCE STATION</div>
-        <h1>Your learning universe,<br><em>beautifully organized.</em></h1>
-        <p>Track every assignment, explore the evidence, and see precisely what is still unfinished.</p>
+      <div class="hero-content"><div class="eyebrow">SURYADEV · LEARNING CONTROL</div>
+        <h1>Learn. Verify. <em>Keep the evidence.</em></h1>
+        <p>One place for active research, verified evidence, video review and learning history.</p>
         <a href="#assignments" class="hero-action">Explore all tasks <span aria-hidden="true">↗</span></a>
       </div>
       <div class="hero-aside"><div class="live-chip" id="live-chip"><span class="pulse-dot"></span> LIVE · 5 SEC</div><div class="hero-time" id="clock">--:--:--</div><div class="hero-caption">Laptop-local mission control</div></div>
@@ -62,7 +62,7 @@
     <section class="date-center" id="date-center" aria-labelledby="date-center-title">
       <div class="date-center-heading">
         <div class="date-center-icon" aria-hidden="true">▦</div>
-        <div><div class="date-center-eyebrow">LEARNING HISTORY & ACTIVITY</div><h2 id="date-center-title">Explore learning date-wise</h2><p>Choose a day to filter assignments and open that day's learning record.</p></div>
+        <div><div class="date-center-eyebrow">LEARNING HISTORY & ACTIVITY</div><h2 id="date-center-title">Learning history</h2><p>One date filter for assignments and activity records.</p></div>
       </div>
       <div class="date-center-controls">
         <label class="date-main-label" for="date-main">Select date
@@ -90,7 +90,7 @@
     </section>
     <section class="operations-panel" id="live-learning" aria-labelledby="operations-title">
       <div class="section-heading compact">
-        <div><div class="overline">REAL-TIME LEARNING CONTROL</div><h2 id="operations-title">What SURYADEV is doing now</h2><p>Actual queue order, active work and worker check times—refreshed automatically.</p></div>
+        <div><div class="overline">REAL-TIME LEARNING CONTROL</div><h2 id="operations-title">Current activity</h2><p>Actual queue order, active work and worker check times—refreshed automatically.</p></div>
         <span class="health-label" id="worker-state-label">Checking worker…</span>
       </div>
       <div class="operations-grid">
@@ -106,8 +106,8 @@
     <section id="garudanetra" class="netra-control" aria-labelledby="netra-title">
       <div class="section-heading compact">
         <div>
-          <div class="overline">GARUDANETRA · LIGHTWEIGHT PLAYWRIGHT CHROMIUM</div>
-          <h2 id="netra-title">Live parallel learning workspaces</h2>
+          <div class="overline">LIVE LEARNING · GARUDANETRA</div>
+          <h2 id="netra-title">Research workspaces</h2>
           <p>Measured CPU, RAM, GPU and disk headroom decides when SURYADEV can open the next approved source.</p>
         </div>
         <span class="netra-live-pill" id="netra-engine-state">Checking browser…</span>
@@ -167,26 +167,39 @@
           <label class="search-wrap"><span class="visually-hidden">Search assignments</span><span aria-hidden="true">⌕</span><input id="task-search" type="search" placeholder="Search task ID, source or learning title" autocomplete="off"></label>
           <label class="filter-select"><span class="visually-hidden">Source type</span><select id="kind-filter"><option value="">All sources</option><option value="youtube">YouTube</option><option value="pdf">PDF</option><option value="website">Websites</option><option value="other">Other</option></select></label>
           <label class="filter-select"><span class="visually-hidden">Task status</span><select id="status-filter"><option value="">Every status</option><option value="queued">Queued</option><option value="running">Running</option><option value="done">Worker completed</option><option value="failed">Failed</option></select></label>
-          <label class="filter-date"><span class="visually-hidden">Filter by activity date</span><input type="date" id="task-date" aria-label="Filter tasks by date"></label>
-          <button type="button" id="clear-date" class="clear-date-btn" hidden>Clear date</button>
+          <span class="filter-note">Date filter is controlled in Learning history above.</span>
         </div>
         <div class="task-table-head"><span>ASSIGNMENT / SOURCE</span><span>STAGE</span><span>INSPECT</span></div>
         <div id="task-list" class="task-list" aria-live="polite"><div class="empty-state">Loading your assignment history…</div></div>
         <div class="pagination"><span id="page-label">—</span><div><button type="button" id="page-prev" class="page-btn" disabled>← Previous</button><button type="button" id="page-next" class="page-btn" disabled>Next →</button></div></div>
       </div>
     </section>
+    <section id="video-review" class="surface video-review-panel" aria-labelledby="video-review-title">
+      <div class="section-heading compact">
+        <div><div class="overline">SUPERVISED VIDEO · OWNER APPROVAL REQUIRED</div>
+          <h2 id="video-review-title">Video review</h2>
+          <p>Approve the exact source URL before any observation. No recording begins when importing.</p>
+        </div>
+        <span class="eyebrow-chip">Local-only until KRISHNA acceptance</span>
+      </div>
+      <details class="video-speed-help">
+        <summary>How adaptive playback works</summary>
+        <p><strong>1×</strong> critical details · <strong>1.5×</strong> explanations · <strong>2×</strong> normal talk · <strong>4×</strong> repeated casual chatter. Missing captions or audio-only fallback returns to 1×. Speed never proves complete learning.</p>
+      </details>
+      <label for="video-review-json">Approved video job JSON</label>
+      <textarea id="video-review-json" rows="5" spellcheck="false" placeholder='{"schema":"krishna.suryadev.job.v1","job_id":"lesson-01","kind":"video_research","target":"https://...","constraints":{"duration_seconds":60}}'></textarea>
+      <div class="video-review-actions"><button id="video-review-import" type="button">Import job</button><button id="video-review-refresh" type="button">Refresh</button></div>
+      <p class="video-review-hint">The full URL must already be approved in this test library's learning-plan.json. Review it again before running.</p>
+      <p id="video-review-status" role="status" aria-live="polite"></p>
+      <div id="video-review-list" aria-live="polite"></div>
+    </section>
     <div class="middle-grid">
-      <section id="sources" class="surface source-surface" aria-labelledby="sources-title"><div class="section-heading compact"><div><div class="overline">SOURCE COVERAGE</div><h2 id="sources-title">What it's learning</h2></div><span class="decor-orbit" aria-hidden="true">◎</span></div><div class="source-grid" id="source-grid"></div><p class="small-note">Books are counted separately from website/PDF/YouTube jobs. A recorded “done” or fully indexed book is not proof of understanding.</p></section>
-      <section id="hardware" class="surface hardware-surface" aria-labelledby="hardware-title"><div class="section-heading compact"><div><div class="overline">REAL-TIME TELEMETRY</div><h2 id="hardware-title">Laptop health</h2></div><span class="health-label">85% guard</span></div><div id="gauges" class="gauge-list"><div class="empty-state">Waiting for hardware…</div></div><div class="network" id="network"></div><div class="book-health" id="book-health" aria-live="polite">Book study: checking local progress…</div><p class="small-note">Counters are cumulative, not internet speed. Book inference time is measured model time, not a promise of learning speed. GPU telemetry requires compatible hardware.</p></section>
+      <section id="sources" class="surface source-surface" aria-labelledby="sources-title"><div class="section-heading compact"><div><div class="overline">SOURCE COVERAGE</div><h2 id="sources-title">Evidence by source</h2></div><span class="decor-orbit" aria-hidden="true">◎</span></div><div class="source-grid" id="source-grid"></div><p class="small-note">Books are counted separately from website/PDF/YouTube jobs. A recorded “done” or fully indexed book is not proof of understanding.</p></section>
+      <section id="hardware" class="surface hardware-surface" aria-labelledby="hardware-title"><div class="section-heading compact"><div><div class="overline">REAL-TIME TELEMETRY</div><h2 id="hardware-title">Laptop health</h2></div><span class="health-label">85% guard</span></div><div id="gauges" class="gauge-list"><div class="empty-state">Waiting for hardware…</div></div><div class="network" id="network"></div><p class="small-note">Counters are cumulative, not internet speed. GPU telemetry requires compatible hardware.</p></section>
     </div>
     <section id="diary" class="surface diary-surface" aria-labelledby="diary-title">
-      <div class="section-heading compact"><div><div class="overline">DATE-WISE LEARNING</div><h2 id="diary-title">Daily learning diary</h2><p>Pick any day or click a date below to open its activity and assignments.</p></div><span class="eyebrow-chip">Date-wise activity</span></div>
-      <div class="diary-toolbar">
-        <label class="diary-calendar-label" for="diary-date"><span aria-hidden="true">▦</span> Choose a date</label>
-        <input id="diary-date" type="date" aria-label="Choose diary date">
-        <button type="button" id="diary-today" class="diary-button">Today</button>
-        <button type="button" id="diary-clear" class="diary-button secondary">All dates</button>
-      </div>
+      <div class="section-heading compact"><div><div class="overline">DATE-WISE LEARNING</div><h2 id="diary-title">Daily activity</h2><p>Review the selected day and open saved assignments.</p></div><span class="eyebrow-chip">Date-wise activity</span></div>
+      <p class="small-note">Select a day from the history filter above or click a day below to inspect its activity.</p>
       <div class="diary-tiles-title">Recent active dates <span class="eyebrow-chip">Click a day to explore</span></div>
       <div id="diary-list" class="diary-list"><div class="empty-state">Loading history…</div></div>
       <div class="diary-report" id="diary-report" aria-live="polite">
