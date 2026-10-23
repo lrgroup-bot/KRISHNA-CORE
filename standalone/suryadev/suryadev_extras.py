@@ -122,6 +122,9 @@ class DashboardReader:
         self.db = sqlite3.connect(uri, uri=True, timeout=10)
         self.db.execute("PRAGMA query_only=ON")
         self.db.execute("PRAGMA busy_timeout=10000")
+        # All SELECTs within one API response use a single committed SQLite
+        # snapshot, even if an active worker finishes between statements.
+        self.db.execute("BEGIN")
 
     def stats(self):
         return dict(self.db.execute("SELECT status,count(*) FROM jobs GROUP BY status").fetchall())
@@ -435,7 +438,13 @@ def serve(lib, port=8769):
             try:
                 body = json.loads(self.rfile.read(length))
                 with settings_lock:
-                    if route.path == "/api/operator/learning/start":
+                    if route.path == "/api/operator/learning/activate-sources":
+                        from suryadev_continuity import activate_official_pack
+                        outcome = activate_official_pack(lib.root)
+                        outcome["note"] = ("Official public sources approved. A running worker started "
+                                           "without --plan must be stopped after its current job, then "
+                                           "restarted using Start Learning to enable automatic refill.")
+                    elif route.path == "/api/operator/learning/start":
                         outcome = worker_control.start(model=body.get("model", "qwen3.5:2b"))
                     elif route.path == "/api/operator/learning/stop":
                         outcome = worker_control.stop()
