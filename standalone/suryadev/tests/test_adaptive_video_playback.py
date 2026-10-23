@@ -43,7 +43,7 @@ class AdaptiveVideoSpeedTests(unittest.TestCase):
         self.assertEqual(p.choose("Welcome back to my channel",
                                   video_seconds=1, caption_available=True)[0], 2.0)
         self.assertEqual(p.choose("Like and subscribe to the channel",
-                                  video_seconds=3, caption_available=True), ("chatter", 4.0))
+                                  video_seconds=3, caption_available=True), (4.0, "chatter"))
         self.assertEqual(p.choose("This is an important Python 3.12 example",
                                   video_seconds=4, caption_available=True), ("important", 1.0))
         self.assertEqual(p.chatter_streak, 0)
@@ -71,7 +71,7 @@ class AdaptiveVideoSpeedTests(unittest.TestCase):
         p.choose("Like and subscribe", video_seconds=2, caption_available=True)
         self.assertEqual(p.choose("Like and subscribe",
                                   video_seconds=7.5, caption_available=True),
-                         ("caption_stalled", 1.0))
+                         (1.0, "caption_stalled"))
 
     def test_owner_capture_term_forces_1x(self):
         p = adapter.AdaptiveVideoSpeed(("solar panel",))
