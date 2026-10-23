@@ -83,11 +83,13 @@
             <option value="gemma3:4b">Gemma 3 4B</option>
           </select>
         </label>
-        <button id="learning-enable-sources" type="button">Enable research sources</button>
+        <button id="learning-core-delegation" type="button" disabled>KRISHNA source delegation: unavailable</button>
+        <button id="learning-enable-sources" type="button">Local fallback sources</button>
         <button id="learning-start" type="button">Start learning</button>
         <button id="learning-stop" type="button" disabled>Stop</button>
       </div>
       <div class="learning-action-status" id="learning-action-status" role="status" aria-live="polite"></div>
+      <div class="learning-action-status" id="learning-core-status" aria-live="polite">KRISHNA mission feed: checking secure device pairing…</div>
     <div class="overview" aria-labelledby="overview-title">
       <div class="section-heading"><div><div class="overline">OVERVIEW</div><h2 id="overview-title">Mission pulse · Research workspaces</h2></div><span class="freshness" id="updated" aria-live="polite">Connecting to telemetry…</span></div>
       <div class="metric-grid">
