@@ -41,7 +41,7 @@
   }
   async function refresh() {
     try {
-      const response = await fetch("/api/books", {cache:"no-store",
+      const response = await window.suryadevRead("/api/books", {cache:"no-store",
         credentials:"same-origin"});
       if (!response.ok) throw new Error("HTTP " + response.status);
       const data = await response.json();
@@ -84,7 +84,7 @@
       }
       matches.append(node("p", "Searching original source lines…", "book-fine"));
       try {
-        const response = await fetch("/api/book-search?q=" + encodeURIComponent(query),
+        const response = await window.suryadevRead("/api/book-search?q=" + encodeURIComponent(query),
              {credentials:"same-origin",cache:"no-store"});
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Book search unavailable");
