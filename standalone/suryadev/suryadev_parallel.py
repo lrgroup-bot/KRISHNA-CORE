@@ -1,8 +1,10 @@
-"""Measured, bounded parallel SURYADEV research with Garudanetra tabs.
+"""Hardware-auto-admitted parallel SURYADEV research with Garudanetra tabs.
 
-Workers run multiple *independent source acquisitions* concurrently.
-Expensive local Ollama summary generation is serialized for laptop stability.
-No jobs are launched when real psutil telemetry is missing or unsafe.
+Large approved worklists (including 100 PDFs) can be queued without
+implying all tasks can execute at once. Per-cycle admission comes from
+measured hardware headroom and is shared with video/browser/book pools.
+Expensive local model inference stays serialized to protect the laptop.
+No new jobs are launched if psutil metrics are missing or unsafe.
 """
 from __future__ import annotations
 
@@ -21,8 +23,9 @@ from suryadev_garudanetra import GarudanetraLite
 
 CAPACITY_FILE = "capacity-runtime.json"
 KINDS = ("website", "youtube", "pdf")
-# Upper scheduling targets, NOT unconditional simultaneous hardware launches.
-SOURCE_TARGETS = {"website": 10, "youtube": 10, "pdf": 20}
+# Workload ceilings, not a fixed degree of parallelism.
+# Any portion may be pending in the queue while auto-admission runs fewer jobs.
+SOURCE_TARGETS = {"website": 10, "youtube": 10, "pdf": 100}
 BOOK_TARGET = 5
 MAX_PARALLEL = sum(SOURCE_TARGETS.values())
 TOTAL_TARGET = MAX_PARALLEL + BOOK_TARGET
@@ -97,8 +100,9 @@ def plan_capacity(reading, *, logical_cpus=None):
                 "limits":{k:0 for k in KINDS},
                 "cpu_percent":cpu, "ram_percent":ram,
                 "disk_free_gb":disk_free, "free_ram_gb":round(free,2)}
-    # 45 assignments can be active in scheduling; live execution must not
-    # exceed measured CPU/RAM/disk headroom or provider restrictions.
+    # 125 possible source/book assignments can be queued concurrently, but
+    # a 16 GiB laptop must admit far fewer actual execution slots.
+    # Measured CPU/RAM/disk headroom ALWAYS takes precedence.
     # Reserve 2 GiB for Windows in ADDITION to keeping RAM below 85%.
     mem_budget = max(0.0, min(free - 2.0,
                               float(reading["ram_total_gb"]) * (0.85 - ram / 100)))
@@ -120,6 +124,8 @@ def plan_capacity(reading, *, logical_cpus=None):
             "max_total":total, "limits":limits,
             "target_slots":{**SOURCE_TARGETS, "book": BOOK_TARGET},
             "target_total":TOTAL_TARGET,
+            "capacity_mode":"automatic_hardware",
+            "backlog_is_not_running":True,
             "youtube_provider_concurrent_limit":1,
             "cpu_percent":cpu, "ram_percent":ram,
             "disk_free_gb":disk_free, "free_ram_gb":round(free,2),
@@ -187,7 +193,8 @@ class AdaptiveResearchWorkers:
         finished = self._reap()
         reading = telemetry if telemetry is not None else snapshot(self.root)
         capacity = plan_capacity(reading)
-        # Configured cap can REDUCE, never override measured capacity.
+        # Optional operator cap only REDUCES measured capacity, never raises
+        # it. Unset means automatic scaling rather than a hardcoded 45.
         requested = os.environ.get("SURYADEV_MAX_PARALLEL", "").strip()
         if requested:
             try:
