@@ -64,6 +64,10 @@ def hardware_report(root, *, sample=None, now=None):
         "gpu_name": ident["gpu_name"],
         "gpu_inventory_verified": ident["gpu_inventory_verified"],
         "gpu_inference": False,
+        "battery_percent": report.get("battery_percent"),
+        "battery_plugged": report.get("battery_plugged"),
+        "temperature_max_c": report.get("temperature_max_c"),
+        "temperature_available": report.get("temperature_available") is True,
         "processing_mode": "collector_only" if collector_only else "local_inference",
         "network_interface_up": report.get("network_interface_up"),
         "network_link_speed_mbps": report.get("network_interface_speed_mbps"),
@@ -103,15 +107,26 @@ class FleetClient:
             return
         self.next_heartbeat = now + HEARTBEAT_SECONDS
         telemetry = hardware_report(self.root, sample=report)
+        from suryadev_mission_cycle import status as mission_status
+        mission = mission_status(self.root)
+        phase = mission.get("phase")
+        measured_hot = (telemetry is not None and
+                        telemetry.get("temperature_max_c") is not None and
+                        float(telemetry["temperature_max_c"]) >= 85)
+        thermal = ("hot" if measured_hot else
+                   "normal" if telemetry is not None and telemetry.get("temperature_available")
+                   else "unknown")
         pending = lib.db.execute(
             "SELECT COUNT(*) FROM jobs WHERE status IN ('running','queued')").fetchone()[0]
         reply = self._send("device/heartbeat", {
             "node_name": "SURYADEV-" + self.config["device_id"][-8:],
             "platform": platform.system(),
             "worker_running": True,
-            "learning_state": "researching" if pending else "idle",
+            "learning_state": ("resting" if phase == "rest" else
+                               "draining" if phase == "draining" else
+                               "researching" if pending else "idle"),
             "network_online": True,
-            "thermal_state": "unknown",
+            "thermal_state": thermal,
             "telemetry": telemetry,
         })
         if not reply.get("accepted") or reply.get("device_id") != self.config["device_id"]:
