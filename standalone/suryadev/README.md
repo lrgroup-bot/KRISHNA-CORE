@@ -1,3 +1,36 @@
+## New Node Control frontend — October 25, 2026
+
+**Default:** `http://127.0.0.1:8772/` — a compact, responsive, evidence-first command center
+for Windows, Linux and macOS SURYADEV nodes. This is a **functional local
+frontend**, not a mockup. It uses existing read-only APIs and performs
+Start/Stop through the existing loopback/same-origin/CSRF operator endpoints.
+
+Sections are: worker ownership and actual state, collector-only vs optional
+local models, three-task admission, live/queued assignments, website/YouTube/PDF/
+book coverage, a searchable paginated evidence ledger, click-through receipt
+inspection, 85% hardware guard and explicit KRISHNA pairing status. Task
+completions remain distinct from independent comprehension verification.
+
+**Full evidence console:** `http://127.0.0.1:8772/advanced` preserves all
+older book journals, video review, detailed time/provenance audit, daily
+history and configuration settings; its data is the SAME current node
+workspace, not a second database or a copied ledger. Do not delete the old
+dashboard files. Prior sessions live in their own previous data root.
+
+On an existing Windows node, stop its old dashboard and worker, pull the
+SURYADEV development branch, run `install-windows.ps1` from
+`standalone/suryadev` with your chosen install/data folders, and start
+`python start-node.py --data <node-data> --model collector --port 8772`
+from the installation directory. **Do not launch a second dashboard on
+port 8772.** No source is automatically approved because the frontend was
+upgraded; a plan or authenticated KRISHNA mission is still required.
+
+The Chromium regression suite covers both the Node Control homepage and
+the full `/advanced` evidence view; the installer/runtime verifier asserts
+all new HTML/CSS/JS files are present.
+
+---
+
 ## Portable SURYADEV fleet nodes — desktops, laptops, CPUs and optional servers
 
 SURYADEV is a **hardware-adaptive collector**, not a dedicated Qwen laptop. Each
