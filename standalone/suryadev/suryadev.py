@@ -390,8 +390,23 @@ class Library:
                 "note":"Operator-approved retry queued. Only one caption language will be requested."}
 
     def recover(self):
+        """Requeue interrupted tasks only after the caller acquires worker_lock.
+
+        An exclusive worker lock guarantees the previous supervisor is gone:
+        no previous execution threads may still own a job. The historical
+        two-hour timeout stranded freshly interrupted assignments after
+        restart. Never change done/failed jobs or delete saved evidence.
+        """
         with self.db:
-            self.db.execute("UPDATE jobs SET status='queued',updated=? WHERE status='running' AND updated < ?", (time.time(), time.time() - 7200))
+            interrupted = [
+                row[0] for row in self.db.execute(
+                    "SELECT id FROM jobs WHERE status='running' ORDER BY id")
+            ]
+            if interrupted:
+                self.db.execute(
+                    "UPDATE jobs SET status='queued',updated=? WHERE status='running'",
+                    (time.time(),))
+        return interrupted
 
     def search(self, term):
         term = "%" + term.replace("%", "\\%").replace("_", "\\_") + "%"
