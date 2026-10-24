@@ -43,6 +43,7 @@ jobs:
           node --check standalone/suryadev/dashboard-video.js
           node --check standalone/suryadev/dashboard-books.js
           node --check standalone/suryadev/dashboard-garudanetra.js
+          node --check standalone/suryadev/dashboard-learning.js
           node --check standalone/suryadev/dashboard-settings.js
 
       - name: Verify Core six-hour mission scheduler and paired route contract
@@ -67,6 +68,9 @@ jobs:
           if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
           $errors = $null
           [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'standalone/suryadev/start-continuous-learning.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'standalone/suryadev/start-fresh-workspace.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
           if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
 
   ui-browser:
