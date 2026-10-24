@@ -14,6 +14,7 @@
     const model = el("learning-model");
     let csrf = null;
     let operation = false;
+    let preferenceLoaded = false;
 
     async function auth() {
       if (csrf) return csrf;
@@ -43,6 +44,11 @@
             typeof d.external_worker_active !== "boolean") {
           throw Error("Dashboard backend is outdated; reinstall and restart SURYADEV to enable Start Learning");
         }
+        if (!preferenceLoaded && d.preferred_model &&
+            Array.from(model.options).some(option => option.value === d.preferred_model)) {
+          model.value = d.preferred_model;
+        }
+        preferenceLoaded = true;
         const core = d.core_dispatch || {};
         const paired = core.ready === true;
         const delegated = d.paired_core_host_delegation === true;
@@ -71,7 +77,7 @@
           manual ? "Learning active · external worker" : "Learning paused · ready";
         note.textContent = running
           ? ((paired ? "KRISHNA fleet polling configured" : "Local-only research") +
-             " · Worker PID " + d.managed_pid)
+             " · Worker PID " + d.managed_pid + (d.managed_model ? " · Model " + d.managed_model : ""))
           : manual
             ? (d.blocked_reason || "A separate research/video worker holds the OS lock.")
             : d.plan_exists
