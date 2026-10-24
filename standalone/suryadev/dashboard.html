@@ -186,43 +186,17 @@
         <span class="eyebrow-chip">Local learning · secure Core handoff when paired</span>
       </div>
       <div class="video-auto-controls">
-        <div><strong>Automatic approved-video learning</strong>
-          <p id="video-auto-note">Add exact YouTube URLs to the approved source plan once; SURYADEV can then queue and observe them without repeated approval clicks. It respects the single-worker lock and never auto-approves Core evidence.</p>
+        <div><strong>Automated owner-approved video lesson</strong>
+          <p>Video sources are provided by the prepared learning trial or approved curriculum. There are no manual URL additions or per-video approval controls. Evidence and actual browser playback remain independently audited.</p>
         </div>
-        <input id="video-auto-url" type="url" placeholder="Paste a YouTube URL" maxlength="2048" aria-label="YouTube video to add to approved sources">
-        <button id="video-auto-approve" type="button">Add video to sources</button>
-        <button id="video-auto-toggle" type="button" disabled>Checking automation…</button>
       </div>
-      <p id="video-auto-state" role="status" aria-live="polite"></p>
-      <details class="video-manual-details">
-        <summary>Manual video import / test settings</summary>
-      <details class="video-speed-help">
-        <summary>How adaptive playback works</summary>
-        <p><strong>1×</strong> critical details · <strong>1.5×</strong> explanations · <strong>2×</strong> normal talk · <strong>4×</strong> repeated casual chatter. Missing captions or audio-only fallback returns to 1×. Speed never proves complete learning.</p>
-      </details>
-      <div class="video-quick-add">
-        <label for="video-review-url">Video URL (must already be approved)
-          <input id="video-review-url" type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" maxlength="2048">
-        </label>
-        <label for="video-review-minutes">Observation length
-          <select id="video-review-minutes"><option value="2">2 minutes · first test</option><option value="10">10 minutes</option><option value="30">30 minutes</option><option value="60">60 minutes</option></select>
-        </label>
-        <label for="video-review-terms">Important terms (optional, comma-separated)
-          <input id="video-review-terms" type="text" maxlength="1000" placeholder="Example: voltage, code, formula" autocomplete="off">
-        </label>
-        <label class="video-adaptive-label" for="video-review-adaptive">
-          <input id="video-review-adaptive" type="checkbox" checked> Use importance-based playback (1× to 4×)
-        </label>
-      </div>
-      <details class="video-job-details">
-        <summary>Advanced: import an existing KRISHNA job JSON</summary>
-        <label for="video-review-json">Approved video job JSON (overrides the quick form when provided)</label>
-        <textarea id="video-review-json" rows="5" spellcheck="false" placeholder='{"schema":"krishna.suryadev.job.v1","job_id":"lesson-01","kind":"video_research","target":"https://...","constraints":{"duration_seconds":60}}'></textarea>
-      </details>
-      <div class="video-review-actions"><button id="video-review-import" type="button">Import for review</button><button id="video-review-refresh" type="button">Refresh jobs</button></div>
-      <p class="video-review-hint">The full URL must already be approved in this test library's learning-plan.json. Review it again before running.</p>
+      <p id="video-auto-state" role="status" aria-live="polite">Checking approved video worker…</p>
       <p id="video-review-status" role="status" aria-live="polite"></p>
-      </details>
+      <button id="video-review-refresh" type="button">Refresh video evidence</button>
+      <section class="video-learning-trial" aria-labelledby="learning-trial-title">
+        <h3 id="learning-trial-title">Automatic trial verification · YouTube and book</h3>
+        <p id="learning-trial-audit" aria-live="polite">No independent comprehension exam has been verified.</p>
+      </section>
       <div id="video-review-list" aria-live="polite"></div>
       <section class="video-learning-audit" aria-labelledby="youtube-audit-title">
         <div class="section-heading compact">
