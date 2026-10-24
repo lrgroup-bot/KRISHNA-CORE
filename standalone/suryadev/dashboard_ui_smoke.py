@@ -43,7 +43,7 @@ async def browser_check(port):
             cap=await page.locator("#netra-total-capacity").inner_text()
             assert web=="2", "Genuine Chromium tab count not rendered"
             assert tabs==3, f"Expected 3 source workspace cards, got {tabs}"
-            assert "3 active / 4 allowed" in cap, f"capacity display wrong: {cap}"
+            assert "3 active / 4 currently admitted" in cap, f"capacity display wrong: {cap}"
             assert await page.locator("#netra-web-capacity").inner_text()=="3"
             assert await page.locator("#netra-pdf-capacity").inner_text()=="1"
             await page.locator(".netra-workspace-tab.website").first.click()
