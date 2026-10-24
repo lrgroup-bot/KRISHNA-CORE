@@ -245,7 +245,7 @@ class VideoReview:
                 continue
             job={"schema":"krishna.suryadev.job.v1","job_id":jid,
                  "kind":"video_research","target":url,
-                 "constraints":{"duration_seconds":600, "adaptive_playback":True,
+                 "constraints":{"duration_seconds":3600, "adaptive_playback":True,
                                 "allow_audio_asr_fallback":False}}
             result=self.import_job(job)
             self.run_job(jid,True,result["sha256"])
