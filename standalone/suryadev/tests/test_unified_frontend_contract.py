@@ -81,15 +81,17 @@ class UnifiedFrontendContractTests(unittest.TestCase):
         netra = (ROOT/"dashboard-garudanetra.js").read_text(encoding="utf-8")
         self.assertIn("Chromium ready · 0 active tabs", netra)
 
-    def test_single_click_source_activation_is_clearly_opt_in(self):
+    def test_automated_curriculum_has_no_manual_source_addition_frontend(self):
         markup = (ROOT/"dashboard.html").read_text(encoding="utf-8")
         js = (ROOT/"dashboard-learning.js").read_text(encoding="utf-8")
-        backend = (ROOT/"suryadev_extras.py").read_text(encoding="utf-8")
-        self.assertEqual(markup.count('id="learning-enable-sources"'), 1)
-        self.assertIn("/api/operator/learning/activate-sources", js)
-        self.assertIn("sources.disabled = Boolean(d.plan_exists)", js)
-        self.assertIn('route.path == "/api/operator/learning/activate-sources"', backend)
-        self.assertIn("activate_official_pack(lib.root)", backend)
+        server = (ROOT/"suryadev_extras.py").read_text(encoding="utf-8")
+        self.assertNotIn('id="learning-enable-sources"',markup)
+        self.assertNotIn('id="video-auto-url"',markup)
+        self.assertNotIn('id="video-review-import"',markup)
+        self.assertNotIn('id="video-review-json"',markup)
+        self.assertNotIn('/api/operator/learning/activate-sources',js)
+        self.assertIn('id="learning-trial-audit"',markup)
+        self.assertIn('route.path == "/api/trial/audit"',server)
 
     def test_stale_folder_copy_removed(self):
         for name in ("dashboard.html", "dashboard.js",
