@@ -315,7 +315,19 @@ class AdaptiveResearchWorkers:
                 queued[choice] -= 1
                 launched.append(choice)
                 self.rotation = (KINDS.index(choice) + 1) % len(KINDS)
-        # Lifecycle rest/drain is separate from hardware pressure: retain the\n        # measurement, but report zero executable admission during a break.\n        if not admit_new:\n            capacity["hardware_safe_before_mission_pause"] = capacity["safe"]\n            capacity["safe"] = False\n            capacity["max_total"] = 0\n            capacity["source_execution_slots"] = 0\n            capacity["reserved_book_slots"] = 0\n            capacity["reserved_video_slots"] = 0\n            capacity["limits"] = {name: 0 for name in capacity["limits"]}\n            capacity["mission_admission_paused"] = True\n            capacity["reason"] = "Six-hour mission boundary: draining or mandatory ten-minute rest"\n        youtube_blocked = (self.youtube_access["state"] == "rate_limited"
+        # Hardware admission is separate from the lifecycle rest.
+        # Retain the sampled hardware result but advertise zero new slots.
+        if not admit_new:
+            capacity["hardware_safe_before_mission_pause"] = capacity["safe"]
+            capacity["safe"] = False
+            capacity["max_total"] = 0
+            capacity["source_execution_slots"] = 0
+            capacity["reserved_book_slots"] = 0
+            capacity["reserved_video_slots"] = 0
+            capacity["limits"] = {name: 0 for name in capacity["limits"]}
+            capacity["mission_admission_paused"] = True
+            capacity["reason"] = "Six-hour mission boundary: draining or mandatory ten-minute rest"
+        youtube_blocked = (self.youtube_access["state"] == "rate_limited"
                            and queued["youtube"] > 0)
         capacity["over_admitted_inflight"] = max(
             0, len(self.futures) - capacity["source_execution_slots"])
