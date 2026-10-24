@@ -40,6 +40,25 @@ class LearningTrialTests(unittest.TestCase):
                 self.assertEqual(data["rishi_exam_verified"],False)
                 approve.assert_called_once()
 
+    def test_first_boot_fixed_trial_creates_initial_approved_plan(self):
+        # Existing source approvals are not a prerequisite for the two
+        # specific resources the owner selected for the reproducible trial.
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            self.assertFalse((root/"learning-plan.json").exists())
+            with patch("suryadev_resources.snapshot",return_value={"available":True}), \
+                 patch("suryadev_parallel.plan_capacity",
+                       return_value={"safe":True,"max_total":2}), \
+                 patch("suryadev_trial.acquire_book",return_value="a"*64), \
+                 patch("suryadev_trial.approve_book",return_value={
+                     "status":"approved","book_id":"book-"+"a"*64}):
+                result=prepare_trial(root,root)
+            self.assertEqual(result["video"],"approved_for_automatic_observation")
+            self.assertEqual(result["book"],"indexed_and_approved_for_model_reading")
+            source_plan=json.loads((root/"learning-plan.json").read_text(encoding="utf-8"))
+            self.assertEqual(source_plan["approved_urls"],[VIDEO])
+            self.assertEqual(source_plan["allowed_source_hosts"],["www.youtube.com"])
+
     def test_zero_evidence_never_leads_to_exam_or_mastery(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
