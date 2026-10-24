@@ -119,8 +119,8 @@ class DashboardWorkerControl:
         except (OSError, ValueError, TypeError):
             delegated = False
             host_count = 0
-        fresh=_safe_read(self.root, "fresh-workspace.json", max_bytes=4096)
-        is_fresh=fresh.get("schema")=="suryadev.fresh-workspace.v1"
+        workspace=_safe_read(self.root, "fresh-workspace.json", max_bytes=4096)
+        is_fresh=workspace.get("schema")=="suryadev.fresh-workspace.v1"
         return {
             "workspace_mode":"fresh" if is_fresh else "existing",
             "workspace_active_task_limit":3,
