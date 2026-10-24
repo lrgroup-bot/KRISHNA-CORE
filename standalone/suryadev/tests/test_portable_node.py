@@ -103,7 +103,7 @@ class PortableNodeTests(unittest.TestCase):
             target=Path(tmp)/"installed"
             data=Path(tmp)/"node-ledger"
             installed=installer.install(SOURCE,target,tests=False)
-            self.assertEqual(installed,target)
+            self.assertEqual(installed,target.resolve())
             self.assertTrue((target/"suryadev_r39_worker.py").is_file())
             self.assertTrue((target/"suryadev_r39_adapter.py").is_file())
             self.assertTrue((target/"start-node.py").is_file())
