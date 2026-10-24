@@ -63,6 +63,13 @@
       ? "TLS configuration validated · live dispatch unverified" : "Not paired");
     const plan=c.plan_exists;
     const research=state.operations?.research_plan;
+    const renew=state.operations?.mission_renewal || {};
+    const renewalAccepted=renew.accepted===true || renew.acknowledged===true;
+    text("workload-request-status", !c.core_dispatch?.ready
+      ? "Awaiting authenticated pairing"
+      : renewalAccepted ? "KRISHNA acknowledged request"
+      : renew.request?.request_id ? "Six-hour request pending confirmation"
+      : "Authenticated fleet polling available; delivery unverified");
     text("plan-status", research?.present
       ? (research.valid ? "Approved plan loaded" : "Needs review") : plan ? "Plan file present" : "No plan");
     if (!online && c.preferred_model &&
@@ -127,8 +134,20 @@
       banner.className="notice";
       banner.textContent="Source extraction is evidence, not understanding. Closed-book verification and RISHI exams are not established by worker completion.";
     }
-    const metrics=[["CPU", hw.cpu_percent],["Memory",hw.ram_percent],["Storage",hw.disk_percent],
-                   ["GPU",hw.gpu?.available===true?hw.gpu.usage_percent:null]];
+    // /api/live carries a fresh full psutil sample even when the scheduler's
+    // compact /api/operations hardware status omits disk/GPU/link readings.
+    const measured=state.live?.resources || {};
+    const pct=(key)=>measured[key] ?? hw[key];
+    const gpu=(measured.gpu?.available===true ? measured.gpu.usage_percent
+               : hw.gpu?.available===true ? hw.gpu.usage_percent : null);
+    const metrics=[["CPU",pct("cpu_percent")],["Memory",pct("ram_percent")],
+                   ["Storage",pct("disk_percent")],["GPU",gpu]];
+    const link=measured.network_interface_up;
+    const speed=measured.network_interface_speed_mbps;
+    const interfaceNote=link===true ? "Interface UP" : link===false ? "Interface DOWN" : "Interface unverified";
+    text("network-status", interfaceNote +
+        (Number(speed)>0 ? " · Negotiated link "+num(speed)+" Mbps" : "")+
+        " · Internet reachability/speed NOT verified by link status alone");
     const grid=el("health-grid");grid.replaceChildren();
     for (const [name, value] of metrics) {
       const v=value===null||value===undefined||!Number.isFinite(Number(value))
