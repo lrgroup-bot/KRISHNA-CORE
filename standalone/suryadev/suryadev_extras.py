@@ -145,6 +145,10 @@ def serve(lib, port=8769):
             route = urlsplit(self.path)
             if route.path == "/api/learning/control":
                 return self.respond(200, json.dumps(worker_control.snapshot()), "application/json")
+            if route.path == "/api/trial/exam":
+                from suryadev_liveops import _safe_read
+                return self.respond(200, json.dumps(_safe_read(lib.root,
+                    "learning-trial-exam.json",max_bytes=65536)), "application/json")
             if route.path == "/api/trial/audit":
                 from suryadev_trial import audit_trial
                 # HTTP requests run on separate threads. The main Library
@@ -591,6 +595,11 @@ def work_loop(lib, interval, use_ollama, model, *,
                                      books_enabled=bool(books)) as adaptive:
             if books:
                 books.attach_model_lock(adaptive.summary_lock)
+            from suryadev_trial_exam import AutomaticTrialExam
+            examiner=(AutomaticTrialExam(lib.root,model=model,
+                    model_lock=adaptive.summary_lock)
+                    if use_ollama and os.environ.get("SURYADEV_LEARNING_TRIAL")=="1"
+                    else None)
             next_configuration_probe = 0.0
             next_trial_audit = 0.0
             while True:
@@ -684,6 +693,13 @@ def work_loop(lib, interval, use_ollama, model, *,
                 if video_result["started_this_tick"] or video_result["finished"]:
                     print(json.dumps({"video_observation":video_result},
                                      ensure_ascii=False),flush=True)
+                if examiner:
+                    exam_report=examiner.tick(db=lib.db,capacity=update["capacity"],
+                        books_active=len(books.futures) if books else 0,
+                        videos_active=len(videos.futures))
+                    if exam_report["attempts"] and exam_report["attempts"][-1].get("recorded_at",0) >= time.time()-3:
+                        print(json.dumps({"automated_closed_book_check":exam_report["attempts"][-1]},
+                            ensure_ascii=False),flush=True)
                 if collect_books:
                     # Index one owner-approved source without Ollama, including
                     # when source research remains queued. Admission is measured;
@@ -709,6 +725,8 @@ def work_loop(lib, interval, use_ollama, model, *,
                     wait = min(wait, max(0.1, feeder.next_due - time.time()))
                 time.sleep(wait)
     finally:
+        if "examiner" in locals() and examiner:
+            examiner.close()
         videos.close()
         if books:
             books.close()
