@@ -49,7 +49,7 @@ if (Test-Path -LiteralPath $marker -PathType Leaf) {
                 ([System.Text.UTF8Encoding]::new($false)))
             Move-Item -LiteralPath $stage -Destination $marker -Force
         } finally {
-            if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Force }
+            if (Test-Path -LiteralPath $stage) { [System.IO.File]::Delete($stage) }
         }
         Write-Host "Updated existing fresh workspace model to $Model (study data retained)"
     }
