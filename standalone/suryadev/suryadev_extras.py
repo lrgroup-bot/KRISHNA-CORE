@@ -609,7 +609,7 @@ def work_loop(lib, interval, use_ollama, model, *,
                         print(json.dumps({"continuity":result}, ensure_ascii=False),flush=True)
                 # Video observations are admitted inside this owner's existing
                 # supervisor, not by another process holding the same lock.
-                adaptive.video_enabled = videos.auto_enabled()
+                adaptive.video_enabled = videos.has_pending()
                 adaptive.external_active = (
                     (len(books.futures) if books else 0) + len(videos.futures))
                 update = adaptive.pump()
