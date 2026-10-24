@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#4431a1">
-<title>SURYADEV • Learning Mission Control</title>
+<title>SURYADEV • Fresh Learning Workspace</title>
 <link rel="stylesheet" href="/dashboard.css">
 <link rel="stylesheet" href="/dashboard-settings.css">
 <link rel="stylesheet" href="/dashboard-garudanetra.css">
@@ -55,9 +55,9 @@
     <header class="hero" id="overview">
       <div class="hero-glow"></div>
       <div class="hero-content"><div class="eyebrow">SURYADEV · LEARNING CONTROL</div>
-        <h1>Mission control <em>· learning live</em></h1>
-        <p>Websites, YouTube, PDFs and books — one local research workspace.</p>
-        <a href="#assignments" class="hero-action">Explore all tasks <span aria-hidden="true">↗</span></a>
+        <h1>Fresh learning <em>· three tasks maximum</em></h1>
+        <p>New learning workspace. Up to three tasks total across websites, YouTube, PDFs and books; hardware safety always takes priority.</p>
+        <a href="#assignments" class="hero-action">Inspect this session <span aria-hidden="true">↗</span></a>
       </div>
       <div class="hero-aside"><div class="live-chip" id="live-chip"><span class="pulse-dot"></span> LIVE · 5 SEC</div><div class="hero-time" id="clock">--:--:--</div><div class="hero-caption">Laptop-local mission control</div></div>
     </header>
@@ -80,6 +80,7 @@
           <select id="learning-model">
             <option value="qwen3.5:2b">Qwen 3.5 2B · lightweight</option>
             <option value="qwen3.5:4b">Qwen 3.5 4B</option>
+            <option value="qwen3.5:9b" selected>Qwen 3.5 9B · deeper reading</option>
             <option value="gemma3:4b">Gemma 3 4B</option>
           </select>
         </label>
@@ -89,11 +90,12 @@
         <button id="learning-stop" type="button" disabled>Stop</button>
       </div>
       <div class="learning-action-status" id="learning-action-status" role="status" aria-live="polite"></div>
+      <div class="learning-action-status" id="learning-workspace-state" role="status" aria-live="polite">Checking fresh learning workspace. Previous databases remain separate.</div>
       <div class="learning-action-status" id="learning-core-status" aria-live="polite">KRISHNA mission feed: checking secure device pairing…</div>
     <div class="overview" aria-labelledby="overview-title">
       <div class="section-heading"><div><div class="overline">OVERVIEW</div><h2 id="overview-title">Mission pulse · Research workspaces</h2></div><span class="freshness" id="updated" aria-live="polite">Connecting to telemetry…</span></div>
       <div class="metric-grid">
-        <div class="metric purple"><div class="metric-icon" aria-hidden="true">▦</div><div class="metric-label">All assignments</div><strong id="total">—</strong><small>Lifetime recorded tasks</small></div>
+        <div class="metric purple"><div class="metric-icon" aria-hidden="true">▦</div><div class="metric-label">Session assignments</div><strong id="total">—</strong><small>Current data workspace only</small></div>
         <div class="metric mint"><div class="metric-icon" aria-hidden="true">✓</div><div class="metric-label">Worker completed</div><strong id="done">—</strong><small>Not necessarily verified</small></div>
         <div class="metric peach"><div class="metric-icon" aria-hidden="true">◷</div><div class="metric-label">Queued</div><strong id="queued">—</strong><small>Waiting for execution</small></div>
         <div class="metric sky"><div class="metric-icon" aria-hidden="true">✧</div><div class="metric-label">Collected evidence</div><strong id="findings">—</strong><small>Source records, not verified mastery</small></div>
@@ -164,7 +166,7 @@
     </details>
     </section>
     <section class="task-section" id="assignments" aria-labelledby="tasks-title">
-      <div class="section-heading"><div><div class="overline">INTERACTIVE TASK EXPLORER</div><h2 id="tasks-title">All assignments <span class="title-count" id="filtered-count">—</span></h2><p>Click any task to inspect what SURYADEV did, its evidence and what is still pending.</p></div><span class="section-decoration" aria-hidden="true">✦</span></div>
+      <div class="section-heading"><div><div class="overline">INTERACTIVE TASK EXPLORER</div><h2 id="tasks-title">Current session assignments <span class="title-count" id="filtered-count">—</span></h2><p>Click any task to inspect what SURYADEV did, its evidence and what is still pending.</p></div><span class="section-decoration" aria-hidden="true">✦</span></div>
       <div class="task-workspace">
         <div class="filter-row">
           <label class="search-wrap"><span class="visually-hidden">Search assignments</span><span aria-hidden="true">⌕</span><input id="task-search" type="search" placeholder="Search task ID, source or learning title" autocomplete="off"></label>
