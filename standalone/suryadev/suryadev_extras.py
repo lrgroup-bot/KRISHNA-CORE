@@ -604,6 +604,19 @@ def work_loop(lib, interval, use_ollama, model, *,
     handoff = (BookHandoff(lib.root,core_mission_config) if sync_book_handoff else None)
     from suryadev_parallel_videos import ParallelVideoReader
     videos = ParallelVideoReader(lib.root,Path(__file__).resolve().parent)
+    # The operator opted into this launch flag. Only exact URLs already
+    # present in the approved plan can be automatically observed. The
+    # existing dashboard auto-loop defers while this one worker owns the lock.
+    if os.environ.get("SURYADEV_AUTO_APPROVED_VIDEOS") == "1":
+        try:
+            result = videos.review.set_auto(True)
+            print(json.dumps({"approved_video_auto": result},
+                             ensure_ascii=False), flush=True)
+        except (OSError, ValueError, TypeError) as exc:
+            print(json.dumps({"approved_video_auto_not_ready":
+                type(exc).__name__ + ": " + str(exc)[:120]},
+                ensure_ascii=False), flush=True)
+
     interrupted = lib.recover()  # exclusive worker_lock held by caller
     if interrupted:
         print(json.dumps({
