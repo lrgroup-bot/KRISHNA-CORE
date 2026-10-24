@@ -41,6 +41,25 @@ class ParallelVideoReader:
         """Only owner-activated reviewed video automation can launch work."""
         return self.review.auto_enabled()
 
+    def has_pending(self):
+        """Reserve video capacity only if a reviewed job can actually run."""
+        if self.futures:
+            return True
+        if not self.auto_enabled() or not self.review.plan.is_file():
+            return False
+        if not (self.review.worker_script.is_file() and
+                self.review.adapter_script.is_file()):
+            return False
+        try:
+            plan=read_plan(self.review.plan)
+        except (OSError,ValueError,TypeError):
+            return False
+        for url in self.review._approved_videos(plan["approved_urls"])[:80]:
+            jid="approved-video-"+hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+            if jid not in self.attempted and not self.review._path(jid).exists():
+                return True
+        return False
+
     def _one(self, path):
         if not (self.review.worker_script.is_file() and
                 self.review.adapter_script.is_file()):
