@@ -34,7 +34,11 @@ def hardware_report(root, *, sample=None, now=None):
     if stamp is not None and (not isinstance(stamp,(int,float))
                              or not 0<=moment-float(stamp)<=10):
         return None
-    capacity = plan_capacity(report)
+    # Report the exact collector/local model capacity measured for this node.
+    workspace = _safe_read(root, "fresh-workspace.json", max_bytes=4096)
+    selected = workspace.get("trial_model", "")
+    collector_only = selected == "collector" or os.environ.get("SURYADEV_COLLECTOR_ONLY") == "1"
+    capacity = plan_capacity(report, collector_only=collector_only)
     required = ("cpu_percent", "ram_percent", "disk_percent", "ram_total_gb")
     if any(report.get(k) is None for k in required):
         return None
@@ -50,7 +54,9 @@ def hardware_report(root, *, sample=None, now=None):
         "disk_percent": round(float(disk),2),
         "ram_total_gb": report["ram_total_gb"],
         "disk_free_gb": report.get("disk_free_gb"),
-        "max_total": max(0, min(12, int(capacity.get("max_total") or 0))),
+        "max_total": max(0, min(
+            3 if workspace.get("schema") == "suryadev.fresh-workspace.v1" else 12,
+            int(capacity.get("max_total") or 0))),
         "capabilities": ["website","youtube","pdf","book"],
         "logical_cpus": ident["logical_cpus"],
         "cpu_name": ident["cpu_name"],
@@ -58,6 +64,11 @@ def hardware_report(root, *, sample=None, now=None):
         "gpu_name": ident["gpu_name"],
         "gpu_inventory_verified": ident["gpu_inventory_verified"],
         "gpu_inference": False,
+        "processing_mode": "collector_only" if collector_only else "local_inference",
+        "network_interface_up": report.get("network_interface_up"),
+        "network_link_speed_mbps": report.get("network_interface_speed_mbps"),
+        "internet_reachable": report.get("internet_reachable"),
+        "internet_speed_mbps": None,
     }
 
 
