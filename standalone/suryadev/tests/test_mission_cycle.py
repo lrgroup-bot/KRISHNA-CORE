@@ -89,6 +89,20 @@ class MissionCycleTests(unittest.TestCase):
         finally:
             lib.db.close()
 
+    def test_low_battery_or_real_hot_sensor_prevents_new_assignments(self):
+        from suryadev_parallel import plan_capacity
+        reading={"available":True,"cpu_percent":10,"ram_percent":25,
+                 "disk_percent":10,"ram_total_gb":16,"ram_used_gb":4,
+                 "disk_free_gb":100,"gpu":{"available":False},
+                 "battery_percent":19,"battery_plugged":False}
+        self.assertFalse(plan_capacity(reading,collector_only=True)["safe"])
+        reading["battery_plugged"]=True
+        self.assertTrue(plan_capacity(reading,collector_only=True)["safe"])
+        reading["temperature_max_c"]=86
+        self.assertFalse(plan_capacity(reading,collector_only=True)["safe"])
+        reading["temperature_max_c"]=None
+        self.assertTrue(plan_capacity(reading,collector_only=True)["safe"])
+
     def test_read_only_ops_shows_persisted_mission_cycle(self):
         status=self.cycle.tick()
         lib=Library(self.root)
