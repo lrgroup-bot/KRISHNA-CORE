@@ -123,9 +123,9 @@ class ParallelBookReader:
             atomic_json(self.root,"book-continuity-runtime.json",
                         dict(outcome, updated_at=now))
         safe=capacity.get("safe") is True
-        remaining=max(0,int(capacity.get("max_total",0))-
-                      max(0,int(source_active))-len(self.futures))
-        allotted=min(MAX_ACTIVE_BOOKS,int(capacity.get("reserved_book_slots",0)),remaining)
+        allotted=min(MAX_ACTIVE_BOOKS,
+            int(capacity.get("reserved_book_slots",0)),
+            max(0,int(capacity.get("max_total",0))-max(0,int(source_active))))
         started=[]
         if safe:
             occupied={item["sha256"] for item in self.futures.values()}
