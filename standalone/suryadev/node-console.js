@@ -145,9 +145,13 @@
     const link=measured.network_interface_up;
     const speed=measured.network_interface_speed_mbps;
     const interfaceNote=link===true ? "Interface UP" : link===false ? "Interface DOWN" : "Interface unverified";
-    text("network-status", interfaceNote +
-        (Number(speed)>0 ? " · Negotiated link "+num(speed)+" Mbps" : "")+
-        " · Internet reachability/speed NOT verified by link status alone");
+    const internet=measured.internet_reachable===true
+      ? " · Recent approved HTTPS source reached ("+
+        String(measured.internet_verified_host||"verified host")+")"
+      : " · Internet reachability unverified";
+    text("network-status",interfaceNote+
+        (Number(speed)>0 ? " · Link "+num(speed)+" Mbps" : "")+
+        internet+" · Internet download speed not measured");
     const grid=el("health-grid");grid.replaceChildren();
     for (const [name, value] of metrics) {
       const v=value===null||value===undefined||!Number.isFinite(Number(value))
