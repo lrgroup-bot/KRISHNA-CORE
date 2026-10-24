@@ -624,6 +624,8 @@ def work_loop(lib, interval, use_ollama, model, *,
             "job_ids": interrupted,
             "note": "Previous worker exited; retained evidence and completed jobs preserved."
         }, ensure_ascii=False), flush=True)
+    from suryadev_mission_cycle import MissionCycle
+    mission_cycle = MissionCycle(lib.root)
     print("SURYADEV Garudanetra adaptive worker started. Ctrl+C to stop.", flush=True)
     worker_note(lib.root, "starting", interval, "Adaptive source lanes starting")
     try:
@@ -640,6 +642,13 @@ def work_loop(lib, interval, use_ollama, model, *,
             next_configuration_probe = 0.0
             next_trial_audit = 0.0
             while True:
+                # Work for six hours, drain in-flight receipts without new
+                # launches, rest ten minutes, then resume automatically.
+                active_count = (len(adaptive.futures) +
+                                (len(books.futures) if books else 0) +
+                                len(videos.futures))
+                mission = mission_cycle.tick(active_jobs=active_count)
+                allow_mission_work = mission["admission_allowed"]
                 # Hot-attach an already approved source plan and a one-time
                 # paired Core device credential to THIS EXISTING worker.
                 # Never create another scheduler/process or automatically
@@ -674,22 +683,22 @@ def work_loop(lib, interval, use_ollama, model, *,
                 # offline, not as the primary dispatcher.
                 fleet_event = None
                 if fleet:
-                    fleet_event=fleet.tick(lib)
+                    fleet_event=fleet.tick(lib, allow_claim=allow_mission_work)
                     if fleet_event and fleet_event.get("state") != "no_approved_work":
                         print(json.dumps({"fleet":fleet_event},ensure_ascii=False),flush=True)
                 fallback_ok=(not fleet or (fleet_event is not None and
                     fleet_event.get("state") in ("no_approved_work","offline_retry")))
-                if feeder and fallback_ok:
+                if feeder and fallback_ok and allow_mission_work:
                     result = feeder.tick(lib, youtube_blocked=(
                         adaptive.youtube_access["state"] == "rate_limited"))
                     if result is not None:
                         print(json.dumps({"continuity":result}, ensure_ascii=False),flush=True)
                 # Video observations are admitted inside this owner's existing
                 # supervisor, not by another process holding the same lock.
-                adaptive.video_enabled = videos.has_pending()
+                adaptive.video_enabled = videos.has_pending() if allow_mission_work else False
                 adaptive.external_active = (
                     (len(books.futures) if books else 0) + len(videos.futures))
-                update = adaptive.pump()
+                update = adaptive.pump(admit_new=allow_mission_work)
                 if time.monotonic() >= next_trial_audit:
                     next_trial_audit = time.monotonic() + 90
                     try:
@@ -708,7 +717,8 @@ def work_loop(lib, interval, use_ollama, model, *,
                     # Prepare a six-hour request when eligible research runs low.
                     # This is a LOCAL OUTBOX, not a claimed KRISHNA delivery.
                     renewal = renewal_tick(lib, youtube_blocked=(
-                        adaptive.youtube_access["state"] == "rate_limited"))
+                        adaptive.youtube_access["state"] == "rate_limited"),
+                        session_ends_at=mission["work_until"])
                     if relay:
                         result = relay.tick(lib, renewal)
                         if result is not None:
@@ -730,7 +740,7 @@ def work_loop(lib, interval, use_ollama, model, *,
                 if video_result["started_this_tick"] or video_result["finished"]:
                     print(json.dumps({"video_observation":video_result},
                                      ensure_ascii=False),flush=True)
-                if examiner:
+                if examiner and allow_mission_work:
                     exam_report=examiner.tick(db=lib.db,capacity=update["capacity"],
                         books_active=len(books.futures) if books else 0,
                         videos_active=len(videos.futures))
@@ -748,7 +758,7 @@ def work_loop(lib, interval, use_ollama, model, *,
                     if collected:
                         print(json.dumps({"book_evidence_collection":collected},
                                          ensure_ascii=False),flush=True)
-                if handoff and books:
+                if handoff and books and allow_mission_work:
                     approved_ids = ["book-"+b["sha256"] for b in books.plan["books"]]
                     book_ack = handoff.tick(approved_book_ids=approved_ids,
                                             require_visual_complete=bool(book_visual_model))
@@ -757,8 +767,19 @@ def work_loop(lib, interval, use_ollama, model, *,
                                          ensure_ascii=False), flush=True)
                 # One worker can both discover approved sources and process them;
                 # no second feeder process or duplicate worker is required.
-                wait = 2 if update["capacity"]["active_total"] else interval
-                if feeder and feeder.next_due:
+                # Finalize draining once the last existing source/book/video
+                # future has committed its evidence receipt.
+                end_active = (len(adaptive.futures) +
+                              (len(books.futures) if books else 0) +
+                              len(videos.futures))
+                mission = mission_cycle.tick(active_jobs=end_active)
+                if mission["phase"] != "work":
+                    worker_note(lib.root, "paused", interval,
+                                mission["note"], next_check_at=time.time()+min(30,interval))
+                wait = 2 if end_active else interval
+                if mission["phase"] != "work":
+                    wait = min(wait, 30)
+                if feeder and feeder.next_due and mission["phase"] == "work":
                     wait = min(wait, max(0.1, feeder.next_due - time.time()))
                 time.sleep(wait)
     finally:
