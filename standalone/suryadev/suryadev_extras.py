@@ -548,8 +548,9 @@ def work_loop(lib, interval, use_ollama, model, *,
     # and one exact YouTube lesson automatically under this SAME worker lock.
     # Do not block the ordinary approved-source queue if either provider fails.
     from suryadev_trial import prepare_trial, audit_trial, AUDIT_RECORD
-    trial=prepare_trial(lib.root, Path(__file__).resolve().parent)
-    print(json.dumps({"automated_learning_trial":trial}, ensure_ascii=False), flush=True)
+    if os.environ.get("SURYADEV_LEARNING_TRIAL") == "1":
+        trial=prepare_trial(lib.root, Path(__file__).resolve().parent)
+        print(json.dumps({"automated_learning_trial":trial}, ensure_ascii=False), flush=True)
     # Adopt already SHA-approved books at startup; no dashboard/manual book
     # entry and no second worker are needed. Existing approved books survive.
     if book_plan_path is None and use_ollama and (Path(lib.root)/"book-plan.json").is_file():
