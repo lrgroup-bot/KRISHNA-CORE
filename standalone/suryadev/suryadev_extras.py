@@ -461,30 +461,27 @@ def serve(lib, port=8769):
             if not route.path.startswith("/api/operator/"):
                 return self.respond(404, json.dumps({"error": "Unknown operation"}),
                                     "application/json")
+            # Source selection is owned by KRISHNA or the fixed owner-approved
+            # trial. Legacy dashboard mutation routes must not re-enable manual
+            # YouTube/book/source additions through an old UI or scripted POST.
+            if route.path in (
+                    "/api/operator/learning/activate-sources",
+                    "/api/operator/video/approve-source",
+                    "/api/operator/video/auto",
+                    "/api/operator/video/import",
+                    "/api/operator/video/run"):
+                return self.respond(410, json.dumps({
+                    "error": "Manual source controls retired; use the approved automated mission pipeline"
+                }), "application/json")
             try:
                 body = json.loads(self.rfile.read(length))
                 with settings_lock:
                     if route.path == "/api/operator/learning/delegate-core":
                         outcome = worker_control.set_core_delegation(body.get("enabled"))
-                    elif route.path == "/api/operator/learning/activate-sources":
-                        from suryadev_continuity import activate_official_pack
-                        outcome = activate_official_pack(lib.root)
-                        outcome["note"] = ("Official public sources approved. A running worker started "
-                                           "without --plan must be stopped after its current job, then "
-                                           "restarted using Start Learning to enable automatic refill.")
                     elif route.path == "/api/operator/learning/start":
                         outcome = worker_control.start(model=body.get("model", "qwen3.5:2b"))
                     elif route.path == "/api/operator/learning/stop":
                         outcome = worker_control.stop()
-                    elif route.path == "/api/operator/video/approve-source":
-                        outcome = video_review.approve_source(body.get("url"))
-                    elif route.path == "/api/operator/video/auto":
-                        outcome = video_review.set_auto(body.get("enabled"))
-                    elif route.path == "/api/operator/video/import":
-                        outcome = video_review.import_job(body.get("job"))
-                    elif route.path == "/api/operator/video/run":
-                        outcome = video_review.run_job(
-                            body.get("job_id"), body.get("approved"), body.get("expected_sha256"))
                     else:
                         outcome = handle_operator_action(lib.root, route.path, body)
                 return self.respond(200, json.dumps(outcome), "application/json")
