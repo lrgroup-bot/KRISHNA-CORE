@@ -21,6 +21,7 @@ REQUIRED_ENTRYPOINTS = (
     "suryadev_operator_api",
 )
 REQUIRED_FRONTEND = (
+    "node-console.html", "node-console.css", "node-console.js",
     "dashboard.html",
     "dashboard.js",
     "dashboard.css",
