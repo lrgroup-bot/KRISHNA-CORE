@@ -142,7 +142,7 @@ class ParallelVideoReader:
                     break
                 job={"schema":"krishna.suryadev.job.v1","job_id":jid,
                      "kind":"video_research","target":url,
-                     "constraints":{"duration_seconds":600,
+                     "constraints":{"duration_seconds":3600,
                                     "adaptive_playback":True,
                                     "allow_audio_asr_fallback":False}}
                 self.review.import_job(job)
