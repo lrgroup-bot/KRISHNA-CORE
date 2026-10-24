@@ -87,17 +87,16 @@
     const max = Number(capacity.max_total || 0);
     const targets = capacity.target_slots || {website:10,youtube:10,pdf:100,book:5};
     el("netra-total-capacity").textContent = num(active) + " active / " + num(max) +
-      " allowed · " + num(capacity.target_total || 125) +
-      " maximum workload slots · automatic hardware guard";
+      " currently admitted · at most 3 concurrent tasks · 85% guard";
     el("netra-parallel-targets").textContent =
       "Workload ceilings (NOT guaranteed running): " + num(targets.website) + " websites · " +
       num(targets.youtube) + " approved video observers · " +
       num(targets.pdf) + " PDFs · " + num(targets.book) +
-      " books. Admitted now: " + num(max) + " total CPU/RAM slots; " +
+      " books queued as needed. Fresh-session execution limit: 3 total tasks, never 3 per source. Admitted now: " + num(max) + " total CPU/RAM slots; " +
       num(capacity.source_execution_slots || 0) + " sources, " +
       num(capacity.reserved_video_slots || 0) + " videos, " +
       num(capacity.reserved_book_slots || 0) + " books. " +
-      "Actual concurrency is calculated from available CPU and RAM, not a fixed setting. Browser video and PDF completion remain evidence-based; YouTube caption requests stay rate-limited.";
+      "The three-task ceiling is an upper bound; actual admission drops with CPU/RAM headroom. Browser video and PDF completion remain evidence-based; YouTube rate limits are respected.";
     const healthy = schedulerOnline && capacity.safe === true;
     const reported = schedulerOnline ? capacity : hardware;
     const measured = key => reported[key] != null && Number.isFinite(Number(reported[key]))
