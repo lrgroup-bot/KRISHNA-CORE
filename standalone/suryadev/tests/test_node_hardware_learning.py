@@ -10,6 +10,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from suryadev_resources import network_interfaces
 from suryadev_parallel import AdaptiveResearchWorkers
@@ -68,7 +69,8 @@ class HardwareLearningTests(unittest.TestCase):
                 "schema":"suryadev.fresh-workspace.v1","active_task_limit":3}),encoding="utf-8")
             with AdaptiveResearchWorkers(root,use_ollama=False) as workers:
                 workers.video_enabled=True
-                idle=workers.pump(telemetry=sample())["capacity"]
+                with patch("suryadev_parallel.os.cpu_count", return_value=16):
+                    idle=workers.pump(telemetry=sample())["capacity"]
                 self.assertEqual(idle["max_total"],3)
                 self.assertEqual(idle["reserved_video_slots"],3)
                 self.assertEqual(idle["source_execution_slots"],0)
