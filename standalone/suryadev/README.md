@@ -5,7 +5,7 @@
 From a clean checkout of the SURYADEV development branch, run the Windows installer (after stopping the old dashboard and worker gracefully):
 
 ```powershell
-cd "D:\Work\SURYADEV-UNIFIED-TEST\standalone\suryadev"
+cd "<GIT-CHECKOUT>\standalone\suryadev"  # replace <GIT-CHECKOUT> with the actual clone location
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1 -InstallDir "D:\Work\SURYADEV-UNIFIED-TEST" -DataDir "D:\Work\SURYADEV-UNIFIED-TEST-DATA"
 ```
 
