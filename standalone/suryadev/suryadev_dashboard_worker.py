@@ -154,6 +154,8 @@ class DashboardWorkerControl:
             "workspace_previous_retained":bool(is_fresh),
             "preferred_model":workspace.get("trial_model", "qwen3.5:2b") if is_fresh else None,
             "managed_model":self.running_model if active else None,
+            "learning_role":"collector_only" if self.running_model == "collector" and active else
+                            "local_inference" if active else "inactive",
             "paired_core_host_delegation":delegated,
             "paired_core_approved_host_count":host_count,
             "core_dispatch": core,
@@ -174,7 +176,7 @@ class DashboardWorkerControl:
         }
 
     def start(self, *, model="qwen3.5:2b"):
-        if not isinstance(model, str) or model not in ("qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b", "gemma3:4b"):
+        if not isinstance(model, str) or model not in ("collector", "qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b", "gemma3:4b"):
             raise ValueError("Select one supported local Ollama model")
         with self.lock:
             if self.process is not None and self.process.poll() is None:
@@ -191,6 +193,9 @@ class DashboardWorkerControl:
                 from suryadev_feeder import read_plan
                 read_plan(plan)   # malformed plan prevents any launch
                 args += ["--plan", str(plan)]
+            if model == "collector":
+                # Evidence capture only: no local inference, Ollama process or model download.
+                args += ["--no-ollama"]
             # Once installed and authenticated by its existing pinned TLS
             # device credential, KRISHNA owns the mission queue. Never
             # derive permission from an unauthenticated LAN /health probe.
@@ -235,7 +240,8 @@ class DashboardWorkerControl:
             self.running_model = model
             self.logfile = handle
             return {"ok": True, "status":"STARTING", "pid":proc.pid,
-                    "model":model, "approved_plan_loaded":plan.is_file(),
+                    "model":model, "learning_role":"collector_only" if model=="collector" else "local_inference",
+                    "ollama_required":model!="collector", "approved_plan_loaded":plan.is_file(),
                     "core_dispatch_mode":"krishna_fleet" if core["ready"] else "local",
                     "cpu_thread_budget":int(env["SURYADEV_OLLAMA_THREADS"]),
                     "automatic_hardware_capacity":True,
