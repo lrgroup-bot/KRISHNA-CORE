@@ -251,8 +251,14 @@ class AdaptiveResearchWorkers:
         finally:
             lib.db.close()
         launched = []
+        # Gradual ramp: starting dozens of Chromium/PDF tasks from a single
+        # stale measurement can transiently overload even a large server.
+        # The next cycle samples actual utilization before admitting more.
+        max_new_this_sample = min(4, capacity["source_execution_slots"])
+        capacity["new_source_launch_limit_this_sample"] = max_new_this_sample
         if capacity["safe"]:
-            while len(self.futures) < capacity["source_execution_slots"]:
+            while (len(self.futures) < capacity["source_execution_slots"]
+                   and len(launched) < max_new_this_sample):
                 # Rotate source priority to prevent PDFs or video starving web.
                 choices = [KINDS[(self.rotation + offset) % len(KINDS)]
                            for offset in range(len(KINDS))]
