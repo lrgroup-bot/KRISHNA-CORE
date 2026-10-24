@@ -550,6 +550,8 @@ def work_loop(lib, interval, use_ollama, model, *,
     collect_books = (BookEvidenceCollector(lib.root, book_collect_plan_path)
                      if book_collect_plan_path else None)
     handoff = (BookHandoff(lib.root,core_mission_config) if sync_book_handoff else None)
+    from suryadev_parallel_videos import ParallelVideoReader
+    videos = ParallelVideoReader(lib.root,Path(__file__).resolve().parent)
     lib.recover()
     print("SURYADEV Garudanetra adaptive worker started. Ctrl+C to stop.", flush=True)
     worker_note(lib.root, "starting", interval, "Adaptive source lanes starting")
@@ -605,6 +607,9 @@ def work_loop(lib, interval, use_ollama, model, *,
                         adaptive.youtube_access["state"] == "rate_limited"))
                     if result is not None:
                         print(json.dumps({"continuity":result}, ensure_ascii=False),flush=True)
+                # Video observations are admitted inside this owner's existing
+                # supervisor, not by another process holding the same lock.
+                adaptive.video_enabled = videos.auto_enabled()
                 update = adaptive.pump()
                 for result in update["finished"]:
                     print(json.dumps(result, ensure_ascii=False), flush=True)
@@ -622,10 +627,18 @@ def work_loop(lib, interval, use_ollama, model, *,
                     # The same one-worker lock and shared Ollama lock remain.
                     book_result = books.tick(
                         capacity=update["capacity"],
-                        source_active=update["capacity"].get("active_total",0))
+                        source_active=update["capacity"].get("active_total",0),
+                        video_active=len(videos.futures))
                     if book_result["finished"] or book_result["started_this_tick"]:
                         print(json.dumps({"book_learning":book_result},
                                          ensure_ascii=False),flush=True)
+                video_result = videos.tick(
+                    capacity=update["capacity"],
+                    source_active=update["capacity"].get("active_total",0),
+                    books_active=len(books.futures) if books else 0)
+                if video_result["started_this_tick"] or video_result["finished"]:
+                    print(json.dumps({"video_observation":video_result},
+                                     ensure_ascii=False),flush=True)
                 if collect_books:
                     # Index one owner-approved source without Ollama, including
                     # when source research remains queued. Admission is measured;
@@ -651,6 +664,7 @@ def work_loop(lib, interval, use_ollama, model, *,
                     wait = min(wait, max(0.1, feeder.next_due - time.time()))
                 time.sleep(wait)
     finally:
+        videos.close()
         if books:
             books.close()
         if feeder:
