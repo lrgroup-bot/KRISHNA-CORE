@@ -94,6 +94,47 @@ class ParallelVideoObservationTests(unittest.TestCase):
         finally:
             resumed.close()
 
+    def test_previously_staged_approved_video_starts_once_without_replay(self):
+        # Fresh trial may stage the approved-video job before the parallel
+        # supervisor is enabled; the existence of an inbox file is NOT an
+        # observation attempt or evidence receipt.
+        import hashlib
+        from suryadev_video_review import VideoReview
+        url=URLS[0]
+        jid="approved-video-"+hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+        review=VideoReview(self.root,self.app)
+        review.import_job({
+            "schema":"krishna.suryadev.job.v1","job_id":jid,
+            "kind":"video_research","target":url,
+            "constraints":{"duration_seconds":3600,"adaptive_playback":True,
+                           "allow_audio_asr_fallback":False}})
+        self.enable()
+        visited=[]
+        observer=ParallelVideoReader(self.root,self.app,
+            execute=lambda path:(visited.append(path.stem),{"state":"test_no_real_video"})[1])
+        try:
+            self.assertTrue(observer.has_pending())
+            result=observer.tick(capacity={"safe":True,"max_total":3,
+                                           "reserved_video_slots":1})
+            self.assertEqual(result["started_this_tick"],[jid])
+            self.assertTrue((self.root/"video-observer-attempts.json").exists())
+        finally:
+            observer.close()
+        self.assertEqual(visited,[jid])
+        second=ParallelVideoReader(self.root,self.app,execute=lambda p:visited.append(p.stem))
+        try:
+            self.assertNotIn(jid,second.tick(capacity={"safe":True,"max_total":3,
+                                                       "reserved_video_slots":1})["started_this_tick"])
+        finally:
+            second.close()
+        self.assertEqual(visited,[jid])
+
+    def test_corrupt_attempt_journal_never_replays_staged_jobs(self):
+        (self.root/"video-observer-attempts.json").write_text(
+            "{invalid",encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError,"Invalid video attempt journal"):
+            ParallelVideoReader(self.root,self.app)
+
     def test_hardware_and_book_source_slots_limit_video_launch(self):
         self.enable()
         go=threading.Event()
