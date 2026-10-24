@@ -17,11 +17,12 @@ import sys
 import time
 
 from suryadev_feeder import read_plan
-from suryadev_liveops import atomic_json
+from suryadev_liveops import atomic_json, _safe_read
 from suryadev_video_review import VideoReview
 
 MAX_VIDEO = 10
 RUNTIME = "video-concurrent-runtime.json"
+ATTEMPT_JOURNAL = "video-observer-attempts.json"
 
 
 class ParallelVideoReader:
@@ -34,8 +35,34 @@ class ParallelVideoReader:
         self.execute = execute or self._one
         self.clock = clock
         self.futures = {}
-        self.attempted = set()
+        journal=_safe_read(self.root, ATTEMPT_JOURNAL, max_bytes=65536)
+        if journal and (journal.get("schema") != "suryadev.video-attempts.v1"
+                       or not isinstance(journal.get("job_ids"), list)):
+            raise RuntimeError("Invalid video attempt journal; refusing automatic replay")
+        self.attempted = set(
+            x for x in (journal.get("job_ids", []) if journal else [])
+            if isinstance(x,str) and x.startswith("approved-video-") and len(x) <= 100
+        )
         self.closed = False
+
+    def _tried(self, job_id, prior_states=None):
+        """Any previous real attempt/evidence forbids unattended video replay."""
+        if job_id in self.attempted:
+            return True
+        if prior_states is None:
+            prior_states = {row["job_id"] for row in self.review.snapshot_unlocked_jobs()}
+        return (job_id in prior_states or
+                (self.review.root / "runtime" / "jobs" / job_id).exists())
+
+    def _mark_attempt(self, job_id):
+        # Persist BEFORE child launch so an interrupted process cannot
+        # silently replay a 3x video or reuse already captured evidence.
+        ids = set(self.attempted)
+        ids.add(job_id)
+        atomic_json(self.root, ATTEMPT_JOURNAL,
+                    {"schema": "suryadev.video-attempts.v1",
+                     "job_ids": sorted(ids), "updated_at": float(self.clock())})
+        self.attempted = ids
 
     def auto_enabled(self):
         """Only owner-activated reviewed video automation can launch work."""
@@ -54,9 +81,10 @@ class ParallelVideoReader:
             plan=read_plan(self.review.plan)
         except (OSError,ValueError,TypeError):
             return False
+        prior = {row["job_id"] for row in self.review.snapshot_unlocked_jobs()}
         for url in self.review._approved_videos(plan["approved_urls"])[:80]:
             jid="approved-video-"+hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-            if jid not in self.attempted and not self.review._path(jid).exists():
+            if not self._tried(jid, prior):
                 return True
         return False
 
@@ -125,28 +153,38 @@ class ParallelVideoReader:
             else:
                 urls=[]
             occupied=set(self.futures.values())
+            prior={row["job_id"] for row in self.review.snapshot_unlocked_jobs()}
             for url in urls[:80]:
                 if len(self.futures)>=slots:
                     break
                 jid="approved-video-"+hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-                if jid in occupied or jid in self.attempted:
+                if jid in occupied or self._tried(jid, prior):
                     continue
                 path=self.review._path(jid)
-                if path.exists():
-                    # Prior evidence/job is never replayed automatically, even
-                    # after restarts or transient failure.
-                    self.attempted.add(jid)
-                    continue
                 if not (self.review.worker_script.is_file() and
                         self.review.adapter_script.is_file()):
                     break
-                job={"schema":"krishna.suryadev.job.v1","job_id":jid,
-                     "kind":"video_research","target":url,
-                     "constraints":{"duration_seconds":3600,
-                                    "adaptive_playback":True,
-                                    "allow_audio_asr_fallback":False}}
-                self.review.import_job(job)
-                self.attempted.add(jid)
+                if path.exists():
+                    # The approved review job may have been staged by an
+                    # earlier trial but never attempted. Validate its exact
+                    # immutable URL/job identity before using it.
+                    try:
+                        existing=json.loads(path.read_text(encoding="utf-8"))
+                        if (existing.get("job_id") != jid or
+                                existing.get("target") != url):
+                            continue
+                        from suryadev_video_review import validate_job
+                        validate_job(existing,self.review.plan)
+                    except (OSError,ValueError,TypeError,KeyError):
+                        continue
+                else:
+                    job={"schema":"krishna.suryadev.job.v1","job_id":jid,
+                         "kind":"video_research","target":url,
+                         "constraints":{"duration_seconds":3600,
+                                        "adaptive_playback":True,
+                                        "allow_audio_asr_fallback":False}}
+                    self.review.import_job(job)
+                self._mark_attempt(jid)
                 future=self.pool.submit(self.execute,path)
                 self.futures[future]=jid
                 occupied.add(jid)
