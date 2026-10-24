@@ -76,12 +76,17 @@ class FreshWorkspaceTests(unittest.TestCase):
 
     def test_global_three_task_cap_is_admission_not_queue_truncation(self):
         blocker=threading.Event()
+        class OfflineBrowser:
+            def __init__(self, root, max_tabs): self._tabs=[]
+            def start(self): pass
+            def stop(self): pass
         with tempfile.TemporaryDirectory() as temp:
             lib=Library(temp)
             try:
                 for i in range(12):
                     lib.add("https://playwright.dev/python/docs/intro?chapter="+str(i))
-                with AdaptiveResearchWorkers(temp,use_ollama=False) as pool:
+                with AdaptiveResearchWorkers(temp,use_ollama=False,
+                                             browser_factory=OfflineBrowser) as pool:
                     pool._work=lambda kind:(blocker.wait(timeout=2),{"status":"test"})[1]
                     with patch.dict(os.environ,{"SURYADEV_MAX_PARALLEL":"3"}):
                         with patch("suryadev_parallel.os.cpu_count",return_value=32):
