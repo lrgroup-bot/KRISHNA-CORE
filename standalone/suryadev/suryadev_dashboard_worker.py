@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 from pathlib import Path
 import signal
 import subprocess
@@ -27,6 +28,7 @@ class DashboardWorkerControl:
         self.lock = threading.Lock()
         self.process = None
         self.logfile = None
+        self.running_model = None
 
     def _external_lock_held(self):
         """Probe the canonical OS worker lock without trusting a stale PID receipt.
@@ -97,6 +99,30 @@ class DashboardWorkerControl:
         return {"ok":True,"enabled":enabled,"state":"updated",
                 "source_policy":"paired KRISHNA only, existing approved HTTPS hostnames"}
 
+    def _save_fresh_model(self, model):
+        """Remember an explicitly selected local model without editing the study ledger.
+
+        Only an already initialized fresh workspace marker can be updated.
+        Replacing the marker atomically keeps the preceding approved sources,
+        job receipts and model-independent learning checkpoints unchanged.
+        """
+        marker = self.root / "fresh-workspace.json"
+        if not marker.is_file():
+            return
+        data = _safe_read(self.root, "fresh-workspace.json", max_bytes=4096)
+        if data.get("schema") != "suryadev.fresh-workspace.v1":
+            return
+        if data.get("trial_model") == model:
+            return
+        updated = dict(data, trial_model=model)
+        stage = marker.with_name(".fresh-workspace-model-" + secrets.token_hex(8) + ".tmp")
+        try:
+            stage.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n",
+                             encoding="utf-8")
+            os.replace(stage, marker)
+        finally:
+            stage.unlink(missing_ok=True)
+
     def snapshot(self):
         with self.lock:
             owned = self.process
@@ -126,6 +152,8 @@ class DashboardWorkerControl:
             "workspace_active_task_limit":3,
             "workspace_data_dir":str(self.root),
             "workspace_previous_retained":bool(is_fresh),
+            "preferred_model":workspace.get("trial_model", "qwen3.5:2b") if is_fresh else None,
+            "managed_model":self.running_model if active else None,
             "paired_core_host_delegation":delegated,
             "paired_core_approved_host_count":host_count,
             "core_dispatch": core,
@@ -174,6 +202,9 @@ class DashboardWorkerControl:
                     raise ValueError("KRISHNA mission dispatch requires an approved source plan")
                 args += ["--core-mission-config", str(self.root/"core-mission-connection.json"),
                          "--fleet-mode"]
+            # Persist the operator-selected 2B model for the next dashboard boot.
+            # No mutation of sources, SQLite history or model evidence occurs.
+            self._save_fresh_model(model)
             logfile = self.root/"dashboard-worker.log"
             logfile.parent.mkdir(parents=True,exist_ok=True)
             # Append only; retaining diagnostics is preferable to hiding worker failures.
@@ -201,6 +232,7 @@ class DashboardWorkerControl:
                 handle.close()
                 raise
             self.process = proc
+            self.running_model = model
             self.logfile = handle
             return {"ok": True, "status":"STARTING", "pid":proc.pid,
                     "model":model, "approved_plan_loaded":plan.is_file(),
