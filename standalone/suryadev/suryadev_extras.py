@@ -773,6 +773,15 @@ def work_loop(lib, interval, use_ollama, model, *,
                               (len(books.futures) if books else 0) +
                               len(videos.futures))
                 mission = mission_cycle.tick(active_jobs=end_active)
+                # Release the headless Chromium process for the break once
+                # there are no in-flight browser jobs. The next mission starts
+                # a new Playwright context; existing evidence stays on disk.
+                browser = getattr(adaptive, "browser", None)
+                if mission["phase"] == "rest" and end_active == 0 and browser:
+                    browser.stop()
+                    thread = getattr(browser, "_thread", None)
+                    if thread is None or not thread.is_alive():
+                        adaptive.browser = None
                 if mission["phase"] != "work":
                     worker_note(lib.root, "paused", interval,
                                 mission["note"], next_check_at=time.time()+min(30,interval))
