@@ -26,6 +26,36 @@ def available_port():
         return sock.getsockname()[1]
 
 
+async def browser_node_console_check(port):
+    """Exercise new default homepage, API-backed status and evidence drilldown."""
+    from playwright.async_api import async_playwright, expect
+    async with async_playwright() as p:
+        browser=await p.chromium.launch(headless=True)
+        try:
+            page=await browser.new_page(viewport={"width":1366,"height":768})
+            errors=[]
+            page.on("pageerror",lambda err:errors.append(str(err)))
+            await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
+            await expect(page.locator("h1")).to_have_text("Node command center")
+            await expect(page.locator("#learning-model option[value='collector']")).to_have_count(1)
+            await expect(page.locator("#stat-active")).to_have_text("3",timeout=12000)
+            await expect(page.locator("#connection")).to_have_text("Local service online")
+            await expect(page.locator("#job-list .record")).to_have_count(3)
+            assert "Collector only" in await page.locator("#learning-model").inner_text()
+            assert await page.locator('input[placeholder="Search source or task ID"]').count()==1
+            # Ledger detail opened from real SQLite task, never copied into HTML.
+            await page.locator("#job-list .record").first.click()
+            await expect(page.locator("#job-dialog[open]")).to_be_visible()
+            await expect(page.locator("#job-detail")).to_contain_text("Not verified by this console")
+            await page.locator("#close-detail").click()
+            assert not errors, "New Node Control JavaScript errors: "+str(errors)
+            return {"status":"PASS","node_control_default":True,
+                    "live_assignments":3,"source_records":3,
+                    "collector_mode_visible":True,"javascript_errors":errors}
+        finally:
+            await browser.close()
+
+
 async def browser_check(port):
     from playwright.async_api import async_playwright, expect
     async with async_playwright() as p:
@@ -34,7 +64,7 @@ async def browser_check(port):
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
             page.on("pageerror",lambda e:errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced",wait_until="domcontentloaded")
             await expect(page.locator("#netra-web-running")).to_have_text("2",timeout=12000)
             await expect(page.locator("#netra-video-running")).to_have_text("1",timeout=12000)
             await expect(page.locator("#netra-engine-state")).to_contain_text("Chromium browsing", timeout=12000)
@@ -71,7 +101,7 @@ async def browser_books_check(port):
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
             page.on("pageerror",lambda err:errors.append(str(err)))
-            await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced",wait_until="domcontentloaded")
             await expect(page.locator("#netra-books-running")).to_have_text("1",timeout=12000)
             await expect(page.locator("#netra-books-indexed")).to_have_text("1")
             await expect(page.locator("#netra-books-lines")).to_have_text("1 / 3")
@@ -132,7 +162,7 @@ async def browser_offline_check(port):
             page = await browser.new_page()
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced",wait_until="domcontentloaded")
             await expect(page.locator("#netra-capacity-heading")).to_have_text(
                 "Learning worker offline — dashboard is running", timeout=12000)
             label = await page.locator("#netra-total-capacity").inner_text()
@@ -237,6 +267,8 @@ def main():
                             break
                 except (OSError,ConnectionError):
                     time.sleep(.1)
+            node=asyncio.run(browser_node_console_check(port))
+            print("SURYADEV_NODE_CONTROL_UI_REPORT="+json.dumps(node),flush=True)
             result=asyncio.run(browser_check(port))
             print("GARUDANETRA_DASHBOARD_UI_REPORT="+json.dumps(result),flush=True)
             approved_url = "https://www.youtube.com/watch?v=mgBpcQRDtl0"
