@@ -69,6 +69,30 @@ class ConcurrentLearningTests(unittest.TestCase):
             finally:
                 lib.db.close()
 
+    def test_many_pdfs_ramp_in_batches_not_one_hundred_at_once(self):
+        from suryadev import Library
+        with tempfile.TemporaryDirectory() as folder:
+            lib=Library(folder)
+            blocker=threading.Event()
+            try:
+                with patch("suryadev.validate_url",return_value=None):
+                    for i in range(30):
+                        lib.add("https://example.com/manual-%03d.pdf" % i)
+                with AdaptiveResearchWorkers(folder,use_ollama=False) as workers:
+                    def block(_kind):
+                        blocker.wait(timeout=3)
+                        return {"status":"simulated"}
+                    workers._work=block
+                    with patch("suryadev_parallel.os.cpu_count",return_value=128):
+                        first=workers.pump(telemetry=hardware())["capacity"]
+                    self.assertEqual(first["active_total"],4)
+                    self.assertEqual(first["new_source_launch_limit_this_sample"],4)
+                    self.assertEqual(first["queued"]["pdf"],26)
+                    blocker.set()
+            finally:
+                blocker.set()
+                lib.db.close()
+
     def test_book_reserved_slots_do_not_exceed_available_capacity(self):
         with tempfile.TemporaryDirectory() as root:
             with AdaptiveResearchWorkers(root,use_ollama=False,books_enabled=True) as pool:
