@@ -57,7 +57,7 @@ if (Test-Path -LiteralPath $marker -PathType Leaf) {
     # will reject it. Always store the marker in UTF-8 without a BOM.
     $json = $record | ConvertTo-Json -Depth 3
     [System.IO.File]::WriteAllText($marker, $json + [Environment]::NewLine,
-        (New-Object System.Text.UTF8Encoding($false)))
+        ([System.Text.UTF8Encoding]::new($false)))
 }
 $env:SURYADEV_MAX_PARALLEL = "3"
 $env:SURYADEV_LEARNING_TRIAL = "1"
