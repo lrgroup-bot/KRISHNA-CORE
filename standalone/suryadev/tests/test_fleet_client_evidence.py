@@ -100,6 +100,25 @@ class FleetClientTests(unittest.TestCase):
             self.assertEqual(self.lib.db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0],1)
             self.assertEqual(self.lib.db.execute("SELECT url FROM jobs").fetchone()[0],self.url)
 
+    def test_scheduled_rest_reports_resting_and_claims_no_new_work(self):
+        from suryadev_liveops import atomic_json
+        atomic_json(self.root,"mission-cycle-runtime.json",{
+            "schema":"suryadev.mission-cycle.v1",
+            "phase":"rest",
+            "rest_until":1600,
+            "admission_allowed":False})
+        health=dict(self.fake_health,temperature_max_c=86,
+                    temperature_available=True)
+        with (patch("suryadev_fleet_client.load_config",return_value=self.mock_config),
+              patch("suryadev_fleet_client.hardware_report",return_value=health)):
+            worker=self.create()
+            self.assertIsNone(worker.tick(self.lib,allow_claim=False))
+        heartbeats=[payload for path,payload in self.calls if path.endswith("/heartbeat")]
+        self.assertEqual(len(heartbeats),1)
+        self.assertEqual(heartbeats[0]["learning_state"],"resting")
+        self.assertEqual(heartbeats[0]["thermal_state"],"hot")
+        self.assertFalse(any(path.endswith("/claim") for path,_ in self.calls))
+
     def test_unapproved_url_rejected_without_local_fetch(self):
         self.url="https://unapproved.example.net/learn"
         with (patch("suryadev_fleet_client.load_config",return_value=self.mock_config),
