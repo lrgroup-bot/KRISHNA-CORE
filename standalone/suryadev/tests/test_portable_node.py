@@ -109,7 +109,7 @@ class PortableNodeTests(unittest.TestCase):
             self.assertTrue((target/"start-node.py").is_file())
             runner=portable_module()
             result=runner.prepare(data,model="collector")
-            self.assertEqual(result,data)
+            self.assertEqual(result,data.resolve())
             self.assertFalse((data/"suryadev.sqlite3").exists(),
                              "Only the live worker may create its actual SQLite ledger")
             with self.assertRaisesRegex(ValueError,"already has files"):
