@@ -40,7 +40,7 @@ from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-23-v7.5-krishna-missions"
+UI_VERSION = "2026-10-25-v8-fresh-three-task-workspace"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -212,7 +212,9 @@ def serve(lib, port=8769):
                                      "has_single_date_filter": True,
                                      "has_static_video_review": True,
                                      "has_unified_frontend": True,
-                                     "has_dashboard_worker_controls": True}),
+                                     "has_dashboard_worker_controls": True,
+                                     "has_fresh_isolated_workspace": True,
+                                     "max_new_active_tasks": 3}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
@@ -506,7 +508,22 @@ def serve(lib, port=8769):
     # dashboard boot; manual URL input or per-session Start clicks are NOT
     # required. Never automatically pair or launch from LAN discovery alone.
     paired = worker_control.core_pairing()
-    if paired["ready"]:
+    from suryadev_liveops import _safe_read
+    fresh_workspace=_safe_read(lib.root,"fresh-workspace.json",max_bytes=4096)
+    if (fresh_workspace.get("schema")=="suryadev.fresh-workspace.v1"
+            and fresh_workspace.get("auto_start") is True
+            and not paired["configured"]):
+        # Only the deliberate, separate fresh-data launcher enables this.
+        # Never overwrite or migrate older study data, credentials or files.
+        try:
+            selected=fresh_workspace.get("trial_model","qwen3.5:9b")
+            outcome=worker_control.start(model=selected)
+            print("SURYADEV fresh three-task trial: "+outcome["status"]+
+                  " (real source evidence not yet verified)",flush=True)
+        except (RuntimeError,ValueError,OSError) as exc:
+            print("SURYADEV fresh trial could not auto-start: "+
+                  type(exc).__name__+": "+str(exc)[:160],flush=True)
+    elif paired["ready"]:
         try:
             outcome = worker_control.start(model="qwen3.5:2b")
             print("SURYADEV KRISHNA fleet: "+outcome["status"]+
