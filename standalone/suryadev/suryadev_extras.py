@@ -516,7 +516,7 @@ def serve(lib, port=8769):
         # Only the deliberate, separate fresh-data launcher enables this.
         # Never overwrite or migrate older study data, credentials or files.
         try:
-            selected=fresh_workspace.get("trial_model","qwen3.5:9b")
+            selected=fresh_workspace.get("trial_model","qwen3.5:2b")
             outcome=worker_control.start(model=selected)
             print("SURYADEV fresh three-task trial: "+outcome["status"]+
                   " (real source evidence not yet verified)",flush=True)
