@@ -84,7 +84,9 @@ def read_plan(path):
     if not isinstance(delegate, bool):
         raise ValueError("paired_core_host_delegation must be a boolean")
     budget = data.get("max_new_per_cycle", 20)
-    backlog = data.get("max_queued", 75)
+    # Allow 100 preapproved PDFs to WAIT in the backlog without launching
+    # 100 parallel parsers. Existing explicit operator limits are preserved.
+    backlog = data.get("max_queued", 250)
     if not isinstance(budget, int) or not (1 <= budget <= 100):
         raise ValueError("max_new_per_cycle must be from 1 to 100")
     if not isinstance(backlog, int) or not (1 <= backlog <= 1000):
