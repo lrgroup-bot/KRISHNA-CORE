@@ -541,8 +541,11 @@ def work_loop(lib, interval, use_ollama, model, *,
         raise ValueError("Book BRAHMAGYAN handoff requires approved --book-plan and paired --core-mission-config")
     if book_visual_model and not book_plan_path:
         raise ValueError("Automatic book visuals require --book-plan")
-    books = (BookContinuity(lib.root, book_plan_path, model=model,
-                            use_ollama=use_ollama,vision_model=book_visual_model)
+    # Each approved book has its own journal; research and up to five
+    # distinct books can progress concurrently under one worker lock.
+    from suryadev_parallel_books import ParallelBookReader
+    books = (ParallelBookReader(lib.root, book_plan_path, model=model,
+                               use_ollama=use_ollama,vision_model=book_visual_model)
              if book_plan_path else None)
     collect_books = (BookEvidenceCollector(lib.root, book_collect_plan_path)
                      if book_collect_plan_path else None)
@@ -552,7 +555,10 @@ def work_loop(lib, interval, use_ollama, model, *,
     worker_note(lib.root, "starting", interval, "Adaptive source lanes starting")
     try:
         with AdaptiveResearchWorkers(lib.root, use_ollama=use_ollama,
-                                     model=model, check_seconds=interval) as adaptive:
+                                     model=model, check_seconds=interval,
+                                     books_enabled=bool(books)) as adaptive:
+            if books:
+                books.attach_model_lock(adaptive.summary_lock)
             next_configuration_probe = 0.0
             while True:
                 # Hot-attach an already approved source plan and a one-time
@@ -612,19 +618,14 @@ def work_loop(lib, interval, use_ollama, model, *,
                         if result is not None:
                             print(json.dumps({"krishna_mission":result}, ensure_ascii=False), flush=True)
                 if books:
-                    # Low-priority background books never compete with queued
-                    # web/PDF/YouTube jobs or bypass one-worker ownership.
-                    pending = (url for (url,) in lib.db.execute(
-                        "SELECT url FROM jobs WHERE status IN ('queued','running')"))
-                    idle = may_study_books(
-                        update["capacity"],pending,
-                        youtube_rate_limited=(
-                            adaptive.youtube_access["state"]=="rate_limited"))
-                    if idle:
-                        with adaptive.summary_lock:
-                            book_result = books.tick(available=True)
-                        if book_result:
-                            print(json.dumps({"book_learning":book_result}, ensure_ascii=False), flush=True)
+                    # Fair book slots are reserved BEFORE launching source jobs.
+                    # The same one-worker lock and shared Ollama lock remain.
+                    book_result = books.tick(
+                        capacity=update["capacity"],
+                        source_active=update["capacity"].get("active_total",0))
+                    if book_result["finished"] or book_result["started_this_tick"]:
+                        print(json.dumps({"book_learning":book_result},
+                                         ensure_ascii=False),flush=True)
                 if collect_books:
                     # Index one owner-approved source without Ollama, including
                     # when source research remains queued. Admission is measured;
@@ -650,6 +651,8 @@ def work_loop(lib, interval, use_ollama, model, *,
                     wait = min(wait, max(0.1, feeder.next_due - time.time()))
                 time.sleep(wait)
     finally:
+        if books:
+            books.close()
         if feeder:
             feeder.stop()
         worker_note(lib.root, "stopped", interval, "Worker stopped")
