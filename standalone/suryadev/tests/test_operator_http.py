@@ -49,7 +49,7 @@ class LocalOperatorHttpTests(unittest.TestCase):
                 finally:
                     connection.close()
             try:
-                status, html = request("GET", "/")
+                status, html = request("GET", "/advanced")
                 self.assertEqual(status, 200)
                 self.assertIn(b'id="server-settings-dialog"', html)
                 self.assertIn(b'id="storage-settings-dialog"', html)
