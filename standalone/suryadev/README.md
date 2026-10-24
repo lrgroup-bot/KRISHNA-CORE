@@ -1,3 +1,74 @@
+## SURYADEV adaptive research fleet — source-first mission upgrade (25 October 2026)
+
+### Actual behavior in this release
+
+* Each node samples CPU/RAM/disk and available NVIDIA GPU utilization using `psutil`
+  and `nvidia-smi` (when present); Windows GPU names come from WMI, and
+  Linux Intel/AMD/NVIDIA GPU vendor inventory comes from DRM sysfs. Other
+  GPU utilization is **unverified**, never silently assumed available.
+* The worker inspects active network interfaces and their negotiated LINK rate;
+  that is **not measured Internet bandwidth**. It records Internet/source
+  reachability only for a recent, successfully extracted and SHA-committed,
+  authorized PUBLIC HTTPS source; the proof expires after 180 seconds.
+* Under separately enrolled, authenticated pinned-TLS KRISHNA pairing and an
+  approved learning plan, the existing SURYADEV fleet client sends resource
+  telemetry, requests leased tasks periodically, and reconciles evidence SHA
+  with KRISHNA. Collector-only RAM capacity and the fresh workspace three-task
+  ceiling are reported consistently. Without real pairing, only local
+  approved research is possible; an unauthenticated ping is not a mission.
+* One data-root worker lock controls all local source/video/book lanes. With
+  no waiting source jobs, spare measured capacity can launch up to **three
+  distinct previously approved browser videos at once** on a fresh workspace.
+  Websites, PDFs and books use the SAME per-node capacity and 85% guard;
+  a slow node may admit just one or zero jobs. The YouTube caption provider is
+  rate-limited to one request; browser observation is an independent lane.
+* The canonical Playwright video adapter chooses observed playback speeds
+  1x for important/unknown/no-caption sections, 1.5x for explanations,
+  2x for ordinary text, and up to 3x for **repeated** clearly low-value chatter.
+  It records the actual HTML video playback-rate readback. Playback speed is
+  **not proof of whole-video viewing, speech comprehension or frame coverage**.
+  Provider sign-in/CAPTCHA/429 conditions are not bypassed.
+* Books already have a SHA-pinned SQLite line-by-line ledger, with section,
+  PDF page, source line, processed checkpoint and independent model journal.
+  PDF URL extraction now additionally retains every page's extracted line
+  counts and page-reference format. Images, scanned text, layout ordering and
+  equations require separately verified OCR/vision to claim whole-document
+  visual coverage. The available deep PDF implementation is optional and
+  rejects unsupported documents rather than silently truncating them.
+* Webpages retain original/final HTTPS URL, number of extracted text lines and
+  at most 25 discovered same-host reference links. **Those links are not
+  automatically crawled**; each new page needs an approved mission/source
+  scope. Deep viewport scanning is an optional existing operation, not
+  a guarantee that dynamic pages or embedded media were understood.
+
+### Evaluated open-source references (not all vendored or installed)
+
+- `psutil`: Python resource counters on Windows/Linux/macOS.
+- `microsoft/playwright-python`: browser video observation, DOM, HTML media
+  playback-rate readback, source provenance.
+- `pymupdf/PyMuPDF` and `pymupdf4llm`: potential structured layout/word and
+  OCR upgrades. **Not integrated as the required extractor**; present PDF
+  URL pipeline still uses `pypdf`, and book index supports explicit OCR.
+- `adbar/trafilatura`: potential article-to-structured-text metadata and
+  sitemap discovery, subject to exact approved hosts; **not installed**.
+- `SYSTRAN/faster-whisper`: optional local speech transcription fallback;
+  its CPU/GPU model memory must be separately admitted. **Not made compulsory**
+  for collector nodes.
+
+### Honest remaining gates before "deep learning verified"
+
+KRISHNA must actually pair a node, deliver an approved leased mission and
+acknowledge the returned evidence. BRAHMAGYAN must ingest the **complete**
+lawfully transferable referenced evidence rather than equate a 500-character
+fleet excerpt with understanding. RISHI must independently test conceptual,
+practical and source-grounded recall. Long website crawling requires a
+multi-page approval policy; full video requires observable complete intervals,
+audio/visual coverage and missing-segment audit; OCR ordering and video
+provider availability cannot be guaranteed. CI passing unit/browser tests is
+not equivalent to these real-device and comprehension gates.
+
+---
+
 ## New Node Control frontend — October 25, 2026
 
 **Default:** `http://127.0.0.1:8772/` — a compact, responsive, evidence-first command center
