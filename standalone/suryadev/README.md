@@ -1,3 +1,61 @@
+## Portable SURYADEV fleet nodes — desktops, laptops, CPUs and optional servers
+
+SURYADEV is a **hardware-adaptive collector**, not a dedicated Qwen laptop. Each
+machine can be enrolled as its own separately approved evidence collector. A
+lightweight node needs Python 3.10+ and `psutil` for safe work admission; approved
+website capture needs Playwright + Chromium when that lane is used, and video/PDF
+lanes require their own documented dependencies. **Ollama is not required for
+collector-only source extraction.** That mode preserves source provenance but
+does **not** perform local model analysis, comprehension exams or claim mastery.
+Those stages belong with BRAHMAGYAN and RISHI after a real authenticated KRISHNA
+handoff; pairing and handoff are not automatically completed at installation.
+
+Use a **full Git checkout**, not just the standalone folder, so the canonical
+worker and adapter are available. From `standalone/suryadev` on Windows, Linux,
+or macOS, install with Python:
+
+```sh
+python -m pip install psutil
+python install-node.py --install-dir "/path/to/suryadev-node"
+python "/path/to/suryadev-node/start-node.py" --model collector \
+  --data "/path/to/suryadev-node-data" --port 8772
+```
+
+In Windows PowerShell, replace `/path/to/...` with a chosen Windows directory,
+such as `D:\\Work\\SURYADEV-NODE` and `D:\\Work\\SURYADEV-NODE-DATA`. The
+portable installer runs the source regression gate before copying code, verifies
+the resulting runtime package, and refuses a populated installation directory
+unless it belongs to an earlier portable install and `--update` is explicitly
+requested **after stopping the node**. No service, Core credential, or model
+is installed or inferred.
+
+The `start-node.py` default is `--model collector`, and it creates its own
+`fresh-workspace.json` plus independent study database. `--model qwen3.5:2b`
+is an optional local Ollama fallback for appropriately provisioned nodes.
+`--approved-trial` explicitly opts into the previous fixed textbook/YouTube
+trial. Without a paired KRISHNA mission or existing approved learning plan,
+the collector has no automatically authorized sources and may remain idle.
+
+The new ledger is isolated; `--previous-data /path/to/old-ledger` validates a
+prior directory but never erases or migrates it. Restarting a node reopens the
+same ledger; `--new-session` makes another. The fresh-node execution ceiling
+is **three jobs total**, not three per source. Admission scales CPU cores and
+measured free memory and rejects new work at **85%** CPU/RAM/disk or supported
+GPU utilization, on both minimal and high-performance systems. A 4 GiB node
+may collect one lightweight assignment when memory headroom permits; it is
+not guaranteed to run Chromium or high-resolution video processing.
+
+To reinstall the existing Windows SURYADEV test node from the updated branch,
+run `install-windows.ps1` from the source checkout as before; the release now
+ships `start-node.py`. Shut down the running dashboard and worker first.
+The existing PowerShell `start-fresh-workspace.ps1` retains its earlier 2B
+default for backwards compatibility; use `start-node.py --model collector`
+for generic new installations. Every node needs its **own authenticated TLS
+KRISHNA enrollment**; machine discovery and a successful LAN ping are not
+authorization to send research evidence.
+
+---
+
 ## Fresh learning workspace — three tasks total (25 October 2026)
 
 **Purpose:** Clear the *active dashboard view* and begin a newly approved trial without destroying prior learning evidence, SQLite history, YouTube cooldown receipts, or book journals. The old data directory stays intact and is not scanned or used by the fresh dashboard.
