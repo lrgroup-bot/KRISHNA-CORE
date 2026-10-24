@@ -25,7 +25,10 @@ def prepare(data: Path, *, model: str, previous: Path | None = None,
     """Initialize or reopen a fresh study ledger without removing prior files."""
     if model not in MODELS:
         raise ValueError("Unsupported learning mode")
-    data = data.expanduser().resolve()
+    raw_data = data.expanduser().absolute()
+    if raw_data.is_symlink():
+        raise ValueError("Fresh data directory must not be a symbolic link")
+    data = raw_data.resolve()
     if new_session:
         data = data.with_name(data.name + "-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S"))
     if previous is not None:
