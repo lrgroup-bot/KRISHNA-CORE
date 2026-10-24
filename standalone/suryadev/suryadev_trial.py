@@ -97,7 +97,11 @@ def prepare_trial(root, app):
            "learning_verified":False,"rishi_exam_verified":False,
            "updated_at":time.time()}
     try:
-        read_plan(root/"learning-plan.json")
+        # A fresh laptop may have no learning-plan.json yet. The fixed
+        # owner-authorized trial can create its initial allowlist; an existing
+        # plan must still be fully validated before being extended.
+        if (root/"learning-plan.json").is_file():
+            read_plan(root/"learning-plan.json")
         review=VideoReview(root,app)
         result=review.approve_source(VIDEO)
         review.set_auto(True)
