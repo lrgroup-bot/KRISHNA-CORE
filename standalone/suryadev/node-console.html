@@ -63,7 +63,7 @@
         <div class="actions"><button type="button" class="button primary" id="start-worker" disabled>Start worker</button><button type="button" class="button secondary" id="stop-worker" disabled>Stop worker</button></div>
         <div class="feedback" id="action-status" role="status" aria-live="polite">No changes requested.</div>
         <div class="separation"></div>
-        <div class="facts"><div><span>Source plan</span><strong id="plan-status">Checking</strong></div><div><span>KRISHNA</span><strong id="core-status">Checking</strong></div><div><span>BRAHMAGYAN / RISHI</span><strong id="verification-status">Not independently verified</strong></div></div>
+        <div class="facts"><div><span>Source plan</span><strong id="plan-status">Checking</strong></div><div><span>KRISHNA</span><strong id="core-status">Checking</strong></div><div><span>Next KRISHNA workload</span><strong id="workload-request-status">Checking</strong></div><div><span>BRAHMAGYAN / RISHI</span><strong id="verification-status">Not independently verified</strong></div></div>
         <p class="note">The worker cannot start twice against the same data folder. If another process owns the lock, this dashboard can observe it but cannot stop it remotely.</p>
       </section>
       <section class="panel" aria-labelledby="activity-title">
@@ -95,6 +95,7 @@
     <section class="panel" id="hardware" aria-labelledby="hardware-title">
       <div class="panel-header"><div><div class="eyebrow">RESOURCE GUARD</div><h2 id="hardware-title">Node health</h2></div><span class="subtle-pill">85% admission ceiling</span></div>
       <div class="health-grid" id="health-grid"><p class="empty">Reading device health…</p></div>
+      <p class="note" id="network-status">Internet reachability: unverified · Checking interface link</p>
       <p class="note" id="capacity-reason">Measured hardware headroom determines how many tasks may start. The three-task maximum is not a guarantee of three running tasks.</p>
     </section>
     <footer>☀ SURYADEV · Local-first · No paid frontend dependencies · <a href="/advanced">Open complete evidence console</a></footer>
