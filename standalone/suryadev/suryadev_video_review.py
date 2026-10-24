@@ -321,7 +321,7 @@ class VideoReview:
                 "auto_status": self.auto_status,
                 "auto_error": self.auto_error,
                 "playback": playback,
-                "policy": "Adaptive 1x/1.5x/2x/4x with conservative caption heuristics; audiovisual coverage unverified",
+                "policy": "Adaptive 1x/1.5x/2x/3x with conservative caption heuristics; audiovisual coverage unverified",
                 "runtime_ready": self.worker_script.is_file() and self.adapter_script.is_file()}
 
     def snapshot_unlocked_jobs(self):
