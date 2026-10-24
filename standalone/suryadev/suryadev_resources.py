@@ -69,6 +69,33 @@ def network_interfaces(psutil_module):
             "note": "Interface state and link rate are not measured internet download speed"}
 
 
+def recently_verified_source(root, now=None, max_age_seconds=180):
+    """Only a committed, recent approved HTTPS source establishes connectivity.
+
+    This is proof of access to THAT host, not a universal speed test. After
+    expiry or when evidence is missing, the proper status is unverified.
+    """
+    now = time.time() if now is None else float(now)
+    receipt = Path(root).resolve() / "last-approved-source-connectivity.json"
+    try:
+        if receipt.stat().st_size > 4096 or receipt.is_symlink():
+            return None
+        value = json.loads(receipt.read_text(encoding="utf-8"))
+        stamp = float(value.get("verified_at", 0))
+        digest = value.get("evidence_sha256")
+        if (value.get("schema") == "suryadev.source-connectivity.v1"
+            and value.get("proof") == "approved_source_extracted_and_evidence_committed"
+            and isinstance(digest, str) and len(digest) == 64
+            and 0 <= now - stamp <= max_age_seconds):
+            return {"verified_host": str(value.get("source_host") or "")[:253],
+                    "verified_at": stamp,
+                    "internet_reachable": True,
+                    "reachability": "recent_approved_https_source_success"}
+    except (OSError, ValueError, TypeError, KeyError):
+        pass
+    return None
+
+
 def snapshot(data_dir, sample_seconds=0.2):
     try:
         import psutil
@@ -80,6 +107,9 @@ def snapshot(data_dir, sample_seconds=0.2):
     disk = psutil.disk_usage(str(Path(data_dir).resolve().anchor))
     net = psutil.net_io_counters()
     network = network_interfaces(psutil)
+    proof = recently_verified_source(data_dir)
+    if proof:
+        network.update(proof)
     gpu = {"available": False, "reason": "No supported NVIDIA telemetry"}
     if shutil.which("nvidia-smi"):
         try:
@@ -98,6 +128,8 @@ def snapshot(data_dir, sample_seconds=0.2):
             "network_interface_up": network["interface_up"],
             "internet_reachable": network["internet_reachable"],
             "internet_reachability": network["reachability"],
+            "internet_verified_host": network.get("verified_host"),
+            "internet_verified_at": network.get("verified_at"),
             "internet_speed_mbps": None,
             "gpu": gpu, "sample_time": time.time()}
 
