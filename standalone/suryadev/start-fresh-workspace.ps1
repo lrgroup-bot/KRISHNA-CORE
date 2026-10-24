@@ -53,7 +53,11 @@ if (Test-Path -LiteralPath $marker -PathType Leaf) {
         previous_learning_preserved_at = $previous
         note = "New independent databases; previous evidence was not deleted or copied."
     }
-    $record | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $marker -Encoding UTF8
+    # PowerShell 5.1 writes a BOM with -Encoding UTF8; Python's utf-8 JSON reader
+    # will reject it. Always store the marker in UTF-8 without a BOM.
+    $json = $record | ConvertTo-Json -Depth 3
+    [System.IO.File]::WriteAllText($marker, $json + [Environment]::NewLine,
+        (New-Object System.Text.UTF8Encoding($false)))
 }
 $env:SURYADEV_MAX_PARALLEL = "3"
 $env:SURYADEV_LEARNING_TRIAL = "1"
