@@ -93,6 +93,13 @@ def plan_capacity(reading, *, logical_cpus=None, collector_only=False):
     reason = ""
     if cpu >= 85 or ram >= 85 or disk >= 85 or disk_free < 2 or gpu_hot:
         reason = "Hardware guard: CPU/RAM/disk/GPU exceeded safe limits"
+    elif (reading.get("battery_plugged") is False and
+          reading.get("battery_percent") is not None and
+          float(reading["battery_percent"]) <= 20):
+        reason = "Power guard: unplugged battery at or below 20%"
+    elif (reading.get("temperature_max_c") is not None and
+          float(reading["temperature_max_c"]) >= 85):
+        reason = "Thermal guard: observed device sensor at or above 85 C"
     elif free < (0.75 if collector_only else 2.7):
         reason = ("Less than 0.75 GiB free for evidence-only collection" if collector_only
                   else "Less than 2.7 GiB available RAM")
