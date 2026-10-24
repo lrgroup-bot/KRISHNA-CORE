@@ -53,7 +53,7 @@ class ConcurrentLearningTests(unittest.TestCase):
             root=Path(temp)
             for i in range(5):
                 item=root/("approved-"+str(i)+".txt")
-                item.write_text("one\nsecond\nthird",encoding="utf-8")
+                item.write_text("one\nsecond\nthird "+str(i),encoding="utf-8")
                 approve_book(root,item)
             lock=threading.Lock()
             concurrency=[0]
