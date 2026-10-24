@@ -22,9 +22,9 @@ class LearningTrialTests(unittest.TestCase):
             root=Path(folder)
             plan=root/"learning-plan.json"
             plan.write_text(json.dumps({"approved_urls":[]}),encoding="utf-8")
-            with patch("suryadev_trial.read_plan",return_value={}), \\
-                 patch("suryadev_trial.VideoReview") as video, \\
-                 patch("suryadev_trial.acquire_book",return_value="e"*64) as acquire, \\
+            with patch("suryadev_trial.read_plan",return_value={}), \
+                 patch("suryadev_trial.VideoReview") as video, \
+                 patch("suryadev_trial.acquire_book",return_value="e"*64) as acquire, \
                  patch("suryadev_trial.approve_book",return_value={
                      "status":"approved","book_id":"book-"+"e"*64}) as approve:
                 video.return_value.approve_source.return_value={"status":"approved"}
