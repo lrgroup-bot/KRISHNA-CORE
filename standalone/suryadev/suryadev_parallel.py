@@ -195,7 +195,18 @@ class AdaptiveResearchWorkers:
         capacity = plan_capacity(reading)
         # Optional operator cap only REDUCES measured capacity, never raises
         # it. Unset means automatic scaling rather than a hardcoded 45.
+        # The fresh-session limit belongs to the data root, not merely to
+        # the dashboard launcher. It remains enforced for CLI workers too.
+        # Historical/nonfresh high-capacity server profiles stay unchanged.
+        fresh_mode = (_safe_read(self.root,"fresh-workspace.json",max_bytes=4096)
+                      .get("schema") == "suryadev.fresh-workspace.v1")
         requested = os.environ.get("SURYADEV_MAX_PARALLEL", "").strip()
+        if fresh_mode:
+            try:
+                cap = int(requested) if requested else 3
+            except ValueError:
+                cap = 1
+            requested = str(max(1,min(3,cap)))
         if requested:
             try:
                 ceiling = int(requested)
