@@ -71,7 +71,7 @@ class LearningTrialTests(unittest.TestCase):
             try:
                 book_file=root/"owner-approved-test-book.txt"
                 book_file.write_text(
-                    "The second edition uses Python 3.\\n"
+                    "The second edition uses Python 3.\n"
                     "The turtle graphics chapter uses the turtle library.",
                     encoding="utf-8")
                 imported=ledger.import_book(book_file)
