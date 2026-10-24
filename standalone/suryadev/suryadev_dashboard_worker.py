@@ -177,9 +177,10 @@ class DashboardWorkerControl:
             # Other KRISHNA workers and system-wide Ollama configuration stay untouched.
             env = os.environ.copy()
             env["SURYADEV_OLLAMA_THREADS"] = str(min(2, max(1, (os.cpu_count() or 2)//2)))
-            # 45 assignment targets; actual threads/tabs are constrained
-            # by the same measured 85% CPU/RAM/disk/GPU admission gate.
-            env["SURYADEV_MAX_PARALLEL"] = "45"
+            # Do not impose a fixed 45-worker ceiling. The hardware
+            # controller admits the safe number on this device each cycle.
+            # An explicit operator SURYADEV_MAX_PARALLEL, if supplied, can
+            # only reduce those measured limits.
             env["SURYADEV_BROWSER_TABS"] = "auto"
             try:
                 proc = subprocess.Popen(args, cwd=str(self.application_dir),
@@ -194,7 +195,8 @@ class DashboardWorkerControl:
                     "model":model, "approved_plan_loaded":plan.is_file(),
                     "core_dispatch_mode":"krishna_fleet" if core["ready"] else "local",
                     "cpu_thread_budget":int(env["SURYADEV_OLLAMA_THREADS"]),
-                    "target_parallel_assignments":45,
+                    "automatic_hardware_capacity":True,
+                    "pdf_workload_limit":100,
                     "max_parallel_research":"measured_by_85_percent_guard",
                     "browser_tabs_limit":"dynamic_up_to_10",
                     "note":("KRISHNA paired fleet mission polling enabled; Core acceptance not claimed."
