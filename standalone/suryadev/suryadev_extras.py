@@ -525,7 +525,11 @@ def serve(lib, port=8769):
                   type(exc).__name__+": "+str(exc)[:160],flush=True)
     elif paired["ready"]:
         try:
-            outcome = worker_control.start(model="qwen3.5:2b")
+            # Paired collectors may run without local AI as well.
+            preferred=(fresh_workspace.get("trial_model", "collector")
+                       if fresh_workspace.get("schema")=="suryadev.fresh-workspace.v1"
+                       else "qwen3.5:2b")
+            outcome = worker_control.start(model=preferred)
             print("SURYADEV KRISHNA fleet: "+outcome["status"]+
                   " (authenticated Core reply pending)", flush=True)
         except (RuntimeError, ValueError, OSError) as exc:
