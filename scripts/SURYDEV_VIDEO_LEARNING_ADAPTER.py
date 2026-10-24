@@ -258,15 +258,15 @@ def classify_video_caption(caption, *, important_terms=()):
     if _EXPLANATION_HINTS.search(text):
         return "explanation", 1.5
     if _CHATTER_HINTS.search(text):
-        return "chatter", 4.0
+        return "chatter", 3.0
     return "ordinary", 2.0
 
 
 class AdaptiveVideoSpeed:
     """Playback controller for a *single approved* browser job.
 
-    4x is a temporary optimization, only after repeated clear chatter
-    captions. Captions/visuals may still be missed, especially at 4x.
+    3x is a temporary optimization, only after repeated clear chatter
+    captions. Captions/visuals may still be missed, especially at 3x.
     """
     def __init__(self, important_terms=(), enabled=True):
         self.terms = tuple(important_terms)
@@ -295,7 +295,7 @@ class AdaptiveVideoSpeed:
             self.last_caption = clean
             self.last_caption_video_time = video_seconds
             self.category = category
-            self.target_rate = (4.0 if self.chatter_streak >= 2 else 2.0) if suggested == 4.0 else suggested
+            self.target_rate = (3.0 if self.chatter_streak >= 2 else 2.0) if suggested == 3.0 else suggested
         elif video_seconds - self.last_caption_video_time > 5.0:
             # If captions stop changing, racing through unknown content is unsafe.
             self.chatter_streak = 0
@@ -317,7 +317,7 @@ def _apply_video_rate(page, desired):
         if actual is None:
             return None
         actual = float(actual)
-        return actual if actual in (1.0, 1.5, 2.0, 4.0) else None
+        return actual if actual in (1.0, 1.5, 2.0, 3.0) else None
     except Exception:
         return None
 
@@ -443,7 +443,7 @@ def observe(job, workspace):
     duration_seconds = max(30, min(int(constraints.get("duration_seconds") or 6 * 3600), 6 * 3600))
     finish_grace = max(0, min(int(constraints.get("finish_grace_seconds") or 300), 600))
     adaptive_playback = constraints.get("adaptive_playback", True) is not False
-    # Poll quickly at high speed: a 5-second wall-clock poll misses 20s at 4x.
+    # Poll quickly at high speed: a 5-second wall-clock poll misses 15s at 3x.
     configured_sample = float(constraints.get("sample_seconds") or 5)
     sample_seconds = (max(0.25, min(configured_sample, 0.5))
                       if adaptive_playback else max(2, min(configured_sample, 30)))
@@ -525,7 +525,7 @@ def observe(job, workspace):
                     observed_rate = _apply_video_rate(page, desired_rate)
                     if observed_rate != last_logged_rate:
                         speed_event_total += 1
-                        if observed_rate == 4.0:
+                        if observed_rate == 3.0:
                             seen_four_x = True
                         speed_event = {
                             "video_seconds": round(sec, 2),
