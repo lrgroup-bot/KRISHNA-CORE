@@ -153,9 +153,9 @@ async def browser_offline_check(port):
 
 
 async def browser_video_review_check(port, approved_url):
-    """Real Chromium: imported approved URL is visible, blocked URL rejected.
+    """Real Chromium: no manual source addition, video jobs visible read-only.
 
-    This UI smoke never clicks 'Run approved job' or starts a video observer.
+    This smoke does not launch a worker or trigger third-party requests.
     """
     from playwright.async_api import async_playwright, expect
     async with async_playwright() as p:
@@ -168,50 +168,30 @@ async def browser_video_review_check(port, approved_url):
             await expect(page.locator("#video-review")).to_have_count(1)
             await expect(page.locator("#video-review")).to_be_visible(timeout=12000)
             await expect(page.locator('a[href="#video-review"]')).to_have_count(1)
-            # Mission Pulse is now first; History belongs below primary workspaces.
             order = await page.evaluate("""() => {
                 const ys = ids => ids.map(id => document.getElementById(id).getBoundingClientRect().top + window.scrollY);
                 return ys(['garudanetra','assignments','date-center']);
             }""")
             assert order[0] < order[1] < order[2], "Mission/history sections rendered out of order"
-            await expect(page.locator("#learning-enable-sources")).to_be_visible(timeout=12000)
+            await expect(page.locator("#learning-enable-sources")).to_have_count(0)
             await expect(page.locator("#learning-start")).to_be_visible(timeout=12000)
-            # Starting a local worker must be possible when the exclusive lock
-            # is free; the browser test never actually starts the worker.
             await expect(page.locator("#learning-start")).to_be_enabled(timeout=12000)
-            await expect(page.locator("#video-auto-toggle")).to_be_visible(timeout=12000)
-            await page.locator(".video-manual-details > summary").click()
+            await expect(page.locator("#video-auto-url")).to_have_count(0)
+            await expect(page.locator("#video-auto-approve")).to_have_count(0)
+            await expect(page.locator("#video-auto-toggle")).to_have_count(0)
+            await expect(page.locator("#video-review-import")).to_have_count(0)
+            await expect(page.locator("#video-review-json")).to_have_count(0)
+            await expect(page.locator(".video-manual-details")).to_have_count(0)
+            await expect(page.locator("#learning-trial-audit")).to_be_visible(timeout=12000)
             await expect(page.locator('input[type="date"]')).to_have_count(1)
             await expect(page.locator("#ui-version")).to_contain_text("2026-10-23-v7.5", timeout=12000)
             await page.locator("#video-review-refresh").click()
-            rejected={"schema":"krishna.suryadev.job.v1", "job_id":"not-approved",
-                      "kind":"video_research",
-                      "target":"https://www.youtube.com/watch?v=not-approved",
-                      "constraints":{"duration_seconds":60}}
-            # User-friendly path: paste a URL; owner-unapproved URLs must fail.
-            await page.locator("#video-review-url").fill(rejected["target"])
-            await page.locator("#video-review-import").click()
-            await expect(page.locator("#video-review-status")).to_contain_text(
-                "Import rejected:", timeout=12000)
-            await expect(page.locator("#video-review-list .video-review-job")).to_have_count(0)
-            # Existing KRISHNA mission contracts still support advanced JSON.
-            accepted=dict(rejected, job_id="smoke-approved-video", target=approved_url)
-            await page.locator(".video-job-details summary").click()
-            await page.locator("#video-review-json").fill(json.dumps(accepted))
-            await page.locator("#video-review-import").click()
-            await expect(page.locator("#video-review-list .video-review-job")).to_have_count(1)
-            preview=await page.locator("#video-review-list .video-review-job code").inner_text()
-            assert preview==approved_url, "Exact video URL including query must remain visible"
-            consent=page.locator("#video-review-list .video-review-job input[type=checkbox]")
-            assert not await consent.is_checked(), "A new job must not be automatically approved"
-            await page.locator("#video-review-refresh").click()
-            await expect(page.locator("#video-review-list .video-review-job")).to_have_count(1)
+            await expect(page.locator("#learning-trial-audit")).to_contain_text(
+                "Rishi verified comprehension: NO", timeout=12000)
             assert not errors, "Video Review JS runtime errors: " + str(errors)
             return {"status":"PASS", "repo_frontend":True,
-                    "unapproved_source_rejected":True,
-                    "approved_source_imported_without_running":True,
-                    "exact_video_query_displayed":True,
-                    "approval_default_unchecked":True,
+                    "manual_source_controls_removed":True,
+                    "trial_evidence_panel_visible":True,
                     "javascript_errors":errors}
         finally:
             await browser.close()
