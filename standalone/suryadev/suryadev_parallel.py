@@ -140,6 +140,7 @@ class AdaptiveResearchWorkers:
         self.books_enabled = bool(books_enabled)
         self.video_enabled = False
         self._dual_lane_turn = 0
+        self.external_active = 0
         self.browser = None
         self.browser_error = ""
         self.summary_lock = threading.Lock()
@@ -220,7 +221,9 @@ class AdaptiveResearchWorkers:
         capacity["reserved_book_slots"] = reserve_books
         capacity["reserved_video_slots"] = reserve_video
         capacity["source_execution_slots"] = max(
-            0,total-reserve_books-reserve_video)
+            0,min(total-reserve_books-reserve_video,
+                  total-max(0,int(self.external_active))))
+        capacity["non_source_active"] = max(0,int(self.external_active))
         # The cooldown is on disk to remain effective across worker restarts.
         self.youtube_access = youtube_access(self.root)
         if self.youtube_access["state"] == "rate_limited":
