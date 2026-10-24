@@ -212,31 +212,37 @@ def serve(lib, port=8769):
                                      "has_single_date_filter": True,
                                      "has_static_video_review": True,
                                      "has_unified_frontend": True,
+                                     "has_node_control_console": True,
                                      "has_dashboard_worker_controls": True,
                                      "has_fresh_isolated_workspace": True,
                                      "max_new_active_tasks": 3}),
                     "application/json")
-            if route.path in ("/", "/dashboard.css", "/dashboard.js",
-                              "/dashboard-settings.css", "/dashboard-settings.js",
-                              "/dashboard-garudanetra.css", "/dashboard-garudanetra.js",
-                              "/dashboard-books.css", "/dashboard-books.js",
-                              "/dashboard-video.css", "/dashboard-video.js",
-                              "/dashboard-api.js", "/dashboard-learning.js"):
-                filename = {"/": "dashboard.html", "/dashboard.css": "dashboard.css",
-                            "/dashboard.js": "dashboard.js",
-                            "/dashboard-settings.css": "dashboard-settings.css",
-                            "/dashboard-settings.js": "dashboard-settings.js",
-                            "/dashboard-garudanetra.css": "dashboard-garudanetra.css",
-                            "/dashboard-garudanetra.js": "dashboard-garudanetra.js",
-                            "/dashboard-books.css": "dashboard-books.css",
-                            "/dashboard-books.js": "dashboard-books.js",
-                            "/dashboard-video.css": "dashboard-video.css",
-                            "/dashboard-video.js": "dashboard-video.js",
-                            "/dashboard-api.js": "dashboard-api.js",
-                            "/dashboard-learning.js": "dashboard-learning.js"}[route.path]
+            # New dashboard default; complete legacy evidence console at /advanced.
+            ui_files = {
+                "/": "node-console.html",
+                "/advanced": "dashboard.html",
+                "/dashboard.html": "dashboard.html",
+                "/node-console.css": "node-console.css",
+                "/node-console.js": "node-console.js",
+                "/dashboard.css": "dashboard.css",
+                "/dashboard.js": "dashboard.js",
+                "/dashboard-settings.css": "dashboard-settings.css",
+                "/dashboard-settings.js": "dashboard-settings.js",
+                "/dashboard-garudanetra.css": "dashboard-garudanetra.css",
+                "/dashboard-garudanetra.js": "dashboard-garudanetra.js",
+                "/dashboard-books.css": "dashboard-books.css",
+                "/dashboard-books.js": "dashboard-books.js",
+                "/dashboard-video.css": "dashboard-video.css",
+                "/dashboard-video.js": "dashboard-video.js",
+                "/dashboard-api.js": "dashboard-api.js",
+                "/dashboard-learning.js": "dashboard-learning.js",
+            }
+            if route.path in ui_files:
+                filename = ui_files[route.path]
                 content = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
-                mime = "text/html; charset=utf-8" if route.path == "/" else (
-                    "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
+                mime = ("text/html; charset=utf-8" if filename.endswith(".html")
+                        else "text/css; charset=utf-8" if filename.endswith(".css")
+                        else "application/javascript; charset=utf-8")
                 return self.respond(200, content, mime)
             if route.path == "/api/book-search":
                 from suryadev_book_reader import BookLedger
