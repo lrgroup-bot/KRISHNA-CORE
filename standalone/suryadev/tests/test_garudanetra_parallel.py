@@ -52,7 +52,7 @@ class AdaptiveCapacityTests(unittest.TestCase):
 
     def test_no_unbounded_tab_counts(self):
         with self.assertRaises(ValueError):
-            GarudanetraLite("unused", max_tabs=5)
+            GarudanetraLite("unused", max_tabs=11)
         with self.assertRaises(ValueError):
             GarudanetraLite("unused", max_tabs=0)
 
