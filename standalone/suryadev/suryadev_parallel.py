@@ -228,7 +228,7 @@ class AdaptiveResearchWorkers:
         capacity["reserved_book_slots"] = reserve_books
         capacity["reserved_video_slots"] = reserve_video
         capacity["source_execution_slots"] = max(
-            0,min(total-reserve_books-reserve_video,
+            0,min(MAX_PARALLEL,total-reserve_books-reserve_video,
                   total-max(0,int(self.external_active))))
         capacity["non_source_active"] = max(0,int(self.external_active))
         # The cooldown is on disk to remain effective across worker restarts.
