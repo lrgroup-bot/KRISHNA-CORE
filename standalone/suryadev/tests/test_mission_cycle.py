@@ -83,7 +83,11 @@ class MissionCycleTests(unittest.TestCase):
             self.assertEqual(paused["max_total"],0)
             self.assertTrue(paused["hardware_safe_before_mission_pause"])
             self.assertFalse(paused["launched_this_cycle"])
-        self.assertEqual(Library(self.root).stats().get("done",0),0)
+        lib = Library(self.root)
+        try:
+            self.assertEqual(lib.stats().get("done",0),0)
+        finally:
+            lib.db.close()
 
     def test_read_only_ops_shows_persisted_mission_cycle(self):
         status=self.cycle.tick()
