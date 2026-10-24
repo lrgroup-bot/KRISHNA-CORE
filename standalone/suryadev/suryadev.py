@@ -312,6 +312,22 @@ class Library:
                     (job_id, coverage["kind"], start_wall, acquisition_seconds,
                      summary_phase_seconds, round(time.perf_counter() - start_clock, 3),
                      "done", time.time()))
+            # A recently completed approved PUBLIC HTTPS source is real evidence
+            # of connectivity to THAT source, unlike a NIC link or data counter.
+            # Do not let non-critical telemetry writing fail a committed job.
+            try:
+                from suryadev_liveops import atomic_json
+                from urllib.parse import urlsplit
+                if urlsplit(url).scheme == "https":
+                    atomic_json(self.root, "last-approved-source-connectivity.json", {
+                        "schema": "suryadev.source-connectivity.v1",
+                        "source_host": urlsplit(url).hostname,
+                        "verified_at": time.time(),
+                        "evidence_sha256": digest,
+                        "proof": "approved_source_extracted_and_evidence_committed",
+                        "internet_speed_mbps": None})
+            except (OSError, ValueError, TypeError):
+                pass
             # Cleanup is non-critical to the recorded learning result: never
             # incorrectly convert an already committed success to a failed job.
             try:
