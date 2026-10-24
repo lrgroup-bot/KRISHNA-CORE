@@ -101,6 +101,10 @@ class ParallelVideoObservationTests(unittest.TestCase):
         import hashlib
         from suryadev_video_review import VideoReview
         url=URLS[0]
+        plan_path=self.root/"learning-plan.json"
+        plan=json.loads(plan_path.read_text(encoding="utf-8"))
+        plan["approved_urls"]=[url]
+        plan_path.write_text(json.dumps(plan),encoding="utf-8")
         jid="approved-video-"+hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
         review=VideoReview(self.root,self.app)
         review.import_job({
