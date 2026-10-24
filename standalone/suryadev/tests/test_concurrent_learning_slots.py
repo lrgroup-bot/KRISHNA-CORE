@@ -41,6 +41,34 @@ class ConcurrentLearningTests(unittest.TestCase):
                                            "usage_percent":85,"vram_percent":1})):
             self.assertEqual(plan_capacity(sample,logical_cpus=64)["max_total"],0)
 
+    def test_future_large_server_can_admit_more_than_old_fixed_45_cap(self):
+        node=hardware(cpu=10,ram=22,ram_total=512,ram_used=100)
+        admitted=plan_capacity(node,logical_cpus=256)
+        self.assertGreater(admitted["max_total"],45)
+        self.assertEqual(admitted["limits"]["pdf"],100)
+        self.assertEqual(admitted["capacity_mode"],"automatic_hardware")
+        self.assertEqual(admitted["youtube_provider_concurrent_limit"],1)
+
+    def test_one_hundred_pdf_tasks_can_wait_in_queue_without_launch(self):
+        from suryadev import Library
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder:
+            lib=Library(folder)
+            try:
+                with patch("suryadev.validate_url",return_value=None):
+                    for i in range(100):
+                        lib.add("https://example.com/manual-%03d.pdf" % i)
+                self.assertEqual(lib.stats()["queued"],100)
+                with AdaptiveResearchWorkers(folder,use_ollama=False) as pool:
+                    with patch("suryadev_parallel.os.cpu_count",return_value=12):
+                        report=pool.pump(telemetry=hardware(cpu=85))
+                    self.assertEqual(report["capacity"]["active_total"],0)
+                    self.assertEqual(report["capacity"]["queued"]["pdf"],100)
+                    self.assertEqual(report["capacity"]["max_total"],0)
+                self.assertEqual(lib.stats()["queued"],100)
+            finally:
+                lib.db.close()
+
     def test_book_reserved_slots_do_not_exceed_available_capacity(self):
         with tempfile.TemporaryDirectory() as root:
             with AdaptiveResearchWorkers(root,use_ollama=False,books_enabled=True) as pool:
