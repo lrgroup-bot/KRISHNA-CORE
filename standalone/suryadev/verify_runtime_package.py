@@ -18,6 +18,7 @@ REQUIRED_ENTRYPOINTS = (
     "suryadev_extras",
     "suryadev_fleet_client",
     "suryadev_mission_cycle",
+    "suryadev_source_authority",
     "suryadev_video_review",
     "suryadev_operator_api",
 )
