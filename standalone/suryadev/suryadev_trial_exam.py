@@ -46,11 +46,26 @@ def eligible_questions(root, db, audit):
     book_id=book.get("book_id")
     processed=int(book.get("model_lines_processed") or 0)
     book_evidence=""
-    if book_id and processed>0 and book.get("journal_integrity")=="passed":
-        rows=db.execute(
-            "SELECT ordinal,text FROM book_lines WHERE book_id=? "
-            "AND ordinal<=? ORDER BY ordinal LIMIT 3000",(book_id,processed)).fetchall()
-        book_evidence=" ".join(row[1] for row in rows)
+    # Book source lines and model journals live in book-learning.sqlite3,
+    # NOT in the main assignments DB supplied by the worker. A processed
+    # book must never crash the supervisor with "no such table: book_lines".
+    ledger_path=Path(root).resolve()/"book-learning.sqlite3"
+    if (book_id and processed>0 and book.get("journal_integrity")=="passed"
+            and ledger_path.is_file()):
+        try:
+            from contextlib import closing
+            with closing(sqlite3.connect(ledger_path.as_uri()+"?mode=ro",
+                                         uri=True,timeout=10)) as book_db:
+                book_db.execute("PRAGMA query_only=ON")
+                rows=book_db.execute(
+                    "SELECT ordinal,text FROM book_lines WHERE book_id=? "
+                    "AND ordinal<=? ORDER BY ordinal LIMIT 3000",
+                    (book_id,processed)).fetchall()
+                book_evidence=" ".join(row[1] for row in rows)
+        except (OSError,sqlite3.Error):
+            # Fail closed if the verified book ledger is unavailable; do not
+            # fall back to unprocessed text or pretrained model knowledge.
+            book_evidence=""
     video=audit.get("video") or {}
     # This must come from recorded caption or observed candidate material.
     # No YouTube description, public page, or model training knowledge qualifies.
