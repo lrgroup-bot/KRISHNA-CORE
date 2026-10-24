@@ -1,16 +1,13 @@
-/* One local dashboard worker controller. Never auto-start without an explicit
- * owner click; subsequent source discovery is automatic within the approved plan.
- */
+/* Learning control and read-only approved source status. No manual source entry. */
 "use strict";
 (() => {
   document.addEventListener("DOMContentLoaded", () => {
     const el = id => document.getElementById(id);
     const start = el("learning-start");
     const stop = el("learning-stop");
-    const sources = el("learning-enable-sources");
     const delegation = el("learning-core-delegation");
     const coreStatus = el("learning-core-status");
-    if (!start || !stop || !sources || !delegation || !coreStatus) return;
+    if (!start || !stop || !delegation || !coreStatus) return;
     const state = el("learning-service-state");
     const note = el("learning-service-note");
     const responseText = el("learning-action-status");
@@ -70,18 +67,16 @@
             ? (d.blocked_reason || "A separate research/video worker holds the OS lock.")
             : d.plan_exists
               ? "Ready for continuous approved-source research. No Core pairing required."
-              : "No learning plan yet. Start processes existing queued tasks; add approved sources for automatic replenishment.";
+              : "No learning plan yet. Start processes existing queued tasks; configure the approved curriculum outside this read-only frontend.";
         el("activity-short-state").textContent = running ? "Worker active" : manual ? "External worker" : "Paused";
         start.disabled = !d.can_start || operation;
-        sources.disabled = Boolean(d.plan_exists) || operation;
-        sources.textContent = d.plan_exists ? "Local fallback ready" : "Enable local fallback";
         stop.disabled = !running || operation;
         model.disabled = running || manual || operation;
       } catch (err) {
         state.textContent = "Worker control unavailable";
         note.textContent = "Cannot read worker status: " + String(err.message || err) +
           ". Check /api/learning/control and restart the updated dashboard if needed.";
-        start.disabled = true; stop.disabled = true; sources.disabled = true; delegation.disabled = true; delegation.disabled = true;
+        start.disabled = true; stop.disabled = true; delegation.disabled = true; delegation.disabled = true;
       }
     }
     async function execute(path, data) {
@@ -97,7 +92,6 @@
         await refresh();
       }
     }
-    sources.addEventListener("click", () => execute("/api/operator/learning/activate-sources", {}));
     delegation.addEventListener("click", async () => {
       const enabling = !delegation.textContent.startsWith("Disable");
       if (enabling && !window.confirm(
