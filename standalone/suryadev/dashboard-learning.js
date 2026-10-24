@@ -81,7 +81,7 @@
     }
     async function execute(path, data) {
       operation = true;
-      start.disabled = true; stop.disabled = true; sources.disabled = true;
+      start.disabled = true; stop.disabled = true;
       try {
         const result = await post(path, data);
         responseText.textContent = result.note || result.status || "Operation accepted";
