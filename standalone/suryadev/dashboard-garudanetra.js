@@ -87,7 +87,8 @@
     const max = Number(capacity.max_total || 0);
     const targets = capacity.target_slots || {website:10,youtube:10,pdf:20,book:5};
     el("netra-total-capacity").textContent = num(active) + " active / " + num(max) +
-      " hardware-admitted · " + num(capacity.target_total || 45) + " requested";
+      " allowed · " + num(capacity.target_total || 45) +
+      " requested · guarded hardware-admission";
     el("netra-parallel-targets").textContent =
       "Requested lanes: " + num(targets.website) + " websites · " +
       num(targets.youtube) + " approved video observers · " +
