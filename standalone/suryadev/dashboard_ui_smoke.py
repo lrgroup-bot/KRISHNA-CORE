@@ -134,7 +134,7 @@ async def browser_continuity_check(port):
             page = await browser.new_page()
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/", wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced", wait_until="domcontentloaded")
             await expect(page.locator("#netra-capacity-heading")).to_have_text(
                 "YouTube rate-limited — website/PDF research continues", timeout=12000)
             await expect(page.locator("#netra-continuity-status")).to_contain_text(
@@ -194,7 +194,7 @@ async def browser_video_review_check(port, approved_url):
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
             page.on("pageerror", lambda exc: errors.append(str(exc)))
-            await page.goto(f"http://127.0.0.1:{port}/", wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced", wait_until="domcontentloaded")
             await expect(page.locator("#video-review")).to_have_count(1)
             await expect(page.locator("#video-review")).to_be_visible(timeout=12000)
             await expect(page.locator('a[href="#video-review"]')).to_have_count(1)
