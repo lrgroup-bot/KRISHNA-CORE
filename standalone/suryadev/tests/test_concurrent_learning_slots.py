@@ -157,6 +157,35 @@ class ConcurrentLearningTests(unittest.TestCase):
             finally:
                 pool.close()
 
+    def test_restart_recovers_recent_running_jobs_preserving_history(self):
+        """A recently killed worker must not strand tasks for two hours."""
+        from suryadev import Library
+        from suryadev_lock import worker_lock
+        with tempfile.TemporaryDirectory() as temp:
+            lib=Library(temp)
+            try:
+                with patch("suryadev.validate_url",return_value=None):
+                    ids=[lib.add("https://example.com/a-%d" % i) for i in range(6)]
+                with lib.db:
+                    for job_id in ids[:4]:
+                        lib.db.execute(
+                            "UPDATE jobs SET status='running',updated=? WHERE id=?",
+                            (time.time(),job_id))
+                    lib.db.execute("UPDATE jobs SET status='done' WHERE id=?",
+                                   (ids[4],))
+                    lib.db.execute("UPDATE jobs SET status='failed' WHERE id=?",
+                                   (ids[5],))
+                with worker_lock(temp):
+                    recovered=lib.recover()
+                    self.assertEqual(recovered,ids[:4])
+                    self.assertEqual(lib.recover(),[])
+                statuses=dict(lib.db.execute("SELECT id,status FROM jobs"))
+                self.assertEqual([statuses[i] for i in ids[:4]],["queued"]*4)
+                self.assertEqual(statuses[ids[4]],"done")
+                self.assertEqual(statuses[ids[5]],"failed")
+            finally:
+                lib.db.close()
+
     def test_small_laptop_reserves_only_one_book_slot(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
