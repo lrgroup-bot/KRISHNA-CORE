@@ -552,7 +552,13 @@ def work_loop(lib, interval, use_ollama, model, *,
     handoff = (BookHandoff(lib.root,core_mission_config) if sync_book_handoff else None)
     from suryadev_parallel_videos import ParallelVideoReader
     videos = ParallelVideoReader(lib.root,Path(__file__).resolve().parent)
-    lib.recover()
+    interrupted = lib.recover()  # exclusive worker_lock held by caller
+    if interrupted:
+        print(json.dumps({
+            "interrupted_jobs_requeued": len(interrupted),
+            "job_ids": interrupted,
+            "note": "Previous worker exited; retained evidence and completed jobs preserved."
+        }, ensure_ascii=False), flush=True)
     print("SURYADEV Garudanetra adaptive worker started. Ctrl+C to stop.", flush=True)
     worker_note(lib.root, "starting", interval, "Adaptive source lanes starting")
     try:
