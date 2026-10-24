@@ -1,3 +1,46 @@
+## Continuous missions: six hours of approved work / ten-minute device rest
+
+**New policy:** the single SURYADEV worker owns a durable
+`mission-cycle-runtime.json`. Every six-hour mission window remains active
+while approved work is available. At the boundary it stops admitting NEW jobs
+and lets existing website, PDF, book and video futures write their actual
+receipts. Only after they finish does a **minimum ten-minute rest** start.
+During rest the node does not launch new learning, browser, video, book or
+examination work and releases an idle Garudanetra Chromium process. Then it
+automatically opens the next six-hour mission without requiring another Start
+click. Restarting the process cannot skip an already recorded rest.
+
+**The 85% CPU/RAM/disk/GPU admission guard is absolute**, and a rate-limited
+source cannot be force-fetched. The schedule cannot guarantee zero idle seconds
+without enough approved, legally accessible sources. We must report
+`awaiting_assignment`, `no_approved_work`, `rate_limited`,
+`hardware_guard_paused`, `draining`, or `rest` accurately instead of
+manufacturing tasks, reprocessing completed URLs or overriding provider limits.
+
+Queue replenishment continues to request work before the eligible backlog
+falls below three tasks. The request is addressed to **KRISHNA**, asks
+**BRAHMAGYAN** to prepare subject-appropriate assignments and choose a RISHI,
+and explicitly prefers sources grounded in official expert profiles, vetted
+institutions and independently correlated publication identifiers (ORCID /
+Crossref DOI). Expert status cannot be inferred from a video title or a random
+webpage, and an ORCID/DOI claim without its corresponding official metadata
+does **not** establish authenticated identity. No automated KRISHNA/BRAHMAGYAN
+delivery or human identity attestation is claimed until separate receipts exist.
+
+The dashboard exposes the actual mission cycle via `/api/operations`.
+The new Node Control page shows the rest phase and scheduled resume time;
+the full historic evidence dashboard remains at `/advanced`. Per-source
+checkpoints survive any rest and belong to the original data folder.
+
+**One laptop first:** this release never creates additional workers, services,
+Windows scheduled tasks, firewall rules, network credentials or source
+permissions. Continuous operation requires the existing dashboard/worker to
+remain launched; a computer sleep/shutdown does not create learning work while
+it is off. Longer-term unattended boot/service management must be separately
+approved and tested for each device.
+
+---
+
 ## SURYADEV adaptive research fleet — source-first mission upgrade (25 October 2026)
 
 ### Actual behavior in this release
