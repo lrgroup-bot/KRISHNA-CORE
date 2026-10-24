@@ -31,7 +31,7 @@ class LearningTrialTests(unittest.TestCase):
                 data=prepare_trial(root,root)
                 video.return_value.approve_source.assert_called_once_with(VIDEO)
                 video.return_value.set_auto.assert_called_once_with(True)
-                acquire.assert_called_once_with(BOOK,root/"trial-sources"/"thinkpython2.pdf")
+                acquire.assert_called_once_with(BOOK,root.resolve()/"trial-sources"/"thinkpython2.pdf")
                 self.assertEqual(data["book"],"indexed_and_approved_for_model_reading")
                 self.assertEqual(data["learning_verified"],False)
                 self.assertEqual(data["rishi_exam_verified"],False)
