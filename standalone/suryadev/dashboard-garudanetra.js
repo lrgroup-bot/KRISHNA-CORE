@@ -12,6 +12,8 @@
     const plan = data.research_plan || {};
     const continuity = data.continuity || {};
     const books = data.book_learning || {};
+    const bookPool = data.concurrent_books || {};
+    const videoPool = data.concurrent_videos || {};
     const bookActivity = books.activity || {};
     const bookActive = bookActivity.active === true;
     const workerOnline = !!worker.state &&
@@ -29,7 +31,11 @@
       el("netra-"+key+"-queued").textContent = num(values.queued);
     }
     el("netra-web-tabs").textContent = num(web.browser_tabs);
-    el("netra-books-running").textContent = bookActive ? "1" : "0";
+    const activeBooks = Number(bookPool.active || 0);
+    const activeVideos = Number(videoPool.active || 0);
+    el("netra-books-running").textContent = num(
+      Math.max(bookActive ? 1 : 0, activeBooks));
+    el("netra-video-observers").textContent = num(activeVideos);
     el("netra-books-approved").textContent = num(books.approved);
     el("netra-books-indexed").textContent = num(books.indexed);
     el("netra-books-lines").textContent =
@@ -37,6 +43,9 @@
     const bookNote = el("netra-books-state");
     if (books.error) {
       bookNote.textContent = books.error;
+    } else if (activeBooks > 0) {
+      bookNote.textContent = num(activeBooks) +
+        " distinct approved books progressing · model calls serialized";
     } else if (bookActive) {
       bookNote.textContent =
         (bookActivity.state === "book_visual_in_progress"
@@ -74,9 +83,20 @@
       "○ Browser standby · worker offline";
     badge.className = "netra-live-pill" +
       (alive && activeTabs > 0 ? " live" : capacity.browser_error ? " paused" : "");
-    const active = Number(capacity.active_total || 0);
+    const active = Number(capacity.active_total || 0) + activeBooks + activeVideos;
     const max = Number(capacity.max_total || 0);
-    el("netra-total-capacity").textContent = num(active) + " active / " + num(max) + " allowed";
+    const targets = capacity.target_slots || {website:10,youtube:10,pdf:20,book:5};
+    el("netra-total-capacity").textContent = num(active) + " active / " + num(max) +
+      " hardware-admitted · " + num(capacity.target_total || 45) + " requested";
+    el("netra-parallel-targets").textContent =
+      "Requested lanes: " + num(targets.website) + " websites · " +
+      num(targets.youtube) + " approved video observers · " +
+      num(targets.pdf) + " PDFs · " + num(targets.book) +
+      " books. Admitted now: " + num(max) + " total CPU/RAM slots; " +
+      num(capacity.source_execution_slots || 0) + " sources, " +
+      num(capacity.reserved_video_slots || 0) + " videos, " +
+      num(capacity.reserved_book_slots || 0) + " books. " +
+      "10 videos is a target, not ten guaranteed playbacks; provider caption retrieval remains serial.";
     const healthy = schedulerOnline && capacity.safe === true;
     const reported = schedulerOnline ? capacity : hardware;
     const measured = key => reported[key] != null && Number.isFinite(Number(reported[key]))
