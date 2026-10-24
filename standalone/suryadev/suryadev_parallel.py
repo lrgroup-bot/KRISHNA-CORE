@@ -194,7 +194,7 @@ class AdaptiveResearchWorkers:
                 results.append(result)
         return results
 
-    def pump(self, *, telemetry=None):
+    def pump(self, *, telemetry=None, admit_new=True):
         if self.closed:
             raise RuntimeError("Adaptive workers already stopped")
         finished = self._reap()
@@ -287,7 +287,7 @@ class AdaptiveResearchWorkers:
         # The next cycle samples actual utilization before admitting more.
         max_new_this_sample = min(4, capacity["source_execution_slots"])
         capacity["new_source_launch_limit_this_sample"] = max_new_this_sample
-        if capacity["safe"]:
+        if capacity["safe"] and admit_new:
             while (len(self.futures) < capacity["source_execution_slots"]
                    and len(launched) < max_new_this_sample):
                 # Rotate source priority to prevent PDFs or video starving web.
@@ -315,7 +315,7 @@ class AdaptiveResearchWorkers:
                 queued[choice] -= 1
                 launched.append(choice)
                 self.rotation = (KINDS.index(choice) + 1) % len(KINDS)
-        youtube_blocked = (self.youtube_access["state"] == "rate_limited"
+        # Lifecycle rest/drain is separate from hardware pressure: retain the\n        # measurement, but report zero executable admission during a break.\n        if not admit_new:\n            capacity["hardware_safe_before_mission_pause"] = capacity["safe"]\n            capacity["safe"] = False\n            capacity["max_total"] = 0\n            capacity["source_execution_slots"] = 0\n            capacity["reserved_book_slots"] = 0\n            capacity["reserved_video_slots"] = 0\n            capacity["limits"] = {name: 0 for name in capacity["limits"]}\n            capacity["mission_admission_paused"] = True\n            capacity["reason"] = "Six-hour mission boundary: draining or mandatory ten-minute rest"\n        youtube_blocked = (self.youtube_access["state"] == "rate_limited"
                            and queued["youtube"] > 0)
         capacity["over_admitted_inflight"] = max(
             0, len(self.futures) - capacity["source_execution_slots"])
