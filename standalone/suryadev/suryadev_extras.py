@@ -461,20 +461,20 @@ def serve(lib, port=8769):
             if not route.path.startswith("/api/operator/"):
                 return self.respond(404, json.dumps({"error": "Unknown operation"}),
                                     "application/json")
-            # Source selection is owned by KRISHNA or the fixed owner-approved
-            # trial. Legacy dashboard mutation routes must not re-enable manual
-            # YouTube/book/source additions through an old UI or scripted POST.
-            if route.path in (
-                    "/api/operator/learning/activate-sources",
-                    "/api/operator/video/approve-source",
-                    "/api/operator/video/auto",
-                    "/api/operator/video/import",
-                    "/api/operator/video/run"):
-                return self.respond(410, json.dumps({
-                    "error": "Manual source controls retired; use the approved automated mission pipeline"
-                }), "application/json")
             try:
                 body = json.loads(self.rfile.read(length))
+                # Consume the entire request body before responding, otherwise
+                # Windows TCP may reset the connection while the client reads
+                # the 410 response (WinError 10053).
+                if route.path in (
+                        "/api/operator/learning/activate-sources",
+                        "/api/operator/video/approve-source",
+                        "/api/operator/video/auto",
+                        "/api/operator/video/import",
+                        "/api/operator/video/run"):
+                    return self.respond(410, json.dumps({
+                        "error": "Manual source controls retired; use the approved automated mission pipeline"
+                    }), "application/json")
                 with settings_lock:
                     if route.path == "/api/operator/learning/delegate-core":
                         outcome = worker_control.set_core_delegation(body.get("enabled"))
