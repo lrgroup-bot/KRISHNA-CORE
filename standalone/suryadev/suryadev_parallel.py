@@ -196,7 +196,8 @@ class AdaptiveResearchWorkers:
             capacity["max_total"] = min(ceiling, capacity["max_total"])
             capacity["limits"] = {kind:min(ceiling, limit)
                                   for kind,limit in capacity["limits"].items()}
-            capacity["laptop_profile"] = "measured-maximum-" + str(ceiling)
+            capacity["laptop_profile"] = ("single-job" if ceiling == 1 else
+                                          "measured-maximum-" + str(ceiling))
         # Book reading gets fair slots without displacing every source lane.
         reserved = (min(BOOK_TARGET, max(1, capacity["max_total"] // 4))
                     if self.books_enabled and capacity["max_total"] > 1 else 0)
