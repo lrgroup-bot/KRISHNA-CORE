@@ -253,6 +253,7 @@ def operations_snapshot(db, root):
         "feeder": _safe_read(root, "feeder-runtime.json"),
         "continuity": _safe_read(root, "continuity-runtime.json", max_bytes=16384),
         "mission_renewal": _safe_read(root, "krishna-mission-renewal.json", max_bytes=8192),
+        "mission_cycle": _safe_read(root, "mission-cycle-runtime.json", max_bytes=4096),
         "book_continuity": _safe_read(root, "book-continuity-runtime.json", max_bytes=8192),
         "concurrent_books": _safe_read(root, "book-concurrent-runtime.json", max_bytes=8192),
         "concurrent_videos": _safe_read(root, "video-concurrent-runtime.json", max_bytes=8192),
