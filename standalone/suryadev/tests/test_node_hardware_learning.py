@@ -12,7 +12,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from suryadev_resources import network_interfaces
+from suryadev_resources import network_interfaces, recently_verified_source
 from suryadev_parallel import AdaptiveResearchWorkers
 from suryadev_fleet_client import hardware_report
 
@@ -46,6 +46,29 @@ class HardwareLearningTests(unittest.TestCase):
                 return {"lo":SimpleNamespace(isup=True,speed=10000),
                         "Ethernet":SimpleNamespace(isup=False,speed=1000)}
         self.assertFalse(network_interfaces(NoLink)["interface_up"])
+
+    def test_recent_source_access_proves_only_host_reachability(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            receipt={
+                "schema":"suryadev.source-connectivity.v1",
+                "source_host":"www.python.org",
+                "verified_at":120.0,
+                "evidence_sha256":"a"*64,
+                "proof":"approved_source_extracted_and_evidence_committed",
+                "internet_speed_mbps":None}
+            (root/"last-approved-source-connectivity.json").write_text(
+                json.dumps(receipt),encoding="utf-8")
+            reported=recently_verified_source(root,now=121.0)
+            self.assertEqual(reported["verified_host"],"www.python.org")
+            self.assertTrue(reported["internet_reachable"])
+            self.assertEqual(reported["reachability"],
+                             "recent_approved_https_source_success")
+            self.assertIsNone(recently_verified_source(root,now=400.0))
+            receipt["evidence_sha256"]="incorrect"
+            (root/"last-approved-source-connectivity.json").write_text(
+                json.dumps(receipt),encoding="utf-8")
+            self.assertIsNone(recently_verified_source(root,now=121.0))
 
     def test_paired_krishna_gets_collector_admission_from_fresh_marker(self):
         with tempfile.TemporaryDirectory() as temp:
