@@ -38,12 +38,12 @@ class AdaptiveVideoSpeedTests(unittest.TestCase):
                 self.assertEqual(adapter.classify_video_caption(caption),
                                  ("unclassified_language", 1.0))
 
-    def test_chatter_needs_two_distinct_segments_before_4x(self):
+    def test_chatter_needs_two_distinct_segments_before_3x(self):
         p = adapter.AdaptiveVideoSpeed()
         self.assertEqual(p.choose("Welcome back to my channel",
                                   video_seconds=1, caption_available=True)[0], 2.0)
         self.assertEqual(p.choose("Like and subscribe to the channel",
-                                  video_seconds=3, caption_available=True), (4.0, "chatter"))
+                                  video_seconds=3, caption_available=True), (3.0, "chatter"))
         self.assertEqual(p.choose("This is an important Python 3.12 example",
                                   video_seconds=4, caption_available=True), (1.0, "important"))
         self.assertEqual(p.chatter_streak, 0)
@@ -92,9 +92,9 @@ class AdaptiveVideoSpeedTests(unittest.TestCase):
                 self.attempts.append(requested)
                 return self.response
         page = FakePage(2.0)
-        self.assertEqual(adapter._apply_video_rate(page, 4.0), 2.0)
-        self.assertEqual(page.attempts, [4.0])
-        self.assertIsNone(adapter._apply_video_rate(FakePage(None), 4.0))
+        self.assertEqual(adapter._apply_video_rate(page, 3.0), 2.0)
+        self.assertEqual(page.attempts, [3.0])
+        self.assertIsNone(adapter._apply_video_rate(FakePage(None), 3.0))
         self.assertIsNone(adapter._apply_video_rate(FakePage(1.25), 1.5))
 
 
