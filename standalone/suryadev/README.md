@@ -1,3 +1,239 @@
+## Continuous missions: six hours of approved work / ten-minute device rest
+
+**New policy:** the single SURYADEV worker owns a durable
+`mission-cycle-runtime.json`. Every six-hour mission window remains active
+while approved work is available. At the boundary it stops admitting NEW jobs
+and lets existing website, PDF, book and video futures write their actual
+receipts. Only after they finish does a **minimum ten-minute rest** start.
+During rest the node does not launch new learning, browser, video, book or
+examination work and releases an idle Garudanetra Chromium process. Then it
+automatically opens the next six-hour mission without requiring another Start
+click. Restarting the process cannot skip an already recorded rest.
+
+**The 85% CPU/RAM/disk/GPU admission guard is absolute**, and a rate-limited
+source cannot be force-fetched. The schedule cannot guarantee zero idle seconds
+without enough approved, legally accessible sources. We must report
+`awaiting_assignment`, `no_approved_work`, `rate_limited`,
+`hardware_guard_paused`, `draining`, or `rest` accurately instead of
+manufacturing tasks, reprocessing completed URLs or overriding provider limits.
+
+Queue replenishment continues to request work before the eligible backlog
+falls below three tasks. The request is addressed to **KRISHNA**, asks
+**BRAHMAGYAN** to prepare subject-appropriate assignments and choose a RISHI,
+and explicitly prefers sources grounded in official expert profiles, vetted
+institutions and independently correlated publication identifiers (ORCID /
+Crossref DOI). Expert status cannot be inferred from a video title or a random
+webpage, and an ORCID/DOI claim without its corresponding official metadata
+does **not** establish authenticated identity. No automated KRISHNA/BRAHMAGYAN
+delivery or human identity attestation is claimed until separate receipts exist.
+
+The dashboard exposes the actual mission cycle via `/api/operations`.
+The new Node Control page shows the rest phase and scheduled resume time;
+the full historic evidence dashboard remains at `/advanced`. Per-source
+checkpoints survive any rest and belong to the original data folder.
+
+**One laptop first:** this release never creates additional workers, services,
+Windows scheduled tasks, firewall rules, network credentials or source
+permissions. Continuous operation requires the existing dashboard/worker to
+remain launched; a computer sleep/shutdown does not create learning work while
+it is off. Longer-term unattended boot/service management must be separately
+approved and tested for each device.
+
+---
+
+## SURYADEV adaptive research fleet — source-first mission upgrade (25 October 2026)
+
+### Actual behavior in this release
+
+* Each node samples CPU/RAM/disk and available NVIDIA GPU utilization using `psutil`
+  and `nvidia-smi` (when present); Windows GPU names come from WMI, and
+  Linux Intel/AMD/NVIDIA GPU vendor inventory comes from DRM sysfs. Other
+  GPU utilization is **unverified**, never silently assumed available.
+* The worker inspects active network interfaces and their negotiated LINK rate;
+  that is **not measured Internet bandwidth**. It records Internet/source
+  reachability only for a recent, successfully extracted and SHA-committed,
+  authorized PUBLIC HTTPS source; the proof expires after 180 seconds.
+* Under separately enrolled, authenticated pinned-TLS KRISHNA pairing and an
+  approved learning plan, the existing SURYADEV fleet client sends resource
+  telemetry, requests leased tasks periodically, and reconciles evidence SHA
+  with KRISHNA. Collector-only RAM capacity and the fresh workspace three-task
+  ceiling are reported consistently. Without real pairing, only local
+  approved research is possible; an unauthenticated ping is not a mission.
+* To **automatically observe** previously owner-approved videos, pass
+  `--auto-approved-videos` to the portable `start-node.py` launcher. That
+  explicit opt-in activates the existing approved-video queue inside the
+  currently running research supervisor; it never invents unapproved URLs,
+  bypasses CAPTCHA, forces concurrency beyond admission, or replays jobs
+  whose evidence may already exist. Omit the switch for collection-only
+  workflows where video automation has not been approved.
+* One data-root worker lock controls all local source/video/book lanes. With
+  no waiting source jobs, spare measured capacity can launch up to **three
+  distinct previously approved browser videos at once** on a fresh workspace.
+  Websites, PDFs and books use the SAME per-node capacity and 85% guard;
+  a slow node may admit just one or zero jobs. The YouTube caption provider is
+  rate-limited to one request; browser observation is an independent lane.
+* The canonical Playwright video adapter chooses observed playback speeds
+  1x for important/unknown/no-caption sections, 1.5x for explanations,
+  2x for ordinary text, and up to 3x for **repeated** clearly low-value chatter.
+  It records the actual HTML video playback-rate readback. Playback speed is
+  **not proof of whole-video viewing, speech comprehension or frame coverage**.
+  Provider sign-in/CAPTCHA/429 conditions are not bypassed.
+* Books already have a SHA-pinned SQLite line-by-line ledger, with section,
+  PDF page, source line, processed checkpoint and independent model journal.
+  PDF URL extraction now additionally retains every page's extracted line
+  counts and page-reference format. Images, scanned text, layout ordering and
+  equations require separately verified OCR/vision to claim whole-document
+  visual coverage. The available deep PDF implementation is optional and
+  rejects unsupported documents rather than silently truncating them.
+* Webpages retain original/final HTTPS URL, number of extracted text lines and
+  at most 25 discovered same-host reference links. **Those links are not
+  automatically crawled**; each new page needs an approved mission/source
+  scope. Deep viewport scanning is an optional existing operation, not
+  a guarantee that dynamic pages or embedded media were understood.
+
+### Evaluated open-source references (not all vendored or installed)
+
+- `psutil`: Python resource counters on Windows/Linux/macOS.
+- `microsoft/playwright-python`: browser video observation, DOM, HTML media
+  playback-rate readback, source provenance.
+- `pymupdf/PyMuPDF` and `pymupdf4llm`: potential structured layout/word and
+  OCR upgrades. **Not integrated as the required extractor**; present PDF
+  URL pipeline still uses `pypdf`, and book index supports explicit OCR.
+- `adbar/trafilatura`: potential article-to-structured-text metadata and
+  sitemap discovery, subject to exact approved hosts; **not installed**.
+- `SYSTRAN/faster-whisper`: optional local speech transcription fallback;
+  its CPU/GPU model memory must be separately admitted. **Not made compulsory**
+  for collector nodes.
+
+### Honest remaining gates before "deep learning verified"
+
+KRISHNA must actually pair a node, deliver an approved leased mission and
+acknowledge the returned evidence. BRAHMAGYAN must ingest the **complete**
+lawfully transferable referenced evidence rather than equate a 500-character
+fleet excerpt with understanding. RISHI must independently test conceptual,
+practical and source-grounded recall. Long website crawling requires a
+multi-page approval policy; full video requires observable complete intervals,
+audio/visual coverage and missing-segment audit; OCR ordering and video
+provider availability cannot be guaranteed. CI passing unit/browser tests is
+not equivalent to these real-device and comprehension gates.
+
+---
+
+## New Node Control frontend — October 25, 2026
+
+**Default:** `http://127.0.0.1:8772/` — a compact, responsive, evidence-first command center
+for Windows, Linux and macOS SURYADEV nodes. This is a **functional local
+frontend**, not a mockup. It uses existing read-only APIs and performs
+Start/Stop through the existing loopback/same-origin/CSRF operator endpoints.
+
+Sections are: worker ownership and actual state, collector-only vs optional
+local models, three-task admission, live/queued assignments, website/YouTube/PDF/
+book coverage, a searchable paginated evidence ledger, click-through receipt
+inspection, 85% hardware guard and explicit KRISHNA pairing status. Task
+completions remain distinct from independent comprehension verification.
+
+**Full evidence console:** `http://127.0.0.1:8772/advanced` preserves all
+older book journals, video review, detailed time/provenance audit, daily
+history and configuration settings; its data is the SAME current node
+workspace, not a second database or a copied ledger. Do not delete the old
+dashboard files. Prior sessions live in their own previous data root.
+
+On an existing Windows node, stop its old dashboard and worker, pull the
+SURYADEV development branch, run `install-windows.ps1` from
+`standalone/suryadev` with your chosen install/data folders, and start
+`python start-node.py --data <node-data> --model collector --port 8772`
+from the installation directory. **Do not launch a second dashboard on
+port 8772.** No source is automatically approved because the frontend was
+upgraded; a plan or authenticated KRISHNA mission is still required.
+
+The Chromium regression suite covers both the Node Control homepage and
+the full `/advanced` evidence view; the installer/runtime verifier asserts
+all new HTML/CSS/JS files are present.
+
+---
+
+## Portable SURYADEV fleet nodes — desktops, laptops, CPUs and optional servers
+
+SURYADEV is a **hardware-adaptive collector**, not a dedicated Qwen laptop. Each
+machine can be enrolled as its own separately approved evidence collector. A
+lightweight node needs Python 3.10+ and `psutil` for safe work admission; approved
+website capture needs Playwright + Chromium when that lane is used, and video/PDF
+lanes require their own documented dependencies. **Ollama is not required for
+collector-only source extraction.** That mode preserves source provenance but
+does **not** perform local model analysis, comprehension exams or claim mastery.
+Those stages belong with BRAHMAGYAN and RISHI after a real authenticated KRISHNA
+handoff; pairing and handoff are not automatically completed at installation.
+
+Use a **full Git checkout**, not just the standalone folder, so the canonical
+worker and adapter are available. From `standalone/suryadev` on Windows, Linux,
+or macOS, install with Python:
+
+```sh
+python -m pip install psutil
+python install-node.py --install-dir "/path/to/suryadev-node"
+python "/path/to/suryadev-node/start-node.py" --model collector \
+  --data "/path/to/suryadev-node-data" --port 8772
+```
+
+In Windows PowerShell, replace `/path/to/...` with a chosen Windows directory,
+such as `D:\\Work\\SURYADEV-NODE` and `D:\\Work\\SURYADEV-NODE-DATA`. The
+portable installer runs the source regression gate before copying code, verifies
+the resulting runtime package, and refuses a populated installation directory
+unless it belongs to an earlier portable install and `--update` is explicitly
+requested **after stopping the node**. No service, Core credential, or model
+is installed or inferred.
+
+The `start-node.py` default is `--model collector`, and it creates its own
+`fresh-workspace.json` plus independent study database. `--model qwen3.5:2b`
+is an optional local Ollama fallback for appropriately provisioned nodes.
+`--approved-trial` explicitly opts into the previous fixed textbook/YouTube
+trial. Without a paired KRISHNA mission or existing approved learning plan,
+the collector has no automatically authorized sources and may remain idle.
+
+The new ledger is isolated; `--previous-data /path/to/old-ledger` validates a
+prior directory but never erases or migrates it. Restarting a node reopens the
+same ledger; `--new-session` makes another. The fresh-node execution ceiling
+is **three jobs total**, not three per source. Admission scales CPU cores and
+measured free memory and rejects new work at **85%** CPU/RAM/disk or supported
+GPU utilization, on both minimal and high-performance systems. A 4 GiB node
+may collect one lightweight assignment when memory headroom permits; it is
+not guaranteed to run Chromium or high-resolution video processing.
+
+To reinstall the existing Windows SURYADEV test node from the updated branch,
+run `install-windows.ps1` from the source checkout as before; the release now
+ships `start-node.py`. Shut down the running dashboard and worker first.
+The existing PowerShell `start-fresh-workspace.ps1` retains its earlier 2B
+default for backwards compatibility; use `start-node.py --model collector`
+for generic new installations. Every node needs its **own authenticated TLS
+KRISHNA enrollment**; machine discovery and a successful LAN ping are not
+authorization to send research evidence.
+
+---
+
+## Fresh learning workspace — three tasks total (25 October 2026)
+
+**Purpose:** Clear the *active dashboard view* and begin a newly approved trial without destroying prior learning evidence, SQLite history, YouTube cooldown receipts, or book journals. The old data directory stays intact and is not scanned or used by the fresh dashboard.
+
+From a clean checkout of the SURYADEV development branch, run the Windows installer (after stopping the old dashboard and worker gracefully):
+
+```powershell
+cd "<GIT-CHECKOUT>\standalone\suryadev"  # replace <GIT-CHECKOUT> with the actual clone location
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1 -InstallDir "D:\Work\SURYADEV-UNIFIED-TEST" -DataDir "D:\Work\SURYADEV-UNIFIED-TEST-DATA"
+```
+
+If the installer was already run from that source checkout, launch the new clean dashboard from the installed directory:
+
+```powershell
+cd "D:\Work\SURYADEV-UNIFIED-TEST"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-fresh-workspace.ps1
+```
+
+The script requires port **8772** to be free; stop the old dashboard first. Its **separate default data directory** is `D:\Work\SURYADEV-UNIFIED-TEST-DATA-FRESH`. It does not delete or copy earlier databases, credentials, approvals or saved evidence. The first launch creates an isolated SQLite/ledger and can automatically start the already owner-authorized fixed YouTube + textbook trial. Reopening the same fresh directory resumes its checkpoints. Use `-NewSession` to generate another clean workspace rather than wiping the current one.
+
+The dashboard advertises exactly whether its data workspace is fresh. A single SURYADEV owner process admits **at most three active tasks total** shared between websites, captions/PDF work, observed video and model book reading. The 85% CPU/RAM/disk/GPU admission policy may allow fewer or none; large queues are not launched all at once. Ollama model calls remain serialized. The default `qwen3.5:9b` must actually exist on the laptop. Provider 429 limits, full YouTube observation, book progress, provisional recall, and independent BRAHMAGYAN/Rishi checks are reported separately and never considered passed by merely launching the trial. KRISHNA device pairing remains unconfigured in the fresh root until explicitly established.
+
+---
+
 # SURYADEV Standalone — experimental Windows laptop worker
 
 **Scope:** independent local learning; does not connect to KRISHNA, BRAHMA, or other agents.

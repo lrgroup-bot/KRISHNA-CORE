@@ -1,8 +1,10 @@
-"""Measured, bounded parallel SURYADEV research with Garudanetra tabs.
+"""Hardware-auto-admitted parallel SURYADEV research with Garudanetra tabs.
 
-Workers run multiple *independent source acquisitions* concurrently.
-Expensive local Ollama summary generation is serialized for laptop stability.
-No jobs are launched when real psutil telemetry is missing or unsafe.
+Large approved worklists (including 100 PDFs) can be queued without
+implying all tasks can execute at once. Per-cycle admission comes from
+measured hardware headroom and is shared with video/browser/book pools.
+Expensive local model inference stays serialized to protect the laptop.
+No new jobs are launched if psutil metrics are missing or unsafe.
 """
 from __future__ import annotations
 
@@ -21,7 +23,12 @@ from suryadev_garudanetra import GarudanetraLite
 
 CAPACITY_FILE = "capacity-runtime.json"
 KINDS = ("website", "youtube", "pdf")
-MAX_PARALLEL = 6
+# Workload ceilings, not a fixed degree of parallelism.
+# Any portion may be pending in the queue while auto-admission runs fewer jobs.
+SOURCE_TARGETS = {"website": 10, "youtube": 10, "pdf": 100}
+BOOK_TARGET = 5
+MAX_PARALLEL = sum(SOURCE_TARGETS.values())
+TOTAL_TARGET = MAX_PARALLEL + BOOK_TARGET
 YOUTUBE_ACCESS_FILE = "youtube-access-state.json"
 YOUTUBE_RATE_LIMIT_PAUSE_SECONDS = 3600
 
@@ -67,7 +74,7 @@ def record_youtube_rate_limit(root, now=None):
     return result
 
 
-def plan_capacity(reading, *, logical_cpus=None):
+def plan_capacity(reading, *, logical_cpus=None, collector_only=False):
     """Conservative measured headroom, not an invented fixed laptop capacity."""
     if not reading.get("available"):
         return {"safe": False, "reason": "psutil telemetry unavailable",
@@ -86,43 +93,74 @@ def plan_capacity(reading, *, logical_cpus=None):
     reason = ""
     if cpu >= 85 or ram >= 85 or disk >= 85 or disk_free < 2 or gpu_hot:
         reason = "Hardware guard: CPU/RAM/disk/GPU exceeded safe limits"
-    elif free < 2.7:
-        reason = "Less than 2.7 GiB available RAM"
+    elif (reading.get("battery_plugged") is False and
+          reading.get("battery_percent") is not None and
+          float(reading["battery_percent"]) <= 20):
+        reason = "Power guard: unplugged battery at or below 20%"
+    elif (reading.get("temperature_max_c") is not None and
+          float(reading["temperature_max_c"]) >= 85):
+        reason = "Thermal guard: observed device sensor at or above 85 C"
+    elif free < (0.75 if collector_only else 2.7):
+        reason = ("Less than 0.75 GiB free for evidence-only collection" if collector_only
+                  else "Less than 2.7 GiB available RAM")
     if reason:
         return {"safe":False, "reason":reason, "max_total":0,
                 "limits":{k:0 for k in KINDS},
                 "cpu_percent":cpu, "ram_percent":ram,
                 "disk_free_gb":disk_free, "free_ram_gb":round(free,2)}
-    # Reserve at least 2 GiB for Windows and other user applications.
-    ram_slots = int(max(0, math.floor((free - 2.0) / 1.35)))
+    # A collector does not load a local LLM, so its reserve should adapt to
+    # the actual device instead of assuming every node is a 16 GiB laptop.
+    # Retain 85% as the hard admission ceiling in BOTH modes. Browser and
+    # PDF work still need nonzero free RAM; neither mode guarantees capacity.
+    total_ram = float(reading["ram_total_gb"])
+    reserve_gb = (max(0.5, min(1.5, total_ram * 0.15))
+                  if collector_only else 2.0)
+    per_slot_gb = 0.75 if collector_only else 1.35
+    mem_budget = max(0.0, min(free - reserve_gb,
+                              total_ram * (0.85 - ram / 100)))
+    ram_slots = int(math.floor(mem_budget / per_slot_gb))
     cpu_slots = max(1, cpus // 2)
-    total = min(MAX_PARALLEL, cpu_slots, ram_slots)
+    total = max(0, min(TOTAL_TARGET, cpu_slots, ram_slots))
     if cpu >= 70 or ram >= 75:
         total = min(total, 1)
-    total = max(0, total)
-    # A single shared Garudanetra Chromium process owns at most 4 web tabs.
     limits = {
-        "website": min(4, total),
-        "youtube": min(2, total),
-        "pdf": min(2, total),
+        "website": min(SOURCE_TARGETS["website"], total),
+        # Ten scheduled YouTube assignments must not create ten
+        # simultaneous provider requests (or evade HTTP 429).
+        "youtube": min(1, SOURCE_TARGETS["youtube"], total),
+        "pdf": min(SOURCE_TARGETS["pdf"], total),
+        "book": min(BOOK_TARGET, total),
     }
-    return {"safe":total > 0, "reason":"Measured hardware admission passed" if total else "No remaining processing headroom",
+    return {"safe":total > 0,
+            "reason":"Measured hardware admission passed" if total else "No remaining safe CPU/RAM slots",
             "max_total":total, "limits":limits,
+            "target_slots":{**SOURCE_TARGETS, "book": BOOK_TARGET},
+            "target_total":TOTAL_TARGET,
+            "capacity_mode":"automatic_hardware",
+            "backlog_is_not_running":True,
+            "youtube_provider_concurrent_limit":1,
             "cpu_percent":cpu, "ram_percent":ram,
             "disk_free_gb":disk_free, "free_ram_gb":round(free,2),
             "logical_cpus":cpus, "cpu_ceiling_percent":85,
-            "memory_reserve_gb":2.0, "local_model_concurrency":1}
+            "memory_reserve_gb":reserve_gb,
+            "processing_mode":"collector_only" if collector_only else "local_inference",
+            "local_model_concurrency":0 if collector_only else 1}
 
 
 class AdaptiveResearchWorkers:
     """One supervisor/worker lock owns a pool of per-thread SQLite connections."""
     def __init__(self, root, *, use_ollama=True, model="qwen3.5:9b",
-                 check_seconds=60, browser_factory=GarudanetraLite):
+                 check_seconds=60, browser_factory=GarudanetraLite,
+                 books_enabled=False):
         self.root = Path(root).expanduser().resolve()
         self.use_ollama = use_ollama
         self.model = model
         self.check_seconds = check_seconds
         self.browser_factory = browser_factory
+        self.books_enabled = bool(books_enabled)
+        self.video_enabled = False
+        self._dual_lane_turn = 0
+        self.external_active = 0
         self.browser = None
         self.browser_error = ""
         self.summary_lock = threading.Lock()
@@ -163,12 +201,74 @@ class AdaptiveResearchWorkers:
                 results.append(result)
         return results
 
-    def pump(self, *, telemetry=None):
+    def pump(self, *, telemetry=None, admit_new=True):
         if self.closed:
             raise RuntimeError("Adaptive workers already stopped")
         finished = self._reap()
         reading = telemetry if telemetry is not None else snapshot(self.root)
-        capacity = plan_capacity(reading)
+        capacity = plan_capacity(reading, collector_only=not self.use_ollama)
+        # Optional operator cap only REDUCES measured capacity, never raises
+        # it. Unset means automatic scaling rather than a hardcoded 45.
+        # The fresh-session limit belongs to the data root, not merely to
+        # the dashboard launcher. It remains enforced for CLI workers too.
+        # Historical/nonfresh high-capacity server profiles stay unchanged.
+        fresh_mode = (_safe_read(self.root,"fresh-workspace.json",max_bytes=4096)
+                      .get("schema") == "suryadev.fresh-workspace.v1")
+        requested = os.environ.get("SURYADEV_MAX_PARALLEL", "").strip()
+        if fresh_mode:
+            try:
+                cap = int(requested) if requested else 3
+            except ValueError:
+                cap = 1
+            requested = str(max(1,min(3,cap)))
+        if requested:
+            try:
+                ceiling = int(requested)
+                if not 1 <= ceiling <= TOTAL_TARGET:
+                    raise ValueError
+            except ValueError:
+                ceiling = 1  # malformed configuration fails closed
+            capacity["max_total"] = min(ceiling, capacity["max_total"])
+            capacity["limits"] = {kind:min(ceiling, limit)
+                                  for kind,limit in capacity["limits"].items()}
+            capacity["laptop_profile"] = ("single-job" if ceiling == 1 else
+                                          "measured-maximum-" + str(ceiling))
+        # Reserve capacity for independent books and actual Chromium video
+        # observations; all run inside THIS supervisor's one-worker lock.
+        # Always retain at least one source lane when possible.
+        total = capacity["max_total"]
+        reserve_books = (min(BOOK_TARGET, max(1,total // 4))
+                         if self.books_enabled and total > 1 else 0)
+        reserve_books = min(reserve_books,max(0,total-1))
+        # When the approved queue contains ONLY browser videos, use spare
+        # measured slots for 2-3 distinct observers rather than forcing one
+        # video lane while the other slots stay idle. Any waiting website/PDF/
+        # caption source keeps one source slot. Pending books keep their reserve.
+        # This is still bounded by the shared fresh-node cap and 85% guard.
+        pending_source = False
+        if self.video_enabled and total:
+            queued_db = Library(self.root)
+            try:
+                pending_source = bool(queued_db.db.execute(
+                    "SELECT 1 FROM jobs WHERE status='queued' LIMIT 1"
+                ).fetchone())
+            finally:
+                queued_db.db.close()
+        video_budget = max(0, total - reserve_books - (1 if pending_source else 0))
+        reserve_video = (min(SOURCE_TARGETS["youtube"], video_budget)
+                         if self.video_enabled else 0)
+        if total == 2 and self.books_enabled and self.video_enabled:
+            # Only one non-source slot exists. Alternate which lane may
+            # claim it instead of permanently starving videos or books.
+            self._dual_lane_turn += 1
+            reserve_books, reserve_video = (
+                (1,0) if (self._dual_lane_turn // 5) % 2 == 0 else (0,1))
+        capacity["reserved_book_slots"] = reserve_books
+        capacity["reserved_video_slots"] = reserve_video
+        capacity["source_execution_slots"] = max(
+            0,min(MAX_PARALLEL,total-reserve_books-reserve_video,
+                  total-max(0,int(self.external_active))))
+        capacity["non_source_active"] = max(0,int(self.external_active))
         # The cooldown is on disk to remain effective across worker restarts.
         self.youtube_access = youtube_access(self.root)
         if self.youtube_access["state"] == "rate_limited":
@@ -189,8 +289,14 @@ class AdaptiveResearchWorkers:
         finally:
             lib.db.close()
         launched = []
-        if capacity["safe"]:
-            while len(self.futures) < capacity["max_total"]:
+        # Gradual ramp: starting dozens of Chromium/PDF tasks from a single
+        # stale measurement can transiently overload even a large server.
+        # The next cycle samples actual utilization before admitting more.
+        max_new_this_sample = min(4, capacity["source_execution_slots"])
+        capacity["new_source_launch_limit_this_sample"] = max_new_this_sample
+        if capacity["safe"] and admit_new:
+            while (len(self.futures) < capacity["source_execution_slots"]
+                   and len(launched) < max_new_this_sample):
                 # Rotate source priority to prevent PDFs or video starving web.
                 choices = [KINDS[(self.rotation + offset) % len(KINDS)]
                            for offset in range(len(KINDS))]
@@ -202,7 +308,8 @@ class AdaptiveResearchWorkers:
                     break
                 if choice == "website" and self.browser is None:
                     try:
-                        self.browser = self.browser_factory(self.root, max_tabs=4)
+                        tabs = 1 if os.environ.get("SURYADEV_BROWSER_TABS") == "1" else min(10, max(1,capacity["source_execution_slots"]))
+                        self.browser = self.browser_factory(self.root, max_tabs=tabs)
                         self.browser.start()
                     except Exception as exc:
                         self.browser_error = type(exc).__name__ + ": " + str(exc)[:240]
@@ -215,8 +322,22 @@ class AdaptiveResearchWorkers:
                 queued[choice] -= 1
                 launched.append(choice)
                 self.rotation = (KINDS.index(choice) + 1) % len(KINDS)
+        # Hardware admission is separate from the lifecycle rest.
+        # Retain the sampled hardware result but advertise zero new slots.
+        if not admit_new:
+            capacity["hardware_safe_before_mission_pause"] = capacity["safe"]
+            capacity["safe"] = False
+            capacity["max_total"] = 0
+            capacity["source_execution_slots"] = 0
+            capacity["reserved_book_slots"] = 0
+            capacity["reserved_video_slots"] = 0
+            capacity["limits"] = {name: 0 for name in capacity["limits"]}
+            capacity["mission_admission_paused"] = True
+            capacity["reason"] = "Six-hour mission boundary: draining or mandatory ten-minute rest"
         youtube_blocked = (self.youtube_access["state"] == "rate_limited"
                            and queued["youtube"] > 0)
+        capacity["over_admitted_inflight"] = max(
+            0, len(self.futures) - capacity["source_execution_slots"])
         state = ("busy" if self.futures else "paused" if not capacity["safe"]
                  else "paused" if self.browser_error and queued["website"]
                  else "paused" if youtube_blocked else "idle")

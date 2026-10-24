@@ -11,7 +11,7 @@ import platform
 from pathlib import Path
 import time
 
-from suryadev_feeder import read_plan
+from suryadev_feeder import read_plan, paired_core_source_allowed
 from suryadev_krishna_mission import load_config, post_core
 from suryadev_liveops import atomic_json, _safe_read
 from suryadev_resources import snapshot, hardware_identity
@@ -34,7 +34,11 @@ def hardware_report(root, *, sample=None, now=None):
     if stamp is not None and (not isinstance(stamp,(int,float))
                              or not 0<=moment-float(stamp)<=10):
         return None
-    capacity = plan_capacity(report)
+    # Report the exact collector/local model capacity measured for this node.
+    workspace = _safe_read(root, "fresh-workspace.json", max_bytes=4096)
+    selected = workspace.get("trial_model", "")
+    collector_only = selected == "collector" or os.environ.get("SURYADEV_COLLECTOR_ONLY") == "1"
+    capacity = plan_capacity(report, collector_only=collector_only)
     required = ("cpu_percent", "ram_percent", "disk_percent", "ram_total_gb")
     if any(report.get(k) is None for k in required):
         return None
@@ -50,7 +54,9 @@ def hardware_report(root, *, sample=None, now=None):
         "disk_percent": round(float(disk),2),
         "ram_total_gb": report["ram_total_gb"],
         "disk_free_gb": report.get("disk_free_gb"),
-        "max_total": max(0, min(12, int(capacity.get("max_total") or 0))),
+        "max_total": max(0, min(
+            3 if workspace.get("schema") == "suryadev.fresh-workspace.v1" else 12,
+            int(capacity.get("max_total") or 0))),
         "capabilities": ["website","youtube","pdf","book"],
         "logical_cpus": ident["logical_cpus"],
         "cpu_name": ident["cpu_name"],
@@ -58,6 +64,15 @@ def hardware_report(root, *, sample=None, now=None):
         "gpu_name": ident["gpu_name"],
         "gpu_inventory_verified": ident["gpu_inventory_verified"],
         "gpu_inference": False,
+        "battery_percent": report.get("battery_percent"),
+        "battery_plugged": report.get("battery_plugged"),
+        "temperature_max_c": report.get("temperature_max_c"),
+        "temperature_available": report.get("temperature_available") is True,
+        "processing_mode": "collector_only" if collector_only else "local_inference",
+        "network_interface_up": report.get("network_interface_up"),
+        "network_link_speed_mbps": report.get("network_interface_speed_mbps"),
+        "internet_reachable": report.get("internet_reachable"),
+        "internet_speed_mbps": None,
     }
 
 
@@ -92,19 +107,41 @@ class FleetClient:
             return
         self.next_heartbeat = now + HEARTBEAT_SECONDS
         telemetry = hardware_report(self.root, sample=report)
+        from suryadev_mission_cycle import status as mission_status
+        mission = mission_status(self.root)
+        phase = mission.get("phase")
+        measured_hot = (telemetry is not None and
+                        telemetry.get("temperature_max_c") is not None and
+                        float(telemetry["temperature_max_c"]) >= 85)
+        thermal = ("hot" if measured_hot else
+                   "normal" if telemetry is not None and telemetry.get("temperature_available")
+                   else "unknown")
         pending = lib.db.execute(
             "SELECT COUNT(*) FROM jobs WHERE status IN ('running','queued')").fetchone()[0]
         reply = self._send("device/heartbeat", {
             "node_name": "SURYADEV-" + self.config["device_id"][-8:],
             "platform": platform.system(),
             "worker_running": True,
-            "learning_state": "researching" if pending else "idle",
+            "learning_state": ("resting" if phase == "rest" else
+                               "draining" if phase == "draining" else
+                               "researching" if pending else "idle"),
             "network_online": True,
-            "thermal_state": "unknown",
+            "thermal_state": thermal,
             "telemetry": telemetry,
         })
         if not reply.get("accepted") or reply.get("device_id") != self.config["device_id"]:
             raise RuntimeError("Core rejected signed SURYADEV heartbeat")
+        # This proof exists only after the pinned-TLS authenticated Core
+        # call completes with a matching acknowledged device ID. It does
+        # NOT indicate knowledge / BRAHMAGYAN / Rishi acceptance.
+        atomic_json(self.root, "krishna-fleet-heartbeat-ack.json", {
+            "schema":"suryadev.krishna-authenticated-heartbeat.v1",
+            "authenticated_core_reply":True,
+            "device_id":self.config["device_id"],
+            "acknowledged_at":now,
+            "knowledge_accepted":False,
+            "brahmagyan_accepted":False,
+        })
 
     def _reconcile(self, lib, now):
         for task_id, row in list(self.state["assignments"].items()):
@@ -180,8 +217,9 @@ class FleetClient:
                 or not isinstance(lease, str) or len(lease)!=32):
             raise ValueError("Untrusted Core fleet task response")
         plan = read_plan(self.plan_path)
-        # The local owner's exact approved URLs are authoritative, not Core.
-        if url not in plan["approved_urls"]:
+        # KRISHNA may select URLs only inside the owner-approved exact list
+        # or the separately enabled paired-Core host delegation.
+        if not paired_core_source_allowed(url, plan):
             self._send("fleet/complete", {"task_id": tid, "lease_id": lease,
                     "outcome": "rejected", "detail": "not exact owner-approved local URL"})
             return {"state": "locally_rejected_unapproved_url", "task_id": tid}
@@ -200,14 +238,14 @@ class FleetClient:
         return {"state": "owner_approved_lease_accepted", "task_id": tid,
                 "job_id": job_id, "source_url": url, "reused_job": bool(existing)}
 
-    def tick(self, lib, *, report=None):
+    def tick(self, lib, *, report=None, allow_claim=True):
         now = self.clock()
         if now < self.next_retry:
             return None
         try:
             self._heartbeat(lib, now, report)
             self._reconcile(lib, now)
-            result = self._claim(lib, now)
+            result = self._claim(lib, now) if allow_claim else None
             if result:
                 self.state["last_error"] = ""
                 self._save()

@@ -1,0 +1,12 @@
+/* Additive styling for existing GitHub SURYADEV frontend; R39 UI excluded. */
+.video-review-panel { margin: 24px 0; }
+.video-review-panel p {line-height:1.55}
+.video-review-panel textarea {display:block; width:100%; box-sizing:border-box; min-height:110px; padding:12px; border-radius:12px; border:1px solid #7d7a9b; background:transparent; color:inherit; resize:vertical; font:inherit}
+.video-review-actions {display:flex; flex-wrap:wrap; gap:10px; margin:12px 0}
+.video-review-actions button, .video-review-job button {border:0; padding:10px 16px; border-radius:10px; cursor:pointer; color:#fff; background:#5543aa}
+.video-review-job button:disabled {opacity:.55;cursor:not-allowed}
+.video-review-hint {font-size:.9rem;opacity:.84}
+.video-review-job {padding:15px;margin:12px 0;border:1px solid #7d7a9b;border-radius:12px;display:grid;gap:10px;overflow-wrap:anywhere}
+.video-review-job code {display:block;overflow-wrap:anywhere;white-space:pre-wrap}
+.video-review-job label {display:flex;align-items:flex-start;gap:8px}
+#video-review-status {min-height:22px;font-weight:600}

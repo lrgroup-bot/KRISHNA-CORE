@@ -60,14 +60,26 @@ def connection_indicators(root):
     receipt = _safe_read(root, READER_FILE)
     age = time.time() - float(receipt.get("last_read_at", 0) or 0)
     trusted_read = (receipt.get("type") == "authenticated_tls_read" and 0 <= age < 120)
+    fleet_ack = _safe_read(root, "krishna-fleet-heartbeat-ack.json")
+    try:
+        acknowledged_age = time.time() - float(fleet_ack.get("acknowledged_at", 0))
+    except (ValueError, TypeError, OverflowError):
+        acknowledged_age = float("inf")
+    # The fleet client writes this receipt only after pinned-TLS connection,
+    # device credential validation and an accepted Core heartbeat.
+    fleet_connected = (fleet_ack.get("schema") == "suryadev.krishna-authenticated-heartbeat.v1"
+                       and fleet_ack.get("authenticated_core_reply") is True
+                       and 0 <= acknowledged_age < 150)
     return {
         "krishna": {
-            "connected": False,
-            "reader_active": bool(trusted_read),
-            "state": "authorized_reader_unverified" if trusted_read else "not_connected",
-            "detail": ("A permitted TLS reader accessed SURYADEV recently. "
-                       "Its KRISHNA Core identity/enrollment is not verified."
-                       if trusted_read else "No recent authenticated KRISHNA reader; secure pairing not confirmed."),
+            "connected": bool(fleet_connected),
+            "reader_active": bool(trusted_read) and not fleet_connected,
+            "state": "authenticated_fleet_heartbeat" if fleet_connected else
+                     "authorized_reader_unverified" if trusted_read else "not_connected",
+            "detail": ("Authenticated KRISHNA fleet heartbeat received; no BRAHMAGYAN mastery claimed."
+                       if fleet_connected else
+                       "A permitted TLS reader accessed SURYADEV recently, but not a verified Core identity."
+                       if trusted_read else "No recent authenticated KRISHNA fleet heartbeat." ),
         },
         "brahmagyan": {
             "connected": False, "state": "not_connected",
@@ -241,7 +253,10 @@ def operations_snapshot(db, root):
         "feeder": _safe_read(root, "feeder-runtime.json"),
         "continuity": _safe_read(root, "continuity-runtime.json", max_bytes=16384),
         "mission_renewal": _safe_read(root, "krishna-mission-renewal.json", max_bytes=8192),
+        "mission_cycle": _safe_read(root, "mission-cycle-runtime.json", max_bytes=4096),
         "book_continuity": _safe_read(root, "book-continuity-runtime.json", max_bytes=8192),
+        "concurrent_books": _safe_read(root, "book-concurrent-runtime.json", max_bytes=8192),
+        "concurrent_videos": _safe_read(root, "video-concurrent-runtime.json", max_bytes=8192),
         "book_handoff": _safe_read(root, "book-handoff-runtime.json", max_bytes=8192),
         "publisher_recovery": _safe_read(root, "publisher-recovery-runtime.json",
                                          max_bytes=8192),

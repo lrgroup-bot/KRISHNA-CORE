@@ -19,7 +19,7 @@ from suryadev_liveops import atomic_json
 from suryadev_deep_web import deep_web_settings, inspect_page
 
 MAX_VISIBLE_CHARS = 220_000
-MAX_BROWSER_TABS = 4
+MAX_BROWSER_TABS = 10
 BROWSER_STATUS_FILE = "garudanetra-runtime.json"
 _ENGINE = "Garudanetra Lite / canonical Playwright Chromium"
 
@@ -27,7 +27,7 @@ _ENGINE = "Garudanetra Lite / canonical Playwright Chromium"
 class GarudanetraLite:
     def __init__(self, root, *, max_tabs=1):
         if type(max_tabs) is not int or not (1 <= max_tabs <= MAX_BROWSER_TABS):
-            raise ValueError("Garudanetra tabs must be between 1 and 4")
+            raise ValueError("Garudanetra tabs must be between 1 and 10")
         self.root = Path(root).expanduser().resolve()
         self.max_tabs = max_tabs
         self.deep_mode, self.vision_model = deep_web_settings()
@@ -186,6 +186,26 @@ class GarudanetraLite:
                     text += "\n\n" + "\n".join(fragments)
                 if len(text) > MAX_VISIBLE_CHARS:
                     raise ValueError("Rendered website exceeds supported extraction budget")
+                # Capture bounded same-host reference links as citations, not
+                # as silently authorized new crawling assignments.
+                # Visible text and link labels may contain untrusted content.
+                try:
+                    raw_refs = await page.evaluate("""() => Array.from(
+                        document.querySelectorAll('a[href]')).slice(0,100)
+                        .map(a => ({href:a.href, label:(a.innerText||a.textContent||'').trim().slice(0,150)}))""")
+                except Exception:
+                    raw_refs = []
+                source_links = []
+                for item in (raw_refs if isinstance(raw_refs,list) else []):
+                    if not isinstance(item,dict):
+                        continue
+                    href = str(item.get("href") or "")
+                    link = urlsplit(href)
+                    if link.scheme == "https" and link.hostname == parsed.hostname:
+                        source_links.append({"href": href[:600],
+                                             "label": str(item.get("label") or "")[:150]})
+                    if len(source_links) >= 25:
+                        break
                 title = (await page.title()) or url
                 with self._lock:
                     self._tabs[key]["stage"] = "text_extracted"
@@ -196,6 +216,11 @@ class GarudanetraLite:
                     "rendered_visible_characters": len(text),
                     "extracted_characters": len(text),
                     "browser_final_url": page.url,
+                    "source_reference_url": page.url,
+                    "extracted_text_lines": len(text.splitlines()),
+                    "same_host_links_discovered_not_followed": source_links,
+                    "linked_pages_followed": 0,
+                    "reference_scope": "one approved page; linked pages require distinct approval",
                     "coverage_status": ("deep_web_dom_scroll_visuals_attempted_unverified"
                                         if deep_report else
                                         "garudanetra_rendered_text_unverified"),

@@ -101,7 +101,8 @@ class MissionRenewalTests(unittest.TestCase):
             def __init__(self, *args, **kwargs): pass
             def __enter__(self): return self
             def __exit__(self, *args): pass
-            def pump(self):
+            futures = {}
+            def pump(self, *, admit_new=True):
                 return {"finished": [], "capacity": {"active_total": 0}}
         plan = self.root / "learning-plan.json"
         plan.write_text('{"approved_urls":[],"approved_feeds":[],"allowed_source_hosts":[]}',

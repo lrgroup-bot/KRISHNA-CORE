@@ -49,7 +49,7 @@ class LocalOperatorHttpTests(unittest.TestCase):
                 finally:
                     connection.close()
             try:
-                status, html = request("GET", "/")
+                status, html = request("GET", "/advanced")
                 self.assertEqual(status, 200)
                 self.assertIn(b'id="server-settings-dialog"', html)
                 self.assertIn(b'id="storage-settings-dialog"', html)
@@ -61,6 +61,13 @@ class LocalOperatorHttpTests(unittest.TestCase):
                 status, data = request("GET", "/api/ui-version")
                 self.assertEqual(status, 200)
                 self.assertTrue(json.loads(data)["has_storage_settings"])
+                self.assertTrue(json.loads(data)["has_youtube_learning_audit"])
+                status, data = request("GET", "/api/youtube/audit")
+                self.assertEqual(status, 200)
+                audit=json.loads(data)
+                self.assertTrue(audit["read_only"])
+                self.assertEqual(audit["schema"],"suryadev.youtube-learning-audit.v1")
+                self.assertEqual(audit["counts"]["rishi_exams_verified"],0)
                 status, data = request("GET", "/api/operator/settings")
                 self.assertEqual(status, 200)
                 secret = json.loads(data)["csrf_token"]
@@ -81,6 +88,22 @@ class LocalOperatorHttpTests(unittest.TestCase):
                 status, saved = request("POST", endpoint, payload, headers=headers)
                 self.assertEqual(status, 200)
                 self.assertFalse(json.loads(saved)["paired"])
+                # Retired source enrollment endpoints cannot be revived by
+                # old frontend bundles or same-origin scripts with a CSRF token.
+                for retired, body in (
+                    ("/api/operator/learning/activate-sources", {}),
+                    ("/api/operator/video/approve-source",
+                        {"url":"https://www.youtube.com/watch?v=mgBpcQRDtl0"}),
+                    ("/api/operator/video/auto",{"enabled":True}),
+                    ("/api/operator/video/import",{"job":{}}),
+                    ("/api/operator/video/run",{"job_id":"missing","approved":True})
+                ):
+                    with self.subTest(retired=retired):
+                        denied, reason=request("POST",retired,body,headers=headers)
+                        self.assertEqual(denied,410)
+                        self.assertIn("Manual source controls retired",
+                                      json.loads(reason)["error"])
+                self.assertFalse((Path(directory)/"learning-plan.json").exists())
                 status, data = request("GET", "/api/operator/settings")
                 self.assertEqual(json.loads(data)["server"]["ip"], "192.168.0.100")
                 status, data = request("POST", "/api/operator/storage/check",

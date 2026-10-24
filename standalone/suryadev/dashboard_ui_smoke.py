@@ -26,6 +26,36 @@ def available_port():
         return sock.getsockname()[1]
 
 
+async def browser_node_console_check(port):
+    """Exercise new default homepage, API-backed status and evidence drilldown."""
+    from playwright.async_api import async_playwright, expect
+    async with async_playwright() as p:
+        browser=await p.chromium.launch(headless=True)
+        try:
+            page=await browser.new_page(viewport={"width":1366,"height":768})
+            errors=[]
+            page.on("pageerror",lambda err:errors.append(str(err)))
+            await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
+            await expect(page.locator("h1")).to_have_text("Node command center")
+            await expect(page.locator("#learning-model option[value='collector']")).to_have_count(1)
+            await expect(page.locator("#stat-active")).to_have_text("3",timeout=12000)
+            await expect(page.locator("#connection")).to_have_text("Local service online")
+            await expect(page.locator("#job-list .record")).to_have_count(3)
+            assert "Collector only" in await page.locator("#learning-model").inner_text()
+            assert await page.locator('input[placeholder="Search source or task ID"]').count()==1
+            # Ledger detail opened from real SQLite task, never copied into HTML.
+            await page.locator("#job-list .record").first.click()
+            await expect(page.locator("#job-dialog[open]")).to_be_visible()
+            await expect(page.locator("#job-detail")).to_contain_text("Not verified by this console")
+            await page.locator("#close-detail").click()
+            assert not errors, "New Node Control JavaScript errors: "+str(errors)
+            return {"status":"PASS","node_control_default":True,
+                    "live_assignments":3,"source_records":3,
+                    "collector_mode_visible":True,"javascript_errors":errors}
+        finally:
+            await browser.close()
+
+
 async def browser_check(port):
     from playwright.async_api import async_playwright, expect
     async with async_playwright() as p:
@@ -34,15 +64,16 @@ async def browser_check(port):
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
             page.on("pageerror",lambda e:errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced",wait_until="domcontentloaded")
             await expect(page.locator("#netra-web-running")).to_have_text("2",timeout=12000)
             await expect(page.locator("#netra-video-running")).to_have_text("1",timeout=12000)
+            await expect(page.locator("#netra-engine-state")).to_contain_text("Chromium browsing", timeout=12000)
             web=await page.locator("#netra-web-tabs").inner_text()
             tabs=await page.locator(".netra-workspace-tab").count()
             cap=await page.locator("#netra-total-capacity").inner_text()
             assert web=="2", "Genuine Chromium tab count not rendered"
             assert tabs==3, f"Expected 3 source workspace cards, got {tabs}"
-            assert "3 active / 4 allowed" in cap, f"capacity display wrong: {cap}"
+            assert "3 active / 4 currently admitted" in cap, f"capacity display wrong: {cap}"
             assert await page.locator("#netra-web-capacity").inner_text()=="3"
             assert await page.locator("#netra-pdf-capacity").inner_text()=="1"
             await page.locator(".netra-workspace-tab.website").first.click()
@@ -70,15 +101,17 @@ async def browser_books_check(port):
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
             page.on("pageerror",lambda err:errors.append(str(err)))
-            await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced",wait_until="domcontentloaded")
             await expect(page.locator("#netra-books-running")).to_have_text("1",timeout=12000)
             await expect(page.locator("#netra-books-indexed")).to_have_text("1")
             await expect(page.locator("#netra-books-lines")).to_have_text("1 / 3")
             await expect(page.locator("#netra-workspace-count")).to_have_text("4")
             await expect(page.locator(".netra-workspace-tab.book")).to_have_count(1)
-            await expect(page.locator(".source-card.books strong")).to_have_text("1",timeout=12000)
-            await expect(page.locator("#book-health")).to_contain_text(
-                "1 / 3 lines model-processed",timeout=12000)
+            await expect(page.locator(".source-card.books")).to_have_count(0)
+            await expect(page.locator("#book-health")).to_have_count(0)
+            await expect(page.locator("#netra-books-lines")).to_have_text("1 / 3")
+            # The learning book ledger is canonical; hardware/source summaries
+            # no longer duplicate its details.
             await expect(page.locator("#book-ledger-list .book-session")).to_have_count(
                 1,timeout=12000)
             await expect(page.locator("#book-search-form")).to_have_count(1)
@@ -101,7 +134,7 @@ async def browser_continuity_check(port):
             page = await browser.new_page()
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/", wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced", wait_until="domcontentloaded")
             await expect(page.locator("#netra-capacity-heading")).to_have_text(
                 "YouTube rate-limited — website/PDF research continues", timeout=12000)
             await expect(page.locator("#netra-continuity-status")).to_contain_text(
@@ -129,7 +162,7 @@ async def browser_offline_check(port):
             page = await browser.new_page()
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced",wait_until="domcontentloaded")
             await expect(page.locator("#netra-capacity-heading")).to_have_text(
                 "Learning worker offline — dashboard is running", timeout=12000)
             label = await page.locator("#netra-total-capacity").inner_text()
@@ -143,6 +176,52 @@ async def browser_offline_check(port):
             assert not errors, "Browser JS errors: " + str(errors)
             return {"status":"PASS", "worker_state":"offline",
                     "capacity_label":label, "plan_missing_reported":True,
+                    "javascript_errors":errors}
+        finally:
+            await browser.close()
+
+
+
+async def browser_video_review_check(port, approved_url):
+    """Real Chromium: no manual source addition, video jobs visible read-only.
+
+    This smoke does not launch a worker or trigger third-party requests.
+    """
+    from playwright.async_api import async_playwright, expect
+    async with async_playwright() as p:
+        browser=await p.chromium.launch(headless=True)
+        try:
+            page=await browser.new_page(viewport={"width":1366,"height":768})
+            errors=[]
+            page.on("pageerror", lambda exc: errors.append(str(exc)))
+            await page.goto(f"http://127.0.0.1:{port}/advanced", wait_until="domcontentloaded")
+            await expect(page.locator("#video-review")).to_have_count(1)
+            await expect(page.locator("#video-review")).to_be_visible(timeout=12000)
+            await expect(page.locator('a[href="#video-review"]')).to_have_count(1)
+            order = await page.evaluate("""() => {
+                const ys = ids => ids.map(id => document.getElementById(id).getBoundingClientRect().top + window.scrollY);
+                return ys(['garudanetra','assignments','date-center']);
+            }""")
+            assert order[0] < order[1] < order[2], "Mission/history sections rendered out of order"
+            await expect(page.locator("#learning-enable-sources")).to_have_count(0)
+            await expect(page.locator("#learning-start")).to_be_visible(timeout=12000)
+            await expect(page.locator("#learning-start")).to_be_enabled(timeout=12000)
+            await expect(page.locator("#video-auto-url")).to_have_count(0)
+            await expect(page.locator("#video-auto-approve")).to_have_count(0)
+            await expect(page.locator("#video-auto-toggle")).to_have_count(0)
+            await expect(page.locator("#video-review-import")).to_have_count(0)
+            await expect(page.locator("#video-review-json")).to_have_count(0)
+            await expect(page.locator(".video-manual-details")).to_have_count(0)
+            await expect(page.locator("#learning-trial-audit")).to_be_visible(timeout=12000)
+            await expect(page.locator('input[type="date"]')).to_have_count(1)
+            await expect(page.locator("#ui-version")).to_contain_text("2026-10-25-v8", timeout=12000)
+            await page.locator("#video-review-refresh").click()
+            await expect(page.locator("#learning-trial-audit")).to_contain_text(
+                "Rishi verified comprehension: NO", timeout=12000)
+            assert not errors, "Video Review JS runtime errors: " + str(errors)
+            return {"status":"PASS", "repo_frontend":True,
+                    "manual_source_controls_removed":True,
+                    "trial_evidence_panel_visible":True,
                     "javascript_errors":errors}
         finally:
             await browser.close()
@@ -188,8 +267,18 @@ def main():
                             break
                 except (OSError,ConnectionError):
                     time.sleep(.1)
+            node=asyncio.run(browser_node_console_check(port))
+            print("SURYADEV_NODE_CONTROL_UI_REPORT="+json.dumps(node),flush=True)
             result=asyncio.run(browser_check(port))
             print("GARUDANETRA_DASHBOARD_UI_REPORT="+json.dumps(result),flush=True)
+            approved_url = "https://www.youtube.com/watch?v=mgBpcQRDtl0"
+            temporary_plan = Path(root) / "learning-plan.json"
+            temporary_plan.write_text(json.dumps({"approved_urls":[approved_url]}), encoding="utf-8")
+            try:
+                video = asyncio.run(browser_video_review_check(port, approved_url))
+                print("SURYDEV_VIDEO_REVIEW_UI_REPORT="+json.dumps(video),flush=True)
+            finally:
+                temporary_plan.unlink(missing_ok=True)
             from suryadev_book_reader import BookLedger
             local_book = Path(root) / "approved-sample-book.txt"
             local_book.write_text("Source line one" + chr(10) + "Source line two" + chr(10) + "Source line three",
