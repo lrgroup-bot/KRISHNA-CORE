@@ -5,7 +5,7 @@ param(
     [string]$FreshDataDir = "",
     [int]$Port = 8772,
     [string]$Python = "python",
-    [string]$Model = "qwen3.5:9b",
+    [string]$Model = "qwen3.5:2b",
     [switch]$NewSession
 )
 $ErrorActionPreference = "Stop"
@@ -37,6 +37,21 @@ if (Test-Path -LiteralPath $marker -PathType Leaf) {
     $existing = Get-Content -LiteralPath $marker -Raw | ConvertFrom-Json
     if ($existing.schema -ne "suryadev.fresh-workspace.v1") {
         throw "Existing workspace marker is invalid; refusing to alter its contents."
+    }
+    # Reopening the same study ledger must never restore the old 9B default.
+    # Update only the model preference; retain every existing learning receipt.
+    if ($existing.trial_model -ne $Model) {
+        $existing | Add-Member -NotePropertyName trial_model -NotePropertyValue $Model -Force
+        $stage = Join-Path $fresh (".fresh-workspace-model-" + [guid]::NewGuid().ToString("N") + ".tmp")
+        try {
+            $json = $existing | ConvertTo-Json -Depth 8
+            [System.IO.File]::WriteAllText($stage, $json + [Environment]::NewLine,
+                ([System.Text.UTF8Encoding]::new($false)))
+            Move-Item -LiteralPath $stage -Destination $marker -Force
+        } finally {
+            if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Force }
+        }
+        Write-Host "Updated existing fresh workspace model to $Model (study data retained)"
     }
     Write-Host "Reopening existing fresh workspace with its retained checkpoints: $fresh"
 } else {
