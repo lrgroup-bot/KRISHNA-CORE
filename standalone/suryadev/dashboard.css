@@ -83,11 +83,98 @@ main{min-width:0;flex:1;max-width:1660px;padding:32px clamp(20px,3.35vw,56px) 28
 .date-selection-summary strong{color:#643bae}.date-selection-summary>span{flex:1 1 200px;color:#696581}.date-report-link{color:#633cb6;font-weight:850;text-decoration:none}
 @media(max-width:750px){.date-center{padding:16px;margin-top:13px}.date-center-heading h2{font-size:19px}.date-center-controls{align-items:stretch;gap:8px}.date-main-label{flex:1 1 100%}.date-main-btn{flex:1 1 120px;min-height:41px}.date-selection-summary{align-items:start}}
 
-/* Integrated books in the existing Source Coverage and Laptop Health panels. */
-.source-card.books{background:#fff6e8;border-color:#efdab4}
-.source-card.books .type{color:#896122}
-.source-card.books .detail{margin-top:7px;overflow-wrap:anywhere}
-.book-health{margin-top:12px;border:1px solid #e7ddca;border-radius:11px;background:#fff9ee;padding:12px;display:grid;gap:5px;color:#5c4d39}
-.book-health strong{font-size:12px;overflow-wrap:anywhere}
-.book-health span,.book-health small{display:block;font-size:11px;line-height:1.65;overflow-wrap:anywhere}
-.book-health small{color:#787088}
+/* Unified SURYADEV dashboard: one date picker, one Video Review, one book ledger. */
+html{scroll-padding-top:20px}
+.hero{padding:26px 28px;min-height:0}
+.hero h1{font-size:clamp(24px,3vw,40px);line-height:1.14}
+.hero p{max-width:520px}
+.date-center{margin-top:16px;padding:16px 18px;border-radius:16px}
+.date-center-heading h2{font-size:18px}
+.date-center-icon{width:38px;height:38px;flex-basis:38px;font-size:19px}
+.date-center-controls{margin:12px 0;gap:8px}
+.date-main-btn,.date-main-label input{min-height:38px}
+.date-selection-summary{padding:8px 10px}
+.filter-note{font-size:11px;color:#5d6683;align-self:center;padding:6px 9px;border-radius:10px;background:#f4f3fa}
+.video-review-panel{margin:20px 0;padding:20px 22px;scroll-margin-top:18px}
+.video-review-panel .section-heading{margin-bottom:10px}
+.video-review-panel textarea{width:100%;min-height:115px;resize:vertical;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink);border:1px solid #c7c7da;border-radius:11px;padding:12px}
+.video-review-panel textarea:focus-visible{outline:3px solid #9d7bdf;outline-offset:2px}
+.video-speed-help{background:#f8f8fc;border:1px solid #e3e0f1;border-radius:11px;margin:12px 0;padding:9px 12px;color:#44466e}
+.video-speed-help summary{cursor:pointer;font-weight:750}
+.video-speed-help p{margin:8px 0 0;font-size:12px}
+.video-quick-add{display:grid;grid-template-columns:minmax(210px,2fr) minmax(150px,1fr);gap:10px 14px;margin:13px 0}
+.video-quick-add label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:650;color:var(--ink)}
+.video-quick-add input:not([type="checkbox"]),.video-quick-add select{width:100%;min-height:40px;border:1px solid #c7c7da;border-radius:10px;padding:8px 10px;background:#fff;font:inherit;color:var(--ink)}
+.video-quick-add label[for="video-review-terms"]{grid-column:1/-1}
+.video-quick-add .video-adaptive-label{display:flex;flex-direction:row;align-items:center;grid-column:1/-1}
+.video-quick-add input:focus-visible,.video-quick-add select:focus-visible{outline:3px solid #9d7bdf;outline-offset:2px}
+.video-job-details{margin:12px 0;border:1px solid #e1dfec;background:#f8f8fd;border-radius:10px;padding:10px 13px}
+.video-job-details summary{cursor:pointer;font-weight:750;font-size:12px}
+.video-job-details label{display:block;margin:10px 0 5px;font-size:12px}
+@media(max-width:650px){.video-quick-add{grid-template-columns:1fr}}
+
+.video-review-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.video-review-actions button{min-height:38px;padding:7px 16px;border-radius:10px}
+.video-review-hint{font-size:12px;color:#646680}
+.video-review-job{margin-top:10px}
+.video-review-job code{overflow-wrap:anywhere}
+.video-review-panel button:focus-visible,.navigation .nav-item:focus-visible,
+.date-main-btn:focus-visible,button:focus-visible,a:focus-visible{
+  outline:3px solid #f4ab43;outline-offset:2px
+}
+.netra-book-ledger{margin-top:14px}
+.source-grid{align-content:start}
+section[id],header[id]{scroll-margin-top:14px}
+@media(max-width:750px){
+  .hero{padding:20px 16px}
+  .date-center{padding:13px}
+  .video-review-panel{padding:15px}
+  .date-center-controls{align-items:stretch}
+  .date-main-btn{flex:1 1 105px}
+  .filter-note{flex:1 1 100%}
+}
+
+/* Mission-first dashboard: one status line, intentional worker actions, hidden idle details. */
+.hero{min-height:0;max-height:none;padding:17px 22px;margin-bottom:12px}
+.hero h1{font-size:clamp(23px,2.8vw,32px)}
+.hero .hero-content p{margin-top:5px}
+#garudanetra{margin-top:0;scroll-margin-top:12px}
+#garudanetra .overview{margin:12px 0 14px}
+#garudanetra .overview .section-heading{margin-bottom:9px}
+#garudanetra .metric-grid{gap:10px}
+.learning-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:12px 14px;
+border:1px solid #d6d9e8;background:#f9fbff;border-radius:13px;margin:12px 0}
+.learning-control-text{flex:1 1 230px;display:flex;flex-direction:column;gap:3px}
+.learning-control-text strong{font-size:14px}
+.learning-control-text span{color:#59667d;font-size:12px}
+.learning-controls label{font-size:11px;font-weight:700;display:flex;flex-direction:column;gap:4px}
+.learning-controls select{padding:9px;border:1px solid #b7bed4;border-radius:8px;background:#fff;color:var(--ink)}
+.learning-controls button,.video-auto-controls button{border:0;border-radius:9px;padding:10px 15px;min-height:40px;
+font-size:12px;font-weight:800;color:#fff;background:#5742b7;cursor:pointer}
+.learning-controls #learning-stop{background:#535c71}
+.learning-controls button:disabled,.video-auto-controls button:disabled{opacity:.42;cursor:not-allowed}
+.learning-action-status{font-size:12px;color:#3d4c6b;margin:0 0 9px}
+#live-learning.operations-panel{padding:11px 17px;margin:16px 0 0}
+#live-learning>summary{cursor:pointer;font-size:13px;font-weight:850;color:#4b4a74;padding:5px}
+#live-learning[open]>.section-heading{margin-top:14px}
+#live-learning .operations-grid{margin-top:12px}
+#netra-title{font-size:22px}
+.video-auto-controls{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+border:1px solid #d7e5df;background:#f5faf8;padding:13px;border-radius:12px;margin-bottom:10px}
+.video-auto-controls>div{flex:1 1 270px}
+.video-auto-controls strong{font-size:14px}
+.video-auto-controls p{margin:3px 0 0;font-size:12px;color:#596774}
+.video-auto-controls button{background:#187565}
+#video-auto-state{color:#526879;font-size:12px}
+.video-manual-details{margin:13px 0;padding:12px;border:1px solid #e3e5ee;border-radius:10px;background:#fafaff}
+.video-manual-details>summary{font-weight:750;font-size:13px;cursor:pointer}
+.video-manual-details .video-speed-help{margin-top:13px}
+@media(max-width:750px){.hero{padding:15px}.learning-controls{align-items:stretch}
+.learning-controls>button,.video-auto-controls>button{flex:1 1 120px}
+#garudanetra .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+#video-auto-url{flex:1 1 220px;min-width:170px;max-width:390px;min-height:40px;
+padding:9px 11px;border:1px solid #bcc7cc;border-radius:9px;color:var(--ink);
+background:#fff;font:12px/1.5 inherit}
+#video-auto-url:focus-visible{outline:3px solid #92aade;outline-offset:2px}
+#video-auto-approve{background:#445f84}

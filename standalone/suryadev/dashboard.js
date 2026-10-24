@@ -11,7 +11,8 @@ const textNode = (tag, value, className) => {
 };
 const app = { offset: 0, limit: 25, total: 0, taskId: null,
               lastList: "", lastDetail: "", taskQuery: "", status: "", kind: "", selectedDay: "",
-              diaryCache: [], refreshInProgress: false };
+              diaryCache: [], refreshInProgress: false,
+              lastPulseFingerprint: null };
 
 function clockTick() { $("clock").textContent = new Date().toLocaleTimeString(); }
 function resourceGauge(name, value) {
@@ -43,52 +44,8 @@ function renderLive(data) {
                     "  ·  Failed " + format(values.failed), "detail"));
     source.append(card);
   }
-  // Books are stored in a separate ledger and are not counted as web/PDF jobs.
-  const books = data.book_learning || {};
-  const bookCard = textNode("div", "", "source-card books");
-  bookCard.append(
-    textNode("div", "▧ Books · local reading", "type"),
-    textNode("strong", format(books.indexed)),
-    textNode("div", "Approved " + format(books.approved) +
-      " · Pending " + format(books.pending) +
-      " · Reading " + format(books.reading) +
-      " · Complete " + format(books.completed) +
-      " · Errors " + format(books.failed), "detail"),
-    textNode("div", "Indexed source lines " + format(books.lines_total) +
-      " · Ollama processed " + format(books.lines_processed) +
-      " · Visuals " + format(books.visual_items_examined) +
-      " · Core candidate receipts " +
-      format(books.brahmagyan_candidate_receipts), "detail")
-  );
-  if (books.error || books.plan_error) bookCard.append(
-    textNode("div", books.error || books.plan_error, "detail"));
-  source.append(bookCard);
-  const bookHealth = $("book-health");
-  if (bookHealth) {
-    const activity = books.activity || {};
-    const current = activity.active
-      ? (activity.state === "book_visual_in_progress"
-         ? "Examining book figures/pages"
-         : "Reading book lines with local Ollama") +
-        (activity.title ? " · " + activity.title : "")
-      : books.indexed ? "No live book generation reported" :
-        "No books indexed in the production data folder";
-    const seconds = Number(books.model_seconds || 0);
-    const average = Number(books.lines_processed || 0) > 0
-      ? " · Avg " + (seconds / books.lines_processed).toFixed(1) + " s/line"
-      : "";
-    bookHealth.replaceChildren(
-      textNode("strong", "▧ Book learning · " + current),
-      textNode("span", format(books.lines_processed) + " / " +
-        format(books.lines_total) + " lines model-processed · " +
-        format(books.visual_items_examined) + " images/pages observed · " +
-        seconds.toFixed(1) + "s recorded model time" + average),
-      textNode("small", format(books.approved) + " owner-approved · " +
-        format(books.indexed) + " indexed · " +
-        format(books.brahmagyan_candidate_receipts) +
-        " BRAHMAGYAN candidate receipts · factual verification pending")
-    );
-  }
+  // Book progress has one canonical detailed home in the Garudanetra
+  // learning workspace; do not duplicate it in source and hardware cards.
   const gauges = $("gauges"); gauges.replaceChildren();
   const r = data.resources || {};
   if (r.available) {
@@ -105,11 +62,22 @@ function renderLive(data) {
   }
   app.diaryCache = data.diary || [];
   renderDiaryTiles();
-
+  // Status counters are shown beside the task list and selected-day evidence.
+  // Refresh those views as soon as SQLite's committed totals change, rather
+  // than displaying a new Done count next to a stale Running task for 30s.
+  const fingerprint = JSON.stringify({
+    counts: data.status, findings: data.findings,
+    days: (data.diary || []).map(x => [x.date,x.assignments,x.completed,x.failed,x.findings])
+  });
+  if (fingerprint !== app.lastPulseFingerprint) {
+    app.lastPulseFingerprint = fingerprint;
+    loadTasks();
+    if (app.selectedDay) loadDiaryDay(app.selectedDay);
+  }
 }
 async function pollLive() {
   try {
-    const response = await fetch("/api/live", {cache:"no-store"});
+    const response = await window.suryadevRead("/api/live", {cache:"no-store"});
     if (!response.ok) throw new Error("HTTP " + response.status);
     renderLive(await response.json());
     $("connection").textContent = "Online · local service";
@@ -143,7 +111,7 @@ async function loadTasks() {
   const p = new URLSearchParams({offset: String(app.offset), limit: String(app.limit),
       q: app.taskQuery, kind: app.kind, status: app.status, date: app.selectedDay});
   try {
-    const response = await fetch("/api/tasks?" + p.toString(), {cache:"no-store"});
+    const response = await window.suryadevRead("/api/tasks?" + p.toString(), {cache:"no-store"});
     if (!response.ok) throw new Error("HTTP " + response.status);
     const data = await response.json();
     const key = JSON.stringify(data);
@@ -178,9 +146,7 @@ function filterChanged() {
   app.taskQuery = $("task-search").value.trim();
   app.status = $("status-filter").value;
   app.kind = $("kind-filter").value;
-  const newDay = $("task-date").value;
-  if (newDay !== app.selectedDay) selectDay(newDay, {scrollToReport:false});
-  else loadTasks();
+  loadTasks();
 }
 function detailField(name, value) {
   const box = textNode("div", "");
@@ -310,7 +276,7 @@ function renderDetail(task) {
 }
 async function fetchDetail(id) {
   try {
-    const response = await fetch("/api/tasks/" + encodeURIComponent(id), {cache:"no-store"});
+    const response = await window.suryadevRead("/api/tasks/" + encodeURIComponent(id), {cache:"no-store"});
     if (!response.ok) throw new Error("HTTP " + response.status);
     const task = await response.json();
     if (app.taskId === id && $("task-dialog").open) {
@@ -368,10 +334,7 @@ function renderDiaryTiles() {
 async function selectDay(day, {scrollToReport=false}={}) {
   if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
   app.selectedDay = day;
-  $("diary-date").value = day;
-  $("task-date").value = day;
   $("date-main").value = day;
-  $("clear-date").hidden = !day;
   $("date-selected-label").textContent = day ? "Selected learning date: " + day : "Showing all recorded dates";
   $("date-selected-count").textContent = day
       ? "Loading assignments and findings for this date…"
@@ -394,8 +357,8 @@ async function loadDiaryDay(day) {
   const report = $("diary-report");
   try {
     const [statsResponse, tasksResponse] = await Promise.all([
-      fetch("/api/diary?date=" + encodeURIComponent(day), {cache:"no-store"}),
-      fetch("/api/tasks?date=" + encodeURIComponent(day) + "&limit=10", {cache:"no-store"})
+      window.suryadevRead("/api/diary?date=" + encodeURIComponent(day), {cache:"no-store"}),
+      window.suryadevRead("/api/tasks?date=" + encodeURIComponent(day) + "&limit=10", {cache:"no-store"})
     ]);
     if (!statsResponse.ok || !tasksResponse.ok) throw new Error("Daily activity is temporarily unavailable");
     const stats = await statsResponse.json();
@@ -450,7 +413,7 @@ async function loadDiaryDay(day) {
 function renderOperations(data) {
   const worker = data.worker || {};
   const state = worker.state || "offline";
-  $("worker-state-label").textContent = "Worker: " + state.toUpperCase();
+  $("worker-state-label").textContent = state === "offline" ? "Worker paused" : "Worker: " + state.toUpperCase();
   const running = data.current || [];
   $("queue-count").textContent = format(data.queued_total || 0);
   if (running.length) {
@@ -460,12 +423,12 @@ function renderOperations(data) {
       " · Percentage not instrumented";
   } else {
     $("active-work").textContent = state === "paused" ? "Paused by resource guard" :
-      state === "offline" ? "No active worker heartbeat" : "Idle / looking for tasks";
-    $("active-details").textContent = worker.reason || "No assignment currently marked running.";
+      state === "offline" ? "Ready to start learning" : "Idle / looking for tasks";
+    $("active-details").textContent = state === "offline" ? "Use Start learning above to begin approved research." : (worker.reason || "No assignment currently marked running.");
   }
-  $("next-check").textContent = worker.next_check_at ? new Date(worker.next_check_at * 1000).toLocaleTimeString() : "Not scheduled";
+  $("next-check").textContent = worker.next_check_at ? new Date(worker.next_check_at * 1000).toLocaleTimeString() : "When started";
   $("worker-details").textContent = state === "offline" ?
-    "Dashboard is live, but the worker is not reporting." :
+    "Research polling is paused. Start learning above to activate it." :
     "Check interval: " + (worker.interval_seconds || "—") + " seconds · " + (worker.reason || state);
   const types = data.by_source || {};
   $("source-queue-counts").textContent =
@@ -490,7 +453,7 @@ function renderOperations(data) {
     ? "Six-hour research feeder · Last discovery: " + dateTime(feeder.last_run) +
       " · New sources: " + format(feeder.added_total) +
       " · Next refresh: " + (feeder.next_run ? dateTime(feeder.next_run) : "not scheduled")
-    : "Six-hour research feeder is not running. Only explicit queued sources can be learned.";
+    : "Automatic approved-source discovery starts with the learning worker when a source plan is configured.";
   $("operations-note").textContent = worker.note || "No forecast available.";
   const connections = data.connections || {};
   for (const key of ["krishna","brahmagyan","rishi"]) {
@@ -506,10 +469,14 @@ function renderOperations(data) {
 }
 async function pollOperations() {
   try {
-    const response = await fetch("/api/operations", {cache:"no-store"});
+    const response = await window.suryadevRead("/api/operations", {cache:"no-store"});
     if (!response.ok) throw new Error("HTTP " + response.status);
-    renderOperations(await response.json());
+    const operations = await response.json();
+    renderOperations(operations);
+    // One request supplies both the mission pulse and Garudanetra workspace.
+    document.dispatchEvent(new CustomEvent("suryadev:operations", {detail: operations}));
   } catch (e) {
+    document.dispatchEvent(new CustomEvent("suryadev:operations-error"));
     $("worker-state-label").textContent = "Worker telemetry unavailable";
     for (const key of ["krishna","brahmagyan","rishi"]) {
       $(key+"-led").className = "led";
@@ -539,15 +506,17 @@ function shiftDate(delta) {
 }
 $("date-previous-main").addEventListener("click", () => shiftDate(-1));
 $("date-next-main").addEventListener("click", () => shiftDate(1));
-$("diary-date").addEventListener("change", () => selectDay($("diary-date").value, {scrollToReport:false}));
-$("task-date").addEventListener("change", filterChanged);
-$("diary-today").addEventListener("click", () => selectDay(localToday(), {scrollToReport:false}));
-$("diary-clear").addEventListener("click", () => selectDay("", {scrollToReport:false}));
-$("clear-date").addEventListener("click", () => selectDay("", {scrollToReport:false}));
+
+
 clockTick();setInterval(clockTick, 1000);
+window.suryadevRead("/api/ui-version").then(r => r.ok ? r.json() : null)
+  .then(data => {
+    const version = document.getElementById("ui-version");
+    if (version && data && data.version) version.textContent = "SURYADEV · " + data.version;
+  }).catch(() => {});
 pollLive();pollOperations();loadTasks();
 setInterval(pollLive, 5000);
 setInterval(pollOperations, 5000);
 setInterval(() => {if (app.selectedDay) loadDiaryDay(app.selectedDay);}, 30000);
-setInterval(loadTasks, 10000);
+setInterval(loadTasks, 5000);
 setInterval(() => {if (app.taskId && $("task-dialog").open) fetchDetail(app.taskId);}, 15000);

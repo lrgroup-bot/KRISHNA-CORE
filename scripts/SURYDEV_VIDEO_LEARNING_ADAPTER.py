@@ -220,6 +220,108 @@ class _SystemAudioASR:
         return list(self.entries)
 
 
+# Conservative heuristic speed control. It evaluates recorded caption text,
+# not source intent; it never certifies understanding or transcript coverage.
+_CRITICAL_HINTS = re.compile(
+    r"\b(?:warning|important|critical|must not|never do|be careful|"
+    r"step\s*\d+|first step|second step|formula|equation|security|"
+    r"exception|error|bug|failure|safety|remember this|"
+    r"command|terminal|code|python|javascript|function|algorithm|"
+    r"install|configuration|parameter|architecture|experiment|"
+    r"measurement|voltage|current|watt|ampere|cpu|gpu|"
+    r"example|demonstration)\b|[=<>]|\d", re.I)
+_EXPLANATION_HINTS = re.compile(
+    r"\b(?:because|means that|the reason|explains?|how it works|"
+    r"in other words|definition|the difference|understand|"
+    r"consider|notice that|the point is|for instance)\b", re.I)
+_CHATTER_HINTS = re.compile(
+    r"\b(?:like and subscribe|hit the bell|subscribe to the channel|"
+    r"welcome back|hello everyone|hey everyone|hi guys|"
+    r"thanks for watching|see you next time|leave a comment|"
+    r"share this video|smash that like|just chatting|small talk|"
+    r"how are you guys|let me know in the comments)\b", re.I)
+
+
+def classify_video_caption(caption, *, important_terms=()):
+    """Return (label, rate) for a new caption. High-value cues win over chatter."""
+    text = re.sub(r"\s+", " ", str(caption or "")).strip().casefold()
+    if not text:
+        return "caption_missing", 1.0
+    if any(str(term).strip().casefold() in text for term in important_terms if str(term).strip()):
+        return "owner_important", 1.0
+    if _CRITICAL_HINTS.search(text):
+        return "important", 1.0
+    # No English-only heuristic is allowed to treat Odia/Hindi/other
+    # unfamiliar writing systems as known low-value chatter.
+    if re.search(r"[\u0900-\u0d7f\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]", text):
+        return "unclassified_language", 1.0
+    if _EXPLANATION_HINTS.search(text):
+        return "explanation", 1.5
+    if _CHATTER_HINTS.search(text):
+        return "chatter", 4.0
+    return "ordinary", 2.0
+
+
+class AdaptiveVideoSpeed:
+    """Playback controller for a *single approved* browser job.
+
+    4x is a temporary optimization, only after repeated clear chatter
+    captions. Captions/visuals may still be missed, especially at 4x.
+    """
+    def __init__(self, important_terms=(), enabled=True):
+        self.terms = tuple(important_terms)
+        self.enabled = enabled
+        self.chatter_streak = 0
+        self.last_caption = ""
+        self.last_caption_video_time = 0.0
+        self.target_rate = 1.0
+        self.category = "initial_safe_speed"
+
+    def choose(self, caption, *, video_seconds, caption_available, asr_active=False):
+        if not self.enabled or asr_active:
+            self.target_rate = 1.0
+            self.category = "disabled_or_audio_only"
+            return self.target_rate, self.category
+        clean = re.sub(r"\s+", " ", str(caption or "")).strip()
+        if not caption_available or not clean:
+            self.chatter_streak = 0
+            self.target_rate = 1.0
+            self.category = "no_captions"
+            return self.target_rate, self.category
+        video_seconds = max(0.0, float(video_seconds or 0))
+        if clean != self.last_caption:
+            category, suggested = classify_video_caption(clean, important_terms=self.terms)
+            self.chatter_streak = self.chatter_streak + 1 if category == "chatter" else 0
+            self.last_caption = clean
+            self.last_caption_video_time = video_seconds
+            self.category = category
+            self.target_rate = (4.0 if self.chatter_streak >= 2 else 2.0) if suggested == 4.0 else suggested
+        elif video_seconds - self.last_caption_video_time > 5.0:
+            # If captions stop changing, racing through unknown content is unsafe.
+            self.chatter_streak = 0
+            self.category = "caption_stalled"
+            self.target_rate = 1.0
+        return self.target_rate, self.category
+
+
+def _apply_video_rate(page, desired):
+    """Apply and read back HTMLVideoElement playbackRate; do not guess."""
+    try:
+        actual = page.evaluate(
+            """(rate) => {
+                 const v = document.querySelector('video');
+                 if (!v) return null;
+                 if (Math.abs(Number(v.playbackRate) - rate) > 0.05) v.playbackRate = rate;
+                 return Number(v.playbackRate);
+               }""", float(desired))
+        if actual is None:
+            return None
+        actual = float(actual)
+        return actual if actual in (1.0, 1.5, 2.0, 4.0) else None
+    except Exception:
+        return None
+
+
 def _video_snapshot(page):
     script = r"""
     () => {
@@ -233,6 +335,7 @@ def _video_snapshot(page):
         duration: v && Number.isFinite(v.duration) ? Number(v.duration) : 0,
         paused: v ? !!v.paused : true,
         ended: v ? !!v.ended : false,
+        playback_rate: v ? Number(v.playbackRate||1) : null,
         caption: caps
       };
     }
@@ -339,7 +442,11 @@ def observe(job, workspace):
 
     duration_seconds = max(30, min(int(constraints.get("duration_seconds") or 6 * 3600), 6 * 3600))
     finish_grace = max(0, min(int(constraints.get("finish_grace_seconds") or 300), 600))
-    sample_seconds = max(2, min(float(constraints.get("sample_seconds") or 5), 30))
+    adaptive_playback = constraints.get("adaptive_playback", True) is not False
+    # Poll quickly at high speed: a 5-second wall-clock poll misses 20s at 4x.
+    configured_sample = float(constraints.get("sample_seconds") or 5)
+    sample_seconds = (max(0.25, min(configured_sample, 0.5))
+                      if adaptive_playback else max(2, min(configured_sample, 30)))
     chunk_seconds = max(300, min(int(constraints.get("learning_chunk_seconds") or 600), 1800))
     visual_interval = max(300, min(int(constraints.get("visual_interval_seconds") or 1200), 3600))
     max_visuals = max(1, min(int(constraints.get("max_visual_evidence") or 24), 60))
@@ -366,6 +473,11 @@ def observe(job, workspace):
     last_caption = ""
     last_periodic = -visual_interval
     term_last_seen = {}
+    speed_controller = AdaptiveVideoSpeed(capture_terms, enabled=adaptive_playback)
+    speed_events = []
+    speed_event_total = 0
+    last_logged_rate = None
+    seen_four_x = False
     started_wall = time.time()
     started_mono = time.monotonic()
     final = {}
@@ -407,6 +519,34 @@ def observe(job, workspace):
                         subject = title or "video-learning"
                     sec = float(snap.get("seconds") or 0)
                     caption = re.sub(r"\s+", " ", str(snap.get("caption") or "").strip())
+                    desired_rate, speed_category = speed_controller.choose(
+                        caption, video_seconds=sec, caption_available=bool(caption),
+                        asr_active=audio_asr_started)
+                    observed_rate = _apply_video_rate(page, desired_rate)
+                    if observed_rate != last_logged_rate:
+                        speed_event_total += 1
+                        if observed_rate == 4.0:
+                            seen_four_x = True
+                        speed_event = {
+                            "video_seconds": round(sec, 2),
+                            "requested_rate": desired_rate,
+                            "observed_rate": observed_rate,
+                            "category": speed_category,
+                            "caption_available": bool(caption),
+                            "audio_only_fallback": audio_asr_started,
+                        }
+                        speed_events.append(speed_event)
+                        speed_events = speed_events[-120:]
+                        last_logged_rate = observed_rate
+                        # Optional dashboard telemetry, not an acceptance receipt.
+                        _atomic_json(workspace / "playback-speed.json", {
+                            "schema": "krishna.suryadev.playback-speed.v1",
+                            "updated_at": time.time(),
+                            "job_id": str(job.get("job_id") or ""),
+                            **speed_event,
+                            "coverage_verified": False,
+                            "speed_event_total": speed_event_total,
+                        })
                     if caption and caption != last_caption:
                         caption_seen = True
                         transcript_rows.append({"seconds": round(sec, 2), "text": caption[:1800], "source": "browser_caption"})
@@ -569,6 +709,14 @@ def observe(job, workspace):
             "video_ended": bool(final.get("ended")),
             "finish_grace_seconds": finish_grace,
             "shift_limit_seconds": duration_seconds,
+            "adaptive_playback": adaptive_playback,
+            "playback_rates_attempted": [1.0, 1.5, 2.0, 4.0],
+            "speed_events_total": speed_event_total,
+            "speed_events_recent": speed_events,
+            "four_x_observed": seen_four_x,
+            "speed_heuristic_only": True,
+            "complete_caption_coverage_verified": False,
+            "high_speed_content_may_have_been_missed": seen_four_x,
         },
         "raw_media_included": False,
         "policy": {

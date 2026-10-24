@@ -84,6 +84,22 @@ class FleetClientTests(unittest.TestCase):
             self.assertEqual(self.lib.db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0],1)
             self.assertTrue(any(path.endswith("/complete") for path,_ in self.calls))
 
+    def test_delegated_paired_core_url_is_queued_once_within_host(self):
+        # This approval delegates only source selection to the paired,
+        # already-authorized Core task, not an arbitrary remote hostname.
+        original=json.loads(self.plan.read_text(encoding="utf-8"))
+        original["paired_core_host_delegation"]=True
+        self.plan.write_text(json.dumps(original),encoding="utf-8")
+        self.url="https://docs.python.org/3/library/sqlite3.html"
+        with (patch("suryadev_fleet_client.load_config",return_value=self.mock_config),
+              patch("suryadev_fleet_client.hardware_report",return_value=self.fake_health),
+              patch("suryadev.validate_url",return_value=self.url)):
+            worker=self.create()
+            result=worker.tick(self.lib)
+            self.assertEqual(result["state"],"owner_approved_lease_accepted")
+            self.assertEqual(self.lib.db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0],1)
+            self.assertEqual(self.lib.db.execute("SELECT url FROM jobs").fetchone()[0],self.url)
+
     def test_unapproved_url_rejected_without_local_fetch(self):
         self.url="https://unapproved.example.net/learn"
         with (patch("suryadev_fleet_client.load_config",return_value=self.mock_config),

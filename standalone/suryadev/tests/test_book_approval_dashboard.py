@@ -88,9 +88,9 @@ class BookDashboardContractTests(unittest.TestCase):
             self.assertIn(token,html)
         self.assertNotIn('id="book-learning"',html)
         self.assertNotIn('href="#book-learning"',html)
-        self.assertIn('id="book-health"',html)
+        self.assertNotIn('id="book-health"',html)
         self.assertIn('id="source-grid"',html)
-        for token in ('fetch("/api/books"','textContent','replaceChildren'):
+        for token in ('window.suryadevRead("/api/books"','textContent','replaceChildren'):
             self.assertIn(token,js)
         self.assertNotIn("innerHTML",js)
         self.assertIn(".books-grid",css)
@@ -107,7 +107,7 @@ class BookDashboardContractTests(unittest.TestCase):
         self.assertIn('"book-visuals"',server)
         self.assertIn('route.path == "/api/book-search"',server)
         self.assertIn('id="book-search-form"',html)
-        self.assertIn('fetch("/api/book-search?q="',js)
+        self.assertIn('window.suryadevRead("/api/book-search?q="',js)
         self.assertIn('"book-search"',server)
 
 

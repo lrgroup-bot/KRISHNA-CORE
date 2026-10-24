@@ -11,7 +11,7 @@ import platform
 from pathlib import Path
 import time
 
-from suryadev_feeder import read_plan
+from suryadev_feeder import read_plan, paired_core_source_allowed
 from suryadev_krishna_mission import load_config, post_core
 from suryadev_liveops import atomic_json, _safe_read
 from suryadev_resources import snapshot, hardware_identity
@@ -105,6 +105,17 @@ class FleetClient:
         })
         if not reply.get("accepted") or reply.get("device_id") != self.config["device_id"]:
             raise RuntimeError("Core rejected signed SURYADEV heartbeat")
+        # This proof exists only after the pinned-TLS authenticated Core
+        # call completes with a matching acknowledged device ID. It does
+        # NOT indicate knowledge / BRAHMAGYAN / Rishi acceptance.
+        atomic_json(self.root, "krishna-fleet-heartbeat-ack.json", {
+            "schema":"suryadev.krishna-authenticated-heartbeat.v1",
+            "authenticated_core_reply":True,
+            "device_id":self.config["device_id"],
+            "acknowledged_at":now,
+            "knowledge_accepted":False,
+            "brahmagyan_accepted":False,
+        })
 
     def _reconcile(self, lib, now):
         for task_id, row in list(self.state["assignments"].items()):
@@ -180,8 +191,9 @@ class FleetClient:
                 or not isinstance(lease, str) or len(lease)!=32):
             raise ValueError("Untrusted Core fleet task response")
         plan = read_plan(self.plan_path)
-        # The local owner's exact approved URLs are authoritative, not Core.
-        if url not in plan["approved_urls"]:
+        # KRISHNA may select URLs only inside the owner-approved exact list
+        # or the separately enabled paired-Core host delegation.
+        if not paired_core_source_allowed(url, plan):
             self._send("fleet/complete", {"task_id": tid, "lease_id": lease,
                     "outcome": "rejected", "detail": "not exact owner-approved local URL"})
             return {"state": "locally_rejected_unapproved_url", "task_id": tid}

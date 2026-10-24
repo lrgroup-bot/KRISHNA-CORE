@@ -19,7 +19,7 @@ from suryadev_liveops import atomic_json
 from suryadev_deep_web import deep_web_settings, inspect_page
 
 MAX_VISIBLE_CHARS = 220_000
-MAX_BROWSER_TABS = 4
+MAX_BROWSER_TABS = 10
 BROWSER_STATUS_FILE = "garudanetra-runtime.json"
 _ENGINE = "Garudanetra Lite / canonical Playwright Chromium"
 
@@ -27,7 +27,7 @@ _ENGINE = "Garudanetra Lite / canonical Playwright Chromium"
 class GarudanetraLite:
     def __init__(self, root, *, max_tabs=1):
         if type(max_tabs) is not int or not (1 <= max_tabs <= MAX_BROWSER_TABS):
-            raise ValueError("Garudanetra tabs must be between 1 and 4")
+            raise ValueError("Garudanetra tabs must be between 1 and 10")
         self.root = Path(root).expanduser().resolve()
         self.max_tabs = max_tabs
         self.deep_mode, self.vision_model = deep_web_settings()

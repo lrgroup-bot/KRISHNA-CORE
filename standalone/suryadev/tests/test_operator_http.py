@@ -61,6 +61,13 @@ class LocalOperatorHttpTests(unittest.TestCase):
                 status, data = request("GET", "/api/ui-version")
                 self.assertEqual(status, 200)
                 self.assertTrue(json.loads(data)["has_storage_settings"])
+                self.assertTrue(json.loads(data)["has_youtube_learning_audit"])
+                status, data = request("GET", "/api/youtube/audit")
+                self.assertEqual(status, 200)
+                audit=json.loads(data)
+                self.assertTrue(audit["read_only"])
+                self.assertEqual(audit["schema"],"suryadev.youtube-learning-audit.v1")
+                self.assertEqual(audit["counts"]["rishi_exams_verified"],0)
                 status, data = request("GET", "/api/operator/settings")
                 self.assertEqual(status, 200)
                 secret = json.loads(data)["csrf_token"]

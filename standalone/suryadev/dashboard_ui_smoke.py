@@ -37,6 +37,7 @@ async def browser_check(port):
             await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
             await expect(page.locator("#netra-web-running")).to_have_text("2",timeout=12000)
             await expect(page.locator("#netra-video-running")).to_have_text("1",timeout=12000)
+            await expect(page.locator("#netra-engine-state")).to_contain_text("Chromium browsing", timeout=12000)
             web=await page.locator("#netra-web-tabs").inner_text()
             tabs=await page.locator(".netra-workspace-tab").count()
             cap=await page.locator("#netra-total-capacity").inner_text()
@@ -76,9 +77,11 @@ async def browser_books_check(port):
             await expect(page.locator("#netra-books-lines")).to_have_text("1 / 3")
             await expect(page.locator("#netra-workspace-count")).to_have_text("4")
             await expect(page.locator(".netra-workspace-tab.book")).to_have_count(1)
-            await expect(page.locator(".source-card.books strong")).to_have_text("1",timeout=12000)
-            await expect(page.locator("#book-health")).to_contain_text(
-                "1 / 3 lines model-processed",timeout=12000)
+            await expect(page.locator(".source-card.books")).to_have_count(0)
+            await expect(page.locator("#book-health")).to_have_count(0)
+            await expect(page.locator("#netra-books-lines")).to_have_text("1 / 3")
+            # The learning book ledger is canonical; hardware/source summaries
+            # no longer duplicate its details.
             await expect(page.locator("#book-ledger-list .book-session")).to_have_count(
                 1,timeout=12000)
             await expect(page.locator("#book-search-form")).to_have_count(1)
@@ -148,6 +151,72 @@ async def browser_offline_check(port):
             await browser.close()
 
 
+
+async def browser_video_review_check(port, approved_url):
+    """Real Chromium: imported approved URL is visible, blocked URL rejected.
+
+    This UI smoke never clicks 'Run approved job' or starts a video observer.
+    """
+    from playwright.async_api import async_playwright, expect
+    async with async_playwright() as p:
+        browser=await p.chromium.launch(headless=True)
+        try:
+            page=await browser.new_page(viewport={"width":1366,"height":768})
+            errors=[]
+            page.on("pageerror", lambda exc: errors.append(str(exc)))
+            await page.goto(f"http://127.0.0.1:{port}/", wait_until="domcontentloaded")
+            await expect(page.locator("#video-review")).to_have_count(1)
+            await expect(page.locator("#video-review")).to_be_visible(timeout=12000)
+            await expect(page.locator('a[href="#video-review"]')).to_have_count(1)
+            # Mission Pulse is now first; History belongs below primary workspaces.
+            order = await page.evaluate("""() => {
+                const ys = ids => ids.map(id => document.getElementById(id).getBoundingClientRect().top + window.scrollY);
+                return ys(['garudanetra','assignments','date-center']);
+            }""")
+            assert order[0] < order[1] < order[2], "Mission/history sections rendered out of order"
+            await expect(page.locator("#learning-enable-sources")).to_be_visible(timeout=12000)
+            await expect(page.locator("#learning-start")).to_be_visible(timeout=12000)
+            # Starting a local worker must be possible when the exclusive lock
+            # is free; the browser test never actually starts the worker.
+            await expect(page.locator("#learning-start")).to_be_enabled(timeout=12000)
+            await expect(page.locator("#video-auto-toggle")).to_be_visible(timeout=12000)
+            await page.locator(".video-manual-details > summary").click()
+            await expect(page.locator('input[type="date"]')).to_have_count(1)
+            await expect(page.locator("#ui-version")).to_contain_text("2026-10-23-v7.5", timeout=12000)
+            await page.locator("#video-review-refresh").click()
+            rejected={"schema":"krishna.suryadev.job.v1", "job_id":"not-approved",
+                      "kind":"video_research",
+                      "target":"https://www.youtube.com/watch?v=not-approved",
+                      "constraints":{"duration_seconds":60}}
+            # User-friendly path: paste a URL; owner-unapproved URLs must fail.
+            await page.locator("#video-review-url").fill(rejected["target"])
+            await page.locator("#video-review-import").click()
+            await expect(page.locator("#video-review-status")).to_contain_text(
+                "Import rejected:", timeout=12000)
+            await expect(page.locator("#video-review-list .video-review-job")).to_have_count(0)
+            # Existing KRISHNA mission contracts still support advanced JSON.
+            accepted=dict(rejected, job_id="smoke-approved-video", target=approved_url)
+            await page.locator(".video-job-details summary").click()
+            await page.locator("#video-review-json").fill(json.dumps(accepted))
+            await page.locator("#video-review-import").click()
+            await expect(page.locator("#video-review-list .video-review-job")).to_have_count(1)
+            preview=await page.locator("#video-review-list .video-review-job code").inner_text()
+            assert preview==approved_url, "Exact video URL including query must remain visible"
+            consent=page.locator("#video-review-list .video-review-job input[type=checkbox]")
+            assert not await consent.is_checked(), "A new job must not be automatically approved"
+            await page.locator("#video-review-refresh").click()
+            await expect(page.locator("#video-review-list .video-review-job")).to_have_count(1)
+            assert not errors, "Video Review JS runtime errors: " + str(errors)
+            return {"status":"PASS", "repo_frontend":True,
+                    "unapproved_source_rejected":True,
+                    "approved_source_imported_without_running":True,
+                    "exact_video_query_displayed":True,
+                    "approval_default_unchecked":True,
+                    "javascript_errors":errors}
+        finally:
+            await browser.close()
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix="suryadev-dashboard-smoke-") as root:
         lib=Library(root)
@@ -190,6 +259,14 @@ def main():
                     time.sleep(.1)
             result=asyncio.run(browser_check(port))
             print("GARUDANETRA_DASHBOARD_UI_REPORT="+json.dumps(result),flush=True)
+            approved_url = "https://www.youtube.com/watch?v=mgBpcQRDtl0"
+            temporary_plan = Path(root) / "learning-plan.json"
+            temporary_plan.write_text(json.dumps({"approved_urls":[approved_url]}), encoding="utf-8")
+            try:
+                video = asyncio.run(browser_video_review_check(port, approved_url))
+                print("SURYDEV_VIDEO_REVIEW_UI_REPORT="+json.dumps(video),flush=True)
+            finally:
+                temporary_plan.unlink(missing_ok=True)
             from suryadev_book_reader import BookLedger
             local_book = Path(root) / "approved-sample-book.txt"
             local_book.write_text("Source line one" + chr(10) + "Source line two" + chr(10) + "Source line three",

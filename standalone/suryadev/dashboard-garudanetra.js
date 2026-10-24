@@ -12,6 +12,8 @@
     const plan = data.research_plan || {};
     const continuity = data.continuity || {};
     const books = data.book_learning || {};
+    const bookPool = data.concurrent_books || {};
+    const videoPool = data.concurrent_videos || {};
     const bookActivity = books.activity || {};
     const bookActive = bookActivity.active === true;
     const workerOnline = !!worker.state &&
@@ -29,7 +31,11 @@
       el("netra-"+key+"-queued").textContent = num(values.queued);
     }
     el("netra-web-tabs").textContent = num(web.browser_tabs);
-    el("netra-books-running").textContent = bookActive ? "1" : "0";
+    const activeBooks = Number(bookPool.active || 0);
+    const activeVideos = Number(videoPool.active || 0);
+    el("netra-books-running").textContent = num(
+      Math.max(bookActive ? 1 : 0, activeBooks));
+    el("netra-video-observers").textContent = num(activeVideos);
     el("netra-books-approved").textContent = num(books.approved);
     el("netra-books-indexed").textContent = num(books.indexed);
     el("netra-books-lines").textContent =
@@ -37,6 +43,9 @@
     const bookNote = el("netra-books-state");
     if (books.error) {
       bookNote.textContent = books.error;
+    } else if (activeBooks > 0) {
+      bookNote.textContent = num(activeBooks) +
+        " distinct approved books progressing · model calls serialized";
     } else if (bookActive) {
       bookNote.textContent =
         (bookActivity.state === "book_visual_in_progress"
@@ -49,7 +58,7 @@
     } else {
       bookNote.textContent = books.plan_present
         ? "Approved book plan found; no matching indexed book yet"
-        : "No books indexed here. The separate test-data book is not in this production folder.";
+        : "No books indexed in this learning library yet.";
     }
     const ytAccess = capacity.youtube_access || {};
     const ytNote = el("netra-youtube-access");
@@ -66,14 +75,29 @@
     }
     const badge = el("netra-engine-state");
     const alive = netra.state === "running";
-    badge.textContent = alive ? "● Chromium browser active" :
+    const activeTabs = Number(netra.open_tabs || 0);
+    badge.textContent = alive && activeTabs > 0 ? "● Chromium browsing · " + num(activeTabs) + " tabs" :
+      alive ? "○ Chromium ready · 0 active tabs" :
       capacity.browser_error ? "◉ Browser unavailable" :
-      workerOnline ? "○ Chromium idle · no website tab" :
+      workerOnline ? "○ Chromium ready · no website tab" :
       "○ Browser standby · worker offline";
-    badge.className = "netra-live-pill" + (alive ? " live" : capacity.browser_error ? " paused" : "");
-    const active = Number(capacity.active_total || 0);
+    badge.className = "netra-live-pill" +
+      (alive && activeTabs > 0 ? " live" : capacity.browser_error ? " paused" : "");
+    const active = Number(capacity.active_total || 0) + activeBooks + activeVideos;
     const max = Number(capacity.max_total || 0);
-    el("netra-total-capacity").textContent = num(active) + " active / " + num(max) + " allowed";
+    const targets = capacity.target_slots || {website:10,youtube:10,pdf:100,book:5};
+    el("netra-total-capacity").textContent = num(active) + " active / " + num(max) +
+      " allowed · " + num(capacity.target_total || 125) +
+      " maximum workload slots · automatic hardware guard";
+    el("netra-parallel-targets").textContent =
+      "Workload ceilings (NOT guaranteed running): " + num(targets.website) + " websites · " +
+      num(targets.youtube) + " approved video observers · " +
+      num(targets.pdf) + " PDFs · " + num(targets.book) +
+      " books. Admitted now: " + num(max) + " total CPU/RAM slots; " +
+      num(capacity.source_execution_slots || 0) + " sources, " +
+      num(capacity.reserved_video_slots || 0) + " videos, " +
+      num(capacity.reserved_book_slots || 0) + " books. " +
+      "Actual concurrency is calculated from available CPU and RAM, not a fixed setting. Browser video and PDF completion remain evidence-based; YouTube caption requests stay rate-limited.";
     const healthy = schedulerOnline && capacity.safe === true;
     const reported = schedulerOnline ? capacity : hardware;
     const measured = key => reported[key] != null && Number.isFinite(Number(reported[key]))
@@ -244,18 +268,12 @@
       tabs.append(button);
     }
   }
-  async function poll() {
-    try {
-      const response = await fetch("/api/operations", {cache:"no-store"});
-      if (!response.ok) throw new Error("HTTP " + response.status);
-      refresh(await response.json());
-    } catch (_err) {
-      el("netra-capacity-heading").textContent = "Parallel learning telemetry unavailable";
-      el("netra-capacity-reason").textContent =
-          "Cannot verify active source tabs or hardware admission until the dashboard API responds.";
-      el("netra-engine-state").textContent = "○ Offline / unknown";
-    }
-  }
-  poll();
-  setInterval(poll, 5000);
+  // Reuse the single operations request issued by dashboard.js.
+  document.addEventListener("suryadev:operations", event => refresh(event.detail));
+  document.addEventListener("suryadev:operations-error", () => {
+    el("netra-capacity-heading").textContent = "Parallel learning telemetry unavailable";
+    el("netra-capacity-reason").textContent =
+        "Cannot verify active source tabs or hardware admission until the local API responds.";
+    el("netra-engine-state").textContent = "○ Offline / unknown";
+  });
 })();

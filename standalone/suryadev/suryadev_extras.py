@@ -11,11 +11,12 @@ import hashlib
 import html
 import json
 import secrets
+import sqlite3
 from pathlib import Path
 import re
 import threading
 import time
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlsplit, quote
 
 from suryadev import Library, summarize
 from suryadev_resources import snapshot, admission
@@ -32,11 +33,13 @@ from suryadev_liveops import operations_snapshot, worker_note
 from suryadev_operator_api import settings_snapshot, handle_operator_action
 from mimetypes import guess_type
 from suryadev_lock import worker_lock
+from suryadev_video_review import VideoReview
+from suryadev_dashboard_worker import DashboardWorkerControl
 from suryadev_evidence import save_evidence, backup_database, verify_evidence
 
 MAX_TRANSCRIPT = 2_000_000
 MAX_REQUEST = 4096
-UI_VERSION = "2026-10-21-v6.9-integrated-learning-workspaces"
+UI_VERSION = "2026-10-23-v7.5-krishna-missions"
 
 def parse_transcript(text):
     """Remove SRT/VTT cue numbering and timecodes, preserving spoken content."""
@@ -84,24 +87,74 @@ def import_transcript(lib, filename, source_url="", use_ollama=True, model="qwen
              'ollama:' + model if use_ollama else 'extractive'))
     return {"status": "done", "title": title, "sha256": digest}
 
+def _send_http_response(handler, status, mime, body):
+    """Ignore a client closing its socket; never conceal unrelated server failures.
+
+    Rapid dashboard refreshes can abort requests while the server writes a
+    completed response (Windows WinError 10053/10054). These disconnects
+    are not research failures and should not print a server traceback.
+    """
+    try:
+        handler.send_response(status)
+        handler.send_header("Content-Type", mime)
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("Cache-Control", "no-store")
+        handler.send_header("X-Content-Type-Options", "nosniff")
+        handler.send_header("Content-Security-Policy", "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'")
+        handler.end_headers()
+        handler.wfile.write(body)
+    except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+        return False
+    return True
+
+
+class DashboardReader:
+    """Read-only dashboard view, no schema migrations or write locks per poll.
+
+    The owning Library creates/migrates the DB before serve() starts. This
+    connection NEVER changes journal mode or initializes tables.
+    """
+    def __init__(self, root):
+        dbfile = Path(root).expanduser().resolve() / "suryadev.sqlite3"
+        if not dbfile.is_file():
+            raise FileNotFoundError("SURYADEV database is not initialized")
+        uri = "file:" + quote(dbfile.as_posix(), safe="/:") + "?mode=ro"
+        self.db = sqlite3.connect(uri, uri=True, timeout=10)
+        self.db.execute("PRAGMA query_only=ON")
+        self.db.execute("PRAGMA busy_timeout=10000")
+        # All SELECTs within one API response use a single committed SQLite
+        # snapshot, even if an active worker finishes between statements.
+        self.db.execute("BEGIN")
+
+    def stats(self):
+        return dict(self.db.execute("SELECT status,count(*) FROM jobs GROUP BY status").fetchall())
+
+
 def serve(lib, port=8769):
     """Dashboard binds only to loopback; state changes require same-origin CSRF."""
     csrf_token = secrets.token_urlsafe(32)
     settings_lock = threading.Lock()
+    video_review = VideoReview(lib.root, Path(__file__).resolve().parent)
+    worker_control = DashboardWorkerControl(lib.root, Path(__file__).resolve().parent)
     class Handler(BaseHTTPRequestHandler):
         def respond(self, status, content, mime="text/html; charset=utf-8"):
-            body = content.encode("utf-8")
-            self.send_response(status)
-            self.send_header("Content-Type", mime)
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'")
-            self.end_headers()
-            self.wfile.write(body)
+            return _send_http_response(self, status, mime, content.encode("utf-8"))
 
         def do_GET(self):
             route = urlsplit(self.path)
+            if route.path == "/api/learning/control":
+                return self.respond(200, json.dumps(worker_control.snapshot()), "application/json")
+            if route.path == "/api/video/review":
+                return self.respond(200, json.dumps(video_review.snapshot()), "application/json")
+            if route.path == "/api/youtube/audit":
+                from suryadev_youtube_audit import youtube_audit
+                reader = DashboardReader(lib.root)
+                try:
+                    payload = youtube_audit(lib.root, reader.db)
+                finally:
+                    reader.db.close()
+                return self.respond(200, json.dumps(payload, ensure_ascii=False),
+                                    "application/json")
             if route.path == "/api/operator/settings":
                 payload = settings_snapshot(lib.root)
                 payload["csrf_token"] = csrf_token
@@ -109,6 +162,8 @@ def serve(lib, port=8769):
             if route.path == "/api/ui-version":
                 return self.respond(
                     200, json.dumps({"version": UI_VERSION,
+                                     "has_repo_r39_video_review": True,
+                                     "has_youtube_learning_audit": True,
                                      "has_connection_leds": True,
                                      "has_date_picker": True,
                                      "has_server_settings": True,
@@ -135,13 +190,19 @@ def serve(lib, port=8769):
                                      "has_book_core_candidate_handoff": True,
                                      "has_read_only_book_dashboard": True,
                                      "has_books_in_garudanetra": True,
-                                     "has_books_in_source_coverage": True,
-                                     "has_books_in_laptop_health": True}),
+                                     "has_books_in_source_coverage": False,
+                                     "has_books_in_laptop_health": False,
+                                     "has_single_date_filter": True,
+                                     "has_static_video_review": True,
+                                     "has_unified_frontend": True,
+                                     "has_dashboard_worker_controls": True}),
                     "application/json")
             if route.path in ("/", "/dashboard.css", "/dashboard.js",
                               "/dashboard-settings.css", "/dashboard-settings.js",
                               "/dashboard-garudanetra.css", "/dashboard-garudanetra.js",
-                              "/dashboard-books.css", "/dashboard-books.js"):
+                              "/dashboard-books.css", "/dashboard-books.js",
+                              "/dashboard-video.css", "/dashboard-video.js",
+                              "/dashboard-api.js", "/dashboard-learning.js"):
                 filename = {"/": "dashboard.html", "/dashboard.css": "dashboard.css",
                             "/dashboard.js": "dashboard.js",
                             "/dashboard-settings.css": "dashboard-settings.css",
@@ -149,7 +210,11 @@ def serve(lib, port=8769):
                             "/dashboard-garudanetra.css": "dashboard-garudanetra.css",
                             "/dashboard-garudanetra.js": "dashboard-garudanetra.js",
                             "/dashboard-books.css": "dashboard-books.css",
-                            "/dashboard-books.js": "dashboard-books.js"}[route.path]
+                            "/dashboard-books.js": "dashboard-books.js",
+                            "/dashboard-video.css": "dashboard-video.css",
+                            "/dashboard-video.js": "dashboard-video.js",
+                            "/dashboard-api.js": "dashboard-api.js",
+                            "/dashboard-learning.js": "dashboard-learning.js"}[route.path]
                 content = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
                 mime = "text/html; charset=utf-8" if route.path == "/" else (
                     "text/css; charset=utf-8" if filename.endswith(".css") else "application/javascript; charset=utf-8")
@@ -193,7 +258,7 @@ def serve(lib, port=8769):
                     reader.close()
                 return self.respond(200,json.dumps(payload),"application/json")
             if route.path == "/api/operations":
-                reader = Library(lib.root)
+                reader = DashboardReader(lib.root)
                 try:
                     payload = operations_snapshot(reader.db, lib.root)
                 finally:
@@ -202,7 +267,7 @@ def serve(lib, port=8769):
             if route.path == "/api/diary":
                 args = parse_qs(route.query)
                 try:
-                    reader = Library(lib.root)
+                    reader = DashboardReader(lib.root)
                     try:
                         day_value = args.get("date", [""])[0]
                         payload = diary_day(reader.db, day_value) if day_value else {
@@ -215,7 +280,7 @@ def serve(lib, port=8769):
             if route.path == "/api/tasks":
                 args = parse_qs(route.query)
                 try:
-                    reader = Library(lib.root)
+                    reader = DashboardReader(lib.root)
                     try:
                         payload = list_tasks(
                             reader.db, offset=int(args.get("offset", ["0"])[0]),
@@ -233,7 +298,7 @@ def serve(lib, port=8769):
                 part = route.path[len("/api/tasks/"):]
                 if not part.isascii() or not part.isdecimal() or len(part) > 12:
                     return self.respond(400, json.dumps({"error": "Invalid task ID"}), "application/json")
-                reader = Library(lib.root)
+                reader = DashboardReader(lib.root)
                 try:
                     payload = task_detail(reader.db, lib.root, int(part))
                 finally:
@@ -242,7 +307,7 @@ def serve(lib, port=8769):
                     return self.respond(404, json.dumps({"error": "Task not found"}), "application/json")
                 return self.respond(200, json.dumps(payload), "application/json")
             if route.path == "/api/live":
-                reader = Library(lib.root)
+                reader = DashboardReader(lib.root)
                 try:
                     status = reader.stats()
                     sources = breakdown(reader.db)
@@ -270,7 +335,7 @@ def serve(lib, port=8769):
             if route.path == "/api/resources":
                 return self.respond(200, json.dumps(snapshot(lib.root)), "application/json")
             if route.path == "/health":
-                reader = Library(lib.root)
+                reader = DashboardReader(lib.root)
                 try:
                     status = reader.stats()
                 finally:
@@ -279,7 +344,7 @@ def serve(lib, port=8769):
             if route.path != "/":
                 return self.respond(404, "Not found", "text/plain")
             term = parse_qs(route.query).get("q", [""])[0][:200]
-            reader = Library(lib.root)
+            reader = DashboardReader(lib.root)
             try:
                 counts = reader.stats()
                 by_source = breakdown(reader.db)
@@ -382,7 +447,29 @@ def serve(lib, port=8769):
             try:
                 body = json.loads(self.rfile.read(length))
                 with settings_lock:
-                    outcome = handle_operator_action(lib.root, route.path, body)
+                    if route.path == "/api/operator/learning/delegate-core":
+                        outcome = worker_control.set_core_delegation(body.get("enabled"))
+                    elif route.path == "/api/operator/learning/activate-sources":
+                        from suryadev_continuity import activate_official_pack
+                        outcome = activate_official_pack(lib.root)
+                        outcome["note"] = ("Official public sources approved. A running worker started "
+                                           "without --plan must be stopped after its current job, then "
+                                           "restarted using Start Learning to enable automatic refill.")
+                    elif route.path == "/api/operator/learning/start":
+                        outcome = worker_control.start(model=body.get("model", "qwen3.5:2b"))
+                    elif route.path == "/api/operator/learning/stop":
+                        outcome = worker_control.stop()
+                    elif route.path == "/api/operator/video/approve-source":
+                        outcome = video_review.approve_source(body.get("url"))
+                    elif route.path == "/api/operator/video/auto":
+                        outcome = video_review.set_auto(body.get("enabled"))
+                    elif route.path == "/api/operator/video/import":
+                        outcome = video_review.import_job(body.get("job"))
+                    elif route.path == "/api/operator/video/run":
+                        outcome = video_review.run_job(
+                            body.get("job_id"), body.get("approved"), body.get("expected_sha256"))
+                    else:
+                        outcome = handle_operator_action(lib.root, route.path, body)
                 return self.respond(200, json.dumps(outcome), "application/json")
             except (ValueError, TypeError) as exc:
                 return self.respond(400, json.dumps({"error": str(exc)[:230]}),
@@ -400,10 +487,28 @@ def serve(lib, port=8769):
 
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     server.daemon_threads = True
+    # Pairing is a one-time owner action. A validated pinned-TLS device
+    # credential and approved plan start the existing single fleet worker on
+    # dashboard boot; manual URL input or per-session Start clicks are NOT
+    # required. Never automatically pair or launch from LAN discovery alone.
+    paired = worker_control.core_pairing()
+    if paired["ready"]:
+        try:
+            outcome = worker_control.start(model="qwen3.5:2b")
+            print("SURYADEV KRISHNA fleet: "+outcome["status"]+
+                  " (authenticated Core reply pending)", flush=True)
+        except (RuntimeError, ValueError, OSError) as exc:
+            # A manual CLI worker already holding the lock is not an error or
+            # permission to kill its process. Report and reuse its telemetry.
+            print("SURYADEV KRISHNA fleet start blocked: "+
+                  type(exc).__name__+": "+str(exc)[:160], flush=True)
+    video_review.start_auto_scheduler(worker_control)
     print(f"SURYDEV dashboard: http://127.0.0.1:{port}/", flush=True)
     try:
         server.serve_forever()
     finally:
+        video_review.stop_auto_scheduler()
+        worker_control.close()
         server.server_close()
 
 def work_loop(lib, interval, use_ollama, model, *,
@@ -420,6 +525,12 @@ def work_loop(lib, interval, use_ollama, model, *,
         raise ValueError("fleet mode requires a pinned paired --core-mission-config")
     if core_mission_config and not plan_path:
         raise ValueError("Core mission relay requires an explicit approved --plan")
+    # An existing owner-approved plan is a durable permission grant:
+    # workers need not be relaunched with --plan after every restart.
+    if plan_path is None and core_mission_config is None:
+        candidate = Path(lib.root)/"learning-plan.json"
+        if candidate.is_file():
+            plan_path=str(candidate)
     feeder = (ContinuityFeeder(lib.root, plan_path,
                refill_seconds=refill_minutes * 60) if plan_path else None)
     relay = (MissionRelay(lib.root, plan_path, core_mission_config)
@@ -430,24 +541,83 @@ def work_loop(lib, interval, use_ollama, model, *,
         raise ValueError("Book BRAHMAGYAN handoff requires approved --book-plan and paired --core-mission-config")
     if book_visual_model and not book_plan_path:
         raise ValueError("Automatic book visuals require --book-plan")
-    books = (BookContinuity(lib.root, book_plan_path, model=model,
-                            use_ollama=use_ollama,vision_model=book_visual_model)
+    # Each approved book has its own journal; research and up to five
+    # distinct books can progress concurrently under one worker lock.
+    from suryadev_parallel_books import ParallelBookReader
+    books = (ParallelBookReader(lib.root, book_plan_path, model=model,
+                               use_ollama=use_ollama,vision_model=book_visual_model)
              if book_plan_path else None)
     collect_books = (BookEvidenceCollector(lib.root, book_collect_plan_path)
                      if book_collect_plan_path else None)
     handoff = (BookHandoff(lib.root,core_mission_config) if sync_book_handoff else None)
-    lib.recover()
+    from suryadev_parallel_videos import ParallelVideoReader
+    videos = ParallelVideoReader(lib.root,Path(__file__).resolve().parent)
+    interrupted = lib.recover()  # exclusive worker_lock held by caller
+    if interrupted:
+        print(json.dumps({
+            "interrupted_jobs_requeued": len(interrupted),
+            "job_ids": interrupted,
+            "note": "Previous worker exited; retained evidence and completed jobs preserved."
+        }, ensure_ascii=False), flush=True)
     print("SURYADEV Garudanetra adaptive worker started. Ctrl+C to stop.", flush=True)
     worker_note(lib.root, "starting", interval, "Adaptive source lanes starting")
     try:
         with AdaptiveResearchWorkers(lib.root, use_ollama=use_ollama,
-                                     model=model, check_seconds=interval) as adaptive:
+                                     model=model, check_seconds=interval,
+                                     books_enabled=bool(books)) as adaptive:
+            if books:
+                books.attach_model_lock(adaptive.summary_lock)
+            next_configuration_probe = 0.0
             while True:
-                if feeder:
+                # Hot-attach an already approved source plan and a one-time
+                # paired Core device credential to THIS EXISTING worker.
+                # Never create another scheduler/process or automatically
+                # approve a new host. Idle external workers can adopt the
+                # plan without a manual stop/restart.
+                if time.monotonic() >= next_configuration_probe:
+                    next_configuration_probe = time.monotonic() + 30
+                    if feeder is None and core_mission_config is None:
+                        candidate=Path(lib.root)/"learning-plan.json"
+                        if candidate.is_file():
+                            try:
+                                feeder=ContinuityFeeder(
+                                    lib.root,candidate,refill_seconds=refill_minutes*60)
+                                plan_path=str(candidate)
+                                print('SURYADEV approved plan detected; local source continuity active.',flush=True)
+                            except (OSError, ValueError) as exc:
+                                print('SURYADEV source plan not ready: '+type(exc).__name__,flush=True)
+                    if fleet is None and relay is None and core_mission_config is None and feeder is not None:
+                        cfg=Path(lib.root)/"core-mission-connection.json"
+                        if cfg.is_file():
+                            try:
+                                from suryadev_krishna_mission import load_config
+                                core=load_config(cfg)
+                                if not core["device_id"].startswith("suryadev-"):
+                                    raise ValueError("Invalid Core paired device prefix")
+                                fleet=FleetClient(lib.root,plan_path,cfg)
+                                print('SURYADEV KRISHNA fleet channel configured; verified Core reply pending.',flush=True)
+                            except (OSError,ValueError,RuntimeError) as exc:
+                                print('SURYADEV KRISHNA fleet not ready: '+type(exc).__name__,flush=True)
+                # Prefer genuinely leased KRISHNA tasks. Use approved local
+                # feeds as fallback when the paired Core has no work or is
+                # offline, not as the primary dispatcher.
+                fleet_event = None
+                if fleet:
+                    fleet_event=fleet.tick(lib)
+                    if fleet_event and fleet_event.get("state") != "no_approved_work":
+                        print(json.dumps({"fleet":fleet_event},ensure_ascii=False),flush=True)
+                fallback_ok=(not fleet or (fleet_event is not None and
+                    fleet_event.get("state") in ("no_approved_work","offline_retry")))
+                if feeder and fallback_ok:
                     result = feeder.tick(lib, youtube_blocked=(
                         adaptive.youtube_access["state"] == "rate_limited"))
                     if result is not None:
                         print(json.dumps({"continuity":result}, ensure_ascii=False),flush=True)
+                # Video observations are admitted inside this owner's existing
+                # supervisor, not by another process holding the same lock.
+                adaptive.video_enabled = videos.has_pending()
+                adaptive.external_active = (
+                    (len(books.futures) if books else 0) + len(videos.futures))
                 update = adaptive.pump()
                 for result in update["finished"]:
                     print(json.dumps(result, ensure_ascii=False), flush=True)
@@ -460,24 +630,23 @@ def work_loop(lib, interval, use_ollama, model, *,
                         result = relay.tick(lib, renewal)
                         if result is not None:
                             print(json.dumps({"krishna_mission":result}, ensure_ascii=False), flush=True)
-                if fleet:
-                    fleet_event = fleet.tick(lib)
-                    if fleet_event and fleet_event.get("state") != "no_approved_work":
-                        print(json.dumps({"fleet": fleet_event}, ensure_ascii=False), flush=True)
                 if books:
-                    # Low-priority background books never compete with queued
-                    # web/PDF/YouTube jobs or bypass one-worker ownership.
-                    pending = (url for (url,) in lib.db.execute(
-                        "SELECT url FROM jobs WHERE status IN ('queued','running')"))
-                    idle = may_study_books(
-                        update["capacity"],pending,
-                        youtube_rate_limited=(
-                            adaptive.youtube_access["state"]=="rate_limited"))
-                    if idle:
-                        with adaptive.summary_lock:
-                            book_result = books.tick(available=True)
-                        if book_result:
-                            print(json.dumps({"book_learning":book_result}, ensure_ascii=False), flush=True)
+                    # Fair book slots are reserved BEFORE launching source jobs.
+                    # The same one-worker lock and shared Ollama lock remain.
+                    book_result = books.tick(
+                        capacity=update["capacity"],
+                        source_active=update["capacity"].get("active_total",0),
+                        video_active=len(videos.futures))
+                    if book_result["finished"] or book_result["started_this_tick"]:
+                        print(json.dumps({"book_learning":book_result},
+                                         ensure_ascii=False),flush=True)
+                video_result = videos.tick(
+                    capacity=update["capacity"],
+                    source_active=update["capacity"].get("active_total",0),
+                    books_active=len(books.futures) if books else 0)
+                if video_result["started_this_tick"] or video_result["finished"]:
+                    print(json.dumps({"video_observation":video_result},
+                                     ensure_ascii=False),flush=True)
                 if collect_books:
                     # Index one owner-approved source without Ollama, including
                     # when source research remains queued. Admission is measured;
@@ -499,10 +668,13 @@ def work_loop(lib, interval, use_ollama, model, *,
                 # One worker can both discover approved sources and process them;
                 # no second feeder process or duplicate worker is required.
                 wait = 2 if update["capacity"]["active_total"] else interval
-                if feeder:
+                if feeder and feeder.next_due:
                     wait = min(wait, max(0.1, feeder.next_due - time.time()))
                 time.sleep(wait)
     finally:
+        videos.close()
+        if books:
+            books.close()
         if feeder:
             feeder.stop()
         worker_note(lib.root, "stopped", interval, "Worker stopped")
