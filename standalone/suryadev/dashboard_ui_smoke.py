@@ -184,7 +184,7 @@ async def browser_video_review_check(port, approved_url):
             await expect(page.locator(".video-manual-details")).to_have_count(0)
             await expect(page.locator("#learning-trial-audit")).to_be_visible(timeout=12000)
             await expect(page.locator('input[type="date"]')).to_have_count(1)
-            await expect(page.locator("#ui-version")).to_contain_text("2026-10-23-v7.5", timeout=12000)
+            await expect(page.locator("#ui-version")).to_contain_text("2026-10-25-v8", timeout=12000)
             await page.locator("#video-review-refresh").click()
             await expect(page.locator("#learning-trial-audit")).to_contain_text(
                 "Rishi verified comprehension: NO", timeout=12000)
