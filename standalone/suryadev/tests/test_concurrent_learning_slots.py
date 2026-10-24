@@ -1,4 +1,4 @@
-"""Hardware-adaptive 45-slot profile and five-book scheduling tests."""
+"""Auto-hardware workload ceilings (100 PDFs) and multi-book safety tests."""
 import tempfile
 import threading
 import time
@@ -20,19 +20,21 @@ def hardware(cpu=10,ram=30,ram_total=128,ram_used=30):
 
 
 class ConcurrentLearningTests(unittest.TestCase):
-    def test_45_requested_with_measured_limits(self):
-        self.assertEqual(SOURCE_TARGETS,{"website":10,"youtube":10,"pdf":20})
+    def test_large_workload_budget_does_not_override_measured_limits(self):
+        self.assertEqual(SOURCE_TARGETS,{"website":10,"youtube":10,"pdf":100})
         self.assertEqual(BOOK_TARGET,5)
-        self.assertEqual(TOTAL_TARGET,45)
+        self.assertEqual(TOTAL_TARGET,125)
         big=plan_capacity(hardware(),logical_cpus=128)
-        self.assertEqual(big["target_total"],45)
+        self.assertEqual(big["target_total"],125)
         self.assertEqual(big["limits"]["website"],10)
-        self.assertEqual(big["limits"]["pdf"],20)
+        self.assertEqual(big["limits"]["pdf"], min(100,big["max_total"]))
         self.assertEqual(big["limits"]["book"],5)
+        self.assertEqual(big["capacity_mode"],"automatic_hardware")
+        self.assertTrue(big["backlog_is_not_running"])
         self.assertEqual(big["youtube_provider_concurrent_limit"],1)
         small=plan_capacity(hardware(cpu=38,ram=68,ram_total=16,ram_used=10.9),
                             logical_cpus=12)
-        self.assertLess(small["max_total"],45)
+        self.assertLess(small["max_total"],125)
         for sample in (hardware(cpu=85),hardware(ram=85),
                        dict(hardware(),disk_percent=85),
                        dict(hardware(),gpu={"available":True,
@@ -80,7 +82,7 @@ class ConcurrentLearningTests(unittest.TestCase):
             pool=ParallelBookReader(root,root/"book-plan.json",
                                     model="test-model",observe=model)
             try:
-                capacity={"safe":True,"max_total":45,"reserved_book_slots":5}
+                capacity={"safe":True,"max_total":125,"reserved_book_slots":5}
                 started=pool.tick(capacity=capacity,source_active=20)
                 self.assertEqual(len(started["started_this_tick"]),5)
                 self.assertEqual(started["active"],5)
