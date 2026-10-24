@@ -46,6 +46,15 @@
         const core = d.core_dispatch || {};
         const paired = core.ready === true;
         const delegated = d.paired_core_host_delegation === true;
+        const workspace = el("learning-workspace-state");
+        if (workspace) {
+          workspace.textContent = d.workspace_mode === "fresh"
+            ? "FRESH WORKSPACE ACTIVE · Previous learning retained outside this session · " +
+              "Maximum " + Number(d.workspace_active_task_limit || 3) +
+              " simultaneous tasks total · 85% hardware guard"
+            : "EXISTING WORKSPACE · Earlier assignments are still in this data directory. " +
+              "Run start-fresh-workspace.ps1 from the updated installation to begin a blank session.";
+        }
         coreStatus.textContent = paired
           ? "KRISHNA fleet credentials validated locally · " +
             (delegated ? "Delegated sources on " + (d.paired_core_approved_host_count || 0) +
