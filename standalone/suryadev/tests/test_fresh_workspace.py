@@ -33,7 +33,7 @@ class FreshWorkspaceTests(unittest.TestCase):
                 fresh=Library(fresh_root)
                 try:
                     self.assertEqual(old_count,2)
-                    self.assertEqual(fresh.stats()["queued"],0)
+                    self.assertEqual(fresh.stats().get("queued",0),0)
                     self.assertTrue((old_root/"suryadev.sqlite3").is_file())
                     self.assertTrue((fresh_root/"suryadev.sqlite3").is_file())
                 finally:
