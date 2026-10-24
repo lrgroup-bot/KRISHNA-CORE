@@ -90,6 +90,8 @@ def main(argv=None):
     ap.add_argument("--new-session", action="store_true")
     ap.add_argument("--approved-trial", action="store_true",
                     help="Run the previously owner-approved fixed YouTube/book trial")
+    ap.add_argument("--auto-approved-videos", action="store_true",
+                    help="Automatically observe only exact approved video URLs under hardware guard")
     ap.add_argument("--prepare-only", action="store_true")
     args = ap.parse_args(argv)
     if not args.prepare_only and not available_port(args.port):
@@ -105,6 +107,7 @@ def main(argv=None):
     env["SURYADEV_MAX_PARALLEL"] = "3"
     # The approved public sources are not fetched implicitly on all fleet nodes.
     env["SURYADEV_LEARNING_TRIAL"] = "1" if args.approved_trial else "0"
+    env["SURYADEV_AUTO_APPROVED_VIDEOS"] = "1" if args.auto_approved_videos else "0"
     entry = Path(__file__).resolve().with_name("suryadev_extras.py")
     return subprocess.call([sys.executable, str(entry), "--data", str(data),
                             "dashboard", "--port", str(args.port)],
