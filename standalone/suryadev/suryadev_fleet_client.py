@@ -223,14 +223,14 @@ class FleetClient:
         return {"state": "owner_approved_lease_accepted", "task_id": tid,
                 "job_id": job_id, "source_url": url, "reused_job": bool(existing)}
 
-    def tick(self, lib, *, report=None):
+    def tick(self, lib, *, report=None, allow_claim=True):
         now = self.clock()
         if now < self.next_retry:
             return None
         try:
             self._heartbeat(lib, now, report)
             self._reconcile(lib, now)
-            result = self._claim(lib, now)
+            result = self._claim(lib, now) if allow_claim else None
             if result:
                 self.state["last_error"] = ""
                 self._save()
