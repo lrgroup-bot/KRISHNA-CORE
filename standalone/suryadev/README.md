@@ -1,3 +1,27 @@
+## Fresh learning workspace — three tasks total (25 October 2026)
+
+**Purpose:** Clear the *active dashboard view* and begin a newly approved trial without destroying prior learning evidence, SQLite history, YouTube cooldown receipts, or book journals. The old data directory stays intact and is not scanned or used by the fresh dashboard.
+
+From a clean checkout of the SURYADEV development branch, run the Windows installer (after stopping the old dashboard and worker gracefully):
+
+```powershell
+cd "D:\Work\SURYADEV-UNIFIED-TEST\standalone\suryadev"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1 -InstallDir "D:\Work\SURYADEV-UNIFIED-TEST" -DataDir "D:\Work\SURYADEV-UNIFIED-TEST-DATA"
+```
+
+If the installer was already run from that source checkout, launch the new clean dashboard from the installed directory:
+
+```powershell
+cd "D:\Work\SURYADEV-UNIFIED-TEST"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-fresh-workspace.ps1
+```
+
+The script requires port **8772** to be free; stop the old dashboard first. Its **separate default data directory** is `D:\Work\SURYADEV-UNIFIED-TEST-DATA-FRESH`. It does not delete or copy earlier databases, credentials, approvals or saved evidence. The first launch creates an isolated SQLite/ledger and can automatically start the already owner-authorized fixed YouTube + textbook trial. Reopening the same fresh directory resumes its checkpoints. Use `-NewSession` to generate another clean workspace rather than wiping the current one.
+
+The dashboard advertises exactly whether its data workspace is fresh. A single SURYADEV owner process admits **at most three active tasks total** shared between websites, captions/PDF work, observed video and model book reading. The 85% CPU/RAM/disk/GPU admission policy may allow fewer or none; large queues are not launched all at once. Ollama model calls remain serialized. The default `qwen3.5:9b` must actually exist on the laptop. Provider 429 limits, full YouTube observation, book progress, provisional recall, and independent BRAHMAGYAN/Rishi checks are reported separately and never considered passed by merely launching the trial. KRISHNA device pairing remains unconfigured in the fresh root until explicitly established.
+
+---
+
 # SURYADEV Standalone — experimental Windows laptop worker
 
 **Scope:** independent local learning; does not connect to KRISHNA, BRAHMA, or other agents.
