@@ -16,6 +16,13 @@
   with KRISHNA. Collector-only RAM capacity and the fresh workspace three-task
   ceiling are reported consistently. Without real pairing, only local
   approved research is possible; an unauthenticated ping is not a mission.
+* To **automatically observe** previously owner-approved videos, pass
+  `--auto-approved-videos` to the portable `start-node.py` launcher. That
+  explicit opt-in activates the existing approved-video queue inside the
+  currently running research supervisor; it never invents unapproved URLs,
+  bypasses CAPTCHA, forces concurrency beyond admission, or replays jobs
+  whose evidence may already exist. Omit the switch for collection-only
+  workflows where video automation has not been approved.
 * One data-root worker lock controls all local source/video/book lanes. With
   no waiting source jobs, spare measured capacity can launch up to **three
   distinct previously approved browser videos at once** on a fresh workspace.
