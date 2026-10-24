@@ -117,6 +117,35 @@ def recently_verified_source(root, now=None, max_age_seconds=180):
     return None
 
 
+def power_thermal(psutil_module):
+    """Best-effort optional sensors; unknown is never reported as cool/plugged."""
+    result = {"battery_percent": None, "battery_plugged": None,
+              "temperature_max_c": None, "temperature_available": False}
+    sensor = getattr(psutil_module, "sensors_battery", None)
+    if callable(sensor):
+        try:
+            battery = sensor()
+            if battery is not None:
+                result["battery_percent"] = round(float(battery.percent), 1)
+                result["battery_plugged"] = bool(battery.power_plugged)
+        except (OSError, RuntimeError, TypeError, AttributeError, ValueError):
+            pass
+    temperature_reader = getattr(psutil_module, "sensors_temperatures", None)
+    if callable(temperature_reader):
+        try:
+            all_groups = temperature_reader() or {}
+            measured = [float(sample.current) for values in all_groups.values()
+                        for sample in values
+                        if getattr(sample, "current", None) is not None
+                        and 0 < float(sample.current) < 200]
+            if measured:
+                result["temperature_available"] = True
+                result["temperature_max_c"] = round(max(measured), 1)
+        except (OSError, RuntimeError, TypeError, AttributeError, ValueError):
+            pass
+    return result
+
+
 def snapshot(data_dir, sample_seconds=0.2):
     try:
         import psutil
@@ -128,6 +157,7 @@ def snapshot(data_dir, sample_seconds=0.2):
     disk = psutil.disk_usage(str(Path(data_dir).resolve().anchor))
     net = psutil.net_io_counters()
     network = network_interfaces(psutil)
+    safety = power_thermal(psutil)
     proof = recently_verified_source(data_dir)
     if proof:
         network.update(proof)
@@ -152,6 +182,7 @@ def snapshot(data_dir, sample_seconds=0.2):
             "internet_verified_host": network.get("verified_host"),
             "internet_verified_at": network.get("verified_at"),
             "internet_speed_mbps": None,
+            **safety,
             "gpu": gpu, "sample_time": time.time()}
 
 def admission(data_dir, ceiling=85):
@@ -167,6 +198,12 @@ def admission(data_dir, ceiling=85):
         return False, "GPU reached ceiling", s
     if s["disk_free_gb"] < 2:
         return False, "low storage", s
+    if s.get("battery_plugged") is False and (
+            s.get("battery_percent") is not None
+            and s["battery_percent"] <= 20):
+        return False, "laptop battery <=20% and not charging", s
+    if s.get("temperature_max_c") is not None and s["temperature_max_c"] >= 85:
+        return False, "measured device temperature >=85 C", s
     return True, "within admission limits", s
 
 if __name__ == "__main__":
