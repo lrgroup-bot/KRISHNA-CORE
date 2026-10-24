@@ -144,6 +144,9 @@ def serve(lib, port=8769):
             route = urlsplit(self.path)
             if route.path == "/api/learning/control":
                 return self.respond(200, json.dumps(worker_control.snapshot()), "application/json")
+            if route.path == "/api/trial/audit":
+                from suryadev_trial import audit_trial
+                return self.respond(200, json.dumps(audit_trial(lib.root,lib.db)), "application/json")
             if route.path == "/api/video/review":
                 return self.respond(200, json.dumps(video_review.snapshot()), "application/json")
             if route.path == "/api/youtube/audit":
@@ -541,6 +544,16 @@ def work_loop(lib, interval, use_ollama, model, *,
         raise ValueError("Book BRAHMAGYAN handoff requires approved --book-plan and paired --core-mission-config")
     if book_visual_model and not book_plan_path:
         raise ValueError("Automatic book visuals require --book-plan")
+    # Owner-requested fixed trial: acquire and approve one public textbook
+    # and one exact YouTube lesson automatically under this SAME worker lock.
+    # Do not block the ordinary approved-source queue if either provider fails.
+    from suryadev_trial import prepare_trial, audit_trial, AUDIT_RECORD
+    trial=prepare_trial(lib.root, Path(__file__).resolve().parent)
+    print(json.dumps({"automated_learning_trial":trial}, ensure_ascii=False), flush=True)
+    # Adopt already SHA-approved books at startup; no dashboard/manual book
+    # entry and no second worker are needed. Existing approved books survive.
+    if book_plan_path is None and use_ollama and (Path(lib.root)/"book-plan.json").is_file():
+        book_plan_path=str(Path(lib.root)/"book-plan.json")
     # Each approved book has its own journal; research and up to five
     # distinct books can progress concurrently under one worker lock.
     from suryadev_parallel_books import ParallelBookReader
@@ -568,6 +581,7 @@ def work_loop(lib, interval, use_ollama, model, *,
             if books:
                 books.attach_model_lock(adaptive.summary_lock)
             next_configuration_probe = 0.0
+            next_trial_audit = 0.0
             while True:
                 # Hot-attach an already approved source plan and a one-time
                 # paired Core device credential to THIS EXISTING worker.
@@ -619,6 +633,18 @@ def work_loop(lib, interval, use_ollama, model, *,
                 adaptive.external_active = (
                     (len(books.futures) if books else 0) + len(videos.futures))
                 update = adaptive.pump()
+                if time.monotonic() >= next_trial_audit:
+                    next_trial_audit = time.monotonic() + 90
+                    try:
+                        trial_report=audit_trial(lib.root,lib.db)
+                        atomic_json(lib.root,AUDIT_RECORD,trial_report)
+                        print(json.dumps({"learning_trial_audit":{
+                            "book_lines_read":trial_report["book"]["model_lines_processed"],
+                            "video_candidate_chunks":trial_report["video"]["candidate_chunks"],
+                            "rishi_exam_verified":False}},ensure_ascii=False),flush=True)
+                    except (OSError,RuntimeError,ValueError,KeyError) as exc:
+                        print(json.dumps({"learning_trial_audit_error":
+                            type(exc).__name__+": "+str(exc)[:120]}),flush=True)
                 for result in update["finished"]:
                     print(json.dumps(result, ensure_ascii=False), flush=True)
                 if feeder:
