@@ -139,6 +139,14 @@
         if (!response.ok) throw new Error('HTTP ' + response.status);
         const report = await response.json();
         const book = report.book || {}, video = report.video || {};
+        const examResponse = await window.suryadevRead('/api/trial/exam', {cache:'no-store'});
+        const exam = examResponse.ok ? await examResponse.json() : {};
+        const attempts = Array.isArray(exam.attempts) ? exam.attempts : [];
+        const attempted = attempts.filter(x => x.status === 'provisional_recall_pass' || x.status === 'recall_failed');
+        const passing = attempted.filter(x => x.rubric_passed === true).length;
+        const detail = attempts.slice(-2).map(x =>
+          String(x.source || 'unknown') + ': ' + String(x.question_id || 'test') +
+          ' = ' + String(x.status)).join(' · ');
         el('learning-trial-audit').textContent =
           'Book: ' + String(book.model_lines_processed ?? 0) + ' / ' +
           String(book.indexed_lines ?? 0) + ' lines processed · Journal: ' +
@@ -146,6 +154,8 @@
           ' · YouTube: ' + String(video.assignment_status || 'not queued') +
           ' · Measured candidate chunks: ' + String(video.candidate_chunks ?? 0) +
           ' · Sampled frames: ' + String(video.sampled_frames ?? 0) +
+          ' · Closed-book provisional recall: ' + passing + '/' + attempted.length +
+          (detail ? ' · ' + detail : ' · Waiting for sufficient processed evidence') +
           ' · Rishi verified comprehension: NO';
       } catch (err) {
         el('learning-trial-audit').textContent =
