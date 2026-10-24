@@ -93,6 +93,28 @@ class PortableNodeTests(unittest.TestCase):
             finally:
                 control.close()
 
+    def test_actual_portable_package_installs_and_prepares_isolated_collector(self):
+        # Executed on BOTH Windows and Linux CI; no Ollama or live network.
+        spec = importlib.util.spec_from_file_location("suryadev_portable_installer",
+            SOURCE / "install-node.py")
+        installer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(installer)
+        with TemporaryDirectory() as tmp:
+            target=Path(tmp)/"installed"
+            data=Path(tmp)/"node-ledger"
+            installed=installer.install(SOURCE,target,tests=False)
+            self.assertEqual(installed,target)
+            self.assertTrue((target/"suryadev_r39_worker.py").is_file())
+            self.assertTrue((target/"suryadev_r39_adapter.py").is_file())
+            self.assertTrue((target/"start-node.py").is_file())
+            runner=portable_module()
+            result=runner.prepare(data,model="collector")
+            self.assertEqual(result,data)
+            self.assertFalse((data/"suryadev.sqlite3").exists(),
+                             "Only the live worker may create its actual SQLite ledger")
+            with self.assertRaisesRegex(ValueError,"already has files"):
+                installer.install(SOURCE,target,tests=False)
+
     def test_portable_release_has_no_required_model_or_hardcoded_laptop_path(self):
         runner=(SOURCE/"start-node.py").read_text(encoding="utf-8")
         installer=(SOURCE/"install-node.py").read_text(encoding="utf-8")
