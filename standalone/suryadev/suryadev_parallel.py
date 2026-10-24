@@ -138,6 +138,8 @@ class AdaptiveResearchWorkers:
         self.check_seconds = check_seconds
         self.browser_factory = browser_factory
         self.books_enabled = bool(books_enabled)
+        self.video_enabled = False
+        self._dual_lane_turn = 0
         self.browser = None
         self.browser_error = ""
         self.summary_lock = threading.Lock()
@@ -198,12 +200,27 @@ class AdaptiveResearchWorkers:
                                   for kind,limit in capacity["limits"].items()}
             capacity["laptop_profile"] = ("single-job" if ceiling == 1 else
                                           "measured-maximum-" + str(ceiling))
-        # Book reading gets fair slots without displacing every source lane.
-        reserved = (min(BOOK_TARGET, max(1, capacity["max_total"] // 4))
-                    if self.books_enabled and capacity["max_total"] > 1 else 0)
-        reserved = min(reserved, capacity["max_total"] - 1)
-        capacity["reserved_book_slots"] = reserved
-        capacity["source_execution_slots"] = max(0,capacity["max_total"]-reserved)
+        # Reserve capacity for independent books and actual Chromium video
+        # observations; all run inside THIS supervisor's one-worker lock.
+        # Always retain at least one source lane when possible.
+        total = capacity["max_total"]
+        reserve_books = (min(BOOK_TARGET, max(1,total // 4))
+                         if self.books_enabled and total > 1 else 0)
+        reserve_books = min(reserve_books,max(0,total-1))
+        reserve_video = (min(SOURCE_TARGETS["youtube"],
+                             max(1,total // 3))
+                         if self.video_enabled and total > 1 else 0)
+        reserve_video = min(reserve_video,max(0,total-1-reserve_books))
+        if total == 2 and self.books_enabled and self.video_enabled:
+            # Only one non-source slot exists. Alternate which lane may
+            # claim it instead of permanently starving videos or books.
+            self._dual_lane_turn += 1
+            reserve_books, reserve_video = (
+                (1,0) if (self._dual_lane_turn // 5) % 2 == 0 else (0,1))
+        capacity["reserved_book_slots"] = reserve_books
+        capacity["reserved_video_slots"] = reserve_video
+        capacity["source_execution_slots"] = max(
+            0,total-reserve_books-reserve_video)
         # The cooldown is on disk to remain effective across worker restarts.
         self.youtube_access = youtube_access(self.root)
         if self.youtube_access["state"] == "rate_limited":
