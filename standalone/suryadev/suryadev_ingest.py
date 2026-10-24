@@ -106,6 +106,7 @@ def ingest_pdf(url):
         raise ValueError("PDF page count out of supported range")
     chunks = []
     missing = []
+    page_line_counts = []
     for number, page in enumerate(pdf.pages, start=1):
         try:
             contents = (page.extract_text() or "").strip()
@@ -113,6 +114,7 @@ def ingest_pdf(url):
             raise ValueError(f"PDF text extraction failed at page {number}") from exc
         if not contents:
             missing.append(number)
+        page_line_counts.append(len(contents.splitlines()))
         chunks.append(f"[PDF page {number}/{count}]\n{contents}")
     from suryadev_deep_pdf import deep_pdf_settings
     deep_enabled, model = deep_pdf_settings()
@@ -143,6 +145,12 @@ def ingest_pdf(url):
     return title, text, {
         "kind": "pdf", "pages_total": count, "pages_extracted": count,
         "pages_missing_text": [], "bytes_downloaded": len(raw),
+        "source_reference_url": url,
+        "page_reference_pattern": "#page=N (1-based)",
+        "page_line_counts": page_line_counts,
+        "lines_extracted_total": sum(page_line_counts),
+        "reference_granularity": "page_and_extracted_text_line",
+        "line_by_line_reasoning_verified": False,
         "coverage_status": extra.get("coverage_status", "all_pages_text_extracted"),
         "deep_pdf_enabled": deep_enabled, "full_document_visuals_verified": False,
         "note": ("Each PDF page was rasterized, OCR read and sent to a local visual model; "
