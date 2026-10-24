@@ -43,6 +43,32 @@ def hardware_identity():
     return identity
 
 
+def network_interfaces(psutil_module):
+    """Inspect physical/link telemetry without a paid speed test or remote probe.
+
+    Interface UP and negotiated Mbps are not proof of Internet availability.
+    Loopback and virtual-only links are not counted as public connectivity.
+    """
+    try:
+        stats = psutil_module.net_if_stats()
+    except (OSError, AttributeError, RuntimeError):
+        return {"interface_up": None, "link_speed_mbps": None,
+                "internet_reachable": None, "reachability": "unverified"}
+    candidates = []
+    for name, device in stats.items():
+        lname = name.casefold()
+        if any(bit in lname for bit in ("loopback", "lo0", "veth", "docker", "tun", "tap")) or lname == "lo":
+            continue
+        if bool(device.isup):
+            speed = getattr(device, "speed", None)
+            candidates.append(float(speed) if isinstance(speed, (int,float)) and speed > 0 else None)
+    return {"interface_up": bool(candidates),
+            "link_speed_mbps": max((v for v in candidates if v is not None), default=None),
+            "internet_reachable": None,
+            "reachability": "unverified_until_authenticated_core_or_approved_source_response",
+            "note": "Interface state and link rate are not measured internet download speed"}
+
+
 def snapshot(data_dir, sample_seconds=0.2):
     try:
         import psutil
@@ -53,6 +79,7 @@ def snapshot(data_dir, sample_seconds=0.2):
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage(str(Path(data_dir).resolve().anchor))
     net = psutil.net_io_counters()
+    network = network_interfaces(psutil)
     gpu = {"available": False, "reason": "No supported NVIDIA telemetry"}
     if shutil.which("nvidia-smi"):
         try:
@@ -67,7 +94,11 @@ def snapshot(data_dir, sample_seconds=0.2):
             "ram_used_gb": round(mem.used/1024**3,2), "ram_total_gb": round(mem.total/1024**3,2),
             "disk_percent": disk.percent, "disk_free_gb": round(disk.free/1024**3,2),
             "network_bytes_sent_total": net.bytes_sent, "network_bytes_received_total": net.bytes_recv,
-            "network_interface_speed_mbps": None, "internet_speed_mbps": None,
+            "network_interface_speed_mbps": network["link_speed_mbps"],
+            "network_interface_up": network["interface_up"],
+            "internet_reachable": network["internet_reachable"],
+            "internet_reachability": network["reachability"],
+            "internet_speed_mbps": None,
             "gpu": gpu, "sample_time": time.time()}
 
 def admission(data_dir, ceiling=85):
