@@ -137,9 +137,10 @@ class ContinuityRefillTests(unittest.TestCase):
             class FakeAdaptive:
                 youtube_access={"state":"rate_limited"}
                 def __init__(self,*a,**kw): pass
+                futures = {}
                 def __enter__(self): return self
                 def __exit__(self,*_): pass
-                def pump(self):
+                def pump(self, *, admit_new=True):
                     observed.append(lib.stats().get("queued",0))
                     raise KeyboardInterrupt()
             try:
