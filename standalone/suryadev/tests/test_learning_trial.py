@@ -23,6 +23,8 @@ class LearningTrialTests(unittest.TestCase):
             plan=root/"learning-plan.json"
             plan.write_text(json.dumps({"approved_urls":[]}),encoding="utf-8")
             with patch("suryadev_trial.read_plan",return_value={}), \
+                 patch("suryadev_resources.snapshot",return_value={"available":True}), \
+                 patch("suryadev_parallel.plan_capacity",return_value={"safe":True,"max_total":2}), \
                  patch("suryadev_trial.VideoReview") as video, \
                  patch("suryadev_trial.acquire_book",return_value="e"*64) as acquire, \
                  patch("suryadev_trial.approve_book",return_value={
