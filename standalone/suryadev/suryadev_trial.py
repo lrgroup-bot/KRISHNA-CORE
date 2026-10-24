@@ -107,6 +107,11 @@ def prepare_trial(root, app):
         state["video"]="approval_failed"
         state["video_error"]=type(exc).__name__ + ": " + str(exc)[:180]
     try:
+        from suryadev_resources import snapshot
+        from suryadev_parallel import plan_capacity
+        capacity=plan_capacity(snapshot(root))
+        if capacity.get("safe") is not True or capacity.get("max_total",0)<1:
+            raise RuntimeError("Local 85% hardware admission refused textbook acquisition")
         path=root/"trial-sources"/"thinkpython2.pdf"
         digest=acquire_book(BOOK,path)
         result=approve_book(root,path,lines_per_step=20)
