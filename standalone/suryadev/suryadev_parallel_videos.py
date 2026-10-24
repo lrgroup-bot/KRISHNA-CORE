@@ -36,7 +36,7 @@ class ParallelVideoReader:
         self.clock = clock
         self.futures = {}
         journal=_safe_read(self.root, ATTEMPT_JOURNAL, max_bytes=65536)
-        if journal and (journal.get("schema") != "suryadev.video-attempts.v1"
+        if (self.root / ATTEMPT_JOURNAL).exists() and (journal.get("schema") != "suryadev.video-attempts.v1"
                        or not isinstance(journal.get("job_ids"), list)):
             raise RuntimeError("Invalid video attempt journal; refusing automatic replay")
         self.attempted = set(
