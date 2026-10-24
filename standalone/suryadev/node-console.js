@@ -92,10 +92,20 @@
     text("last-updated",new Date().toLocaleTimeString());
     const queue=Number(o.queued_total||0), running=active>0;
     const workerLive=!!o.worker_running;
+    const cycle=o.mission_cycle || {};
     const next=worker.next_check_at;
     text("next-check",workerLive ? date(next) : "Worker offline");
     const why = cap.reason || hw.potential_reason || "No scheduler reason recorded";
-    if (running) {
+    if (cycle.phase==="rest" && workerLive) {
+      text("activity-state","Mandatory 10-minute device rest");
+      text("activity-message","No new assignments or browser tasks are admitted. Rest ends "+
+          date(cycle.rest_until)+". Next six-hour mission resumes automatically.");
+      text("stat-admitted","Resting · no new work permitted");
+    } else if (cycle.phase==="draining" && workerLive) {
+      text("activity-state","Six-hour mission complete · finishing active work");
+      text("activity-message","No new jobs admitted. Mandatory ten-minute rest begins after evidence is saved.");
+      text("stat-admitted","Draining · no new work permitted");
+    } else if (running) {
       text("activity-state","Processing "+num(active)+" assignment"+(active===1?"":"s"));
       text("activity-message","Evidence capture is in progress. Source coverage remains independently unverified.");
     } else if (queue && !workerLive) {
