@@ -147,7 +147,16 @@ def serve(lib, port=8769):
                 return self.respond(200, json.dumps(worker_control.snapshot()), "application/json")
             if route.path == "/api/trial/audit":
                 from suryadev_trial import audit_trial
-                return self.respond(200, json.dumps(audit_trial(lib.root,lib.db)), "application/json")
+                # HTTP requests run on separate threads. The main Library
+                # SQLite connection belongs to the dashboard parent thread.
+                audit_db = sqlite3.connect(str(Path(lib.root)/"suryadev.sqlite3"),
+                                           timeout=10)
+                try:
+                    audit_db.execute("PRAGMA query_only=ON")
+                    report = audit_trial(lib.root,audit_db)
+                finally:
+                    audit_db.close()
+                return self.respond(200, json.dumps(report), "application/json")
             if route.path == "/api/video/review":
                 return self.respond(200, json.dumps(video_review.snapshot()), "application/json")
             if route.path == "/api/youtube/audit":
