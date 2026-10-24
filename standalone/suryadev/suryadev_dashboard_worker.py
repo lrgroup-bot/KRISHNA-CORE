@@ -119,7 +119,6 @@ class DashboardWorkerControl:
         except (OSError, ValueError, TypeError):
             delegated = False
             host_count = 0
-        from suryadev_liveops import _safe_read
         fresh=_safe_read(self.root, "fresh-workspace.json", max_bytes=4096)
         is_fresh=fresh.get("schema")=="suryadev.fresh-workspace.v1"
         return {
