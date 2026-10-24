@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
 import html
 import json
+import os
 import secrets
 import sqlite3
 from pathlib import Path
@@ -29,7 +30,7 @@ from suryadev_book_continuity import BookContinuity, BookEvidenceCollector, may_
 from suryadev_book_handoff import BookHandoff
 from suryadev_sources import breakdown
 from suryadev_task_details import list_tasks, task_detail, diary_days, diary_day
-from suryadev_liveops import operations_snapshot, worker_note
+from suryadev_liveops import operations_snapshot, worker_note, atomic_json
 from suryadev_operator_api import settings_snapshot, handle_operator_action
 from mimetypes import guess_type
 from suryadev_lock import worker_lock
