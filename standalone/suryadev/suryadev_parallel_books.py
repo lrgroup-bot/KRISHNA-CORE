@@ -102,7 +102,7 @@ class ParallelBookReader:
                     "error":type(exc).__name__+": "+str(exc)[:180],
                     "brahmagyan_acknowledged":False}
 
-    def tick(self, *, capacity, source_active=0):
+    def tick(self, *, capacity, source_active=0, video_active=0):
         if self.closed:
             raise RuntimeError("Book worker pool is closed")
         now=float(self.clock())
@@ -125,7 +125,7 @@ class ParallelBookReader:
         safe=capacity.get("safe") is True
         allotted=min(MAX_ACTIVE_BOOKS,
             int(capacity.get("reserved_book_slots",0)),
-            max(0,int(capacity.get("max_total",0))-max(0,int(source_active))))
+            max(0,int(capacity.get("max_total",0))-max(0,int(source_active))-max(0,int(video_active))))
         started=[]
         if safe:
             occupied={item["sha256"] for item in self.futures.values()}
