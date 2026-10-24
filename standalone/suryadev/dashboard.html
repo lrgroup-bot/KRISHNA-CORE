@@ -107,8 +107,8 @@
         </article>
         <article class="netra-source netra-youtube">
           <div class="netra-source-top"><span class="netra-icon">▶</span><strong>YouTube</strong><span class="netra-label">Caption extraction lane</span></div>
-          <div class="netra-big"><strong id="netra-video-running">—</strong><span>processing now</span></div>
-          <div class="netra-metrics"><span>Allowed <b id="netra-video-capacity">—</b></span><span>Queued <b id="netra-video-queued">—</b></span><span>Video viewing <b>Not verified</b></span></div>
+          <div class="netra-big"><strong id="netra-video-running">—</strong><span>caption jobs now</span></div>
+          <div class="netra-metrics"><span>Allowed <b id="netra-video-capacity">—</b></span><span>Queued <b id="netra-video-queued">—</b></span><span>Browser observers <b id="netra-video-observers">0</b></span></div>
           <p class="netra-access-note" id="netra-youtube-access" aria-live="polite">One subtitle language per video · provider availability unverified</p>
         </article>
         <article class="netra-source netra-pdf">
@@ -125,6 +125,7 @@
       </div>
       <div class="netra-bottom-row">
         <div class="netra-admission"><span aria-hidden="true">◈</span><div><strong id="netra-capacity-heading">Measuring laptop headroom…</strong><small id="netra-capacity-reason">Auto-admission is disabled unless hardware telemetry is available.</small></div><span class="netra-capacity-badge" id="netra-total-capacity">— active / — allowed</span></div>
+        <p id="netra-parallel-targets" class="netra-disclaimer" aria-live="polite">Requested lanes: 10 websites · 10 observed videos · 20 PDFs · 5 books = 45 assignments. Actual concurrent execution is hardware-admitted below 85% CPU/RAM/disk/GPU limits; caption requests are limited separately.</p>
         <div class="netra-browser-state"><span id="netra-tab-heading">Actual Garudanetra browser: inactive</span><small id="netra-browser-detail">Playwright Chromium is opened only for approved queued website jobs.</small></div>
       </div>
       <div class="netra-continuity" id="netra-continuity-status" aria-live="polite">
