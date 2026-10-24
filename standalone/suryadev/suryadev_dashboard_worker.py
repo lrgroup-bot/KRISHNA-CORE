@@ -140,7 +140,7 @@ class DashboardWorkerControl:
         }
 
     def start(self, *, model="qwen3.5:2b"):
-        if not isinstance(model, str) or model not in ("qwen3.5:2b", "qwen3.5:4b", "gemma3:4b"):
+        if not isinstance(model, str) or model not in ("qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b", "gemma3:4b"):
             raise ValueError("Select one supported local Ollama model")
         with self.lock:
             if self.process is not None and self.process.poll() is None:
@@ -177,10 +177,15 @@ class DashboardWorkerControl:
             # Other KRISHNA workers and system-wide Ollama configuration stay untouched.
             env = os.environ.copy()
             env["SURYADEV_OLLAMA_THREADS"] = str(min(2, max(1, (os.cpu_count() or 2)//2)))
-            # Do not impose a fixed 45-worker ceiling. The hardware
-            # controller admits the safe number on this device each cycle.
-            # An explicit operator SURYADEV_MAX_PARALLEL, if supplied, can
-            # only reduce those measured limits.
+            # Fresh learning: no more than THREE tasks TOTAL across sources,
+            # browser video observations and book model-reading slots.
+            # The hardware 85% guard may further reduce this to 0, 1 or 2.
+            # Never inherit a larger, unsafe operator cap.
+            try:
+                requested = int(env.get("SURYADEV_MAX_PARALLEL", "3"))
+            except (TypeError, ValueError):
+                requested = 1
+            env["SURYADEV_MAX_PARALLEL"] = str(max(1, min(3, requested)))
             env["SURYADEV_BROWSER_TABS"] = "auto"
             try:
                 proc = subprocess.Popen(args, cwd=str(self.application_dir),
@@ -197,7 +202,7 @@ class DashboardWorkerControl:
                     "cpu_thread_budget":int(env["SURYADEV_OLLAMA_THREADS"]),
                     "automatic_hardware_capacity":True,
                     "pdf_workload_limit":100,
-                    "max_parallel_research":"measured_by_85_percent_guard",
+                    "max_parallel_research":int(env["SURYADEV_MAX_PARALLEL"]),
                     "browser_tabs_limit":"dynamic_up_to_10",
                     "note":("KRISHNA paired fleet mission polling enabled; Core acceptance not claimed."
                             if core["ready"] else
