@@ -233,10 +233,23 @@ class AdaptiveResearchWorkers:
         reserve_books = (min(BOOK_TARGET, max(1,total // 4))
                          if self.books_enabled and total > 1 else 0)
         reserve_books = min(reserve_books,max(0,total-1))
-        reserve_video = (min(SOURCE_TARGETS["youtube"],
-                             max(1,total // 3))
-                         if self.video_enabled and total > 1 else 0)
-        reserve_video = min(reserve_video,max(0,total-1-reserve_books))
+        # When the approved queue contains ONLY browser videos, use spare
+        # measured slots for 2-3 distinct observers rather than forcing one
+        # video lane while the other slots stay idle. Any waiting website/PDF/
+        # caption source keeps one source slot. Pending books keep their reserve.
+        # This is still bounded by the shared fresh-node cap and 85% guard.
+        pending_source = False
+        if self.video_enabled and total:
+            queued_db = Library(self.root)
+            try:
+                pending_source = bool(queued_db.db.execute(
+                    "SELECT 1 FROM jobs WHERE status='queued' LIMIT 1"
+                ).fetchone())
+            finally:
+                queued_db.db.close()
+        video_budget = max(0, total - reserve_books - (1 if pending_source else 0))
+        reserve_video = (min(SOURCE_TARGETS["youtube"], video_budget)
+                         if self.video_enabled else 0)
         if total == 2 and self.books_enabled and self.video_enabled:
             # Only one non-source slot exists. Alternate which lane may
             # claim it instead of permanently starving videos or books.
