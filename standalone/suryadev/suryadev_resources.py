@@ -40,6 +40,27 @@ def hardware_identity():
                 identity["cpu_name"]=str(payload["cpu_name"])[:120]
         except (OSError,ValueError,subprocess.SubprocessError):
             pass
+    elif platform.system() == "Linux":
+        # DRM sysfs vendor inventory is available for many Intel, AMD and
+        # NVIDIA GPUs even when proprietary performance utilities are absent.
+        vendors = {"0x8086": "Intel GPU", "0x1002": "AMD GPU",
+                   "0x10de": "NVIDIA GPU"}
+        found = []
+        try:
+            for card in sorted(Path("/sys/class/drm").glob("card[0-9]*")):
+                vendor_file = card / "device" / "vendor"
+                if vendor_file.is_file():
+                    vendor = vendor_file.read_text(encoding="ascii").strip().lower()
+                    label = vendors.get(vendor, "GPU vendor " + vendor[:10])
+                    if label not in found:
+                        found.append(label)
+                if len(found) >= 4:
+                    break
+        except (OSError, UnicodeError, ValueError):
+            pass
+        if found:
+            identity["gpu_name"] = ", ".join(found)
+            identity["gpu_inventory_verified"] = True
     return identity
 
 
