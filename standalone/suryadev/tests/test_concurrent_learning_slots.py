@@ -48,6 +48,17 @@ class ConcurrentLearningTests(unittest.TestCase):
                 self.assertEqual(c["source_execution_slots"],
                                  c["max_total"]-5)
 
+    def test_external_books_and_videos_reduce_new_source_admission(self):
+        with tempfile.TemporaryDirectory() as root:
+            with AdaptiveResearchWorkers(root,use_ollama=False,books_enabled=True) as pool:
+                pool.video_enabled = True
+                pool.external_active = 6
+                with patch("suryadev_parallel.os.cpu_count",return_value=12):
+                    result=pool.pump(telemetry=hardware())["capacity"]
+                self.assertEqual(result["source_execution_slots"],0)
+                self.assertEqual(result["non_source_active"],6)
+                self.assertEqual(result["launched_this_cycle"],[])
+
     def test_five_books_advance_with_serial_model_calls(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
