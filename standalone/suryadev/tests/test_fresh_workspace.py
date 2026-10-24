@@ -98,6 +98,19 @@ class FreshWorkspaceTests(unittest.TestCase):
                 blocker.set()
                 lib.db.close()
 
+    def test_fresh_root_caps_direct_cli_without_dashboard(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            (root/"fresh-workspace.json").write_text(json.dumps({
+                "schema":"suryadev.fresh-workspace.v1", "active_task_limit":3
+            }),encoding="utf-8")
+            with AdaptiveResearchWorkers(root,use_ollama=False) as pool:
+                with patch.dict(os.environ,{"SURYADEV_MAX_PARALLEL":"99"}):
+                    with patch("suryadev_parallel.os.cpu_count",return_value=64):
+                        record=pool.pump(telemetry=safe_telemetry())["capacity"]
+                self.assertEqual(record["max_total"],3)
+                self.assertEqual(record["active_total"],0)
+
     def test_frontend_launcher_installed_and_no_manual_source_entry(self):
         html=(SOURCE/"dashboard.html").read_text(encoding="utf-8")
         launcher=(SOURCE/"start-fresh-workspace.ps1").read_text(encoding="utf-8")
