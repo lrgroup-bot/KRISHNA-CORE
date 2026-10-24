@@ -66,7 +66,7 @@
         <div>
           <div class="overline">MISSION PULSE · GARUDANETRA</div>
           <h2 id="netra-title">Mission pulse &amp; research workspaces</h2>
-          <p>Live browser activity, safe laptop capacity and learning results in one place.</p>
+          <p>Live browser activity, adaptive device capacity and evidence in one place.</p>
         </div>
         <span class="netra-live-pill" id="netra-engine-state">Checking browser…</span>
       </div>
@@ -76,8 +76,9 @@
           <strong id="learning-service-state">Learning worker status unknown</strong>
           <span id="learning-service-note">Start the local worker to process queued and approved sources. No automatic KRISHNA pairing.</span>
         </div>
-        <label for="learning-model">Local model
+        <label for="learning-model">Learning mode
           <select id="learning-model">
+            <option value="collector">Collector only · no Ollama</option>
             <option value="qwen3.5:2b" selected>Qwen 3.5 2B · lightweight</option>
             <option value="qwen3.5:4b">Qwen 3.5 4B</option>
             <option value="qwen3.5:9b">Qwen 3.5 9B · deeper reading</option>
