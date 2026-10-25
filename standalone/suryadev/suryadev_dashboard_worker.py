@@ -203,6 +203,18 @@ class DashboardWorkerControl:
             if actual_model == "collector":
                 # Evidence capture only: no local inference, Ollama process or model download.
                 args += ["--no-ollama"]
+            approved_books = self.root / "book-plan.json"
+            if approved_books.is_file():
+                from suryadev_book_continuity import read_book_plan
+                from suryadev_book_reader import file_sha256
+                entries = read_book_plan(approved_books)["books"]
+                if any(file_sha256(item["path"]) != item["sha256"] for item in entries):
+                    raise ValueError("Approved book bytes changed; refuse worker startup")
+                # Collector indexes evidence only; a local model performs
+                # serialized checkpointed book interpretation when enabled.
+                args += (["--book-collect-plan", str(approved_books)]
+                         if actual_model == "collector" else
+                         ["--book-plan", str(approved_books)])
             # Once installed and authenticated by its existing pinned TLS
             # device credential, KRISHNA owns the mission queue. Never
             # derive permission from an unauthenticated LAN /health probe.
