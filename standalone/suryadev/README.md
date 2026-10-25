@@ -1638,3 +1638,69 @@ If an actually scanned/illustrated page requires OCR, install
 retry. Downloaded PDFs already validated and saved are reused; never wipe
 `benchmark-books`, SQLite, or the source plan. Runtime installation from the
 feature branch should occur only after the canary regression tests pass.
+
+
+### YouTube ads, stalls and exclusive worker-lock contention (fleet-adaptive)
+
+The SOURCE of the earlier no-learning failure is not proven to be an ad.
+The laptop dashboard's *legacy standalone video auto scheduler* had started
+`approved-video-67f8dd17a7b32fd2` before the main learning worker, taking
+SURYADEV's **one canonical OS lock** while the site showed no confirmed
+captions, transcript chunks, or frames. This prevented 3 PDFs, 2 websites
+and five books from being admitted even when CPU/RAM were safe.
+
+**Corrected ownership:** in `fleet_adaptive` profile, the dashboard never
+starts a standalone video subprocess. All approved video observations
+are admitted ONLY by the main `ParallelVideoReader` under its existing
+single-worker supervisor lock and hardware admission. The same supervisor
+can schedule website/PDF and verified book model work as separate queues.
+A previously active legacy observer is reported as active and must finish or
+be explicitly stopped on the owner's Windows PC; this patch does not kill
+unrecognized processes or silently replay a partly viewed video.
+
+**Video reliability:** the Playwright adapter measures when YouTube actually
+reports an `.html5-video-player.ad-showing` ad. Ad timestamps, captions
+and frames are **excluded from the source learning record**. Ads that
+persist beyond 120 wall seconds or lectures with no content-clock progress
+for 60 seconds exit that video observation with an explicit reason,
+not a fake completed lesson. The canonical evidence validator refuses
+a bundle with zero real learning chunks AND zero visual observations.
+It never clicks or fast-forwards ads, pretends a provider restriction is
+comprehension, ignores HTTP 429 or claims that all captions were captured.
+`/api/youtube/audit` now exposes the stopped reason, ad event count,
+wall seconds, and whether filtering was requested. Live Playwright
+backends and YouTube behavior must still be checked on the actual laptop.
+
+**Optional reviewed GitHub content blocker:** The official open-source
+[uBO Lite](https://github.com/uBlockOrigin/uBOL-home) from
+[gorhill/uBlock (MV3 source)](https://github.com/gorhill/uBlock/tree/master/platform/mv3)
+uses declarative Manifest V3 rules. SURYADEV supports it ONLY if the
+owner has separately obtained/built/reviewed an **unpacked** uBO Lite
+Chromium directory and explicitly opts in by setting
+`SURYADEV_UBOL_EXTENSION_DIR` to its absolute local path before starting
+the dashboard. This is optional; no extension is downloaded, installed,
+auto-updated, or granted access to KRISHNA credentials by the code.
+
+```powershell
+# SAMPLE PATH ONLY — review the real official extension directory first
+$env:SURYADEV_UBOL_EXTENSION_DIR = 'D:\\Tools\\uBOLite.chromium'
+# Then restart the ONE existing dashboard through its controlled
+# single-node launch, and use Start Learning there.
+```
+
+The adapter verifies a bounded Manifest V3 extension with
+`declarativeNetRequest`, denies unexpected privileged native messaging/
+debugger grants, and loads it only in an isolated Playwright **Chromium
+persistent context**, as documented by Playwright. Its actual filtering
+effectiveness and provider availability are NEVER asserted just because an
+extension was present. Do not install unrelated unofficial CRX mirrors.
+
+**Canary after updating installed app while dashboard/worker are stopped:**
+check `/api/learning/control` for `managed_running` and
+`external_worker_active`, then start exactly one approved local worker,
+observe the feeder registering fresh PDF/web assignments, separate book
+journal `ollama:<model>` lines, and `/api/youtube/audit` for real video
+evidence/failures. The original previously attempted video is **not**
+silently retried after a failed/partial observation. A new one-time
+owner-approved attempt or a different approved video is needed; do not
+erase the previous evidence or alter the attempt journal.
