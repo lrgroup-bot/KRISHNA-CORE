@@ -58,7 +58,13 @@ def classify(samples):
             "rishi_exam_verified":False}
 
 
-def execute(root, *, url, channel="chrome", sample_seconds=2, observation_seconds=50):
+def can_approve_after_probe(assessment):
+    return (assessment.get("content_clock_advanced_30s") is True
+            and not assessment.get("media_error_codes"))
+
+
+def execute(root, *, url, channel="chrome", sample_seconds=2, observation_seconds=50,
+            approve_after_passing=False):
     from playwright.sync_api import sync_playwright
     url=validated_video(url)
     if channel not in CHANNELS:
@@ -141,6 +147,16 @@ def execute(root, *, url, channel="chrome", sample_seconds=2, observation_second
                 "previous_video_history_modified":False,
                 "source_approval_modified":False,
                 "real_lecture_comprehension_verified":False}
+        result["new_source_approved_for_learning"] = False
+        if approve_after_passing and can_approve_after_probe(result["assessment"]):
+            # A separate, explicit operator opt-in can approve this exact
+            # fresh URL only AFTER 30s of genuine non-ad clock advancement.
+            # The original 3 failed video jobs remain completely untouched.
+            from suryadev_video_review import VideoReview
+            review=VideoReview(root,Path(__file__).resolve().parent)
+            approval=review.approve_source(url)
+            result["new_source_approved_for_learning"] = True
+            result["source_approval_status"] = approval.get("status")
         folder=root/"benchmark-reports"
         folder.mkdir(exist_ok=True)
         path=folder/("video-browser-probe-"+channel+"-"+time.strftime(
@@ -158,11 +174,16 @@ def main(argv=None):
     p.add_argument("--video",required=True)
     p.add_argument("--channel",choices=sorted(CHANNELS),default="chrome")
     p.add_argument("--seconds",type=int,default=50)
+    p.add_argument("--approve-after-passing",action="store_true",
+                   help="Explicitly allow this one video after 30s genuine non-ad playback")
     args=p.parse_args(argv)
     try:
         path,report=execute(args.data,url=args.video,channel=args.channel,
-                            observation_seconds=args.seconds)
+                            observation_seconds=args.seconds,
+                            approve_after_passing=args.approve_after_passing)
         print(json.dumps({"report":str(path),"assessment":report["assessment"],
+                          "new_source_approved_for_learning":
+                              report["new_source_approved_for_learning"],
                           "diagnostics":report["diagnostics"]},indent=2))
         return 0 if report["assessment"]["content_clock_advanced_30s"] else 3
     except (OSError,ValueError,RuntimeError) as exc:
