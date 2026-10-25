@@ -6,7 +6,7 @@ The dashboard and its existing worker must already be running.
 """
 from __future__ import annotations
 import argparse
-import csv
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
@@ -78,7 +78,7 @@ def readonly_db(path):
 
 def source_snapshot(data, selection):
     data = Path(data)
-    with readonly_db(data / "suryadev.sqlite3") as db:
+    with closing(readonly_db(data / "suryadev.sqlite3")) as db:
         records = {}
         for kind in ("pdf", "website", "youtube"):
             for url in selection[kind]:
@@ -182,7 +182,10 @@ def collect(root, chosen, base, max_minutes, sample_seconds, output):
             video_done=all(tasks[u].get("video_observation_status") in VIDEO_EVIDENCE
                            for u in chosen["youtube"])
             if source_done and book_done and video_done:
-                report["status"]="all_collection_lanes_terminal"
+                report["status"]=("terminal_with_failures" if any(
+                    tasks[u].get("status")=="failed"
+                    for k in ("pdf","website","youtube") for u in chosen[k]
+                ) else "all_collection_lanes_terminal")
                 break
             if time.monotonic()>=deadline:
                 report["status"]="time_limit_reached_jobs_may_still_be_running"
@@ -216,6 +219,16 @@ def main(argv=None):
         p.error("Minutes must be 1..720 and sampling 5..300 seconds")
     try:
         chosen=select(a.data,a.manifest)
+        baseline=source_snapshot(a.data,chosen)
+        # A second run over old finished work can misleadingly finish in
+        # seconds while reporting timing receipts from the first run.
+        reused=[u for k in ("pdf","website","youtube") for u in chosen[k]
+                if baseline[u].get("status") in ("done","failed")]
+        if reused:
+            raise ValueError("This test requires newly queued sources; already "
+                             "completed/failed URL count is "+str(len(reused))+
+                             ". Choose fresh exact approved URLs for a real throughput test. "
+                             "Historical receipts remain available in the dashboard.")
         print(json.dumps({"approved_selection":chosen},ensure_ascii=False,indent=2),flush=True)
         if a.preflight:
             print("PASS: all 13 source approvals and local book SHA-256 values verified")
