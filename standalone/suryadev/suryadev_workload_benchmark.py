@@ -128,6 +128,14 @@ def source_snapshot(data, selection):
     return records
 
 
+def control(base):
+    with urlopen(base.rstrip("/")+"/api/learning/control", timeout=8) as resp:
+        result=json.loads(resp.read(131073))
+    if not isinstance(result,dict):
+        raise ValueError("Worker control response is not an object")
+    return result
+
+
 def operations(base):
     url = base.rstrip("/")+"/api/operations"
     with urlopen(url, timeout=8) as resp:
@@ -149,10 +157,14 @@ def collect(root, chosen, base, max_minutes, sample_seconds, output):
     started=time.time()
     baseline=source_snapshot(root,chosen)
     initial=operations(base)
-    if initial.get("worker",{}).get("state") not in ("starting","idle","busy","checking"):
-        raise RuntimeError("SURYADEV learning worker is not running; start it in the dashboard")
+    control_state=control(base)
+    if (not control_state.get("managed_running")
+            or initial.get("worker",{}).get("state") not in ("starting","idle","busy","checking")):
+        raise RuntimeError("Dashboard-managed SURYADEV learning worker is not running")
+    collector_only=control_state.get("managed_model") == "collector"
     report={"schema":"suryadev.workload-audit.v1", "started_at":started,
-            "selection":chosen,"baseline":baseline,"observations":[],
+            "selection":chosen,"baseline":baseline,
+            "collector_only":collector_only,"observations":[],
             "status":"running", "learning_mastery_verified":False,
             "note":"Successful extraction/indexing is not understanding or Rishi review"}
     deadline=time.monotonic()+max_minutes*60
@@ -177,15 +189,19 @@ def collect(root, chosen, base, max_minutes, sample_seconds, output):
             report["observations"].append(checkpoint)
             source_done=all(tasks[u].get("status") in FINISHED
                             for k in ("pdf","website","youtube") for u in chosen[k])
-            book_done=all(tasks["book:"+sha].get("status")=="complete"
-                          for sha in chosen["book"])
+            book_done=all(
+                (tasks["book:"+sha].get("index_available") is True if collector_only
+                 else tasks["book:"+sha].get("status")=="complete")
+                for sha in chosen["book"])
             video_done=all(tasks[u].get("video_observation_status") in VIDEO_EVIDENCE
                            for u in chosen["youtube"])
             if source_done and book_done and video_done:
-                report["status"]=("terminal_with_failures" if any(
-                    tasks[u].get("status")=="failed"
-                    for k in ("pdf","website","youtube") for u in chosen[k]
-                ) else "all_collection_lanes_terminal")
+                report["status"]=(
+                    "terminal_with_failures" if any(
+                        tasks[u].get("status")=="failed"
+                        for k in ("pdf","website","youtube") for u in chosen[k])
+                    else "collection_complete_no_book_model" if collector_only
+                    else "all_collection_lanes_terminal")
                 break
             if time.monotonic()>=deadline:
                 report["status"]="time_limit_reached_jobs_may_still_be_running"
@@ -238,7 +254,8 @@ def main(argv=None):
         print(json.dumps({"report":str(filename),"outcome":report["status"],
                           "elapsed_seconds":report["wall_elapsed_seconds"],
                           "mastery_verified":False},indent=2),flush=True)
-        return 0 if report["status"]=="all_collection_lanes_terminal" else 3
+        return 0 if report["status"] in (
+            "all_collection_lanes_terminal","collection_complete_no_book_model") else 3
     except (OSError,ValueError,RuntimeError,sqlite3.Error,KeyError) as exc:
         print("BENCHMARK NOT STARTED: "+type(exc).__name__+": "+str(exc),flush=True)
         return 2
