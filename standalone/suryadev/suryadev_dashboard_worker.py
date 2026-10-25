@@ -178,24 +178,29 @@ class DashboardWorkerControl:
         }
 
     def start(self, *, model="qwen3.5:2b"):
-        if not isinstance(model, str) or model not in ("collector", "qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b", "gemma3:4b"):
+        if not isinstance(model, str) or model not in ("auto", "collector", "qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b", "gemma3:4b"):
             raise ValueError("Select one supported local Ollama model")
         with self.lock:
             if self.process is not None and self.process.poll() is None:
                 raise RuntimeError("Dashboard-managed worker already running")
             if self._external_lock_held():
                 raise RuntimeError("Another SURYADEV research or video process owns the worker lock")
+            # Select the actual model using only THIS node's telemetry.
+            # Auto never downloads model weights or selects heavy inference.
+            from suryadev_model_router import resolve_model
+            selection = resolve_model(model, self.root)
+            actual_model = selection["model"]
             # A recently written heartbeat alone is not an active process.
             # The child independently acquires the lock before doing any work.
             plan = self.root/"learning-plan.json"
             args = [self.python, "-u", str(self.application_dir/"suryadev_extras.py"),
                     "--data", str(self.root), "worker", "--interval", "30",
-                    "--model", model]
+                    "--model", actual_model]
             if plan.is_file():
                 from suryadev_feeder import read_plan
                 read_plan(plan)   # malformed plan prevents any launch
                 args += ["--plan", str(plan)]
-            if model == "collector":
+            if actual_model == "collector":
                 # Evidence capture only: no local inference, Ollama process or model download.
                 args += ["--no-ollama"]
             # Once installed and authenticated by its existing pinned TLS
@@ -231,6 +236,7 @@ class DashboardWorkerControl:
                 requested = 1
             env["SURYADEV_MAX_PARALLEL"] = str(max(1, min(ceiling, requested)))
             env["SURYADEV_BROWSER_TABS"] = "auto"
+            env["SURYADEV_COLLECTOR_ONLY"] = "1" if actual_model == "collector" else "0"
             try:
                 proc = subprocess.Popen(args, cwd=str(self.application_dir),
                     stdin=subprocess.DEVNULL, stdout=handle, stderr=subprocess.STDOUT,
@@ -239,11 +245,13 @@ class DashboardWorkerControl:
                 handle.close()
                 raise
             self.process = proc
-            self.running_model = model
+            self.running_model = actual_model
             self.logfile = handle
             return {"ok": True, "status":"STARTING", "pid":proc.pid,
-                    "model":model, "learning_role":"collector_only" if model=="collector" else "local_inference",
-                    "ollama_required":model!="collector", "approved_plan_loaded":plan.is_file(),
+                    "model":actual_model, "requested_model":model,
+                    "model_policy_reason":selection["reason"],
+                    "learning_role":"collector_only" if actual_model=="collector" else "local_inference",
+                    "ollama_required":actual_model!="collector", "approved_plan_loaded":plan.is_file(),
                     "core_dispatch_mode":"krishna_fleet" if core["ready"] else "local",
                     "cpu_thread_budget":int(env["SURYADEV_OLLAMA_THREADS"]),
                     "automatic_hardware_capacity":True,
