@@ -21,9 +21,9 @@ class VideoProbeTests(unittest.TestCase):
     def test_healthy_content_clock_is_not_claimed_as_learning(self):
         row=classify([
             {"has_video":True,"ad_showing":False,"seconds":0,
-             "media_error_code":None},
+             "media_error_code":None,"source_url":TRIAL_VIDEO},
             {"has_video":True,"ad_showing":False,"seconds":35,
-             "media_error_code":None}])
+             "media_error_code":None,"source_url":TRIAL_VIDEO}])
         self.assertTrue(row["content_clock_advanced_30s"])
         self.assertEqual(row["source_video_progress_seconds"],35)
         self.assertFalse(row["learning_verified"])
@@ -39,6 +39,12 @@ class VideoProbeTests(unittest.TestCase):
         self.assertFalse(can_approve_after_probe({
             "content_clock_advanced_30s":True,
             "media_error_codes":[4]}))
+
+    def test_unrelated_video_playback_cannot_trigger_source_approval(self):
+        self.assertFalse(can_approve_after_probe({
+            "requested_video_page_verified":False,
+            "content_clock_advanced_30s":True,
+            "media_error_codes":[]}))
 
     def test_advertisement_only_movement_is_not_content_progress(self):
         row=classify([
