@@ -155,6 +155,14 @@ def observer_jobs(root, limit=30):
                 if session else _seconds(playback.get("video_seconds")),
             "source_duration_seconds":_seconds(session.get("source_duration_seconds")),
             "video_ended":session.get("video_ended") is True,
+            "stop_reason":_short(session.get("end_reason"),90),
+            "advertisement_events":(session.get("video_advertisement_events")
+                                    if type(session.get("video_advertisement_events")) is int
+                                    else None),
+            "advertisement_wall_seconds":_seconds(session.get("advertisement_wall_seconds")),
+            "advertisement_samples_excluded":session.get("advertisement_samples_not_used_as_learning"),
+            "content_filter":_short(session.get("content_filter") or "not_reported",110),
+            "ad_filter_effectiveness_verified":False,
             "adaptive_playback":session.get("adaptive_playback"),
             "four_x_observed":session.get("four_x_observed") is True,
             "live_observed_playback_rate":_seconds(playback.get("observed_rate")),
