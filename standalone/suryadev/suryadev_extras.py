@@ -359,6 +359,16 @@ def serve(lib, port=8769):
                 return self.respond(200, json.dumps(payload), "application/json")
             if route.path == "/api/resources":
                 return self.respond(200, json.dumps(snapshot(lib.root)), "application/json")
+            if route.path == "/api/plugins":
+                # Read-only registry. No plugin is executed or implicitly trusted.
+                from suryadev_plugins import plugin_registry
+                try:
+                    view = plugin_registry(lib.root)
+                except (ValueError, OSError) as exc:
+                    view = {"schema":"suryadev.plugin-registry.v1",
+                            "plugins":[],"rejected":[{"reason":str(exc)[:140]}],
+                            "execution_enabled":False}
+                return self.respond(200, json.dumps(view), "application/json")
             if route.path == "/health":
                 reader = DashboardReader(lib.root)
                 try:
