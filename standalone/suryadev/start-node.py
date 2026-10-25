@@ -21,7 +21,8 @@ MARKER_SCHEMA = "suryadev.fresh-workspace.v1"
 
 
 def prepare(data: Path, *, model: str, previous: Path | None = None,
-            new_session: bool = False) -> Path:
+            new_session: bool = False, adaptive_fleet: bool = False,
+            continuous: bool = False) -> Path:
     """Initialize or reopen a fresh study ledger without removing prior files."""
     if model not in MODELS:
         raise ValueError("Unsupported learning mode")
@@ -57,6 +58,13 @@ def prepare(data: Path, *, model: str, previous: Path | None = None,
         }
     if previous is not None and "previous_learning_preserved_at" not in state:
         state["previous_learning_preserved_at"] = str(previous)
+    # Fleet mode is deliberately opt-in for the first release. Existing laptop
+    # installations retain their legacy three-task safety contract.
+    if adaptive_fleet:
+        state["node_profile"] = "fleet_adaptive"
+        state["active_task_limit"] = 125  # Upper cap; resource admission always wins.
+    if continuous:
+        state["mission_rest_policy"] = "continuous"  # Never disables 85% safety.
     # Explicit mode selection may change the inference backend, not study evidence.
     state["trial_model"] = model
     temp = data / (".fresh-workspace-" + secrets.token_hex(8) + ".tmp")
@@ -92,19 +100,28 @@ def main(argv=None):
                     help="Run the previously owner-approved fixed YouTube/book trial")
     ap.add_argument("--auto-approved-videos", action="store_true",
                     help="Automatically observe only exact approved video URLs under hardware guard")
+    ap.add_argument("--adaptive-fleet", action="store_true",
+                    help="Enable resource-measured fleet capacity instead of legacy three-task ceiling")
+    ap.add_argument("--continuous", action="store_true",
+                    help="Rollover six-hour mission accounting without forced rest; safety/source pauses remain")
     ap.add_argument("--prepare-only", action="store_true")
     args = ap.parse_args(argv)
     if not args.prepare_only and not available_port(args.port):
         ap.error("Dashboard port is in use; stop the previous dashboard first")
     data = prepare(args.data, model=args.model, previous=args.previous_data,
-                   new_session=args.new_session)
+                   new_session=args.new_session, adaptive_fleet=args.adaptive_fleet,
+                   continuous=args.continuous)
     print("SURYADEV data:", data, flush=True)
-    print("Node mode:", args.model, "| max active tasks: 3 | 85% safety guard", flush=True)
+    marker = json.loads((data / "fresh-workspace.json").read_text(encoding="utf-8"))
+    fleet_profile = marker.get("node_profile") == "fleet_adaptive"
+    active_cap = 125 if fleet_profile else 3
+    print("Node mode:", args.model, "| admission cap:", active_cap,
+          "| resource measured, never guaranteed | 85% safety guard", flush=True)
     print("Previous evidence remains untouched; KRISHNA pairing is not auto-provisioned.",flush=True)
     if args.prepare_only:
         return 0
     env = os.environ.copy()
-    env["SURYADEV_MAX_PARALLEL"] = "3"
+    env["SURYADEV_MAX_PARALLEL"] = str(active_cap)
     # The approved public sources are not fetched implicitly on all fleet nodes.
     env["SURYADEV_LEARNING_TRIAL"] = "1" if args.approved_trial else "0"
     env["SURYADEV_AUTO_APPROVED_VIDEOS"] = "1" if args.auto_approved_videos else "0"
