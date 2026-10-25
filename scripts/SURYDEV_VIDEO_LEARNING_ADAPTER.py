@@ -583,7 +583,8 @@ def observe(job, workspace):
             _try_play(page)
             page.wait_for_timeout(5000)
             first = _video_snapshot(page)
-            caption_seen = bool(re.sub(r"\s+", " ", str(first.get("caption") or "").strip()))
+            caption_seen = (first.get("ad_showing") is not True and
+                            bool(re.sub(r"\s+", " ", str(first.get("caption") or "").strip())))
             allow_audio_asr = bool(constraints.get("allow_audio_asr_fallback", True))
             if not caption_seen and allow_audio_asr and _SystemAudioASR.available():
                 audio_asr = _SystemAudioASR(
