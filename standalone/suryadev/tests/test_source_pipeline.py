@@ -148,6 +148,41 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(report["coverage_status"], "caption_timeline_only_unverified")
         self.assertFalse(report["full_video_visuals_verified"])
 
+    def test_large_full_length_captions_are_chunked_not_discarded(self):
+        # Regression for the actual CS50P lecture failure (>220k chars).
+        speech="source anchored proof " * 12000 + "THE FINAL CAPTION PROOF"
+        vtt=("WEBVTT\\n\\n00:00:00.000 --> 00:03:20.000\\n"
+             +speech+"\\n")
+        class Downloader:
+            def __init__(self,options):
+                self.options=options
+            def __enter__(self):
+                return self
+            def __exit__(self,*args):
+                return False
+            def extract_info(self,url,download):
+                folder=Path(self.options["outtmpl"]).parent
+                (folder/"abcdefghijk.en.vtt").write_text(vtt,encoding="utf-8")
+                return {"id":"abcdefghijk","duration":200,
+                        "title":"Long documented lecture"}
+        with patch.dict(sys.modules,{"yt_dlp":types.SimpleNamespace(YoutubeDL=Downloader)}):
+            title, text, coverage=ingest_youtube(
+                "https://www.youtube.com/watch?v=abcdefghijk")
+        self.assertGreater(len(text),220_000)
+        self.assertIn("THE FINAL CAPTION PROOF",text)
+        self.assertEqual(coverage["cue_count"],1)
+        calls=[]
+        def observer(prompt,model):
+            calls.append(prompt)
+            return "Candidate "+str(len(calls))
+        summary,receipts=summarize_all(text,model="local-test",use_ollama=True,
+                                        summarize_fn=observer)
+        self.assertEqual(receipts["chunks_total"],receipts["chunks_summarized"])
+        self.assertGreater(len(calls),24)
+        self.assertIn("THE FINAL CAPTION PROOF",calls[-1])
+        self.assertEqual(receipts["summary_coverage"],
+                         "all_text_chunks_sent_to_ollama_unverified")
+
     def test_youtube_no_captions_fails(self):
         class Downloader:
             def __init__(self, opts): pass
