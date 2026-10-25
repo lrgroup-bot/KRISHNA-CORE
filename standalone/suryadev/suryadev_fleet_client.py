@@ -120,8 +120,12 @@ class FleetClient:
         thermal = ("hot" if measured_hot else
                    "normal" if telemetry is not None and telemetry.get("temperature_available")
                    else "unknown")
-        pending = lib.db.execute(
-            "SELECT COUNT(*) FROM jobs WHERE status IN ('running','queued')").fetchone()[0]
+        counts = dict(lib.db.execute(
+            "SELECT status, COUNT(*) FROM jobs WHERE status IN ('running','queued') GROUP BY status"
+        ).fetchall())
+        queued = int(counts.get("queued",0))
+        running = int(counts.get("running",0))
+        pending = queued + running
         reply = self._send("device/heartbeat", {
             "node_name": "SURYADEV-" + self.config["device_id"][-8:],
             "platform": platform.system(),
@@ -130,6 +134,8 @@ class FleetClient:
                                "draining" if phase == "draining" else
                                "researching" if pending else "idle"),
             "network_online": True,
+            "queued_jobs": queued,
+            "running_jobs": running,
             "thermal_state": thermal,
             "telemetry": telemetry,
         })
