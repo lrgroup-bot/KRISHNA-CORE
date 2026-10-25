@@ -1815,3 +1815,56 @@ then inspect the **new** read-only `/api/youtube/audit` fields:
 A supervised owner-reviewed fresh attempt is required; do not edit/delete
 historical worker reports or attempt journals to force replay. Normal
 approved source/PDF/book work can continue independently.
+
+
+### Fresh Chrome/Edge 50-second playback probe, then one new approved video
+
+The fixed original CS50P trio is **historical** and must not be replayed by
+clearing worker journals. A separate previously defined SURYADEV test source,
+`https://www.youtube.com/watch?v=VZ5LU8vHT0s`
+("Playwright Python 1 | Getting Started" from Automation Step by Step), is a
+fresh diagnostic candidate. The free tutorial is ~44 minutes, but the first
+50 seconds suffice to discriminate an eight-second media-clock stall from
+normal browser progress. **A successful probe is not a learned lecture.**
+
+With the original dashboard learning worker gracefully stopped and the
+dashboard PowerShell process closed, update the feature checkout and the
+marked portable app, preserving the existing data directory. Then, while
+both dashboard and worker are **still stopped**, run:
+
+```powershell
+$root='D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+$py="$root\\.venv\\Scripts\\python.exe"
+$data="$root\\data"
+& $py "$root\\app\\suryadev_video_browser_probe.py" `
+  --data $data --channel chrome --seconds 50 `
+  --video 'https://www.youtube.com/watch?v=VZ5LU8vHT0s' `
+  --approve-after-passing
+```
+
+The probe uses the **same global worker lock**, requires the 85% hardware
+admission guard, opens one **locally installed branded Google Chrome** in a
+throwaway fresh profile, records only browser ready/network/error/media-clock
+samples and advertisement visibility, and saves a timestamped JSON to
+`data/benchmark-reports/video-browser-probe-chrome-*.json`. It never
+downloads raw video, skips advertisements, reads an authenticated browser
+profile, modifies historical source artifacts, claims full understanding, or
+bypasses YouTube access rules. An optional `--channel msedge` comparison
+uses a separately installed Edge browser. Its browser channel never loads
+the optional uBO Lite extension.
+
+The **explicit** `--approve-after-passing` opt-in stages this exact new
+public video in `learning-plan.json`, with the existing plan's automatic
+backup, **only if** the actual requested watch page shows 30+ seconds of
+non-ad source-video clock advancement and no media error. Failure leaves
+the approved curriculum unchanged and writes a diagnostic report.
+
+On success, restart **one** dashboard via the existing
+`START_SURYADEV_13_SOURCE_CHECK.ps1 -DashboardOnly` launcher and then use
+the UI's **Start learning** control (with model `auto` or an installed
+lightweight model). Hardware-admitted lanes will then schedule the newly
+approved video observation, caption extraction, and other pending sources,
+preserving the previous three attempts. After a real session, examine
+`/api/youtube/audit` for stop reasons, caption chunks, true content-clock
+coverage and BRAHMAGYAN/Rishi pending status. **An approved video or a
+browser probe passing alone never proves full video learning.**
