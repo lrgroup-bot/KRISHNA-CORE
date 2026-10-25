@@ -42,7 +42,7 @@
       <span class="tag" id="workspace-tag">WORKSPACE · CHECKING</span>
     </div>
     <section class="summary" aria-label="Mission totals">
-      <article class="stat"><span>Active assignments</span><strong id="stat-active">—</strong><small id="stat-admitted">Maximum 3 per fresh node</small></article>
+      <article class="stat"><span>Active assignments</span><strong id="stat-active">—</strong><small id="stat-admitted">Reading measured admission and configured ceiling</small></article>
       <article class="stat"><span>Queued</span><strong id="stat-queued">—</strong><small>Only approved sources</small></article>
       <article class="stat"><span>Completed by worker</span><strong id="stat-done">—</strong><small>Not verified comprehension</small></article>
       <article class="stat"><span>Failed</span><strong id="stat-failed">—</strong><small>Failures remain in evidence history</small></article>
@@ -53,6 +53,7 @@
         <div class="field"><label for="learning-model">Learning mode</label>
           <select id="learning-model">
             <option value="collector" selected>Collector only · no Ollama</option>
+            <option value="auto">Auto · installed small local AI only if safe</option>
             <option value="qwen3.5:2b">Qwen 3.5 2B · local AI</option>
             <option value="qwen3.5:4b">Qwen 3.5 4B · local AI</option>
             <option value="qwen3.5:9b">Qwen 3.5 9B · local AI</option>
@@ -96,7 +97,7 @@
       <div class="panel-header"><div><div class="eyebrow">RESOURCE GUARD</div><h2 id="hardware-title">Node health</h2></div><span class="subtle-pill">85% admission ceiling</span></div>
       <div class="health-grid" id="health-grid"><p class="empty">Reading device health…</p></div>
       <p class="note" id="network-status">Internet reachability: unverified · Checking interface link</p>
-      <p class="note" id="capacity-reason">Measured hardware headroom determines how many tasks may start. The three-task maximum is not a guarantee of three running tasks.</p>
+      <p class="note" id="capacity-reason">Measured hardware admission and the configured fleet ceiling are different. Neither guarantees source work is running.</p>
     </section>
     <footer>☀ SURYADEV · Local-first · No paid frontend dependencies · <a href="/advanced">Open complete evidence console</a></footer>
   </main>
