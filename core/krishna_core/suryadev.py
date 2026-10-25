@@ -350,6 +350,13 @@ class SuryadevAgent:
             "thermal_state": self._text(payload.get("thermal_state") or "unknown", 60).lower(),
             "last_error": self._text(payload.get("last_error"), 1000),
         }
+        # Counters are advisory telemetry, never proof of learning completion.
+        for field in ("queued_jobs", "running_jobs"):
+            value = payload.get(field)
+            if value is not None:
+                if type(value) is not int or not 0 <= value <= 100000:
+                    raise ValueError("invalid SURYADEV " + field)
+                row[field] = value
         hardware = payload.get("hardware")
         capacity = payload.get("capacity")
         # Existing installed fleet clients send one normalized telemetry object.
