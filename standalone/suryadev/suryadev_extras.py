@@ -212,7 +212,7 @@ def serve(lib, port=8769):
                                      "has_single_date_filter": True,
                                      "has_static_video_review": True,
                                      "has_unified_frontend": True,
-                                     "has_node_control_console": True,
+                                     "has_node_control_console": False,
                                      "has_single_learning_intelligence_frontend": True,
                                      "has_dashboard_worker_controls": True,
                                      "has_fresh_isolated_workspace": True,
