@@ -192,6 +192,50 @@ with strict plugin ABI and rollback. **Never rebuilding it cannot be guaranteed*
 critical vulnerabilities, OS ABI changes, broken host/protocol features and
 new native capabilities may require a signed host update.
 
+## Additional implementation after first audit
+
+- **Dynamic fleet allocation:** Core prioritizes non-video work for general
+  collectors when a video-only node can take YouTube, subject to approved
+  source URLs, Rishi balancing and fresh paired-node telemetry.
+- **In-flight lease renewal:** 85% pressure stops NEW jobs, not legitimate
+  renewal of already-leased work. Renewals still need a fresh authenticated
+  worker and telemetry; expired/unpaired jobs are rejected.
+- **Automatic local model policy:** `--model auto` checks measured hardware
+  and the *already-installed* local `qwen3.5:2b` model. Low RAM, CPU,
+  battery, thermal headroom or missing Ollama selects `collector`. No model
+  downloads, paid fallback or heavy model is automatic.
+- **Capability advertisements:** nodes report installed `pypdf`, `yt_dlp`,
+  and Playwright prerequisites rather than claiming every source backend.
+  Installed package detection is not a full Chromium or provider-access
+  smoke test. Local book collection requires an approved source plan.
+- **SURYADEV local crash guard:** optional `suryadev_node_guard.py` launches
+  the *same* portable SURYADEV app, keeps its own status journal and safely
+  retries a crashed child up to three times in an hour. Repeated crashes are
+  quarantined; source evidence is never reset. It does not enumerate, stop,
+  or kill unrelated OS applications. Windows uses its own process group;
+  POSIX signals only the guardian-owned session group.
+- **Mission-renewal consistency:** continuous profile records zero forced
+  rest in the local BRAHMAGYAN renewal outbox, while legacy installations
+  retain the ten-minute rest contract.
+- **RAKSHAK:** separate 300s observer, with direct read-only ledger mode;
+  KRISHNA runs NO monitoring thread or additional AI model.
+
+A guardian can be invoked from the installed SURYADEV directory after
+separate profile preparation, approved-source configuration and CI gates:
+
+```powershell
+python -u .\suryadev_node_guard.py --data "D:\Work\SURYADEV-FLEET-CANARY-DATA" --model auto --adaptive-fleet --continuous --port 8773
+```
+
+`--model auto` is optional; `collector` guarantees zero local model use.
+The guardian is NOT automatically installed as an OS startup task.
+
+**Still not proven without physical acceptance:** signed TLS pairing of
+multiple real PCs; complete YouTube visual/audio/caption coverage; real
+PDF/book source quality; independent Rishi examinations and delayed retention;
+true 100-tab hardware benchmark; secure sandboxed plugin execution; and
+automatic low-water creation of a sufficient new *approved* curriculum.
+
 ## Deployment / physical acceptance
 
 Do not replace the running laptop data installation in this PR. On a separate
