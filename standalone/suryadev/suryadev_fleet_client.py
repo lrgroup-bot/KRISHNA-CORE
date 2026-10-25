@@ -15,6 +15,7 @@ from suryadev_feeder import read_plan, paired_core_source_allowed
 from suryadev_krishna_mission import load_config, post_core
 from suryadev_liveops import atomic_json, _safe_read
 from suryadev_resources import snapshot, hardware_identity
+from suryadev_capabilities import installed_capabilities
 from suryadev_parallel import plan_capacity
 from suryadev_sources import source_kind
 
@@ -49,6 +50,7 @@ def hardware_report(root, *, sample=None, now=None):
     disk = report["disk_percent"]
     # Source acquisition is permitted independently of CPU-only model work.
     ident=hardware_identity()
+    backend=installed_capabilities(root)
     return {
         "sample_age_seconds": max(0.0,moment-float(stamp)) if stamp is not None else 0,
         "cpu_percent": round(float(cpu),2),
@@ -61,7 +63,9 @@ def hardware_report(root, *, sample=None, now=None):
             3 if workspace.get("schema") == "suryadev.fresh-workspace.v1" else 12,
             int(capacity.get("max_total") or 0))),
         "node_profile": "fleet_adaptive" if fleet_adaptive else "legacy",
-        "capabilities": ["website","youtube","pdf","book"],
+        "capabilities": backend["capabilities"],
+        "capability_proof": backend["status"],
+        "installed_source_backends": backend["sources"],
         "logical_cpus": ident["logical_cpus"],
         "cpu_name": ident["cpu_name"],
         "platform": ident["platform"],
