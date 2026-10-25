@@ -151,8 +151,8 @@ class PipelineTests(unittest.TestCase):
     def test_large_full_length_captions_are_chunked_not_discarded(self):
         # Regression for the actual CS50P lecture failure (>220k chars).
         speech="source anchored proof " * 12000 + "THE FINAL CAPTION PROOF"
-        vtt=("WEBVTT\\n\\n00:00:00.000 --> 00:03:20.000\\n"
-             +speech+"\\n")
+        vtt=("WEBVTT\n\n00:00:00.000 --> 00:03:20.000\n"
+             +speech+"\n")
         class Downloader:
             def __init__(self,options):
                 self.options=options
