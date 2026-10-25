@@ -1,3 +1,25 @@
+## One SURYADEV Learning Intelligence dashboard — consolidated UI (October 25, 2026)
+
+The detailed Learning Intelligence interface is now **the only served frontend**.
+Both `http://127.0.0.1:8772/` and `http://127.0.0.1:8772/advanced`
+render the same `dashboard.html`, worker controls, data root and evidence.
+For a canary instance on port 8872, the equivalent links are
+`http://127.0.0.1:8872/` and `http://127.0.0.1:8872/advanced#video-review`.
+Existing deep links and section anchors remain valid. There is no separate
+Node Control application, no duplicate worker and no second learning ledger.
+
+Node profile, approved-plan presence, secure pairing state, measured admission,
+network link status and Start/Stop are integrated within this single interface.
+A configured maximum (3 in legacy mode or 125 in adaptive fleet mode) is not
+measured runnable capacity or a guarantee of actual parallel jobs. Evidence
+collection is not automatically certified as source comprehension.
+
+**Historical release notes below may still describe the previous split-page
+UI and the original mandatory rest policy. Current behavior is controlled
+by the profile's continuous-mission policy and the single UI described here.**
+
+---
+
 ## Continuous missions: six hours of approved work / ten-minute device rest
 
 **New policy:** the single SURYADEV worker owns a durable
