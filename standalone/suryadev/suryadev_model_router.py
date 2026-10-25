@@ -63,14 +63,19 @@ def decide_model(report, *, installed=False):
                         "auto":True}
         except (ValueError,TypeError):
             return {"model":"collector","reason":"thermal_unknown","auto":True}
-    if report.get("battery_plugged") is False and (
-        report.get("battery_percent") is None or
-        float(report["battery_percent"]) < 50):
-        return {"model":"collector","reason":"battery_caution","auto":True}
+    if report.get("battery_plugged") is False:
+        battery=report.get("battery_percent")
+        if type(battery) not in (int,float) or not math.isfinite(battery) or battery < 50:
+            return {"model":"collector","reason":"battery_caution","auto":True}
     gpu=report.get("gpu") or {}
-    if gpu.get("available") and (float(gpu.get("usage_percent") or 0) >= 75
-                                 or float(gpu.get("vram_percent") or 0) >= 75):
-        return {"model":"collector","reason":"gpu_caution","auto":True}
+    if not isinstance(gpu,dict):
+        return {"model":"collector","reason":"gpu_telemetry_invalid","auto":True}
+    if gpu.get("available"):
+        for metric in ("usage_percent","vram_percent"):
+            value=gpu.get(metric)
+            if value is not None and (
+                type(value) not in (int,float) or not math.isfinite(value) or value >= 75):
+                return {"model":"collector","reason":"gpu_caution","auto":True}
     if not installed:
         return {"model":"collector","reason":"small_model_not_installed",
                 "auto":True}
