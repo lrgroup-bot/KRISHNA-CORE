@@ -1781,6 +1781,9 @@ The physical canary demonstrated **three distinct conditions**:
 - A third observer produced a `playback-speed.json` at 7.59 seconds but no
   canonical report/bundle; the durable observer-attempt audit distinguishes
   interrupted/missing-final evidence without inventing a running task.
+  The frontend uses per-video canonical reports directly rather than trusting
+  the shared `worker-state.json` index, which the physical canary showed
+  could omit an otherwise completed concurrent video job.
 
 **Playback investigation:** The canonical adapter now logs HTMLVideoElement
 readyState, networkState, MediaError code, paused and advertisement state
