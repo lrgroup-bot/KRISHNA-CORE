@@ -65,7 +65,10 @@ class NodeGuard:
                 if os.name == "nt":
                     self.child.send_signal(signal.CTRL_BREAK_EVENT)
                 else:
-                    self.child.send_signal(signal.SIGINT)
+                    # Session owns only the guardian's children. Signal the
+                    # group so the dashboard and its managed learner can
+                    # release SQLite locks and checkpoints gracefully.
+                    os.killpg(self.child.pid, signal.SIGINT)
             except (OSError,ValueError,AttributeError):
                 pass
 
@@ -90,7 +93,8 @@ class NodeGuard:
                 return 3
             try:
                 self.child=self.runner(args,cwd=str(self.app),shell=False,
-                                       creationflags=flags)
+                                       creationflags=flags,
+                                       start_new_session=(os.name != "nt"))
             except (OSError,ValueError) as exc:
                 self.failures.append(float(self.clock()))
                 self._record("failed_to_launch",
