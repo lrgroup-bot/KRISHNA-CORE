@@ -326,6 +326,22 @@ class VideoReview:
                         status = "RUNNING"
                     elif states.get(jid):
                         status = states[jid]
+                        if status == "AWAITING_SERVER_ACK":
+                            # Legacy observer may have produced a single
+                            # uncaptioned screenshot from a stalled lecture.
+                            # Show the original canonical record but with
+                            # an explicit incomplete status, without modifying
+                            # the durable receipt or retry permissions.
+                            bundle = _safe_read(self.root / "runtime" / "jobs"
+                                                / jid, "learning-bundle.json",
+                                                max_bytes=3_000_000)
+                            session = bundle.get("session", {})
+                            if (isinstance(session, dict) and
+                                session.get("end_reason") in (
+                                    "content_playback_stalled",
+                                    "advertisement_wait_limit",
+                                    "browser_snapshot_unavailable")):
+                                status = "INCOMPLETE_STALLED_OBSERVATION"
                     elif outcome_row.get("state"):
                         status = str(outcome_row["state"])[:80]
                     elif jid in tried:
