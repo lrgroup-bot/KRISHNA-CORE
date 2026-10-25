@@ -27,7 +27,11 @@ def available_port():
 
 
 async def browser_node_console_check(port):
-    """Exercise new default homepage, API-backed status and evidence drilldown."""
+    """Both public UI routes render ONE Learning Intelligence workspace.
+
+    Test real Chromium pages and controls, not a mocked HTML string.
+    The legacy function name stays for external CI callers.
+    """
     from playwright.async_api import async_playwright, expect
     async with async_playwright() as p:
         browser=await p.chromium.launch(headless=True)
@@ -35,23 +39,29 @@ async def browser_node_console_check(port):
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
             page.on("pageerror",lambda err:errors.append(str(err)))
-            await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
-            await expect(page.locator("h1")).to_have_text("Node command center")
-            await expect(page.locator("#learning-model option[value='collector']")).to_have_count(1)
-            await expect(page.locator("#stat-active")).to_have_text("3",timeout=12000)
-            await expect(page.locator("#connection")).to_have_text("Local service online")
-            await expect(page.locator("#job-list .record")).to_have_count(3)
-            assert "Collector only" in await page.locator("#learning-model").inner_text()
-            assert await page.locator('input[placeholder="Search source or task ID"]').count()==1
-            # Ledger detail opened from real SQLite task, never copied into HTML.
-            await page.locator("#job-list .record").first.click()
-            await expect(page.locator("#job-dialog[open]")).to_be_visible()
-            await expect(page.locator("#job-detail")).to_contain_text("Not verified by this console")
-            await page.locator("#close-detail").click()
-            assert not errors, "New Node Control JavaScript errors: "+str(errors)
-            return {"status":"PASS","node_control_default":True,
-                    "live_assignments":3,"source_records":3,
-                    "collector_mode_visible":True,"javascript_errors":errors}
+            for route in ("/", "/advanced"):
+                await page.goto(f"http://127.0.0.1:{port}{route}", wait_until="domcontentloaded")
+                await expect(page.locator(".identity small")).to_have_text("LEARNING INTELLIGENCE")
+                await expect(page.locator("#learning-start")).to_have_count(1)
+                await expect(page.locator("#learning-stop")).to_have_count(1)
+                await expect(page.locator("#learning-model")).to_have_count(1)
+                await expect(page.locator("#learning-model option[value='collector']")).to_have_count(1)
+                await expect(page.locator("#learning-model option[value='auto']")).to_have_count(1)
+                await expect(page.locator("#video-review")).to_have_count(1)
+                await expect(page.locator("#book-ledger-list")).to_have_count(1)
+                await expect(page.locator("#node-control-profile")).to_have_count(1)
+                await expect(page.locator("#node-control-plan")).to_have_count(1)
+                await expect(page.locator("#node-control-pairing")).to_have_count(1)
+                await expect(page.locator("#node-control-capacity")).to_have_count(1)
+                await expect(page.locator("#total")).to_have_text("3",timeout=12000)
+                await expect(page.locator("#connection")).to_have_text("Online · local service",timeout=12000)
+                assert await page.locator('script[src="/node-console.js"]').count()==0
+                assert await page.locator('a[href="#video-review"]').count()==1
+            assert not errors, "Unified Learning Intelligence JS errors: "+str(errors)
+            return {"status":"PASS","node_control_default":False,
+                    "single_learning_intelligence_frontend":True,
+                    "home_and_advanced_same_ui":True,"live_assignments":3,
+                    "source_records":3,"collector_mode_visible":True,"javascript_errors":errors}
         finally:
             await browser.close()
 
@@ -73,7 +83,7 @@ async def browser_check(port):
             cap=await page.locator("#netra-total-capacity").inner_text()
             assert web=="2", "Genuine Chromium tab count not rendered"
             assert tabs==3, f"Expected 3 source workspace cards, got {tabs}"
-            assert "3 active / 4 currently admitted" in cap, f"capacity display wrong: {cap}"
+            assert "3 active / 4 measured admission slots" in cap, f"capacity display wrong: {cap}"
             assert await page.locator("#netra-web-capacity").inner_text()=="3"
             assert await page.locator("#netra-pdf-capacity").inner_text()=="1"
             await page.locator(".netra-workspace-tab.website").first.click()
