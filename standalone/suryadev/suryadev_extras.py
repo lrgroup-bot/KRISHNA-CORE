@@ -213,17 +213,16 @@ def serve(lib, port=8769):
                                      "has_static_video_review": True,
                                      "has_unified_frontend": True,
                                      "has_node_control_console": True,
+                                     "has_single_learning_intelligence_frontend": True,
                                      "has_dashboard_worker_controls": True,
                                      "has_fresh_isolated_workspace": True,
                                      "max_new_active_tasks": 3}),
                     "application/json")
-            # New dashboard default; complete legacy evidence console at /advanced.
+            # One Learning Intelligence interface: / and /advanced share the same frontend.
             ui_files = {
-                "/": "node-console.html",
+                "/": "dashboard.html",
                 "/advanced": "dashboard.html",
                 "/dashboard.html": "dashboard.html",
-                "/node-console.css": "node-console.css",
-                "/node-console.js": "node-console.js",
                 "/dashboard.css": "dashboard.css",
                 "/dashboard.js": "dashboard.js",
                 "/dashboard-settings.css": "dashboard-settings.css",
