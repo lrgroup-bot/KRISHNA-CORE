@@ -135,36 +135,36 @@ source-complete verifiable transfer need dedicated work.
 
 ## Five-minute fleet oversight by independent SURYADEV RAKSHAK
 
-**KRISHNA must not run a background watchdog thread.** Only its existing
-REST server exposes an on-demand loopback-only, read-only
-`GET /api/suryadev/fleet/nodes` snapshot of authenticated node heartbeats.
+**KRISHNA runs no watchdog background thread.** An independent Python
+`suryadev_rakshak.py` process polls every 300 seconds. It loads no browser
+or Ollama, starts no KRISHNA scheduler and never kills applications.
 
-The separate `suryadev_rakshak.py` worker is launched as its own lightweight
-Python process on the **KRISHNA PC**. It polls that endpoint every 300 seconds,
-does not load Ollama or browsers, and writes
-`rakshak-status.json` and transition-deduplicated
-`rakshak-incidents.jsonl` to its **own** data root.
-
-A portable one-shot preflight on KRISHNA's computer is:
-
-```powershell
-python .\\suryadev_rakshak.py --data "D:\\Work\\SURYADEV-RAKSHAK-DATA" --once
-```
-
-Then start it separately (foreground supervised terminal for initial testing):
+**Preferred zero-HTTP live path (even before updating KRISHNA Core):**
+RAKSHAK can read the existing, atomically persisted
+`<KRISHNA runtime state>/suryadev/device-nodes.json` **read-only** using
+`--core-state`. Source is resolved and checked; no Core server RPCs or
+new endpoints are required. The guard is a separate process on the KRISHNA
+computer. Core's usual paired-node heartbeat updates remain unchanged.
 
 ```powershell
-python -u .\\suryadev_rakshak.py --data "D:\\Work\\SURYADEV-RAKSHAK-DATA"
+python .\suryadev_rakshak.py --data "E:\GITHUB\SURYADEV-RAKSHAK-DATA" --core-state "<FULL_PATH_TO_EXISTING_device-nodes.json>" --once
 ```
 
-The service **does not restart itself after reboot** until an owner-approved
-OS service/scheduler installation is tested. Its HTTP endpoint intentionally
-accepts **127.0.0.1 only**; a different host requires a future authenticated,
-TLS-pinned read-only connection, not an open LAN exception.
+For ongoing monitored operation, omit `--once`; use Ctrl+C to stop.
+Optional upgraded Core releases expose a **loopback-only** read-only
+`GET /api/suryadev/fleet/nodes` for a 300s read request as an alternative.
+Neither mode permits a remotely located RAKSHAK without separate pinned-TLS
+enrollment; don't expose the endpoint over LAN.
 
-**No repair commands, process kills, mission dispatch, or source acquisition**
-are performed by RAKSHAK. MRITYUNJAY can later consume separately authorized,
-audited repair tickets, but cannot blindly kill unrelated apps.
+All reports go to RAKSHAK's **own** durable `rakshak-status.json` and
+transition-only `rakshak-incidents.jsonl`, not KRISHNA's runtime data.
+No registered node is NOT considered a healthy fleet; it is reported clearly.
+A queued task without observed active source work is a diagnostic only,
+not an instruction to restart or kill any process.
+
+Autostart on reboot, node-to-guard TLS on a separate machine, escalation to
+MRITYUNJAY and safe authorized repair actions require separate validated
+deployment. **No self-heal command/process termination is implemented here.**
 
 ## Plugins — versioned trust contract, not blind remote execution
 
