@@ -39,7 +39,6 @@ from .windows_desktop_fabric import WindowsDesktopFabric
 from .android_test_fabric import AndroidTestFabric
 from .http_server_runtime import KrishnaThreadingHTTPServer
 from .hawkeye_media_sync import HawkeyeMediaSyncStore
-from .suryadev_fleet_watchdog import SuryadevFleetWatchdog
 
 # HTTP regression/acceptance subprocesses exercise API contracts deterministically.
 # They must not simultaneously start autonomous schedulers, filesystem observers,
@@ -398,9 +397,6 @@ _ui_guardian = UIGuardian(_browser_fabric, _ui_registry, Path(settings.db_path).
 _narad_scheduler = NaradScheduler(orch.agi.narad)
 if _BACKGROUND_SERVICES_ENABLED:
     _narad_scheduler.start()
-_suryadev_fleet_watchdog = SuryadevFleetWatchdog(orch.suryadev.device_status)
-if _BACKGROUND_SERVICES_ENABLED and str(os.getenv("KRISHNA_SURYADEV_WATCHDOG_ENABLED","1")).strip().lower() not in {"0","false","no","off"}:
-    _suryadev_fleet_watchdog.start()
 _autonomy = AutonomySupervisor(orch)
 if _BACKGROUND_SERVICES_ENABLED:
     _autonomy.start()
@@ -713,7 +709,6 @@ def shutdown_runtime_services():
     services=(
         ("autonomy", _autonomy.stop),
         ("narad_scheduler", _narad_scheduler.stop),
-        ("suryadev_fleet_watchdog", _suryadev_fleet_watchdog.stop),
         ("science_frontier_scheduler", _science_frontier_scheduler.stop),
         ("brahma_consolidation_scheduler", _brahma_consolidation_scheduler.stop),
         ("long_context_scheduler", orch.long_context_scheduler.stop),
@@ -1091,10 +1086,12 @@ class Handler(BaseHTTPRequestHandler):
             if self.client_address[0] not in ("127.0.0.1", "::1"):
                 return self._json(403, {"error": "fleet ledger is KRISHNA PC only"})
             return self._json(200,orch.suryadev.fleet.status())
-        if path == "/api/suryadev/fleet/watchdog":
+        if path == "/api/suryadev/fleet/nodes":
+            # SURYADEV RAKSHAK is a separate low-memory process. KRISHNA
+            # returns an on-demand read-only snapshot, not a scheduler.
             if self.client_address[0] not in ("127.0.0.1", "::1"):
-                return self._json(403, {"error": "fleet watchdog is KRISHNA PC only"})
-            return self._json(200,_suryadev_fleet_watchdog.status())
+                return self._json(403, {"error": "fleet health snapshot is KRISHNA PC only"})
+            return self._json(200,orch.suryadev.device_status())
         if path == "/api/suryadev/device/status":
             device,token=self._device_auth()
             if not _pairing.verify(device,token):
