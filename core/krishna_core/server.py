@@ -38,6 +38,7 @@ from .brahma_rishi_exam_author import RishiExamAuthor
 from .windows_desktop_fabric import WindowsDesktopFabric
 from .android_test_fabric import AndroidTestFabric
 from .http_server_runtime import KrishnaThreadingHTTPServer
+from .suryadev_tls_runtime import start_suryadev_tls_listener
 from .hawkeye_media_sync import HawkeyeMediaSyncStore
 
 # HTTP regression/acceptance subprocesses exercise API contracts deterministically.
@@ -4473,6 +4474,17 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = KrishnaThreadingHTTPServer((settings.host, settings.port), Handler)
+    try:
+        # Opt-in, directly bound private NIC listener. It preserves actual
+        # remote client addresses for pairing and Core authorization checks.
+        # No HTTP-to-HTTPS proxy or implicit certificate generation is used.
+        suryadev_tls, suryadev_tls_thread = start_suryadev_tls_listener(Handler)
+    except BaseException:
+        server.server_close()
+        raise
+    if suryadev_tls is not None:
+        print("[KRISHNA] Owner-paired SURYADEV HTTPS ready on "
+              +str(suryadev_tls.server_address[0])+":"+str(suryadev_tls.server_address[1]))
     if os.getenv("KRISHNA_LAN_DISCOVERY","0") == "1":
         _lan_discovery = LanDiscoveryService(settings.port)
         _lan_discovery.start()
@@ -4485,6 +4497,10 @@ if __name__ == "__main__":
     finally:
         if _lan_discovery:
             _lan_discovery.stop()
+        if suryadev_tls is not None:
+            suryadev_tls.shutdown()
+            suryadev_tls.server_close()
+            suryadev_tls_thread.join(timeout=5)
         shutdown_failures=shutdown_runtime_services()
         for failure in shutdown_failures:
             print(f"[KRISHNA] shutdown warning: {failure}", file=sys.stderr)
