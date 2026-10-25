@@ -211,6 +211,9 @@ def observer_jobs(root, limit=30):
             "advertisement_wall_seconds":_seconds(session.get("advertisement_wall_seconds")),
             "advertisement_samples_excluded":session.get("advertisement_samples_not_used_as_learning"),
             "content_filter":_short(session.get("content_filter") or "not_reported",110),
+            "browser_channel":_short(session.get("browser_channel") or "not_reported",50),
+            "last_media_diagnostic":session.get("last_playback_diagnostic")
+                if isinstance(session.get("last_playback_diagnostic"),dict) else {},
             "ad_filter_effectiveness_verified":False,
             "adaptive_playback":session.get("adaptive_playback"),
             "four_x_observed":session.get("four_x_observed") is True,
