@@ -41,3 +41,67 @@ BRAHMAGYAN's evidence rows now keep URL, source_id, publication, retrieval date 
 3. Require independently executable practical tests plus attributed Gautama/Bharadvaja reviews; preserve failures and counterexamples.
 4. Add next-day, seven-day and monthly spaced-retention/transfer assessments with real checks. Gate stronger `mastered` claims until these are verified.
 5. Run Core and standalone tests, Playwright UI regression and owner-approved laptop tests before any .exe; do not merge this draft branch automatically.
+
+## Fleet delivery hardening and local verification — 25 October 2026
+
+The already implemented KRISHNA HTTP route `/api/suryadev/fleet/complete`
+requires an authenticated, owner-paired device and live lease. On collection,
+Core stores an untrusted-source receipt and calls
+`BrahmagyanRuntime.intake_suryadev_collection` to record a persistent L0
+candidate. A heartbeat, a lease, and a successful local extraction are three
+different events, and none means comprehension.
+
+The portable SURYADEV fleet client now adds two fail-closed requirements:
+1. **Before uploading a collected completion**, the local evidence file
+   `evidence/<digest-prefix>/<sha256>.txt` must exist and its bytes must
+   reproduce the finding's SHA-256 digest. A corrupt, missing or forged digest
+   keeps the lease locally pending, records an integrity error and attempts
+   lease renewal if expiry approaches. It never fabricates an ACK or deletes
+   the evidence.
+2. **Before retiring the local leased assignment**, the paired Core completion
+   reply must contain `acknowledged=true`, `candidate_recorded=true` and
+   a receipt matching the task ID, device ID, lease ID and local evidence
+   digest. A partial acknowledgment stays retryable; Core's completion
+   is idempotent for the same task/lease/hash, including after a process
+   restart and candidate-inbox retry.
+
+The node UI distinguishes `candidate_inbox_acknowledged` from mastery.
+The BRAHMAGYAN connection indicator requires both a **recent authenticated
+Core heartbeat** and at least one locally retained Core-acknowledged L0
+candidate receipt. Rishi remains disconnected and the knowledge acceptance
+flag remains false without an independently reviewed examination.
+
+Read-only acceptance on a paired canary:
+```powershell
+$base = "http://127.0.0.1:8872"
+$o = Invoke-RestMethod "$base/api/operations"
+$o.connections | Format-List
+$o.mission_cycle | Select-Object phase,mission_rest_policy,admission_allowed
+$o.research_plan | Format-List
+1,2 | ForEach-Object {
+    $t = Invoke-RestMethod "$base/api/tasks/$_"
+    [PSCustomObject]@{
+        Job=$t.id; Status=$t.status; Integrity=$t.evidence_state
+        PDFTextComplete=$t.text_extraction_verified
+        VisualComplete=$t.visual_coverage_verified
+        Comprehension=$t.comprehension_verified
+        RishiExam=$t.rishi_exam_verified
+    }
+}
+```
+
+**Important:** A node currently running in collector mode with a *local-only*
+source plan still will **not** report a Core/BRAHMAGYAN ACK. These new
+checks apply to assignments actually leased through the authenticated Core
+fleet. The owner must provision a genuine HTTPS endpoint, verified pinned
+certificate fingerprint, paired device token and approved curriculum using
+the existing pairing workflow before enabling fleet mode. The ordinary
+HTTP port 8766 is not a TLS endpoint and must not receive that token.
+There is no anonymous LAN auto-pairing.
+
+**Still pending, not mislabeled as done:** Rishi-authored challenging theory
+and practical exams, distinct Rishi grading, actual practical artifact review,
+retention/re-examination and hardware canary evidence of end-to-end TLS
+delivery. The BRAHMAGYAN exam ledger already validates manually submitted
+independent exams; this change does not invent answers, graders, exam
+certificates or verified understanding.
