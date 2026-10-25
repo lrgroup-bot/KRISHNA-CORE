@@ -290,6 +290,25 @@ class VideoReview:
 
     def snapshot(self):
         states = {row["job_id"]: row["status"] for row in self.snapshot_unlocked_jobs()}
+        from suryadev_liveops import _safe_read
+        outcomes = _safe_read(self.data_root, "video-observer-outcomes.json",
+                              max_bytes=131072)
+        final = outcomes.get("jobs", {}) if (
+            outcomes.get("schema") == "suryadev.video-outcomes.v1"
+            and isinstance(outcomes.get("jobs"), dict)) else {}
+        attempts = _safe_read(self.data_root, "video-observer-attempts.json",
+                              max_bytes=131072)
+        tried = set(attempts.get("job_ids", [])) if (
+            attempts.get("schema") == "suryadev.video-attempts.v1"
+            and isinstance(attempts.get("job_ids"), list)) else set()
+        running = _safe_read(self.data_root, "video-concurrent-runtime.json",
+                             max_bytes=8192)
+        updated = running.get("updated_at")
+        live = set(running.get("active_job_ids", [])) if (
+            running.get("schema") == "suryadev.parallel-video.v1"
+            and type(updated) in (int,float) and
+            0 <= time.time() - updated < 90 and
+            isinstance(running.get("active_job_ids"), list)) else set()
         with self.lock:
             active, error = self.active, self.last_error
         jobs = []
@@ -300,11 +319,27 @@ class VideoReview:
                 try:
                     row = json.loads(path.read_text(encoding="utf-8"))
                     jid = row["job_id"]
-                    status = "RUNNING" if jid == active else states.get(jid, "QUEUED_FOR_REVIEW")
+                    outcome_row = final.get(jid, {})
+                    if not isinstance(outcome_row, dict):
+                        outcome_row = {}
+                    if jid == active or jid in live:
+                        status = "RUNNING"
+                    elif states.get(jid):
+                        status = states[jid]
+                    elif outcome_row.get("state"):
+                        status = str(outcome_row["state"])[:80]
+                    elif jid in tried:
+                        status = "ATTEMPTED_NO_FINAL_RECEIPT"
+                    else:
+                        status = "QUEUED_FOR_REVIEW"
                     jobs.append({"job_id": jid, "target": row.get("target", ""),
                                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                                 "status": status, "can_run": status in (
-                                     "QUEUED_FOR_REVIEW", "FAILED", "EVIDENCE_REQUIRED", "ADAPTER_REQUIRED")})
+                                 "status": status,
+                                 "error": str(outcome_row.get("error") or "")[:300],
+                                 # Never offer 'run' for an already attempted video
+                                 # without explicit owner review of previous evidence.
+                                 "can_run": status == "QUEUED_FOR_REVIEW" and
+                                 jid not in tried})
                 except (OSError, ValueError, KeyError, TypeError):
                     continue
         playback = None
