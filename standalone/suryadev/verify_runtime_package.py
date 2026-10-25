@@ -19,6 +19,7 @@ REQUIRED_ENTRYPOINTS = (
     "suryadev_fleet_client",
     "suryadev_plugins",
     "suryadev_rakshak",
+    "suryadev_model_router",
     "suryadev_mission_cycle",
     "suryadev_source_authority",
     "suryadev_video_review",
