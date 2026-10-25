@@ -140,6 +140,15 @@ class FleetTests(unittest.TestCase):
         self.assertEqual(second["status"], "leased")
         self.assertIn(second["task"]["kind"], {"website","pdf"})
 
+    def test_generalist_prefers_nonvideo_and_video_specialist_receives_youtube(self):
+        general = self.node(1, capabilities=["website","pdf","youtube"])
+        specialist = self.node(2, capabilities=["youtube"])
+        first = self.fleet.claim(device_id=general)
+        self.assertIn(first["task"]["kind"], {"website","pdf"})
+        second = self.fleet.claim(device_id=specialist)
+        self.assertEqual(second["task"]["kind"], "youtube")
+        self.assertNotEqual(first["task"]["task_id"], second["task"]["task_id"])
+
     def test_specialist_node_still_obeys_live_hardware_guard(self):
         blocked = self.node(9, capabilities=["youtube"], available_slots=100,
                             ram_percent=87)
