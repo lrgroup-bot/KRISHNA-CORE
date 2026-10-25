@@ -23,6 +23,7 @@ from suryadev_video_review import VideoReview
 MAX_VIDEO = 10
 RUNTIME = "video-concurrent-runtime.json"
 ATTEMPT_JOURNAL = "video-observer-attempts.json"
+OUTCOME_JOURNAL = "video-observer-outcomes.json"
 
 
 class ParallelVideoReader:
@@ -63,6 +64,37 @@ class ParallelVideoReader:
                     {"schema": "suryadev.video-attempts.v1",
                      "job_ids": sorted(ids), "updated_at": float(self.clock())})
         self.attempted = ids
+
+    def _record_outcome(self, job_id, result):
+        """Persist failures/receipt states beyond the next supervisor tick.
+
+        A missing canonical worker-report.json previously left failed video
+        subprocesses looking 'pending_or_running' forever. Do not fabricate
+        evidence or authorize retries; this is a separate diagnostic journal.
+        """
+        old = _safe_read(self.root, OUTCOME_JOURNAL, max_bytes=131072)
+        if (self.root / OUTCOME_JOURNAL).exists() and (
+                old.get("schema") != "suryadev.video-outcomes.v1"
+                or not isinstance(old.get("jobs"), dict)):
+            raise RuntimeError("Corrupt video outcome journal; refusing overwrite")
+        jobs = dict(old.get("jobs", {}))
+        state = str(result.get("state", "unknown"))[:80]
+        jobs[job_id] = {
+            "state": state,
+            "worker_status": str(result.get("worker_status") or "")[:80],
+            "error": str(result.get("error") or "")[:300],
+            "finished_at": float(self.clock()),
+            "evidence_verified": False,
+            "rishi_exam_verified": False,
+        }
+        # Bound size without clearing the unrelated immutable evidence files.
+        if len(jobs) > 200:
+            keep=sorted(jobs.items(), key=lambda p:p[1].get("finished_at",0),
+                        reverse=True)[:200]
+            jobs=dict(keep)
+        atomic_json(self.root, OUTCOME_JOURNAL,
+                    {"schema":"suryadev.video-outcomes.v1",
+                     "jobs":jobs,"updated_at":float(self.clock())})
 
     def auto_enabled(self):
         """Only owner-activated reviewed video automation can launch work."""
@@ -140,6 +172,11 @@ class ParallelVideoReader:
             except Exception as exc:
                 result={"state":"worker_failed","job":job_id,
                         "error":type(exc).__name__+": "+str(exc)[:150]}
+            # Preserve a durable result even when the child produced no
+            # canonical worker report, so the UI can show the real failure.
+            self._record_outcome(job_id,result if isinstance(result,dict)
+                                 else {"state":"worker_failed","error":
+                                       "Malformed observer result"})
             done.append(result)
         safe=capacity.get("safe") is True
         enabled=self.auto_enabled()
@@ -191,6 +228,7 @@ class ParallelVideoReader:
                 started.append(jid)
         receipt={"schema":"suryadev.parallel-video.v1",
                  "target":MAX_VIDEO,"active":len(self.futures),
+                 "active_job_ids":sorted(self.futures.values()),
                  "started_this_tick":started,"finished":done,
                  "enabled":enabled,"hardware_safe":safe,
                  "reserved_slots":int(capacity.get("reserved_video_slots",0)),
