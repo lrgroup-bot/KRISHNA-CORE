@@ -1546,3 +1546,57 @@ or automatically restart** the worker on timeout. It distinguishes
 `terminal_with_failures`, and `time_limit_reached_jobs_may_still_be_running`.
 No elapsed-time target, deep learning certificate, full audiovisual
 coverage or independent Rishi examination is inferred.
+
+
+### Repair missing book-plan.json without touching completed evidence
+
+A healthy worker may report `actual_slots=4` with `WorkerRunning=True`
+yet the 13-source preflight will correctly refuse to run because no five-book
+owner approval file exists. This is **source authorization**, not a worker error.
+
+The operator can explicitly approve this *fixed*, reviewed test curriculum:
+5 Green Tea Press full technical books (Think Python, Think Stats, Think Bayes,
+Think Complexity, Think DSP), three short arXiv technical PDFs (Attention, LoRA,
+BERT), two Python official docs pages, and three CS50P YouTube lectures. The
+script is opt-in, makes a pre-change backup of `learning-plan.json`, stores
+full local books with SHA-256 pins, and preserves all prior SQLite evidence.
+It does not silently add sources, enable paid services, bypass YouTube 429 or
+run a second worker.
+
+With **the current dashboard still open**, use its **Stop learning** control;
+verify `/api/learning/control` reports `managed_running=False` and
+`external_worker_active=False`. Keep the dashboard process alive. Then:
+
+```powershell
+$root='D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+$py="$root\\.venv\\Scripts\\python.exe"
+$data="$root\\data"
+$app="$root\\app"
+& $py "$app\\suryadev_benchmark_prepare.py" --data $data --show
+# Review all exact licensed publisher/source URLs, then expressly authorize:
+& $py "$app\\suryadev_benchmark_prepare.py" --data $data --approve-curated-trial
+& $py "$app\\suryadev_workload_benchmark.py" --data $data `
+  --manifest "$data\\benchmark-13-manifest.json" --preflight
+```
+
+If the PDF book reader reports `ModuleNotFoundError: pypdf`, install this free
+local Python package into the active canary virtual environment before
+approving books: `& $py -m pip install pypdf`. A transient publisher failure
+must remain a real failed download; no synthetic book content is substituted.
+
+Once preflight succeeds, use the **same existing dashboard** to start a single
+`auto` worker; if the selected local model is unsupported/uninstalled, use
+`collector` for evidence-only acceptance and separately test model reading.
+The explicit manifest is necessary to exclude the historical Python/about
+and W3C dummy-PDF runs from a fresh timing test:
+
+```powershell
+& "$app\\START_SURYADEV_13_SOURCE_CHECK.ps1" -Root $root -Model auto `
+  -Manifest "$data\\benchmark-13-manifest.json" -Minutes 45
+```
+
+The benchmark writes read-only 15-second snapshots in the sibling
+`benchmark-reports` folder. Full five-book model reading may take longer
+than 45 minutes; the report documents partial lines accurately.
+The current `complete_verified`, visual-coverage and independent Rishi
+acceptance gates remain false without actual supporting evidence.
