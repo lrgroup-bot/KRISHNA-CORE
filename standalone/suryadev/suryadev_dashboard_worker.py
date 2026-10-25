@@ -264,6 +264,10 @@ class DashboardWorkerControl:
                     "model_policy_reason":selection["reason"],
                     "learning_role":"collector_only" if actual_model=="collector" else "local_inference",
                     "ollama_required":actual_model!="collector", "approved_plan_loaded":plan.is_file(),
+                    "approved_books_loaded":approved_books.is_file(),
+                    "book_mode": ("indexed_evidence_only" if actual_model=="collector" else
+                                  "local_model_interpretation_unverified")
+                                 if approved_books.is_file() else "no_approved_books",
                     "core_dispatch_mode":"krishna_fleet" if core["ready"] else "local",
                     "cpu_thread_budget":int(env["SURYADEV_OLLAMA_THREADS"]),
                     "automatic_hardware_capacity":True,
