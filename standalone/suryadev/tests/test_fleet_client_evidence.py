@@ -56,7 +56,7 @@ class FleetClientTests(unittest.TestCase):
                     "receipt":{"task_id":payload["task_id"],
                                "device_id":config["device_id"],
                                "lease_id":payload["lease_id"],
-                               "evidence_sha256":payload["evidence_sha256"]}}
+                               "evidence_sha256":payload.get("evidence_sha256","")}}
         if path.endswith("/renew"):
             return {"renewed":True,"lease_id":self.lease_id,"expires_at":NOW+700}
         raise AssertionError(path)
