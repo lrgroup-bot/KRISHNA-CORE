@@ -398,6 +398,25 @@ def _chromium_content_filter():
         "--load-extension=" + str(path)]}
 
 
+def _video_browser_channel(content_filter):
+    """One local browser choice; no binary downloads or anti-bot workarounds.
+
+    Branded Chrome/Edge may support media codecs absent from Playwright's
+    bundled Chromium. They no longer allow MV3 extension side-loading
+    through the flags used for optional reviewed uBO Lite.
+    """
+    requested = str(os.getenv("SURYADEV_VIDEO_BROWSER_CHANNEL") or "").strip().lower()
+    if requested not in ("", "chromium", "chrome", "msedge"):
+        raise ValueError("Supported local browser channels: chromium, chrome, msedge")
+    if content_filter["enabled"]:
+        if requested not in ("", "chromium"):
+            raise ValueError(
+                "Optional uBO Lite unpacked extension needs Playwright Chromium; "
+                "Chrome/Edge block sideloading with those flags")
+        return "chromium"
+    return requested or None
+
+
 def _video_snapshot(page):
     script = r"""
     () => {
@@ -564,6 +583,7 @@ def observe(job, workspace):
     ad_suppressed_samples = 0
     stop_reason = "observation_window_completed"
     content_filter = _chromium_content_filter()
+    browser_channel = _video_browser_channel(content_filter)
     final = {}
     title = ""
     subject = subject_hint
@@ -573,7 +593,7 @@ def observe(job, workspace):
         context = p.chromium.launch_persistent_context(
             str(browser_profile),
             headless=headless,
-            **({"channel": "chromium"} if content_filter["enabled"] else {}),
+            **({"channel": browser_channel} if browser_channel else {}),
             args=["--autoplay-policy=no-user-gesture-required"] + content_filter["args"],
             viewport={"width": 1280, "height": 800},
         )
@@ -813,6 +833,8 @@ def observe(job, workspace):
                 "optional_local_ubol_mV3_loaded_unverified_effectiveness"
                 if content_filter["enabled"] else "not_configured"),
             "provider_ad_blocking_verified": False,
+            "browser_channel": browser_channel or "bundled_chromium_default",
+            "browser_codec_support_verified": False,
             "finish_grace_seconds": finish_grace,
             "shift_limit_seconds": duration_seconds,
             "adaptive_playback": adaptive_playback,
