@@ -16,7 +16,7 @@ import sys
 from datetime import datetime, timezone
 
 
-MODELS = ("collector", "qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b", "gemma3:4b")
+MODELS = ("collector", "auto", "qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b", "gemma3:4b")
 MARKER_SCHEMA = "suryadev.fresh-workspace.v1"
 
 
@@ -93,7 +93,7 @@ def main(argv=None):
     ap.add_argument("--data", type=Path, default=Path.home() / "SURYADEV-NODE-DATA")
     ap.add_argument("--previous-data", type=Path, default=None)
     ap.add_argument("--model", choices=MODELS, default="collector",
-                    help="collector=NO Ollama; other values require opt-in local Ollama")
+                    help="collector=NO Ollama; auto=installed lightweight model only with safe headroom")
     ap.add_argument("--port", type=int, default=8772)
     ap.add_argument("--new-session", action="store_true")
     ap.add_argument("--approved-trial", action="store_true",
