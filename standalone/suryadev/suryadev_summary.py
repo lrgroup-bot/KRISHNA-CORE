@@ -4,7 +4,7 @@ The local LLM is not an evidence verifier. Treat every output as a summary claim
 """
 from __future__ import annotations
 
-MAX_CHARS = 220_000
+MAX_CHARS = 1_000_000  # Maximum bounded full transcript; web/PDF have lower ingestion caps.
 CHUNK = 9_000
 
 
@@ -13,7 +13,7 @@ def summarize_all(text, *, model, use_ollama, summarize_fn):
     if not text.strip():
         raise ValueError("no readable text")
     if len(text) > MAX_CHARS:
-        raise ValueError("source text exceeds supported complete-chunk summary budget")
+        raise ValueError("source text exceeds one-million-character complete-chunk summary budget")
     if not use_ollama:
         return text[:2000], {"summary_coverage": "extractive_preview_only",
                              "chunks_total": 0, "chunks_summarized": 0,
