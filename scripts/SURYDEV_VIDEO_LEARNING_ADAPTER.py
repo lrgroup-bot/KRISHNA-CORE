@@ -410,6 +410,9 @@ def _video_snapshot(page):
         seconds: v ? Number(v.currentTime||0) : 0,
         duration: v && Number.isFinite(v.duration) ? Number(v.duration) : 0,
         paused: v ? !!v.paused : true,
+        video_ready_state: v ? Number(v.readyState) : null,
+        video_network_state: v ? Number(v.networkState) : null,
+        video_error_code: v && v.error ? Number(v.error.code) : null,
         ad_showing: !!document.querySelector('.html5-video-player.ad-showing'),
         ended: v ? !!v.ended : false,
         playback_rate: v ? Number(v.playbackRate||1) : null,
@@ -714,23 +717,9 @@ def observe(job, workspace):
     chunks = _chunk_transcript(
         transcript_rows, chunk_seconds, subject, source_url, title
     )
-    if not chunks and visual_evidence:
-        chunks = [{
-            "topic": subject,
-            "text": (
-                "Visual-only learning session. Captions were unavailable or unreadable. "
-                "Use the selected visual evidence and source timestamp for follow-up research; "
-                "do not infer spoken claims that were not captured."
-            ),
-            "start_seconds": 0,
-            "end_seconds": round(float(final.get("seconds") or 0), 2),
-            "source_ref": source_url,
-            "source_title": title,
-            "modality": "visual_observation",
-            "confidence": 0.45,
-            "evidence_status": "candidate",
-            "research_required": True,
-        }]
+    # No synthetic "visual-only learning session" transcript when captions
+    # are missing. The frame hashes remain independently inspectable, but
+    # only real timestamped source observations can become content candidates.
 
     evidence_dir = workspace / "evidence"
     evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -809,6 +798,14 @@ def observe(job, workspace):
             "source_duration_seconds": round(float(final.get("duration") or 0), 2),
             "video_ended": bool(final.get("ended")),
             "end_reason": stop_reason,
+            "last_playback_diagnostic": {
+                "paused": final.get("paused"),
+                "ready_state": final.get("video_ready_state"),
+                "network_state": final.get("video_network_state"),
+                "media_error_code": final.get("video_error_code"),
+                "ad_showing": final.get("ad_showing"),
+                "observed_seconds": final.get("seconds"),
+            },
             "video_advertisement_events": progress_guard.ad_events,
             "advertisement_wall_seconds": round(progress_guard.ad_wall_seconds, 2),
             "advertisement_samples_not_used_as_learning": ad_suppressed_samples,
