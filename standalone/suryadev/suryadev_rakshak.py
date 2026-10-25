@@ -72,6 +72,26 @@ def read_core_nodes(url=DEFAULT_CORE_URL):
     return parsed
 
 
+def read_local_core_state(path):
+    """Read Core's already-existing atomic device ledger without KRISHNA HTTP.
+
+    RAKSHAK receives no write access and never modifies the original.
+    The file must be the local Core-owned suryadev/device-nodes.json.
+    """
+    source = Path(path).expanduser().resolve(strict=True)
+    if source.name != "device-nodes.json" or not source.is_file() or source.is_symlink():
+        raise ValueError("Select Core's original device-nodes.json file")
+    if source.stat().st_size > MAX_RESPONSE_BYTES:
+        raise ValueError("Core device registry too large")
+    raw = json.loads(source.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict) or len(raw) > 1000:
+        raise ValueError("Invalid Core device registry")
+    if any(not isinstance(k,str) or not isinstance(v,dict) or
+           k != v.get("device_id") for k,v in raw.items()):
+        raise ValueError("Invalid Core device registry rows")
+    return {"nodes": list(raw.values())}
+
+
 def _percent(value):
     if type(value) not in (int, float) or not math.isfinite(value):
         return None
@@ -208,11 +228,22 @@ def main(argv=None):
     parser.add_argument("--data", type=Path, required=True,
                         help="Own durable state folder, separate from KRISHNA and SURYADEV ledgers")
     parser.add_argument("--core-url", default=DEFAULT_CORE_URL)
+    parser.add_argument("--core-state", type=Path, default=None,
+                        help="Read KRISHNA's existing device-nodes.json directly; zero HTTP requests")
     parser.add_argument("--interval", type=int, default=INTERVAL_SECONDS)
     parser.add_argument("--once", action="store_true",
                         help="Perform a single safe read-only health check and exit")
     args = parser.parse_args(argv)
     _valid_core_url(args.core_url)
+    if args.core_state is not None:
+        # Resolve the path early so misconfigured startup fails cleanly
+        # instead of reporting a fabricated green state.
+        source = args.core_state.expanduser().resolve()
+        if source.name != "device-nodes.json":
+            parser.error("--core-state must point to Core's device-nodes.json")
+        fetch = lambda _url: read_local_core_state(source)
+    else:
+        fetch = read_core_nodes
     if args.interval < INTERVAL_SECONDS:
         parser.error("Minimum polling interval is five minutes")
     stopping = False
@@ -225,7 +256,7 @@ def main(argv=None):
     if hasattr(signal, "SIGTERM"):
         signal.signal(signal.SIGTERM, request_stop)
     while not stopping:
-        report = check_once(args.data, url=args.core_url)
+        report = check_once(args.data, url=args.core_url, fetch=fetch)
         print(json.dumps({"SURYADEV_RAKSHAK": report["core_state"],
               "nodes": report["total"], "issues": report["unhealthy"],
               "state_changes": len(report["state_changes"])}), flush=True)
