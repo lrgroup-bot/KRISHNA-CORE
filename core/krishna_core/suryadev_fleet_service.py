@@ -105,6 +105,23 @@ class SuryadevFleetService:
             council_ids=[row["id"] for row in self.council.list()], now=now)
         return result["eligible_nodes"] == 1
 
+    @staticmethod
+    def _renewal_healthy(device_id, now, node):
+        """An in-flight lease can renew during resource pressure, but only
+        for a fresh, owner-paired and running worker."""
+        if not isinstance(node, dict):
+            return False
+        if (node.get("device_id") != device_id or
+                node.get("authenticated") is not True or
+                node.get("worker_running") is not True or
+                node.get("network_online") is not True or node.get("last_error")):
+            return False
+        for field, ttl in (("last_seen", 150), ("telemetry_sample_at", 45)):
+            value = node.get(field)
+            if type(value) not in (int, float) or not 0 <= now - value <= ttl:
+                return False
+        return True
+
     def status(self):
         with self.lock:
             state = self._load()
@@ -198,8 +215,9 @@ class SuryadevFleetService:
                     lease.get("lease_id") != lease_id or lease["expires_at"] <= now):
                 raise PermissionError("expired or mismatched fleet lease")
             node = self.node_reader(device_id)
-            if not self._eligible(device_id, now, node, 0):
-                raise PermissionError("node is not healthy for lease renewal")
+            # Hardware headroom controls NEW work, not completion of an owned lease.
+            if not self._renewal_healthy(device_id, now, node):
+                raise PermissionError("lease owner heartbeat is stale, offline or unpaired")
             lease["expires_at"] = now + LEASE_SECONDS
             self._save(state)
             return {"renewed": True, "task_id": task_id,
