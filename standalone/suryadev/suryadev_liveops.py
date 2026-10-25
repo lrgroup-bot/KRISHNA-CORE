@@ -77,6 +77,7 @@ def connection_indicators(root):
     candidate_count = sum(
         isinstance(row, dict) and
         row.get("brahmagyan_candidate_recorded") is True and
+        row.get("device_id") == fleet_ack.get("device_id") and
         row.get("core_acknowledged") is True and
         row.get("outcome") == "collected"
         for row in candidates.values()
