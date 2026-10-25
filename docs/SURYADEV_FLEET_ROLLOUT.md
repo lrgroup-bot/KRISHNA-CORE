@@ -100,3 +100,117 @@ generation and signed independent grading, spaced-retention tests, central
 local Ollama gateway routing, CHANDRADEV real hardware fleet guardian,
 fully benchmarked adaptive 20+ tab scheduling, physical two-PC proof and
 universal signed EXE packaging are still unfinished.
+
+
+## Native HTTPS + owner-approved zero-code pairing (feature-branch deployment)
+
+The new opt-in Core listener uses the SAME production Core handler, but accepts
+only SURYADEV pairing, heartbeat, status, mission, lease, completion and
+candidate-bundle routes. It binds to a **specific private IPv4 NIC**, never
+0.0.0.0, and preserves each remote peer's real TCP address. No reverse proxy
+may downgrade a remote identity into Core-localhost authority. The ordinary
+Core HTTP control room remains unchanged, and must never receive a device
+credential over the network.
+
+**Core PC deployment preparation** (only after a successful regression gate
+and backups; do not send private-key contents into a chat or GitHub):
+
+1. Obtain an owner-trusted TLS certificate and private key in PEM form with a
+   SAN matching the Core PC's private IPv4 address. An explicitly pinned
+   self-signed certificate is acceptable for this dedicated local fleet
+   channel when its fingerprint is verified on the Core PC itself.
+   Secure the private key with appropriate filesystem ACLs. Do not use an
+   unaudited proxy, disable TLS, or trust a certificate fingerprint returned
+   by a discovered/unknown network service.
+2. Before starting Core, set these environment variables in the shell that
+   launches it; substitute the actual private IP, paths and permitted port:
+
+   ```powershell
+   $env:KRISHNA_SURYADEV_TLS_CERT_FILE = 'E:\\Krishna-The GOD\\secure\\suryadev-cert.pem'
+   $env:KRISHNA_SURYADEV_TLS_KEY_FILE  = 'E:\\Krishna-The GOD\\secure\\suryadev-key.pem'
+   $env:KRISHNA_SURYADEV_TLS_BIND_IP   = '192.168.0.100'
+   $env:KRISHNA_SURYADEV_TLS_PORT      = '8443'
+   ```
+
+   These are **example paths/IPs**, not inferred live hardware settings.
+   No firewall permission is added automatically. Restrict port 8443 to the
+   explicitly approved local devices and keep it inaccessible from WAN.
+   The native TLS endpoint comes online with the next Core process start.
+   Keep port 8766 controlled separately for existing local UI clients.
+3. Compute the server certificate's **DER leaf SHA-256 fingerprint locally on
+   KRISHNA PC**. For example, with owner-installed OpenSSL:
+   `openssl x509 -in <cert.pem> -noout -fingerprint -sha256`.
+   Copy the verified fingerprint to the laptop out-of-band.
+
+**SURYADEV 1 laptop**, in a *second PowerShell window* with the existing
+installed dashboard/worker untouched:
+
+```powershell
+$root = 'D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+$py = "$root\\.venv\\Scripts\\python.exe"
+$app = "$root\\app"
+$data = "$root\\data"
+& $py "$app\\suryadev_pairing_bootstrap.py" --data $data request `
+  --endpoint 'https://192.168.0.100:8443' `
+  --cert-sha256 '<VERIFIED_64_HEX_CERTIFICATE_FINGERPRINT>' `
+  --device-id 'suryadev-1'
+```
+
+This **generates a fresh secret locally** and sends only its SHA-256 over
+certificate-pinned TLS. It prints a `request_id` for explicit approval, not a
+secret. It will refuse to overwrite an existing pairing or token file.
+
+**KRISHNA main PC**, through its current loopback HTTP control API, inspect
+the pending identity and approve ONLY the matching request ID:
+
+```powershell
+$pending = Invoke-RestMethod 'http://127.0.0.1:8766/api/mobile/pair/pending'
+$pending.pending | Select-Object request_id,device_id,name,expires_at,credential_proposed
+# Verify the device/request in the list and replace the placeholder:
+$approval = Invoke-RestMethod 'http://127.0.0.1:8766/api/mobile/pair/approve' `
+  -Method POST -ContentType 'application/json' `
+  -Body '{"request_id":"<EXACT_REQUEST_ID_FROM_VERIFIED_PENDING_LIST>"}'
+$approval | Select-Object approved,device_id,mode
+```
+
+This local approval must return `client-hash-zero-code` and must not return
+a plaintext token. If it expires, do not bypass approval; recover carefully
+rather than generating a second identity on top of the existing pending file.
+
+**SURYADEV laptop activation** only after approved:
+
+```powershell
+& $py "$app\\suryadev_pairing_bootstrap.py" --data $data activate
+$o = Invoke-RestMethod 'http://127.0.0.1:8872/api/operations'
+$o.connections | Format-List
+```
+
+Activation verifies the actual already-approved credential over pinned TLS
+using KRISHNA's own device-status route. A 404 specifically saying the node
+has not sent a heartbeat is acceptable as an authenticated *pre-heartbeat*
+state; a 401, wrong 404, certificate mismatch or network error is not.
+Activation writes the same `core-mission-connection.json` schema the
+existing worker supports, but does **not** claim a live heartbeat or Rishi
+learning. An already-running collector can adopt the configuration on its
+next poll; no duplicate worker should be started.
+
+**For the fleet to receive real new jobs** the Core PC must also have an
+operator-approved, validated `mission-authority/approved-curriculum.json`
+and the laptop's existing `learning-plan.json` must independently approve
+those exact source URLs (or an explicitly approved paired-Core host delegation).
+Use `core/suryadev-approved-curriculum.example.json` as a reviewed
+schema reference. The two completed Python/About and W3C dummy PDF jobs
+are local evidence; they are not retroactively authenticated fleet receipts.
+
+**Canary success criteria:** current `/api/operations.connections.krishna`
+reports authenticated heartbeat; a freshly leased task has an actual
+SHA-256-verified evidence file; KRISHNA returns a matching fleet receipt;
+BRAHMAGYAN reports a recorded **unverified** candidate; and a separately
+approved and independently graded Rishi examination is recorded with real
+artifacts. No Rishi mastery/retention claims without that final evidence.
+
+**No physical deployment claimed by this PR:** Certificate/private key
+creation, selecting the correct NIC and firewall boundary, Core restart,
+pairing approval and the actual two-PC round trip require operator access
+to the KRISHNA PC and laptop. Neither a CI mock nor a source-level test
+can substitute for that.
