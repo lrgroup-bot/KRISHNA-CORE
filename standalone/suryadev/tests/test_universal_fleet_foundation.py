@@ -61,7 +61,7 @@ class UniversalFleetTests(unittest.TestCase):
                                        model="collector", adaptive_fleet=True)
             normal = launcher().prepare(Path(root) / "legacy", model="collector")
             reading = large_node()
-            with patch.dict(os.environ, {"SURYADEV_MAX_PARALLEL": "125"}), \\
+            with patch.dict(os.environ, {"SURYADEV_MAX_PARALLEL": "125"}), \
                  patch("suryadev_parallel.os.cpu_count", return_value=256):
                 with AdaptiveResearchWorkers(fleet, use_ollama=False) as agent:
                     a = agent.pump(telemetry=reading)["capacity"]
@@ -104,7 +104,7 @@ class UniversalFleetTests(unittest.TestCase):
             try:
                 self.assertEqual(ctl.snapshot()["workspace_active_task_limit"], 125)
                 with patch("suryadev_dashboard_worker.subprocess.Popen",
-                           return_value=FakeProcess()) as spawn, \\
+                           return_value=FakeProcess()) as spawn, \
                      patch.dict(os.environ, {"SURYADEV_MAX_PARALLEL": "999"}):
                     result = ctl.start(model="collector")
                 self.assertEqual(result["max_parallel_research"], 125)
