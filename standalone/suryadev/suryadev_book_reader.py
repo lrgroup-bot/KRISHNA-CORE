@@ -79,6 +79,47 @@ def _parse_xml(data):
     return ET.fromstring(data)
 
 
+# This marker is returned only after the PDF page was actually verified
+# visually blank by the local renderer. It must never stand for OCR failure.
+VERIFIED_BLANK_PDF_PAGE = object()
+
+
+def _structurally_blank_pdf_page(page):
+    """Conservative: no annotations and no PDF paint/show/XObject operators.
+
+    An empty extract_text() result is NOT sufficient. Images, diagrams and
+    text rendered as curves use marking operators and remain OCR/vision tasks.
+    """
+    if not callable(getattr(page, "get_contents", None)):
+        return False  # Cannot prove blankness on an unknown/mock page object.
+    try:
+        if page.get("/Annots"):
+            return False
+        contents = page.get_contents()
+        if contents is None:
+            return True
+        from pypdf.generic import ContentStream
+        commands = ContentStream(contents, page.pdf).operations
+        # Only no-mark graphics/text state and document tagging are harmless.
+        no_mark = {
+            b"q", b"Q", b"cm", b"w", b"J", b"j", b"M", b"d", b"ri", b"i",
+            b"gs", b"CS", b"cs", b"SC", b"SCN", b"sc", b"scn", b"G",
+            b"g", b"RG", b"rg", b"K", b"k", b"BT", b"ET", b"Tc", b"Tw",
+            b"Tz", b"TL", b"Tf", b"Tr", b"Ts", b"Td", b"TD", b"Tm",
+            b"T*", b"BMC", b"BDC", b"EMC", b"MP", b"DP", b"n", b"W", b"W*"
+        }
+        return all(operator in no_mark for _, operator in commands)
+    except (AttributeError, KeyError, TypeError, ValueError, OSError):
+        return False
+
+
+def _blank_page_record(page_number, basis):
+    # The zero-length source line records page position and its verified
+    # blank classification, without fabricating content or claiming learning.
+    return ("page " + str(page_number) + " [verified blank: " + basis + "]",
+            page_number, 1, "")
+
+
 def _text_units(path, *, ocr=None):
     """Yield (section, source_page, physical_line, text), in original order."""
     suffix = path.suffix.lower()
@@ -157,9 +198,18 @@ def _text_units(path, *, ocr=None):
         for page_number, page in enumerate(pdf.pages, 1):
             text = (page.extract_text() or "")
             if not text.strip():
+                if _structurally_blank_pdf_page(page):
+                    yield _blank_page_record(page_number, "no PDF marking operations")
+                    continue
                 if ocr is None:
                     raise ValueError("PDF page "+str(page_number)+" needs local OCR; not marked read")
-                text = str(ocr(path, page_number) or "")
+                rendered = ocr(path, page_number)
+                if rendered is VERIFIED_BLANK_PDF_PAGE:
+                    if page.get("/Annots"):
+                        raise ValueError("PDF page "+str(page_number)+" has annotations; cannot certify blank")
+                    yield _blank_page_record(page_number, "fully white rendered page")
+                    continue
+                text = str(rendered or "")
                 if not text.strip():
                     raise ValueError("PDF page "+str(page_number)+" OCR returned no text")
             for line_no, line in enumerate(text.replace("\r\n","\n").replace("\r","\n").split("\n"),1):
@@ -169,15 +219,40 @@ def _text_units(path, *, ocr=None):
 
 
 def default_pdf_ocr(path, page_number):
-    """Fallback for scanned PDF pages, local-only; requires explicit deps."""
+    """Local verified-blank detection, then OCR for actual non-text pages.
+
+    pypdfium2 is needed for render-only blank detection. Tesseract and
+    pytesseract are required only for pages that contain visible material.
+    """
     try:
         import pypdfium2 as pdfium
-        import pytesseract
     except ImportError as exc:
-        raise RuntimeError("Scanned pages require pypdfium2, pytesseract and Tesseract") from exc
+        raise RuntimeError(
+            "Page has no selectable text; install pypdfium2 locally to verify "
+            "blankness, and pytesseract + Tesseract for scanned pages"
+        ) from exc
     pdf = pdfium.PdfDocument(str(path))
-    image = pdf[page_number-1].render(scale=2).to_pil()
-    return pytesseract.image_to_string(image)
+    try:
+        image = pdf[page_number-1].render(scale=2).to_pil().convert("RGB")
+        # If EVERY pixel is true white, there is no visible source content
+        # to transcribe. Near-white illustrations and marks are NOT blank.
+        extrema = image.getextrema()
+        if all(low == 255 and high == 255 for low, high in extrema):
+            return VERIFIED_BLANK_PDF_PAGE
+        try:
+            import pytesseract
+        except ImportError as exc:
+            raise RuntimeError(
+                "Visible non-text PDF page requires pytesseract and the locally "
+                "installed Tesseract OCR executable") from exc
+        try:
+            return pytesseract.image_to_string(image)
+        except pytesseract.TesseractNotFoundError as exc:
+            raise RuntimeError(
+                "Tesseract OCR executable missing; install it locally before "
+                "approving this book") from exc
+    finally:
+        pdf.close()
 
 
 class BookLedger:
