@@ -76,7 +76,11 @@ class HardwareLearningTests(unittest.TestCase):
             (root/"fresh-workspace.json").write_text(json.dumps({
                 "schema":"suryadev.fresh-workspace.v1",
                 "trial_model":"collector","active_task_limit":3}),encoding="utf-8")
-            result=hardware_report(root,sample=sample(),now=100)
+            with patch("suryadev_fleet_client.installed_capabilities",
+                       return_value={"capabilities":["website","youtube","pdf"],
+                                     "status":"installed_prerequisites_only",
+                                     "sources":{}}):
+                result=hardware_report(root,sample=sample(),now=100)
             self.assertEqual(result["processing_mode"],"collector_only")
             self.assertLessEqual(result["max_total"],3)
             self.assertGreaterEqual(result["max_total"],1)
