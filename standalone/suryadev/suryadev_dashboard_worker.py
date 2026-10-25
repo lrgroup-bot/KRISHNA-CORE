@@ -147,9 +147,11 @@ class DashboardWorkerControl:
             host_count = 0
         workspace=_safe_read(self.root, "fresh-workspace.json", max_bytes=4096)
         is_fresh=workspace.get("schema")=="suryadev.fresh-workspace.v1"
+        fleet_adaptive = is_fresh and workspace.get("node_profile") == "fleet_adaptive"
         return {
             "workspace_mode":"fresh" if is_fresh else "existing",
-            "workspace_active_task_limit":3,
+            "node_profile":"fleet_adaptive" if fleet_adaptive else "legacy",
+            "workspace_active_task_limit":125 if fleet_adaptive else 3,
             "workspace_data_dir":str(self.root),
             "workspace_previous_retained":bool(is_fresh),
             "preferred_model":workspace.get("trial_model", "qwen3.5:2b") if is_fresh else None,
@@ -219,15 +221,15 @@ class DashboardWorkerControl:
             # Other KRISHNA workers and system-wide Ollama configuration stay untouched.
             env = os.environ.copy()
             env["SURYADEV_OLLAMA_THREADS"] = str(min(2, max(1, (os.cpu_count() or 2)//2)))
-            # Fresh learning: no more than THREE tasks TOTAL across sources,
-            # browser video observations and book model-reading slots.
-            # The hardware 85% guard may further reduce this to 0, 1 or 2.
-            # Never inherit a larger, unsafe operator cap.
+            workspace = _safe_read(self.root,"fresh-workspace.json",max_bytes=4096)
+            fleet_adaptive = (workspace.get("schema") == "suryadev.fresh-workspace.v1"
+                              and workspace.get("node_profile") == "fleet_adaptive")
+            ceiling = 125 if fleet_adaptive else 3
             try:
-                requested = int(env.get("SURYADEV_MAX_PARALLEL", "3"))
+                requested = int(env.get("SURYADEV_MAX_PARALLEL", str(ceiling)))
             except (TypeError, ValueError):
                 requested = 1
-            env["SURYADEV_MAX_PARALLEL"] = str(max(1, min(3, requested)))
+            env["SURYADEV_MAX_PARALLEL"] = str(max(1, min(ceiling, requested)))
             env["SURYADEV_BROWSER_TABS"] = "auto"
             try:
                 proc = subprocess.Popen(args, cwd=str(self.application_dir),
