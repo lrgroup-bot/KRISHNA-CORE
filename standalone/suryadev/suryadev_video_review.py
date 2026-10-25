@@ -322,6 +322,10 @@ class VideoReview:
                     outcome_row = final.get(jid, {})
                     if not isinstance(outcome_row, dict):
                         outcome_row = {}
+                    prior_playback = (self.root/"runtime"/"jobs"/jid/
+                                      "playback-speed.json")
+                    has_prior_playback = (prior_playback.is_file()
+                                         and not prior_playback.is_symlink())
                     if jid == active or jid in live:
                         status = "RUNNING"
                     elif states.get(jid):
@@ -344,7 +348,7 @@ class VideoReview:
                                 status = "INCOMPLETE_STALLED_OBSERVATION"
                     elif outcome_row.get("state"):
                         status = str(outcome_row["state"])[:80]
-                    elif jid in tried:
+                    elif jid in tried or has_prior_playback:
                         status = "ATTEMPTED_NO_FINAL_RECEIPT"
                     else:
                         status = "QUEUED_FOR_REVIEW"
@@ -355,7 +359,7 @@ class VideoReview:
                                  # Never offer 'run' for an already attempted video
                                  # without explicit owner review of previous evidence.
                                  "can_run": status == "QUEUED_FOR_REVIEW" and
-                                 jid not in tried})
+                                 jid not in tried and not has_prior_playback})
                 except (OSError, ValueError, KeyError, TypeError):
                     continue
         playback = None
