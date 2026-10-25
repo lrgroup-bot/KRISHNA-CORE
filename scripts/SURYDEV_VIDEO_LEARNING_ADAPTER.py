@@ -382,8 +382,10 @@ def _chromium_content_filter():
     if manifest.stat().st_size > 65536:
         raise ValueError("uBO Lite extension manifest exceeds size limit")
     config = json.loads(manifest.read_text(encoding="utf-8"))
+    if not isinstance(config, dict):
+        raise ValueError("Expected JSON object in unpacked uBO Lite manifest")
     perms = config.get("permissions", [])
-    if (not isinstance(config, dict) or config.get("manifest_version") != 3
+    if (config.get("manifest_version") != 3
             or not isinstance(perms, list)
             or "declarativeNetRequest" not in perms):
         raise ValueError("Expected unpacked Manifest V3 declarative uBO Lite ruleset")
