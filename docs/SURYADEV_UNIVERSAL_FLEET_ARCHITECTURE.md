@@ -12,7 +12,10 @@
   need platform-native packaging. Every node gets a unique **owner-paired**
   `suryadev-<id>` device identity and independent evidence directory.
 - **KRISHNA**: final governance, pairing, quota, plugin trust/revocation,
-  health, task leases, receipts and operator-approved repair authorization.
+  task leases, receipts and operator-approved repair authorization.
+- **SURYADEV RAKSHAK**: independent low-memory health-monitoring process on
+  the KRISHNA PC. KRISHNA only provides a read-only fleet-node snapshot; it
+  does not execute a five-minute watchdog thread.
 - **BRAHMAGYAN**: canonical candidate/claim/mission/exam ledger. It is NOT the
   source collector, question generator, independent examiner or autopublisher.
 - **RISHI Council**: topic experts author research questions, challenge
@@ -130,21 +133,38 @@ BRAHMAGYAN exam recording are implemented in parts. **Automatic end-to-end
 independent Rishi assessment is not done**. Signed examiner identity and
 source-complete verifiable transfer need dedicated work.
 
-## KRISHNA watchdog every five minutes
+## Five-minute fleet oversight by independent SURYADEV RAKSHAK
 
-Core `SuryadevFleetWatchdog` starts with its normal background services
-(not in isolated HTTP test mode), immediately performs a read-only assessment,
-then repeats no faster than every 300 seconds. It reads registered Core device
-telemetry, rejects stale/unauthenticated/offline/error/overloaded nodes, and
-reports repair *requests*. Authenticated node heartbeats are more frequent;
-watchdog cadence is supervisory, not data ingestion frequency.
+**KRISHNA must not run a background watchdog thread.** Only its existing
+REST server exposes an on-demand loopback-only, read-only
+`GET /api/suryadev/fleet/nodes` snapshot of authenticated node heartbeats.
 
-Loopback-only `GET /api/suryadev/fleet/watchdog` displays the last audit,
-checked count and errors. **No repair commands are launched in this first
-increment.** MRITYUNJAY can later consume policy-authorized repair tickets
-to restart only designated SURYADEV child processes after graceful shutdown,
-retry budget, audit and owner approval. Never kill other applications based
-only on name, high RAM usage or apparent idleness.
+The separate `suryadev_rakshak.py` worker is launched as its own lightweight
+Python process on the **KRISHNA PC**. It polls that endpoint every 300 seconds,
+does not load Ollama or browsers, and writes
+`rakshak-status.json` and transition-deduplicated
+`rakshak-incidents.jsonl` to its **own** data root.
+
+A portable one-shot preflight on KRISHNA's computer is:
+
+```powershell
+python .\\suryadev_rakshak.py --data "D:\\Work\\SURYADEV-RAKSHAK-DATA" --once
+```
+
+Then start it separately (foreground supervised terminal for initial testing):
+
+```powershell
+python -u .\\suryadev_rakshak.py --data "D:\\Work\\SURYADEV-RAKSHAK-DATA"
+```
+
+The service **does not restart itself after reboot** until an owner-approved
+OS service/scheduler installation is tested. Its HTTP endpoint intentionally
+accepts **127.0.0.1 only**; a different host requires a future authenticated,
+TLS-pinned read-only connection, not an open LAN exception.
+
+**No repair commands, process kills, mission dispatch, or source acquisition**
+are performed by RAKSHAK. MRITYUNJAY can later consume separately authorized,
+audited repair tickets, but cannot blindly kill unrelated apps.
 
 ## Plugins — versioned trust contract, not blind remote execution
 
