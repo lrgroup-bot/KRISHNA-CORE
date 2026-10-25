@@ -160,6 +160,16 @@ def observer_jobs(root, limit=30):
         else:
             displayed_status = "approved_not_started"
         session = bundle.get("session") if isinstance(bundle.get("session"),dict) else {}
+        legacy_incomplete = (report.get("status") == "AWAITING_SERVER_ACK"
+                             and session.get("end_reason") in (
+                                 "content_playback_stalled",
+                                 "advertisement_wait_limit",
+                                 "browser_snapshot_unavailable"))
+        if legacy_incomplete:
+            # Prior versions allowed one 0-second screenshot to become
+            # AWAITING_SERVER_ACK. Preserve the original canonical report
+            # but never display it as usable learning acceptance.
+            displayed_status = "INCOMPLETE_STALLED_OBSERVATION"
         transcript = bundle.get("transcript") if isinstance(bundle.get("transcript"),dict) else {}
         chunks = bundle.get("learning_chunks") if isinstance(bundle.get("learning_chunks"),list) else []
         visuals = bundle.get("visual_evidence") if isinstance(bundle.get("visual_evidence"),list) else []
@@ -176,6 +186,8 @@ def observer_jobs(root, limit=30):
         out.append({
             "job_id":jid, "url":_short(job.get("target"),2048),
             "status":displayed_status,
+            "canonical_worker_status":_short(report.get("status"),80),
+            "legacy_incomplete_evidence":legacy_incomplete,
             "observer_attempted":jid in attempted or bool(outcome_row) or bool(report),
             "observer_active":jid in live_ids,
             "observer_error":_short(outcome_row.get("error") or
@@ -191,6 +203,8 @@ def observer_jobs(root, limit=30):
             "source_duration_seconds":_seconds(session.get("source_duration_seconds")),
             "video_ended":session.get("video_ended") is True,
             "stop_reason":_short(session.get("end_reason"),90),
+            "last_playback_diagnostic":session.get("last_playback_diagnostic")
+                if isinstance(session.get("last_playback_diagnostic"),dict) else {},
             "advertisement_events":(session.get("video_advertisement_events")
                                     if type(session.get("video_advertisement_events")) is int
                                     else None),
@@ -208,8 +222,10 @@ def observer_jobs(root, limit=30):
             "visual_frame_samples":len([x for x in visuals if isinstance(x,dict)]),
             "what_was_collected":previews,
             "bundle_validated":report.get("bundle_valid") is True,
-            "awaiting_server_ack":report.get("status") == "AWAITING_SERVER_ACK",
-            "receipt_recorded":report.get("status") == "ACKNOWLEDGED_CLEANED",
+            "awaiting_server_ack":report.get("status") == "AWAITING_SERVER_ACK"
+                                  and not legacy_incomplete,
+            "receipt_recorded":report.get("status") == "ACKNOWLEDGED_CLEANED"
+                                and not legacy_incomplete,
             "caption_completeness_verified":False,
             "full_audio_visual_coverage_verified":False,
             "brahmagyan_exam_verified":False,
