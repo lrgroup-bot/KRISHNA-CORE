@@ -178,3 +178,14 @@ padding:9px 11px;border:1px solid #bcc7cc;border-radius:9px;color:var(--ink);
 background:#fff;font:12px/1.5 inherit}
 #video-auto-url:focus-visible{outline:3px solid #92aade;outline-offset:2px}
 #video-auto-approve{background:#445f84}
+
+/* The former Node Control facts are part of the single Learning Intelligence UI. */
+.unified-node-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+ gap:9px;margin:10px 0 14px}
+.unified-node-overview>div{display:flex;flex-direction:column;gap:6px;min-width:0;
+ padding:12px 14px;background:#fff;border:1px solid #e0def0;border-radius:12px}
+.unified-node-overview span{font-size:11px;font-weight:650;color:#706987}
+.unified-node-overview strong{font-size:12px;line-height:1.45;font-weight:850;
+ color:#4f3e79;overflow-wrap:anywhere}
+@media(max-width:970px){.unified-node-overview{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){.unified-node-overview{grid-template-columns:1fr}}
