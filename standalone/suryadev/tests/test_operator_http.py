@@ -93,7 +93,7 @@ class LocalOperatorHttpTests(unittest.TestCase):
                     "Origin":f"http://127.0.0.1:{port}",
                     "X-SURYADEV-CSRF":secret
                 }
-                status, unknown = request("POST", "/api/operator/unknown",
+                status, unknown = request("POST", "/not-an-operator-route",
                                           {"ignored":True}, headers=headers)
                 self.assertEqual(status, 404)
                 self.assertIn(b"Unknown operation", unknown)
