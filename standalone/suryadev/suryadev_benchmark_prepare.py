@@ -95,7 +95,7 @@ def download_book(url, destination, *, opener=None):
 
 def prepare(root, *, downloader=download_book):
     from suryadev_book_continuity import approve_book,read_book_plan
-    from suryadev_book_reader import file_sha256
+    from suryadev_book_reader import file_sha256, default_pdf_ocr
     from suryadev_feeder import read_plan
     from suryadev_liveops import atomic_json
     from suryadev_lock import worker_lock
@@ -111,7 +111,17 @@ def prepare(root, *, downloader=download_book):
             file=downloader(url,root/"benchmark-books"/filename)
             book_paths.append((title,file))
         for title,file in book_paths:
-            report=approve_book(root,file,lines_per_step=20)
+            try:
+                report=approve_book(root,file,lines_per_step=20,
+                                    ocr=default_pdf_ocr)
+            except (ValueError, RuntimeError, ImportError) as exc:
+                raise RuntimeError(
+                    "Book import blocked for '"+title+"': "+str(exc)+". "
+                    "Original downloaded PDFs and any previously committed book "
+                    "approvals are preserved. For a non-text page, install "
+                    "pypdfium2 to verify actual blanks; scanned illustrated "
+                    "pages also need pytesseract and the local Tesseract executable. "
+                    "Never mark the page read without source evidence.") from exc
             print(json.dumps({"approved_book":title,"status":report["status"],
                               "sha256":report.get("source_sha256") or file_sha256(file)}),
                   flush=True)
