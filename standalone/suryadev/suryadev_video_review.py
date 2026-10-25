@@ -211,6 +211,13 @@ class VideoReview:
             try:
                 if not self.auto_enabled():
                     self.auto_status="disabled"
+                elif (_safe_read(self.data_root, "fresh-workspace.json", max_bytes=4096)
+                      .get("node_profile") == "fleet_adaptive"):
+                    # A fleet-adaptive node uses the ONE research supervisor's
+                    # measured ParallelVideoReader pool. Never seize its
+                    # exclusive worker lock from the dashboard scheduler,
+                    # even when the worker has not started yet.
+                    self.auto_status="supervisor_owned_waiting_for_learning_worker"
                 elif self.active:
                     self.auto_status="watching"
                 else:
