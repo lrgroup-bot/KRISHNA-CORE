@@ -28,12 +28,16 @@ MAX_LOCAL_QUEUED = 20
 def hardware_report(root, *, sample=None, now=None):
     """Normalized capacity. Missing measurements never become invented zeros."""
     report = snapshot(root) if sample is None else sample
-    if not report.get("available"):
+    if not isinstance(report, dict) or report.get("available") is not True:
         return None
     moment=time.time() if now is None else float(now)
     stamp=report.get("sample_time")
-    if stamp is not None and (not isinstance(stamp,(int,float))
-                             or not 0<=moment-float(stamp)<=10):
+    # Hardware admission requires a real, recent sample. A missing or NaN
+    # clock must not be represented to Core as an age-zero observation.
+    import math
+    if (type(moment) not in (int, float) or not math.isfinite(moment)
+            or type(stamp) not in (int, float) or not math.isfinite(stamp)
+            or not 0 <= moment - float(stamp) <= 10):
         return None
     # Report the exact collector/local model capacity measured for this node.
     workspace = _safe_read(root, "fresh-workspace.json", max_bytes=4096)
