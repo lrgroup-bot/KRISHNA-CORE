@@ -322,6 +322,80 @@ def _apply_video_rate(page, desired):
         return None
 
 
+class VideoProgressGuard:
+    """Observe a real content clock; ads and stalled playback are NOT learning."""
+
+    def __init__(self, now, *, stalled_seconds=60, ad_wait_seconds=120):
+        self.last_progress_at = float(now)
+        self.last_content_seconds = 0.0
+        self.ad_since = None
+        self.ad_events = 0
+        self.ad_wall_seconds = 0.0
+        self.stalled_seconds = float(stalled_seconds)
+        self.ad_wait_seconds = float(ad_wait_seconds)
+
+    def tick(self, snapshot, *, now):
+        now = float(now)
+        if snapshot.get("ad_showing") is True:
+            if self.ad_since is None:
+                self.ad_since = now
+                self.ad_events += 1
+            # Waiting for ordinary provider playback is not content watching;
+            # never skip forward, click ad buttons or forge video progress.
+            if now - self.ad_since >= self.ad_wait_seconds:
+                return "advertisement_wait_limit"
+            return None
+        if self.ad_since is not None:
+            self.ad_wall_seconds += max(0.0, now - self.ad_since)
+            self.ad_since = None
+            self.last_progress_at = now
+            self.last_content_seconds = 0.0
+        try:
+            position = float(snapshot.get("seconds") or 0)
+        except (ValueError, TypeError):
+            position = 0.0
+        if position > self.last_content_seconds + 0.5:
+            self.last_content_seconds = position
+            self.last_progress_at = now
+        if now - self.last_progress_at >= self.stalled_seconds:
+            return "content_playback_stalled"
+        return None
+
+
+def _chromium_content_filter():
+    """Opt-in local uBO Lite MV3 integration, without downloads or token access.
+
+    Source: github.com/uBlockOrigin/uBOL-home and github.com/gorhill/uBlock.
+    Operator supplies reviewed unpacked extension path; a missing or invalid
+    extension FAILS CLOSED rather than silently launching an unfiltered browser.
+    """
+    raw = str(os.getenv("SURYADEV_UBOL_EXTENSION_DIR") or "").strip()
+    if not raw:
+        return {"enabled": False, "args": []}
+    path = Path(raw).expanduser()
+    if not path.is_absolute() or path.is_symlink():
+        raise ValueError("uBO Lite extension path must be a non-symlink absolute directory")
+    path = path.resolve(strict=True)
+    manifest = path / "manifest.json"
+    if not path.is_dir() or not manifest.is_file() or manifest.is_symlink():
+        raise ValueError("Unpacked uBO Lite manifest.json is missing")
+    if manifest.stat().st_size > 65536:
+        raise ValueError("uBO Lite extension manifest exceeds size limit")
+    config = json.loads(manifest.read_text(encoding="utf-8"))
+    perms = config.get("permissions", [])
+    if (not isinstance(config, dict) or config.get("manifest_version") != 3
+            or not isinstance(perms, list)
+            or "declarativeNetRequest" not in perms):
+        raise ValueError("Expected unpacked Manifest V3 declarative uBO Lite ruleset")
+    if "nativeMessaging" in perms or "debugger" in perms:
+        raise ValueError("Unexpected privileged extension permissions")
+    # No remote lookup/auto installation. Playwright's bundled Chromium
+    # supports MV3 with a persistent context and channel='chromium'.
+    return {"enabled": True, "args": [
+        "--disable-extensions-except=" + str(path),
+        "--load-extension=" + str(path)]}
+
+
 def _video_snapshot(page):
     script = r"""
     () => {
@@ -334,6 +408,7 @@ def _video_snapshot(page):
         seconds: v ? Number(v.currentTime||0) : 0,
         duration: v && Number.isFinite(v.duration) ? Number(v.duration) : 0,
         paused: v ? !!v.paused : true,
+        ad_showing: !!document.querySelector('.html5-video-player.ad-showing'),
         ended: v ? !!v.ended : false,
         playback_rate: v ? Number(v.playbackRate||1) : null,
         caption: caps
@@ -480,6 +555,10 @@ def observe(job, workspace):
     seen_four_x = False
     started_wall = time.time()
     started_mono = time.monotonic()
+    progress_guard = VideoProgressGuard(started_mono)
+    ad_suppressed_samples = 0
+    stop_reason = "observation_window_completed"
+    content_filter = _chromium_content_filter()
     final = {}
     title = ""
     subject = subject_hint
@@ -489,7 +568,8 @@ def observe(job, workspace):
         context = p.chromium.launch_persistent_context(
             str(browser_profile),
             headless=headless,
-            args=["--autoplay-policy=no-user-gesture-required"],
+            **({"channel": "chromium"} if content_filter["enabled"] else {}),
+            args=["--autoplay-policy=no-user-gesture-required"] + content_filter["args"],
             viewport={"width": 1280, "height": 800},
         )
         try:
@@ -518,6 +598,18 @@ def observe(job, workspace):
                     if subject_hint == source_url or subject_hint == "video-learning":
                         subject = title or "video-learning"
                     sec = float(snap.get("seconds") or 0)
+                    guard_result = progress_guard.tick(snap, now=time.monotonic())
+                    if snap.get("ad_showing") is True:
+                        # Never put advertisement captions/frames into knowledge.
+                        ad_suppressed_samples += 1
+                        if guard_result:
+                            stop_reason = guard_result
+                            break
+                        time.sleep(sample_seconds)
+                        continue
+                    if guard_result:
+                        stop_reason = guard_result
+                        break
                     caption = re.sub(r"\s+", " ", str(snap.get("caption") or "").strip())
                     desired_rate, speed_category = speed_controller.choose(
                         caption, video_seconds=sec, caption_available=bool(caption),
@@ -580,6 +672,7 @@ def observe(job, workspace):
                     remaining = max(0.0, duration - sec) if duration > 0 else None
 
                     if bool(snap.get("ended")):
+                        stop_reason = "video_html_ended"
                         break
                     if elapsed >= duration_seconds:
                         # User requirement: if the shift ends with <=5 minutes left,
@@ -595,6 +688,11 @@ def observe(job, workspace):
                             break
                     if bool(snap.get("paused")):
                         _try_play(page)
+                else:
+                    guard_result = progress_guard.tick({}, now=time.monotonic())
+                    if guard_result:
+                        stop_reason = "browser_snapshot_unavailable"
+                        break
 
                 time.sleep(sample_seconds)
         finally:
@@ -707,6 +805,14 @@ def observe(job, workspace):
             "watched_seconds": round(float(final.get("seconds") or 0), 2),
             "source_duration_seconds": round(float(final.get("duration") or 0), 2),
             "video_ended": bool(final.get("ended")),
+            "end_reason": stop_reason,
+            "video_advertisement_events": progress_guard.ad_events,
+            "advertisement_wall_seconds": round(progress_guard.ad_wall_seconds, 2),
+            "advertisement_samples_not_used_as_learning": ad_suppressed_samples,
+            "content_filter": (
+                "optional_local_ubol_mV3_loaded_unverified_effectiveness"
+                if content_filter["enabled"] else "not_configured"),
+            "provider_ad_blocking_verified": False,
             "finish_grace_seconds": finish_grace,
             "shift_limit_seconds": duration_seconds,
             "adaptive_playback": adaptive_playback,
