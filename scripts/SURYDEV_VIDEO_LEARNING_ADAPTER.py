@@ -554,7 +554,7 @@ def observe(job, workspace):
     speed_events = []
     speed_event_total = 0
     last_logged_rate = None
-    seen_four_x = False
+    seen_three_x = False
     started_wall = time.time()
     started_mono = time.monotonic()
     progress_guard = VideoProgressGuard(started_mono)
@@ -621,7 +621,7 @@ def observe(job, workspace):
                     if observed_rate != last_logged_rate:
                         speed_event_total += 1
                         if observed_rate == 3.0:
-                            seen_four_x = True
+                            seen_three_x = True
                         speed_event = {
                             "video_seconds": round(sec, 2),
                             "requested_rate": desired_rate,
@@ -819,13 +819,18 @@ def observe(job, workspace):
             "finish_grace_seconds": finish_grace,
             "shift_limit_seconds": duration_seconds,
             "adaptive_playback": adaptive_playback,
-            "playback_rates_attempted": [1.0, 1.5, 2.0, 4.0],
+            "playback_rates_attempted": sorted({
+                float(e["requested_rate"]) for e in speed_events
+                if type(e.get("requested_rate")) in (int, float)
+            }),
+            "playback_rate_cap": 3.0,
             "speed_events_total": speed_event_total,
             "speed_events_recent": speed_events,
-            "four_x_observed": seen_four_x,
+            "three_x_observed": seen_three_x,
+            "four_x_observed": False,
             "speed_heuristic_only": True,
             "complete_caption_coverage_verified": False,
-            "high_speed_content_may_have_been_missed": seen_four_x,
+            "high_speed_content_may_have_been_missed": seen_three_x,
         },
         "raw_media_included": False,
         "policy": {
