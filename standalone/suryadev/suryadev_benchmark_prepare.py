@@ -113,7 +113,8 @@ def prepare(root, *, downloader=download_book):
         for title,file in book_paths:
             report=approve_book(root,file,lines_per_step=20)
             print(json.dumps({"approved_book":title,"status":report["status"],
-                              "sha256":report["source_sha256"]}),flush=True)
+                              "sha256":report.get("source_sha256") or file_sha256(file)}),
+                  flush=True)
         books=read_book_plan(root/"book-plan.json")
         hashes={str(row["path"]):row["sha256"] for row in books["books"]}
         selected_books=[hashes[str(p)] for _,p in book_paths]
