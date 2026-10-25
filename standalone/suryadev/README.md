@@ -1704,3 +1704,56 @@ evidence/failures. The original previously attempted video is **not**
 silently retried after a failed/partial observation. A new one-time
 owner-approved attempt or a different approved video is needed; do not
 erase the previous evidence or alter the attempt journal.
+
+
+### Diagnostic fix: video observer exited but audit stays pending_or_running
+
+An approved YouTube review has THREE independent state sources:
+`data/video-review/approved-inbox/approved-video-*.json` (staged jobs),
+`data/video-review/runtime/jobs/<job_id>/worker-report.json` (canonical
+completion/error/evidence receipt), and
+`data/video-observer-attempts.json` (immutable once-only attempt history).
+Historically, `/api/youtube/audit` labeled a staged job with no canonical
+report `pending_or_running`, **even after** the subprocess failed, the
+parent lost its only ephemeral `finished` result on the next tick, or
+the child was interrupted. This was a reporting defect, not proof of
+continued playback.
+
+The adaptive supervisor now retains bounded per-job outcomes in
+`data/video-observer-outcomes.json`, with failure reason and timestamp,
+and publishes current `active_job_ids` in the 15-second
+`video-concurrent-runtime.json`. The read-only YouTube audit and dashboard
+video panel distinguish `worker_failed`,
+`attempted_no_final_receipt`, `running_without_final_report` and
+`approved_not_started`; the canonical worker report remains authoritative
+when present. A corrupt diagnostic-journal file must NOT stop healthy
+website/PDF/book lanes; preserve it for inspection.
+
+**Safety boundary:** no new YouTube request is made merely to fix
+telemetry, no old attempted job is silently replayed, no captured media or
+SQLite evidence is deleted, and the dashboard cannot claim caption
+comprehension/Rishi exam without real evidence.
+
+An operator can inspect the three exact IDs by:
+```powershell
+$root='D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\data'
+@('approved-video-bceb228031b31d0b',
+  'approved-video-67f8dd17a7b32fd2',
+  'approved-video-623e9ad6e4fafd06') | ForEach-Object {
+  $id=$_
+  $p=Join-Path $root "video-review\\runtime\\jobs\\$id"
+  [PSCustomObject]@{
+    Video=$id
+    WorkerReport=(Test-Path (Join-Path $p 'worker-report.json'))
+    LearningBundle=(Test-Path (Join-Path $p 'learning-bundle.json'))
+    PlaybackSpeed=(Test-Path (Join-Path $p 'playback-speed.json'))
+  }
+} | Format-Table -AutoSize
+Get-Content (Join-Path $root 'video-concurrent-runtime.json') -ErrorAction SilentlyContinue
+```
+
+Deploy only after stopping the dashboard and observer gracefully, updating the
+tested portable install and restarting exactly ONE dashboard. The previously
+attempted three videos may need additional *new* approved sources or
+owner-reviewed one-time retry after diagnoses. Video site restrictions
+and missing audio/captions remain possible and must stay visible as failures.
