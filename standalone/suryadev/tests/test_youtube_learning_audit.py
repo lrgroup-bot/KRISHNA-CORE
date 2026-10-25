@@ -126,6 +126,21 @@ class YoutubeLearningAuditTests(unittest.TestCase):
         # Historical source artifacts remain byte-for-byte unchanged.
         self.assertEqual(bundle,json.loads(path.read_text(encoding="utf-8")))
 
+    def test_legacy_playback_receipt_prevents_false_queued_to_run(self):
+        from suryadev_video_review import VideoReview
+        jid=self.add_observation()
+        folder=self.root/"video-review"/"runtime"/"jobs"/jid
+        (folder/"worker-report.json").unlink()
+        (folder/"learning-bundle.json").unlink()
+        (folder/"playback-speed.json").write_text(json.dumps({
+            "schema":"krishna.suryadev.playback-speed.v1",
+            "job_id":jid,"video_seconds":7.59}),encoding="utf-8")
+        history=observer_jobs(self.root)[0]
+        self.assertEqual(history["status"],"attempted_no_final_receipt")
+        panel=VideoReview(self.root,self.root).snapshot()["jobs"][0]
+        self.assertEqual(panel["status"],"ATTEMPTED_NO_FINAL_RECEIPT")
+        self.assertFalse(panel["can_run"])
+
     def test_empty_is_honest_and_read_only(self):
         before=list(self.root.iterdir())
         result=youtube_audit(self.root,self.lib.db)
