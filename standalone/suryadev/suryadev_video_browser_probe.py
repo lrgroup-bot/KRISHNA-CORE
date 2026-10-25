@@ -35,6 +35,20 @@ def validated_video(url):
     return url
 
 
+def observed_expected_video(samples):
+    for sample in samples:
+        if not isinstance(sample,dict) or sample.get("has_video") is not True:
+            continue
+        try:
+            p=urlsplit(str(sample.get("source_url") or ""))
+            if (p.scheme=="https" and p.hostname in ("www.youtube.com","youtube.com")
+                    and p.path=="/watch" and parse_qs(p.query).get("v")==["VZ5LU8vHT0s"]):
+                return True
+        except ValueError:
+            pass
+    return False
+
+
 def classify(samples):
     """Only non-ad content timestamps count; playback is not comprehension."""
     valid=[float(x["seconds"]) for x in samples if
@@ -46,7 +60,8 @@ def classify(samples):
     advance=max(valid)-initial if valid else 0
     errors=[x.get("media_error_code") for x in samples if x.get("media_error_code")]
     any_ad=any(x.get("ad_showing") is True for x in samples)
-    return {"source_video_progress_seconds":round(max(0,advance),2),
+    return {"requested_video_page_verified":observed_expected_video(samples),
+            "source_video_progress_seconds":round(max(0,advance),2),
             "source_video_position_seconds":round(max(valid),2) if valid else None,
             "content_clock_advanced_30s":advance >= 30,
             "content_clock_advanced_10s":advance >= 10,
@@ -59,7 +74,8 @@ def classify(samples):
 
 
 def can_approve_after_probe(assessment):
-    return (assessment.get("content_clock_advanced_30s") is True
+    return (assessment.get("requested_video_page_verified") is True
+            and assessment.get("content_clock_advanced_30s") is True
             and not assessment.get("media_error_codes"))
 
 
@@ -185,7 +201,7 @@ def main(argv=None):
                           "new_source_approved_for_learning":
                               report["new_source_approved_for_learning"],
                           "diagnostics":report["diagnostics"]},indent=2))
-        return 0 if report["assessment"]["content_clock_advanced_30s"] else 3
+        return 0 if can_approve_after_probe(report["assessment"]) else 3
     except (OSError,ValueError,RuntimeError) as exc:
         print("PROBE BLOCKED: "+type(exc).__name__+": "+str(exc))
         return 2
