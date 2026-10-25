@@ -14,6 +14,23 @@ A configured maximum (3 in legacy mode or 125 in adaptive fleet mode) is not
 measured runnable capacity or a guarantee of actual parallel jobs. Evidence
 collection is not automatically certified as source comprehension.
 
+### Live KRISHNA pairing (opt-in, never automatic)
+
+The current Core supports **zero-code SHA-256 credential pairing**, not the
+legacy pairing-code proposal in `suryadev_enroll.py`. Use the new
+`suryadev_pairing_bootstrap.py` only after Core's restricted native HTTPS
+listener has been enabled and its certificate fingerprint independently
+verified. It creates a local token, submits its SHA-256 to
+`/api/mobile/pair/request`, requires approval on the **KRISHNA PC** via
+`/api/mobile/pair/approve`, verifies that approval over pinned TLS, and
+only then creates `core-mission-connection.json`. No dashboard process,
+source plan or evidence is replaced during pairing.
+
+The exact owner-controlled two-machine procedure and rollback boundaries
+are in `docs/SURYADEV_FLEET_ROLLOUT.md` at the repository root.
+A paired credential does not prove Core job intake, BRAHMAGYAN knowledge
+acceptance, Rishi exam grading or deep learning.
+
 **Historical release notes below may still describe the previous split-page
 UI and the original mandatory rest policy. Current behavior is controlled
 by the profile's continuous-mission policy and the single UI described here.**
