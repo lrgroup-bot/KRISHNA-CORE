@@ -20,14 +20,28 @@ class CapabilityDiscoveryTests(unittest.TestCase):
             self.assertFalse(only_video["sources"]["youtube"]["provider_access_verified"])
             self.assertFalse(no_packages["sources"]["website"]["browser_runtime_verified"])
 
-    def test_local_approved_book_plan_enables_book_without_local_llm(self):
+    def test_book_capability_requires_valid_plan_and_source(self):
+        import hashlib
+        import json
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
-            (root/"book-collect-plan.json").write_text("{}",encoding="utf-8")
-            # Book lane only indicates a plan exists; parsing and SHA approval
-            # are independently enforced by the book worker.
+            plan=root/"book-collect-plan.json"
+            plan.write_text("{}",encoding="utf-8")
+            self.assertNotIn("book",installed_capabilities(
+                root,installed=lambda _:False)["capabilities"])
+            book=root/"approved.txt"
+            book.write_text("Public learning example book",encoding="utf-8")
+            digest=hashlib.sha256(book.read_bytes()).hexdigest()
+            plan.write_text(json.dumps({
+                "schema":"suryadev.book-plan.v1",
+                "books":[{"path":str(book),"sha256":digest}],
+                "lines_per_step":1
+            }),encoding="utf-8")
             found=installed_capabilities(root,installed=lambda _:False)
             self.assertEqual(found["capabilities"],["book"])
+            book.unlink()
+            self.assertNotIn("book",installed_capabilities(
+                root,installed=lambda _:False)["capabilities"])
 
     def test_no_surprise_capabilities_in_authenticated_hardware_report(self):
         reading={"available":True,"sample_time":100,
