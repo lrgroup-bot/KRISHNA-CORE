@@ -44,6 +44,10 @@ def renewal_tick(lib, *, youtube_blocked=False, low_water=LOW_WATER_JOBS,
                 counts["blocked_youtube"] += 1
             else:
                 counts["eligible"] += 1
+    workspace = _safe_read(root, "fresh-workspace.json", max_bytes=4096)
+    continuous = (workspace.get("schema") == "suryadev.fresh-workspace.v1"
+                  and workspace.get("mission_rest_policy") == "continuous")
+    rest_minutes = 0 if continuous else 10
     previous = _safe_read(root, RENEWAL_FILE, max_bytes=8192)
     existing = previous.get("request")
     if not isinstance(existing, dict) or not isinstance(existing.get("request_id"), str):
@@ -67,7 +71,7 @@ def renewal_tick(lib, *, youtube_blocked=False, low_water=LOW_WATER_JOBS,
                 "expert_source_policy": "prefer_institutional_official_profiles_and_correlated_ORCID_DOI",
                 "expert_identity_verified": False,
                 "source_provenance_required": True,
-                "rest_after_mission_minutes": 10,
+                "rest_after_mission_minutes": rest_minutes,
             }
         status = "awaiting_assignment"
     else:
@@ -90,7 +94,9 @@ def renewal_tick(lib, *, youtube_blocked=False, low_water=LOW_WATER_JOBS,
         "completed_total": counts["done"],
         "failed_total": counts["failed"],
         "low_water_jobs": low_water,
-        "mission_cadence": {"work_seconds": 21600, "rest_seconds": 600,
+        "mission_cadence": {"work_seconds": 21600,
+                           "rest_seconds": rest_minutes * 60,
+                           "mode": "continuous" if continuous else "legacy",
                            "new_work_requires_safe_hardware": True},
         "coordinator_assignment_verified": False,
         "session_ends_at": deadline,
@@ -104,6 +110,9 @@ def renewal_tick(lib, *, youtube_blocked=False, low_water=LOW_WATER_JOBS,
                  "Renewal request is durable locally; no authenticated KRISHNA "
                  "mission delivery has been acknowledged."),
     }
+    if existing is not None and existing.get("request_id"):
+        existing = dict(existing, rest_after_mission_minutes=rest_minutes)
+        value["request"] = existing
     # Avoid rewriting the outbox on every 2-second active-worker poll.
     if value != previous:
         atomic_json(root, RENEWAL_FILE, value)
