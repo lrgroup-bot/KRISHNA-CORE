@@ -81,10 +81,22 @@ class LocalOperatorHttpTests(unittest.TestCase):
                     "X-SURYADEV-CSRF":"invalid"
                 })
                 self.assertEqual(status, 403)
+                # Windows may reset responses when a denied POST leaves
+                # request bytes unread on the server's TCP socket.
+                status, denied = request("POST", endpoint,
+                    {"payload": "x" * 2048},
+                    headers={"Origin":f"http://127.0.0.1:{port}",
+                             "X-SURYADEV-CSRF":"invalid"})
+                self.assertEqual(status, 403)
+                self.assertIn(b"Same-origin authorization required", denied)
                 headers = {
                     "Origin":f"http://127.0.0.1:{port}",
                     "X-SURYADEV-CSRF":secret
                 }
+                status, unknown = request("POST", "/api/operator/unknown",
+                                          {"ignored":True}, headers=headers)
+                self.assertEqual(status, 404)
+                self.assertIn(b"Unknown operation", unknown)
                 status, saved = request("POST", endpoint, payload, headers=headers)
                 self.assertEqual(status, 200)
                 self.assertFalse(json.loads(saved)["paired"])
