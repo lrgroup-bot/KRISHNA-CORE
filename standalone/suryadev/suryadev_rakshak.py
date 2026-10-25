@@ -113,6 +113,16 @@ def inspect(snapshot, *, now=None):
             state = "telemetry_stale"
         elif any(v >= 85 for v in measured.values()):
             state = "hardware_guard"
+        elif (type(item.get("queued_jobs")) is int
+              and item["queued_jobs"] > 0
+              and item.get("running_jobs") == 0
+              and type(item.get("available_slots")) is int
+              and item["available_slots"] > 0
+              and item.get("learning_state") == "researching"):
+            # Five-minute observation of work waiting despite healthy
+            # measured admission. Could be a transient source/provider
+            # pause; report for diagnosis, NEVER terminate a process.
+            state = "queue_waiting_review"
         else:
             state = "healthy_telemetry_only"
         report.append({
@@ -121,6 +131,9 @@ def inspect(snapshot, *, now=None):
             "cpu_percent": measured["cpu_percent"],
             "ram_percent": measured["ram_percent"],
             "disk_percent": measured["disk_percent"],
+            "queued_jobs": item.get("queued_jobs"),
+            "running_jobs": item.get("running_jobs"),
+            "learning_state": item.get("learning_state"),
             "learned_or_mastered": False,
             "automatic_process_killing": False,
         })
@@ -162,7 +175,10 @@ def check_once(data_root, *, url=DEFAULT_CORE_URL, fetch=read_core_nodes, now=No
     when = time.time() if now is None else float(now)
     try:
         report = inspect(fetch(url), now=when)
-        report["core_state"] = "reachable"
+        report["core_state"] = "reachable" if report["total"] else "reachable_no_nodes"
+        if not report["total"]:
+            report["unhealthy"] = 1
+            report["reason"] = "No paired SURYADEV node heartbeats were available"
     except (OSError, ValueError, RuntimeError, urllib.error.URLError, json.JSONDecodeError) as exc:
         report = {"schema": SCHEMA, "checked_at": when,
                   "interval_seconds": INTERVAL_SECONDS,
