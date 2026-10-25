@@ -21,7 +21,7 @@ from .suryadev_fleet_policy import plan_rishi_collection
 SCHEMA = "krishna.suryadev.fleet-leases.v1"
 LEASE_SECONDS = 600
 MAX_ATTEMPTS = 3
-MAX_ACTIVE_PER_NODE = 12
+MAX_ACTIVE_PER_NODE = 125
 
 
 class SuryadevFleetService:
@@ -91,8 +91,15 @@ class SuryadevFleetService:
         if type(capacity) is not int:
             return False
         profile["available_slots"] = min(MAX_ACTIVE_PER_NODE, max(0, capacity - active))
+        # A node enrolled solely for video must not fail a hardcoded
+        # website-only eligibility probe. Check its ACTUAL reported lane.
+        allowed = {"website", "youtube", "pdf", "book", "experiment"}
+        lane = next((kind for kind in (profile.get("capabilities") or [])
+                     if kind in allowed), None)
+        if lane is None:
+            return False
         sample = [{"task_id": "__probe__", "rishi_id": self.council.list()[0]["id"],
-                   "kind": "website", "priority": 0, "status": "queued",
+                   "kind": lane, "priority": 0, "status": "queued",
                    "approved": True}]
         result = plan_rishi_collection(sample, [profile],
             council_ids=[row["id"] for row in self.council.list()], now=now)
