@@ -146,6 +146,30 @@ class FleetTests(unittest.TestCase):
         self.assertEqual(self.fleet.claim(device_id=blocked)["status"],
                          "no_eligible_capacity")
 
+    def test_owned_lease_renews_under_hardware_pressure_without_new_admission(self):
+        owner = self.node(3, ram_percent=30, available_slots=4)
+        first = self.fleet.claim(device_id=owner)
+        task_id = first["task"]["task_id"]
+        # Same host became RAM-constrained AFTER it accepted the task.
+        self.node(3, ram_percent=92, available_slots=0, cpu_percent=88)
+        renewed = self.fleet.renew(device_id=owner, task_id=task_id,
+                                   lease_id=first["lease_id"])
+        self.assertTrue(renewed["renewed"])
+        self.assertEqual(self.fleet.claim(device_id=owner,
+                         known_task_ids=[task_id])["status"],
+                         "no_eligible_capacity")
+
+    def test_unpaired_or_offline_node_cannot_renew_existing_lease(self):
+        owner = self.node(7)
+        first = self.fleet.claim(device_id=owner)
+        tid = first["task"]["task_id"]
+        for changes in ({"authenticated":False},{"worker_running":False},
+                        {"network_online":False},{"last_seen":NOW-200},
+                        {"telemetry_sample_at":NOW-70}):
+            self.node(7,**changes)
+            with self.subTest(changes=changes), self.assertRaises(PermissionError):
+                self.fleet.renew(device_id=owner, task_id=tid, lease_id=first["lease_id"])
+
     def test_corrupt_ledger_fails_closed(self):
         self.fleet.file.write_text('{"schema":"bad"}',encoding="utf-8")
         with self.assertRaisesRegex(ValueError,"corrupt"):
