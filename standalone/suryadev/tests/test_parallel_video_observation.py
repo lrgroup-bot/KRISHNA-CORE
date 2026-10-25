@@ -176,6 +176,33 @@ class ParallelVideoObservationTests(unittest.TestCase):
         finally:
             resumed.close()
 
+    def test_damaged_observer_outcome_file_does_not_kill_all_learning_lanes(self):
+        self.enable()
+        (self.root/"video-observer-outcomes.json").write_text("{damaged")
+        reader=ParallelVideoReader(
+            self.root,self.app,
+            execute=lambda path:{"state":"worker_failed",
+                                 "job":path.stem,"error":"browser unavailable"})
+        try:
+            cap={"safe":True,"max_total":1,"reserved_video_slots":1}
+            reader.tick(capacity=cap)
+            recovered=[]
+            for _ in range(100):
+                result=reader.tick(capacity=cap)
+                recovered.extend(result["finished"])
+                if recovered:
+                    break
+                time.sleep(.01)
+            self.assertTrue(recovered)
+            self.assertIn("outcome_persistence_error",recovered[0])
+            self.assertEqual((self.root/"video-observer-outcomes.json").read_text(),
+                             "{damaged")
+            # Other lanes can keep cycling without a fatal exception.
+            reader.tick(capacity={"safe":False,"max_total":0,
+                                  "reserved_video_slots":0})
+        finally:
+            reader.close()
+
     def test_interrupted_video_attempt_is_not_misreported_as_running_forever(self):
         from suryadev_youtube_audit import observer_jobs
         self.enable()
