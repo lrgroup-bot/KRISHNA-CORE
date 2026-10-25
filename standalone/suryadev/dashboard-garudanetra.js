@@ -85,18 +85,25 @@
       (alive && activeTabs > 0 ? " live" : capacity.browser_error ? " paused" : "");
     const active = Number(capacity.active_total || 0) + activeBooks + activeVideos;
     const max = Number(capacity.max_total || 0);
+    // The scheduler's node_profile is authoritative, not legacy copy.
+    // Fleet ceiling 125 is configurable only as an upper bound; max is the
+    // actual measured admission, never a running-job count.
+    const configured = capacity.node_profile === "fleet_adaptive" ? 125
+      : capacity.node_profile === "legacy" ? 3 : null;
+    const ceiling = configured === null ? "configured ceiling unverified"
+      : "configured ceiling " + num(configured);
     const targets = capacity.target_slots || {website:10,youtube:10,pdf:100,book:5};
     el("netra-total-capacity").textContent = num(active) + " active / " + num(max) +
-      " currently admitted · at most 3 concurrent tasks · 85% guard";
+      " measured admission slots · " + ceiling + " · 85% guard";
     el("netra-parallel-targets").textContent =
       "Workload ceilings (NOT guaranteed running): " + num(targets.website) + " websites · " +
       num(targets.youtube) + " approved video observers · " +
       num(targets.pdf) + " PDFs · " + num(targets.book) +
-      " books queued as needed. Fresh-session execution limit: 3 total tasks, never 3 per source. Admitted now: " + num(max) + " total CPU/RAM slots; " +
+      " books queued as needed. "+ceiling+". Current measured admission: " + num(max) + " total CPU/RAM slots; " +
       num(capacity.source_execution_slots || 0) + " sources, " +
       num(capacity.reserved_video_slots || 0) + " videos, " +
       num(capacity.reserved_book_slots || 0) + " books. " +
-      "The three-task ceiling is an upper bound; actual admission drops with CPU/RAM headroom. Browser video and PDF completion remain evidence-based; YouTube rate limits are respected.";
+      "Measured admission is an upper bound and can drop under hardware pressure. Browser video and PDF completion remain evidence-based; YouTube rate limits are respected.";
     const healthy = schedulerOnline && capacity.safe === true;
     const reported = schedulerOnline ? capacity : hardware;
     const measured = key => reported[key] != null && Number.isFinite(Number(reported[key]))
