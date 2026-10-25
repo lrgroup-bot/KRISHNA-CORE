@@ -18,6 +18,7 @@ from suryadev_resources import snapshot, hardware_identity
 from suryadev_capabilities import installed_capabilities
 from suryadev_parallel import plan_capacity
 from suryadev_sources import source_kind
+from suryadev_task_details import _evidence_state
 
 FILE = "suryadev-fleet-runtime.json"
 RETRY_SECONDS = 30
@@ -190,18 +191,50 @@ class FleetClient:
                     "429" in str(error) or "rate limit" in str(error).lower()) else "failed"
             else:
                 outcome = None
+            if outcome == "collected" and _evidence_state(self.root, digest) != "verified":
+                # SQLite 'done' is insufficient: never send a claimed SHA
+                # unless the complete local evidence bytes match it. Leave
+                # the active Core lease owned so renewal/recovery remains safe.
+                row["state"] = "local_evidence_integrity_failed"
+                self.state["last_error"] = (
+                    "Collected job has missing, invalid or corrupt SHA-256 evidence")
+                self._save()
+                if row.get("expires_at", 0) - now < 120:
+                    renewal = self._send("fleet/renew", {
+                        "task_id": task_id, "lease_id": lease})
+                    if renewal.get("renewed") is not True or renewal.get("lease_id") != lease:
+                        raise RuntimeError("Core refused integrity-hold lease renewal")
+                    row["expires_at"] = float(renewal["expires_at"])
+                    self._save()
+                continue
             if outcome:
                 reply = self._send("fleet/complete", {
                     "task_id": task_id, "lease_id": lease,
                     "outcome": outcome, "evidence_sha256": digest if outcome == "collected" else "",
                     "source_excerpt":str(excerpt or "")[:500] if outcome=="collected" else "",
                     "detail": str(error or "")[:300]})
-                if not reply.get("acknowledged"):
+                if not isinstance(reply, dict) or reply.get("acknowledged") is not True:
                     raise RuntimeError("Core did not acknowledge result")
+                if outcome == "collected":
+                    core_receipt = reply.get("receipt")
+                    if (not isinstance(core_receipt, dict) or
+                            core_receipt.get("task_id") != task_id or
+                            core_receipt.get("device_id") != self.config["device_id"] or
+                            core_receipt.get("lease_id") != lease or
+                            core_receipt.get("evidence_sha256") != digest or
+                            reply.get("candidate_recorded") is not True):
+                        # The server's authenticated route must commit both
+                        # the lease receipt AND BRAHMAGYAN's L0 candidate.
+                        # A retry of the same lease is idempotent on Core.
+                        raise RuntimeError(
+                            "Core evidence receipt or BRAHMAGYAN candidate ACK missing")
                 self.state["receipts"][task_id] = {
                     "outcome": outcome, "job_id": local_id,
                     "sha256": digest if outcome == "collected" else None,
-                    "core_acknowledged": True, "brahmagyan_accepted": False}
+                    "core_acknowledged": True,
+                    "brahmagyan_candidate_recorded": outcome == "collected",
+                    "brahmagyan_accepted": False,
+                    "rishi_exam_verified": False}
                 del self.state["assignments"][task_id]
                 self._save()
             elif row.get("expires_at", 0) - now < 120:
