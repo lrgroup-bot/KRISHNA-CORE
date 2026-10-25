@@ -39,6 +39,8 @@ def hardware_report(root, *, sample=None, now=None):
     selected = workspace.get("trial_model", "")
     collector_only = selected == "collector" or os.environ.get("SURYADEV_COLLECTOR_ONLY") == "1"
     capacity = plan_capacity(report, collector_only=collector_only)
+    fleet_adaptive = (workspace.get("schema") == "suryadev.fresh-workspace.v1"
+                      and workspace.get("node_profile") == "fleet_adaptive")
     required = ("cpu_percent", "ram_percent", "disk_percent", "ram_total_gb")
     if any(report.get(k) is None for k in required):
         return None
@@ -55,8 +57,10 @@ def hardware_report(root, *, sample=None, now=None):
         "ram_total_gb": report["ram_total_gb"],
         "disk_free_gb": report.get("disk_free_gb"),
         "max_total": max(0, min(
+            125 if fleet_adaptive else
             3 if workspace.get("schema") == "suryadev.fresh-workspace.v1" else 12,
             int(capacity.get("max_total") or 0))),
+        "node_profile": "fleet_adaptive" if fleet_adaptive else "legacy",
         "capabilities": ["website","youtube","pdf","book"],
         "logical_cpus": ident["logical_cpus"],
         "cpu_name": ident["cpu_name"],
@@ -202,7 +206,9 @@ class FleetClient:
             return None
         pending = lib.db.execute(
             "SELECT COUNT(*) FROM jobs WHERE status IN ('queued','running')").fetchone()[0]
-        if pending >= MAX_LOCAL_QUEUED:
+        workspace = _safe_read(self.root, "fresh-workspace.json", max_bytes=4096)
+        max_local = 250 if workspace.get("node_profile") == "fleet_adaptive" else MAX_LOCAL_QUEUED
+        if pending >= max_local:
             return None
         reply = self._send("fleet/claim", {
             "known_task_ids": list(self.state["assignments"]),
