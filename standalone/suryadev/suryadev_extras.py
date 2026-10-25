@@ -457,27 +457,39 @@ def serve(lib, port=8769):
             # Mutating configuration is never exposed through the opt-in Core
             # read-only bridge. Only local browser requests with per-start CSRF
             # token and exact Origin/Host matching may change settings.
+            def reject(status, explanation):
+                # An unread POST body can make Windows abort the TCP connection
+                # before a test/client receives its intended 403/415 response.
+                # Drain only a small, bounded body; do not parse or execute
+                # unauthorized data. A short timeout prevents slow clients
+                # from holding a dashboard thread indefinitely.
+                try:
+                    rejected_length = int(self.headers.get("Content-Length", "0"))
+                    if 0 < rejected_length <= 4096:
+                        self.connection.settimeout(1.0)
+                        self.rfile.read(rejected_length)
+                except (OSError, ValueError):
+                    pass
+                self.close_connection = True
+                return self.respond(status, json.dumps({"error": explanation}),
+                                    "application/json")
             origin = f"http://127.0.0.1:{port}"
             if (self.client_address[0] != "127.0.0.1"
                     or self.headers.get("Host") != f"127.0.0.1:{port}"
                     or self.headers.get("Origin") != origin
                     or self.headers.get("X-SURYADEV-CSRF") != csrf_token):
-                return self.respond(403, json.dumps({"error": "Same-origin authorization required"}),
-                                    "application/json")
+                return reject(403, "Same-origin authorization required")
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                return self.respond(415, json.dumps({"error": "JSON body required"}),
-                                    "application/json")
+                return reject(415, "JSON body required")
             try:
                 length = int(self.headers.get("Content-Length", "0"))
             except ValueError:
                 length = 0
             if length < 2 or length > 4096:
-                return self.respond(413, json.dumps({"error": "Invalid request body length"}),
-                                    "application/json")
+                return reject(413, "Invalid request body length")
             route = urlsplit(self.path)
             if not route.path.startswith("/api/operator/"):
-                return self.respond(404, json.dumps({"error": "Unknown operation"}),
-                                    "application/json")
+                return reject(404, "Unknown operation")
             try:
                 body = json.loads(self.rfile.read(length))
                 # Consume the entire request body before responding, otherwise
