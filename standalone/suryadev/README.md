@@ -1757,3 +1757,58 @@ tested portable install and restarting exactly ONE dashboard. The previously
 attempted three videos may need additional *new* approved sources or
 owner-reviewed one-time retry after diagnoses. Video site restrictions
 and missing audio/captions remain possible and must stay visible as failures.
+
+
+### Verified 26 October canary: 8-second YouTube stall and caption-size failure
+
+The physical canary demonstrated **three distinct conditions**:
+- YouTube caption job #8 failed with
+  `ValueError: Caption transcript exceeds supported full-processing budget`
+  (formerly 220,000 characters). The extraction and bounded summarization
+  pipeline now accepts up to 1,000,000 characters of full timed caption text
+  without silently deleting later captions. It still requires actual locally
+  serialized model calls for every segment, and errors above that honest
+  ceiling; 2B-model processing time may be substantial.
+- Observers for Conditionals/Loops reported
+  `content_playback_stalled` at roughly 8 seconds, with 0 recorded captions,
+  1 screenshot and no verified lecture content. Older runtime marked these
+  `AWAITING_SERVER_ACK`. **New worker and the KRISHNA Core candidate intake
+  both reject stalled/advertisement-wait/no-snapshot bundles**, and they require
+  meaningful temporal coverage for a captionless visual-only session.
+  Existing canonical worker reports are retained, but the dashboard and
+  YouTube audit display `INCOMPLETE_STALLED_OBSERVATION` rather than a
+  success-like status.
+- A third observer produced a `playback-speed.json` at 7.59 seconds but no
+  canonical report/bundle; the durable observer-attempt audit distinguishes
+  interrupted/missing-final evidence without inventing a running task.
+
+**Playback investigation:** The canonical adapter now logs HTMLVideoElement
+readyState, networkState, MediaError code, paused and advertisement state
+along with a bounded stop reason. It does not fake audio/caption data or
+bypass a provider block. If the default bundled Chromium lacks the relevant
+media codec, Playwright officially supports installed Google Chrome and
+Microsoft Edge channels with different codec coverage. The owner can
+OPTIONALLY compare the actual local Chrome/Edge browser by setting this
+environment variable **before launching the one supervisor/dashboard**:
+
+```powershell
+$env:SURYADEV_VIDEO_BROWSER_CHANNEL = 'chrome'  # OR 'msedge'
+```
+
+This **does not** install a browser, replay old videos, or guarantee playback.
+Chrome/Edge cannot load the optional unpacked uBO Lite Chromium extension
+through Playwright's extension-side-loading flags. If
+`SURYADEV_UBOL_EXTENSION_DIR` is configured, leave the browser channel
+unset or choose `chromium`; combining a branded browser with side-loaded
+uBO Lite fails closed instead of silently disabling the extension.
+Compare the source's normal YouTube playback in the same browser manually,
+then inspect the **new** read-only `/api/youtube/audit` fields:
+`stop_reason`, `last_media_diagnostic`,
+`browser_channel`, `caption_or_asr_source`,
+`learning_candidate_chunks` and `visual_frame_samples`.
+
+**No automatic retry of the original three attempts:** both previous
+`AWAITING_SERVER_ACK` and failed/attempted video files are preserved.
+A supervised owner-reviewed fresh attempt is required; do not edit/delete
+historical worker reports or attempt journals to force replay. Normal
+approved source/PDF/book work can continue independently.
