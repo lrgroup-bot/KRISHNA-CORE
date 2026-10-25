@@ -23,9 +23,6 @@ if (!(Test-Path -LiteralPath $Python -PathType Leaf) -or !(Test-Path -LiteralPat
 if (!(Test-Path -LiteralPath (Join-Path $Data 'fresh-workspace.json'))) {
   throw 'Existing canary data root not found. Refusing to create a new workspace.'
 }
-if (!(Test-Path -LiteralPath $Benchmark -PathType Leaf)) {
-  throw 'Install the tested feature-branch package after a GRACEFUL dashboard/worker stop. Existing app does not contain the benchmark.'
-}
 $Listening = @(Get-NetTCPConnection -LocalPort 8872 -State Listen -ErrorAction SilentlyContinue)
 if ($Listening.Count -gt 0) {
   try {
@@ -35,9 +32,9 @@ if ($Listening.Count -gt 0) {
   } catch { throw 'Port 8872 is occupied by an unknown/unresponsive process. Nothing was stopped.' }
 } else {
   Write-Host 'Starting one SURYADEV dashboard using the EXISTING data directory...' -ForegroundColor Cyan
-  $Args = @($Start,'--data',$Data,'--model',$Model,'--adaptive-fleet',
+  $launchArgs = @($Start,'--data',$Data,'--model',$Model,'--adaptive-fleet',
             '--continuous','--auto-approved-videos','--port','8872')
-  $Started = Start-Process -FilePath $Python -ArgumentList $Args -WorkingDirectory $App -PassThru
+  $Started = Start-Process -FilePath $Python -ArgumentList $launchArgs -WorkingDirectory $App -PassThru
   $Control = $null
   for ($i=0; $i -lt 30; $i++) {
     Start-Sleep -Seconds 1
@@ -52,6 +49,9 @@ if ($Listening.Count -gt 0) {
 }
 Write-Host "Dashboard: $Base/advanced#video-review" -ForegroundColor Green
 if ($DashboardOnly) { return }
+if (!(Test-Path -LiteralPath $Benchmark -PathType Leaf)) {
+  throw 'Install the tested feature-branch package after a GRACEFUL dashboard/worker stop. Existing app does not contain the benchmark.'
+}
 $Before = @('--data',$Data,'--preflight')
 if ($Manifest) { $Before += @('--manifest',[System.IO.Path]::GetFullPath($Manifest)) }
 & $Python $Benchmark @Before
