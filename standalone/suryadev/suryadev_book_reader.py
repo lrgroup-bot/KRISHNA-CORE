@@ -109,7 +109,8 @@ def _structurally_blank_pdf_page(page):
             b"T*", b"BMC", b"BDC", b"EMC", b"MP", b"DP", b"n", b"W", b"W*"
         }
         return all(operator in no_mark for _, operator in commands)
-    except (AttributeError, KeyError, TypeError, ValueError, OSError):
+    except (AttributeError, ImportError, KeyError, TypeError, ValueError, OSError):
+        # Missing/mocked content-parser support is NOT evidence of blankness.
         return False
 
 
