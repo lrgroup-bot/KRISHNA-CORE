@@ -78,8 +78,11 @@ def read_local_core_state(path):
     RAKSHAK receives no write access and never modifies the original.
     The file must be the local Core-owned suryadev/device-nodes.json.
     """
-    source = Path(path).expanduser().resolve(strict=True)
-    if source.name != "device-nodes.json" or not source.is_file() or source.is_symlink():
+    raw_path = Path(path).expanduser().absolute()
+    if raw_path.is_symlink() or raw_path.parent.is_symlink():
+        raise ValueError("Core registry and its immediate directory cannot be links")
+    source = raw_path.resolve(strict=True)
+    if source.name != "device-nodes.json" or not source.is_file():
         raise ValueError("Select Core's original device-nodes.json file")
     if source.stat().st_size > MAX_RESPONSE_BYTES:
         raise ValueError("Core device registry too large")
