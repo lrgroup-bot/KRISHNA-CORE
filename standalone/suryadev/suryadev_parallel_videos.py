@@ -174,9 +174,18 @@ class ParallelVideoReader:
                         "error":type(exc).__name__+": "+str(exc)[:150]}
             # Preserve a durable result even when the child produced no
             # canonical worker report, so the UI can show the real failure.
-            self._record_outcome(job_id,result if isinstance(result,dict)
-                                 else {"state":"worker_failed","error":
-                                       "Malformed observer result"})
+            try:
+                self._record_outcome(job_id,result if isinstance(result,dict)
+                                     else {"state":"worker_failed","error":
+                                           "Malformed observer result"})
+            except (OSError, ValueError, RuntimeError, TypeError) as exc:
+                # Corrupt/unwritable diagnostic history must not shut down
+                # books, PDF, website or other video lanes. Never overwrite
+                # a damaged receipt as a "repair" or claim it was saved.
+                result = dict(result) if isinstance(result,dict) else {
+                    "state":"worker_failed","job":job_id}
+                result["outcome_persistence_error"] = (
+                    type(exc).__name__+": "+str(exc)[:140])
             done.append(result)
         safe=capacity.get("safe") is True
         enabled=self.auto_enabled()
