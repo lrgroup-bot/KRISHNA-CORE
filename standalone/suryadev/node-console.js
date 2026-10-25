@@ -57,7 +57,14 @@
         ? "A different worker owns this data folder. Follow its actual activity below; dashboard Stop cannot terminate it."
         : "Safe to start one worker for this workspace, if approved sources and capacity are available.");
     const tag=el("workspace-tag");
-    tag.textContent = c.workspace_mode==="fresh" ? "FRESH WORKSPACE · MAX 3" : "EXISTING WORKSPACE";
+    const configuredLimit=Number(c.workspace_active_task_limit);
+    const configuredLabel=Number.isInteger(configuredLimit) && configuredLimit>0
+      ? String(configuredLimit) : "unverified";
+    tag.textContent = c.workspace_mode==="fresh"
+      ? (c.node_profile==="fleet_adaptive"
+          ? "FLEET-ADAPTIVE · configured ceiling "+configuredLabel
+          : "FRESH WORKSPACE · configured ceiling "+configuredLabel)
+      : "EXISTING WORKSPACE";
     text("role-pill", managed && c.managed_model ? c.managed_model : (external ? "External worker" : "Ready"));
     text("core-status", c.core_dispatch?.ready===true
       ? "TLS configuration validated · live dispatch unverified" : "Not paired");
@@ -86,8 +93,12 @@
     const active=Number(o.running_total||0)+Number(o.concurrent_books?.active||0)
       +Number(o.concurrent_videos?.active||0);
     text("stat-active",num(active));
+    const ceiling=Number(state.control?.workspace_active_task_limit);
+    const ceilingText=Number.isInteger(ceiling) && ceiling>0
+      ? " · configured ceiling "+num(ceiling) : " · configured ceiling unverified";
     text("stat-admitted",o.worker_running
-      ? num(cap.max_total)+" safe admission slots · 3 total max" : "Worker offline · no admitted jobs");
+      ? num(cap.max_total)+" measured admission slots"+ceilingText
+      : "Worker offline · no admitted jobs");
     text("stat-queued",num(o.queued_total));
     text("last-updated",new Date().toLocaleTimeString());
     const queue=Number(o.queued_total||0), running=active>0;
@@ -177,9 +188,9 @@
       meter.append(fill);card.append(head,meter);grid.append(card);
     }
     text("capacity-reason",workerLive
-      ? "Scheduler admission: "+why+". This device may run fewer than three jobs; other nodes are scheduled independently."
+      ? "Scheduler admission: "+why+". "+num(cap.max_total)+" measured slots"+ceilingText+
+        "; capacity is not a count of tasks running. Other nodes are scheduled independently."
       : "Worker is not reporting active scheduling. Device measurements alone do not mean any jobs are running.");
-    if(state.control)renderControl(state.control);
   }
   function renderMini(id, jobs, message) {
     const root=el(id);root.replaceChildren();
@@ -206,8 +217,8 @@
       const [control,ops,live]=await Promise.all([
         get("/api/learning/control"),get("/api/operations"),get("/api/live")]);
       renderLive(live);
-      renderOperations(ops);
       renderControl(control);
+      renderOperations(ops);
       text("connection","Local service online");
       el("connection-dot").classList.remove("off");
       if(state.lastError){state.lastError="";statusMessage("Connection restored.");}
