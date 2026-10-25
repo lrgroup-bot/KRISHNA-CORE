@@ -32,6 +32,7 @@ class CandidateConnectionTests(unittest.TestCase):
                 "schema": "suryadev.fleet-node.v1",
                 "receipts": {
                     "fleet-1": {
+                        "device_id": "suryadev-test",
                         "outcome": "collected",
                         "core_acknowledged": True,
                         "brahmagyan_candidate_recorded": True,
