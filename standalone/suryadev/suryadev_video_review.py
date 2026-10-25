@@ -326,10 +326,16 @@ class VideoReview:
                                       "playback-speed.json")
                     has_prior_playback = (prior_playback.is_file()
                                          and not prior_playback.is_symlink())
+                    # The historical worker-state.json may contain only one
+                    # of several concurrent video jobs. Per-job canonical
+                    # reports remain authoritative even if that index is lost.
+                    canonical = _safe_read(self.root/"runtime"/"jobs"/jid,
+                                           "worker-report.json",max_bytes=128000)
+                    canonical_status = canonical.get("status")
                     if jid == active or jid in live:
                         status = "RUNNING"
-                    elif states.get(jid):
-                        status = states[jid]
+                    elif isinstance(canonical_status,str) or states.get(jid):
+                        status = canonical_status or states[jid]
                         if status == "AWAITING_SERVER_ACK":
                             # Legacy observer may have produced a single
                             # uncaptioned screenshot from a stalled lecture.
@@ -359,7 +365,8 @@ class VideoReview:
                                  # Never offer 'run' for an already attempted video
                                  # without explicit owner review of previous evidence.
                                  "can_run": status == "QUEUED_FOR_REVIEW" and
-                                 jid not in tried and not has_prior_playback})
+                                 jid not in tried and not has_prior_playback
+                                 and not canonical_status})
                 except (OSError, ValueError, KeyError, TypeError):
                     continue
         playback = None
