@@ -56,8 +56,14 @@
         if (workspace) {
           workspace.textContent = d.workspace_mode === "fresh"
             ? "FRESH WORKSPACE ACTIVE · Previous learning retained outside this session · " +
-              "Maximum " + Number(d.workspace_active_task_limit || 3) +
-              " simultaneous tasks total · 85% hardware guard"
+              (d.node_profile === "fleet_adaptive"
+                ? "HARDWARE-ADAPTIVE FLEET · " +
+                  Number(d.workspace_active_task_limit || 125) +
+                  " configured upper cap, actual capacity measured · "
+                : "Maximum " + Number(d.workspace_active_task_limit || 3) +
+                  " simultaneous tasks total · ") +
+              "85% hardware guard"
+
             : "EXISTING WORKSPACE · Earlier assignments are still in this data directory. " +
               "Run start-fresh-workspace.ps1 from the updated installation to begin a blank session.";
         }
