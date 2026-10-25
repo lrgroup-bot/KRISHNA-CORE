@@ -50,6 +50,24 @@ class CandidateConnectionTests(unittest.TestCase):
                 "acknowledged_at": time.time() - 600})
             self.assertFalse(connection_indicators(root)["brahmagyan"]["connected"])
 
+    def test_old_device_candidate_cannot_light_new_device_indicator(self):
+        with tempfile.TemporaryDirectory() as root:
+            atomic_json(root, "krishna-fleet-heartbeat-ack.json", {
+                "schema": "suryadev.krishna-authenticated-heartbeat.v1",
+                "authenticated_core_reply": True,
+                "acknowledged_at": time.time(),
+                "device_id": "suryadev-current"})
+            atomic_json(root, "suryadev-fleet-runtime.json", {
+                "schema": "suryadev.fleet-node.v1",
+                "receipts": {
+                    "fleet-old": {"device_id":"suryadev-previous",
+                                  "outcome":"collected",
+                                  "core_acknowledged":True,
+                                  "brahmagyan_candidate_recorded":True}}})
+            result = connection_indicators(root)
+            self.assertTrue(result["krishna"]["connected"])
+            self.assertFalse(result["brahmagyan"]["connected"])
+
     def test_forged_unacknowledged_candidate_is_not_connected(self):
         with tempfile.TemporaryDirectory() as root:
             atomic_json(root, "krishna-fleet-heartbeat-ack.json", {
