@@ -118,8 +118,9 @@ class YoutubeLearningAuditTests(unittest.TestCase):
         self.assertTrue(report["legacy_incomplete_evidence"])
         self.assertFalse(report["awaiting_server_ack"])
         self.assertFalse(report["brahmagyan_exam_verified"])
-        state=self.root/"video-review"/"runtime"/"worker-state.json"
-        state.write_text(json.dumps({"jobs":{jid:{"status":"AWAITING_SERVER_ACK"}}}))
+        # The physical canary had a worker-state.json listing only the
+        # Loops job, even though Conditions had its own canonical report.
+        # Frontend must inspect the actual per-job report without that index.
         panel=VideoReview(self.root,self.root).snapshot()["jobs"][0]
         self.assertEqual(panel["status"],"INCOMPLETE_STALLED_OBSERVATION")
         self.assertFalse(panel["can_run"])
