@@ -157,16 +157,22 @@ class SuryadevFleetService:
             active = [(tid, lease) for tid, lease in state["leases"].items()
                       if lease.get("expires_at", 0) > now and tid in tasks]
             owned = [(tid, lease) for tid, lease in active if lease.get("device_id") == device_id]
+            try:
+                node = self.node_reader(device_id)
+            except KeyError:
+                return {"status": "no_eligible_capacity", "reason": "device heartbeat missing"}
+            # A replay is an opportunity to resume work, not a bypass around
+            # pairing/fresh-heartbeat checks. Pressure is allowed for an
+            # already-held lease, but missing/offline/unpaired workers are not.
+            if owned and not self._renewal_healthy(device_id, now, node):
+                return {"status": "no_eligible_capacity",
+                        "reason": "lease owner heartbeat is stale, offline or unpaired"}
             for tid, lease in owned:
                 # Client crashed before persisting claim? Replay the still-owned
                 # lease. Once it reports a durable local job, offer a next slot.
                 if tid not in known:
                     return {"status": "leased", "task": tasks[tid], "lease_id": lease["lease_id"],
                             "expires_at": lease["expires_at"], "replay": True}
-            try:
-                node = self.node_reader(device_id)
-            except KeyError:
-                return {"status": "no_eligible_capacity", "reason": "device heartbeat missing"}
             if not self._eligible(device_id, now, node, len(owned)):
                 return {"status": "no_eligible_capacity", "reason": "paired node hardware admission refused"}
             occupied = {tid for tid, _ in active}
