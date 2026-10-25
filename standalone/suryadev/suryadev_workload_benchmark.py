@@ -31,6 +31,17 @@ def select(root, manifest=None):
     """Select exact sources from approved ledgers; explicit manifest optional."""
     root = Path(root).expanduser().resolve()
     plan = read_plan(root / "learning-plan.json")
+    if not (root / "book-plan.json").is_file():
+        from collections import Counter
+        available=Counter(source_kind(u) for u in set(plan["approved_urls"]))
+        raise ValueError(
+            "Missing book-plan.json: 0/5 SHA-approved local books. "
+            f"Current approved source totals: PDFs {available['pdf']}/3, "
+            f"websites {available['website']}/2, "
+            f"YouTube {available['youtube']}/3 (historical completed sources do not count). "
+            "To prepare the specific opt-in trial: stop the existing dashboard-managed "
+            "worker gracefully, review 'suryadev_benchmark_prepare.py --data <data> --show', "
+            "then run with --approve-curated-trial. No files were changed by preflight.")
     books = read_book_plan(root / "book-plan.json")
     by_kind = {kind: [] for kind in ("pdf", "website", "youtube")}
     for url in dict.fromkeys(plan["approved_urls"]):
