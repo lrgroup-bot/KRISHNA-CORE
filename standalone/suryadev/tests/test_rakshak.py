@@ -58,6 +58,20 @@ class RakshakTests(unittest.TestCase):
             self.assertEqual(len(lines),1)
             self.assertFalse(first["repair_executed"])
 
+    def test_empty_fleet_is_not_misreported_as_all_healthy(self):
+        with TemporaryDirectory() as d:
+            r=check_once(d,fetch=lambda _:{"nodes":[]},now=1000)
+            self.assertEqual(r["core_state"],"reachable_no_nodes")
+            self.assertEqual(r["unhealthy"],1)
+            self.assertFalse(r["repair_executed"])
+
+    def test_queue_waiting_raises_a_diagnostic_not_termination(self):
+        snap={"nodes":[self.row(queued_jobs=8,running_jobs=0,
+                                available_slots=2,learning_state="researching")]}
+        found=inspect(snap,now=1000)
+        self.assertEqual(found["nodes"][0]["health"],"queue_waiting_review")
+        self.assertFalse(found["nodes"][0]["automatic_process_killing"])
+
     def test_health_changes_and_recovery_are_durable_without_worker_touch(self):
         with TemporaryDirectory() as d:
             good={"nodes":[self.row()]}
