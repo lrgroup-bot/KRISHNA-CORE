@@ -139,6 +139,63 @@ class ParallelVideoObservationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,"Invalid video attempt journal"):
             ParallelVideoReader(self.root,self.app)
 
+    def test_failed_video_has_durable_outcome_and_dashboard_error_not_pending(self):
+        from suryadev_youtube_audit import observer_jobs
+        self.enable()
+        def fail(path):
+            return {"state":"worker_failed","job":path.stem,
+                    "error":"browser_navigation_failed"}
+        reader=ParallelVideoReader(self.root,self.app,execute=fail)
+        try:
+            cap={"safe":True,"max_total":1,"reserved_video_slots":1}
+            started=reader.tick(capacity=cap)
+            jid=started["started_this_tick"][0]
+            for _ in range(100):
+                reader.tick(capacity=cap)
+                if not reader.futures:
+                    break
+                time.sleep(.01)
+            self.assertFalse(reader.futures)
+            durable=json.loads((self.root/"video-observer-outcomes.json").read_text())
+            self.assertEqual(durable["jobs"][jid]["state"],"worker_failed")
+            audit=next(x for x in observer_jobs(self.root)
+                       if x["job_id"]==jid)
+            self.assertEqual(audit["status"],"worker_failed")
+            self.assertEqual(audit["observer_error"],"browser_navigation_failed")
+            snapshot=next(x for x in reader.review.snapshot()["jobs"]
+                          if x["job_id"]==jid)
+            self.assertEqual(snapshot["status"],"worker_failed")
+            self.assertFalse(snapshot["can_run"])
+        finally:
+            reader.close()
+        resumed=ParallelVideoReader(self.root,self.app,execute=fail)
+        try:
+            cap={"safe":True,"max_total":1,"reserved_video_slots":1}
+            result=resumed.tick(capacity=cap)
+            self.assertNotIn(jid,result["started_this_tick"])
+        finally:
+            resumed.close()
+
+    def test_interrupted_video_attempt_is_not_misreported_as_running_forever(self):
+        from suryadev_youtube_audit import observer_jobs
+        self.enable()
+        reader=ParallelVideoReader(self.root,self.app,execute=lambda path:None)
+        try:
+            url=URLS[0]
+            import hashlib
+            jid="approved-video-"+hashlib.sha256(url.encode()).hexdigest()[:16]
+            reader.review.import_job({
+                "schema":"krishna.suryadev.job.v1","job_id":jid,
+                "kind":"video_research","target":url,
+                "constraints":{"duration_seconds":3600}})
+            reader._mark_attempt(jid)
+            audit=next(x for x in observer_jobs(self.root)
+                       if x["job_id"]==jid)
+            self.assertEqual(audit["status"],"attempted_no_final_receipt")
+            self.assertFalse(reader.review.snapshot()["jobs"][0]["can_run"])
+        finally:
+            reader.close()
+
     def test_hardware_and_book_source_slots_limit_video_launch(self):
         self.enable()
         go=threading.Event()
