@@ -211,6 +211,10 @@ class VideoReview:
             try:
                 if not self.auto_enabled():
                     self.auto_status="disabled"
+                elif self.active:
+                    # A previously launched observation may still be finishing.
+                    # This UI must report that real in-flight child honestly.
+                    self.auto_status="watching"
                 elif (_safe_read(self.data_root, "fresh-workspace.json", max_bytes=4096)
                       .get("node_profile") == "fleet_adaptive"):
                     # A fleet-adaptive node uses the ONE research supervisor's
@@ -218,8 +222,6 @@ class VideoReview:
                     # exclusive worker lock from the dashboard scheduler,
                     # even when the worker has not started yet.
                     self.auto_status="supervisor_owned_waiting_for_learning_worker"
-                elif self.active:
-                    self.auto_status="watching"
                 else:
                     pulse=worker_control.snapshot()
                     if pulse["managed_running"] or pulse["worker_heartbeat_recent"]:
