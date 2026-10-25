@@ -31,6 +31,7 @@ class VideoProbeTests(unittest.TestCase):
 
     def test_opt_in_approval_requires_sustained_clean_playback(self):
         self.assertTrue(can_approve_after_probe({
+            "requested_video_page_verified":True,
             "content_clock_advanced_30s":True,
             "media_error_codes":[]}))
         self.assertFalse(can_approve_after_probe({
