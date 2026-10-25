@@ -49,6 +49,21 @@
           model.value = d.preferred_model;
         }
         preferenceLoaded = true;
+        const configured = Number(d.workspace_active_task_limit);
+        const ceiling = Number.isInteger(configured) && configured > 0
+          ? String(configured) : "unverified";
+        const fresh = d.workspace_mode === "fresh";
+        const adaptive = d.node_profile === "fleet_adaptive";
+        const heroLimit = el("learning-workspace-cap");
+        const heroDescription = el("learning-workspace-description");
+        if (heroLimit) heroLimit.textContent = fresh
+          ? (adaptive ? "· fleet-adaptive node" : "· legacy node")
+          : "· existing data";
+        if (heroDescription) heroDescription.textContent = fresh
+          ? "Configured upper ceiling: "+ceiling+
+            " simultaneous tasks total. Actual CPU/RAM admission may be lower; "+
+            "only approved website, video, PDF and book work is eligible."
+          : "Existing learning evidence is retained. Measured capacity and approved sources control new work.";
         const core = d.core_dispatch || {};
         const paired = core.ready === true;
         const delegated = d.paired_core_host_delegation === true;
@@ -58,9 +73,9 @@
             ? "FRESH WORKSPACE ACTIVE · Previous learning retained outside this session · " +
               (d.node_profile === "fleet_adaptive"
                 ? "HARDWARE-ADAPTIVE FLEET · " +
-                  Number(d.workspace_active_task_limit || 125) +
+                  ceiling +
                   " configured upper cap, actual capacity measured · "
-                : "Maximum " + Number(d.workspace_active_task_limit || 3) +
+                : "Maximum " + ceiling +
                   " simultaneous tasks total · ") +
               "85% hardware guard"
 
