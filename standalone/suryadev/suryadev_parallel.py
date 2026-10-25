@@ -212,15 +212,18 @@ class AdaptiveResearchWorkers:
         # The fresh-session limit belongs to the data root, not merely to
         # the dashboard launcher. It remains enforced for CLI workers too.
         # Historical/nonfresh high-capacity server profiles stay unchanged.
-        fresh_mode = (_safe_read(self.root,"fresh-workspace.json",max_bytes=4096)
-                      .get("schema") == "suryadev.fresh-workspace.v1")
+        workspace = _safe_read(self.root,"fresh-workspace.json",max_bytes=4096)
+        fresh_mode = workspace.get("schema") == "suryadev.fresh-workspace.v1"
+        fleet_adaptive = fresh_mode and workspace.get("node_profile") == "fleet_adaptive"
         requested = os.environ.get("SURYADEV_MAX_PARALLEL", "").strip()
         if fresh_mode:
             try:
-                cap = int(requested) if requested else 3
+                cap = int(requested) if requested else (TOTAL_TARGET if fleet_adaptive else 3)
             except ValueError:
                 cap = 1
-            requested = str(max(1,min(3,cap)))
+            # The cap can only REDUCE sampled resource admission; it can never
+            # bypass memory, CPU, GPU, temperature, source or provider gates.
+            requested = str(max(1,min(TOTAL_TARGET if fleet_adaptive else 3,cap)))
         if requested:
             try:
                 ceiling = int(requested)
@@ -233,6 +236,7 @@ class AdaptiveResearchWorkers:
                                   for kind,limit in capacity["limits"].items()}
             capacity["laptop_profile"] = ("single-job" if ceiling == 1 else
                                           "measured-maximum-" + str(ceiling))
+        capacity["node_profile"] = "fleet_adaptive" if fleet_adaptive else "legacy"
         # Reserve capacity for independent books and actual Chromium video
         # observations; all run inside THIS supervisor's one-worker lock.
         # Always retain at least one source lane when possible.
