@@ -190,7 +190,7 @@ def _checklist(task, evidence_state):
         {"name": "Entire source processed and verified", "state": "unverified",
          "detail": ("Full video transcript timeline and visual coverage are not tracked."
                     if task["kind"] == "youtube" else
-                    "Full PDF page coverage is not tracked; PDF ingestion is not implemented in the web worker."
+                    "PDF text-page coverage is recorded separately below when provenance is available; scanned images, diagrams, equations, comprehension and entire-document visual review remain unverified."
                     if task["kind"] == "pdf" else
                     "The web worker extracts a capped text sample; full-page coverage is not verified."
                     if task["kind"] == "website" else
@@ -280,6 +280,19 @@ def task_detail(db, root, job_id):
                 "youtube_extraction_success":False,
                 "video_visuals_verified":False,
             }
+    # These flags describe local acquisition only. A saved hash plus every
+    # extractable PDF text page is not a complete multimodal source review.
+    pages_total = provenance.get("pages_total")
+    task["text_extraction_verified"] = (
+        task["kind"] == "pdf" and task["status"] == "done" and
+        state == "verified" and type(pages_total) is int and pages_total > 0 and
+        provenance.get("pages_extracted") == pages_total and
+        not provenance.get("pages_missing_text") and
+        provenance.get("extraction_completed") is True
+    )
+    task["visual_coverage_verified"] = False
+    task["comprehension_verified"] = False
+    task["rishi_exam_verified"] = False
     task["steps"] = _checklist(task, state)
     task["queue_diagnosis"] = _queue_diagnosis(root) if task["status"] == "queued" else None
     if task["queue_diagnosis"]:
@@ -290,8 +303,7 @@ def task_detail(db, root, job_id):
     if provenance.get("pages_total"):
         task["steps"].insert(4, {
             "name": "PDF page text extraction",
-            "state": "done" if provenance.get("pages_total") == provenance.get("pages_extracted")
-                     and not provenance.get("pages_missing_text") else "unverified",
+            "state": "done" if task["text_extraction_verified"] else "unverified",
             "detail": f"{provenance.get('pages_extracted', 0)}/{provenance['pages_total']} pages with text. "
                       "PDF diagrams, images and visual details require separate review."
         })
