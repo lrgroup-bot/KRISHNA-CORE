@@ -85,6 +85,12 @@
       (alive && activeTabs > 0 ? " live" : capacity.browser_error ? " paused" : "");
     const active = Number(capacity.active_total || 0) + activeBooks + activeVideos;
     const max = Number(capacity.max_total || 0);
+    const admittedLabel = el("node-control-capacity");
+    if (admittedLabel) admittedLabel.textContent =
+      schedulerOnline && capacity.safe === true
+        ? num(max) + " measured slots · "+num(active)+" running, not guaranteed"
+        : !workerOnline ? "Worker offline · no active admission"
+        : "No current safe admission · "+String(capacity.reason || "awaiting valid telemetry");
     // The scheduler's node_profile is authoritative, not legacy copy.
     // Fleet ceiling 125 is configurable only as an upper bound; max is the
     // actual measured admission, never a running-job count.
