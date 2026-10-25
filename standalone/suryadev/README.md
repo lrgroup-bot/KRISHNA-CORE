@@ -1600,3 +1600,41 @@ The benchmark writes read-only 15-second snapshots in the sibling
 than 45 minutes; the report documents partial lines accurately.
 The current `complete_verified`, visual-coverage and independent Rishi
 acceptance gates remain false without actual supporting evidence.
+
+
+### Full-book PDF frontmatter: verified blank pages versus scanned material
+
+For the explicit 13-source trial, a real PDF may include an intentionally
+blank page (for instance the second page of Think Python 2e). It must not
+be incorrectly marked as an OCR error, and a scanned diagram must not be
+quietly omitted. Import now distinguishes: (a) no page-content painting or
+annotations — structurally verified blank; (b) a **completely white** locally
+rendered page — visually verified blank; (c) a page containing visible
+content but no selectable text — OCR required; (d) failed/OCR-empty content —
+block approval and preserve the original source.
+
+The existing `book_lines` ledger records a verified blank page using its
+original page number, a `[verified blank: ...]` section tag and zero-length
+source text. No generated page text is substituted; text/image/comprehension
+mastery remains unverified until its separate evidence and Rishi stages.
+Nonblank figures and scanned text cannot pass as blank.
+
+The free optional renderer `pypdfium2` verifies white page images; it is
+required when a page is not provably structurally blank. Only pages with
+actual non-white content need the **additional** local `pytesseract` Python
+package and installed Tesseract OCR executable. Do not automatically install
+an unknown executable or bypass OCR warnings. With the worker stopped:
+
+```powershell
+$root='D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+$py="$root\\.venv\\Scripts\\python.exe"
+& $py -m pip install pypdf pypdfium2
+& $py "$root\\KRISHNA-CORE\\standalone\\suryadev\\suryadev_benchmark_prepare.py" `
+    --data "$root\\data" --approve-curated-trial
+```
+
+If an actually scanned/illustrated page requires OCR, install
+`pytesseract` using pip **and** a verified local Tesseract OCR binary, then
+retry. Downloaded PDFs already validated and saved are reused; never wipe
+`benchmark-books`, SQLite, or the source plan. Runtime installation from the
+feature branch should occur only after the canary regression tests pass.
