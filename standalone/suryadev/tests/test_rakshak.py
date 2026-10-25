@@ -72,6 +72,24 @@ class RakshakTests(unittest.TestCase):
         self.assertEqual(found["nodes"][0]["health"],"queue_waiting_review")
         self.assertFalse(found["nodes"][0]["automatic_process_killing"])
 
+    def test_existing_core_device_registry_works_without_http_or_server_upgrade(self):
+        from suryadev_rakshak import read_local_core_state
+        with TemporaryDirectory() as d:
+            core=Path(d)/"core"/".krishna_state"/"suryadev"
+            core.mkdir(parents=True)
+            record=core/"device-nodes.json"
+            row=self.row()
+            record.write_text(json.dumps({"suryadev-1":row}), encoding="utf-8")
+            snapshot=read_local_core_state(record)
+            self.assertEqual(len(snapshot["nodes"]),1)
+            report=check_once(Path(d)/"rakshak",fetch=lambda _:snapshot,now=1000)
+            self.assertEqual(report["core_state"],"reachable")
+            self.assertFalse(report["repair_executed"])
+            # A mismatched registry key cannot be treated as a paired device.
+            record.write_text(json.dumps({"suryadev-wrong":row}), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                read_local_core_state(record)
+
     def test_health_changes_and_recovery_are_durable_without_worker_touch(self):
         with TemporaryDirectory() as d:
             good={"nodes":[self.row()]}
