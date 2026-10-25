@@ -10,6 +10,7 @@ import json
 import math
 from pathlib import Path
 import re
+import time
 from urllib.parse import urlsplit
 
 from suryadev_sources import source_kind
@@ -110,9 +111,24 @@ def caption_jobs(db, limit=30):
 
 def observer_jobs(root, limit=30):
     """Read canonical adapter's post-run bundle and live playback receipt."""
-    root = Path(root).resolve() / "video-review"
+    data_root = Path(root).resolve()
+    root = data_root / "video-review"
     inbox = root / "approved-inbox"
     runtime = root / "runtime" / "jobs"
+    attempts = _read(data_root / "video-observer-attempts.json", 131072)
+    attempted = set(attempts.get("job_ids", [])) if (
+        attempts.get("schema") == "suryadev.video-attempts.v1"
+        and isinstance(attempts.get("job_ids"), list)) else set()
+    outcome = _read(data_root / "video-observer-outcomes.json", 131072)
+    final_by_id = outcome.get("jobs", {}) if (
+        outcome.get("schema") == "suryadev.video-outcomes.v1"
+        and isinstance(outcome.get("jobs"), dict)) else {}
+    running = _read(data_root / "video-concurrent-runtime.json", 8192)
+    fresh = (running.get("schema") == "suryadev.parallel-video.v1"
+             and _epoch(running.get("updated_at")) is not None
+             and 0 <= time.time() - float(running["updated_at"]) < 90)
+    live_ids = set(running.get("active_job_ids", [])) if (
+        fresh and isinstance(running.get("active_job_ids"), list)) else set()
     if inbox.is_symlink() or runtime.is_symlink() or not inbox.is_dir():
         return []
     paths = sorted(inbox.glob("*.json"), key=lambda p:p.name, reverse=True)
@@ -130,6 +146,19 @@ def observer_jobs(root, limit=30):
         report = _read(directory / "worker-report.json",MAX_REPORT_BYTES)
         bundle = _read(directory / "learning-bundle.json",MAX_BUNDLE_BYTES)
         playback = _read(directory / "playback-speed.json",8192)
+        outcome_row = final_by_id.get(jid, {})
+        if not isinstance(outcome_row, dict):
+            outcome_row = {}
+        if report.get("status"):
+            displayed_status = _short(report["status"], 70)
+        elif outcome_row.get("state"):
+            displayed_status = _short(outcome_row["state"], 70)
+        elif jid in live_ids:
+            displayed_status = "running_without_final_report"
+        elif jid in attempted or playback:
+            displayed_status = "attempted_no_final_receipt"
+        else:
+            displayed_status = "approved_not_started"
         session = bundle.get("session") if isinstance(bundle.get("session"),dict) else {}
         transcript = bundle.get("transcript") if isinstance(bundle.get("transcript"),dict) else {}
         chunks = bundle.get("learning_chunks") if isinstance(bundle.get("learning_chunks"),list) else []
@@ -146,7 +175,13 @@ def observer_jobs(root, limit=30):
         } for c in actual_chunks[:5]]
         out.append({
             "job_id":jid, "url":_short(job.get("target"),2048),
-            "status":_short(report.get("status") or "pending_or_running",70),
+            "status":displayed_status,
+            "observer_attempted":jid in attempted or bool(outcome_row) or bool(report),
+            "observer_active":jid in live_ids,
+            "observer_error":_short(outcome_row.get("error") or
+                                  (report.get("adapter_result") or {}).get("stderr"), 300),
+            "observer_outcome":_short(outcome_row.get("state"), 80),
+            "observer_finished_at":_epoch(outcome_row.get("finished_at")),
             "title":_short((bundle.get("source") or {}).get("title")
                            if isinstance(bundle.get("source"),dict) else "",240),
             "wall_clock_seconds":elapsed,
