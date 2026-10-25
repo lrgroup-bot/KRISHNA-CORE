@@ -64,8 +64,20 @@
             " simultaneous tasks total. Actual CPU/RAM admission may be lower; "+
             "only approved website, video, PDF and book work is eligible."
           : "Existing learning evidence is retained. Measured capacity and approved sources control new work.";
+        const profile = el("node-control-profile");
+        const planLabel = el("node-control-plan");
+        if (profile) profile.textContent = d.workspace_mode === "fresh"
+          ? (adaptive ? "Adaptive fleet · "+ceiling+" configured ceiling"
+                      : "Legacy · "+ceiling+" configured ceiling")
+          : "Existing workspace · profile not confirmed";
+        if (planLabel) planLabel.textContent = d.plan_exists
+          ? "Plan present · source approval checked separately" : "No approved source plan";
         const core = d.core_dispatch || {};
         const paired = core.ready === true;
+        const pairingLabel = el("node-control-pairing");
+        if (pairingLabel) pairingLabel.textContent = paired
+          ? "Credentials locally valid · live link unverified"
+          : "Unpaired · local collection only";
         const delegated = d.paired_core_host_delegation === true;
         const workspace = el("learning-workspace-state");
         if (workspace) {
