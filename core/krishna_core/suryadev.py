@@ -499,6 +499,31 @@ class SuryadevAgent:
             raise ValueError("learning bundle contains no evidence")
         if len(chunks) > 120 or len(visuals) > 120:
             raise ValueError("learning bundle exceeds bounded evidence limits")
+        # Do not let an older laptop's 0-caption, 0-second screenshot bundle
+        # bypass the newer worker acceptance rule by direct Core submission.
+        session = bundle.get("session")
+        if isinstance(session, dict):
+            reason = str(session.get("end_reason") or "")
+            if reason in ("content_playback_stalled", "advertisement_wait_limit",
+                          "browser_snapshot_unavailable"):
+                raise ValueError("incomplete video cannot be routed: " + reason)
+            source_transcript = bundle.get("transcript")
+            caption_count = (source_transcript.get("line_count") if
+                             isinstance(source_transcript, dict) else None)
+            if not isinstance(caption_count, int) or caption_count <= 0:
+                try:
+                    position = float(session.get("watched_seconds") or 0)
+                    duration = float(session.get("source_duration_seconds") or 0)
+                    stamps = sorted(set(float(item.get("timestamp_seconds"))
+                                        for item in visuals if isinstance(item,dict)
+                                        and type(item.get("timestamp_seconds"))
+                                        in (int,float)
+                                        and 0 <= item["timestamp_seconds"] <= 21600))
+                except (TypeError, ValueError, OverflowError):
+                    raise ValueError("invalid time data in no-caption video bundle")
+                if not (30 <= position <= 21600 and 0 < duration <= 21600
+                        and len(stamps) >= 2 and stamps[-1]-stamps[0] >= 15):
+                    raise ValueError("no-caption lecture lacks time-separated visual evidence")
 
         bundle_sha = self._digest(bundle)
         receipt_path = self.receipts_dir / f"{job_id}.json"
