@@ -229,6 +229,7 @@ class FleetClient:
                         raise RuntimeError(
                             "Core evidence receipt or BRAHMAGYAN candidate ACK missing")
                 self.state["receipts"][task_id] = {
+                    "device_id": self.config["device_id"],
                     "outcome": outcome, "job_id": local_id,
                     "sha256": digest if outcome == "collected" else None,
                     "core_acknowledged": True,
