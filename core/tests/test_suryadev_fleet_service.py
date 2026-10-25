@@ -83,6 +83,24 @@ class FleetTests(unittest.TestCase):
             with self.subTest(changes=changes):
                 did=self.node(idx,**changes)
                 self.assertEqual(self.fleet.claim(device_id=did)["status"],"no_eligible_capacity")
+    def test_replay_needs_fresh_paired_worker_but_can_survive_pressure(self):
+        owner = self.node(11)
+        first = self.fleet.claim(device_id=owner)
+        for changes in ({"authenticated": False}, {"worker_running": False},
+                        {"network_online": False}, {"last_seen": NOW-151},
+                        {"telemetry_sample_at": NOW-46}):
+            with self.subTest(changes=changes):
+                self.node(11, **changes)
+                denied = self.fleet.claim(device_id=owner)
+                self.assertEqual(denied["status"], "no_eligible_capacity")
+        # Replaying already-owned work is still valid under overload, and
+        # does not create a second lease or reset the expiration timer.
+        self.node(11, ram_percent=92, cpu_percent=91, available_slots=0)
+        replay = self.fleet.claim(device_id=owner)
+        self.assertTrue(replay["replay"])
+        self.assertEqual(replay["lease_id"], first["lease_id"])
+        self.assertEqual(replay["expires_at"], first["expires_at"])
+
     def test_expired_lease_can_move_and_old_result_is_rejected(self):
         a=self.node(1)
         first=self.fleet.claim(device_id=a)
