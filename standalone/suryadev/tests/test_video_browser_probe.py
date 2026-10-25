@@ -1,7 +1,8 @@
 """Offline browser probe diagnostics: no video request, no notebook, no worker."""
 import unittest
 
-from suryadev_video_browser_probe import TRIAL_VIDEO, classify, validated_video
+from suryadev_video_browser_probe import (TRIAL_VIDEO, classify,
+                                         validated_video, can_approve_after_probe)
 
 
 class VideoProbeTests(unittest.TestCase):
@@ -27,6 +28,17 @@ class VideoProbeTests(unittest.TestCase):
         self.assertEqual(row["source_video_progress_seconds"],35)
         self.assertFalse(row["learning_verified"])
         self.assertFalse(row["rishi_exam_verified"])
+
+    def test_opt_in_approval_requires_sustained_clean_playback(self):
+        self.assertTrue(can_approve_after_probe({
+            "content_clock_advanced_30s":True,
+            "media_error_codes":[]}))
+        self.assertFalse(can_approve_after_probe({
+            "content_clock_advanced_30s":False,
+            "media_error_codes":[]}))
+        self.assertFalse(can_approve_after_probe({
+            "content_clock_advanced_30s":True,
+            "media_error_codes":[4]}))
 
     def test_advertisement_only_movement_is_not_content_progress(self):
         row=classify([
