@@ -29,8 +29,18 @@ def installed_capabilities(root, *, installed=None):
     can_web = tests["playwright"]
     can_captions = tests["yt_dlp"]
     can_pdf = tests["pypdf"]
-    has_book_plan = (source / "book-plan.json").is_file() or (
-        source / "book-collect-plan.json").is_file()
+    has_book_plan = False
+    for name in ("book-plan.json", "book-collect-plan.json"):
+        plan = source / name
+        if plan.is_file():
+            try:
+                from suryadev_book_continuity import read_book_plan
+                read_book_plan(plan)
+                has_book_plan = True
+            except (OSError,ValueError,TypeError,ImportError):
+                # Existence is not approval; a malformed or missing-source
+                # plan must not advertise work it cannot execute.
+                continue
     lanes = []
     if can_web:
         lanes.append("website")
