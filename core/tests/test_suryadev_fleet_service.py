@@ -127,6 +127,25 @@ class FleetTests(unittest.TestCase):
                          lease_id=first["lease_id"],outcome="rate_limited",detail="HTTP 429")
         self.assertEqual(self.fleet.claim(device_id=b)["status"],"no_approved_work")
         self.assertGreater(self.fleet.status()["youtube_pause_until"],self.now[0])
+    def test_video_only_second_node_gets_youtube_without_website_probe(self):
+        dedicated = self.node(2, capabilities=["youtube"], available_slots=80,
+                              cpu_percent=18, ram_percent=22)
+        first = self.fleet.claim(device_id=dedicated)
+        self.assertEqual(first["status"], "leased")
+        self.assertEqual(first["task"]["kind"], "youtube")
+        self.assertEqual(first["task"]["url"], "https://www.youtube.com/watch?v=one")
+        # The general-purpose SURYADEV 1 can continue non-video research.
+        general = self.node(1, capabilities=["website","pdf"])
+        second = self.fleet.claim(device_id=general)
+        self.assertEqual(second["status"], "leased")
+        self.assertIn(second["task"]["kind"], {"website","pdf"})
+
+    def test_specialist_node_still_obeys_live_hardware_guard(self):
+        blocked = self.node(9, capabilities=["youtube"], available_slots=100,
+                            ram_percent=87)
+        self.assertEqual(self.fleet.claim(device_id=blocked)["status"],
+                         "no_eligible_capacity")
+
     def test_corrupt_ledger_fails_closed(self):
         self.fleet.file.write_text('{"schema":"bad"}',encoding="utf-8")
         with self.assertRaisesRegex(ValueError,"corrupt"):
