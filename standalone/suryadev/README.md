@@ -1489,3 +1489,60 @@ truthfully show zero live work even when measured hardware utilization is low.
 
 Imported books in SURYADEV-TEST-DATA do not appear in SURYADEV-DATA;
 explicitly approve a real book in the production data root.
+
+## 13-source hardware-adaptive learning load check (3 PDF / 2 web / 5 books / 3 YouTube)
+
+The same single Learning Intelligence UI and dashboard-managed worker execute
+approved sources under measured 85% CPU/RAM/disk/GPU admission. The configured
+125-workload ceiling is NOT a claim of 125 actual runnable laptop tasks.
+
+From the **already verified portable installed app**, use the PowerShell
+`START_SURYADEV_13_SOURCE_CHECK.ps1` launcher. It can bring the local canary
+dashboard back on `127.0.0.1:8872` without touching the persistent
+`data` directory or opening a duplicate service. It does not update app
+files while the worker is running. `-DashboardOnly` only opens/reuses the
+dashboard and does not require a full 13-source curriculum.
+
+```powershell
+$root = 'D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+& "$root\\app\\START_SURYADEV_13_SOURCE_CHECK.ps1" -Root $root -DashboardOnly
+# after explicit source approvals, run from another shell:
+& "$root\\app\\START_SURYADEV_13_SOURCE_CHECK.ps1" -Root $root -Model auto -Minutes 45
+```
+
+The full test **requires exactly 3 fresh, owner-approved PDF URLs, 2 fresh
+website URLs, 3 fresh YouTube URLs**, plus **5 SHA-256-approved local books** in
+`data/book-plan.json`. Extra historical approved sources may remain;
+`suryadev_workload_benchmark.py` selects the first suitable sources unless
+an explicit selection manifest (`--manifest`) is provided. A completed or
+failed old source URL cannot count as new throughput. The helper will print
+what is missing and refuse to fake timings.
+
+Use the existing operator-approved backend sources and CLI
+`suryadev_extras.py --data <data> book-approve <bookfile>` to approve each
+local supported TXT/MD/PDF/EPUB source while **the worker is stopped**.
+No frontend manual source controls are added. If approved books exist, one
+dashboard-managed collector will now attach `--book-collect-plan` for
+**indexing only**; local-model mode attaches `--book-plan` for checkpointed
+reading. The five-book model inference path is serialized on the shared
+model lock; five concurrent *source preparations* are not five parallel LLMs.
+`auto` chooses a locally installed eligible model or collector without
+downloading anything. If it chooses collector, deep book comprehension is
+NOT tested or claimed.
+
+Video visual-observation automation is enabled only for exactly approved
+YouTube URLs, and can stop with 429/provider restrictions. When the
+existing dashboard was started without `--auto-approved-videos`, restart
+the single dashboard through its normal controlled lifecycle before claiming
+video observation was enabled. Source captions are separately audited from
+actual observation; an `AWAITING_SERVER_ACK` status is NOT knowledge mastery.
+
+The read-only benchmark samples hardware, admission slots, queued and active
+workloads, website/PDF/caption timing receipts, book lines/model status,
+video observation and source SHA verification. It writes timestamped JSON
+under the sibling `benchmark-reports` folder and **does not kill, reset,
+or automatically restart** the worker on timeout. It distinguishes
+`collection_complete_no_book_model` from model-processed work,
+`terminal_with_failures`, and `time_limit_reached_jobs_may_still_be_running`.
+No elapsed-time target, deep learning certificate, full audiovisual
+coverage or independent Rishi examination is inferred.
