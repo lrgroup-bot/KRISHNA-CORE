@@ -89,6 +89,17 @@ class HardwareLearningTests(unittest.TestCase):
             self.assertIsNone(result["internet_speed_mbps"])
             self.assertIn("youtube",result["capabilities"])
 
+    def test_fleet_report_rejects_untimestamped_and_stale_sensor_data(self):
+        with tempfile.TemporaryDirectory() as temp:
+            for bad_timestamp in (None, float("nan"), 88.0, 112.0, "100"):
+                with self.subTest(timestamp=str(bad_timestamp)):
+                    reading = sample()
+                    if bad_timestamp is None:
+                        del reading["sample_time"]
+                    else:
+                        reading["sample_time"] = bad_timestamp
+                    self.assertIsNone(hardware_report(temp, sample=reading, now=100.0))
+
     def test_three_videos_get_spare_capacity_but_not_if_sources_wait(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
