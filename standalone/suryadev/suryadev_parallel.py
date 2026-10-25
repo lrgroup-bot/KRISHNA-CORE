@@ -76,20 +76,63 @@ def record_youtube_rate_limit(root, now=None):
 
 def plan_capacity(reading, *, logical_cpus=None, collector_only=False):
     """Conservative measured headroom, not an invented fixed laptop capacity."""
-    if not reading.get("available"):
+    if not isinstance(reading, dict) or reading.get("available") is not True:
         return {"safe": False, "reason": "psutil telemetry unavailable",
                 "max_total": 0, "limits": {k:0 for k in KINDS},
                 "cpu_percent": None, "ram_percent": None}
-    cpus = max(1, int(logical_cpus or os.cpu_count() or 1))
-    cpu = float(reading.get("cpu_percent", 100))
-    ram = float(reading.get("ram_percent", 100))
-    disk = float(reading.get("disk_percent", 100))
-    free = float(reading.get("ram_total_gb", 0)) - float(reading.get("ram_used_gb", 0))
-    disk_free = float(reading.get("disk_free_gb", 0))
+
+    # A failed sensor or malformed cached sample must NEVER look like unused
+    # hardware. NaN silently bypasses numeric comparisons and can otherwise
+    # turn a damaged hardware report into positive worker admission.
+    required = ("cpu_percent", "ram_percent", "disk_percent",
+                "ram_total_gb", "ram_used_gb", "disk_free_gb")
+    values = {}
+    for metric in required:
+        value = reading.get(metric)
+        if type(value) not in (int, float) or not math.isfinite(value):
+            return {"safe": False, "reason": "Invalid or missing hardware telemetry: " + metric,
+                    "max_total": 0, "limits": {k: 0 for k in (*KINDS, "book")},
+                    "cpu_percent": None, "ram_percent": None}
+        values[metric] = float(value)
+    cpu, ram, disk, total_ram, used_ram, disk_free = (
+        values[name] for name in required)
+    if (not 0 <= cpu <= 100 or not 0 <= ram <= 100
+            or not 0 <= disk <= 100 or total_ram <= 0
+            or not 0 <= used_ram <= total_ram or disk_free < 0):
+        return {"safe": False, "reason": "Out-of-range hardware telemetry",
+                "max_total": 0, "limits": {k: 0 for k in (*KINDS, "book")},
+                "cpu_percent": None, "ram_percent": None}
     gpu = reading.get("gpu") or {}
-    gpu_hot = (gpu.get("available") and
-               (float(gpu.get("usage_percent") or 0) >= 85 or
-                float(gpu.get("vram_percent") or 0) >= 85))
+    if not isinstance(gpu, dict):
+        return {"safe": False, "reason": "Invalid GPU telemetry",
+                "max_total": 0, "limits": {k: 0 for k in (*KINDS, "book")},
+                "cpu_percent": cpu, "ram_percent": ram}
+    if gpu.get("available"):
+        for metric in ("usage_percent", "vram_percent"):
+            value = gpu.get(metric)
+            if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 100:
+                return {"safe": False, "reason": "Missing or invalid GPU telemetry: " + metric,
+                        "max_total": 0, "limits": {k: 0 for k in (*KINDS, "book")},
+                        "cpu_percent": cpu, "ram_percent": ram}
+    temp = reading.get("temperature_max_c")
+    if temp is not None and (type(temp) not in (int, float) or
+                             not math.isfinite(temp) or not -50 <= temp <= 200):
+        return {"safe": False, "reason": "Invalid thermal telemetry",
+                "max_total": 0, "limits": {k: 0 for k in (*KINDS, "book")},
+                "cpu_percent": cpu, "ram_percent": ram}
+    if reading.get("battery_plugged") is False:
+        battery = reading.get("battery_percent")
+        if type(battery) not in (int, float) or not math.isfinite(battery) or not 0 <= battery <= 100:
+            return {"safe": False, "reason": "Unverified unplugged battery charge",
+                    "max_total": 0, "limits": {k: 0 for k in (*KINDS, "book")},
+                    "cpu_percent": cpu, "ram_percent": ram}
+    try:
+        cpus = max(1, int(logical_cpus or os.cpu_count() or 1))
+    except (ValueError, TypeError, OverflowError):
+        cpus = 1
+    free = total_ram - used_ram
+    gpu_hot = (gpu.get("available") is True and
+               (gpu["usage_percent"] >= 85 or gpu["vram_percent"] >= 85))
     reason = ""
     if cpu >= 85 or ram >= 85 or disk >= 85 or disk_free < 2 or gpu_hot:
         reason = "Hardware guard: CPU/RAM/disk/GPU exceeded safe limits"
