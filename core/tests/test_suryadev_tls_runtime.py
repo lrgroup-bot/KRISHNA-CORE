@@ -46,8 +46,10 @@ class NativeTLSTests(unittest.TestCase):
                 "KRISHNA_SURYADEV_TLS_BIND_IP":"192.168.0.100",
                 "KRISHNA_SURYADEV_TLS_PORT":"8443"})
             self.assertEqual((bind,port),("192.168.0.100",8443))
-            self.assertEqual(first,cert)
-            self.assertEqual(second,key)
+            # Windows CI may render the same temp directory as RUNNER~1
+            # or its expanded long path; compare file identities.
+            self.assertTrue(first.samefile(cert))
+            self.assertTrue(second.samefile(key))
 
 
 if __name__=="__main__":
