@@ -30,6 +30,8 @@
           current.textContent = 'Measured playback: ' +
             (rate == null ? 'unavailable' : String(rate) + '×') +
             ' · Mode: ' + String(data.playback.category || 'unknown') +
+            ' · Measured-safe ceiling: ' + String(data.playback.measured_speed_ceiling_x ?? 'unverified') + '×' +
+            ' · Browser: ' + String(data.playback.browser_channel || 'not recorded') +
             ' · Video timestamp: ' + String(data.playback.video_seconds ?? '?') +
             's · Completeness: unverified';
           list.append(current);
@@ -115,9 +117,32 @@
             ' candidate topic chunks · ' + item.visual_frame_samples +
             ' selected frame samples');
           addLine(card, 'Recorded source: ' + item.caption_or_asr_source +
-            ' · high-speed 4x observed: ' + (item.four_x_observed ? 'yes' : 'no') +
+            ' · Playback interruption: ' + (item.stop_reason || 'not recorded') +
             ' · KRISHNA receipt: ' + (item.receipt_recorded ? 'recorded; independently unverified' :
               item.awaiting_server_ack ? 'pending' : 'not recorded'));
+          const media = item.garudanetra_media || {};
+          if (media.engine) {
+            addLine(card, 'GARUDANETRA Media: ' + media.engine +
+              ' · Browser: ' + (media.browser_channel || 'unknown') +
+              ' · Main-frame navigations: ' + (media.main_frame_navigations ?? '?') +
+              ' · Unexpected navigation: ' + (media.unexpected_navigation ? 'YES' : 'no'));
+            for (const event of (item.media_continuity_events || []).slice(-3)) {
+              addLine(card, 'Media event: ' + (event.reason || 'unknown') +
+                ' · Last confirmed source position: ' + durationText(event.last_source_seconds) +
+                ' · Player replaced: ' + (event.video_element_replaced == null ?
+                  'unknown' : event.video_element_replaced ? 'yes' : 'no') +
+                ' · Cause: not verified');
+            }
+            for (const fail of (media.failed_media_requests || []).slice(-3)) {
+              addLine(card, 'Streaming request failed: ' + (fail.host || 'unknown') +
+                ' · ' + (fail.resource_type || 'unknown') +
+                ' · ' + (fail.failure || 'unspecified'));
+            }
+            for (const fail of (media.media_http_errors || []).slice(-3)) {
+              addLine(card, 'Streaming HTTP: ' + (fail.host || 'unknown') +
+                ' · status ' + (fail.status ?? '?'));
+            }
+          }
           for (const chunk of item.what_was_collected || []) {
             addLine(card, 'Candidate topic ' + (chunk.topic || 'unclassified') +
               ' [' + durationText(chunk.start_seconds) + '–' +
