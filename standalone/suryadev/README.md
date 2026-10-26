@@ -1,3 +1,39 @@
+## Standalone YouTube learning test (Phase 1, before any KRISHNA connection)
+
+Do **not** interrupt the active book worker. The Phase-1 acceptance
+diagnostic is strictly read-only and requires no browser, worker lock or
+new approval; it can run in a separate PowerShell terminal:
+
+```powershell
+$Data = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\data"
+$Python = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\.venv\\Scripts\\python.exe"
+$App = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\app"
+& $Python "$App\\suryadev_learning_phase1.py" --data $Data
+```
+
+Exit code 3 and `BLOCKED_NO_NEW_APPROVED_VIDEO` mean the existing
+approved sources have past evidence/attempts. Never delete those files
+or reset the once-only selection. To perform an **actual first-time**
+video observation, approve a *new exact public lesson URL* through the
+separately reviewed owner-approved source pipeline before launching a
+new trial. Explicit `--video-target 3` is a cap, not permission to
+replay earlier video jobs or accept any URL on the internet.
+
+For the next **graceful** restart (not while a book is processing), run
+`start-node.py` with `--standalone-test` alongside the usual model,
+continuous and four-lane workload flags. That launch profile disables
+Core fleet auto-activation, mission relay, and paired Core hot-attach
+even if a previously enrolled credential exists. It does not disable
+local sources, book Ollama processing, GARUDANETRA, or the 85% guard.
+
+Phase-1 acceptance is **not** satisfied by a moving video clock or
+one caption chunk. Validate complete content progression, media
+continuity, caption/audio and visual coverage, auditable model
+evidence, and independent source-grounded comprehension. The
+read-only report deliberately declares understanding unverified until
+independent evidence is available. No Core/Rishi network connection
+is attempted by this local test.
+
 ## Empty video selection recovery and idle readiness
 
 With an opted-in `--video-target 3` and `--auto-approved-videos`,
