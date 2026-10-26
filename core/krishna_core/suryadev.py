@@ -505,7 +505,9 @@ class SuryadevAgent:
         if isinstance(session, dict):
             reason = str(session.get("end_reason") or "")
             if reason in ("content_playback_stalled", "advertisement_wait_limit",
-                          "browser_snapshot_unavailable"):
+                          "browser_snapshot_unavailable", "media_unloaded_after_playback",
+                          "video_element_replaced", "unapproved_video_navigation",
+                          "media_error"):
                 raise ValueError("incomplete video cannot be routed: " + reason)
             source_transcript = bundle.get("transcript")
             caption_count = (source_transcript.get("line_count") if
