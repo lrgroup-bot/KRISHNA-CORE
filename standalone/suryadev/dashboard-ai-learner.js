@@ -155,10 +155,22 @@
         const source=(live.sources||{})[lane]||{};
         results.replaceChildren();
         if(lane==="youtube") {
-          const [review,audit]=await Promise.all([
-            json("/api/video/review"),json("/api/youtube/audit")]);
+          const [review,audit,phase1]=await Promise.all([
+            json("/api/video/review"),json("/api/youtube/audit"),
+            json("/api/learning/phase1")]);
           if(lane!==selected || generation!==selectionGeneration)return;
           metric(results,"YouTube jobs",source);
+          line(results,"Standalone YouTube Phase 1: "+String(phase1.result||"unverified")+
+            " · Fresh approved lessons: "+(phase1.fresh_eligible_videos??"unknown")+
+            " · Protected historical observations: "+Number(phase1.historical_videos_protected||0)+
+            " · Verified complete learning: NO","strong");
+          if(phase1.attempt_journal_valid===false)
+            line(results,"Attempt history is invalid; no automatic observer launch is allowed.");
+          for(const video of (phase1.videos||[]).slice(0,10)) {
+            if(video.reasons?.length)line(results,
+              String(video.job_id)+" · "+String(video.status)+
+              " · "+video.reasons.slice(0,3).join("; "));
+          }
           if (review.media_health) {
             const media=review.media_health;
             line(results,"Latest GARUDANETRA media observation · player: "+
