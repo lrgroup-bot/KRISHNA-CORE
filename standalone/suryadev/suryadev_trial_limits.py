@@ -11,7 +11,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import secrets
 import time
 
 VIDEO_FILE = "video-trial-selection.json"
@@ -65,7 +64,7 @@ def select_trial_videos(root, urls, *, previously_tried):
         except (OSError, ValueError, UnicodeError) as exc:
             raise RuntimeError("Unreadable video trial selection file") from exc
         ids = state.get("job_ids") if isinstance(state, dict) else None
-        if (state.get("schema") != VIDEO_SCHEMA or
+        if (not isinstance(state, dict) or state.get("schema") != VIDEO_SCHEMA or
                 state.get("target") != count or not isinstance(ids, list) or
                 len(ids) > count or len(ids) != len(set(ids)) or
                 any(not isinstance(x, str) or not x.startswith("approved-video-")
