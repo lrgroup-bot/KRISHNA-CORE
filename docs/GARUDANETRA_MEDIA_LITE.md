@@ -1,3 +1,5 @@
+> **Browser policy update (26 Oct 2026):** The Chrome-channel instructions below are superseded by [GARUDANETRA Unified Browser](GARUDANETRA_UNIFIED_BROWSER.md). Both KRISHNA and SURYADEV now use the Playwright-managed open-source Chromium `channel="chromium"` exclusively, with no Google Chrome or Edge fallback. Use `--channel chromium` in any video probe and do not set `SURYADEV_VIDEO_BROWSER_CHANNEL=chrome`. Old Chrome evidence is not transferable to Chromium.
+
 # GARUDANETRA Media Lite — SURYADEV worker lane (v1)
 
 ## Ownership and runtime topology
