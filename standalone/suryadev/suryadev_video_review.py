@@ -350,7 +350,11 @@ class VideoReview:
                                 session.get("end_reason") in (
                                     "content_playback_stalled",
                                     "advertisement_wait_limit",
-                                    "browser_snapshot_unavailable")):
+                                    "browser_snapshot_unavailable",
+                                    "media_unloaded_after_playback",
+                                    "video_element_replaced",
+                                    "unapproved_video_navigation",
+                                    "media_error")):
                                 status = "INCOMPLETE_STALLED_OBSERVATION"
                     elif outcome_row.get("state"):
                         status = str(outcome_row["state"])[:80]
