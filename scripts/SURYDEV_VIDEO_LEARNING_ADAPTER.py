@@ -23,6 +23,7 @@ import threading
 import time
 import wave
 from urllib.parse import urlparse
+from suryadev_browser_engine import browser_channel as garudanetra_browser_channel
 
 
 BUNDLE_SCHEMA = "krishna.suryadev.learning-bundle.v1"
@@ -465,22 +466,13 @@ def _chromium_content_filter():
 
 
 def _video_browser_channel(content_filter):
-    """One local browser choice; no binary downloads or anti-bot workarounds.
+    """GARUDANETRA exclusively selects its own managed Chromium engine.
 
-    Branded Chrome/Edge may support media codecs absent from Playwright's
-    bundled Chromium. They no longer allow MV3 extension side-loading
-    through the flags used for optional reviewed uBO Lite.
+    Prior SURYADEV_VIDEO_BROWSER_CHANNEL=chrome/msedge values are ignored,
+    never used to launch a branded browser. Optional reviewed uBO Lite is
+    available only through GARUDANETRA's Chromium engine.
     """
-    requested = str(os.getenv("SURYADEV_VIDEO_BROWSER_CHANNEL") or "").strip().lower()
-    if requested not in ("", "chromium", "chrome", "msedge"):
-        raise ValueError("Supported local browser channels: chromium, chrome, msedge")
-    if content_filter["enabled"]:
-        if requested not in ("", "chromium"):
-            raise ValueError(
-                "Optional uBO Lite unpacked extension needs Playwright Chromium; "
-                "Chrome/Edge block sideloading with those flags")
-        return "chromium"
-    return requested or None
+    return garudanetra_browser_channel()
 
 
 def _video_snapshot(page):
@@ -646,8 +638,8 @@ def observe(job, workspace):
     term_last_seen = {}
     content_filter = _chromium_content_filter()
     browser_channel = _video_browser_channel(content_filter)
-    # The benchmark probes a branded browser; no Chrome result is assumed
-    # transferable to bundled Chromium. Other nodes retain independent caps.
+    # GARUDANETRA uses only its own open-source Chromium engine. Historical
+    # Chrome benchmark reports MUST NOT raise this node's Chromium speed cap.
     root_from_job = workspace.parents[3] if (
         workspace.parent.name == "jobs" and
         workspace.parent.parent.name == "runtime" and
@@ -712,7 +704,7 @@ def observe(job, workspace):
                             "job_id":str(job.get("job_id") or ""),
                             "updated_at":time.time(),
                             "engine":"garudanetra-media-lite-playwright",
-                            "browser_channel":browser_channel or "bundled_chromium_default",
+                            "browser_channel":browser_channel or "chromium",
                             "player_state":media_state,
                             "source_position_seconds":round(sec,2),
                             "ready_state":snap.get("video_ready_state"),
