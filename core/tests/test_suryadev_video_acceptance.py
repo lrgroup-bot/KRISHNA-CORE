@@ -59,6 +59,20 @@ class VideoAcceptanceTests(unittest.TestCase):
                 self.assertFalse(result["valid"])
                 self.assertIn(reason,result["reason"])
 
+    def test_garudanetra_media_reset_redirect_and_error_do_not_reach_core(self):
+        for reason in ("media_unloaded_after_playback",
+                       "video_element_replaced",
+                       "unapproved_video_navigation", "media_error"):
+            with self.subTest(reason=reason):
+                bundle=self.bundle(reason=reason,watched=300,duration=3600,
+                                   captions=12,frames=[20,75])
+                bundle["session"]["garudanetra_media"]={
+                    "engine":"garudanetra-media-lite-playwright",
+                    "profile_isolated":True,"source_learning_verified":False}
+                result=self.validate(bundle)
+                self.assertFalse(result["valid"])
+                self.assertIn(reason,result["reason"])
+
     def test_zero_caption_single_frame_rejected_even_without_stall(self):
         result=self.validate(self.bundle(frames=[0],watched=8,duration=3600))
         self.assertFalse(result["valid"])
