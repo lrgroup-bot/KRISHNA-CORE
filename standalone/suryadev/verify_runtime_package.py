@@ -27,6 +27,7 @@ REQUIRED_ENTRYPOINTS = (
     "suryadev_source_authority",
     "suryadev_video_review",
     "suryadev_trial_limits",
+    "suryadev_learning_readiness",
     "suryadev_operator_api",
 )
 REQUIRED_FRONTEND = (
