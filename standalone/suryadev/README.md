@@ -1868,3 +1868,57 @@ preserving the previous three attempts. After a real session, examine
 `/api/youtube/audit` for stop reasons, caption chunks, true content-clock
 coverage and BRAHMAGYAN/Rishi pending status. **An approved video or a
 browser probe passing alone never proves full video learning.**
+
+
+### Controlled 1x / 1.5x / 2x / 3x browser speed sweep
+
+For the operator-requested playback speed comparison, the new installed app
+ships `suryadev_video_speed_sweep.py`. It uses the existing reviewed
+Playwright-Python tutorial as a safe ONE-video canary, the normal cross-process
+`worker_lock`, 85% CPU/RAM/disk/GPU admission on startup and each phase,
+and a disposable **local Chrome** profile without account cookies. There are
+four sequential approximately 16-second windows: 1x, 1.5x, 2x, 3x. The
+125 configured-task ceiling has no bearing on this isolated test.
+
+IMPORTANT: **stop learning and close the one dashboard** before running the
+speed sweep; do not launch a second SURYADEV worker or clear any earlier
+YouTube attempts. Install only from the tested feature checkout and preserve
+`D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\data`.
+
+```powershell
+$root='D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+$py="$root\\.venv\\Scripts\\python.exe"
+& $py "$root\\app\\suryadev_video_speed_sweep.py" `
+   --data "$root\\data" --channel chrome --seconds 115 `
+   --per-speed-seconds 16
+```
+
+The script reports **requested playback speed**, actual read-back playback
+rate, media-clock advance divided by *actual non-ad content-playing wall
+time*, whether it reached the requested ratio and HTML media errors. Frame
+quality counters, stall/buffering state, and ads are sampled separately in
+the JSON. A true 3x media-clock result is **not** proof that words or diagrams
+were captured/learned at 3x. An ad NEVER qualifies as course progress.
+Fewer than 6 seconds of valid continuous per-speed samples fail the rate's
+verification, rather than guessing.
+
+Results live at
+`data/benchmark-reports/video-speed-sweep-chrome-YYYYmmdd-HHMMSS.json`.
+The script never marks any historical jobs done, changes approved URLs,
+claims lesson comprehension, seeks ahead or bypasses provider restrictions.
+
+Afterward, start **one** dashboard:
+
+```powershell
+& "$root\\app\\START_SURYADEV_13_SOURCE_CHECK.ps1" `
+   -Root $root -Model auto -DashboardOnly
+```
+
+Then in the dashboard press **Start learning** once. The normal production
+adapter's caption-evidence-driven speeds are already constrained to
+1x for missing/stalled captions, ASR, critical commands, foreign language
+or important visual details; 1.5x for explanations; 2x for ordinary captioned
+material; and 3x **only** after at least two independently observed chatter
+segments. The speed sweep validates browser capability only. Continuous
+learning still requires actual surviving source jobs, eligible local model
+and source evidence; Rishi exams remain independently unverified.
