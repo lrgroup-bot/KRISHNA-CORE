@@ -23,6 +23,7 @@ from suryadev_video_browser_probe import (
 )
 
 RATES = (1.0, 1.5, 2.0, 3.0)
+EXPERIMENTAL_RATES = (4.0,)  # diagnostic only; never raises the supervised learning ceiling
 
 
 def detect_media_unload(samples):
@@ -158,8 +159,8 @@ def run(root, *, url=TRIAL_VIDEO, channel="chromium",
         rates=RATES):
     validated_video(url)
     rates = tuple(rates)
-    if not rates or len(set(rates)) != len(rates) or any(x not in RATES for x in rates):
-        raise ValueError("Only unique speeds from 1x, 1.5x, 2x, 3x are allowed")
+    if not rates or len(set(rates)) != len(rates) or any(x not in (*RATES, *EXPERIMENTAL_RATES) for x in rates):
+        raise ValueError("Only unique rates from 1x, 1.5x, 2x, 3x, experimental 4x are allowed")
     require_garudanetra(channel)
     if not 12 <= per_speed_seconds <= 30:
         raise ValueError("per-speed seconds must be 12..30")
@@ -347,8 +348,8 @@ def main(argv=None):
     p.add_argument("--channel",choices=sorted(CHANNELS),default="chromium")
     p.add_argument("--per-speed-seconds",type=int,default=16)
     p.add_argument("--seconds",type=int,default=115)
-    p.add_argument("--rate",type=float,choices=RATES,default=None,
-                   help="One isolated speed only; does not change the learning cap")
+    p.add_argument("--rate",type=float,choices=(*RATES,*EXPERIMENTAL_RATES),default=None,
+                   help="One isolated speed only; 4x is experimental and never changes learning speed")
     args=p.parse_args(argv)
     try:
         path,report=run(args.data,url=args.video,channel=args.channel,
