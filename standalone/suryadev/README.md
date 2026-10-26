@@ -1,3 +1,5 @@
+> **GARUDANETRA Browser policy, 26 Oct 2026:** All browser-backed website research, YouTube observers, playback probes and Core browser inspectors use our GARUDANETRA-controlled **Playwright Chromium** engine; Google Chrome/Edge are not required or used as fallbacks. Chromium video codec capability is independently verified, never inferred from earlier Chrome results. Run `suryadev_browser_preflight.py --data <existing-data>` with the worker stopped. See `docs/GARUDANETRA_UNIFIED_BROWSER.md` in the repository root.
+
 ## One SURYADEV Learning Intelligence dashboard — consolidated UI (October 25, 2026)
 
 The detailed Learning Intelligence interface is now **the only served frontend**.
