@@ -204,6 +204,7 @@ class AdaptiveResearchWorkers:
         self.books_enabled = bool(books_enabled)
         self.video_enabled = False
         self._dual_lane_turn = 0
+        self._single_lane_turn = 0
         self.external_active = 0
         self.browser = None
         self.browser_error = ""
@@ -307,7 +308,7 @@ class AdaptiveResearchWorkers:
         # caption source keeps one source slot. Pending books keep their reserve.
         # This is still bounded by the shared fresh-node cap and 85% guard.
         pending_source = False
-        if self.video_enabled and total:
+        if (self.video_enabled or self.books_enabled) and total:
             queued_db = Library(self.root)
             try:
                 pending_source = bool(queued_db.db.execute(
@@ -318,6 +319,25 @@ class AdaptiveResearchWorkers:
         video_budget = max(0, total - reserve_books - (1 if pending_source else 0))
         reserve_video = (min(video_target, video_budget)
                          if self.video_enabled else 0)
+        # Low-memory nodes may admit only ONE safe task. Without explicit
+        # rotation, a permanently refilled website/PDF queue would starve
+        # approved video observers and book checkpoints indefinitely.
+        # Rotate only when no job is already running; all admissions remain
+        # bounded by measured max_total and the canonical single worker.
+        if total == 1 and not self.futures and not self.external_active:
+            choices=[]
+            if pending_source:
+                choices.append("source")
+            if self.video_enabled and video_target > 0:
+                choices.append("video")
+            if self.books_enabled and book_target > 0:
+                choices.append("book")
+            if choices:
+                chosen=choices[self._single_lane_turn % len(choices)]
+                self._single_lane_turn+=1
+                reserve_video=1 if chosen=="video" else 0
+                reserve_books=1 if chosen=="book" else 0
+                capacity["single_slot_lane"]=chosen
         if total == 2 and self.books_enabled and self.video_enabled:
             # Only one non-source slot exists. Alternate which lane may
             # claim it instead of permanently starving videos or books.
