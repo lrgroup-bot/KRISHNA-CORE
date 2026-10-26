@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import secrets
 import time
 
 VIDEO_FILE = "video-trial-selection.json"
@@ -41,7 +42,18 @@ def video_job_id(url):
         url.encode("utf-8")).hexdigest()[:16]
 
 
-def select_trial_videos(root, urls, *, previously_tried):
+def _eligible_trial_jobs(urls, count, previously_tried):
+    selected = []
+    for url in urls:
+        job_id = video_job_id(url)
+        if job_id not in selected and not previously_tried(job_id):
+            selected.append(job_id)
+        if len(selected) == count:
+            break
+    return selected
+
+
+def select_trial_videos(root, urls, *, previously_tried, recover_empty=False):
     """Return durable selected IDs, or None if this trial was not requested.
 
     Only the existing approved plan is inspected. Never authorizes a URL.
@@ -70,14 +82,32 @@ def select_trial_videos(root, urls, *, previously_tried):
                 any(not isinstance(x, str) or not x.startswith("approved-video-")
                     or len(x) != len("approved-video-") + 16 for x in ids)):
             raise RuntimeError("Corrupt/mismatched video trial selection: no new videos")
-        return frozenset(ids) & allowed
-    selected = []
-    for url in urls:
-        job_id = video_job_id(url)
-        if job_id not in selected and not previously_tried(job_id):
-            selected.append(job_id)
-        if len(selected) == count:
-            break
+        # Repair ONLY the empty selection produced by old staged-job
+        # misclassification, and only under an explicit active video-target
+        # opt-in. Never add to a nonempty/frozen selection, replay attempts,
+        # change approved URLs or erase the original trial receipt.
+        if ids or not recover_empty:
+            return frozenset(ids) & allowed
+        fresh = _eligible_trial_jobs(urls, count, previously_tried)
+        if not fresh:
+            return frozenset()
+        backup = root / ("video-trial-selection.before-empty-repair-"
+                         + hashlib.sha256(selection.read_bytes()).hexdigest()[:16]
+                         + ".json")
+        with backup.open("xb") as output:
+            output.write(selection.read_bytes())
+        amended = dict(state, job_ids=fresh, repaired_from_empty=True,
+                       repaired_at=time.time(),
+                       previous_selection_sha256=hashlib.sha256(backup.read_bytes()).hexdigest(),
+                       note="Recovered previously approved, truly unattempted videos only; original archived")
+        stage = root / (".video-trial-recovery-" + secrets.token_hex(8) + ".tmp")
+        try:
+            stage.write_text(json.dumps(amended, indent=2)+"\n", encoding="utf-8")
+            os.replace(stage, selection)
+        finally:
+            stage.unlink(missing_ok=True)
+        return frozenset(fresh)
+    selected = _eligible_trial_jobs(urls, count, previously_tried)
     record = {
         "schema": VIDEO_SCHEMA, "target": count, "job_ids": selected,
         "updated_at": time.time(), "approved_videos_available": len(allowed),
