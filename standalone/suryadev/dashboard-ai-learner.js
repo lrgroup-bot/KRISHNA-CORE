@@ -10,7 +10,7 @@
     const lanes = ["youtube", "pdf", "website", "book"];
     const names = {youtube:"YouTube", pdf:"PDF documents",
                    website:"Websites", book:"Books"};
-    let selected = "youtube", approved = [], lastControl = null, refreshing = false;
+    let selected = "youtube", approved = [], refreshing = false, rerun = false;
     const results = el("ai-learner-lane-results");
     const summary = el("ai-learner-lane-summary");
     const preview = el("ai-learner-youtube-preview");
@@ -87,14 +87,13 @@
       return response.json();
     }
     async function refresh() {
-      if(refreshing)return;
+      if(refreshing){rerun=true;return;}
       refreshing=true;
       try {
         const lane=selected;
         const [control,live]=await Promise.all([
           json("/api/learning/control"),json("/api/live")
         ]);
-        lastControl=control;
         start.disabled=!(control.can_start===true);
         stop.disabled=!(control.managed_running===true);
         banner.textContent=control.managed_running ? "One worker active · PID "+control.managed_pid :
@@ -147,7 +146,10 @@
       } catch(error){
         summary.textContent="AI Learner read-only evidence unavailable: "+String(error.message||error);
         start.disabled=true; stop.disabled=true;
-      } finally {refreshing=false;}
+      } finally {
+        refreshing=false;
+        if(rerun){rerun=false;refresh();}
+      }
     }
     for(const lane of lanes)el("ai-tab-"+lane).addEventListener("click",()=>select(lane));
     el("ai-learner-open-preview").addEventListener("click",()=>{
