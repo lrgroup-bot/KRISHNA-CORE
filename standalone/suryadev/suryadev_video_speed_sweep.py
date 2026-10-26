@@ -193,7 +193,7 @@ def run(root, *, url=TRIAL_VIDEO, channel="chromium",
             with tempfile.TemporaryDirectory(prefix="suryadev-speed-check-") as profile:
                 with sync_playwright() as playwright:
                     ctx=playwright.chromium.launch_persistent_context(
-                        profile,channel=channel,headless=False,
+                        profile,channel=channel,headless=True,
                         args=["--autoplay-policy=no-user-gesture-required"],
                         viewport={"width":1280,"height":800})
                     try:
