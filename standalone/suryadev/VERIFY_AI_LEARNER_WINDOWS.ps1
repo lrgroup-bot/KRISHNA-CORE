@@ -51,8 +51,8 @@ if ($null -eq $GitApp) {
     if ($repoProbe.Code -ne 0) {
         Record 'Git checkout' 'FAIL' ('Git cannot open checkout: ' + $repoProbe.Output)
     } else {
-        $resolvedCheckout = [System.IO.Path]::GetFullPath($Checkout).TrimEnd('\\', '/')
-        $resolvedRepo = [System.IO.Path]::GetFullPath($repoProbe.Output).TrimEnd('\\', '/')
+        $resolvedCheckout = [System.IO.Path]::GetFullPath($Checkout).TrimEnd([char]92, [char]47)
+        $resolvedRepo = [System.IO.Path]::GetFullPath($repoProbe.Output).TrimEnd([char]92, [char]47)
         if ($resolvedCheckout -ne $resolvedRepo) {
             Record 'Git checkout' 'FAIL' ('Not a repository rooted at the expected checkout: ' + $resolvedRepo)
         } else {
