@@ -49,6 +49,15 @@ def speed_results(samples, *, rates=RATES):
             segments.append((wall, max(0, advance)))
         measured_wall = sum(pair[0] for pair in segments)
         media_advance = sum(pair[1] for pair in segments)
+        frame_samples = [x for x in matching if
+            type(x.get("dropped_frames")) in (int,float) and
+            type(x.get("total_frames")) in (int,float)]
+        dropped = max(0,frame_samples[-1]["dropped_frames"]-
+                      frame_samples[0]["dropped_frames"]) if len(frame_samples)>=2 else None
+        total_frames = max(0,frame_samples[-1]["total_frames"]-
+                           frame_samples[0]["total_frames"]) if len(frame_samples)>=2 else None
+        drop_pct = (round(100*dropped/total_frames,2)
+                    if dropped is not None and total_frames else None)
         effective_rate = media_advance / measured_wall if measured_wall else 0.0
         observed_rate = (statistics.median(x["playback_rate"] for x in matching)
                          if matching else None)
@@ -68,6 +77,10 @@ def speed_results(samples, *, rates=RATES):
             "effective_measured_speed_x":round(effective_rate,3),
             "pass":bool(passed),
             "sample_count":len(matching),
+            "video_frames_counted":total_frames,
+            "video_frames_dropped":dropped,
+            "video_frame_drop_percent":drop_pct,
+            "frame_drop_warning":drop_pct is not None and drop_pct >= 5,
             "note":"Playback rate and source progression only; captions/audio mastery unverified",
         })
     return results
@@ -119,6 +132,7 @@ def run(root, *, url=TRIAL_VIDEO, channel="chrome",
         started_mono=time.monotonic()
         diagnostics=[]
         samples=[]
+        hardware_checks=[]
         phase_index=0
         phase_started=None
         previous_play_requested=0.0
@@ -171,7 +185,13 @@ def run(root, *, url=TRIAL_VIDEO, channel="chrome",
                                     time.sleep(sample_seconds)
                                     continue
                                 if phase_started is None:
-                                    safe,reason,_=admission(root)
+                                    safe,reason,phase_hardware=admission(root)
+                                    hardware_checks.append({
+                                        "requested_speed_x":RATES[phase_index],
+                                        "safe":safe,"reason":reason,
+                                        "cpu_percent":phase_hardware.get("cpu_percent"),
+                                        "ram_percent":phase_hardware.get("ram_percent"),
+                                        "sample_time":time.time()})
                                     if not safe:
                                         aborted_reason="Hardware guard: "+reason
                                         break
@@ -209,7 +229,8 @@ def run(root, *, url=TRIAL_VIDEO, channel="chrome",
             "ram_percent_at_start":telemetry.get("ram_percent"),
             "evidence_only":True,"source_approvals_modified":False,
             "history_modified":False,"speed_results":verdict,
-            "diagnostics":diagnostics,"samples":samples,
+            "diagnostics":diagnostics,
+            "hardware_admission_checks":hardware_checks,"samples":samples,
         }
         out=root/"benchmark-reports"
         out.mkdir(exist_ok=True)
