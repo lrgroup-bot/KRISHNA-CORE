@@ -150,6 +150,14 @@ def serve(lib, port=8769):
                 payload=learning_readiness(lib.root, Path(__file__).resolve().parent,
                                             control=worker_control.snapshot())
                 return self.respond(200,json.dumps(payload),"application/json")
+            if route.path == "/api/learning/phase1":
+                from suryadev_learning_phase1 import phase1
+                try:
+                    payload=phase1(lib.root)
+                except (OSError, ValueError, TypeError) as exc:
+                    return self.respond(503,json.dumps({"result":"BLOCKED_READ_ERROR",
+                        "error":type(exc).__name__+": "+str(exc)[:150]}),"application/json")
+                return self.respond(200,json.dumps(payload),"application/json")
             if route.path == "/api/trial/exam":
                 from suryadev_liveops import _safe_read
                 return self.respond(200, json.dumps(_safe_read(lib.root,
