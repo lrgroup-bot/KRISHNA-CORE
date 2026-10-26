@@ -121,7 +121,13 @@
   into("ai-learner-status-mount",[
     "#learning-action-status","#learning-workspace-state","#learning-core-status"
   ]);
+  into("ai-learner-node-summary",["#garudanetra .unified-node-overview"]);
   into("ai-learner-operations-mount",["#live-learning"]);
+  into("ai-learner-live-workspaces-mount",[
+    "#netra-continuity-status",
+    "#garudanetra .netra-tab-title",
+    "#netra-workspace-tabs"
+  ]);
   const queue=document.getElementById("live-learning");
   if(queue)queue.open=true;
   // Original-book source-line search remains one live form and one listener.
