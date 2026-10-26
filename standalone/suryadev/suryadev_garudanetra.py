@@ -16,6 +16,7 @@ import time
 from urllib.parse import urlsplit
 
 from suryadev_liveops import atomic_json
+from suryadev_browser_engine import browser_channel, browser_identity
 from suryadev_deep_web import deep_web_settings, inspect_page
 
 MAX_VISIBLE_CHARS = 220_000
@@ -47,6 +48,7 @@ class GarudanetraLite:
         with self._lock:
             atomic_json(self.root, BROWSER_STATUS_FILE, {
                 "engine": _ENGINE, "canonical_core_engine": "playwright",
+                "browser_identity":browser_identity(),
                 "standalone_adapter": True, "state": state,
                 "headless": True, "private_context": True,
                 "process_owns_browser": state == "running",
@@ -92,7 +94,7 @@ class GarudanetraLite:
         async with async_playwright() as p:
             # Use Playwright-managed Chromium only; never fallback to the user's
             # Chrome/Edge profile or attach to their personal browser.
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(headless=True, channel=browser_channel())
             try:
                 self._context = await browser.new_context(
                     viewport={"width":1024,"height":768}, locale="en-US",
