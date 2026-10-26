@@ -40,6 +40,8 @@ REQUIRED_FRONTEND = (
     "dashboard-books.css",
     "dashboard-video.js",
     "dashboard-video.css",
+    "dashboard-ai-learner.js",
+    "dashboard-ai-learner.css",
 )
 REQUIRED_WORKERS = ("suryadev_r39_worker.py", "suryadev_r39_adapter.py")
 
