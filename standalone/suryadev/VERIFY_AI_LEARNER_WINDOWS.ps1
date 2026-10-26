@@ -76,7 +76,9 @@ if ($null -eq $GitApp) {
 }
 $source = Join-Path $Checkout 'standalone\suryadev'
 $filenames = @('dashboard-ai-learner.js', 'dashboard-ai-learner.css',
-               'dashboard.html', 'suryadev_video_review.py')
+               'dashboard-pages.js', 'dashboard-pages.css',
+               'dashboard-settings.js', 'dashboard.html',
+               'suryadev_extras.py', 'suryadev_video_review.py')
 foreach ($file in $filenames) {
     $from = Join-Path $source $file
     $installed = Join-Path $App $file
@@ -102,6 +104,12 @@ if (Test-Path -LiteralPath $htmlFile -PathType Leaf) {
     } else {
         Record 'Four integrated learning actions' 'FAIL' ('Missing IDs: ' + ($missing -join ', '))
     }
+}
+# Fail if old HTML still loads the entire single-page dashboard.
+if (Test-Path -LiteralPath $htmlFile -PathType Leaf) {
+    $routed = $html.Contains('src="/dashboard-pages.js"') -and
+              $html.Contains('href="/dashboard-pages.css"')
+    Record 'Individual main-menu dashboards' $(if ($routed) { 'PASS' } else { 'FAIL' }) $(if ($routed) { 'Ten-route UI assets referenced by installed HTML' } else { 'Router assets missing from installed HTML' })
 }
 Record 'Persistent data root' $(if (Test-Path -LiteralPath $Data -PathType Container) { 'PASS' } else { 'FAIL' }) 'Only presence checked; no writes'
 Record 'Research SQLite ledger' $(if (Test-Path -LiteralPath (Join-Path $Data 'suryadev.sqlite3') -PathType Leaf) { 'PASS' } else { 'FAIL' }) 'Database not opened by this script'
