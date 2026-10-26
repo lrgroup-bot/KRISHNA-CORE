@@ -24,6 +24,20 @@
           (data.runtime_ready ? ' · Observer source installed; device prerequisites unverified' : ' · Worker installation required') +
           (data.last_error ? ' · Last error: ' + data.last_error : '');
         list.append(status);
+        if (data.media_health) {
+          const media = data.media_health;
+          const live = document.createElement('p');
+          live.textContent = 'GARUDANETRA Media live · ' +
+            String(media.browser_channel || 'unknown') +
+            ' · Player: ' + String(media.player_state || 'unverified') +
+            ' · Time: ' + String(media.source_position_seconds ?? '?') + 's' +
+            ' · Ready/network: ' + String(media.ready_state ?? '?') +
+            '/' + String(media.network_state ?? '?') +
+            ' · Ad: ' + (media.ad_showing ? 'observed' : 'not detected') +
+            ' · Maximum tested: ' + String(media.measured_speed_ceiling_x ?? '?') + '×' +
+            ' · Learning not verified';
+          list.append(live);
+        }
         if (data.playback) {
           const current = document.createElement('p');
           const rate = data.playback.observed_rate;
