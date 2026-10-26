@@ -1,3 +1,52 @@
+## Operator-approved 3-video + 5-per-lane full-learning trial (27 Oct 2026)
+
+A concrete opt-in workload profile can now be launched with **one** existing
+SURYADEV node/dashboard, never a competing scheduler:
+
+```powershell
+$Root = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025"
+$Python = "$Root\\.venv\\Scripts\\python.exe"
+& $Python "$Root\\app\\start-node.py" --data "$Root\\data" --model auto `
+  --adaptive-fleet --continuous --auto-approved-videos `
+  --video-target 3 --website-target 5 --pdf-target 5 --book-target 5 `
+  --max-parallel 18 --port 8872
+```
+
+**Stop the managed worker and its dashboard gracefully before reinstalling
+and starting a new version**, but never delete `suryadev.sqlite3`, locks or
+previous evidence to bypass a failed check. The installer runs its own tests.
+The operator's specific `--video-target 3` chooses only the first three
+*unattempted and currently approved* video URLs and freezes their SHA-derived
+job IDs in `video-trial-selection.json` across restarts. No extra or
+replacement videos are invented or silently approved. An existing selection
+that is invalid or conflicts with the requested target fails closed.
+If fewer than three approved unattempted sources exist, that shortage is
+reported; previously attempted videos are never replayed without a separate,
+explicitly approved new trial. The requested video count is distinct from
+measured concurrent slots. Remaining lanes are capped at five active
+website, PDF and book assignments each, not five guaranteed executions.
+
+The dynamic 85% safety thresholds, thermal/power guards, provider 429
+cooldowns, source-approval validation, one-caption-request-at-a-time rule,
+shared total concurrency, serialized local Ollama access and six-hour mission
+lifecycle remain authoritative. `--max-parallel 18` is an upper bound; the
+measured laptop may only admit one task.
+
+**Speeds:** normal adaptive video learning still uses only previously measured
+safe speeds, at or below its existing ceiling. The isolated speed-sweep
+diagnostic can now test a requested `--rate 4` on the *single*
+operator-reviewed trial video, with the canonical worker stopped and 85%
+resource guard enforced. This 4x experiment records real non-ad source-clock
+advance and frame drops; it **never authorizes 4x as a comprehension-speed
+ceiling**, full audiovisual coverage or a Rishi-verified lesson. The standard
+four-stage sweep remains 1x/1.5x/2x/3x so existing learning-speed audits are
+not bypassed.
+
+Full learning is only accepted when per-source audiovisual/text/image coverage,
+model processing, BRAHMAGYAN candidate acceptance and Rishi examination have
+durable independent receipts. Successful worker starts, snippets, partial
+video playback and 4x diagnostic progression do not establish those claims.
+
 > **GARUDANETRA Browser policy, 26 Oct 2026:** All browser-backed website research, YouTube observers, playback probes and Core browser inspectors use our GARUDANETRA-controlled **Playwright Chromium** engine; Google Chrome/Edge are not required or used as fallbacks. Chromium video codec capability is independently verified, never inferred from earlier Chrome results. Run `suryadev_browser_preflight.py --data <existing-data>` with the worker stopped. See `docs/GARUDANETRA_UNIFIED_BROWSER.md` in the repository root.
 
 ## One SURYADEV Learning Intelligence dashboard — consolidated UI (October 25, 2026)
