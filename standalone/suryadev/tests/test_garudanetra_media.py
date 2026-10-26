@@ -149,13 +149,13 @@ class MediaSessionTests(unittest.TestCase):
             playwright=type("MockPlaywright",(),{"chromium":chromium})()
             session=GarudanetraMediaSession(
                 tmp,"https://www.youtube.com/watch?v=VZ5LU8vHT0s",
-                channel="chrome",headless=True)
+                channel="chromium",headless=True)
             context,page=session.launch(playwright)
             self.assertIs(context,ctx)
             self.assertEqual(page.visited,session.source_url)
             self.assertEqual(session.diagnostics()["main_frame_navigations"],1)
             self.assertFalse(session.diagnostics()["unexpected_navigation"])
-            self.assertEqual(chromium.args[0][1]["channel"],"chrome")
+            self.assertEqual(chromium.args[0][1]["channel"],"chromium")
             private=FakeRoute("http://127.0.0.1:8766/health")
             external=FakeRoute("https://r2.googlevideo.com/media")
             session.route_sync(private)
@@ -165,6 +165,14 @@ class MediaSessionTests(unittest.TestCase):
             session.close()
             self.assertTrue(ctx.closed)
             self.assertFalse(session.diagnostics()["source_learning_verified"])
+
+    def test_branded_chrome_edge_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for channel in ("chrome","msedge","chrome-canary"):
+                with self.subTest(channel=channel), self.assertRaises(ValueError):
+                    GarudanetraMediaSession(
+                        tmp,"https://www.youtube.com/watch?v=VZ5LU8vHT0s",
+                        channel=channel)
 
     def test_same_video_unapproved_redirect_cannot_continue(self):
         with tempfile.TemporaryDirectory() as tmp:
