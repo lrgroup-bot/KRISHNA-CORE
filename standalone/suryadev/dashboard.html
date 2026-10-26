@@ -37,8 +37,8 @@
       <a href="#books-evidence" class="nav-item"><span>▧</span> Books</a>
       <a href="#date-center" class="nav-item"><span>◷</span> History</a>
       <div class="settings-menu-label">CONFIGURATION</div>
-      <button id="open-server-settings" type="button" class="nav-item nav-settings" aria-haspopup="dialog" aria-controls="server-settings-dialog"><span aria-hidden="true">◉</span> KRISHNA Server</button>
-      <button id="open-storage-settings" type="button" class="nav-item nav-settings" aria-haspopup="dialog" aria-controls="storage-settings-dialog"><span aria-hidden="true">▤</span> Storage & Cleanup</button>
+      <button id="open-server-settings" type="button" class="nav-item nav-settings" aria-controls="server-settings-dialog" aria-label="Open KRISHNA Server dashboard"><span aria-hidden="true">◉</span> KRISHNA Server</button>
+      <button id="open-storage-settings" type="button" class="nav-item nav-settings" aria-controls="storage-settings-dialog" aria-label="Open Storage and Cleanup dashboard"><span aria-hidden="true">▤</span> Storage & Cleanup</button>
     </nav>
     <div class="sidebar-bottom" aria-label="Live connection status at bottom of main menu">
       <div class="status-leds" aria-label="KRISHNA, BRAHMAGYAN and Rishi connections">
@@ -307,7 +307,7 @@
   <div class="settings-dialog-header server-header">
     <div class="settings-header-icon">◉</div>
     <div class="settings-header-text"><div class="settings-kicker">SECURE NODE SETTINGS</div><h2 id="server-dialog-title">KRISHNA Server</h2><p>Enter the server IP, save it locally, and run a connection diagnosis.</p></div>
-    <button type="button" id="close-server-settings" class="settings-close" aria-label="Close server settings">✕</button>
+    <button type="button" id="close-server-settings" class="settings-close" aria-label="Back to Overview dashboard">←</button>
   </div>
   <div class="settings-dialog-body">
     <div class="settings-alert"><strong>Connection ≠ Pairing.</strong> A green TCP or HTTP diagnosis only proves that an endpoint responds. SURYADEV's KRISHNA LED stays red until authenticated enrollment is verified.</div>
@@ -340,7 +340,7 @@
   <div class="settings-dialog-header storage-header">
     <div class="settings-header-icon">▤</div>
     <div class="settings-header-text"><div class="settings-kicker">LOCAL STORAGE MANAGEMENT</div><h2 id="storage-dialog-title">Storage & Cleanup</h2><p>Check disk health, choose data storage, and safely remove temporary learning copies.</p></div>
-    <button type="button" id="close-storage-settings" class="settings-close" aria-label="Close storage settings">✕</button>
+    <button type="button" id="close-storage-settings" class="settings-close" aria-label="Back to Overview dashboard">←</button>
   </div>
   <div class="settings-dialog-body">
     <section class="settings-section">
