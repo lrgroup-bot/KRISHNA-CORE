@@ -223,6 +223,13 @@ async def browser_video_review_check(port, approved_url):
             await page.locator("#ai-tab-youtube").click()
             await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("YouTube")
             await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
+            await page.locator('a[href="#ai-learner"]').click()
+            await expect(page.locator("#ai-learner")).to_be_visible()
+            assert await page.locator("#overview").is_hidden()
+            assert await page.locator("#video-review").is_hidden()
+            await page.locator('a[href="#overview"]').click()
+            await expect(page.locator("#overview")).to_be_visible()
+            await expect(page.locator("#video-review")).to_be_visible()
             # The preview never starts itself and the page never creates
             # a competing Playwright profile or a second native window.
             opened=[]
