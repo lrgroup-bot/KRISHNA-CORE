@@ -30,6 +30,25 @@ class EngineIdentityTests(unittest.TestCase):
                     browser_identity()["obsolete_branded_channel_hint_ignored"],
                     value in ("chrome","msedge"))
 
+    def test_video_collectors_cannot_open_new_windows(self):
+        root=Path(__file__).resolve().parents[1]
+        media=(root/"suryadev_garudanetra_media.py").read_text(encoding="utf-8")
+        probe=(root/"suryadev_video_browser_probe.py").read_text(encoding="utf-8")
+        sweep=(root/"suryadev_video_speed_sweep.py").read_text(encoding="utf-8")
+        adapter=(root.parents[1]/"scripts"/"SURYDEV_VIDEO_LEARNING_ADAPTER.py").read_text(
+            encoding="utf-8")
+        self.assertIn("self.headless = True",media)
+        self.assertIn("profile,channel=channel,headless=True",probe)
+        self.assertIn("profile,channel=channel,headless=True",sweep)
+        self.assertIn("workspace, source_url, channel=browser_channel, headless=True",adapter)
+        html=(root/"dashboard.html").read_text(encoding="utf-8")
+        js=(root/"dashboard-ai-learner.js").read_text(encoding="utf-8")
+        for id_ in ("ai-learner","ai-tab-youtube","ai-tab-pdf","ai-tab-website","ai-tab-book"):
+            self.assertIn('id="'+id_+'"',html)
+        self.assertNotIn("window.open(",js)
+        self.assertNotIn("target='_blank'",html)
+        self.assertIn("https://www.youtube-nocookie.com/embed/",js)
+
     def test_all_canonical_browser_entrypoints_have_explicit_chromium(self):
         root=Path(__file__).resolve().parents[1]
         docs={
