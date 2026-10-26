@@ -104,7 +104,7 @@ def execute(root, *, url, channel="chromium", sample_seconds=2, observation_seco
         with tempfile.TemporaryDirectory(prefix="suryadev-video-probe-") as profile:
             with sync_playwright() as p:
                 context=p.chromium.launch_persistent_context(
-                    profile,channel=channel,headless=False,
+                    profile,channel=channel,headless=True,
                     args=["--autoplay-policy=no-user-gesture-required"],
                     viewport={"width":1280,"height":800})
                 try:
