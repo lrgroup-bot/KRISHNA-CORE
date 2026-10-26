@@ -1,5 +1,40 @@
 # SURYADEV AI Learner — integrated four-lane decision (26 Oct 2026)
 
+## AI Learner operational studio — one place for real learning
+
+AI Learner is the **only active learning control room**. The existing,
+CSRF-protected `learning-start`, `learning-stop`,
+`learning-model` and KRISHNA host-delegation controls are *moved* into
+its page, not copied or activated through hidden buttons. The existing
+activity/next-queue panel, approved-source-refill state, measured node
+admission and real Garudanetra website/source workspace cards also live
+there. The four lane tabs read the same existing SQLite + book/video
+APIs: YouTube observation/caption history, PDF extraction evidence,
+website coverage and book line-by-line checkpoints.
+
+Book source-line search is physically moved into AI Learner > Books.
+The Books menu retains historical reading progress, while Video Review,
+Assignments and Evidence are historical/read-only inspection views.
+Live Learning is read-only fleet telemetry and does not offer a second
+learning worker. All learning starts/stops/active work are in AI Learner.
+
+Source-tab switching does **not** spawn separate jobs or override owner
+approval. The single scheduler safely shares measured capacity across
+the eligible approved URLs and the four work types, with the 85% guard
+and existing source authority. The official embedded video iframe is
+**manual preview only**, not the supervised GARUDANETRA media observer;
+it must be closed on tab/page exit and never count as watched coverage.
+Caption extraction, PDF text and book journal steps remain *candidate*
+evidence, with real BRAHMAGYAN/Rishi exam receipts separately pending.
+
+The independent Chromium smoke checks that all ten menu routes still
+work and that inside AI Learner the original start/stop/model controls,
+real active-work queue, source cards, node-admission status and book
+search are visible. It does not start learning or pretend an independent
+exam passed. The physical Windows acceptance preflight must still verify
+the installed asset hashes, and real laptop UI must be inspected after
+an installer refresh.
+
 ## Individual SURYADEV dashboards — menu and 3D UI
 
 The primary sidebar now routes to **ten separate in-app dashboard views**:
