@@ -11,6 +11,7 @@
     const names = {youtube:"YouTube", pdf:"PDF documents",
                    website:"Websites", book:"Books"};
     let selected = "youtube", approved = [], refreshing = false, rerun = false;
+    let selectionGeneration = 0;
     const results = el("ai-learner-lane-results");
     const summary = el("ai-learner-lane-summary");
     const preview = el("ai-learner-youtube-preview");
@@ -74,6 +75,7 @@
     }
     function select(lane) {
       if (!lanes.includes(lane)) return;
+      selectionGeneration++;
       if (selected==="youtube" && lane!=="youtube")stopPreview();
       selected=lane;
       for(const name of lanes)
@@ -92,11 +94,12 @@
     async function refresh() {
       if(refreshing){rerun=true;return;}
       refreshing=true;
+      const lane=selected, generation=selectionGeneration;
       try {
-        const lane=selected;
         const [control,live]=await Promise.all([
           json("/api/learning/control"),json("/api/live")
         ]);
+        if(lane!==selected || generation!==selectionGeneration)return;
         start.disabled=!(control.can_start===true);
         stop.disabled=!(control.managed_running===true);
         banner.textContent=control.managed_running ? "One worker active · PID "+control.managed_pid :
@@ -107,8 +110,15 @@
         if(lane==="youtube") {
           const [review,audit]=await Promise.all([
             json("/api/video/review"),json("/api/youtube/audit")]);
-          if(lane!==selected)return;
+          if(lane!==selected || generation!==selectionGeneration)return;
           metric(results,"YouTube jobs",source);
+          if (review.media_health) {
+            const media=review.media_health;
+            line(results,"Latest GARUDANETRA media observation · player: "+
+              (media.player_state||"unverified")+" · position: "+
+              (media.source_position_seconds??"not recorded")+"s · measured speed ceiling: "+
+              (media.measured_speed_ceiling_x??"unverified")+"× · learning not verified");
+          }
           drawVideos(Array.isArray(review.jobs)?review.jobs:[]);
           summary.textContent=(review.auto_enabled?"Approved-video observation enabled":"Video observation not enabled")+
             " · Active: "+(review.active_job||"none")+
@@ -129,26 +139,91 @@
           line(results,"The embedded official YouTube player can display ads. FreeTube/Invidious are separate architectures, not installed here. Manual preview does not authorize new learning or produce an evidence receipt.");
         } else if(lane==="book") {
           const info=await json("/api/books");
-          if(lane!==selected)return;
+          if(lane!==selected || generation!==selectionGeneration)return;
           const books=Array.isArray(info.books)?info.books:[];
           summary.textContent=books.length+" locally registered books · indexing and line-by-line reading are distinct from understanding.";
-          for(const book of books.slice(0,15)){
+          for(const book of books.slice(0,30)){
             const card=document.createElement("article");card.className="ai-learner-record";
             line(card,String(book.title||book.name||book.book_id||"Approved book"),"strong");
-            line(card,"Lines processed: "+(book.lines_processed??book.processed_lines??"see book ledger")+
-              " · Comprehension: unverified");
+            const sessions=book.sessions && typeof book.sessions==="object"?book.sessions:{};
+            const modes=Object.keys(sessions).filter(mode=>mode.startsWith("ollama:"));
+            if(!modes.length)line(card,"Indexed "+(book.lines_indexed??"unknown")+
+              " lines · AI reading not recorded · Rishi exam pending");
+            for(const mode of modes) {
+              const reading=sessions[mode]||{};
+              line(card,mode+" · Lines: "+(reading.lines_processed??"unknown")+
+                " / "+(reading.lines_total??book.lines_indexed??"unknown")+
+                " · Steps: "+(reading.model_steps_completed??0)+
+                " · Last line reached: "+(reading.reached_end===true?"yes":"unverified")+
+                " · Understanding: unverified");
+              if(reading.last_error)line(card,"Last error: "+reading.last_error);
+            }
+            line(card,"Visual items examined: "+(book.visual_items_examined??"unverified")+
+              " · BRAHMAGYAN candidate receipts: "+(book.brahmagyan_candidate_receipts??0)+
+              " · Independent Rishi exam: unverified");
             results.append(card);
           }
           localLink("Read line-level book evidence","#books-evidence");
         } else {
+          const records=await json("/api/tasks?kind="+lane+"&limit=12");
+          if(lane!==selected || generation!==selectionGeneration)return;
           metric(results,names[lane],source);
-          summary.textContent=names[lane]+" · approved-source activity and recorded findings (not verified mastery).";
-          localLink(lane==="pdf"?"Inspect PDF assignments":"Inspect website assignments","#assignments");
-          localLink("Review source evidence","#sources");
+          const jobs=Array.isArray(records.tasks)?records.tasks:[];
+          summary.textContent=names[lane]+" · "+(records.total??jobs.length)+
+            " recorded assignments (newest 12); extraction is not whole-source mastery.";
+          if(!jobs.length)line(results,"No recorded "+names[lane].toLowerCase()+" assignments.");
+          for(const job of jobs) {
+            const card=document.createElement("article");card.className="ai-learner-record";
+            line(card,(job.title||"Source task #"+job.id)+" · "+(job.status||"unknown"),"strong");
+            line(card,"Source: "+(job.url||"not recorded"));
+            line(card,"Extraction method: "+(job.method||"not recorded")+
+              " · Coverage and comprehension: unverified");
+            if(job.error)line(card,"Recorded error: "+job.error);
+            const inspect=document.createElement("button");
+            inspect.type="button"; inspect.className="ai-learner-evidence-link";
+            inspect.textContent="Inspect source evidence in this workspace";
+            const detail=document.createElement("div");
+            inspect.addEventListener("click",async()=>{
+              const id=Number(job.id);
+              if(!Number.isSafeInteger(id)||id<1)return;
+              inspect.disabled=true;
+              detail.replaceChildren();line(detail,"Reading local task provenance…");
+              try {
+                const entry=await json("/api/tasks/"+id);
+                if(entry.id!==id || entry.kind!==lane)throw Error("Task identity mismatch");
+                if(lane!==selected || generation!==selectionGeneration)return;
+                detail.replaceChildren();
+                line(detail,"Evidence hash integrity: "+(entry.evidence_state||"not recorded"));
+                if(entry.sha256)line(detail,"SHA-256: "+entry.sha256);
+                const coverage=entry.coverage||{};
+                line(detail,"Extraction: "+(coverage.coverage_status||"not verified")+
+                  " · Browser: "+(coverage.browser_engine||"not recorded"));
+                if(lane==="pdf")line(detail,"Text pages extracted: "+
+                  (coverage.pages_extracted??"unknown")+" / "+
+                  (coverage.pages_total??"unknown")+" · Visual coverage: unverified");
+                if(lane==="website")line(detail,"Rendered text characters: "+
+                  (coverage.rendered_visible_characters??"unknown")+
+                  " · Full site coverage: unverified");
+                if(entry.summary)line(detail,"Saved finding: "+entry.summary);
+                if(entry.error)line(detail,"Error: "+entry.error);
+                line(detail,"BRAHMAGYAN/Rishi factual acceptance: not verified");
+              } catch(error) {
+                if(lane===selected && generation===selectionGeneration) {
+                  detail.replaceChildren();
+                  line(detail,"Cannot verify task evidence: "+String(error.message||error));
+                }
+              } finally {inspect.disabled=false;}
+            });
+            card.append(inspect,detail);
+            results.append(card);
+          }
+          localLink("Open complete evidence history","#sources");
         }
       } catch(error){
-        summary.textContent="AI Learner read-only evidence unavailable: "+String(error.message||error);
-        start.disabled=true; stop.disabled=true;
+        if(lane===selected && generation===selectionGeneration){
+          summary.textContent="AI Learner read-only evidence unavailable: "+String(error.message||error);
+          start.disabled=true; stop.disabled=true;
+        }
       } finally {
         refreshing=false;
         if(rerun){rerun=false;refresh();}
