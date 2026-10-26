@@ -56,6 +56,13 @@
     "server-settings-dialog":"server-settings",
     "storage-settings-dialog":"storage-settings"
   };
+  // Keep references before moving a parent (Books belongs to Garudanetra).
+  // This avoids transient detached-node lookups during the one-time reflow.
+  const original=new Map();
+  for(const spec of pages)for(const selector of spec.items){
+    if(!original.has(selector))original.set(selector,
+      main.querySelector(selector)||document.querySelector(selector));
+  }
   const panels=new Map();
   const content=document.createDocumentFragment();
   for(const spec of pages){
@@ -90,8 +97,7 @@
     banner.append(copy,signal);
     page.append(banner);
     for(const selector of spec.items){
-      const element=main.querySelector(selector) ||
-        document.querySelector(selector);
+      const element=original.get(selector);
       if(!element)throw Error("Missing existing SURYADEV page: "+selector);
       page.append(element);
     }
