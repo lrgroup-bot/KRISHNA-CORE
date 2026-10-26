@@ -39,7 +39,9 @@ def blocked_private_resource(url):
     try:
         u = urlsplit(str(url or ""))
         host = (u.hostname or "").lower().rstrip(".")
-        if u.scheme in ("blob", "data"):
+        if u.scheme in ("blob", "data", "chrome-extension"):
+            # Locally installed, previously reviewed extension resources.
+            # External HTTP and private-network destinations still fail closed.
             return False
         if u.scheme != "https" or not host or u.username or u.password:
             return True
