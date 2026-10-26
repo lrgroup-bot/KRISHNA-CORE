@@ -227,7 +227,7 @@ async def browser_video_review_check(port, approved_url):
             await expect(page.locator("#ai-learner")).to_be_visible()
             await expect(page.locator("#overview")).to_be_hidden()
             await expect(page.locator("#video-review")).to_be_hidden()
-            await page.locator('a[href="#overview"]').click()
+            await page.locator('.navigation a[href="#overview"]').click()
             await expect(page.locator("#overview")).to_be_visible()
             await expect(page.locator("#video-review")).to_be_visible()
             # The preview never starts itself and the page never creates
