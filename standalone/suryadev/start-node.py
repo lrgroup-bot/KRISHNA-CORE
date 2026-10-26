@@ -105,7 +105,19 @@ def main(argv=None):
     ap.add_argument("--continuous", action="store_true",
                     help="Rollover six-hour mission accounting without forced rest; safety/source pauses remain")
     ap.add_argument("--prepare-only", action="store_true")
+    ap.add_argument("--video-target",type=int,choices=range(1,4),default=None,
+                    help="Trial: select at most 3 distinct previously unattempted approved videos")
+    ap.add_argument("--website-target",type=int,choices=range(1,6),default=None,
+                    help="Trial: at most 5 concurrent approved website tasks, hardware permitting")
+    ap.add_argument("--pdf-target",type=int,choices=range(1,6),default=None,
+                    help="Trial: at most 5 concurrent PDF tasks, hardware permitting")
+    ap.add_argument("--book-target",type=int,choices=range(1,6),default=None,
+                    help="Trial: at most 5 concurrent book-reading tasks, hardware permitting")
+    ap.add_argument("--max-parallel",type=int,default=None,
+                    help="Optional TOTAL cap (1..125); only reduces measured concurrency")
     args = ap.parse_args(argv)
+    if args.max_parallel is not None and not 1<=args.max_parallel<=125:
+        ap.error("--max-parallel must be 1..125")
     if not args.prepare_only and not available_port(args.port):
         ap.error("Dashboard port is in use; stop the previous dashboard first")
     data = prepare(args.data, model=args.model, previous=args.previous_data,
@@ -121,7 +133,26 @@ def main(argv=None):
     if args.prepare_only:
         return 0
     env = os.environ.copy()
-    env["SURYADEV_MAX_PARALLEL"] = str(active_cap)
+    env["SURYADEV_MAX_PARALLEL"] = str(min(active_cap,args.max_parallel or active_cap))
+    for attr, variable in (
+      ("video_target","SURYADEV_TRIAL_VIDEO_COUNT"),
+      ("website_target","SURYADEV_TRIAL_WEBSITE_TARGET"),
+      ("pdf_target","SURYADEV_TRIAL_PDF_TARGET"),
+      ("book_target","SURYADEV_TRIAL_BOOK_TARGET")):
+        value=getattr(args,attr)
+        if value is not None:
+            env[variable]=str(value)
+        else:
+            # Old shell environment must not silently activate a trial.
+            env.pop(variable,None)
+    if args.video_target is not None:
+        print("Approved-video target:",args.video_target,
+              "| one-time exact-URL selection; no replay or invented approvals",flush=True)
+    if any(getattr(args,n) is not None for n in
+           ("website_target","pdf_target","book_target")):
+        print("Other lane targets: websites",args.website_target,
+              "| PDFs",args.pdf_target,"| books",args.book_target,
+              "| measured admission may be lower",flush=True)
     # The approved public sources are not fetched implicitly on all fleet nodes.
     env["SURYADEV_LEARNING_TRIAL"] = "1" if args.approved_trial else "0"
     env["SURYADEV_AUTO_APPROVED_VIDEOS"] = "1" if args.auto_approved_videos else "0"
