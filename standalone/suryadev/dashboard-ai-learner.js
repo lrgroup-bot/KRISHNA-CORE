@@ -1,4 +1,4 @@
-/* AI Learner: one existing SURYADEV worker, four read-only lanes.
+/* AI Learner: one canonical SURYADEV worker, four active learning workspaces.
  * No new browser window, executable, account, source approval or job replay.
  * Only explicit user interaction loads approved YouTube content into this page.
  */
@@ -18,7 +18,7 @@
     const player = el("ai-learner-player");
     const choice = el("ai-learner-video-choice");
     const banner = el("ai-learner-worker");
-    const start = el("ai-learner-start"), stop = el("ai-learner-stop");
+    const laneStatus=el("ai-learner-lane-status");
     const line = (parent, value, tag="p") => {
       const node=document.createElement(tag);
       node.textContent=String(value);
@@ -94,6 +94,7 @@
         el("ai-tab-"+name).setAttribute("aria-pressed", String(name===lane));
       el("ai-learner-lane-heading").textContent=names[lane]+" · recorded evidence";
       preview.hidden=lane!=="youtube";
+      el("ai-learner-book-tools").hidden=lane!=="book";
       summary.textContent="Loading "+names[lane].toLowerCase()+" from the existing source ledger…";
       results.replaceChildren();
       refresh();
@@ -112,11 +113,30 @@
           json("/api/learning/control"),json("/api/live")
         ]);
         if(lane!==selected || generation!==selectionGeneration)return;
-        start.disabled=!(control.can_start===true);
-        stop.disabled=!(control.managed_running===true);
-        banner.textContent=control.managed_running ? "One worker active · PID "+control.managed_pid :
-          control.external_worker_active ? "External worker holds lock · do not duplicate" :
-          "Learning paused · approved sources retained";
+        banner.textContent=control.managed_running ? "● Active · Worker "+control.managed_pid :
+          control.external_worker_active ? "◉ External worker holds lock · no duplicate" :
+          "○ Paused · approved sources retained";
+        banner.dataset.state=control.managed_running?"running":
+          control.external_worker_active?"blocked":"paused";
+        const stamp=el("ai-studio-last-update");
+        if(stamp)stamp.textContent=live.time?
+          "Last evidence update · "+new Date(Number(live.time)*1000).toLocaleTimeString():
+          "Worker status received · timestamps unverified";
+        laneStatus.replaceChildren();
+        for(const kind of ["youtube","pdf","website","book"]) {
+          const stats=(live.sources||{})[kind]||{};
+          const node=document.createElement("div");
+          node.className="ai-studio-lane-tile";
+          const label=document.createElement("strong");
+          label.textContent=names[kind];
+          const detail=document.createElement("span");
+          detail.textContent=kind==="book"?
+            "Indexed/reading checkpoints below":
+            "Running "+Number(stats.running||0)+" · Queued "+Number(stats.queued||0)+
+            " · Recorded "+Number(stats.total||0);
+          node.append(label,detail);
+          laneStatus.append(node);
+        }
         const source=(live.sources||{})[lane]||{};
         results.replaceChildren();
         if(lane==="youtube") {
@@ -136,7 +156,7 @@
             " · Active: "+(review.active_job||"none")+
             " · Browser evidence: "+(audit.browser_observations||[]).length+
             " · Rishi examination: not verified";
-          for(const item of (audit.browser_observations||[]).slice(0,8)) {
+          for(const item of (audit.browser_observations||[]).slice(0,30)) {
             const wrap=document.createElement("article");
             wrap.className="ai-learner-record";
             line(wrap,(item.title||item.job_id||"Approved video")+" · "+(item.status||"unknown"),"strong");
@@ -147,7 +167,7 @@
               " · Rishi-verified: NO");
             results.append(wrap);
           }
-          localLink("View complete video evidence in this dashboard","#video-review");
+          line(results,"Observer records above are historical. Continuous video learning uses the single supervised worker; a successful short playback test does not verify a complete lecture.");
           line(results,"The embedded official YouTube player can display ads. FreeTube/Invidious are separate architectures, not installed here. Manual preview does not authorize new learning or produce an evidence receipt.");
         } else if(lane==="book") {
           const info=await json("/api/books");
@@ -175,7 +195,7 @@
               " · Independent Rishi exam: unverified");
             results.append(card);
           }
-          localLink("Read line-level book evidence","#books-evidence");
+          line(results,"Use the source-line search directly below; progress and journal steps remain separate from verified comprehension.");
         } else {
           const records=await json("/api/tasks?kind="+lane+"&limit=12");
           if(lane!==selected || generation!==selectionGeneration)return;
@@ -232,12 +252,12 @@
             card.append(inspect,detail);
             results.append(card);
           }
-          localLink("Open complete evidence history","#sources");
+          line(results,"Showing recent source tasks. The separate Evidence dashboard retains the full read-only archive; learning control remains here.");
         }
       } catch(error){
         if(lane===selected && generation===selectionGeneration){
-          summary.textContent="AI Learner read-only evidence unavailable: "+String(error.message||error);
-          start.disabled=true; stop.disabled=true;
+          summary.textContent="AI Learner evidence unavailable: "+String(error.message||error)+
+            ". The live worker control remains independent and can be checked above.";
         }
       } finally {
         refreshing=false;
@@ -273,16 +293,6 @@
         "Official YouTube preview · advertisements may appear · playback/comprehension not independently verified.";
     });
     el("ai-learner-close-preview").addEventListener("click",()=>stopPreview());
-    start.addEventListener("click",()=>{
-      const real=el("learning-start");
-      if(!real||real.disabled){banner.textContent="The existing worker cannot start; check hardware guard or lock.";return;}
-      real.click(); banner.textContent="Start requested through existing SURYADEV worker controls.";
-    });
-    stop.addEventListener("click",()=>{
-      const real=el("learning-stop");
-      if(!real||real.disabled){banner.textContent="There is no dashboard-managed worker to stop.";return;}
-      real.click(); banner.textContent="Graceful stop requested through existing worker.";
-    });
     el("ai-learner-refresh").addEventListener("click",()=>refresh());
     // Keep stopped/unavailable status honest; no source writes or auto launch.
     document.addEventListener("visibilitychange",()=>{
