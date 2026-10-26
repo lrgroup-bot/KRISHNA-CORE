@@ -244,23 +244,12 @@
         if(rerun){rerun=false;refresh();}
       }
     }
-    function routePage() {
-      const active=location.hash==="#ai-learner";
-      const main=el("ai-learner").closest("main");
-      if(!main)return;
-      for(const child of main.children)
-        if(child!==el("ai-learner"))child.hidden=active;
-      // This is a true menu page, not a permanent extra dashboard section.
-      el("ai-learner").hidden=!active;
-      if(!active)stopPreview();
-      for(const link of document.querySelectorAll('.navigation a[href^="#"]'))
-        link.classList.toggle("selected", link.getAttribute("href")===location.hash);
-      if(active) {
-        el("ai-learner").scrollIntoView({block:"start"});
-        refresh();
-      }
-    }
-    window.addEventListener("hashchange",routePage);
+    // Dashboard-pages.js owns all main-menu navigation and visibility.
+    // Close provider playback whenever the owner navigates elsewhere.
+    document.addEventListener("suryadev-page-change",event=>{
+      if(event.detail?.page!=="ai-learner")stopPreview();
+      else refresh();
+    });
     for(const lane of lanes)el("ai-tab-"+lane).addEventListener("click",()=>select(lane));
     el("ai-learner-open-preview").addEventListener("click",()=>{
       const job=approved.find(item=>item.job_id===choice.value);
@@ -301,7 +290,6 @@
       else refresh();
     });
     select("youtube");
-    routePage();
     setInterval(()=>{if(location.hash==="#ai-learner")refresh();},15000);
   });
 })();
