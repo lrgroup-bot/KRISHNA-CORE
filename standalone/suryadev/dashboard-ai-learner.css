@@ -94,6 +94,17 @@ main > [hidden]{display:none!important}
 #ai-learner-status-mount{display:grid;gap:7px;margin-top:12px}
 #ai-learner-status-mount>div{padding:9px 12px;background:#faf8ff;border:1px solid #ece7f7;border-radius:10px;
   font-size:12px;color:#524b75;overflow-wrap:anywhere}
+.ai-studio-engine #ai-learner-node-summary .unified-node-overview{
+  margin-top:15px;border-radius:13px;box-shadow:0 4px 0 #e2ddf1;
+}
+#ai-learner-live-workspaces-mount{margin-top:20px;padding:14px;
+  background:linear-gradient(120deg,#fff,#f9f6ff);border-radius:15px;
+  border:1px solid #e5dff4;box-shadow:0 4px 0 #e2dcf2}
+#ai-learner-live-workspaces-mount .netra-tab-title{margin-bottom:11px;
+  font-size:14px;color:#38266d;font-weight:850}
+#ai-learner-live-workspaces-mount .netra-workspace-tabs{margin:0}
+#ai-learner-live-workspaces-mount .netra-continuity{
+  margin:0 0 15px}
 .ai-studio-lane-status{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:17px}
 .ai-studio-lane-tile{display:flex;flex-direction:column;gap:7px;min-width:0;
   background:#fff;border-radius:14px;border:1px solid #dce6f6;padding:15px;
