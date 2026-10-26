@@ -144,7 +144,9 @@ class GarudanetraMediaSession:
         self.workspace = Path(workspace).expanduser().resolve()
         self.source_url = approved_youtube_watch(approved_url)
         self.channel = require_garudanetra(channel)
-        self.headless = bool(headless)
+        # GARUDANETRA video collection runs invisibly inside the one local
+        # SURYADEV worker. Any visible preview belongs to the dashboard only.
+        self.headless = True
         self.browser_args = list(browser_args)
         self.context = None
         self.page = None
