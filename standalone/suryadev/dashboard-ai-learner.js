@@ -109,10 +109,25 @@
       refreshing=true;
       const lane=selected, generation=selectionGeneration;
       try {
-        const [control,live]=await Promise.all([
-          json("/api/learning/control"),json("/api/live")
+        const [control,live,readiness]=await Promise.all([
+          json("/api/learning/control"),json("/api/live"),
+          json("/api/learning/readiness")
         ]);
         if(lane!==selected || generation!==selectionGeneration)return;
+        const readinessBox=el("ai-learner-readiness");
+        readinessBox.replaceChildren();
+        const active=readiness.worker_managed_running || readiness.worker_external_lock;
+        line(readinessBox,(active?"Learning worker active":"No confirmed active worker")+
+          " · Approved videos "+Number(readiness.approved_videos||0)+
+          " · Eligible fresh "+(readiness.unattempted_approved_videos??"unverified")+
+          " · Trial selected "+(readiness.selected_videos??"unverified")+
+          " · Approved books "+Number(readiness.approved_books||0)+
+          " · Active books "+(readiness.book_runtime_fresh?
+              readiness.reported_active_books:"stale/unverified"),"strong");
+        for(const reason of (readiness.reasons||[]).slice(0,5))
+          line(readinessBox,"• "+reason);
+        for(const error of (readiness.errors||[]).slice(0,2))
+          line(readinessBox,"Verification error: "+error);
         banner.textContent=control.managed_running ? "● Active · Worker "+control.managed_pid :
           control.external_worker_active ? "◉ External worker holds lock · no duplicate" :
           "○ Paused · approved sources retained";
