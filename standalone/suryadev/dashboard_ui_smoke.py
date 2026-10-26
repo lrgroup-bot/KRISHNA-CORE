@@ -74,7 +74,7 @@ async def browser_check(port):
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
             page.on("pageerror",lambda e:errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/advanced#garudanetra",wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced#ai-learner",wait_until="domcontentloaded")
             await expect(page.locator("#netra-web-running")).to_have_text("2",timeout=12000)
             await expect(page.locator("#netra-video-running")).to_have_text("1",timeout=12000)
             await expect(page.locator("#netra-engine-state")).to_contain_text("Chromium browsing", timeout=12000)
@@ -226,6 +226,9 @@ async def browser_video_review_check(port, approved_url):
             await expect(page.locator("#ai-learner-control-mount #learning-model")).to_be_visible()
             await expect(page.locator("#ai-learner-operations-mount #live-learning")).to_be_visible()
             await expect(page.locator("#ai-learner-operations-mount #active-work")).to_be_visible()
+            await expect(page.locator("#ai-learner-node-summary #node-control-capacity")).to_be_visible()
+            await expect(page.locator("#ai-learner-live-workspaces-mount #netra-workspace-tabs")).to_be_visible()
+            await expect(page.locator("#ai-learner-live-workspaces-mount #netra-continuity-status")).to_be_visible()
             await expect(page.locator("#ai-learner-start")).to_have_count(0)
             await expect(page.locator("#ai-learner-stop")).to_have_count(0)
             await page.locator("#ai-tab-pdf").click()
