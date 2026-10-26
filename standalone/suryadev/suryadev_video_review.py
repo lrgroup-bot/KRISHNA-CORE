@@ -289,6 +289,18 @@ class VideoReview:
         return {"ok": True, "job_id": jid, "sha256": digest, "status": "QUEUED_FOR_REVIEW"}
 
     def snapshot(self):
+        # Imported job files are historical evidence, not perpetual permission.
+        # A source removed from the local owner-approved plan must no longer
+        # be offered for playback, even if its old inbox record remains.
+        approved_urls = set()
+        try:
+            if self.plan.is_file() and self.plan.stat().st_size <= 1_000_000:
+                plan = json.loads(self.plan.read_text(encoding="utf-8"))
+                if isinstance(plan, dict) and isinstance(plan.get("approved_urls"), list):
+                    approved_urls = {url for url in plan["approved_urls"]
+                                     if isinstance(url, str)}
+        except (OSError, ValueError, TypeError):
+            pass
         states = {row["job_id"]: row["status"] for row in self.snapshot_unlocked_jobs()}
         from suryadev_liveops import _safe_read
         outcomes = _safe_read(self.data_root, "video-observer-outcomes.json",
@@ -362,13 +374,17 @@ class VideoReview:
                         status = "ATTEMPTED_NO_FINAL_RECEIPT"
                     else:
                         status = "QUEUED_FOR_REVIEW"
-                    jobs.append({"job_id": jid, "target": row.get("target", ""),
+                    target_url = row.get("target", "")
+                    still_approved = (isinstance(target_url, str)
+                                      and target_url in approved_urls)
+                    jobs.append({"job_id": jid, "target": target_url,
                                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                                  "status": status,
+                                 "source_currently_approved": still_approved,
                                  "error": str(outcome_row.get("error") or "")[:300],
                                  # Never offer 'run' for an already attempted video
-                                 # without explicit owner review of previous evidence.
-                                 "can_run": status == "QUEUED_FOR_REVIEW" and
+                                 # or source removed from the current approved plan.
+                                 "can_run": still_approved and status == "QUEUED_FOR_REVIEW" and
                                  jid not in tried and not has_prior_playback
                                  and not canonical_status})
                 except (OSError, ValueError, KeyError, TypeError):
