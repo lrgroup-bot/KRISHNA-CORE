@@ -104,6 +104,35 @@
     panels.set(spec.key,page);
     content.append(page);
   }
+  // AI Learner is the only operational workspace. Move the canonical
+  // controls and real queue DOM nodes, never clone them or create a worker.
+  // Existing dashboard-learning.js and activity handlers retain the same IDs,
+  // CSRF protection and API paths because their original elements are moved.
+  function into(targetId,selectors) {
+    const host=document.getElementById(targetId);
+    if(!host)throw Error("Missing AI Learner workspace mount: "+targetId);
+    for(const selector of selectors){
+      const node=document.querySelector(selector);
+      if(!node)throw Error("Missing existing learning workspace: "+selector);
+      host.append(node);
+    }
+  }
+  into("ai-learner-control-mount",["#garudanetra .learning-controls"]);
+  into("ai-learner-status-mount",[
+    "#learning-action-status","#learning-workspace-state","#learning-core-status"
+  ]);
+  into("ai-learner-operations-mount",["#live-learning"]);
+  const queue=document.getElementById("live-learning");
+  if(queue)queue.open=true;
+  // Original-book source-line search remains one live form and one listener.
+  // Historical book progress may still be inspected in its read-only menu.
+  into("ai-learner-book-tools",["#book-search-form","#book-search-results"]);
+  const monitor=document.getElementById("garudanetra");
+  const notice=document.createElement("p");
+  notice.className="netra-disclaimer";
+  notice.textContent="This page is read-only fleet telemetry. Start/stop, source lanes, " +
+    "current queue and book line search operate in the AI Learner workspace.";
+  monitor.append(notice);
   // Remove layout scaffolding left empty when Evidence/Health move to pages.
   const formerMiddle=main.querySelector(".middle-grid");
   if(formerMiddle && !formerMiddle.children.length)formerMiddle.remove();
