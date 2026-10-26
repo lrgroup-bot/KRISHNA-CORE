@@ -74,7 +74,7 @@ async def browser_check(port):
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
             page.on("pageerror",lambda e:errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/advanced",wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced#garudanetra",wait_until="domcontentloaded")
             await expect(page.locator("#netra-web-running")).to_have_text("2",timeout=12000)
             await expect(page.locator("#netra-video-running")).to_have_text("1",timeout=12000)
             await expect(page.locator("#netra-engine-state")).to_contain_text("Chromium browsing", timeout=12000)
@@ -103,7 +103,7 @@ async def browser_check(port):
 
 
 async def browser_books_check(port):
-    """Books render inside three existing panels, never a separate tab/section."""
+    """Books retain their source ledger inside their own main menu dashboard."""
     from playwright.async_api import async_playwright, expect
     async with async_playwright() as p:
         browser=await p.chromium.launch(headless=True)
@@ -120,6 +120,9 @@ async def browser_books_check(port):
             await expect(page.locator(".source-card.books")).to_have_count(0)
             await expect(page.locator("#book-health")).to_have_count(0)
             await expect(page.locator("#netra-books-lines")).to_have_text("1 / 3")
+            await page.locator('.navigation a[href="#books-evidence"]').click()
+            await expect(page.locator("#books-evidence")).to_be_visible()
+            await expect(page.locator("#garudanetra")).to_be_hidden()
             # The learning book ledger is canonical; hardware/source summaries
             # no longer duplicate its details.
             await expect(page.locator("#book-ledger-list .book-session")).to_have_count(
@@ -144,7 +147,7 @@ async def browser_continuity_check(port):
             page = await browser.new_page()
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/advanced", wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced#garudanetra", wait_until="domcontentloaded")
             await expect(page.locator("#netra-capacity-heading")).to_have_text(
                 "YouTube rate-limited — website/PDF research continues", timeout=12000)
             await expect(page.locator("#netra-continuity-status")).to_contain_text(
@@ -172,7 +175,7 @@ async def browser_offline_check(port):
             page = await browser.new_page()
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/advanced",wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced#garudanetra",wait_until="domcontentloaded")
             await expect(page.locator("#netra-capacity-heading")).to_have_text(
                 "Learning worker offline — dashboard is running", timeout=12000)
             label = await page.locator("#netra-total-capacity").inner_text()
@@ -204,7 +207,7 @@ async def browser_video_review_check(port, approved_url):
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
             page.on("pageerror", lambda exc: errors.append(str(exc)))
-            await page.goto(f"http://127.0.0.1:{port}/advanced", wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced#video-review", wait_until="domcontentloaded")
             await expect(page.locator("#video-review")).to_have_count(1)
             await expect(page.locator("#video-review")).to_be_visible(timeout=12000)
             # Four in-page AI Learner buttons and one same-page menu item.
@@ -252,19 +255,40 @@ async def browser_video_review_check(port, approved_url):
             assert not popups, "Approved YouTube preview opened a new OS/browser window"
             await page.locator('.navigation a[href="#overview"]').click()
             await expect(page.locator("#overview")).to_be_visible()
-            await expect(page.locator("#video-review")).to_be_visible()
+            await expect(page.locator("#video-review")).to_be_hidden()
             await expect(page.locator("#ai-learner")).to_be_hidden()
+            await expect(page.locator("#hardware")).to_be_visible()
             # The preview never starts itself and the page never creates
             # a competing Playwright profile or a second native window.
             opened=[]
             page.on("popup",lambda popup: opened.append(popup))
             assert not opened, "AI Learner unexpectedly opened an external window"
             await expect(page.locator('a[href="#video-review"]')).to_have_count(1)
-            order = await page.evaluate("""() => {
-                const ys = ids => ids.map(id => document.getElementById(id).getBoundingClientRect().top + window.scrollY);
-                return ys(['garudanetra','assignments','date-center']);
-            }""")
-            assert order[0] < order[1] < order[2], "Mission/history sections rendered out of order"
+            # Exactly one main menu dashboard is visible; all panels still exist.
+            await expect(page.locator(".suryadev-page:not([hidden])")).to_have_count(1)
+            await expect(page.locator(".suryadev-page")).to_have_count(10)
+            await expect(page.locator("#overview")).to_be_visible()
+            await expect(page.locator("#garudanetra")).to_be_hidden()
+            # Visit every sidebar destination without new tabs, popup windows or worker launch.
+            for dest, expected_id in [
+                ("garudanetra","garudanetra"),("assignments","assignments"),
+                ("video-review","video-review"),("sources","sources"),
+                ("books-evidence","books-evidence"),("date-center","date-center")]:
+                await page.locator(f'.navigation a[href="#{dest}"]').click()
+                await expect(page.locator("#"+expected_id)).to_be_visible()
+                await expect(page.locator(".suryadev-page:not([hidden])")).to_have_count(1)
+                await expect(page.locator(f'.navigation a[href="#{dest}"]')).to_have_attribute(
+                    "aria-current","page")
+            await page.locator("#open-server-settings").click()
+            await expect(page.locator("#server-settings-dialog")).to_be_visible()
+            await expect(page.locator("#storage-settings-dialog")).to_be_hidden()
+            await expect(page.locator("#server-ip")).to_be_visible()
+            await page.locator("#open-storage-settings").click()
+            await expect(page.locator("#storage-settings-dialog")).to_be_visible()
+            await expect(page.locator("#server-settings-dialog")).to_be_hidden()
+            await expect(page.locator("#cleanup-enabled")).to_be_visible()
+            await expect(page.locator(".suryadev-page:not([hidden])")).to_have_count(1)
+            await page.locator('.navigation a[href="#garudanetra"]').click()
             await expect(page.locator("#learning-enable-sources")).to_have_count(0)
             await expect(page.locator("#learning-start")).to_be_visible(timeout=12000)
             await expect(page.locator("#learning-start")).to_be_enabled(timeout=12000)
@@ -274,6 +298,7 @@ async def browser_video_review_check(port, approved_url):
             await expect(page.locator("#video-review-import")).to_have_count(0)
             await expect(page.locator("#video-review-json")).to_have_count(0)
             await expect(page.locator(".video-manual-details")).to_have_count(0)
+            await page.locator('.navigation a[href="#video-review"]').click()
             await expect(page.locator("#learning-trial-audit")).to_be_visible(timeout=12000)
             await expect(page.locator('input[type="date"]')).to_have_count(1)
             await expect(page.locator("#ui-version")).to_contain_text("2026-10-25-v8", timeout=12000)
