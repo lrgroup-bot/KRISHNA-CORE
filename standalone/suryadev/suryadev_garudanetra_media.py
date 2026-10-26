@@ -1,7 +1,7 @@
 """GARUDANETRA Media Lite: one supervised, source-approved YouTube browser lane.
 
-Not a second scheduler or browser engine. Playwright owns a local Chrome/
-Chromium context. This layer validates the source, refuses unsafe redirects,
+Not a second scheduler or browser engine. GARUDANETRA owns a dedicated
+Playwright open-source Chromium context (never branded Google Chrome). This layer validates the source, refuses unsafe redirects,
 observes player state, and turns media teardown into explicit diagnostics.
 It never downloads media, bypasses ads, seeks past content, or asserts mastery.
 No account cookies or credentials are exported in evidence.
@@ -12,6 +12,7 @@ import ipaddress
 from pathlib import Path
 import time
 from urllib.parse import parse_qs, urlsplit
+from suryadev_browser_engine import browser_identity, require_garudanetra
 
 
 def approved_youtube_watch(url):
@@ -138,13 +139,11 @@ class MediaContinuity:
 class GarudanetraMediaSession:
     """Canonical single Playwright context in an existing, isolated job workspace."""
 
-    def __init__(self, workspace, approved_url, *, channel=None, headless=False,
+    def __init__(self, workspace, approved_url, *, channel="chromium", headless=False,
                  browser_args=()):
         self.workspace = Path(workspace).expanduser().resolve()
         self.source_url = approved_youtube_watch(approved_url)
-        if channel not in (None, "chrome", "msedge", "chromium"):
-            raise ValueError("Invalid local Playwright browser channel")
-        self.channel = channel
+        self.channel = require_garudanetra(channel)
         self.headless = bool(headless)
         self.browser_args = list(browser_args)
         self.context = None
@@ -215,7 +214,7 @@ class GarudanetraMediaSession:
         args = ["--autoplay-policy=no-user-gesture-required"] + self.browser_args
         self.context = playwright.chromium.launch_persistent_context(
             str(profile), headless=self.headless,
-            **({"channel": self.channel} if self.channel else {}),
+            channel=self.channel,
             args=args, viewport={"width":1280, "height":800})
         try:
             self.context.route("**/*", self.route_sync)
@@ -247,7 +246,8 @@ class GarudanetraMediaSession:
     def diagnostics(self):
         return {
             "engine": "garudanetra-media-lite-playwright",
-            "browser_channel": self.channel or "bundled_chromium_default",
+            "browser_channel": self.channel,
+            "browser_identity":browser_identity(),
             "main_frame_navigations": self.main_frame_navigations,
             "unexpected_navigation": self.unexpected_navigation,
             "failed_media_requests":list(self.failed_media_requests[-20:]),
