@@ -70,6 +70,45 @@ class OperatorLearningTargetsTests(unittest.TestCase):
                     previously_tried=lambda _:False)
                 self.assertEqual(len(later),2)
 
+    def test_empty_manifest_can_be_repaired_once_without_prior_replay(self):
+        # Legacy code misclassified staged-only inbox jobs as attempts,
+        # freezing an empty selection even though approved URLs were fresh.
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            tried={video_job_id(URLS[0]),video_job_id(URLS[1]),
+                   video_job_id(URLS[2])}
+            with patch.dict(os.environ,{"SURYADEV_TRIAL_VIDEO_COUNT":"3"}):
+                self.assertEqual(select_trial_videos(root, URLS,
+                    previously_tried=lambda _:True),frozenset())
+                original=(root/VIDEO_FILE).read_bytes()
+                recovered=select_trial_videos(root,URLS,
+                    previously_tried=lambda j:j in tried,recover_empty=True)
+                self.assertEqual(recovered,{video_job_id(URLS[3])})
+                backups=list(root.glob(
+                    "video-trial-selection.before-empty-repair-*.json"))
+                self.assertEqual(len(backups),1)
+                self.assertEqual(backups[0].read_bytes(),original)
+                repaired=json.loads((root/VIDEO_FILE).read_text())
+                self.assertTrue(repaired["repaired_from_empty"])
+                self.assertEqual(repaired["job_ids"],[video_job_id(URLS[3])])
+                # A later approval cannot backfill a frozen nonempty selection.
+                self.assertEqual(select_trial_videos(root,URLS[::-1],
+                    previously_tried=lambda _:False,recover_empty=True),recovered)
+                self.assertEqual(len(list(root.glob(
+                    "video-trial-selection.before-empty-repair-*.json"))),1)
+
+    def test_empty_repair_never_selects_previously_attempted(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            with patch.dict(os.environ,{"SURYADEV_TRIAL_VIDEO_COUNT":"3"}):
+                select_trial_videos(root,URLS,previously_tried=lambda _:True)
+                original=(root/VIDEO_FILE).read_bytes()
+                self.assertEqual(select_trial_videos(root, URLS,
+                    previously_tried=lambda _:True,recover_empty=True),frozenset())
+                self.assertEqual((root/VIDEO_FILE).read_bytes(),original)
+                self.assertFalse(list(root.glob(
+                    "video-trial-selection.before-empty-repair-*.json")))
+
     def test_corrupted_selection_fails_closed_not_overwritten(self):
         with tempfile.TemporaryDirectory() as folder:
             file=Path(folder)/VIDEO_FILE
