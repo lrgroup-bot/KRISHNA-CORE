@@ -407,7 +407,7 @@ async function loadDiaryDay(day) {
     if (activity.total > activity.tasks.length) {
       const more = textNode("button", "View all " + format(activity.total) + " tasks for this date ↗", "diary-view-all");
       more.type = "button";
-      more.addEventListener("click", () => $("assignments").scrollIntoView({behavior:"smooth"}));
+      more.addEventListener("click", () => { location.hash="#assignments"; });
       report.append(more);
     }
   } catch (error) {
