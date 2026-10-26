@@ -61,19 +61,14 @@ class ChromiumFilterTests(unittest.TestCase):
             self.assertTrue(result["args"][1].startswith("--load-extension="))
     def test_official_browser_channel_is_opt_in_and_extension_safe(self):
         filt={"enabled":False,"args":[]}
-        with patch.dict(os.environ,{"SURYADEV_VIDEO_BROWSER_CHANNEL":"chrome"}):
-            self.assertEqual(adapter._video_browser_channel(filt),"chrome")
-        with patch.dict(os.environ,{"SURYADEV_VIDEO_BROWSER_CHANNEL":"msedge"}):
-            self.assertEqual(adapter._video_browser_channel(filt),"msedge")
-        with patch.dict(os.environ,{"SURYADEV_VIDEO_BROWSER_CHANNEL":"unofficial"}):
-            with self.assertRaises(ValueError):
-                adapter._video_browser_channel(filt)
-        with patch.dict(os.environ,{"SURYADEV_VIDEO_BROWSER_CHANNEL":"chrome"}):
-            with self.assertRaisesRegex(ValueError,"needs Playwright Chromium"):
-                adapter._video_browser_channel({"enabled":True,"args":["--load-extension"]})
-        with patch.dict(os.environ,{"SURYADEV_VIDEO_BROWSER_CHANNEL":""}):
-            self.assertEqual(adapter._video_browser_channel({
-                "enabled":True,"args":["--load-extension"]}),"chromium")
+        # Old host settings may still be present in the owner's PowerShell
+        # process, but they MUST NEVER launch Google Chrome / Microsoft Edge.
+        for configured in ("","chrome","msedge","chromium","unofficial"):
+            with self.subTest(configured=configured):
+                with patch.dict(os.environ,{"SURYADEV_VIDEO_BROWSER_CHANNEL":configured}):
+                    self.assertEqual(adapter._video_browser_channel(filt),"chromium")
+                    self.assertEqual(adapter._video_browser_channel({
+                        "enabled":True,"args":["--load-extension"]}),"chromium")
 
     def test_missing_or_unreviewed_extension_fails_closed(self):
         with tempfile.TemporaryDirectory() as d:
