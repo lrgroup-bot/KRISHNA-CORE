@@ -41,7 +41,7 @@ def blocked_private_resource(url):
         host = (u.hostname or "").lower().rstrip(".")
         if u.scheme in ("blob", "data"):
             return False
-        if u.scheme not in ("https", "http") or not host or u.username or u.password:
+        if u.scheme != "https" or not host or u.username or u.password:
             return True
         if host in ("localhost", "localhost.localdomain") or host.endswith(".localhost"):
             return True
@@ -149,6 +149,8 @@ class GarudanetraMediaSession:
         self.page = None
         self.main_frame_navigations = 0
         self.unexpected_navigation = False
+        self.failed_media_requests = []
+        self.media_http_errors = []
 
     async def route(self, route):
         # The media lane needs Google video/manifest assets that the website
@@ -174,6 +176,35 @@ class GarudanetraMediaSession:
         except ValueError:
             self.unexpected_navigation = True
 
+    def _request_failed(self, request):
+        # Never store signed streaming URLs, cookies, headers or query tokens.
+        try:
+            kind = request.resource_type
+            if kind not in ("media","fetch","xhr","manifest"):
+                return
+            self.failed_media_requests.append({
+                "host": (urlsplit(request.url).hostname or "")[:100],
+                "resource_type":kind,
+                "failure":str(request.failure or "")[:140],
+            })
+            self.failed_media_requests = self.failed_media_requests[-20:]
+        except (ValueError,AttributeError):
+            pass
+
+    def _response(self, response):
+        try:
+            status = int(response.status)
+            kind = response.request.resource_type
+            if status < 400 or kind not in ("media","fetch","xhr","manifest"):
+                return
+            self.media_http_errors.append({
+                "host": (urlsplit(response.url).hostname or "")[:100],
+                "status":status,"resource_type":kind,
+            })
+            self.media_http_errors = self.media_http_errors[-20:]
+        except (TypeError,ValueError,AttributeError):
+            pass
+
     def launch(self, playwright):
         if self.context:
             raise RuntimeError("GARUDANETRA Media context already launched")
@@ -188,6 +219,8 @@ class GarudanetraMediaSession:
             self.context.route("**/*", self.route_sync)
             self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
             self.page.on("framenavigated", self._frame_navigated)
+            self.page.on("requestfailed", self._request_failed)
+            self.page.on("response", self._response)
             self.page.goto(self.source_url, wait_until="domcontentloaded", timeout=90000)
             if self.unexpected_navigation:
                 raise RuntimeError("GARUDANETRA Media navigated away from approved video")
@@ -215,6 +248,8 @@ class GarudanetraMediaSession:
             "browser_channel": self.channel or "bundled_chromium_default",
             "main_frame_navigations": self.main_frame_navigations,
             "unexpected_navigation": self.unexpected_navigation,
+            "failed_media_requests":list(self.failed_media_requests[-20:]),
+            "media_http_errors":list(self.media_http_errors[-20:]),
             "logged_in_verified": False,
             "profile_isolated": True,
             "source_learning_verified": False,
