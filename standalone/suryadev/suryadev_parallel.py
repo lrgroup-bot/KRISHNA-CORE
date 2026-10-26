@@ -20,6 +20,7 @@ from suryadev_sources import source_kind
 from suryadev_resources import snapshot
 from suryadev_liveops import atomic_json, worker_note, _safe_read
 from suryadev_garudanetra import GarudanetraLite
+from suryadev_trial_limits import trial_cap
 
 CAPACITY_FILE = "capacity-runtime.json"
 KINDS = ("website", "youtube", "pdf")
@@ -279,12 +280,25 @@ class AdaptiveResearchWorkers:
                                   for kind,limit in capacity["limits"].items()}
             capacity["laptop_profile"] = ("single-job" if ceiling == 1 else
                                           "measured-maximum-" + str(ceiling))
+        # Operator trial ceilings only LOWER measured CPU/RAM admission.
+        # The independent caption downloader remains at one provider request.
+        for kind in ("website","pdf"):
+            limit=trial_cap(kind)
+            if limit is not None:
+                capacity["limits"][kind]=min(capacity["limits"][kind],limit)
+        capacity["trial_source_targets"]={
+            kind: trial_cap(kind) for kind in ("website","pdf","book","video")
+        }
         capacity["node_profile"] = "fleet_adaptive" if fleet_adaptive else "legacy"
         # Reserve capacity for independent books and actual Chromium video
         # observations; all run inside THIS supervisor's one-worker lock.
         # Always retain at least one source lane when possible.
         total = capacity["max_total"]
-        reserve_books = (min(BOOK_TARGET, max(1,total // 4))
+        book_target=trial_cap("book")
+        book_target=BOOK_TARGET if book_target is None else min(BOOK_TARGET,book_target)
+        video_target=trial_cap("video")
+        video_target=SOURCE_TARGETS["youtube"] if video_target is None else min(SOURCE_TARGETS["youtube"],video_target)
+        reserve_books = (min(book_target, max(1,total // 4))
                          if self.books_enabled and total > 1 else 0)
         reserve_books = min(reserve_books,max(0,total-1))
         # When the approved queue contains ONLY browser videos, use spare
@@ -302,7 +316,7 @@ class AdaptiveResearchWorkers:
             finally:
                 queued_db.db.close()
         video_budget = max(0, total - reserve_books - (1 if pending_source else 0))
-        reserve_video = (min(SOURCE_TARGETS["youtube"], video_budget)
+        reserve_video = (min(video_target, video_budget)
                          if self.video_enabled else 0)
         if total == 2 and self.books_enabled and self.video_enabled:
             # Only one non-source slot exists. Alternate which lane may
@@ -310,6 +324,8 @@ class AdaptiveResearchWorkers:
             self._dual_lane_turn += 1
             reserve_books, reserve_video = (
                 (1,0) if (self._dual_lane_turn // 5) % 2 == 0 else (0,1))
+            reserve_books=min(reserve_books,book_target)
+            reserve_video=min(reserve_video,video_target)
         capacity["reserved_book_slots"] = reserve_books
         capacity["reserved_video_slots"] = reserve_video
         capacity["source_execution_slots"] = max(
