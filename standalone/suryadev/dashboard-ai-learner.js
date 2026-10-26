@@ -34,9 +34,12 @@
       parent.append(card);
     };
     const localLink = (label, hash) => {
-      const link=document.createElement("a");
-      link.href=hash;link.textContent=label;
+      // Keep the sidebar as the unique canonical navigation link for each
+      // page: existing smoke/UI contracts expect exactly one per section.
+      const link=document.createElement("button");
+      link.type="button";link.textContent=label;
       link.className="ai-learner-evidence-link";
+      link.addEventListener("click",()=>{location.hash=hash;});
       results.append(link);
     };
     function stopPreview() {
