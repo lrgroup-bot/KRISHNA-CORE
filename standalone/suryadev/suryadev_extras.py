@@ -145,6 +145,11 @@ def serve(lib, port=8769):
             route = urlsplit(self.path)
             if route.path == "/api/learning/control":
                 return self.respond(200, json.dumps(worker_control.snapshot()), "application/json")
+            if route.path == "/api/learning/readiness":
+                from suryadev_learning_readiness import snapshot as learning_readiness
+                payload=learning_readiness(lib.root, Path(__file__).resolve().parent,
+                                            control=worker_control.snapshot())
+                return self.respond(200,json.dumps(payload),"application/json")
             if route.path == "/api/trial/exam":
                 from suryadev_liveops import _safe_read
                 return self.respond(200, json.dumps(_safe_read(lib.root,
