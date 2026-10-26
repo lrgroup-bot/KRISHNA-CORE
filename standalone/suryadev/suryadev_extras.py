@@ -239,6 +239,8 @@ def serve(lib, port=8769):
                 "/dashboard-learning.js": "dashboard-learning.js",
                 "/dashboard-ai-learner.js": "dashboard-ai-learner.js",
                 "/dashboard-ai-learner.css": "dashboard-ai-learner.css",
+                "/dashboard-pages.js": "dashboard-pages.js",
+                "/dashboard-pages.css": "dashboard-pages.css",
             }
             if route.path in ui_files:
                 filename = ui_files[route.path]
