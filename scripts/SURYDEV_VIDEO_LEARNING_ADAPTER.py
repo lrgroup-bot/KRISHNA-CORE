@@ -661,6 +661,7 @@ def observe(job, workspace):
         max_rate=speed_ceiling["max_rate"])
     speed_events = []
     speed_event_total = 0
+    last_media_heartbeat = 0.0
     last_logged_rate = None
     seen_three_x = False
     started_wall = time.time()
@@ -705,6 +706,24 @@ def observe(job, workspace):
                     sec = float(snap.get("seconds") or 0)
                     media_state = media_continuity.observe(
                         snap, wall_seconds=time.monotonic()-started_mono)
+                    if time.monotonic() - last_media_heartbeat >= 3:
+                        _atomic_json(workspace/"media-health.json", {
+                            "schema":"suryadev.garudanetra-media-health.v1",
+                            "job_id":str(job.get("job_id") or ""),
+                            "updated_at":time.time(),
+                            "engine":"garudanetra-media-lite-playwright",
+                            "browser_channel":browser_channel or "bundled_chromium_default",
+                            "player_state":media_state,
+                            "source_position_seconds":round(sec,2),
+                            "ready_state":snap.get("video_ready_state"),
+                            "network_state":snap.get("video_network_state"),
+                            "media_error_code":snap.get("video_error_code"),
+                            "ad_showing":snap.get("ad_showing") is True,
+                            "observed_playback_rate":snap.get("playback_rate"),
+                            "measured_speed_ceiling_x":speed_controller.max_rate,
+                            "learning_verified":False,
+                        })
+                        last_media_heartbeat=time.monotonic()
                     if media_session.unexpected_navigation:
                         stop_reason = "unapproved_video_navigation"
                         break
