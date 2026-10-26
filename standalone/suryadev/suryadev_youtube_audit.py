@@ -164,7 +164,11 @@ def observer_jobs(root, limit=30):
                              and session.get("end_reason") in (
                                  "content_playback_stalled",
                                  "advertisement_wait_limit",
-                                 "browser_snapshot_unavailable"))
+                                 "browser_snapshot_unavailable",
+                                 "media_unloaded_after_playback",
+                                 "video_element_replaced",
+                                 "unapproved_video_navigation",
+                                 "media_error"))
         if legacy_incomplete:
             # Prior versions allowed one 0-second screenshot to become
             # AWAITING_SERVER_ACK. Preserve the original canonical report
