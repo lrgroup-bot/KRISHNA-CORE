@@ -90,6 +90,46 @@ class ChromiumFilterTests(unittest.TestCase):
 
 
 class SupervisorOwnershipTests(unittest.TestCase):
+    def test_supervisor_job_media_heartbeat_shown_only_if_fresh(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            job_id="approved-video-"+"a"*16
+            job_dir=root/"video-review"/"runtime"/"jobs"/job_id
+            job_dir.mkdir(parents=True)
+            now=time.time()
+            (root/"video-concurrent-runtime.json").write_text(json.dumps({
+                "schema":"suryadev.parallel-video.v1",
+                "updated_at":now,
+                "active_job_ids":[job_id]}))
+            (job_dir/"media-health.json").write_text(json.dumps({
+                "schema":"suryadev.garudanetra-media-health.v1",
+                "job_id":job_id,"updated_at":now,
+                "engine":"garudanetra-media-lite-playwright",
+                "browser_channel":"chrome","player_state":"playing_or_buffered",
+                "source_position_seconds":42.5,"ready_state":4,
+                "network_state":2,"ad_showing":False,
+                "observed_playback_rate":1.5,
+                "measured_speed_ceiling_x":1.5,
+                "learning_verified":False}))
+            (job_dir/"playback-speed.json").write_text(json.dumps({
+                "schema":"krishna.suryadev.playback-speed.v1",
+                "job_id":job_id,"updated_at":now,
+                "observed_rate":1.5,"requested_rate":1.5,
+                "category":"explanation",
+                "video_seconds":42.5,
+                "browser_channel":"chrome",
+                "measured_speed_ceiling_x":1.5}))
+            review=VideoReview(root,root)
+            status=review.snapshot()
+            self.assertEqual(status["active_job"],job_id)
+            self.assertEqual(status["media_health"]["source_position_seconds"],42.5)
+            self.assertFalse(status["media_health"]["learning_verified"])
+            self.assertEqual(status["playback"]["measured_speed_ceiling_x"],1.5)
+            info=json.loads((job_dir/"media-health.json").read_text())
+            info["updated_at"]=now-300
+            (job_dir/"media-health.json").write_text(json.dumps(info))
+            self.assertIsNone(review.snapshot()["media_health"])
+
     def test_fleet_dashboard_never_starts_standalone_video_or_grabs_lock(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
