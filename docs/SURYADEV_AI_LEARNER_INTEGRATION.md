@@ -1,5 +1,55 @@
 # SURYADEV AI Learner — integrated four-lane decision (26 Oct 2026)
 
+## Individual SURYADEV dashboards — menu and 3D UI
+
+The primary sidebar now routes to **ten separate in-app dashboard views**:
+Overview, Live Learning, AI Learner, Assignments, Video Review, Evidence,
+Books, History, KRISHNA Server, and Storage & Cleanup. Each has its own
+heading, description, full-width content surface and tactile 3D controls.
+This is **client-side hash routing inside the original dashboard**, not ten
+servers, ten installers, external tabs or a fork of the learning data.
+
+The interface retains the existing HTML element IDs, read-only monitoring
+APIs, single worker controls, CSRF checks, safe storage handlers and
+source/evidence ledger. Live Learning keeps the shared worker controls;
+Books moves into its own page with its original checkpoint element and
+search function. Evidence shows source counts, while node health sits on
+Overview. History keeps its calendar and diary together. Both
+configuration menus are dedicated pages rather than modal popups.
+
+Page deep links use `/#overview`, `/#garudanetra`,
+`/#ai-learner`, `/#assignments`, `/#video-review`, `/#sources`,
+`/#books-evidence`, `/#date-center`, `/#server-settings`
+and `/#storage-settings`. Old `#diary`, `#hardware`,
+`#live-learning` aliases remain supported.
+
+The visual design uses local CSS only; no paid API, remote icon/font
+dependency, third-party executable, external UI framework, or new GPU
+processing is needed. All visible action buttons retain genuine
+click/keyboard behavior and gain accessible hover/focus/pressed depth.
+A hidden route cannot continue showing an in-page YouTube iframe;
+the separate source-approved GARUDANETRA observer is unchanged.
+
+### Observed laptop playback baseline — not comprehension
+
+On 26 October 2026, the operator's laptop reported a successful offline
+GARUDANETRA Chromium launch (Chromium 156.0.8078.4), codec
+`canPlayType` declarations and then an isolated reviewed-video probe
+with **42.07 seconds non-ad source-clock advancement**, 25 samples,
+no media error codes and no recorded probe diagnostics. No source was
+newly approved by that probe. This is a real playback-progress milestone,
+not proof of the full lecture, caption coverage, successful learning,
+BRAHMAGYAN handoff or Rishi exam.
+
+Never overwrite the existing `data` directory just to deploy a new UI.
+After the branch passes Windows/Linux unit tests, Chromium navigation
+smoke and the installer gate, stop the existing managed worker/dashboard
+gracefully, deploy via the existing test-gated `install-windows.ps1`,
+start the single dashboard with the same data root, and check each of the
+ten menu entries without spawning new windows. PR #232 remains draft
+until physical UI checks and learning evidence acceptance pass.
+
+
 ## Decision and repository review
 
 Keep **one existing SURYADEV dashboard** and **one existing learning scheduler/worker lock**. The menu route `#ai-learner` selects four workspace panels: YouTube, PDF, Websites, Book. Do not install a second YouTube executable, start a second dashboard server, introduce another unapproved source queue, or open a visible Chromium/Chrome/Edge window.
