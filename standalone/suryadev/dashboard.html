@@ -17,6 +17,8 @@
 <script src="/dashboard-video.js" defer></script>
 <link rel="stylesheet" href="/dashboard-books.css">
 <script src="/dashboard-books.js" defer></script>
+<link rel="stylesheet" href="/dashboard-ai-learner.css">
+<script src="/dashboard-ai-learner.js" defer></script>
 </head>
 <body>
 <div class="app-shell">
@@ -26,6 +28,7 @@
     <nav class="navigation">
       <a href="#overview" class="nav-item selected"><span>⌂</span> Overview</a>
       <a href="#garudanetra" class="nav-item"><span>◉</span> Live learning</a>
+      <a href="#ai-learner" class="nav-item"><span>✦</span> AI Learner</a>
       <a href="#assignments" class="nav-item"><span>▣</span> Assignments</a>
       <a href="#video-review" class="nav-item"><span>▶</span> Video review</a>
       <a href="#sources" class="nav-item"><span>◈</span> Evidence</a>
@@ -185,6 +188,45 @@
         <div class="task-table-head"><span>ASSIGNMENT / SOURCE</span><span>STAGE</span><span>INSPECT</span></div>
         <div id="task-list" class="task-list" aria-live="polite"><div class="empty-state">Loading your assignment history…</div></div>
         <div class="pagination"><span id="page-label">—</span><div><button type="button" id="page-prev" class="page-btn" disabled>← Previous</button><button type="button" id="page-next" class="page-btn" disabled>Next →</button></div></div>
+      </div>
+    </section>
+    <section id="ai-learner" class="surface ai-learner" aria-labelledby="ai-learner-title">
+      <div class="section-heading compact">
+        <div>
+          <div class="overline">SURYАDEV · ONE DASHBOARD · FOUR APPROVED LANES</div>
+          <h2 id="ai-learner-title">AI Learner</h2>
+          <p>Run and inspect approved learning inside this dashboard. No desktop video app, new window, duplicate scheduler or manually added sources.</p>
+        </div>
+        <span class="eyebrow-chip">GARUDANETRA · LOCAL FIRST</span>
+      </div>
+      <div class="ai-learner-toolbar" role="toolbar" aria-label="AI Learner sources">
+        <button type="button" id="ai-tab-youtube" class="ai-learner-tab" data-lane="youtube" aria-pressed="true" aria-controls="ai-learner-content">▶ YouTube</button>
+        <button type="button" id="ai-tab-pdf" class="ai-learner-tab" data-lane="pdf" aria-pressed="false" aria-controls="ai-learner-content">▤ PDF</button>
+        <button type="button" id="ai-tab-website" class="ai-learner-tab" data-lane="website" aria-pressed="false" aria-controls="ai-learner-content">◎ Websites</button>
+        <button type="button" id="ai-tab-book" class="ai-learner-tab" data-lane="book" aria-pressed="false" aria-controls="ai-learner-content">▧ Books</button>
+      </div>
+      <div class="ai-learner-actions">
+        <button id="ai-learner-start" type="button">Start approved learning</button>
+        <button id="ai-learner-stop" type="button">Stop learning</button>
+        <button id="ai-learner-refresh" type="button">Refresh evidence</button>
+        <span id="ai-learner-worker" role="status" aria-live="polite">Checking the one SURYADEV worker…</span>
+      </div>
+      <p class="ai-learner-warning">The four buttons choose what to inspect, not four separate workers. Start uses the existing source-approved scheduler and 85% hardware guard. Playback, extracted text and model summaries are not verified comprehension.</p>
+      <div id="ai-learner-content" class="ai-learner-content" aria-live="polite">
+        <h3 id="ai-learner-lane-heading">YouTube · video evidence</h3>
+        <p id="ai-learner-lane-summary">Reading existing approval and evidence records…</p>
+        <div id="ai-learner-lane-results"></div>
+        <div id="ai-learner-youtube-preview" class="ai-learner-preview" hidden>
+          <p id="ai-learner-preview-hint">Optional local dashboard preview of an approved YouTube video. The official player can show advertisements; preview is never a learning receipt.</p>
+          <div class="ai-learner-preview-controls">
+            <label for="ai-learner-video-choice">Previously approved video
+              <select id="ai-learner-video-choice"></select>
+            </label>
+            <button type="button" id="ai-learner-open-preview">Preview here</button>
+            <button type="button" id="ai-learner-close-preview">Close preview</button>
+          </div>
+          <div id="ai-learner-player" class="ai-learner-player" aria-label="In-page approved YouTube player"></div>
+        </div>
       </div>
     </section>
     <section id="video-review" class="surface video-review-panel" aria-labelledby="video-review-title">
