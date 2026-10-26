@@ -207,6 +207,27 @@ async def browser_video_review_check(port, approved_url):
             await page.goto(f"http://127.0.0.1:{port}/advanced", wait_until="domcontentloaded")
             await expect(page.locator("#video-review")).to_have_count(1)
             await expect(page.locator("#video-review")).to_be_visible(timeout=12000)
+            # Four in-page AI Learner buttons and one same-page menu item.
+            await expect(page.locator("#ai-learner")).to_have_count(1)
+            await expect(page.locator('a[href="#ai-learner"]')).to_have_count(1)
+            await expect(page.locator(".ai-learner-tab")).to_have_count(4)
+            await expect(page.locator("#ai-tab-youtube")).to_have_attribute("aria-pressed","true")
+            await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
+            await page.locator("#ai-tab-pdf").click()
+            await expect(page.locator("#ai-tab-pdf")).to_have_attribute("aria-pressed","true")
+            await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("PDF")
+            await page.locator("#ai-tab-website").click()
+            await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("Websites")
+            await page.locator("#ai-tab-book").click()
+            await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("Books")
+            await page.locator("#ai-tab-youtube").click()
+            await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("YouTube")
+            await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
+            # The preview never starts itself and the page never creates
+            # a competing Playwright profile or a second native window.
+            opened=[]
+            page.on("popup",lambda popup: opened.append(popup))
+            assert not opened, "AI Learner unexpectedly opened an external window"
             await expect(page.locator('a[href="#video-review"]')).to_have_count(1)
             order = await page.evaluate("""() => {
                 const ys = ids => ids.map(id => document.getElementById(id).getBoundingClientRect().top + window.scrollY);
@@ -232,6 +253,8 @@ async def browser_video_review_check(port, approved_url):
             return {"status":"PASS", "repo_frontend":True,
                     "manual_source_controls_removed":True,
                     "trial_evidence_panel_visible":True,
+                    "four_lanes_in_one_page":True,
+                    "unrequested_iframe_count":0,
                     "javascript_errors":errors}
         finally:
             await browser.close()
