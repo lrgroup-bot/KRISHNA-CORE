@@ -98,6 +98,8 @@ def main(argv=None):
     ap.add_argument("--new-session", action="store_true")
     ap.add_argument("--approved-trial", action="store_true",
                     help="Run the previously owner-approved fixed YouTube/book trial")
+    ap.add_argument("--standalone-test", action="store_true",
+                    help="Disable KRISHNA/Core mission pairing for independent local acceptance")
     ap.add_argument("--auto-approved-videos", action="store_true",
                     help="Automatically observe only exact approved video URLs under hardware guard")
     ap.add_argument("--adaptive-fleet", action="store_true",
@@ -156,6 +158,9 @@ def main(argv=None):
     # The approved public sources are not fetched implicitly on all fleet nodes.
     env["SURYADEV_LEARNING_TRIAL"] = "1" if args.approved_trial else "0"
     env["SURYADEV_AUTO_APPROVED_VIDEOS"] = "1" if args.auto_approved_videos else "0"
+    env["SURYADEV_STANDALONE_TEST"] = "1" if args.standalone_test else "0"
+    if args.standalone_test:
+        print("STANDALONE TEST: KRISHNA pairing, mission relay, fleet polling and handoff disabled.",flush=True)
     entry = Path(__file__).resolve().with_name("suryadev_extras.py")
     return subprocess.call([sys.executable, str(entry), "--data", str(data),
                             "dashboard", "--port", str(args.port)],
