@@ -101,7 +101,7 @@ def _send_http_response(handler, status, mime, body):
         handler.send_header("Content-Length", str(len(body)))
         handler.send_header("Cache-Control", "no-store")
         handler.send_header("X-Content-Type-Options", "nosniff")
-        handler.send_header("Content-Security-Policy", "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'")
+        handler.send_header("Content-Security-Policy", "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-src https://www.youtube-nocookie.com")
         handler.end_headers()
         handler.wfile.write(body)
     except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
@@ -212,6 +212,8 @@ def serve(lib, port=8769):
                                      "has_single_date_filter": True,
                                      "has_static_video_review": True,
                                      "has_unified_frontend": True,
+                                     "has_ai_learner_four_source_page": True,
+                                     "has_in_page_video_preview": True,
                                      "has_node_control_console": False,
                                      "has_single_learning_intelligence_frontend": True,
                                      "has_dashboard_worker_controls": True,
@@ -235,6 +237,8 @@ def serve(lib, port=8769):
                 "/dashboard-video.js": "dashboard-video.js",
                 "/dashboard-api.js": "dashboard-api.js",
                 "/dashboard-learning.js": "dashboard-learning.js",
+                "/dashboard-ai-learner.js": "dashboard-ai-learner.js",
+                "/dashboard-ai-learner.css": "dashboard-ai-learner.css",
             }
             if route.path in ui_files:
                 filename = ui_files[route.path]
