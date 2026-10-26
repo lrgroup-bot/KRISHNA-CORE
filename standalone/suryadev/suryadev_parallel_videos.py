@@ -47,15 +47,24 @@ class ParallelVideoReader:
         )
         self.closed = False
         self.trial_selection_error = ""
+        self.trial_selected_count = None
 
     def _tried(self, job_id, prior_states=None):
-        """Any previous real attempt/evidence forbids unattended video replay."""
+        """Only a real attempt/receipt excludes a previously staged job.
+
+        Historical worker-state can contain QUEUED_FOR_REVIEW entries from
+        import-only operations. Such entries are NOT an observation and must
+        not permanently empty the user's opted-in video trial. Unrecognized
+        or incomplete statuses still fail closed to prevent replays.
+        """
         if job_id in self.attempted:
             return True
         if prior_states is None:
-            prior_states = {row["job_id"] for row in self.review.snapshot_unlocked_jobs()}
-        return (job_id in prior_states or
-                (self.review.root / "runtime" / "jobs" / job_id).exists())
+            prior_states = {row["job_id"]: row.get("status")
+                            for row in self.review.snapshot_unlocked_jobs()}
+        if job_id in prior_states and prior_states[job_id] != "QUEUED_FOR_REVIEW":
+            return True
+        return (self.review.root / "runtime" / "jobs" / job_id).exists()
 
     def _mark_attempt(self, job_id):
         # Persist BEFORE child launch so an interrupted process cannot
@@ -115,13 +124,18 @@ class ParallelVideoReader:
             plan=read_plan(self.review.plan)
         except (OSError,ValueError,TypeError):
             return False
-        prior = {row["job_id"] for row in self.review.snapshot_unlocked_jobs()}
+        prior = {row["job_id"]: row.get("status")
+                 for row in self.review.snapshot_unlocked_jobs()}
         urls=self.review._approved_videos(plan["approved_urls"])[:80]
         try:
             selected=select_trial_videos(self.root,urls,
-                  previously_tried=lambda jid:self._tried(jid,prior))
+                  previously_tried=lambda jid:self._tried(jid,prior),
+                  recover_empty=True)
+            self.trial_selection_error=""
+            self.trial_selected_count=len(selected) if selected is not None else None
         except (RuntimeError,OSError,ValueError) as exc:
             self.trial_selection_error=type(exc).__name__+": "+str(exc)[:160]
+            self.trial_selected_count=None
             return False
         for url in urls:
             jid=video_job_id(url)
@@ -210,14 +224,18 @@ class ParallelVideoReader:
             else:
                 urls=[]
             occupied=set(self.futures.values())
-            prior={row["job_id"] for row in self.review.snapshot_unlocked_jobs()}
+            prior={row["job_id"]: row.get("status")
+                   for row in self.review.snapshot_unlocked_jobs()}
             try:
                 selected=select_trial_videos(self.root,urls[:80],
-                  previously_tried=lambda jid:self._tried(jid,prior))
+                  previously_tried=lambda jid:self._tried(jid,prior),
+                  recover_empty=True)
                 self.trial_selection_error=""
+                self.trial_selected_count=len(selected) if selected is not None else None
             except (RuntimeError,OSError,ValueError) as exc:
                 selected=frozenset()
                 self.trial_selection_error=type(exc).__name__+": "+str(exc)[:160]
+                self.trial_selected_count=None
             for url in urls[:80]:
                 if len(self.futures)>=slots:
                     break
@@ -256,9 +274,8 @@ class ParallelVideoReader:
                 occupied.add(jid)
                 started.append(jid)
         receipt={"schema":"suryadev.parallel-video.v1",
-                 "target":target,"trial_selected_count":(
-                    len(selected) if enabled and "selected" in locals() and selected is not None
-                    else None),"trial_selection_error":self.trial_selection_error,"active":len(self.futures),
+                 "target":target,"trial_selected_count":self.trial_selected_count,
+                 "trial_selection_error":self.trial_selection_error,"active":len(self.futures),
                  "active_job_ids":sorted(self.futures.values()),
                  "started_this_tick":started,"finished":done,
                  "enabled":enabled,"hardware_safe":safe,
