@@ -207,6 +207,16 @@ def observer_jobs(root, limit=30):
             "source_duration_seconds":_seconds(session.get("source_duration_seconds")),
             "video_ended":session.get("video_ended") is True,
             "stop_reason":_short(session.get("end_reason"),90),
+            "garudanetra_media":({
+                "engine":_short(session["garudanetra_media"].get("engine"),80),
+                "browser_channel":_short(session["garudanetra_media"].get("browser_channel"),50),
+                "main_frame_navigations":session["garudanetra_media"].get("main_frame_navigations"),
+                "unexpected_navigation":session["garudanetra_media"].get("unexpected_navigation"),
+                "media_http_errors":session["garudanetra_media"].get("media_http_errors",[])[:20],
+                "failed_media_requests":session["garudanetra_media"].get("failed_media_requests",[])[:20],
+            } if isinstance(session.get("garudanetra_media"),dict) else {}),
+            "media_continuity_events":(session.get("media_continuity_events") or [])[:20]
+                if isinstance(session.get("media_continuity_events"),list) else [],
             "last_playback_diagnostic":session.get("last_playback_diagnostic")
                 if isinstance(session.get("last_playback_diagnostic"),dict) else {},
             "advertisement_events":(session.get("video_advertisement_events")
