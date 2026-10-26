@@ -49,6 +49,38 @@ class EngineIdentityTests(unittest.TestCase):
         self.assertNotIn("target='_blank'",html)
         self.assertIn("https://www.youtube-nocookie.com/embed/",js)
 
+    def test_ai_learner_has_local_pdf_website_book_evidence_views(self):
+        root=Path(__file__).resolve().parents[1]
+        frontend=(root/"dashboard-ai-learner.js").read_text(encoding="utf-8")
+        server=(root/"suryadev_extras.py").read_text(encoding="utf-8")
+        self.assertIn('"/api/tasks?kind="+lane+"&limit=12"', frontend)
+        self.assertIn('"/api/tasks/"+id', frontend)
+        self.assertIn('entry.evidence_state', frontend)
+        self.assertIn('coverage.pages_extracted', frontend)
+        self.assertIn('coverage.rendered_visible_characters', frontend)
+        self.assertIn('Object.keys(sessions)', frontend)
+        self.assertIn('reading.model_steps_completed', frontend)
+        self.assertIn('generation!==selectionGeneration', frontend)
+        self.assertIn('route.path == "/api/tasks"', server)
+        self.assertIn('route.path.startswith("/api/tasks/")', server)
+        self.assertIn('route.path == "/api/books"', server)
+        # Source data is displayed as text; never inserted as trusted HTML.
+        self.assertNotIn("innerHTML", frontend)
+        self.assertNotIn("window.open(", frontend)
+        self.assertNotIn("window.location.href=", frontend)
+        self.assertNotIn("subprocess", frontend)
+
+    def test_video_remains_unverified_and_does_not_install_third_party_players(self):
+        root=Path(__file__).resolve().parents[1]
+        frontend=(root/"dashboard-ai-learner.js").read_text(encoding="utf-8")
+        self.assertIn("https://www.youtube-nocookie.com/embed/", frontend)
+        self.assertIn("Latest GARUDANETRA media observation", frontend)
+        self.assertIn("learning not verified", frontend)
+        self.assertIn("Rishi examination: not verified", frontend)
+        self.assertNotIn("FreeTube.exe", frontend)
+        self.assertNotIn("youtube-dl --", frontend)
+
+
     def test_all_canonical_browser_entrypoints_have_explicit_chromium(self):
         root=Path(__file__).resolve().parents[1]
         docs={
