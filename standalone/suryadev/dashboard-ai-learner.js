@@ -11,7 +11,7 @@
     const names = {youtube:"YouTube", pdf:"PDF documents",
                    website:"Websites", book:"Books"};
     let selected = "youtube", approved = [], refreshing = false, rerun = false;
-    let selectionGeneration = 0;
+    let selectionGeneration = 0, previewJobId = null;
     const results = el("ai-learner-lane-results");
     const summary = el("ai-learner-lane-summary");
     const preview = el("ai-learner-youtube-preview");
@@ -47,6 +47,7 @@
       // Destroy the iframe, not merely hide it: no background video,
       // provider player, tracking request or media clock remains alive.
       player.replaceChildren();
+      previewJobId = null;
     }
     function validVideoId(input) {
       try {
@@ -60,7 +61,14 @@
       } catch { return null; }
     }
     function drawVideos(jobs) {
-      approved=jobs.filter(j => j && validVideoId(j.target) && typeof j.job_id==="string");
+      // An old inbox record is not permanent permission to preview a URL.
+      approved=jobs.filter(j => j && j.source_currently_approved===true &&
+        validVideoId(j.target) && typeof j.job_id==="string");
+      if(previewJobId && !approved.some(j=>j.job_id===previewJobId)) {
+        stopPreview();
+        el("ai-learner-preview-hint").textContent=
+          "The previous video is no longer in the current approved source plan; preview closed.";
+      }
       const remembered=choice.value;
       choice.replaceChildren();
       for(const j of approved.slice(0,80)) {
@@ -71,7 +79,11 @@
       }
       if(approved.some(j=>j.job_id===remembered))choice.value=remembered;
       el("ai-learner-open-preview").disabled=!approved.length;
-      if(!approved.length)stopPreview();
+      if(!approved.length) {
+        stopPreview();
+        el("ai-learner-preview-hint").textContent=
+          "No currently approved YouTube video is available for in-page preview.";
+      }
     }
     function select(lane) {
       if (!lanes.includes(lane)) return;
@@ -205,6 +217,9 @@
                   (coverage.rendered_visible_characters??"unknown")+
                   " · Full site coverage: unverified");
                 if(entry.summary)line(detail,"Saved finding: "+entry.summary);
+                if(entry.excerpt)line(detail,
+                  "Recorded source excerpt (not full-source verification): "+
+                  String(entry.excerpt).slice(0,2400));
                 if(entry.error)line(detail,"Error: "+entry.error);
                 line(detail,"BRAHMAGYAN/Rishi factual acceptance: not verified");
               } catch(error) {
@@ -235,11 +250,12 @@
       if(!main)return;
       for(const child of main.children)
         if(child!==el("ai-learner"))child.hidden=active;
+      // This is a true menu page, not a permanent extra dashboard section.
+      el("ai-learner").hidden=!active;
       if(!active)stopPreview();
       for(const link of document.querySelectorAll('.navigation a[href^="#"]'))
         link.classList.toggle("selected", link.getAttribute("href")===location.hash);
       if(active) {
-        el("ai-learner").hidden=false;
         el("ai-learner").scrollIntoView({block:"start"});
         refresh();
       }
@@ -263,6 +279,7 @@
       frame.setAttribute("loading","lazy");
       frame.allowFullscreen=true;
       player.append(frame);
+      previewJobId=job.job_id;
       el("ai-learner-preview-hint").textContent=
         "Official YouTube preview · advertisements may appear · playback/comprehension not independently verified.";
     });
