@@ -376,6 +376,12 @@ def main():
             try:
                 video = asyncio.run(browser_video_review_check(port, approved_url))
                 print("SURYDEV_VIDEO_REVIEW_UI_REPORT="+json.dumps(video),flush=True)
+                # Reuse the public, read-only acceptance check on a disposable
+                # dashboard/ledger so routing regressions fail real Chromium CI.
+                from verify_live_dashboard_ui import verify as verify_live_pages
+                live_pages = verify_live_pages(f"http://127.0.0.1:{port}")
+                assert live_pages["pages_passed"] == 10
+                print("SURYADEV_LIVE_TEN_DASHBOARD_REPORT="+json.dumps(live_pages),flush=True)
             finally:
                 temporary_plan.unlink(missing_ok=True)
             from suryadev_book_reader import BookLedger
