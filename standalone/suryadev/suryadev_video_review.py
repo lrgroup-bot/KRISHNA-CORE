@@ -374,24 +374,55 @@ class VideoReview:
                 except (OSError, ValueError, KeyError, TypeError):
                     continue
         playback = None
-        if active and JOB_ID.fullmatch(active):
-            # Verified readback of actual HTML video playback rate, not guessed speed.
-            speed_file = self.root / "runtime" / "jobs" / active / "playback-speed.json"
+        primary = active if active else next(iter(sorted(live)),None)
+        if primary and JOB_ID.fullmatch(primary):
+            # A fleet-adaptive node owns video launches in the parent worker:
+            # its active ids come from the supervisor runtime heartbeat.
+            speed_file = self.root / "runtime" / "jobs" / primary / "playback-speed.json"
             if speed_file.is_file() and not speed_file.is_symlink() and speed_file.stat().st_size <= 8192:
                 try:
                     reading = json.loads(speed_file.read_text(encoding="utf-8"))
                     if (reading.get("schema") == "krishna.suryadev.playback-speed.v1"
-                            and reading.get("job_id") == active):
+                            and reading.get("job_id") == primary
+                            and type(reading.get("updated_at")) in (int,float)
+                            and 0 <= time.time()-reading["updated_at"] < 45):
                         playback = {
                             "observed_rate": reading.get("observed_rate"),
                             "requested_rate": reading.get("requested_rate"),
                             "category": reading.get("category"),
                             "video_seconds": reading.get("video_seconds"),
+                            "browser_channel": reading.get("browser_channel"),
+                            "measured_speed_ceiling_x": reading.get("measured_speed_ceiling_x"),
                             "coverage_verified": False,
                         }
                 except (OSError, ValueError, TypeError):
                     playback = None
-        return {"active_job": active, "last_error": error, "jobs": jobs,
+        media_health = None
+        if primary and JOB_ID.fullmatch(primary):
+            health = _safe_read(self.root/"runtime"/"jobs"/primary,
+                                "media-health.json",max_bytes=8192)
+            timestamp = health.get("updated_at")
+            if (health.get("schema") == "suryadev.garudanetra-media-health.v1"
+                    and health.get("job_id") == primary
+                    and type(timestamp) in (int,float)
+                    and 0 <= time.time()-timestamp < 30):
+                media_health = {
+                    "engine":health.get("engine"),
+                    "browser_channel":health.get("browser_channel"),
+                    "player_state":health.get("player_state"),
+                    "source_position_seconds":health.get("source_position_seconds"),
+                    "ready_state":health.get("ready_state"),
+                    "network_state":health.get("network_state"),
+                    "media_error_code":health.get("media_error_code"),
+                    "ad_showing":health.get("ad_showing"),
+                    "observed_playback_rate":health.get("observed_playback_rate"),
+                    "measured_speed_ceiling_x":health.get("measured_speed_ceiling_x"),
+                    "learning_verified":False,
+                }
+        return {"active_job": primary, "active_job_ids":sorted(set(live)|(
+                    {active} if active else set())),
+                "media_health": media_health,
+                "last_error": error, "jobs": jobs,
                 "auto_enabled": self.auto_enabled(),
                 "auto_status": self.auto_status,
                 "auto_error": self.auto_error,
