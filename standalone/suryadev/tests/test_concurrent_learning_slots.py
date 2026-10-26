@@ -113,6 +113,32 @@ class ConcurrentLearningTests(unittest.TestCase):
                 self.assertEqual(result["non_source_active"],6)
                 self.assertEqual(result["launched_this_cycle"],[])
 
+    def test_one_safe_slot_rotates_across_source_video_and_book(self):
+        # On this real-world laptop profile only one new task may fit;
+        # a continuously refilled PDF queue must not starve video/book.
+        from suryadev import Library
+        with tempfile.TemporaryDirectory() as temp:
+            lib=Library(temp)
+            try:
+                with patch("suryadev.validate_url", return_value=None):
+                    lib.add("https://example.com/approved.pdf")
+                with AdaptiveResearchWorkers(temp,use_ollama=False,
+                                             books_enabled=True) as pool:
+                    pool.video_enabled=True
+                    pool._work=lambda kind: {"status":"simulated","kind":kind}
+                    choices=[]
+                    for _ in range(3):
+                        with patch("suryadev_parallel.os.cpu_count",return_value=12):
+                            state=pool.pump(telemetry=hardware(
+                                cpu=72,ram=55,ram_total=16,ram_used=9))["capacity"]
+                        self.assertEqual(state["max_total"],1)
+                        choices.append(state.get("single_slot_lane"))
+                        for future in tuple(pool.futures):
+                            future.result(timeout=3)
+                    self.assertEqual(choices,["source","video","book"])
+            finally:
+                lib.db.close()
+
     def test_five_books_advance_with_serial_model_calls(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
