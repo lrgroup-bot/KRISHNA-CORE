@@ -70,7 +70,7 @@ class VideoSpeedSweepTests(unittest.TestCase):
         # documented 48.72s reset: readyState 4->0, networkState 2->0,
         # currentTime 53.9->0 and rate back to 1.
         for idx,row in enumerate(rows):
-            if row["phase_rate"]==2.0 and row["monotonic"]>=150:
+            if row["phase_rate"]==2.0 and row["monotonic"]>=156:
                 row["seconds"]=0
                 row["ready_state"]=0
                 row["network_state"]=0
