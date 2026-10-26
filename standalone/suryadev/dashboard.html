@@ -19,6 +19,8 @@
 <script src="/dashboard-books.js" defer></script>
 <link rel="stylesheet" href="/dashboard-ai-learner.css">
 <script src="/dashboard-ai-learner.js" defer></script>
+<link rel="stylesheet" href="/dashboard-pages.css">
+<script src="/dashboard-pages.js" defer></script>
 </head>
 <body>
 <div class="app-shell">
@@ -301,7 +303,7 @@
   <div class="dialog-header"><div><div class="overline">ASSIGNMENT INSPECTOR</div><h2 id="detail-title">Task detail</h2></div><button class="close-button" id="close-detail" type="button" aria-label="Close task details">✕</button></div>
   <div id="detail-content" class="detail-content"><p>Loading task…</p></div>
 </dialog>
-<dialog id="server-settings-dialog" class="settings-dialog" aria-labelledby="server-dialog-title">
+<section id="server-settings-dialog" class="settings-dialog" aria-labelledby="server-dialog-title">
   <div class="settings-dialog-header server-header">
     <div class="settings-header-icon">◉</div>
     <div class="settings-header-text"><div class="settings-kicker">SECURE NODE SETTINGS</div><h2 id="server-dialog-title">KRISHNA Server</h2><p>Enter the server IP, save it locally, and run a connection diagnosis.</p></div>
@@ -333,8 +335,8 @@
       <p id="diagnosis-message">Click Diagnose to check the entered address. No pairing data is transmitted.</p>
     </div>
   </div>
-</dialog>
-<dialog id="storage-settings-dialog" class="settings-dialog wide" aria-labelledby="storage-dialog-title">
+</section>
+<section id="storage-settings-dialog" class="settings-dialog wide" aria-labelledby="storage-dialog-title">
   <div class="settings-dialog-header storage-header">
     <div class="settings-header-icon">▤</div>
     <div class="settings-header-text"><div class="settings-kicker">LOCAL STORAGE MANAGEMENT</div><h2 id="storage-dialog-title">Storage & Cleanup</h2><p>Check disk health, choose data storage, and safely remove temporary learning copies.</p></div>
@@ -381,6 +383,6 @@
       <div id="cleanup-result" class="settings-result" role="status">Permanent learning evidence is always retained. Failed and unfinished tasks are not cleaned.</div>
     </section>
   </div>
-</dialog>
+</section>
 </body>
 </html>
