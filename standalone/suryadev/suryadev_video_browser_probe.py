@@ -15,9 +15,10 @@ from urllib.parse import parse_qs, urlsplit
 
 from suryadev_lock import worker_lock
 from suryadev_resources import admission
+from suryadev_browser_engine import require_garudanetra, browser_identity
 
 TRIAL_VIDEO = "https://www.youtube.com/watch?v=VZ5LU8vHT0s"
-CHANNELS = {"chrome", "msedge", "chromium"}
+CHANNELS = {"chromium"}
 
 
 def validated_video(url):
@@ -79,12 +80,11 @@ def can_approve_after_probe(assessment):
             and not assessment.get("media_error_codes"))
 
 
-def execute(root, *, url, channel="chrome", sample_seconds=2, observation_seconds=50,
+def execute(root, *, url, channel="chromium", sample_seconds=2, observation_seconds=50,
             approve_after_passing=False):
     from playwright.sync_api import sync_playwright
     url=validated_video(url)
-    if channel not in CHANNELS:
-        raise ValueError("Use an installed Playwright browser channel: chrome, msedge, chromium")
+    require_garudanetra(channel)
     if not 25 <= observation_seconds <= 90:
         raise ValueError("Playback diagnostic must be 25..90 seconds")
     if not 1 <= sample_seconds <= 5:
@@ -92,9 +92,8 @@ def execute(root, *, url, channel="chrome", sample_seconds=2, observation_second
     root=Path(root).expanduser().resolve(strict=True)
     if not (root/"suryadev.sqlite3").is_file():
         raise ValueError("Existing SURYADEV workspace is required")
-    if (channel in ("chrome","msedge") and
-        __import__("os").getenv("SURYADEV_UBOL_EXTENSION_DIR")):
-        raise ValueError("Branded Chrome/Edge playback check cannot use unpacked uBO Lite")
+    if __import__("os").getenv("SURYADEV_UBOL_EXTENSION_DIR"):
+        raise ValueError("The diagnostic uses a clean GARUDANETRA profile; disable extension injection for this test")
     with worker_lock(root):
         safe,reason,telemetry=admission(root)
         if not safe:
@@ -153,6 +152,7 @@ def execute(root, *, url, channel="chrome", sample_seconds=2, observation_second
                     context.close()
         result={"schema":"suryadev.video-browser-probe.v1",
                 "video_url":url, "channel":channel,
+                "browser_identity":browser_identity(),
                 "started_at":started,"ended_at":time.time(),
                 "hardware_safe_at_start":True,
                 "cpu_percent_at_start":telemetry.get("cpu_percent"),
@@ -188,7 +188,7 @@ def main(argv=None):
     p=argparse.ArgumentParser(description="One-video local browser codec/playback evidence probe")
     p.add_argument("--data",type=Path,required=True)
     p.add_argument("--video",required=True)
-    p.add_argument("--channel",choices=sorted(CHANNELS),default="chrome")
+    p.add_argument("--channel",choices=sorted(CHANNELS),default="chromium")
     p.add_argument("--seconds",type=int,default=50)
     p.add_argument("--approve-after-passing",action="store_true",
                    help="Explicitly allow this one video after 30s genuine non-ad playback")
