@@ -1944,3 +1944,44 @@ material; and 3x **only** after at least two independently observed chatter
 segments. The speed sweep validates browser capability only. Continuous
 learning still requires actual surviving source jobs, eligible local model
 and source evidence; Rishi exams remain independently unverified.
+
+
+### YouTube 2x phase: media element unloads at 48.72s
+
+Operator-provided raw Chrome speed-sweep samples (26 Oct 2026):
+`currentTime=45.54,49.89,53.90` at the initial 2x phase with
+`readyState=4` and `networkState=2`. The next sample at **48.72s wall time**
+suddenly reported `currentTime=0`, `readyState=0`,
+`networkState=0`, `playbackRate=1`, `ended=false` and
+`ad_showing=false`. Later DOM speed set to 3x but video currentTime stayed
+zero. **This is media/player unload/reset, not evidence 3x failed to decode**;
+2x was too brief to qualify as sustained and must remain unverified.
+
+The speed sweep now **stops at the first post-playback media unload**, records
+the last previously playable sample and current media-element generation,
+a bounded summary of main-frame navigation events, and never attempts 3x
+against a broken/empty player. It marks the affected phase
+`interrupted_by_media_unload` and subsequent phases
+`not_tested_after_media_unload`. Scorecards only count genuine media-ready
+samples (readyState >=2, networkState 1/2), not browser playbackRate property
+on unloaded HTML video.
+
+To distinguish a transient YouTube player teardown from a real sustained
+speed problem, run **separate temporary-browser sessions** while the SURYADEV
+learning worker and dashboard are stopped, after updating the installed
+feature-branch app. These isolated reports do **not** increase the production
+learning-speed ceiling or overwrite any historical source receipts:
+
+```powershell
+$root='D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+$py="$root\\.venv\\Scripts\\python.exe"
+& $py "$root\\app\\suryadev_video_speed_sweep.py" --data "$root\\data" `
+    --channel chrome --rate 2 --per-speed-seconds 30 --seconds 75
+# Only after reviewing the 2x diagnosis:
+& $py "$root\\app\\suryadev_video_speed_sweep.py" --data "$root\\data" `
+    --channel chrome --rate 3 --per-speed-seconds 30 --seconds 75
+```
+
+The old 1x/1.5x verified rates still cap actual learning at 1.5x for a
+matching browser within seven days. Do not confuse measured video rate with
+caption, ASR, visual comprehension, or independent Rishi exam verification.
