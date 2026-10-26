@@ -741,6 +741,10 @@ def observe(job, workspace):
                             "job_id": str(job.get("job_id") or ""),
                             **speed_event,
                             "coverage_verified": False,
+                            "measured_speed_ceiling_x": speed_controller.max_rate,
+                            "speed_ceiling_source": speed_ceiling["source"],
+                            "speed_cap_benchmark_report": speed_ceiling.get("report", ""),
+                            "browser_channel": browser_channel or "bundled_chromium_default",
                             "speed_event_total": speed_event_total,
                         })
                     if caption and caption != last_caption:
