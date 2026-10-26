@@ -137,6 +137,7 @@ class DashboardWorkerControl:
         # proves that an external process still owns the worker lane.
         external_lock = False if active else self._external_lock_held()
         core = self.core_pairing()
+        standalone_test = os.environ.get("SURYADEV_STANDALONE_TEST") == "1"
         try:
             from suryadev_feeder import read_plan
             policy=read_plan(self.root/"learning-plan.json")
@@ -161,7 +162,8 @@ class DashboardWorkerControl:
             "paired_core_host_delegation":delegated,
             "paired_core_approved_host_count":host_count,
             "core_dispatch": core,
-            "dispatch_mode": "krishna_fleet_configured" if core["ready"] else "local_only",
+            "dispatch_mode": "standalone_test" if standalone_test else
+                             "krishna_fleet_configured" if core["ready"] else "local_only",
             "managed_running": active,
             "external_worker_active": external_lock,
             "can_start": not (active or external_lock),
@@ -218,7 +220,9 @@ class DashboardWorkerControl:
             # Once installed and authenticated by its existing pinned TLS
             # device credential, KRISHNA owns the mission queue. Never
             # derive permission from an unauthenticated LAN /health probe.
-            core = self.core_pairing()
+            standalone_test = os.environ.get("SURYADEV_STANDALONE_TEST") == "1"
+            core = self.core_pairing() if not standalone_test else {
+                "configured":False, "ready":False}
             if core["configured"] and not core["ready"]:
                 raise RuntimeError("Core pairing file is invalid; fix verified TLS device enrollment")
             if core["ready"]:
@@ -268,7 +272,8 @@ class DashboardWorkerControl:
                     "book_mode": ("indexed_evidence_only" if actual_model=="collector" else
                                   "local_model_interpretation_unverified")
                                  if approved_books.is_file() else "no_approved_books",
-                    "core_dispatch_mode":"krishna_fleet" if core["ready"] else "local",
+                    "core_dispatch_mode":"standalone_test" if standalone_test else
+                                         "krishna_fleet" if core["ready"] else "local",
                     "cpu_thread_budget":int(env["SURYADEV_OLLAMA_THREADS"]),
                     "automatic_hardware_capacity":True,
                     "pdf_workload_limit":100,
