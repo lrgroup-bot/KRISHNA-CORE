@@ -46,6 +46,7 @@ jobs:
           node --check standalone/suryadev/dashboard-learning.js
           node --check standalone/suryadev/dashboard-settings.js
           node --check standalone/suryadev/dashboard-ai-learner.js
+          node --check standalone/suryadev/dashboard-pages.js
 
       - name: Verify Core six-hour mission scheduler and paired route contract
         env:
