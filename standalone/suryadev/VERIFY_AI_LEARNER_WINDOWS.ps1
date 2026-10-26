@@ -28,18 +28,51 @@ Write-Host 'No sources, jobs, databases, credentials or worker state will be cha
 if (-not (Test-Path -LiteralPath $Checkout -PathType Container)) {
     throw 'Expected existing KRISHNA-CORE checkout missing; no directory was created.'
 }
-try {
-    $head = (& git -C $Checkout rev-parse HEAD 2>$null | Select-Object -First 1)
-    $branch = (& git -C $Checkout symbolic-ref --quiet --short HEAD 2>$null | Select-Object -First 1)
-    if ($LASTEXITCODE -ne 0 -or !$head) { throw 'git ref query failed' }
-    if ($branch -eq 'feature/suryadev-universal-fleet-foundation-20261025') {
-        Record 'Feature branch' 'PASS' $branch
-    } else {
-        Record 'Feature branch' 'FAIL' ("Expected SURYADEV feature; current: " + $branch)
+# Capture both exit codes and Git's actual error instead of turning every
+# Git failure into the same misleading generic message. PowerShell 5.1 may
+# promote native stderr redirection to an exception with Stop preference.
+$GitApp = Get-Command git.exe -CommandType Application -ErrorAction SilentlyContinue
+if ($null -eq $GitApp) {
+    Record 'Git executable' 'FAIL' 'git.exe not available in this PowerShell PATH; install Git for Windows or use its Git Bash/PowerShell environment'
+} else {
+    function ReadGit([string[]]$GitArgs) {
+        $previousPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $messages = @(& $GitApp.Source -C $Checkout @GitArgs 2>&1)
+            $code = $LASTEXITCODE
+            $output = ($messages | ForEach-Object { [string]$_ }) -join "`n"
+            return [pscustomobject]@{ Code = $code; Output = $output.Trim() }
+        } finally {
+            $ErrorActionPreference = $previousPreference
+        }
     }
-    Record 'Checkout HEAD' 'INFO' ([string]$head)
-} catch {
-    Record 'Git checkout' 'FAIL' 'Cannot read existing Git feature branch'
+    $repoProbe = ReadGit @('rev-parse', '--show-toplevel')
+    if ($repoProbe.Code -ne 0) {
+        Record 'Git checkout' 'FAIL' ('Git cannot open checkout: ' + $repoProbe.Output)
+    } else {
+        $resolvedCheckout = [System.IO.Path]::GetFullPath($Checkout).TrimEnd('\\', '/')
+        $resolvedRepo = [System.IO.Path]::GetFullPath($repoProbe.Output).TrimEnd('\\', '/')
+        if ($resolvedCheckout -ne $resolvedRepo) {
+            Record 'Git checkout' 'FAIL' ('Not a repository rooted at the expected checkout: ' + $resolvedRepo)
+        } else {
+            $headProbe = ReadGit @('rev-parse', '--verify', 'HEAD')
+            $branchProbe = ReadGit @('symbolic-ref', '--quiet', '--short', 'HEAD')
+            if ($headProbe.Code -ne 0) {
+                Record 'Git checkout' 'FAIL' ('Cannot read HEAD: ' + $headProbe.Output)
+            } else {
+                Record 'Checkout HEAD' 'INFO' $headProbe.Output
+                $expected = 'feature/suryadev-universal-fleet-foundation-20261025'
+                if ($branchProbe.Code -ne 0) {
+                    Record 'Feature branch' 'FAIL' ('Detached HEAD or branch query unavailable; current commit: ' + $headProbe.Output + '. Check git status --short --branch.')
+                } elseif ($branchProbe.Output -eq $expected) {
+                    Record 'Feature branch' 'PASS' $branchProbe.Output
+                } else {
+                    Record 'Feature branch' 'FAIL' ('Expected ' + $expected + '; current: ' + $branchProbe.Output)
+                }
+            }
+        }
+    }
 }
 $source = Join-Path $Checkout 'standalone\suryadev'
 $filenames = @('dashboard-ai-learner.js', 'dashboard-ai-learner.css',
