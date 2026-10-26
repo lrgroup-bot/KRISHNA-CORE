@@ -223,10 +223,25 @@ async def browser_video_review_check(port, approved_url):
             await page.locator("#ai-tab-youtube").click()
             await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("YouTube")
             await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
+            # External media is not contacted by this smoke. Opening the
+            # approved preview is a frontend-only, explicit user gesture.
+            await page.route("https://www.youtube-nocookie.com/**",
+                             lambda route: route.abort())
+            popups=[]
+            page.on("popup", lambda popup: popups.append(popup))
             await page.locator('a[href="#ai-learner"]').click()
             await expect(page.locator("#ai-learner")).to_be_visible()
             await expect(page.locator("#overview")).to_be_hidden()
             await expect(page.locator("#video-review")).to_be_hidden()
+            await expect(page.locator("#ai-learner-video-choice option")).to_have_count(
+                1,timeout=12000)
+            await page.locator("#ai-learner-open-preview").click()
+            await expect(page.locator("#ai-learner-player iframe")).to_have_count(1)
+            await expect(page.locator("#ai-learner-player iframe")).to_have_attribute(
+                "src","https://www.youtube-nocookie.com/embed/mgBpcQRDtl0")
+            await page.locator("#ai-tab-pdf").click()
+            await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
+            assert not popups, "Approved YouTube preview opened a new OS/browser window"
             await page.locator('.navigation a[href="#overview"]').click()
             await expect(page.locator("#overview")).to_be_visible()
             await expect(page.locator("#video-review")).to_be_visible()
@@ -314,6 +329,16 @@ def main():
             approved_url = "https://www.youtube.com/watch?v=mgBpcQRDtl0"
             temporary_plan = Path(root) / "learning-plan.json"
             temporary_plan.write_text(json.dumps({"approved_urls":[approved_url]}), encoding="utf-8")
+            # A disposable approved source fixture; never a production video
+            # launch, data migration, provider access or evidence claim.
+            inbox=Path(root)/"video-review"/"approved-inbox"
+            inbox.mkdir(parents=True,exist_ok=True)
+            (inbox/"smoke-approved-job.json").write_text(json.dumps({
+                "schema":"krishna.suryadev.job.v1",
+                "job_id":"smoke-approved-job",
+                "kind":"video_research",
+                "target":approved_url
+            }),encoding="utf-8")
             try:
                 video = asyncio.run(browser_video_review_check(port, approved_url))
                 print("SURYDEV_VIDEO_REVIEW_UI_REPORT="+json.dumps(video),flush=True)
