@@ -66,8 +66,7 @@ class BrowserOperator:
             raise RuntimeError("Chromium operator unavailable") from exc
         evidence=[]; findings=[]; started=time.perf_counter()
         with sync_playwright() as p:
-            try: browser=p.chromium.launch(channel="chrome",headless=self.headless)
-            except Exception: browser=p.chromium.launch(headless=self.headless)
+            browser=p.chromium.launch(channel="chromium",headless=self.headless)
             page=browser.new_page(); page.set_default_timeout(self.timeout_ms)
             page_errors=[]; page.on("pageerror",lambda e:page_errors.append(str(e)))
             # Polling dashboards may never reach network-idle. DOM readiness plus a
@@ -113,8 +112,7 @@ class BrowserOperator:
         widths = sorted({max(320, min(int(x), 3840)) for x in widths})
         out=[]; started=time.perf_counter()
         with sync_playwright() as p:
-            try: browser=p.chromium.launch(channel="chrome",headless=self.headless)
-            except Exception: browser=p.chromium.launch(headless=self.headless)
+            browser=p.chromium.launch(channel="chromium",headless=self.headless)
             for width in widths:
                 height=844 if width < 768 else 900
                 page=browser.new_page(viewport={"width":width,"height":height})
@@ -222,8 +220,7 @@ class BrowserOperator:
         shot_root=Path(screenshot_dir).resolve() if screenshot_dir else None
         if shot_root: shot_root.mkdir(parents=True,exist_ok=True)
         with sync_playwright() as p:
-            try: browser=p.chromium.launch(channel="chrome",headless=self.headless)
-            except Exception: browser=p.chromium.launch(headless=self.headless)
+            browser=p.chromium.launch(channel="chromium",headless=self.headless)
             context=browser.new_context()
             while queue and len(visited)<max_pages:
                 target,depth=queue.pop(0)
@@ -393,8 +390,7 @@ class BrowserOperator:
             raise RuntimeError("Chromium operator unavailable") from exc
         viewport=viewport or {"width":1440,"height":900}
         with sync_playwright() as p:
-            try: browser=p.chromium.launch(channel="chrome",headless=self.headless)
-            except Exception: browser=p.chromium.launch(headless=self.headless)
+            browser=p.chromium.launch(channel="chromium",headless=self.headless)
             page=browser.new_page(viewport={"width":int(viewport["width"]),"height":int(viewport["height"])})
             page.set_default_timeout(self.timeout_ms);page.goto(url,wait_until="domcontentloaded");page.wait_for_timeout(200)
             result=page.evaluate("""() => {
@@ -452,8 +448,7 @@ class BrowserOperator:
             raise RuntimeError("Chromium operator unavailable") from exc
         scenarios=[]; started=time.perf_counter()
         with sync_playwright() as p:
-            try: browser=p.chromium.launch(channel="chrome",headless=self.headless)
-            except Exception: browser=p.chromium.launch(headless=self.headless)
+            browser=p.chromium.launch(channel="chromium",headless=self.headless)
 
             def run(name, setup=None, action=None):
                 context=browser.new_context(permissions=[])
@@ -506,11 +501,9 @@ class BrowserOperator:
 
         started=time.perf_counter(); request_urls=[]
         with sync_playwright() as p:
-            # Privacy audits use Playwright's managed Chromium first for deterministic,
-            # isolated startup. Fall back to an installed Chrome channel when the
-            # managed browser asset is unavailable on a real KRISHNA host.
-            try: browser=p.chromium.launch(headless=self.headless)
-            except Exception: browser=p.chromium.launch(channel="chrome",headless=self.headless)
+            # GARUDANETRA exclusively uses Playwright-managed open-source
+            # Chromium; no fallback to branded system browsers.
+            browser=p.chromium.launch(channel="chromium",headless=self.headless)
             context=browser.new_context()
             page=context.new_page();page.set_default_timeout(self.timeout_ms)
             page.on("request",lambda req: request_urls.append(req.url) if len(request_urls)<500 else None)
@@ -551,10 +544,7 @@ class BrowserOperator:
         actions = actions or []
 
         with sync_playwright() as p:
-            try:
-                browser = p.chromium.launch(channel="chrome", headless=self.headless)
-            except Exception:
-                browser = p.chromium.launch(headless=self.headless)
+            browser = p.chromium.launch(channel="chromium", headless=self.headless)
             viewport = viewport or {"width": 1440, "height": 900}
             width=max(320,min(int(viewport.get("width",1440)),3840))
             height=max(480,min(int(viewport.get("height",900)),2160))
