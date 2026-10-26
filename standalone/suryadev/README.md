@@ -1,3 +1,34 @@
+### Atomic fresh three-lesson standalone test (explicit operator opt-in)
+
+The read-only Phase-1 report can legitimately say
+`BLOCKED_NO_NEW_APPROVED_VIDEO` when historical sessions have already
+been attempted. This is **not** permission to clear their receipts.
+
+Three independently reviewed, public Corey Schafer Python lessons can be
+staged as **one exact approved batch**, covering numeric types, sequences,
+and dictionaries. First preview (read-only), then execute the separate
+explicit approval command if those three titles are acceptable:
+
+```powershell
+$Data = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\data"
+$Repo = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\KRISHNA-CORE"
+$Python = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\.venv\\Scripts\\python.exe"
+& $Python "$Repo\\standalone\\suryadev\\suryadev_standalone_trial_sources.py" --data $Data
+# Operator approval, only when the exact three URLs in preview are accepted:
+& $Python "$Repo\\standalone\\suryadev\\suryadev_standalone_trial_sources.py" --data $Data --approve
+```
+
+`--approve` atomically appends all three URLs to `learning-plan.json`,
+validates the complete new plan, and retains a byte-for-byte backup.
+It refuses candidates with any existing attempt, worker state, evidence
+folder or staged inbox job. It never resets video selection/history,
+restarts the worker, contacts KRISHNA, installs a browser, or claims
+successful learning. The already running standalone supervisor can
+select at most three *fresh* jobs from the updated plan during its next
+normal scheduling cycle. Actual media playback remains dependent on
+YouTube access and measured laptop headroom; no ad, media or rate-limit
+restrictions are bypassed. Keep old media reports for debugging.
+
 ## Standalone YouTube learning test (Phase 1, before any KRISHNA connection)
 
 Do **not** interrupt the active book worker. The Phase-1 acceptance
