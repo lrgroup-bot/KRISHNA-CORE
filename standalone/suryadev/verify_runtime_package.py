@@ -46,6 +46,7 @@ REQUIRED_FRONTEND = (
     "dashboard-pages.css",
 )
 REQUIRED_WORKERS = ("suryadev_r39_worker.py", "suryadev_r39_adapter.py")
+REQUIRED_AUDITS = ("verify_live_dashboard_ui.py",)
 
 
 def local_import_names(source):
@@ -79,7 +80,7 @@ def missing_runtime_files(root):
                 errors.append(f"Unreadable installed Python source {source.name}: {exc}")
     for name in sorted(required - available):
         errors.append(f"Missing installed Python module: {name}.py")
-    for name in (*REQUIRED_FRONTEND, *REQUIRED_WORKERS):
+    for name in (*REQUIRED_FRONTEND, *REQUIRED_WORKERS, *REQUIRED_AUDITS):
         if not (root / name).is_file():
             errors.append(f"Missing installed asset: {name}")
     return errors
