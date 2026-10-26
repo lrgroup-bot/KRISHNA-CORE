@@ -19,6 +19,7 @@ import time
 from suryadev_feeder import read_plan
 from suryadev_liveops import atomic_json, _safe_read
 from suryadev_video_review import VideoReview
+from suryadev_trial_limits import trial_cap, select_trial_videos, video_job_id
 
 MAX_VIDEO = 10
 RUNTIME = "video-concurrent-runtime.json"
@@ -45,6 +46,7 @@ class ParallelVideoReader:
             if isinstance(x,str) and x.startswith("approved-video-") and len(x) <= 100
         )
         self.closed = False
+        self.trial_selection_error = ""
 
     def _tried(self, job_id, prior_states=None):
         """Any previous real attempt/evidence forbids unattended video replay."""
@@ -114,9 +116,16 @@ class ParallelVideoReader:
         except (OSError,ValueError,TypeError):
             return False
         prior = {row["job_id"] for row in self.review.snapshot_unlocked_jobs()}
-        for url in self.review._approved_videos(plan["approved_urls"])[:80]:
-            jid="approved-video-"+hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-            if not self._tried(jid, prior):
+        urls=self.review._approved_videos(plan["approved_urls"])[:80]
+        try:
+            selected=select_trial_videos(self.root,urls,
+                  previously_tried=lambda jid:self._tried(jid,prior))
+        except (RuntimeError,OSError,ValueError) as exc:
+            self.trial_selection_error=type(exc).__name__+": "+str(exc)[:160]
+            return False
+        for url in urls:
+            jid=video_job_id(url)
+            if (selected is None or jid in selected) and not self._tried(jid, prior):
                 return True
         return False
 
@@ -189,7 +198,9 @@ class ParallelVideoReader:
             done.append(result)
         safe=capacity.get("safe") is True
         enabled=self.auto_enabled()
-        slots=min(MAX_VIDEO,int(capacity.get("reserved_video_slots",0)),
+        target=trial_cap("video")
+        target=MAX_VIDEO if target is None else min(MAX_VIDEO,target)
+        slots=min(target,int(capacity.get("reserved_video_slots",0)),
                   max(0,int(capacity.get("max_total",0))-int(source_active)-int(books_active)))
         started=[]
         if enabled and safe and slots > len(self.futures):
@@ -200,10 +211,19 @@ class ParallelVideoReader:
                 urls=[]
             occupied=set(self.futures.values())
             prior={row["job_id"] for row in self.review.snapshot_unlocked_jobs()}
+            try:
+                selected=select_trial_videos(self.root,urls[:80],
+                  previously_tried=lambda jid:self._tried(jid,prior))
+                self.trial_selection_error=""
+            except (RuntimeError,OSError,ValueError) as exc:
+                selected=frozenset()
+                self.trial_selection_error=type(exc).__name__+": "+str(exc)[:160]
             for url in urls[:80]:
                 if len(self.futures)>=slots:
                     break
-                jid="approved-video-"+hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+                jid=video_job_id(url)
+                if (selected is not None and jid not in selected):
+                    continue
                 if jid in occupied or self._tried(jid, prior):
                     continue
                 path=self.review._path(jid)
@@ -236,7 +256,9 @@ class ParallelVideoReader:
                 occupied.add(jid)
                 started.append(jid)
         receipt={"schema":"suryadev.parallel-video.v1",
-                 "target":MAX_VIDEO,"active":len(self.futures),
+                 "target":target,"trial_selected_count":(
+                    len(selected) if enabled and "selected" in locals() and selected is not None
+                    else None),"trial_selection_error":self.trial_selection_error,"active":len(self.futures),
                  "active_job_ids":sorted(self.futures.values()),
                  "started_this_tick":started,"finished":done,
                  "enabled":enabled,"hardware_safe":safe,
