@@ -262,15 +262,78 @@ def classify_video_caption(caption, *, important_terms=()):
     return "ordinary", 2.0
 
 
+def verified_video_speed_ceiling(data_root, *, browser_channel=None, now=None):
+    """Derive a conservative node-local cap from genuine earlier speed tests.
+
+    The official speed sweep emits a per-rate pass flag based on measured
+    media-clock movement, not merely video.playbackRate. A failed 2x / 3x
+    cannot silently become a permitted learning rate after a restart.
+    When there is no recent compatible test, default to 1x (unverified).
+    """
+    result = {"max_rate": 1.0, "source": "no_recent_verified_sweep",
+              "report": "", "tested_channel": browser_channel or "unknown"}
+    root = Path(data_root).expanduser().resolve()
+    report_dir = root / "benchmark-reports"
+    if report_dir.is_symlink() or not report_dir.is_dir():
+        return result
+    if browser_channel not in ("chrome", "msedge", "chromium"):
+        return result
+    now = time.time() if now is None else float(now)
+    candidates = sorted(report_dir.glob("video-speed-sweep-"+browser_channel+"-*.json"),
+                        key=lambda p:p.name, reverse=True)
+    for path in candidates[:20]:
+        try:
+            if path.is_symlink() or not 0 < path.stat().st_size <= 2_000_000:
+                continue
+            record = json.loads(path.read_text(encoding="utf-8"))
+            tested = float(record.get("finished_at", 0))
+            if not (0 <= now - tested <= 7*24*3600):
+                continue
+            if record.get("schema") != "suryadev.video-speed-sweep.v1":
+                continue
+            if record.get("browser_channel") != browser_channel:
+                continue
+            if record.get("evidence_only") is not True:
+                continue
+            assessment = record.get("speed_results", {})
+            rows = assessment.get("speeds", [])
+            if not isinstance(rows, list):
+                continue
+            passed = {}
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                rate = row.get("requested_speed_x")
+                if type(rate) in (int,float) and rate in (1.0,1.5,2.0,3.0):
+                    passed[float(rate)] = row.get("pass") is True
+            # Only contiguous, independently passed rates can be used.
+            cap = 1.0
+            if passed.get(1.0):
+                for rate in (1.5,2.0,3.0):
+                    if passed.get(rate):
+                        cap = rate
+                    else:
+                        break
+            return {"max_rate": cap, "source": "recent_local_media_clock_sweep",
+                    "report": path.name, "tested_channel": browser_channel,
+                    "passed_rates": [r for r in (1.0,1.5,2.0,3.0) if passed.get(r)]}
+        except (OSError,ValueError,TypeError,OverflowError):
+            continue
+    return result
+
+
 class AdaptiveVideoSpeed:
     """Playback controller for a *single approved* browser job.
 
     3x is a temporary optimization, only after repeated clear chatter
     captions. Captions/visuals may still be missed, especially at 3x.
     """
-    def __init__(self, important_terms=(), enabled=True):
+    def __init__(self, important_terms=(), enabled=True, max_rate=3.0):
+        if type(max_rate) not in (int,float) or max_rate not in (1.0,1.5,2.0,3.0):
+            raise ValueError("Max video learning speed must be 1, 1.5, 2 or 3")
         self.terms = tuple(important_terms)
         self.enabled = enabled
+        self.max_rate = float(max_rate)
         self.chatter_streak = 0
         self.last_caption = ""
         self.last_caption_video_time = 0.0
@@ -295,7 +358,10 @@ class AdaptiveVideoSpeed:
             self.last_caption = clean
             self.last_caption_video_time = video_seconds
             self.category = category
-            self.target_rate = (3.0 if self.chatter_streak >= 2 else 2.0) if suggested == 3.0 else suggested
+            proposed = (3.0 if self.chatter_streak >= 2 else 2.0) if suggested == 3.0 else suggested
+            self.target_rate = min(proposed, self.max_rate)
+            if proposed > self.max_rate:
+                self.category = category + "_speed_capped_by_measured_playback"
         elif video_seconds - self.last_caption_video_time > 5.0:
             # If captions stop changing, racing through unknown content is unsafe.
             self.chatter_streak = 0
@@ -572,7 +638,21 @@ def observe(job, workspace):
     last_caption = ""
     last_periodic = -visual_interval
     term_last_seen = {}
-    speed_controller = AdaptiveVideoSpeed(capture_terms, enabled=adaptive_playback)
+    content_filter = _chromium_content_filter()
+    browser_channel = _video_browser_channel(content_filter)
+    # The benchmark probes a branded browser; no Chrome result is assumed
+    # transferable to bundled Chromium. Other nodes retain independent caps.
+    root_from_job = workspace.parents[3] if (
+        workspace.parent.name == "jobs" and
+        workspace.parent.parent.name == "runtime" and
+        workspace.parent.parent.parent.name == "video-review") else None
+    speed_ceiling = (verified_video_speed_ceiling(
+        root_from_job, browser_channel=browser_channel)
+        if root_from_job is not None else {
+            "max_rate":1.0, "source":"unrecognized_video_workspace"})
+    speed_controller = AdaptiveVideoSpeed(
+        capture_terms, enabled=adaptive_playback,
+        max_rate=speed_ceiling["max_rate"])
     speed_events = []
     speed_event_total = 0
     last_logged_rate = None
@@ -582,8 +662,6 @@ def observe(job, workspace):
     progress_guard = VideoProgressGuard(started_mono)
     ad_suppressed_samples = 0
     stop_reason = "observation_window_completed"
-    content_filter = _chromium_content_filter()
-    browser_channel = _video_browser_channel(content_filter)
     final = {}
     title = ""
     subject = subject_hint
@@ -842,7 +920,9 @@ def observe(job, workspace):
                 float(e["requested_rate"]) for e in speed_events
                 if type(e.get("requested_rate")) in (int, float)
             }),
-            "playback_rate_cap": 3.0,
+            "playback_rate_cap": speed_controller.max_rate,
+            "playback_rate_cap_source": speed_ceiling["source"],
+            "speed_cap_benchmark_report": speed_ceiling.get("report", ""),
             "speed_events_total": speed_event_total,
             "speed_events_recent": speed_events,
             "three_x_observed": seen_three_x,
