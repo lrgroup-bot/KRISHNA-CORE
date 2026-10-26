@@ -199,7 +199,9 @@ def _validate_bundle(bundle_path, job):
     if isinstance(session, dict):
         stop = str(session.get("end_reason") or "")
         if stop in ("content_playback_stalled", "advertisement_wait_limit",
-                    "browser_snapshot_unavailable"):
+                    "browser_snapshot_unavailable", "media_unloaded_after_playback",
+                    "video_element_replaced", "unapproved_video_navigation",
+                    "media_error"):
             return {"valid": False, "reason": "video observation incomplete: " + stop}
         try:
             position = float(session.get("watched_seconds") or 0)
