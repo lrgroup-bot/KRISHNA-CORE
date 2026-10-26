@@ -59,8 +59,9 @@
     return body;
   }
   function open(id) {
-    const dialog = node(id);
-    if (!dialog.open) dialog.showModal();
+    // Configuration is a full-height in-app dashboard, not an OS/modal window.
+    const route=id==="server-settings-dialog"?"server-settings":"storage-settings";
+    location.hash="#"+route;
     readSettings().catch(err => result(
       id === "server-settings-dialog" ? "server-save-result" : "storage-result",
       fail(err), "error"
@@ -68,8 +69,18 @@
   }
   node("open-server-settings").addEventListener("click", () => open("server-settings-dialog"));
   node("open-storage-settings").addEventListener("click", () => open("storage-settings-dialog"));
-  node("close-server-settings").addEventListener("click", () => node("server-settings-dialog").close());
-  node("close-storage-settings").addEventListener("click", () => node("storage-settings-dialog").close());
+  node("close-server-settings").addEventListener("click", () => { location.hash="#overview"; });
+  node("close-storage-settings").addEventListener("click", () => { location.hash="#overview"; });
+  // Deep links and browser Back must load live data in the selected dashboard.
+  window.addEventListener("hashchange", () => {
+    if (location.hash==="#server-settings" || location.hash==="#storage-settings") {
+      readSettings().catch(err => result(
+        location.hash==="#server-settings"?"server-save-result":"storage-result",
+        fail(err),"error"));
+    }
+  });
+  if (location.hash==="#server-settings" || location.hash==="#storage-settings")
+    readSettings().catch(() => {});
   const coreValues = () => ({
     ip:node("server-ip").value.trim(), port:Number(node("server-port").value)
   });
