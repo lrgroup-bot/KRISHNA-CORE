@@ -8,6 +8,8 @@ import tempfile
 import threading
 import time
 import unittest
+import os
+from unittest.mock import patch
 
 from suryadev_parallel_videos import ParallelVideoReader
 
@@ -132,6 +134,45 @@ class ParallelVideoObservationTests(unittest.TestCase):
         finally:
             second.close()
         self.assertEqual(visited,[jid])
+
+    def test_worker_state_staged_only_does_not_count_as_video_attempt(self):
+        import hashlib
+        from suryadev_video_review import VideoReview
+        url=URLS[0]
+        jid="approved-video-"+hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+        report=self.root/"video-review"/"runtime"/"worker-state.json"
+        report.parent.mkdir(parents=True,exist_ok=True)
+        report.write_text(json.dumps({"jobs":{
+            jid:{"status":"QUEUED_FOR_REVIEW"}}}),encoding="utf-8")
+        review=VideoReview(self.root,self.app)
+        review.import_job({
+            "schema":"krishna.suryadev.job.v1","job_id":jid,
+            "kind":"video_research","target":url,
+            "constraints":{"duration_seconds":3600,
+                           "adaptive_playback":True,
+                           "allow_audio_asr_fallback":False}})
+        self.enable()
+        visited=[]
+        with patch.dict(os.environ,{"SURYADEV_TRIAL_VIDEO_COUNT":"3"}):
+            reader=ParallelVideoReader(self.root,self.app,
+                execute=lambda p:(visited.append(p.stem),
+                                  {"state":"test_observed","job":p.stem})[1])
+            try:
+                self.assertTrue(reader.has_pending())
+                self.assertFalse(reader._tried(jid))
+                started=reader.tick(capacity={"safe":True,"max_total":2,
+                    "reserved_video_slots":1})
+                self.assertEqual(started["started_this_tick"],[jid])
+                self.assertEqual(started["trial_selected_count"],3)
+                self.assertTrue(reader._tried(jid))
+            finally:
+                reader.close()
+            # Attempt journal survives restart; no replay despite staged state.
+            second=ParallelVideoReader(self.root,self.app,execute=lambda _:None)
+            try:
+                self.assertTrue(second._tried(jid))
+            finally:
+                second.close()
 
     def test_corrupt_attempt_journal_never_replays_staged_jobs(self):
         (self.root/"video-observer-attempts.json").write_text(
