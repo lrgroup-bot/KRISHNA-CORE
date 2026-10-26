@@ -34,3 +34,70 @@ The current workspaces expose recorded facts only. Full PDF visual navigation, w
 6. Keep PR #232 **draft** and do not merge or label production accepted until physical acceptance passes.
 
 The prior Chrome-only 44.14-second video probe does not satisfy the GARUDANETRA acceptance gate.
+
+## Windows laptop canary — pull and acceptance runbook
+
+The known test root is `D:\Work\SURYADEV-FLEET-CANARY-20261025`, with a checked-out
+`KRISHNA-CORE` repository, an installed `app` folder, existing `data` and
+a local `.venv\Scripts\python.exe`. Confirm these paths exist first.
+**Do not run git reset --hard, git clean, reinstall to a new data directory,
+or start a second dashboard while an earlier process is running.**
+
+In PowerShell, check for uncommitted work before updating; do not discard it:
+
+```powershell
+$Root = 'D:\Work\SURYADEV-FLEET-CANARY-20261025'
+cd "$Root\KRISHNA-CORE"
+git status --short
+git fetch origin feature/suryadev-universal-fleet-foundation-20261025
+git switch feature/suryadev-universal-fleet-foundation-20261025
+git pull --ff-only origin feature/suryadev-universal-fleet-foundation-20261025
+git rev-parse HEAD
+```
+
+Preserve the current `data` root. If an existing learner or dashboard is running,
+gracefully stop it **using its own controls** before installing; check that the
+worker lock is free. Do not terminate unrelated processes. Install using the
+repository's existing test-gated Windows installer **only after** that stop:
+
+```powershell
+& "$Root\KRISHNA-CORE\standalone\suryadev\install-windows.ps1" `
+    -InstallDir "$Root\app" -DataDir "$Root\data" `
+    -Python "$Root\.venv\Scripts\python.exe"
+```
+
+Start the **single** local dashboard using the existing launch method and port
+8872 after installation. To launch explicitly when no dashboard is running and
+the existing canary `fresh-workspace.json` has been reviewed:
+
+```powershell
+cd "$Root\app"
+& "$Root\.venv\Scripts\python.exe" .\start-node.py --data "$Root\data" `
+    --model auto --adaptive-fleet --continuous --port 8872
+```
+
+That launcher updates only its existing workspace marker before starting the
+dashboard; do not mistake it for a strictly read-only command. It does **not**
+automatically start an approved-video observer without the separate
+`--auto-approved-videos` opt-in. Start the worker only after confirming
+approved sources, current hardware admission and the single-worker lock.
+
+Then run the **read-only** acceptance preflight from the checkout:
+
+```powershell
+& "$Root\KRISHNA-CORE\standalone\suryadev\VERIFY_AI_LEARNER_WINDOWS.ps1" `
+    -Root $Root -RequireDashboard
+```
+
+Open `http://127.0.0.1:8872/#ai-learner` in the existing SURYADEV
+application/dashboard. Confirm menu isolation, all four lanes, approved
+YouTube-only preview (explicit click), no external popup, PDF/web task
+provenance, book line checkpoints and status from existing data. Read the
+real video observer and YouTube audits separately. A UI preview **is not** a
+GARUDANETRA playback acceptance or a Rishi exam.
+
+The PowerShell preflight performs only Git/file hashing, local-file presence
+tests and loopback **GET** requests. It does not fetch external media, write
+learning data, launch a second process, start jobs, install software, pair Core
+or certify video comprehension. **Physical GARUDANETRA video and BRAHMAGYAN /
+Rishi validation remain manual gates**, even if the preflight returns PASS.
