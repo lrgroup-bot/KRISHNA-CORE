@@ -104,6 +104,10 @@
     panels.set(spec.key,page);
     content.append(page);
   }
+  // Mount route pages before querying their descendants. A detached
+  // DocumentFragment is invisible to document.querySelector and could
+  // otherwise orphan the canonical worker controls when reparenting.
+  main.prepend(content);
   // AI Learner is the only operational workspace. Move the canonical
   // controls and real queue DOM nodes, never clone them or create a worker.
   // Existing dashboard-learning.js and activity handlers retain the same IDs,
@@ -143,7 +147,6 @@
   const formerMiddle=main.querySelector(".middle-grid");
   if(formerMiddle && !formerMiddle.children.length)formerMiddle.remove();
   const footer=main.querySelector("footer");
-  main.prepend(content);
   if(footer)main.append(footer);
   const routes=pages.map(x=>x.key);
   function route(){
