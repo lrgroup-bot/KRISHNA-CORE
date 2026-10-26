@@ -1,3 +1,28 @@
+## Empty video selection recovery and idle readiness
+
+With an opted-in `--video-target 3` and `--auto-approved-videos`,
+the worker now distinguishes legacy `QUEUED_FOR_REVIEW` imported jobs
+from genuine attempts. An existing **empty** trial selection may be
+reconciled just once to currently approved and genuinely unattempted
+videos. It archives the original under
+`video-trial-selection.before-empty-repair-<sha>.json` before changing
+only the selection receipt. Existing attempt journals, full playback
+evidence, nonempty frozen selections and source approvals remain intact.
+If only one new eligible video exists, the three-video target results in
+at most one selected job. Replaying the other three is prohibited.
+
+The AI Learner now reads `/api/learning/readiness` locally to show
+actual managed or externally locked worker state, approved and eligible
+videos, source queue limits, book runtime freshness, and idle reasons.
+A historical `book-concurrent-runtime.json` with `active: 1` does not
+prove the book worker is live when its timestamp is stale.
+
+The client must pull and reinstall after the corrected commit. Never
+modify or delete the video selection or attempted-video evidence
+manually. Preserve the dashboard/worker OS lock and stop gracefully
+before upgrading. This repair is for the empty-selection eligibility
+bug only, **not** permission to bypass provider access restrictions.
+
 ## Operator-approved 3-video + 5-per-lane full-learning trial (27 Oct 2026)
 
 A concrete opt-in workload profile can now be launched with **one** existing
