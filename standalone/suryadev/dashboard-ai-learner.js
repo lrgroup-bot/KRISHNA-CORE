@@ -151,6 +151,22 @@
         if(rerun){rerun=false;refresh();}
       }
     }
+    function routePage() {
+      const active=location.hash==="#ai-learner";
+      const main=el("ai-learner").closest("main");
+      if(!main)return;
+      for(const child of main.children)
+        if(child!==el("ai-learner"))child.hidden=active;
+      if(!active)stopPreview();
+      for(const link of document.querySelectorAll('.navigation a[href^="#"]'))
+        link.classList.toggle("selected", link.getAttribute("href")===location.hash);
+      if(active) {
+        el("ai-learner").hidden=false;
+        el("ai-learner").scrollIntoView({block:"start"});
+        refresh();
+      }
+    }
+    window.addEventListener("hashchange",routePage);
     for(const lane of lanes)el("ai-tab-"+lane).addEventListener("click",()=>select(lane));
     el("ai-learner-open-preview").addEventListener("click",()=>{
       const job=approved.find(item=>item.job_id===choice.value);
@@ -190,6 +206,7 @@
       else refresh();
     });
     select("youtube");
+    routePage();
     setInterval(()=>{if(location.hash==="#ai-learner")refresh();},15000);
   });
 })();
