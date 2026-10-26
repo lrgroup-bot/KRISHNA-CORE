@@ -487,6 +487,8 @@ def _video_snapshot(page):
     script = r"""
     () => {
       const v=document.querySelector('video');
+      const record=(window.__suryadevMediaRecord ||= {generation:0,last:null});
+      if (v!==record.last){record.last=v;record.generation++;}
       const caps=[...document.querySelectorAll('.ytp-caption-segment')]
         .map(x=>(x.innerText||'').trim()).filter(Boolean).join(' ');
       return {
@@ -498,6 +500,9 @@ def _video_snapshot(page):
         video_ready_state: v ? Number(v.readyState) : null,
         video_network_state: v ? Number(v.networkState) : null,
         video_error_code: v && v.error ? Number(v.error.code) : null,
+        media_element_generation:record.generation,
+        media_current_src_present:v?!!v.currentSrc:false,
+        media_element_attached:v?!!v.isConnected:false,
         ad_showing: !!document.querySelector('.html5-video-player.ad-showing'),
         ended: v ? !!v.ended : false,
         playback_rate: v ? Number(v.playbackRate||1) : null,
@@ -602,8 +607,9 @@ def observe(job, workspace):
 
     constraints = dict(job.get("constraints") or {})
     source_url = str(job.get("target") or job.get("source_ref") or "").strip()
-    if not _is_http_url(source_url):
-        raise ValueError("SURYDEV video adapter currently requires an http(s) browser source")
+    from suryadev_garudanetra_media import (
+        approved_youtube_watch, GarudanetraMediaSession, MediaContinuity)
+    approved_youtube_watch(source_url)  # caller independently verified owner approval
 
     duration_seconds = max(30, min(int(constraints.get("duration_seconds") or 6 * 3600), 6 * 3600))
     finish_grace = max(0, min(int(constraints.get("finish_grace_seconds") or 300), 600))
@@ -660,25 +666,20 @@ def observe(job, workspace):
     started_wall = time.time()
     started_mono = time.monotonic()
     progress_guard = VideoProgressGuard(started_mono)
+    media_continuity = MediaContinuity()
+    media_session = GarudanetraMediaSession(
+        workspace, source_url, channel=browser_channel, headless=(
+            str(os.getenv("SURYADEV_HEADLESS") or "").strip().lower()
+            in {"1","true","yes","on"}),
+        browser_args=content_filter["args"])
     ad_suppressed_samples = 0
     stop_reason = "observation_window_completed"
     final = {}
     title = ""
     subject = subject_hint
-    headless = str(os.getenv("SURYADEV_HEADLESS") or "").strip().lower() in {"1", "true", "yes", "on"}
-
     with sync_playwright() as p:
-        context = p.chromium.launch_persistent_context(
-            str(browser_profile),
-            headless=headless,
-            **({"channel": browser_channel} if browser_channel else {}),
-            args=["--autoplay-policy=no-user-gesture-required"] + content_filter["args"],
-            viewport={"width": 1280, "height": 800},
-        )
+        _, page = media_session.launch(p)
         try:
-            pages = context.pages
-            page = pages[0] if pages else context.new_page()
-            page.goto(source_url, wait_until="domcontentloaded", timeout=90000)
             page.wait_for_timeout(2500)
             _try_enable_captions(page)
             _try_play(page)
@@ -702,6 +703,16 @@ def observe(job, workspace):
                     if subject_hint == source_url or subject_hint == "video-learning":
                         subject = title or "video-learning"
                     sec = float(snap.get("seconds") or 0)
+                    media_state = media_continuity.observe(
+                        snap, wall_seconds=time.monotonic()-started_mono)
+                    if media_session.unexpected_navigation:
+                        stop_reason = "unapproved_video_navigation"
+                        break
+                    if media_state in (
+                            "media_unloaded_after_playback",
+                            "video_element_replaced", "media_error"):
+                        stop_reason = media_state
+                        break
                     guard_result = progress_guard.tick(snap, now=time.monotonic())
                     if snap.get("ad_showing") is True:
                         # Never put advertisement captions/frames into knowledge.
@@ -714,6 +725,11 @@ def observe(job, workspace):
                     if guard_result:
                         stop_reason = guard_result
                         break
+                    if media_state in ("waiting_for_media", "snapshot_unavailable"):
+                        # Never change playbackRate, capture a frame or label
+                        # an empty media element as source learning.
+                        time.sleep(sample_seconds)
+                        continue
                     caption = re.sub(r"\s+", " ", str(snap.get("caption") or "").strip())
                     desired_rate, speed_category = speed_controller.choose(
                         caption, video_seconds=sec, caption_available=bool(caption),
@@ -804,7 +820,7 @@ def observe(job, workspace):
 
                 time.sleep(sample_seconds)
         finally:
-            context.close()
+            media_session.close()
 
     asr_rows = audio_asr.stop() if audio_asr_started and audio_asr is not None else []
     if not caption_seen and asr_rows:
@@ -900,6 +916,8 @@ def observe(job, workspace):
             "source_duration_seconds": round(float(final.get("duration") or 0), 2),
             "video_ended": bool(final.get("ended")),
             "end_reason": stop_reason,
+            "garudanetra_media": media_session.diagnostics(),
+            "media_continuity_events": media_continuity.transitions,
             "last_playback_diagnostic": {
                 "paused": final.get("paused"),
                 "ready_state": final.get("video_ready_state"),
