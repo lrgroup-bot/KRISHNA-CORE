@@ -545,12 +545,13 @@ def serve(lib, port=8769):
     # credential and approved plan start the existing single fleet worker on
     # dashboard boot; manual URL input or per-session Start clicks are NOT
     # required. Never automatically pair or launch from LAN discovery alone.
+    standalone_test = os.environ.get("SURYADEV_STANDALONE_TEST") == "1"
     paired = worker_control.core_pairing()
     from suryadev_liveops import _safe_read
     fresh_workspace=_safe_read(lib.root,"fresh-workspace.json",max_bytes=4096)
     if (fresh_workspace.get("schema")=="suryadev.fresh-workspace.v1"
             and fresh_workspace.get("auto_start") is True
-            and not paired["configured"]):
+            and (not paired["configured"] or standalone_test)):
         # Only the deliberate, separate fresh-data launcher enables this.
         # Never overwrite or migrate older study data, credentials or files.
         try:
@@ -561,7 +562,7 @@ def serve(lib, port=8769):
         except (RuntimeError,ValueError,OSError) as exc:
             print("SURYADEV fresh trial could not auto-start: "+
                   type(exc).__name__+": "+str(exc)[:160],flush=True)
-    elif paired["ready"]:
+    elif paired["ready"] and not standalone_test:
         try:
             # Paired collectors may run without local AI as well.
             preferred=(fresh_workspace.get("trial_model", "collector")
@@ -594,6 +595,9 @@ def work_loop(lib, interval, use_ollama, model, *,
         raise ValueError("interval must be at least 10 seconds")
     if not 1 <= refill_minutes <= 360:
         raise ValueError("refill-minutes must be 1..360")
+    if os.environ.get("SURYADEV_STANDALONE_TEST") == "1" and (
+            core_mission_config or fleet_mode or sync_book_handoff):
+        raise ValueError("Standalone test forbids Core mission/fleet/handoff")
     if fleet_mode and not core_mission_config:
         raise ValueError("fleet mode requires a pinned paired --core-mission-config")
     if core_mission_config and not plan_path:
@@ -698,7 +702,9 @@ def work_loop(lib, interval, use_ollama, model, *,
                                 print('SURYADEV approved plan detected; local source continuity active.',flush=True)
                             except (OSError, ValueError) as exc:
                                 print('SURYADEV source plan not ready: '+type(exc).__name__,flush=True)
-                    if fleet is None and relay is None and core_mission_config is None and feeder is not None:
+                    if (os.environ.get("SURYADEV_STANDALONE_TEST") != "1"
+                            and fleet is None and relay is None
+                            and core_mission_config is None and feeder is not None):
                         cfg=Path(lib.root)/"core-mission-connection.json"
                         if cfg.is_file():
                             try:
