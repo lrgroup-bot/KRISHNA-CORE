@@ -661,9 +661,7 @@ def observe(job, workspace):
     progress_guard = VideoProgressGuard(started_mono)
     media_continuity = MediaContinuity()
     media_session = GarudanetraMediaSession(
-        workspace, source_url, channel=browser_channel, headless=(
-            str(os.getenv("SURYADEV_HEADLESS") or "").strip().lower()
-            in {"1","true","yes","on"}),
+        workspace, source_url, channel=browser_channel, headless=True,
         browser_args=content_filter["args"])
     ad_suppressed_samples = 0
     stop_reason = "observation_window_completed"
