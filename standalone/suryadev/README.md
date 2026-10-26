@@ -1870,6 +1870,28 @@ coverage and BRAHMAGYAN/Rishi pending status. **An approved video or a
 browser probe passing alone never proves full video learning.**
 
 
+### Node-local adaptive video speed ceiling from measured playback
+
+The production video adapter reads the latest **7-day fresh** speed-sweep
+receipt from the SAME node's `data/benchmark-reports` folder, and only when
+the live browser channel exactly matches the tested Chrome/Edge/Chromium
+channel. A speed is allowed only when all lower speeds were independently
+verified via media-clock movement (not just `playbackRate`). If the receipt
+shows 1x and 1.5x passing but 2x/3x failing, the effective dynamic cap
+is **1.5x**. If no recent compatible receipt exists, the cap is **1x**.
+This is a performance safety ceiling, NOT a claim of learning or video/audio
+coverage; existing critical-captions/ASR rules still force 1x.
+
+To use the existing Chrome report on the physical SURYADEV 1 laptop, set
+`$env:SURYADEV_VIDEO_BROWSER_CHANNEL='chrome'` in the SAME PowerShell
+process that launches the dashboard, **before** starting its managed
+worker. This setting requires locally installed Google Chrome. An optional
+unpacked uBO Lite extension is Chromium-only; an explicitly configured
+`SURYADEV_UBOL_EXTENSION_DIR` cannot be combined with the Chrome channel.
+Do not disable a chosen extension silently. After a future independently
+successful 2x/3x test, the cap may safely increase, but only from that
+node's own newer compatible verified receipt.
+
 ### Controlled 1x / 1.5x / 2x / 3x browser speed sweep
 
 For the operator-requested playback speed comparison, the new installed app
