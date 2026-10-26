@@ -87,6 +87,28 @@ def verify(base="http://127.0.0.1:8872"):
                     state="visible", timeout=12000)
                 selected.wait_for(state="visible")
                 page.locator("#" + panel_id).wait_for(state="visible", timeout=12000)
+                if destination == "ai-learner":
+                    # Strict proof that the original (not proxied) learning
+                    # controls and active workspaces are inside AI Learner.
+                    for element in (
+                        "#ai-learner-control-mount #learning-start",
+                        "#ai-learner-control-mount #learning-stop",
+                        "#ai-learner-control-mount #learning-model",
+                        "#ai-learner-node-summary #node-control-capacity",
+                        "#ai-learner-operations-mount #active-work",
+                        "#ai-learner-live-workspaces-mount #netra-workspace-tabs",
+                        "#ai-learner-live-workspaces-mount #netra-continuity-status",
+                    ):
+                        page.locator(element).wait_for(state="visible", timeout=12000)
+                    if page.locator("#ai-learner-start, #ai-learner-stop").count():
+                        raise AssertionError("Obsolete start/stop proxy controls remain")
+                    page.locator("#ai-tab-book").click()
+                    page.locator(
+                        "#ai-learner-book-tools #book-search-form").wait_for(
+                            state="visible", timeout=12000)
+                    page.locator("#ai-tab-youtube").click()
+                    if page.locator("#ai-learner-book-tools").is_visible():
+                        raise AssertionError("Book source search leaked into YouTube workspace")
                 measured = page.evaluate("""() => {
                     const visible=[...document.querySelectorAll('.suryadev-page')]
                        .filter(n=>!n.hidden);
