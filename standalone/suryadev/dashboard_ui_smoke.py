@@ -213,11 +213,19 @@ async def browser_video_review_check(port, approved_url):
             await expect(page.locator(".ai-learner-tab")).to_have_count(4)
             await expect(page.locator("#ai-tab-youtube")).to_have_attribute("aria-pressed","true")
             await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
+            await expect(page.locator("#ai-learner")).to_be_hidden()
+            await page.locator('a[href="#ai-learner"]').click()
+            await expect(page.locator("#ai-learner")).to_be_visible()
             await page.locator("#ai-tab-pdf").click()
             await expect(page.locator("#ai-tab-pdf")).to_have_attribute("aria-pressed","true")
             await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("PDF")
             await page.locator("#ai-tab-website").click()
             await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("Websites")
+            await expect(page.locator("#ai-learner-lane-results .ai-learner-record")).to_have_count(
+                2,timeout=12000)
+            await page.locator("#ai-learner-lane-results .ai-learner-record button").first.click()
+            await expect(page.locator("#ai-learner-lane-results .ai-learner-record").first).to_contain_text(
+                "Evidence hash integrity: not_recorded",timeout=12000)
             await page.locator("#ai-tab-book").click()
             await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("Books")
             await page.locator("#ai-tab-youtube").click()
@@ -245,6 +253,7 @@ async def browser_video_review_check(port, approved_url):
             await page.locator('.navigation a[href="#overview"]').click()
             await expect(page.locator("#overview")).to_be_visible()
             await expect(page.locator("#video-review")).to_be_visible()
+            await expect(page.locator("#ai-learner")).to_be_hidden()
             # The preview never starts itself and the page never creates
             # a competing Playwright profile or a second native window.
             opened=[]
