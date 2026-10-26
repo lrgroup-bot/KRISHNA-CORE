@@ -17,6 +17,7 @@ import time
 
 from suryadev_lock import worker_lock
 from suryadev_resources import admission
+from suryadev_browser_engine import require_garudanetra, browser_identity
 from suryadev_video_browser_probe import (
     CHANNELS, TRIAL_VIDEO, observed_expected_video, validated_video,
 )
@@ -152,15 +153,14 @@ def classify_sweep(samples, *, rates=RATES):
     return result
 
 
-def run(root, *, url=TRIAL_VIDEO, channel="chrome",
+def run(root, *, url=TRIAL_VIDEO, channel="chromium",
         per_speed_seconds=16, sample_seconds=2, total_seconds=115,
         rates=RATES):
     validated_video(url)
     rates = tuple(rates)
     if not rates or len(set(rates)) != len(rates) or any(x not in RATES for x in rates):
         raise ValueError("Only unique speeds from 1x, 1.5x, 2x, 3x are allowed")
-    if channel not in CHANNELS:
-        raise ValueError("Choose a supported local channel: chrome, msedge, chromium")
+    require_garudanetra(channel)
     if not 12 <= per_speed_seconds <= 30:
         raise ValueError("per-speed seconds must be 12..30")
     if not 1 <= sample_seconds <= 3:
@@ -315,6 +315,7 @@ def run(root, *, url=TRIAL_VIDEO, channel="chrome",
         report={
             "schema":"suryadev.video-speed-sweep.v1",
             "video_url":url,"browser_channel":channel,
+            "browser_identity":browser_identity(),
             "started_at":started,"finished_at":time.time(),
             "cpu_percent_at_start":telemetry.get("cpu_percent"),
             "ram_percent_at_start":telemetry.get("ram_percent"),
@@ -343,7 +344,7 @@ def main(argv=None):
     p=argparse.ArgumentParser(description="One public video: 1x, 1.5x, 2x, 3x actual playback test")
     p.add_argument("--data",required=True,type=Path)
     p.add_argument("--video",default=TRIAL_VIDEO)
-    p.add_argument("--channel",choices=sorted(CHANNELS),default="chrome")
+    p.add_argument("--channel",choices=sorted(CHANNELS),default="chromium")
     p.add_argument("--per-speed-seconds",type=int,default=16)
     p.add_argument("--seconds",type=int,default=115)
     p.add_argument("--rate",type=float,choices=RATES,default=None,
