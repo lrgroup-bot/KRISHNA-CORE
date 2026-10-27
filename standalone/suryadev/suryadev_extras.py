@@ -654,7 +654,8 @@ def work_loop(lib, interval, use_ollama, model, *,
     # distinct books can progress concurrently under one worker lock.
     from suryadev_parallel_books import ParallelBookReader
     books = (ParallelBookReader(lib.root, book_plan_path, model=model,
-                               use_ollama=use_ollama,vision_model=book_visual_model)
+                               use_ollama=use_ollama,vision_model=book_visual_model,
+                               fast_mode=os.environ.get("SURYADEV_BOOK_FAST") == "1")
              if book_plan_path else None)
     collect_books = (BookEvidenceCollector(lib.root, book_collect_plan_path)
                      if book_collect_plan_path else None)
@@ -844,6 +845,16 @@ def work_loop(lib, interval, use_ollama, model, *,
                 if mission["phase"] != "work":
                     worker_note(lib.root, "paused", interval,
                                 mission["note"], next_check_at=time.time()+min(30,interval))
+                elif end_active and not adaptive.futures:
+                    # The source pool's heartbeat was emitted before books
+                    # and video observers were admitted. An active book
+                    # MUST not be shown as "idle" just because there are
+                    # zero PDF/website/caption source tasks.
+                    book_active = len(books.futures) if books else 0
+                    video_active = len(videos.futures)
+                    worker_note(lib.root, "busy", interval,
+                                f"{book_active} book + {video_active} video tasks active",
+                                next_check_at=time.time()+2)
                 wait = 2 if end_active else interval
                 if mission["phase"] != "work":
                     wait = min(wait, 30)
