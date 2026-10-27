@@ -2,7 +2,7 @@ KRISHNA OWNER HARDWARE INVENTORY
 ===============================
 Purpose: Persistent source-of-truth inventory for hardware/electronics already owned by the owner.
 Rule: When the owner identifies or adds hardware, append/update it here rather than creating another inventory file.
-Last updated: 2026-10-12
+Last updated: 2026-10-27
 
 COMPUTER COMPONENTS
 -------------------
@@ -288,6 +288,19 @@ ROBOTICS / RC / MOBILE PLATFORMS
    - Potential LR Group use: low-bandwidth lab/legacy network or temporary device-isolation network
    - Limitation: 100 Mbps wired interfaces and 2.4 GHz Wireless N make it unsuitable for the main KRISHNA/LR Group high-speed server, CCTV aggregation or large-file-transfer backbone
    - Action: Verify power adapter, firmware version, working condition, Wi-Fi stability and factory-reset/update status before deployment
+
+
+20. YES Visualox DPF-707 digital photo frame
+   - Status: Owned; USB photo slideshow confirmed working by owner (2026-10-27)
+   - Display: 7-inch LCD digital photo frame; exact LCD panel model/resolution TO VERIFY
+   - Power: 5V DC, 1A (label)
+   - Ports confirmed: USB-A 2.0 host, SD card slot, DC power input; no video input reported
+   - Tested function: Reads photos from USB storage and plays slideshow
+   - Potential KRISHNA role: Static or periodically refreshed status/dashboard image viewer via USB storage; automatic refresh of modified files NOT VERIFIED
+   - Live monitor capability: NOT VERIFIED; USB-A host is not an HDMI/video input. Wi-Fi/Bluetooth USB dongles are not expected to work without compatible firmware/drivers.
+   - Alternative conversion: Identify internal LCD panel and ribbon interface; evaluate a matching HDMI controller only after compatibility verification
+   - Safety: Do not connect two USB-A host ports directly, connect 5V to an unidentified LCD panel, or buy a generic USB-HDMI/Wi-Fi dongle assuming video support
+   - Next test: Check slideshow discovery of newly added JPGs after safe USB removal/reinsertion; photograph internal LCD panel label only if opened unplugged
 
 INVENTORY POLICY
 ----------------
