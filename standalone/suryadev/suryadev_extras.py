@@ -101,7 +101,15 @@ def _send_http_response(handler, status, mime, body):
         handler.send_header("Content-Length", str(len(body)))
         handler.send_header("Cache-Control", "no-store")
         handler.send_header("X-Content-Type-Options", "nosniff")
-        handler.send_header("Content-Security-Policy", "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-src https://www.youtube-nocookie.com")
+        # The preview is optional and owner-operated. Do not permit the old
+        # official YouTube iframe, or any remote frame by default. Only the
+        # validated loopback Invidious origin can be framed after opt-in.
+        from suryadev_ai_player import player_config
+        player = player_config()
+        frame_source = player["origin"] if player["configured"] else "'none'"
+        handler.send_header("Content-Security-Policy",
+            "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
+            "form-action 'self'; base-uri 'none'; frame-src " + frame_source)
         handler.end_headers()
         handler.wfile.write(body)
     except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
