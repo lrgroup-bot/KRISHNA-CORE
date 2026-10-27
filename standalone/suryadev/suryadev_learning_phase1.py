@@ -112,6 +112,10 @@ def _video_recovery_diagnosis(rows, *, journal_safe, selection=None,
                      for x in selection["job_ids"]))
     selectable_empty=(selection_exists and trial_valid and
                       not selection["job_ids"])
+    selected_fresh = (
+        len(set(selection["job_ids"]) &
+            {x["job_id"] for x in rows if x["eligible_for_first_observation"]})
+        if selection_exists and trial_valid else 0)
     reasons=[]
     if not journal_safe:
         reasons.append("attempt_history_invalid")
@@ -136,6 +140,7 @@ def _video_recovery_diagnosis(rows, *, journal_safe, selection=None,
         "saved_trial_selection_frozen":bool(
             selection_exists and trial_valid and selection["job_ids"]),
         "fresh_approved_ready":fresh if journal_safe else None,
+        "fresh_videos_in_saved_selection":selected_fresh if journal_safe else None,
         "media_http_403_events":http_403,
         "media_interrupted_videos":media_interruptions,
         "zero_caption_videos":missing_captions,
@@ -145,18 +150,21 @@ def _video_recovery_diagnosis(rows, *, journal_safe, selection=None,
             if not journal_safe else
             "Inspect invalid saved trial; do not overwrite approval evidence."
             if not trial_valid else
-            "Fresh approved videos are available; check the worker's automatic "
-            "observation setting and saved trial restrictions."
-            if fresh else
+            "Fresh and already selected video jobs exist; check the worker's "
+            "automatic observation setting and hardware capacity."
+            if selected_fresh else
+            "The saved trial is frozen to previously selected videos; adding "
+            "unselected new URLs does not widen it. A separately approved "
+            "trial generation is required, preserving the old evidence."
+            if selection_exists and trial_valid and selection["job_ids"] else
             "The saved trial is empty. A brand-new exact YouTube URL explicitly "
-            "approved by the operator can be selected through the existing guarded "
-            "empty-selection recovery when automatic video observation is enabled. "
+            "approved by the operator can be selected through guarded "
+            "empty-selection recovery when automation is enabled. "
             "Previously attempted videos must not be silently replayed."
             if selectable_empty else
-            "The saved trial is frozen. A new explicitly authorized generation "
-            "is needed for fresh lessons; never delete old attempt evidence. "
-            "Previously attempted videos require a separately audited retry."
-            if selection_exists else
+            "There are fresh approved URLs but no saved trial. An explicit "
+            "video target is required to activate an initial observation."
+            if fresh else
             "No video trial has been selected. New exact approved URLs require "
             "a first explicit target/activation; never replay historical attempts."
         ),
