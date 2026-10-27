@@ -96,7 +96,8 @@ class ReadinessTests(unittest.TestCase):
             (root/"book-plan.json").write_text(json.dumps({
                 "books":[{"path":"pinned-sample.pdf"}]}),encoding="utf-8")
             (root/"book-concurrent-runtime.json").write_text(json.dumps({
-                "active":0,"updated_at":998.0}),encoding="utf-8")
+                "active":0,"updated_at":998.0,
+                "fast_mode":True,"batch_target_lines":40}),encoding="utf-8")
             (root/"capacity-runtime.json").write_text(json.dumps({
                 "max_total":2,"reserved_book_slots":0,
                 "sample_time":998.0,"queued":{}}),encoding="utf-8")
@@ -108,6 +109,8 @@ class ReadinessTests(unittest.TestCase):
                 "learning_role":"local_inference"},now=1000.0)
             self.assertEqual(result["worker_model"],"qwen3.5:2b")
             self.assertEqual(result["learning_role"],"local_inference")
+            self.assertTrue(result["book_fast_mode"])
+            self.assertEqual(result["book_batch_target_lines"],40)
             self.assertEqual(result["admitted_slots"],2)
             self.assertEqual(result["reserved_book_slots"],0)
             self.assertEqual(result["book_last_state"],"book_paused_error")
