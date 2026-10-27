@@ -61,12 +61,17 @@ def select_trial_videos(root, urls, *, previously_tried, recover_empty=False):
     selection is malformed, even if a different approved URL becomes available.
     """
     count = trial_cap("video")
-    if count is None:
+    # An earlier, operator-authorized video trial is already durable.
+    # Restarting with --auto-approved-videos but without repeating the
+    # --video-target option must honor the ORIGINAL frozen target; it must
+    # not silently create a fresh wider trial, replay jobs, or ignore a
+    # previously saved empty selection that can be safely repaired.
+    root = Path(root).resolve()
+    selection = root / VIDEO_FILE
+    if count is None and not selection.exists():
         return None
     if count == 0:
         return frozenset()
-    root = Path(root).resolve()
-    selection = root / VIDEO_FILE
     allowed = {video_job_id(url) for url in urls}
     if selection.exists():
         if selection.is_symlink() or selection.stat().st_size > 8192:
@@ -76,6 +81,13 @@ def select_trial_videos(root, urls, *, previously_tried, recover_empty=False):
         except (OSError, ValueError, UnicodeError) as exc:
             raise RuntimeError("Unreadable video trial selection file") from exc
         ids = state.get("job_ids") if isinstance(state, dict) else None
+        saved_target = state.get("target") if isinstance(state, dict) else None
+        # An absent CURRENT cap can only inherit a validated PREVIOUS cap.
+        # Explicitly changed caps retain the existing mismatch rejection.
+        if count is None:
+            if type(saved_target) is not int or not 1 <= saved_target <= 3:
+                raise RuntimeError("Invalid saved video target; refusing automatic observation")
+            count = saved_target
         if (not isinstance(state, dict) or state.get("schema") != VIDEO_SCHEMA or
                 state.get("target") != count or not isinstance(ids, list) or
                 len(ids) > count or len(ids) != len(set(ids)) or
@@ -84,7 +96,8 @@ def select_trial_videos(root, urls, *, previously_tried, recover_empty=False):
             raise RuntimeError("Corrupt/mismatched video trial selection: no new videos")
         # Repair ONLY the empty selection produced by old staged-job
         # misclassification, and only under an explicit active video-target
-        # opt-in. Never add to a nonempty/frozen selection, replay attempts,
+        # opt-in (or the already saved original target on a resumed trial).
+        # Never add to a nonempty/frozen selection, replay attempts,
         # change approved URLs or erase the original trial receipt.
         if ids or not recover_empty:
             return frozenset(ids) & allowed
