@@ -57,7 +57,14 @@ class FastBookTests(unittest.TestCase):
                     (bid,"ollama:local-test")))
                 self.assertEqual(journal,[(1,20),(21,60),(61,100)])
                 status=reloaded.status(bid)
-                self.assertEqual(status["sessions"]["ollama:local-test"]["model_steps_completed"],3)
+                reading=status["sessions"]["ollama:local-test"]
+                self.assertEqual(reading["model_steps_completed"],3)
+                self.assertEqual(reading["recent_checkpoint_count"],3)
+                self.assertEqual(reading["recent_checkpoint_lines"],100)
+                self.assertIsNotNone(reading["last_committed_at"])
+                self.assertGreaterEqual(reading["recent_model_seconds"],0)
+                # Timing is model-call-only; neither processing nor timing
+                # implies independently verified comprehension.
                 self.assertFalse(status["comprehension_verified"])
             finally:
                 reloaded.close()
