@@ -107,6 +107,48 @@ class PhaseOneAcceptanceTests(unittest.TestCase):
             self.assertFalse(report["recovery"]["safe_to_autoreplay_attempted"])
             self.assertEqual(report["recovery"]["fresh_approved_ready"],0)
 
+    def test_empty_saved_trial_is_recoverable_only_for_new_unattempted_url(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            plan(root)
+            for url in URLS:
+                (root/"video-review"/"runtime"/"jobs"/video_job_id(url)).mkdir(
+                    parents=True,exist_ok=True)
+            (root/"video-trial-selection.json").write_text(json.dumps({
+                "schema":"suryadev.video-trial-selection.v1",
+                "target":3, "job_ids":[]
+            }),encoding="utf-8")
+            report=phase1(root)
+            self.assertEqual(report["result"],"BLOCKED_NO_NEW_APPROVED_VIDEO")
+            self.assertTrue(report["recovery"]["saved_trial_selection_empty_recoverable"])
+            self.assertFalse(report["recovery"]["saved_trial_selection_frozen"])
+            self.assertIn("brand-new",report["recovery"]["next_action"])
+            self.assertFalse(report["recovery"]["safe_to_autoreplay_attempted"])
+
+    def test_nonempty_saved_trial_requires_explicit_new_generation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            plan(root)
+            (root/"video-trial-selection.json").write_text(json.dumps({
+                "schema":"suryadev.video-trial-selection.v1",
+                "target":3, "job_ids":[video_job_id(URLS[0])]
+            }),encoding="utf-8")
+            report=phase1(root)
+            self.assertTrue(report["recovery"]["saved_trial_selection_frozen"])
+            self.assertFalse(report["recovery"]["saved_trial_selection_empty_recoverable"])
+            self.assertIn("frozen",report["recovery"]["next_action"])
+
+    def test_invalid_saved_trial_fail_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            plan(root)
+            (root/"video-trial-selection.json").write_text('{"schema":"bad"}',
+                                                             encoding="utf-8")
+            report=phase1(root)
+            self.assertFalse(report["recovery"]["saved_trial_selection_valid"])
+            self.assertIn("trial_selection_invalid",report["recovery"]["reasons"])
+            self.assertIn("invalid",report["recovery"]["next_action"])
+
     def test_clock_advance_and_candidate_chunk_never_equal_comprehension(self):
         report=assess_video({
             "status":"AWAITING_SERVER_ACK",
