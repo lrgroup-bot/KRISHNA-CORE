@@ -157,8 +157,18 @@ class DashboardWorkerControl:
             "workspace_previous_retained":bool(is_fresh),
             "preferred_model":workspace.get("trial_model", "qwen3.5:2b") if is_fresh else None,
             "managed_model":self.running_model if active else None,
-            "learning_role":"collector_only" if self.running_model == "collector" and active else
-                            "local_inference" if active else "inactive",
+            # A CLI-launched worker owns the SAME canonical OS lock but is
+            # not a child of this dashboard. Its actual model is unknown
+            # here: don't falsely mark it "inactive" or borrow a stale model.
+            "learning_role":("collector_only" if self.running_model == "collector" else
+                             "local_inference") if active else
+                            "external_worker" if external_lock and fresh and
+                                pulse.get("state") not in ("offline","stopped") else
+                            "external_lock_only" if external_lock else "inactive",
+            "worker_owner":"dashboard" if active else
+                           "external_process" if external_lock else "none",
+            "managed_model_source":"dashboard_process" if active else
+                                   "not_reported",
             "paired_core_host_delegation":delegated,
             "paired_core_approved_host_count":host_count,
             "core_dispatch": core,
