@@ -79,7 +79,8 @@ def assess_video(record, *, attempted, has_runtime, historical):
     }
 
 
-def _video_recovery_diagnosis(rows, *, journal_safe):
+def _video_recovery_diagnosis(rows, *, journal_safe, selection=None,
+                              selection_exists=False):
     """Read-only classification of observed delivery/coverage failures.
 
     Never assumes a playback provider bypass, silently schedules a retry,
@@ -98,10 +99,25 @@ def _video_recovery_diagnosis(rows, *, journal_safe):
             if isinstance(request, dict) and request.get("status") == 403:
                 http_403 += 1
     fresh=sum(bool(x["eligible_for_first_observation"]) for x in rows)
+    trial_valid=(not selection_exists or
+                 isinstance(selection,dict) and
+                 selection.get("schema") == "suryadev.video-trial-selection.v1" and
+                 type(selection.get("target")) is int and
+                 1 <= selection["target"] <= 3 and
+                 isinstance(selection.get("job_ids"),list) and
+                 len(selection["job_ids"]) <= selection["target"] and
+                 len(set(str(x) for x in selection["job_ids"])) == len(selection["job_ids"]) and
+                 all(isinstance(x,str) and x.startswith("approved-video-")
+                     and len(x) == len("approved-video-")+16
+                     for x in selection["job_ids"]))
+    selectable_empty=(selection_exists and trial_valid and
+                      not selection["job_ids"])
     reasons=[]
     if not journal_safe:
         reasons.append("attempt_history_invalid")
-    elif not fresh:
+    if not trial_valid:
+        reasons.append("trial_selection_invalid")
+    if journal_safe and not fresh:
         reasons.append("no_fresh_approved_video")
     if http_403:
         reasons.append("youtube_media_http_403_observed")
@@ -115,6 +131,10 @@ def _video_recovery_diagnosis(rows, *, journal_safe):
         "schema":"suryadev.youtube-recovery.v1",
         "safe_to_autoreplay_attempted":False,
         "automatic_retry_authorized":False,
+        "saved_trial_selection_valid":trial_valid,
+        "saved_trial_selection_empty_recoverable":bool(selectable_empty),
+        "saved_trial_selection_frozen":bool(
+            selection_exists and trial_valid and selection["job_ids"]),
         "fresh_approved_ready":fresh if journal_safe else None,
         "media_http_403_events":http_403,
         "media_interrupted_videos":media_interruptions,
@@ -123,12 +143,22 @@ def _video_recovery_diagnosis(rows, *, journal_safe):
         "next_action":(
             "Inspect damaged attempt history; do not overwrite/replay receipts."
             if not journal_safe else
-            "Start only new exact previously approved, unattempted videos in the current worker."
+            "Inspect invalid saved trial; do not overwrite approval evidence."
+            if not trial_valid else
+            "Fresh approved videos are available; check the worker's automatic "
+            "observation setting and saved trial restrictions."
             if fresh else
-            "The existing one-time selection is exhausted. Another generation of "
-            "explicitly authorized, fresh approved lessons is needed; merely adding URLs "
-            "does not reset the frozen selection. A separately audited retry of failed "
-            "attempts requires separate operator authorization and retained evidence."
+            "The saved trial is empty. A brand-new exact YouTube URL explicitly "
+            "approved by the operator can be selected through the existing guarded "
+            "empty-selection recovery when automatic video observation is enabled. "
+            "Previously attempted videos must not be silently replayed."
+            if selectable_empty else
+            "The saved trial is frozen. A new explicitly authorized generation "
+            "is needed for fresh lessons; never delete old attempt evidence. "
+            "Previously attempted videos require a separately audited retry."
+            if selection_exists else
+            "No video trial has been selected. New exact approved URLs require "
+            "a first explicit target/activation; never replay historical attempts."
         ),
         "provider_note":(
             "Googlevideo HTTP 403 was observed. Check normal service availability and "
@@ -152,6 +182,8 @@ def phase1(root):
          and isinstance(journal.get("job_ids"),list)
          and all(isinstance(x,str) for x in journal["job_ids"])))
     attempted=set(journal.get("job_ids",[])) if journal_safe and journal else set()
+    selection_path=root/"video-trial-selection.json"
+    selection=_safe_json(selection_path,max_bytes=8192)
     state=_safe_json(root/"video-review"/"runtime"/"worker-state.json")
     raw_jobs=state.get("jobs",{}) if isinstance(state,dict) else {}
     history=raw_jobs if isinstance(raw_jobs,dict) else {}
@@ -190,7 +222,9 @@ def phase1(root):
             "independent_closed_book_comprehension_verification",
         ],
         "videos":rows,
-        "recovery":_video_recovery_diagnosis(rows,journal_safe=journal_safe),
+        "recovery":_video_recovery_diagnosis(
+            rows,journal_safe=journal_safe,selection=selection,
+            selection_exists=selection_path.exists()),
     }
 
 
