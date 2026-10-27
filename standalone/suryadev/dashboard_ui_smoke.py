@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import socket
 from pathlib import Path
 import tempfile
@@ -206,6 +207,9 @@ async def browser_video_review_check(port, approved_url):
         try:
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
+            # Prove the default is fail-closed even if a developer's machine
+            # has an unrelated Invidious environment configuration.
+            previous_player_origin = os.environ.pop("SURYADEV_LOCAL_INVIDIOUS_ORIGIN", None)
             page.on("pageerror", lambda exc: errors.append(str(exc)))
             await page.goto(f"http://127.0.0.1:{port}/advanced#video-review", wait_until="domcontentloaded")
             await expect(page.locator("#video-review")).to_have_count(1)
@@ -249,10 +253,8 @@ async def browser_video_review_check(port, approved_url):
             await expect(page.locator("#ai-learner-book-tools")).to_be_hidden()
             await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("YouTube")
             await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
-            # External media is not contacted by this smoke. Opening the
-            # approved preview is a frontend-only, explicit user gesture.
-            await page.route("https://www.youtube-nocookie.com/**",
-                             lambda route: route.abort())
+            # Missing local player must disable preview: no YouTube fallback,
+            # provider request, new window, or artificial learning evidence.
             popups=[]
             page.on("popup", lambda popup: popups.append(popup))
             await page.locator('a[href="#ai-learner"]').click()
@@ -261,10 +263,34 @@ async def browser_video_review_check(port, approved_url):
             await expect(page.locator("#video-review")).to_be_hidden()
             await expect(page.locator("#ai-learner-video-choice option")).to_have_count(
                 1,timeout=12000)
+            await expect(page.locator("#ai-learner-open-preview")).to_be_disabled()
+            await expect(page.locator("#ai-learner-preview-hint")).to_contain_text(
+                "not configured")
+            await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
+
+            # Simulate *explicit* local opt-in with an isolated, mocked loopback
+            # embed. We exercise the real server CSP and browser iframe, while
+            # never starting an Invidious process or requesting external media.
+            local_origin = "http://127.0.0.1:" + str(available_port())
+            os.environ["SURYADEV_LOCAL_INVIDIOUS_ORIGIN"] = local_origin
+            await page.route(local_origin + "/embed/**", lambda route: route.fulfill(
+                status=200, content_type="text/html",
+                body='<html><body><p id="local-video-stub">Local preview fixture</p></body></html>'))
+            response = await page.reload(wait_until="domcontentloaded")
+            assert response is not None
+            policy = response.headers.get("content-security-policy", "")
+            assert "frame-src " + local_origin in policy, policy
+            assert "youtube-nocookie" not in policy, policy
+            await expect(page.locator("#ai-learner")).to_be_visible(timeout=12000)
+            await expect(page.locator("#ai-learner-video-choice option")).to_have_count(
+                1,timeout=12000)
+            await expect(page.locator("#ai-learner-open-preview")).to_be_enabled(
+                timeout=12000)
             await page.locator("#ai-learner-open-preview").click()
-            await expect(page.locator("#ai-learner-player iframe")).to_have_count(1)
             await expect(page.locator("#ai-learner-player iframe")).to_have_attribute(
-                "src","https://www.youtube-nocookie.com/embed/mgBpcQRDtl0")
+                "src", local_origin + "/embed/mgBpcQRDtl0")
+            await expect(page.frame_locator("#ai-learner-player iframe").locator(
+                "#local-video-stub")).to_have_text("Local preview fixture",timeout=12000)
             await page.locator("#ai-tab-pdf").click()
             await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
             assert not popups, "Approved YouTube preview opened a new OS/browser window"
@@ -332,6 +358,11 @@ async def browser_video_review_check(port, approved_url):
                     "unrequested_iframe_count":0,
                     "javascript_errors":errors}
         finally:
+            if 'previous_player_origin' in locals():
+                if previous_player_origin is None:
+                    os.environ.pop("SURYADEV_LOCAL_INVIDIOUS_ORIGIN", None)
+                else:
+                    os.environ["SURYADEV_LOCAL_INVIDIOUS_ORIGIN"] = previous_player_origin
             await browser.close()
 
 
