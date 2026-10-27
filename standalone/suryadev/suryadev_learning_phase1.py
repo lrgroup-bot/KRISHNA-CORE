@@ -125,9 +125,10 @@ def _video_recovery_diagnosis(rows, *, journal_safe):
             if not journal_safe else
             "Start only new exact previously approved, unattempted videos in the current worker."
             if fresh else
-            "The approved one-time trial is exhausted. Supply new exact authorized lessons "
-            "through the existing approval/paired-Core mission policy, or explicitly "
-            "authorize a separately audited retry; do not erase prior evidence."
+            "The existing one-time selection is exhausted. Another generation of "
+            "explicitly authorized, fresh approved lessons is needed; merely adding URLs "
+            "does not reset the frozen selection. A separately audited retry of failed "
+            "attempts requires separate operator authorization and retained evidence."
         ),
         "provider_note":(
             "Googlevideo HTTP 403 was observed. Check normal service availability and "
