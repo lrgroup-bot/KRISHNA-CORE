@@ -302,6 +302,16 @@ ROBOTICS / RC / MOBILE PLATFORMS
    - Safety: Do not connect two USB-A host ports directly, connect 5V to an unidentified LCD panel, or buy a generic USB-HDMI/Wi-Fi dongle assuming video support
    - Next test: Check slideshow discovery of newly added JPGs after safe USB removal/reinsertion; photograph internal LCD panel label only if opened unplugged
 
+
+OWNER-CONFIRMED CONSOLE AND SECURITY DEVICE COUNTS (2026-10-27)
+---------------------------------------------------------
+- Sony PlayStation 3: 2 units total (one Fat/original, one Slim). Existing item 15 (PS3 Fat CECHK08) is INCLUDED in this count; do not double-count. Slim model, condition and accessories: TO VERIFY.
+- Sony PlayStation 2: 1 unit. Exact model, working condition and accessories: TO VERIFY.
+- Nintendo game console: 1 unit. Exact Nintendo model, working condition and accessories: TO VERIFY.
+- Security alarm devices: 2 units. Brand, model, sensor types, connectivity, power requirements and working condition: TO VERIFY. Do not assume CCTV/NVR compatibility.
+- Total owner-confirmed devices in this group: 6 physical units (including existing item 15).
+- Next action: Inspect labels and ports, test safe power-up, and assign reuse roles only after identification.
+
 INVENTORY POLICY
 ----------------
 - Do not assume unknown specifications; mark them TO VERIFY.
