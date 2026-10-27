@@ -305,7 +305,7 @@ ROBOTICS / RC / MOBILE PLATFORMS
 
 OWNER-CONFIRMED CONSOLE AND SECURITY DEVICE COUNTS (2026-10-27)
 ---------------------------------------------------------
-- Sony PlayStation 3: 2 units total (one Fat/original, one Slim). Existing item 15 (PS3 Fat CECHK08) is INCLUDED in this count; do not double-count. Slim model, condition and accessories: TO VERIFY.
+- Sony PlayStation 3: 2 units total. Unit A: Fat/original CECHK08 (existing item 15, INCLUDED in count). Unit B: Super Slim CECH-4308C (owner photo 2026-10-27), region suffix 08, label 220-240V AC 0.85A 50/60Hz; 500GB is model-family nominal configuration, installed drive capacity TO VERIFY. Condition and accessories for Unit B: TO VERIFY. Do not double-count. Serial numbers intentionally not recorded.
 - Sony PlayStation 2 Slim: 1 unit, model SCPH-90004, PAL region (owner photo 2026-10-27). Label input AC 220-240V 50/60Hz, rated 35W, Made in China. Working condition and accessories: TO VERIFY. Serial number intentionally not recorded.
 - Nintendo game console: 1 unit. Exact Nintendo model, working condition and accessories: TO VERIFY.
 - Security alarm devices: 2 units owner-reported. Both units confirmed by owner as Kumoh M-5000R (Made in Korea); one unit photographed, security alarm controller. Label: DC 12V 7.5A input; DC 5V 2A x 5 ports output. Five USB-A-shaped ports labelled PORT 1 through PORT 5 and SENSOR; small additional port visible, function TO VERIFY. Quantity: 2 identical-model units (owner confirmed 2026-10-27); individual condition and accessories: TO VERIFY. Working condition, sensor protocol and accessories: TO VERIFY. Do not assume ports support ordinary USB devices or CCTV/NVR integration; verify polarity, power and interface before connecting anything.
