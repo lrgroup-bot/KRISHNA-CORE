@@ -47,7 +47,9 @@ class EngineIdentityTests(unittest.TestCase):
             self.assertIn('id="'+id_+'"',html)
         self.assertNotIn("window.open(",js)
         self.assertNotIn("target='_blank'",html)
-        self.assertIn("https://www.youtube-nocookie.com/embed/",js)
+        self.assertIn('"/api/ai-learner/player"',js)
+        self.assertIn('frame.src=origin+"/embed/"+id',js)
+        self.assertNotIn("https://www.youtube-nocookie.com/embed/",js)
 
     def test_ai_learner_has_local_pdf_website_book_evidence_views(self):
         root=Path(__file__).resolve().parents[1]
@@ -73,7 +75,9 @@ class EngineIdentityTests(unittest.TestCase):
     def test_video_remains_unverified_and_does_not_install_third_party_players(self):
         root=Path(__file__).resolve().parents[1]
         frontend=(root/"dashboard-ai-learner.js").read_text(encoding="utf-8")
-        self.assertIn("https://www.youtube-nocookie.com/embed/", frontend)
+        self.assertIn('frame.src=origin+"/embed/"+id', frontend)
+        self.assertIn("source_currently_approved===true", frontend)
+        self.assertNotIn("https://www.youtube-nocookie.com/embed/", frontend)
         self.assertIn("Latest GARUDANETRA media observation", frontend)
         self.assertIn("learning not verified", frontend)
         self.assertIn("Rishi examination: not verified", frontend)
