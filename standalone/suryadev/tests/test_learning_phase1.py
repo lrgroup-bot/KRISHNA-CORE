@@ -62,6 +62,51 @@ class PhaseOneAcceptanceTests(unittest.TestCase):
             self.assertTrue(report["videos"][-1]["eligible_for_first_observation"])
             self.assertFalse(report["videos"][0]["eligible_for_first_observation"])
 
+    def test_recovery_classifies_provider_block_and_protects_old_attempts(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            plan(root)
+            jid=video_job_id(URLS[0])
+            folder=root/"video-review"/"runtime"/"jobs"/jid
+            folder.mkdir(parents=True)
+            (root/"video-observer-attempts.json").write_text(json.dumps({
+                "schema":"suryadev.video-attempts.v1", "job_ids":[jid]
+            }),encoding="utf-8")
+            inbox=root/"video-review"/"approved-inbox"
+            inbox.mkdir(parents=True)
+            (inbox/(jid+".json")).write_text(json.dumps({
+                "schema":"krishna.suryadev.job.v1","job_id":jid,
+                "kind":"video_research","target":URLS[0]
+            }),encoding="utf-8")
+            (folder/"learning-bundle.json").write_text(json.dumps({
+                "session":{"end_reason":"media_unloaded_after_playback",
+                           "garudanetra_media":{"media_http_errors":[
+                               {"status":403,"host":"rr1---sn.googlevideo.com"}]}},
+                "transcript":{"line_count":0}
+            }),encoding="utf-8")
+            report=phase1(root)
+            recovery=report["recovery"]
+            self.assertEqual(recovery["media_http_403_events"],1)
+            self.assertEqual(recovery["media_interrupted_videos"],1)
+            self.assertEqual(recovery["zero_caption_videos"],1)
+            self.assertIn("youtube_media_http_403_observed",recovery["reasons"])
+            self.assertFalse(recovery["safe_to_autoreplay_attempted"])
+            self.assertFalse(recovery["automatic_retry_authorized"])
+            self.assertTrue(report["no_mutations"])
+            self.assertEqual(report["fresh_eligible_videos"],3)
+
+    def test_recovery_empty_approvals_or_history_not_silently_replayed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            plan(root)
+            for url in URLS:
+                (root/"video-review"/"runtime"/"jobs"/video_job_id(url)).mkdir(
+                    parents=True,exist_ok=True)
+            report=phase1(root)
+            self.assertIn("no_fresh_approved_video",report["recovery"]["reasons"])
+            self.assertFalse(report["recovery"]["safe_to_autoreplay_attempted"])
+            self.assertEqual(report["recovery"]["fresh_approved_ready"],0)
+
     def test_clock_advance_and_candidate_chunk_never_equal_comprehension(self):
         report=assess_video({
             "status":"AWAITING_SERVER_ACK",
