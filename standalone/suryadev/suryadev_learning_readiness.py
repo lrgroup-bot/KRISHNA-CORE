@@ -69,10 +69,22 @@ def snapshot(root, app, *, control=None, now=None):
                           0 <= now-float(book_updated) < FRESH_SECONDS)
     book_active = book_runtime.get("active",0)
     book_active = book_active if type(book_active) is int and book_active>=0 else 0
+    book_last = _safe_read(root, "book-continuity-runtime.json", max_bytes=8192)
+    last_updated = book_last.get("updated_at")
+    book_last_fresh = (type(last_updated) in (int,float) and
+                       0 <= now-float(last_updated) <= 600)
+    book_last_state = str(book_last.get("state") or "") if book_last_fresh else ""
+    book_last_error = (str(book_last.get("error") or "")[:180]
+                       if book_last_fresh and book_last_state == "book_paused_error" else "")
     capacity = _safe_read(root, "capacity-runtime.json", max_bytes=32768)
     updated = capacity.get("sample_time")
     current_capacity = (type(updated) in (int,float)
                         and 0 <= now-float(updated) < FRESH_SECONDS)
+    admitted_slots = (capacity.get("max_total")
+                      if current_capacity and type(capacity.get("max_total")) is int else None)
+    book_reserved_slots = (capacity.get("reserved_book_slots")
+                           if current_capacity and type(capacity.get("reserved_book_slots")) is int
+                           else None)
     queued = capacity.get("queued",{}) if current_capacity else {}
     if not isinstance(queued,dict):
         queued={}
@@ -99,6 +111,12 @@ def snapshot(root, app, *, control=None, now=None):
         reasons.append("Book runtime snapshot is stale; active count cannot establish current reading")
     if approved_books and fresh_book_runtime and book_active == 0:
         reasons.append("Approved books exist but no book task is active")
+        if admitted_slots == 0:
+            reasons.append("No learning slots admitted by the measured resource/mission guard")
+        elif book_reserved_slots == 0:
+            reasons.append("No book capacity reserved this worker cycle; check source/video load")
+    if book_last_error:
+        reasons.append("Last book checkpoint paused: " + book_last_error)
     return {
         "schema":"suryadev.ai-learner-readiness.v1",
         "worker_managed_running":control.get("managed_running") is True,
@@ -114,6 +132,12 @@ def snapshot(root, app, *, control=None, now=None):
             (root/VIDEO_FILE).exists() and not selected_ids and fresh and safe_history),
         "automatic_video_enabled":review.auto_enabled(),
         "approved_books":approved_books,
+        "worker_model":control.get("managed_model"),
+        "learning_role":control.get("learning_role"),
+        "admitted_slots":admitted_slots,
+        "reserved_book_slots":book_reserved_slots,
+        "book_last_state":book_last_state or None,
+        "book_last_error":book_last_error or None,
         "book_runtime_fresh":fresh_book_runtime,
         "reported_active_books":book_active if fresh_book_runtime else None,
         "capacity_fresh":current_capacity,
