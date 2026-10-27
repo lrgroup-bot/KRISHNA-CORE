@@ -145,6 +145,11 @@ def serve(lib, port=8769):
             route = urlsplit(self.path)
             if route.path == "/api/learning/control":
                 return self.respond(200, json.dumps(worker_control.snapshot()), "application/json")
+            if route.path == "/api/ai-learner/player":
+                # Capability discovery only. This never installs/starts an
+                # external player, authorizes a source, or implies playback.
+                from suryadev_ai_player import player_config
+                return self.respond(200, json.dumps(player_config()), "application/json")
             if route.path == "/api/learning/readiness":
                 from suryadev_learning_readiness import snapshot as learning_readiness
                 payload=learning_readiness(lib.root, Path(__file__).resolve().parent,
