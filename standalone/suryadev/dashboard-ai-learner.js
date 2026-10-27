@@ -11,6 +11,7 @@
     const names = {youtube:"YouTube", pdf:"PDF documents",
                    website:"Websites", book:"Books"};
     let selected = "youtube", approved = [], refreshing = false, rerun = false;
+    let playerBackend = {configured:false, provider:"none", origin:""};
     let selectionGeneration = 0, previewJobId = null;
     const results = el("ai-learner-lane-results");
     const summary = el("ai-learner-lane-summary");
@@ -60,6 +61,19 @@
         return id.length===1 && /^[a-zA-Z0-9_-]{11}$/.test(id[0]) ? id[0] : null;
       } catch { return null; }
     }
+    function verifiedLocalPlayer(config) {
+      if (!config || config.schema !== "suryadev.ai-learner-player.v1" ||
+          config.provider !== "invidious-local" || config.configured !== true)
+        return null;
+      try {
+        const url=new URL(config.origin);
+        if (url.protocol !== "http:" ||
+            !["localhost","127.0.0.1","[::1]"].includes(url.hostname) ||
+            !url.port || url.username || url.password ||
+            url.pathname !== "/" || url.search || url.hash) return null;
+        return url.origin;
+      } catch { return null; }
+    }
     function drawVideos(jobs) {
       // An old inbox record is not permanent permission to preview a URL.
       approved=jobs.filter(j => j && j.source_currently_approved===true &&
@@ -78,11 +92,22 @@
         choice.append(o);
       }
       if(approved.some(j=>j.job_id===remembered))choice.value=remembered;
-      el("ai-learner-open-preview").disabled=!approved.length;
+      el("ai-learner-open-preview").disabled=!approved.length ||
+        !verifiedLocalPlayer(playerBackend);
       if(!approved.length) {
         stopPreview();
         el("ai-learner-preview-hint").textContent=
           "No currently approved YouTube video is available for in-page preview.";
+      } else if (!verifiedLocalPlayer(playerBackend)) {
+        stopPreview();
+        el("ai-learner-preview-hint").textContent=
+          "An ad-free-capable local player is not configured. Set up your own " +
+          "Invidious service and restart SURYADEV with SURYADEV_LOCAL_INVIDIOUS_ORIGIN. " +
+          "No separate .exe or window will be opened.";
+      } else if (!previewJobId) {
+        el("ai-learner-preview-hint").textContent=
+          "Local Invidious preview is configured, not verified running. Click to load " +
+          "one currently approved video inside this page; not a learning receipt.";
       }
     }
     function select(lane) {
@@ -155,9 +180,9 @@
         const source=(live.sources||{})[lane]||{};
         results.replaceChildren();
         if(lane==="youtube") {
-          const [review,audit,phase1]=await Promise.all([
+          const [review,audit,phase1,backend]=await Promise.all([
             json("/api/video/review"),json("/api/youtube/audit"),
-            json("/api/learning/phase1")]);
+            json("/api/learning/phase1"),json("/api/ai-learner/player")]);
           if(lane!==selected || generation!==selectionGeneration)return;
           metric(results,"YouTube jobs",source);
           line(results,"Standalone YouTube Phase 1: "+String(phase1.result||"unverified")+
@@ -178,6 +203,7 @@
               (media.source_position_seconds??"not recorded")+"s · measured speed ceiling: "+
               (media.measured_speed_ceiling_x??"unverified")+"× · learning not verified");
           }
+          playerBackend=backend;
           drawVideos(Array.isArray(review.jobs)?review.jobs:[]);
           summary.textContent=(review.auto_enabled?"Approved-video observation enabled":"Video observation not enabled")+
             " · Active: "+(review.active_job||"none")+
@@ -195,7 +221,12 @@
             results.append(wrap);
           }
           line(results,"Observer records above are historical. Continuous video learning uses the single supervised worker; a successful short playback test does not verify a complete lecture.");
-          line(results,"The embedded official YouTube player can display ads. FreeTube/Invidious are separate architectures, not installed here. Manual preview does not authorize new learning or produce an evidence receipt.");
+          line(results,"In-page optional player: "+
+            (verifiedLocalPlayer(playerBackend)
+              ? "owner-configured local Invidious (actual availability/ad-free behavior unverified)"
+              : "unavailable until an owner-controlled local Invidious instance is configured")+
+            " · FreeTube .exe is standalone and cannot be embedded in this dashboard."+
+            " · Preview is never learning evidence, a worker assignment or a Rishi exam.");
         } else if(lane==="book") {
           const info=await json("/api/books");
           if(lane!==selected || generation!==selectionGeneration)return;
@@ -303,12 +334,19 @@
       const id=job?validVideoId(job.target):null;
       stopPreview();
       if(!id){el("ai-learner-preview-hint").textContent="No valid, approved YouTube video is selected.";return;}
-      // Official iframe is intentionally created only on a real user click.
-      // It is a preview; our supervised collector has separate authenticated
-      // job acceptance and MUST NOT count iframe currentTime as learning.
+      // Owner-controlled local Invidious embed opens only on a real click.
+      // It is NOT evidence of observation, comprehension or an advertisement
+      // bypass in the official YouTube IFrame API. No extra window or service
+      // is started, no cookies are read and this does not replay a worker job.
       const frame=document.createElement("iframe");
-      frame.title="Approved YouTube video preview · not learning evidence";
-      frame.src="https://www.youtube-nocookie.com/embed/"+id;
+      frame.title="Owner-configured Invidious video preview · not learning evidence";
+      const origin=verifiedLocalPlayer(playerBackend);
+      if (!origin) {
+        el("ai-learner-preview-hint").textContent=
+          "No configured local Invidious preview service; player not opened.";
+        return;
+      }
+      frame.src=origin+"/embed/"+id;
       frame.setAttribute("sandbox","allow-scripts allow-same-origin allow-presentation");
       frame.setAttribute("allow","encrypted-media; picture-in-picture; fullscreen");
       frame.setAttribute("referrerpolicy","strict-origin-when-cross-origin");
@@ -317,7 +355,8 @@
       player.append(frame);
       previewJobId=job.job_id;
       el("ai-learner-preview-hint").textContent=
-        "Official YouTube preview · advertisements may appear · playback/comprehension not independently verified.";
+        "In-page owner-configured local Invidious preview · availability, ad-free " +
+        "playback and comprehension NOT verified; manual preview is not a learning receipt.";
     });
     el("ai-learner-close-preview").addEventListener("click",()=>stopPreview());
     el("ai-learner-refresh").addEventListener("click",()=>refresh());
