@@ -5,6 +5,7 @@ browser login, transcript spoofing or automatic evidence promotion.
 """
 from __future__ import annotations
 
+import os
 import unittest
 from pathlib import Path
 from suryadev_ai_player import player_config, local_invidious_origin
@@ -53,6 +54,38 @@ class InPagePlayerSafety(unittest.TestCase):
                 local_invidious_origin(origin)
             self.assertFalse(player_config(
                 {"SURYADEV_LOCAL_INVIDIOUS_ORIGIN":origin})["configured"])
+
+    def test_dashboard_csp_defaults_closed_and_only_allows_opted_in_loopback(self):
+        from io import BytesIO
+        from unittest.mock import patch
+        from suryadev_extras import _send_http_response
+
+        class FakeHandler:
+            def __init__(self):
+                self.headers = {}
+                self.wfile = BytesIO()
+            def send_response(self, status):
+                self.status = status
+            def send_header(self, key, value):
+                self.headers[key.lower()] = value
+            def end_headers(self):
+                pass
+
+        examples = (
+            ({}, "frame-src 'none'"),
+            ({"SURYADEV_LOCAL_INVIDIOUS_ORIGIN":"http://localhost:3000"},
+             "frame-src http://127.0.0.1:3000"),
+            ({"SURYADEV_LOCAL_INVIDIOUS_ORIGIN":"http://public.example:3000"},
+             "frame-src 'none'"),
+        )
+        for env, expected in examples:
+            with self.subTest(env=env), patch.dict(os.environ, env, clear=True):
+                handler = FakeHandler()
+                self.assertTrue(_send_http_response(handler, 200, "text/plain", b"ok"))
+                policy = handler.headers["content-security-policy"]
+                self.assertIn(expected, policy)
+                self.assertNotIn("youtube-nocookie.com", policy)
+                self.assertEqual(handler.wfile.getvalue(), b"ok")
 
     def test_canonical_ai_learner_page_is_single_window_four_lanes(self):
         html=(ROOT/"dashboard.html").read_text(encoding="utf-8")
