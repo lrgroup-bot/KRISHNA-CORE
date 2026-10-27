@@ -356,8 +356,25 @@ class BookLedger:
                 "SELECT COUNT(*),COALESCE(SUM(elapsed_seconds),0) "
                 "FROM book_journal WHERE book_id=? AND mode=?",
                 (book_id,mode)).fetchone()
+            # Latest committed steps report actual model-call latency, not
+            # wall time, queue wait after completion, or learning mastery.
+            # This query never launches Ollama or changes an evidence ledger.
+            recent = self.db.execute(
+                "SELECT start_ordinal,end_ordinal,elapsed_seconds,recorded_at "
+                "FROM book_journal WHERE book_id=? AND mode=? "
+                "ORDER BY start_ordinal DESC LIMIT 5", (book_id,mode)
+            ).fetchall()
+            recent_lines = sum(end-start+1 for start,end,_,_ in recent)
+            recent_seconds = sum(max(0.0,seconds) for _,_,seconds,_ in recent)
             read = next_ordinal - 1
             sessions[mode] = {
+                "recent_checkpoint_count":len(recent),
+                "recent_checkpoint_lines":recent_lines,
+                "recent_model_seconds":round(recent_seconds,3),
+                "recent_model_lines_per_minute":(
+                    round(60*recent_lines/recent_seconds,2)
+                    if recent_seconds>0 else None),
+                "last_committed_at":recent[0][3] if recent else None,
                 "lines_processed":read,"lines_total":total,
                 "remaining_lines":total-read,
                 "progress_percent":round(100*read/total,2),
