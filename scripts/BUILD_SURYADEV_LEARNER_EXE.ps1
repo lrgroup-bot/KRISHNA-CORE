@@ -90,4 +90,30 @@ SURYADEV AI Learner for Windows
    If migrating, use --data with an explicitly chosen existing directory.
 '@ | Set-Content -Encoding UTF8 (Join-Path $Package "README-FIRST.txt")
 
+@'
+@echo off
+cd /d "%~dp0"
+if not exist "data\fresh-workspace.json" (
+    echo No initialized SURYADEV learning workspace found beside this EXE.
+    echo Start Suryadev-Learner.exe once to create it.
+    pause
+    exit /b 2
+)
+echo WARNING: This will archive ALL study data, approvals and history.
+echo Close SURYADEV before continuing.
+set /p CHOICE=Type RESET to archive learning and start fresh:
+if /I not "%CHOICE%"=="RESET" (
+    echo Cancelled. No learning files changed.
+    pause
+    exit /b 1
+)
+"%~dp0Suryadev-Learner.exe" --reset-learning --data "%~dp0data" --confirm CLEAR-ALL-SURYADEV-LEARNING
+if errorlevel 1 (
+    echo Reset failed or was blocked; check the messages above.
+) else (
+    echo Reset completed. Run Suryadev-Learner.exe again for the new clean workspace.
+)
+pause
+'@ | Set-Content -Encoding ASCII (Join-Path $Package "RESET-LEARNING.cmd")
+
 Write-Host "FULL SURYADEV AI Learner packaged: $Exe"
