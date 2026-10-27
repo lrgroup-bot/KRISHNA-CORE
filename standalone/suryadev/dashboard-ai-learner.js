@@ -191,6 +191,18 @@
             " · Verified complete learning: NO","strong");
           if(phase1.attempt_journal_valid===false)
             line(results,"Attempt history is invalid; no automatic observer launch is allowed.");
+          const recovery=phase1.recovery||{};
+          if(recovery.schema==="suryadev.youtube-recovery.v1") {
+            line(results,"NEXT YOUTUBE ACTION: "+String(recovery.next_action||"Status not available"),"strong");
+            line(results,"Recorded provider HTTP 403 errors: "+
+              Number(recovery.media_http_403_events||0)+
+              " · Interrupted observations: "+Number(recovery.media_interrupted_videos||0)+
+              " · Videos with zero caption lines: "+Number(recovery.zero_caption_videos||0)+
+              " · No automatic retry of previously attempted lessons.");
+            if(recovery.media_http_403_events>0)
+              line(results,String(recovery.provider_note||"Media request blocked.")+
+                " Preview or transcription is not verified complete learning.");
+          }
           for(const video of (phase1.videos||[]).slice(0,10)) {
             if(video.reasons?.length)line(results,
               String(video.job_id)+" · "+String(video.status)+
