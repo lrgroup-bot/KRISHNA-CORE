@@ -129,6 +129,10 @@ class PhaseOneAcceptanceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
             plan(root)
+            # Previously attempted video remains frozen, even while unrelated
+            # approved videos are fresh; those cannot widen this trial.
+            (root/"video-review"/"runtime"/"jobs"/video_job_id(URLS[0])).mkdir(
+                parents=True,exist_ok=True)
             (root/"video-trial-selection.json").write_text(json.dumps({
                 "schema":"suryadev.video-trial-selection.v1",
                 "target":3, "job_ids":[video_job_id(URLS[0])]
@@ -137,6 +141,19 @@ class PhaseOneAcceptanceTests(unittest.TestCase):
             self.assertTrue(report["recovery"]["saved_trial_selection_frozen"])
             self.assertFalse(report["recovery"]["saved_trial_selection_empty_recoverable"])
             self.assertIn("frozen",report["recovery"]["next_action"])
+
+    def test_nonempty_trial_with_selected_fresh_video_is_actionable(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            plan(root)
+            (root/"video-trial-selection.json").write_text(json.dumps({
+                "schema":"suryadev.video-trial-selection.v1",
+                "target":1, "job_ids":[video_job_id(URLS[0])]
+            }),encoding="utf-8")
+            report=phase1(root)
+            self.assertEqual(report["recovery"]["fresh_videos_in_saved_selection"],1)
+            self.assertIn("selected video jobs",report["recovery"]["next_action"])
+            self.assertFalse(report["recovery"]["automatic_retry_authorized"])
 
     def test_invalid_saved_trial_fail_closed(self):
         with tempfile.TemporaryDirectory() as temp:
