@@ -69,8 +69,73 @@ def assess_video(record, *, attempted, has_runtime, historical):
         "caption_lines":record.get("captured_caption_lines") if record else None,
         "visual_frame_samples":record.get("visual_frame_samples") if record else None,
         "candidate_chunks":record.get("learning_candidate_chunks") if record else None,
+        "media_http_errors":(
+            (record.get("garudanetra_media") or {}).get("media_http_errors", [])[:20]
+            if record and isinstance(record.get("garudanetra_media"),dict) and
+               isinstance(record["garudanetra_media"].get("media_http_errors"),list)
+            else []),
         "complete_learning_verified":False,
         "reasons":reasons,
+    }
+
+
+def _video_recovery_diagnosis(rows, *, journal_safe):
+    """Read-only classification of observed delivery/coverage failures.
+
+    Never assumes a playback provider bypass, silently schedules a retry,
+    or converts a partial observer bundle into learned/verified content.
+    """
+    http_403, media_interruptions, missing_captions = 0, 0, 0
+    interrupted = {"media_unloaded_after_playback", "content_playback_stalled",
+                   "media_error", "video_element_replaced",
+                   "browser_snapshot_unavailable"}
+    for entry in rows:
+        if entry.get("stop_reason") in interrupted:
+            media_interruptions += 1
+        if entry.get("caption_lines") == 0:
+            missing_captions += 1
+        for request in entry.get("media_http_errors", []):
+            if isinstance(request, dict) and request.get("status") == 403:
+                http_403 += 1
+    fresh=sum(bool(x["eligible_for_first_observation"]) for x in rows)
+    reasons=[]
+    if not journal_safe:
+        reasons.append("attempt_history_invalid")
+    elif not fresh:
+        reasons.append("no_fresh_approved_video")
+    if http_403:
+        reasons.append("youtube_media_http_403_observed")
+    if media_interruptions:
+        reasons.append("incomplete_media_playback_observed")
+    if missing_captions:
+        reasons.append("zero_caption_lines_recorded")
+    if not rows:
+        reasons.append("no_approved_video_urls")
+    return {
+        "schema":"suryadev.youtube-recovery.v1",
+        "safe_to_autoreplay_attempted":False,
+        "automatic_retry_authorized":False,
+        "fresh_approved_ready":fresh if journal_safe else None,
+        "media_http_403_events":http_403,
+        "media_interrupted_videos":media_interruptions,
+        "zero_caption_videos":missing_captions,
+        "reasons":reasons,
+        "next_action":(
+            "Inspect damaged attempt history; do not overwrite/replay receipts."
+            if not journal_safe else
+            "Start only new exact previously approved, unattempted videos in the current worker."
+            if fresh else
+            "The approved one-time trial is exhausted. Supply new exact authorized lessons "
+            "through the existing approval/paired-Core mission policy, or explicitly "
+            "authorize a separately audited retry; do not erase prior evidence."
+        ),
+        "provider_note":(
+            "Googlevideo HTTP 403 was observed. Check normal service availability and "
+            "media provider restrictions; no bypass or successful playback is implied."
+            if http_403 else
+            "There is no recorded media HTTP 403 in these indexed observer receipts."
+        ),
+        "learning_verified":False,
     }
 
 
@@ -124,6 +189,7 @@ def phase1(root):
             "independent_closed_book_comprehension_verification",
         ],
         "videos":rows,
+        "recovery":_video_recovery_diagnosis(rows,journal_safe=journal_safe),
     }
 
 
