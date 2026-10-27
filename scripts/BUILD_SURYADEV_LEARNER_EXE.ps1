@@ -27,7 +27,7 @@ if (-not (Test-Path -LiteralPath $Browsers -PathType Container)) {
     throw "GARUDANETRA Chromium payload missing"
 }
 
-$Args = @(
+$PyInstallerArgs = @(
     "-m","PyInstaller",
     "--noconfirm","--clean","--onedir","--console",
     "--name","Suryadev-Learner",
@@ -43,7 +43,7 @@ $Args = @(
     "--add-data",($Browsers + [IO.Path]::PathSeparator + "playwright-browsers"),
     (Join-Path $Source "suryadev_windows_exe.py")
 )
-python @Args
+python @PyInstallerArgs
 if ($LASTEXITCODE -ne 0) { throw "Suryadev-Learner.exe build failed" }
 
 $Package = Join-Path $Output "Suryadev-Learner"
