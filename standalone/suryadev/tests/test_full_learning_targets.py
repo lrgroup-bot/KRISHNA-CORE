@@ -97,6 +97,61 @@ class OperatorLearningTargetsTests(unittest.TestCase):
                 self.assertEqual(len(list(root.glob(
                     "video-trial-selection.before-empty-repair-*.json"))),1)
 
+    def test_saved_empty_trial_resumes_without_repeating_launch_target(self):
+        # Regression from physical laptop: automatic-video flag was present
+        # but --video-target was omitted on the next startup. Only the
+        # original saved approval may be reused; completed attempts stay out.
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            tried={video_job_id(URLS[0]), video_job_id(URLS[1]),
+                   video_job_id(URLS[2])}
+            with patch.dict(os.environ, {"SURYADEV_TRIAL_VIDEO_COUNT":"3"}):
+                self.assertEqual(select_trial_videos(root, URLS,
+                    previously_tried=lambda _:True),frozenset())
+            original=(root/VIDEO_FILE).read_bytes()
+            with patch.dict(os.environ, {}, clear=True):
+                selected=select_trial_videos(root, URLS,
+                    previously_tried=lambda jid:jid in tried,recover_empty=True)
+                self.assertEqual(selected,{video_job_id(URLS[3])})
+                self.assertEqual(select_trial_videos(root, URLS[::-1],
+                    previously_tried=lambda _:False,recover_empty=True),selected)
+                self.assertEqual(len(list(root.glob(
+                    "video-trial-selection.before-empty-repair-*.json"))),1)
+                self.assertEqual(next(root.glob(
+                    "video-trial-selection.before-empty-repair-*.json")).read_bytes(),
+                    original)
+            self.assertEqual(json.loads((root/VIDEO_FILE).read_text())["target"],3)
+
+    def test_absent_trial_without_saved_manifest_does_not_create_selection(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.dict(os.environ, {}, clear=True):
+                self.assertIsNone(select_trial_videos(
+                    folder,URLS,previously_tried=lambda _:False,
+                    recover_empty=True))
+            self.assertFalse((Path(folder)/VIDEO_FILE).exists())
+
+    def test_saved_corrupt_or_changed_target_fails_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            file=Path(folder)/VIDEO_FILE
+            for payload in (
+                {"schema":"suryadev.video-trial-selection.v1","target":True,"job_ids":[]},
+                {"schema":"suryadev.video-trial-selection.v1","target":10,"job_ids":[]},
+                {"schema":"suryadev.video-trial-selection.v1","target":3,"job_ids":["bad"]},
+            ):
+                file.write_text(json.dumps(payload),encoding="utf-8")
+                before=file.read_bytes()
+                with patch.dict(os.environ, {}, clear=True):
+                    with self.assertRaises(RuntimeError):
+                        select_trial_videos(folder, URLS,
+                            previously_tried=lambda _:False,recover_empty=True)
+                self.assertEqual(file.read_bytes(),before)
+            file.write_text(json.dumps({
+                "schema":"suryadev.video-trial-selection.v1","target":3,"job_ids":[]}),encoding="utf-8")
+            with patch.dict(os.environ, {"SURYADEV_TRIAL_VIDEO_COUNT":"2"}):
+                with self.assertRaises(RuntimeError):
+                    select_trial_videos(folder, URLS,
+                        previously_tried=lambda _:False,recover_empty=True)
+
     def test_empty_repair_never_selects_previously_attempted(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
