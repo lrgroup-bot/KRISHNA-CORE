@@ -4,7 +4,9 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from suryadev_dashboard_worker import DashboardWorkerControl
 from suryadev_learning_readiness import snapshot
 from suryadev_trial_limits import video_job_id
 
@@ -17,6 +19,35 @@ VIDEOS=[
 
 
 class ReadinessTests(unittest.TestCase):
+    def test_external_cli_book_worker_not_reported_inactive_or_managed(self):
+        # The dashboard sees a valid OS lock held by a CLI-launched worker;
+        # its model cannot be inferred from a book checkpoint.
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            (root/"worker-runtime.json").write_text(json.dumps({
+                "state":"busy", "pid":123, "heartbeat_at":time.time()
+            }),encoding="utf-8")
+            control=DashboardWorkerControl(root,root)
+            with patch.object(control,"_external_lock_held",return_value=True):
+                data=control.snapshot()
+            self.assertFalse(data["managed_running"])
+            self.assertTrue(data["external_worker_active"])
+            self.assertTrue(data["worker_heartbeat_recent"])
+            self.assertEqual(data["worker_owner"],"external_process")
+            self.assertEqual(data["learning_role"],"external_worker")
+            self.assertIsNone(data["managed_model"])
+            result=snapshot(root,root,control=data)
+            self.assertEqual(result["learning_role"],"external_worker")
+            self.assertIsNone(result["worker_model"])
+
+    def test_external_lock_without_heartbeat_does_not_claim_running_worker(self):
+        with tempfile.TemporaryDirectory() as folder:
+            control=DashboardWorkerControl(folder,folder)
+            with patch.object(control,"_external_lock_held",return_value=True):
+                data=control.snapshot()
+            self.assertEqual(data["learning_role"],"external_lock_only")
+            self.assertFalse(data["worker_heartbeat_recent"])
+
     def test_real_blockers_and_stale_activity(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
