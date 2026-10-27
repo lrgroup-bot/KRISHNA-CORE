@@ -69,6 +69,14 @@ def snapshot(root, app, *, control=None, now=None):
                           0 <= now-float(book_updated) < FRESH_SECONDS)
     book_active = book_runtime.get("active",0)
     book_active = book_active if type(book_active) is int and book_active>=0 else 0
+    book_fast_mode = (book_runtime.get("fast_mode")
+                      if fresh_book_runtime and type(book_runtime.get("fast_mode")) is bool
+                      else None)
+    book_batch_target = (book_runtime.get("batch_target_lines")
+                         if fresh_book_runtime and
+                            type(book_runtime.get("batch_target_lines")) is int and
+                            1 <= book_runtime["batch_target_lines"] <= 40
+                         else None)
     book_last = _safe_read(root, "book-continuity-runtime.json", max_bytes=8192)
     last_updated = book_last.get("updated_at")
     book_last_fresh = (type(last_updated) in (int,float) and
@@ -139,6 +147,8 @@ def snapshot(root, app, *, control=None, now=None):
         "book_last_state":book_last_state or None,
         "book_last_error":book_last_error or None,
         "book_runtime_fresh":fresh_book_runtime,
+        "book_fast_mode":book_fast_mode,
+        "book_batch_target_lines":book_batch_target,
         "reported_active_books":book_active if fresh_book_runtime else None,
         "capacity_fresh":current_capacity,
         "reasons":reasons,
