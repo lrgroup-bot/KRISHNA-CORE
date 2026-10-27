@@ -106,6 +106,8 @@ def main(argv=None):
                     help="Enable resource-measured fleet capacity instead of legacy three-task ceiling")
     ap.add_argument("--continuous", action="store_true",
                     help="Rollover six-hour mission accounting without forced rest; safety/source pauses remain")
+    ap.add_argument("--fast-books", action="store_true",
+                    help="Use compact up-to-40-line sequential book checkpoints; no skipped source lines, same local 2B model")
     ap.add_argument("--prepare-only", action="store_true")
     ap.add_argument("--video-target",type=int,choices=range(1,4),default=None,
                     help="Trial: select at most 3 distinct previously unattempted approved videos")
@@ -156,6 +158,10 @@ def main(argv=None):
               "| PDFs",args.pdf_target,"| books",args.book_target,
               "| measured admission may be lower",flush=True)
     # The approved public sources are not fetched implicitly on all fleet nodes.
+    env["SURYADEV_BOOK_FAST"] = "1" if args.fast_books else "0"
+    if args.fast_books:
+        print("FAST BOOKS: compact up-to-40-line batches; CPU guard and journal integrity unchanged.",
+              flush=True)
     env["SURYADEV_LEARNING_TRIAL"] = "1" if args.approved_trial else "0"
     env["SURYADEV_AUTO_APPROVED_VIDEOS"] = "1" if args.auto_approved_videos else "0"
     env["SURYADEV_STANDALONE_TEST"] = "1" if args.standalone_test else "0"
