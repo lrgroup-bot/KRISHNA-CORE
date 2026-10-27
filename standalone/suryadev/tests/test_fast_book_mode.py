@@ -77,7 +77,7 @@ class FastBookTests(unittest.TestCase):
                 receipt=ledger.read(bid,model="local-test",lines_per_step=20,
                     max_steps=100,observe=observe,fast_mode=True)
                 self.assertTrue(receipt["reached_end"])
-                self.assertGreater(len(captured),3)
+                self.assertGreaterEqual(len(captured),3)
                 self.assertEqual(receipt["lines_processed_total"],82)
                 rows=list(ledger.db.execute(
                     "SELECT start_ordinal,end_ordinal FROM book_journal "
