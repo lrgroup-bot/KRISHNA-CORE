@@ -178,7 +178,7 @@ def main(argv=None):
     parser.add_argument("--base", default="http://127.0.0.1:8872")
     args = parser.parse_args(argv)
     try:
-        print(json.dumps(verify(args.base), indent=2, ensure_ascii=False))
+        print(json.dumps(verify(args.base), indent=2, ensure_ascii=True))
         return 0
     except (OSError, ValueError, RuntimeError, AssertionError, ImportError) as exc:
         print("SURYADEV LIVE UI CHECK FAILED: " + type(exc).__name__ + ": " + str(exc))

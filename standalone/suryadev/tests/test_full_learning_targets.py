@@ -22,6 +22,18 @@ URLS = [
 
 
 class OperatorLearningTargetsTests(unittest.TestCase):
+    def test_five_fresh_video_selection_resumes_without_rewriting_approval(self):
+        urls = URLS + ["https://www.youtube.com/watch?v=ZZZZZZZZZZZ"]
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.dict(os.environ, {"SURYADEV_TRIAL_VIDEO_COUNT": "5"}):
+                selected = select_trial_videos(folder, urls, previously_tried=lambda _: False)
+            self.assertEqual(len(selected), 5)
+            path = Path(folder) / VIDEO_FILE
+            original = path.read_bytes()
+            with patch.dict(os.environ, {}, clear=True):
+                self.assertEqual(select_trial_videos(folder, urls, previously_tried=lambda _: False), selected)
+            self.assertEqual(path.read_bytes(), original)
+
     def test_absent_profile_preserves_current_limits(self):
         with patch.dict(os.environ, {}, clear=True):
             for name in ("website","pdf","book","video"):
@@ -30,9 +42,9 @@ class OperatorLearningTargetsTests(unittest.TestCase):
     def test_requested_caps_are_bounded_and_bad_values_fail_closed(self):
         for kind,(env,maximum) in {
             "website":("SURYADEV_TRIAL_WEBSITE_TARGET",5),
-            "pdf":("SURYADEV_TRIAL_PDF_TARGET",5),
+            "pdf":("SURYADEV_TRIAL_PDF_TARGET",10),
             "book":("SURYADEV_TRIAL_BOOK_TARGET",5),
-            "video":("SURYADEV_TRIAL_VIDEO_COUNT",3),
+            "video":("SURYADEV_TRIAL_VIDEO_COUNT",5),
         }.items():
             with patch.dict(os.environ,{env:str(maximum)}):
                 self.assertEqual(trial_cap(kind),maximum)

@@ -29,6 +29,10 @@ def _install_runtime() -> Path:
         raise RuntimeError("Incomplete SURYADEV package: bundled app files missing")
     if str(app) not in sys.path:
         sys.path.insert(0, str(app))
+    from suryadev_setup import tesseract_path
+    ocr = tesseract_path()
+    if ocr:
+        os.environ["PATH"] = str(Path(ocr).parent) + os.pathsep + os.environ.get("PATH", "")
     bundled_browsers = _base() / "playwright-browsers"
     if bundled_browsers.is_dir():
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(bundled_browsers)
@@ -64,12 +68,26 @@ def main(argv=None) -> int:
     default_data = exe_dir / "data"
     if arguments and arguments[0] == "--self-test":
         import json
+        import importlib
+        from verify_runtime_package import REQUIRED_ENTRYPOINTS, missing_runtime_files
+        problems = missing_runtime_files(app)
+        if problems:
+            raise RuntimeError("; ".join(problems))
+        for name in REQUIRED_ENTRYPOINTS:
+            importlib.import_module(name)
+        # Import the lazy backend's standard-library extensions too; merely
+        # finding source files cannot verify a working frozen interpreter.
+        import sqlite3
+        import ssl
         print(json.dumps({
             "ok": True, "app": str(app),
             "has_ai_learner": (app / "dashboard-ai-learner.js").is_file(),
             "has_reset": (app / "suryadev_learning_reset.py").is_file(),
             "bundled_chromium": (_base() / "playwright-browsers").is_dir(),
             "no_learning_data_read": True,
+            "backend_imports_verified": True,
+            "sqlite_version": sqlite3.sqlite_version,
+            "ssl_version": ssl.OPENSSL_VERSION,
         }, indent=2))
         return 0
 
@@ -86,12 +104,14 @@ def main(argv=None) -> int:
     if not arguments:
         # Only begins with a blank plan. No source is invented or authorized.
         arguments = [
-            "--data", str(default_data), "--model", "qwen3.5:2b",
-            "--fast-books", "--standalone-test", "--adaptive-fleet",
+            "--data", str(default_data), "--model", "auto",
+            "--fast-books", "--adaptive-fleet",
             "--continuous", "--auto-approved-videos", "--website-target", "5",
-            "--pdf-target", "5", "--book-target", "5", "--max-parallel", "18",
+            "--video-target", "5", "--pdf-target", "10", "--book-target", "5",
+            "--max-parallel", "25",
             "--port", "8872",
         ]
+        os.environ["SURYADEV_AUTO_SETUP"] = "1"
     elif "--data" not in arguments:
         arguments = ["--data", str(default_data), *arguments]
     _run_script(app / "start-node.py", arguments, app)

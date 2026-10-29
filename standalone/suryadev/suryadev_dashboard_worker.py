@@ -253,6 +253,10 @@ class DashboardWorkerControl:
             env = os.environ.copy()
             env["SURYADEV_OLLAMA_THREADS"] = str(min(2, max(1, (os.cpu_count() or 2)//2)))
             workspace = _safe_read(self.root,"fresh-workspace.json",max_bytes=4096)
+            # Honor the persisted operator preference even when the dashboard
+            # is reopened directly instead of through start-node.py.
+            if "SURYADEV_BOOK_FAST" not in env:
+                env["SURYADEV_BOOK_FAST"] = "1" if workspace.get("fast_books") is True else "0"
             fleet_adaptive = (workspace.get("schema") == "suryadev.fresh-workspace.v1"
                               and workspace.get("node_profile") == "fleet_adaptive")
             ceiling = 125 if fleet_adaptive else 3

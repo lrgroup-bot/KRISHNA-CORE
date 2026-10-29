@@ -24,6 +24,20 @@ def portable_module():
 
 
 class PortableNodeTests(unittest.TestCase):
+    def test_fast_books_survives_reopen_and_can_be_explicitly_disabled(self):
+        runner = portable_module()
+        with TemporaryDirectory() as tmp:
+            data = Path(tmp) / "study"
+            runner.prepare(data, model="collector", fast_books=True)
+            evidence = data / "evidence.txt"
+            evidence.write_bytes(b"immutable source receipt")
+            runner.prepare(data, model="collector")
+            marker = data / "fresh-workspace.json"
+            self.assertIs(json.loads(marker.read_text())["fast_books"], True)
+            runner.prepare(data, model="collector", fast_books=False)
+            self.assertIs(json.loads(marker.read_text())["fast_books"], False)
+            self.assertEqual(evidence.read_bytes(), b"immutable source receipt")
+
     def test_four_gigabyte_collector_can_work_without_local_model(self):
         reading = {"available":True,"cpu_percent":18,"ram_percent":50,
                    "ram_total_gb":4,"ram_used_gb":2,

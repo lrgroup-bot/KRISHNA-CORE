@@ -151,6 +151,9 @@ def serve(lib, port=8769):
 
         def do_GET(self):
             route = urlsplit(self.path)
+            if route.path == "/api/setup":
+                from suryadev_setup import status
+                return self.respond(200, json.dumps(status(lib.root)), "application/json")
             if route.path == "/api/learning/control":
                 return self.respond(200, json.dumps(worker_control.snapshot()), "application/json")
             if route.path == "/api/ai-learner/player":
@@ -562,6 +565,9 @@ def serve(lib, port=8769):
 
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     server.daemon_threads = True
+    if os.environ.get("SURYADEV_AUTO_SETUP") == "1":
+        from suryadev_setup import start as start_component_setup
+        start_component_setup(lib.root, Path(__file__).resolve().parent)
     # Pairing is a one-time owner action. A validated pinned-TLS device
     # credential and approved plan start the existing single fleet worker on
     # dashboard boot; manual URL input or per-session Start clicks are NOT

@@ -22,7 +22,7 @@ MARKER_SCHEMA = "suryadev.fresh-workspace.v1"
 
 def prepare(data: Path, *, model: str, previous: Path | None = None,
             new_session: bool = False, adaptive_fleet: bool = False,
-            continuous: bool = False) -> Path:
+            continuous: bool = False, fast_books: bool | None = None) -> Path:
     """Initialize or reopen a fresh study ledger without removing prior files."""
     if model not in MODELS:
         raise ValueError("Unsupported learning mode")
@@ -67,6 +67,10 @@ def prepare(data: Path, *, model: str, previous: Path | None = None,
         state["mission_rest_policy"] = "continuous"  # Never disables 85% safety.
     # Explicit mode selection may change the inference backend, not study evidence.
     state["trial_model"] = model
+    if fast_books is not None:
+        if type(fast_books) is not bool:
+            raise ValueError("fast_books must be a boolean")
+        state["fast_books"] = fast_books
     temp = data / (".fresh-workspace-" + secrets.token_hex(8) + ".tmp")
     try:
         temp.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n",
@@ -106,15 +110,15 @@ def main(argv=None):
                     help="Enable resource-measured fleet capacity instead of legacy three-task ceiling")
     ap.add_argument("--continuous", action="store_true",
                     help="Rollover six-hour mission accounting without forced rest; safety/source pauses remain")
-    ap.add_argument("--fast-books", action="store_true",
+    ap.add_argument("--fast-books", action=argparse.BooleanOptionalAction, default=None,
                     help="Use compact up-to-40-line sequential book checkpoints; no skipped source lines, same local 2B model")
     ap.add_argument("--prepare-only", action="store_true")
-    ap.add_argument("--video-target",type=int,choices=range(1,4),default=None,
-                    help="Trial: select at most 3 distinct previously unattempted approved videos")
+    ap.add_argument("--video-target",type=int,choices=range(1,6),default=None,
+                    help="Trial: select at most 5 distinct previously unattempted approved videos")
     ap.add_argument("--website-target",type=int,choices=range(1,6),default=None,
                     help="Trial: at most 5 concurrent approved website tasks, hardware permitting")
-    ap.add_argument("--pdf-target",type=int,choices=range(1,6),default=None,
-                    help="Trial: at most 5 concurrent PDF tasks, hardware permitting")
+    ap.add_argument("--pdf-target",type=int,choices=range(1,11),default=None,
+                    help="Trial: at most 10 concurrent PDF tasks, hardware permitting")
     ap.add_argument("--book-target",type=int,choices=range(1,6),default=None,
                     help="Trial: at most 5 concurrent book-reading tasks, hardware permitting")
     ap.add_argument("--max-parallel",type=int,default=None,
@@ -126,7 +130,7 @@ def main(argv=None):
         ap.error("Dashboard port is in use; stop the previous dashboard first")
     data = prepare(args.data, model=args.model, previous=args.previous_data,
                    new_session=args.new_session, adaptive_fleet=args.adaptive_fleet,
-                   continuous=args.continuous)
+                   continuous=args.continuous, fast_books=args.fast_books)
     print("SURYADEV data:", data, flush=True)
     marker = json.loads((data / "fresh-workspace.json").read_text(encoding="utf-8"))
     fleet_profile = marker.get("node_profile") == "fleet_adaptive"
@@ -158,8 +162,8 @@ def main(argv=None):
               "| PDFs",args.pdf_target,"| books",args.book_target,
               "| measured admission may be lower",flush=True)
     # The approved public sources are not fetched implicitly on all fleet nodes.
-    env["SURYADEV_BOOK_FAST"] = "1" if args.fast_books else "0"
-    if args.fast_books:
+    env["SURYADEV_BOOK_FAST"] = "1" if marker.get("fast_books") is True else "0"
+    if marker.get("fast_books") is True:
         print("FAST BOOKS: compact up-to-40-line batches; CPU guard and journal integrity unchanged.",
               flush=True)
     env["SURYADEV_LEARNING_TRIAL"] = "1" if args.approved_trial else "0"

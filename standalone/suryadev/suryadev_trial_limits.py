@@ -18,9 +18,9 @@ VIDEO_FILE = "video-trial-selection.json"
 VIDEO_SCHEMA = "suryadev.video-trial-selection.v1"
 ENV_KEYS = {
     "website": ("SURYADEV_TRIAL_WEBSITE_TARGET", 5),
-    "pdf": ("SURYADEV_TRIAL_PDF_TARGET", 5),
+    "pdf": ("SURYADEV_TRIAL_PDF_TARGET", 10),
     "book": ("SURYADEV_TRIAL_BOOK_TARGET", 5),
-    "video": ("SURYADEV_TRIAL_VIDEO_COUNT", 3),
+    "video": ("SURYADEV_TRIAL_VIDEO_COUNT", 5),
 }
 
 
@@ -85,7 +85,7 @@ def select_trial_videos(root, urls, *, previously_tried, recover_empty=False):
         # An absent CURRENT cap can only inherit a validated PREVIOUS cap.
         # Explicitly changed caps retain the existing mismatch rejection.
         if count is None:
-            if type(saved_target) is not int or not 1 <= saved_target <= 3:
+            if type(saved_target) is not int or not 1 <= saved_target <= ENV_KEYS["video"][1]:
                 raise RuntimeError("Invalid saved video target; refusing automatic observation")
             count = saved_target
         if (not isinstance(state, dict) or state.get("schema") != VIDEO_SCHEMA or

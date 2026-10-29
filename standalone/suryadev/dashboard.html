@@ -359,6 +359,14 @@
       </div>
       <p id="diagnosis-message">Click Diagnose to check the entered address. No pairing data is transmitted.</p>
     </div>
+    <h3>Secure device pairing</h3>
+    <p>Enter the HTTPS address and certificate fingerprint supplied by the KRISHNA owner. Approve this device on the KRISHNA PC, then activate here. The device credential is generated and stored locally.</p>
+    <label>KRISHNA HTTPS address <input id="pair-endpoint" placeholder="https://192.168.1.10:8767" autocomplete="off"></label>
+    <label>Certificate SHA-256 <input id="pair-fingerprint" autocomplete="off" spellcheck="false"></label>
+    <label>Unique device ID <input id="pair-device" placeholder="suryadev-laptop-1" autocomplete="off" spellcheck="false"></label>
+    <div class="settings-actions"><button type="button" id="pair-request">Request pairing</button><button type="button" id="pair-activate">Activate approved device</button></div>
+    <p id="pair-result" role="status">No pairing requested.</p>
+    <p id="component-setup-status" role="status">Local component setup status is available after startup.</p>
   </div>
 </section>
 <section id="storage-settings-dialog" class="settings-dialog wide" aria-labelledby="storage-dialog-title">
