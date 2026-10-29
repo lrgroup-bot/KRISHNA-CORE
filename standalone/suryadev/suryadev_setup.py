@@ -34,13 +34,15 @@ def _local(path, payload=None, timeout=5):
                       headers={'Content-Type':'application/json'})
     return build_opener(ProxyHandler({})).open(request, timeout=timeout)
 
-def provision(root, app, *, measure=snapshot, installed=installed_small_model):
+def provision(root, app, *, measure=snapshot, installed=installed_small_model, progress=None):
     root, app = Path(root).resolve(), Path(app).resolve()
     def save(state, note):
         result = {'state':state,'note':note,'model':SMALL_MODEL,
                   'updated_at':time.time(),'learning_verified':False,
                   'ocr_available':bool(tesseract_path())}
         atomic_json(root, STATE, result)
+        if progress is not None:
+            progress(result)
         return result
     # A different lock file prevents duplicate installers across dashboards;
     # never acquire or interfere with the actual learning-worker lock.

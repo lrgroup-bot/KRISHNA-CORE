@@ -1,0 +1,57 @@
+name: Build and publish SURYADEV small setup
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/suryadev-universal-fleet-foundation-20261025]
+    paths:
+      - 'standalone/suryadev/**'
+      - 'scripts/BUILD_SURYADEV_SMALL_SETUP.ps1'
+      - 'scripts/BUILD_SURYADEV_LEARNER_EXE.ps1'
+      - 'scripts/TEST_SURYADEV_SMALL_SETUP.py'
+      - '.github/workflows/suryadev-small-setup.yml'
+permissions:
+  contents: read
+jobs:
+  small-setup:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build and verify full Learner payload
+        shell: pwsh
+        run: |
+          python -m pip install cryptography
+          if ($LASTEXITCODE -ne 0) { throw 'Ephemeral TLS test dependency failed' }
+          ./scripts/BUILD_SURYADEV_LEARNER_EXE.ps1 -Output C:/suryadev-runtime
+      - name: Build small setup and run safety/integration tests
+        shell: pwsh
+        run: |
+          $version = 'suryadev-setup-${{ github.run_id }}-${{ github.run_attempt }}'
+          $url = 'https://github.com/${{ github.repository }}/releases/download/' + $version + '/SURYADEV-Learner-Payload.zip'
+          ./scripts/BUILD_SURYADEV_SMALL_SETUP.ps1 -PayloadDirectory C:/suryadev-runtime/Suryadev-Learner -Output C:/suryadev-small -DownloadUrl $url -ReleaseVersion $version
+      - name: Verify real online installer against an isolated LAN mirror
+        shell: pwsh
+        run: python scripts/TEST_SURYADEV_SMALL_SETUP.py --release C:/suryadev-small --install-dir C:/suryadev-install-test
+      - name: Upload small installer and verification manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: SURYADEV-SMALL-SETUP
+          path: |
+            C:/suryadev-small/SURYADEV-Setup.exe
+            C:/suryadev-small/SETUP-RELEASE.json
+            C:/suryadev-small/INSTALLER-INTEGRATION.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish versioned prerelease components
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = 'suryadev-setup-${{ github.run_id }}-${{ github.run_attempt }}'
+          gh release create $version C:/suryadev-small/SURYADEV-Setup.exe C:/suryadev-small/SURYADEV-Learner-Payload.zip C:/suryadev-small/SETUP-RELEASE.json --repo '${{ github.repository }}' --target '${{ github.sha }}' --prerelease --title "SURYADEV small online setup $version" --notes 'Tested small setup and checksum-pinned Learner payload. Windows x64. Creates a separate data directory, provisions free local components and opens secure owner-approved KRISHNA pairing. Physical two-PC pairing and full YouTube learning remain unverified. This prerelease does not merge the draft PR.'
+          if ($LASTEXITCODE -ne 0) { throw 'Prerelease component publication failed' }

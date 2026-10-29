@@ -49,6 +49,9 @@ def _run_script(script: Path, arguments: list[str], app: Path) -> None:
 
 def main(argv=None) -> int:
     arguments = list(sys.argv[1:] if argv is None else argv)
+    if "--auto-setup" in arguments:
+        arguments.remove("--auto-setup")
+        os.environ["SURYADEV_AUTO_SETUP"] = "1"
     app = _install_runtime()
     # PyInstaller's sys.executable refers to THIS exe. The normal app invokes
     # its children as: [sys.executable, '-u', script, ...]. Retain that API
@@ -66,6 +69,21 @@ def main(argv=None) -> int:
                if getattr(sys, "frozen", False)
                else Path(__file__).resolve().parent)
     default_data = exe_dir / "data"
+    if arguments and arguments[0] == "--setup-components":
+        parser = argparse.ArgumentParser(description="Provision local components without starting learning")
+        parser.add_argument("--data", type=Path, required=True)
+        args = parser.parse_args(arguments[1:])
+        import json
+        # Component receipts cannot make an unmarked directory into an
+        # implicitly approved study workspace. Reuse the same safe preparer.
+        prepare = runpy.run_path(str(app / "start-node.py"))["prepare"]
+        data = prepare(args.data, model="auto", adaptive_fleet=True,
+                       continuous=True, fast_books=True)
+        from suryadev_setup import provision
+        def report(value):
+            print("SURYADEV_SETUP " + json.dumps(value, ensure_ascii=True), flush=True)
+        result = provision(data, app, progress=report)
+        return 0 if result["state"] == "ready" else 10 if result["state"] == "deferred_hardware" else 2
     if arguments and arguments[0] == "--self-test":
         import json
         import importlib
