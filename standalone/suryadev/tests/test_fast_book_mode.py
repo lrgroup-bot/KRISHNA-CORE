@@ -13,6 +13,30 @@ from suryadev_parallel_books import ParallelBookReader
 
 
 class FastBookTests(unittest.TestCase):
+    def test_previous_generated_claim_cannot_contaminate_next_source_batch(self):
+        for fast in (False, True):
+            with self.subTest(fast=fast), tempfile.TemporaryDirectory() as folder:
+                root=Path(folder)
+                source=self._source(root,100)
+                prompts=[]
+                def observe(prompt,model):
+                    prompts.append(prompt)
+                    return 'UNSUPPORTED_PRIOR_CLAIM: __add__ runs twice on page 65'
+                ledger=BookLedger(root)
+                try:
+                    bid=ledger.import_book(source)['book_id']
+                    ledger.read(bid,model='local-test',lines_per_step=20,
+                        max_steps=2,observe=observe,fast_mode=fast)
+                    self.assertEqual(len(prompts),2)
+                    self.assertNotIn('UNSUPPORTED_PRIOR_CLAIM',prompts[1])
+                    self.assertNotIn('__add__',prompts[1])
+                    self.assertIn('Cite source ordinals',prompts[1])
+                    self.assertIn('page ',prompts[1])
+                    saved=ledger.db.execute('SELECT observation FROM book_journal ORDER BY start_ordinal LIMIT 1').fetchone()[0]
+                    self.assertIn('UNSUPPORTED_PRIOR_CLAIM',saved)
+                finally:
+                    ledger.close()
+
     def _source(self, root, n, *, width=0):
         source=root/"approved-book.txt"
         source.write_text("\n".join(
