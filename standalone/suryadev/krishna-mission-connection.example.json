@@ -1,0 +1,7 @@
+{
+  "schema": "suryadev.krishna-mission-connection.v1",
+  "endpoint": "https://192.168.0.100:8443",
+  "cert_sha256": "REPLACE_WITH_SHA256_TLS_CERT_FINGERPRINT_64_HEX",
+  "device_id": "REPLACE_WITH_APPROVED_PAIRED_SURYADEV_DEVICE_ID",
+  "token_file": "D:\\Work\\SURYADEV-DATA\\core-paired-device-token.txt"
+}

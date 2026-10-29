@@ -1,0 +1,17 @@
+{
+  "description": "OWNER-APPROVED research sources only. Feeder checks this list and any opted-in RSS/Atom feeds every six hours when explicitly run in --loop mode. It is not an unrestricted search engine.",
+  "approved_urls": [
+    "https://www.python.org/about/",
+    "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+  ],
+  "approved_feeds": [],
+  "allowed_source_hosts": [
+    "www.python.org",
+    "www.w3.org",
+    "python.org",
+    "www.youtube.com",
+    "youtube.com"
+  ],
+  "max_new_per_cycle": 20,
+  "max_queued": 75
+}

@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#4431a1">
+<title>SURYADEV • Learning Mission Control</title>
+<link rel="stylesheet" href="/dashboard.css">
+<link rel="stylesheet" href="/dashboard-settings.css">
+<link rel="stylesheet" href="/dashboard-garudanetra.css">
+<script src="/dashboard.js" defer></script>
+<script src="/dashboard-settings.js" defer></script>
+<script src="/dashboard-garudanetra.js" defer></script>
+<link rel="stylesheet" href="/dashboard-books.css">
+<script src="/dashboard-books.js" defer></script>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" aria-label="Main navigation">
+    <a class="identity" href="#overview"><span class="identity-logo" aria-hidden="true">☀</span><span><strong>SURYADEV</strong><small>LEARNING INTELLIGENCE</small></span></a>
+    <div class="sidebar-label">MISSION MENU</div>
+    <nav class="navigation">
+      <a href="#overview" class="nav-item selected"><span>✦</span> Overview</a>
+      <a href="#live-learning" class="nav-item"><span>●</span> Live learning</a>
+      <a href="#garudanetra" class="nav-item"><span>◉</span> Garudanetra browser</a>
+      <a href="#assignments" class="nav-item"><span>▣</span> All assignments</a>
+      <a href="#sources" class="nav-item"><span>◈</span> Sources & learning</a>
+      <a href="#date-center" class="nav-item"><span>◷</span> Date-wise learning</a>
+      <a href="#hardware" class="nav-item"><span>◉</span> Hardware</a>
+      <div class="settings-menu-label">CONFIGURATION</div>
+      <button id="open-server-settings" type="button" class="nav-item nav-settings" aria-haspopup="dialog" aria-controls="server-settings-dialog"><span aria-hidden="true">◉</span> KRISHNA Server</button>
+      <button id="open-storage-settings" type="button" class="nav-item nav-settings" aria-haspopup="dialog" aria-controls="storage-settings-dialog"><span aria-hidden="true">▤</span> Storage & Cleanup</button>
+    </nav>
+    <div class="sidebar-bottom" aria-label="Live connection status at bottom of main menu">
+      <div class="status-leds" aria-label="KRISHNA, BRAHMAGYAN and Rishi connections">
+        <div class="status-led-title"><span aria-hidden="true">◉</span> CONNECTION STATUS</div>
+        <div class="led-row"><span class="led-name">KRISHNA Core</span><span class="led-state" id="krishna-led-state"><i class="led" id="krishna-led" aria-hidden="true"></i><span id="krishna-led-label">Not connected</span></span></div>
+        <div class="led-row"><span class="led-name">BRAHMAGYAN</span><span class="led-state"><i class="led" id="brahmagyan-led" aria-hidden="true"></i><span id="brahmagyan-led-label">Not connected</span></span></div>
+        <div class="led-row"><span class="led-name">Rishi Council</span><span class="led-state"><i class="led" id="rishi-led" aria-hidden="true"></i><span id="rishi-led-label">Not connected</span></span></div>
+        <small class="led-note">Red = not authenticated · Amber = unpaired reader · Green = verified</small>
+      </div>
+      <div class="node-card">
+        <div class="node-title"><span class="pulse-dot" id="connection-dot" aria-hidden="true"></span> SURYADEV local dashboard</div>
+        <strong id="connection">Connecting…</strong>
+        <small>KRISHNA pairing is separate from local connectivity.</small>
+      </div>
+      <div class="sidebar-footer">UI v6.9 · 21 Oct 2026 · Local-first</div>
+    </div>
+  </aside>
+  <main>
+    <header class="hero" id="overview">
+      <div class="hero-glow"></div>
+      <div class="hero-content"><div class="eyebrow">✦ RESEARCH INTELLIGENCE STATION</div>
+        <h1>Your learning universe,<br><em>beautifully organized.</em></h1>
+        <p>Track every assignment, explore the evidence, and see precisely what is still unfinished.</p>
+        <a href="#assignments" class="hero-action">Explore all tasks <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="hero-aside"><div class="live-chip" id="live-chip"><span class="pulse-dot"></span> LIVE · 5 SEC</div><div class="hero-time" id="clock">--:--:--</div><div class="hero-caption">Laptop-local mission control</div></div>
+    </header>
+    <section class="date-center" id="date-center" aria-labelledby="date-center-title">
+      <div class="date-center-heading">
+        <div class="date-center-icon" aria-hidden="true">▦</div>
+        <div><div class="date-center-eyebrow">LEARNING HISTORY & ACTIVITY</div><h2 id="date-center-title">Explore learning date-wise</h2><p>Choose a day to filter assignments and open that day's learning record.</p></div>
+      </div>
+      <div class="date-center-controls">
+        <label class="date-main-label" for="date-main">Select date
+          <input type="date" id="date-main" aria-label="Select date for learning history">
+        </label>
+        <button type="button" id="date-today-main" class="date-main-btn">Today</button>
+        <button type="button" id="date-previous-main" class="date-main-btn light" aria-label="Previous calendar day">← Previous day</button>
+        <button type="button" id="date-next-main" class="date-main-btn light" aria-label="Next calendar day">Next day →</button>
+        <button type="button" id="date-clear-main" class="date-main-btn secondary">All dates</button>
+      </div>
+      <div class="date-selection-summary" id="date-selection-summary" aria-live="polite">
+        <strong id="date-selected-label">Showing all recorded dates</strong>
+        <span id="date-selected-count">Choose a date above to view its assignments and findings.</span>
+        <a href="#diary" class="date-report-link">Open detailed diary ↗</a>
+      </div>
+    </section>
+    <section class="overview" aria-labelledby="overview-title">
+      <div class="section-heading"><div><div class="overline">OVERVIEW</div><h2 id="overview-title">Mission pulse</h2></div><span class="freshness" id="updated" aria-live="polite">Connecting to telemetry…</span></div>
+      <div class="metric-grid">
+        <div class="metric purple"><div class="metric-icon" aria-hidden="true">▦</div><div class="metric-label">All assignments</div><strong id="total">—</strong><small>Lifetime recorded tasks</small></div>
+        <div class="metric mint"><div class="metric-icon" aria-hidden="true">✓</div><div class="metric-label">Worker completed</div><strong id="done">—</strong><small>Not necessarily verified</small></div>
+        <div class="metric peach"><div class="metric-icon" aria-hidden="true">◷</div><div class="metric-label">Queued</div><strong id="queued">—</strong><small>Waiting for execution</small></div>
+        <div class="metric sky"><div class="metric-icon" aria-hidden="true">✧</div><div class="metric-label">Collected evidence</div><strong id="findings">—</strong><small>Source records, not verified mastery</small></div>
+      </div>
+    </section>
+    <section class="operations-panel" id="live-learning" aria-labelledby="operations-title">
+      <div class="section-heading compact">
+        <div><div class="overline">REAL-TIME LEARNING CONTROL</div><h2 id="operations-title">What SURYADEV is doing now</h2><p>Actual queue order, active work and worker check times—refreshed automatically.</p></div>
+        <span class="health-label" id="worker-state-label">Checking worker…</span>
+      </div>
+      <div class="operations-grid">
+        <div class="operation-cell now"><div class="operation-label">● NOW PROCESSING</div><strong class="operation-value" id="active-work">Reading current work…</strong><small class="operation-sub" id="active-details">Looking for active assignments.</small></div>
+        <div class="operation-cell next"><div class="operation-label">◷ NEXT QUEUE CHECK</div><strong class="operation-value" id="next-check">—</strong><small class="operation-sub" id="worker-details">Waiting for worker heartbeat.</small></div>
+        <div class="operation-cell"><div class="operation-label">▣ PENDING WORK</div><strong class="operation-value" id="queue-count">—</strong><small class="operation-sub" id="source-queue-counts">YouTube · PDF · Websites</small></div>
+      </div>
+      <div class="operations-bottom-note" id="feeder-status">Six-hour source feeder: not enabled or no feed run recorded.</div>
+      <div class="diary-task-title">Next assignments in queue</div>
+      <div id="upcoming-jobs" class="operations-queue"><div class="empty-state">Loading queue…</div></div>
+      <p class="operations-bottom-note" id="operations-note">Processing percentage and exact start time are not available until recorded by the worker.</p>
+    </section>
+    <section id="garudanetra" class="netra-control" aria-labelledby="netra-title">
+      <div class="section-heading compact">
+        <div>
+          <div class="overline">GARUDANETRA · LIGHTWEIGHT PLAYWRIGHT CHROMIUM</div>
+          <h2 id="netra-title">Live parallel learning workspaces</h2>
+          <p>Measured CPU, RAM, GPU and disk headroom decides when SURYADEV can open the next approved source.</p>
+        </div>
+        <span class="netra-live-pill" id="netra-engine-state">Checking browser…</span>
+      </div>
+      <div class="netra-source-grid">
+        <article class="netra-source netra-web">
+          <div class="netra-source-top"><span class="netra-icon">◎</span><strong>Websites</strong><span class="netra-label">Garudanetra Chromium tabs</span></div>
+          <div class="netra-big"><strong id="netra-web-running">—</strong><span>processing now</span></div>
+          <div class="netra-metrics"><span>Allowed <b id="netra-web-capacity">—</b></span><span>Queued <b id="netra-web-queued">—</b></span><span>Open browser tabs <b id="netra-web-tabs">—</b></span></div>
+        </article>
+        <article class="netra-source netra-youtube">
+          <div class="netra-source-top"><span class="netra-icon">▶</span><strong>YouTube</strong><span class="netra-label">Caption extraction lane</span></div>
+          <div class="netra-big"><strong id="netra-video-running">—</strong><span>processing now</span></div>
+          <div class="netra-metrics"><span>Allowed <b id="netra-video-capacity">—</b></span><span>Queued <b id="netra-video-queued">—</b></span><span>Video viewing <b>Not verified</b></span></div>
+          <p class="netra-access-note" id="netra-youtube-access" aria-live="polite">One subtitle language per video · provider availability unverified</p>
+        </article>
+        <article class="netra-source netra-pdf">
+          <div class="netra-source-top"><span class="netra-icon">▤</span><strong>PDF documents</strong><span class="netra-label">Page-by-page text lane</span></div>
+          <div class="netra-big"><strong id="netra-pdf-running">—</strong><span>processing now</span></div>
+          <div class="netra-metrics"><span>Allowed <b id="netra-pdf-capacity">—</b></span><span>Queued <b id="netra-pdf-queued">—</b></span><span>Visual OCR <b>Not verified</b></span></div>
+        </article>
+        <article class="netra-source netra-books" aria-label="Books source lane">
+          <div class="netra-source-top"><span class="netra-icon">▧</span><strong>Books</strong><span class="netra-label">Evidence indexing · optional model reading</span></div>
+          <div class="netra-big"><strong id="netra-books-running">0</strong><span>reading now</span></div>
+          <div class="netra-metrics"><span>Owner approved <b id="netra-books-approved">0</b></span><span>Indexed <b id="netra-books-indexed">0</b></span><span>Text progress <b id="netra-books-lines">0 / 0</b></span></div>
+          <p class="netra-access-note" id="netra-books-state">No books have been indexed in this data folder.</p>
+        </article>
+      </div>
+      <div class="netra-bottom-row">
+        <div class="netra-admission"><span aria-hidden="true">◈</span><div><strong id="netra-capacity-heading">Measuring laptop headroom…</strong><small id="netra-capacity-reason">Auto-admission is disabled unless hardware telemetry is available.</small></div><span class="netra-capacity-badge" id="netra-total-capacity">— active / — allowed</span></div>
+        <div class="netra-browser-state"><span id="netra-tab-heading">Actual Garudanetra browser: inactive</span><small id="netra-browser-detail">Playwright Chromium is opened only for approved queued website jobs.</small></div>
+      </div>
+      <div class="netra-continuity" id="netra-continuity-status" aria-live="polite">
+        <strong>Approved-source continuity</strong>
+        <span>Awaiting read-only learning worker status.</span>
+      </div>
+      <div class="netra-tab-title">Live source and book workspaces <span id="netra-workspace-count">0</span></div>
+      <div id="netra-workspace-tabs" class="netra-workspace-tabs" aria-live="polite"><div class="empty-state">No processing slots active.</div></div>
+      <div class="netra-book-ledger">
+        <div class="netra-tab-title">Book reading checkpoints <span id="book-ledger-state">Checking local books…</span></div>
+        <div id="book-ledger-list" class="books-grid" aria-live="polite">
+          <div class="empty-state">Reading book progress…</div>
+        </div>
+        <form id="book-search-form" class="book-search-form">
+          <label for="book-search-input">Search original book lines</label>
+          <input type="search" id="book-search-input" maxlength="120" placeholder="Find a concept in indexed books">
+          <button type="submit">Search evidence</button>
+        </form>
+        <div id="book-search-results" class="book-search-results" aria-live="polite"></div>
+      </div>
+      <p class="netra-disclaimer">Website tabs are actual Garudanetra Chromium tabs; YouTube/PDF/book processing use separate lanes. Completed jobs are historical, not live. Book model observations and Core candidate receipts do not prove factual understanding.</p>
+    </section>
+    <section class="task-section" id="assignments" aria-labelledby="tasks-title">
+      <div class="section-heading"><div><div class="overline">INTERACTIVE TASK EXPLORER</div><h2 id="tasks-title">All assignments <span class="title-count" id="filtered-count">—</span></h2><p>Click any task to inspect what SURYADEV did, its evidence and what is still pending.</p></div><span class="section-decoration" aria-hidden="true">✦</span></div>
+      <div class="task-workspace">
+        <div class="filter-row">
+          <label class="search-wrap"><span class="visually-hidden">Search assignments</span><span aria-hidden="true">⌕</span><input id="task-search" type="search" placeholder="Search task ID, source or learning title" autocomplete="off"></label>
+          <label class="filter-select"><span class="visually-hidden">Source type</span><select id="kind-filter"><option value="">All sources</option><option value="youtube">YouTube</option><option value="pdf">PDF</option><option value="website">Websites</option><option value="other">Other</option></select></label>
+          <label class="filter-select"><span class="visually-hidden">Task status</span><select id="status-filter"><option value="">Every status</option><option value="queued">Queued</option><option value="running">Running</option><option value="done">Worker completed</option><option value="failed">Failed</option></select></label>
+          <label class="filter-date"><span class="visually-hidden">Filter by activity date</span><input type="date" id="task-date" aria-label="Filter tasks by date"></label>
+          <button type="button" id="clear-date" class="clear-date-btn" hidden>Clear date</button>
+        </div>
+        <div class="task-table-head"><span>ASSIGNMENT / SOURCE</span><span>STAGE</span><span>INSPECT</span></div>
+        <div id="task-list" class="task-list" aria-live="polite"><div class="empty-state">Loading your assignment history…</div></div>
+        <div class="pagination"><span id="page-label">—</span><div><button type="button" id="page-prev" class="page-btn" disabled>← Previous</button><button type="button" id="page-next" class="page-btn" disabled>Next →</button></div></div>
+      </div>
+    </section>
+    <div class="middle-grid">
+      <section id="sources" class="surface source-surface" aria-labelledby="sources-title"><div class="section-heading compact"><div><div class="overline">SOURCE COVERAGE</div><h2 id="sources-title">What it's learning</h2></div><span class="decor-orbit" aria-hidden="true">◎</span></div><div class="source-grid" id="source-grid"></div><p class="small-note">Books are counted separately from website/PDF/YouTube jobs. A recorded “done” or fully indexed book is not proof of understanding.</p></section>
+      <section id="hardware" class="surface hardware-surface" aria-labelledby="hardware-title"><div class="section-heading compact"><div><div class="overline">REAL-TIME TELEMETRY</div><h2 id="hardware-title">Laptop health</h2></div><span class="health-label">85% guard</span></div><div id="gauges" class="gauge-list"><div class="empty-state">Waiting for hardware…</div></div><div class="network" id="network"></div><div class="book-health" id="book-health" aria-live="polite">Book study: checking local progress…</div><p class="small-note">Counters are cumulative, not internet speed. Book inference time is measured model time, not a promise of learning speed. GPU telemetry requires compatible hardware.</p></section>
+    </div>
+    <section id="diary" class="surface diary-surface" aria-labelledby="diary-title">
+      <div class="section-heading compact"><div><div class="overline">DATE-WISE LEARNING</div><h2 id="diary-title">Daily learning diary</h2><p>Pick any day or click a date below to open its activity and assignments.</p></div><span class="eyebrow-chip">Date-wise activity</span></div>
+      <div class="diary-toolbar">
+        <label class="diary-calendar-label" for="diary-date"><span aria-hidden="true">▦</span> Choose a date</label>
+        <input id="diary-date" type="date" aria-label="Choose diary date">
+        <button type="button" id="diary-today" class="diary-button">Today</button>
+        <button type="button" id="diary-clear" class="diary-button secondary">All dates</button>
+      </div>
+      <div class="diary-tiles-title">Recent active dates <span class="eyebrow-chip">Click a day to explore</span></div>
+      <div id="diary-list" class="diary-list"><div class="empty-state">Loading history…</div></div>
+      <div class="diary-report" id="diary-report" aria-live="polite">
+        <div class="diary-report-intro">Select a date to see how many assignments were added, how many findings were saved, and which tasks changed that day.</div>
+      </div>
+    </section>
+    <footer>☀ SURYADEV · No paid frontend libraries · Local only · Full-source verification and KRISHNA approval are tracked separately from worker completion.</footer>
+  </main>
+</div>
+<dialog id="task-dialog" class="task-dialog" aria-labelledby="detail-title">
+  <div class="dialog-header"><div><div class="overline">ASSIGNMENT INSPECTOR</div><h2 id="detail-title">Task detail</h2></div><button class="close-button" id="close-detail" type="button" aria-label="Close task details">✕</button></div>
+  <div id="detail-content" class="detail-content"><p>Loading task…</p></div>
+</dialog>
+<dialog id="server-settings-dialog" class="settings-dialog" aria-labelledby="server-dialog-title">
+  <div class="settings-dialog-header server-header">
+    <div class="settings-header-icon">◉</div>
+    <div class="settings-header-text"><div class="settings-kicker">SECURE NODE SETTINGS</div><h2 id="server-dialog-title">KRISHNA Server</h2><p>Enter the server IP, save it locally, and run a connection diagnosis.</p></div>
+    <button type="button" id="close-server-settings" class="settings-close" aria-label="Close server settings">✕</button>
+  </div>
+  <div class="settings-dialog-body">
+    <div class="settings-alert"><strong>Connection ≠ Pairing.</strong> A green TCP or HTTP diagnosis only proves that an endpoint responds. SURYADEV's KRISHNA LED stays red until authenticated enrollment is verified.</div>
+    <div class="settings-fields">
+      <label class="settings-field">Private server IP address
+        <input type="text" id="server-ip" placeholder="192.168.0.100" inputmode="decimal" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="settings-field port-field">Core HTTP port
+        <input type="number" id="server-port" min="1" max="65535" value="8766">
+      </label>
+    </div>
+    <div class="settings-actions">
+      <button type="button" id="save-server-ip" class="settings-primary">Save server IP</button>
+      <button type="button" id="diagnose-server" class="settings-secondary">◈ Diagnose connection</button>
+    </div>
+    <div id="server-save-result" class="settings-result" role="status">No server candidate saved in this popup yet.</div>
+    <div id="server-diagnosis" class="diagnostic-panel" aria-live="polite">
+      <div class="diagnostic-title">Connection diagnostics</div>
+      <div class="diagnostic-grid">
+        <div><small>TCP PORT</small><strong id="diag-tcp">Not checked</strong></div>
+        <div><small>HEALTH API</small><strong id="diag-health">Not checked</strong></div>
+        <div><small>IDENTITY VERIFIED</small><strong id="diag-identity">No</strong></div>
+        <div><small>AUTHENTICATED PAIRING</small><strong id="diag-pairing">No</strong></div>
+      </div>
+      <p id="diagnosis-message">Click Diagnose to check the entered address. No pairing data is transmitted.</p>
+    </div>
+  </div>
+</dialog>
+<dialog id="storage-settings-dialog" class="settings-dialog wide" aria-labelledby="storage-dialog-title">
+  <div class="settings-dialog-header storage-header">
+    <div class="settings-header-icon">▤</div>
+    <div class="settings-header-text"><div class="settings-kicker">LOCAL STORAGE MANAGEMENT</div><h2 id="storage-dialog-title">Storage & Cleanup</h2><p>Check disk health, choose data storage, and safely remove temporary learning copies.</p></div>
+    <button type="button" id="close-storage-settings" class="settings-close" aria-label="Close storage settings">✕</button>
+  </div>
+  <div class="settings-dialog-body">
+    <section class="settings-section">
+      <h3>Current data directory</h3>
+      <div class="current-storage"><span id="active-data-root">Loading saved location…</span><span id="active-disk-space" class="space-pill">Checking disk…</span></div>
+      <p class="settings-muted">This contains SURYADEV's SQLite learning history and SHA-256 evidence. Changing it makes a verified copy; it never deletes your original files.</p>
+      <label class="settings-field">Choose a new directory
+        <div class="path-controls">
+          <input id="storage-location" type="text" placeholder="E:\\SURYADEV-DATA" autocomplete="off" spellcheck="false">
+          <button id="browse-storage" type="button" class="settings-secondary">Browse folders…</button>
+        </div>
+      </label>
+      <div class="settings-actions">
+        <button id="check-storage" type="button" class="settings-secondary">Check free disk space</button>
+        <button id="migrate-storage" type="button" class="settings-primary">Copy & verify data</button>
+      </div>
+      <div class="settings-result" id="storage-result" role="status">Choose a local drive folder and check its free space before copying.</div>
+      <div id="storage-restart-info" class="settings-restart" hidden></div>
+    </section>
+    <section class="settings-section">
+      <h3>Automatic temporary-file cleanup</h3>
+      <p class="settings-muted">Only SURYADEV-created working text in <code>staging/jobs</code> is eligible once a job is completed and its durable evidence SHA-256 is verified. It will never auto-delete original files, saved evidence, PDFs, transcripts, models or the database.</p>
+      <div class="settings-fields cleanup-controls">
+        <label class="toggle-label"><input id="cleanup-enabled" type="checkbox" checked><span>Enable safe automatic cleanup</span></label>
+        <label class="settings-field">Keep completed temporary copies for
+          <select id="cleanup-hours">
+            <option value="0">Delete immediately after verified save</option>
+            <option value="1">1 hour</option>
+            <option value="24">24 hours</option>
+            <option value="72">3 days</option>
+            <option value="168">7 days</option>
+          </select>
+        </label>
+      </div>
+      <div class="settings-actions">
+        <button id="save-cleanup" type="button" class="settings-primary">Save cleanup policy</button>
+        <button id="preview-cleanup" type="button" class="settings-secondary">Preview eligible files</button>
+        <button id="run-cleanup" type="button" class="settings-danger-soft">Clean verified temp now</button>
+      </div>
+      <div id="cleanup-result" class="settings-result" role="status">Permanent learning evidence is always retained. Failed and unfinished tasks are not cleaned.</div>
+    </section>
+  </div>
+</dialog>
+</body>
+</html>

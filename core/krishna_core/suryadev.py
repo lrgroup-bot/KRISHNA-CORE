@@ -15,11 +15,15 @@ from pathlib import Path
 import hashlib
 import json
 import re
+import math
 import time
 import uuid
 from threading import RLock
 
 from .field_perception import FieldPerceptionPolicy
+from .suryadev_mission_backlog import SuryadevMissionBacklog
+from .suryadev_fleet_service import SuryadevFleetService
+from .rishi_council import RishiCouncil
 
 
 class SuryadevAgent:
@@ -57,8 +61,9 @@ class SuryadevAgent:
         "frame_bytes", "audio_bytes", "video_bytes",
     }
 
-    def __init__(self, state_root, *, brahma=None, council=None, ui_reviewer=None, memory=None):
+    def __init__(self, state_root, *, brahma=None, council=None, ui_reviewer=None, memory=None, clock=time.time):
         self.root = Path(state_root)
+        self.clock = clock
         self.root.mkdir(parents=True, exist_ok=True)
         self.jobs_dir = self.root / "jobs"
         self.reports_dir = self.root / "reports"
@@ -73,6 +78,11 @@ class SuryadevAgent:
         self.council = council
         self.ui_reviewer = ui_reviewer
         self.memory = memory
+        self.mission_backlog = SuryadevMissionBacklog(self.root / "mission-authority")
+        self.fleet = SuryadevFleetService(
+            self.root / "fleet-authority", curriculum=self.mission_backlog,
+            council=self.council or RishiCouncil(),
+            node_reader=self.device_status)
 
     @staticmethod
     def _text(value, limit=8000):
@@ -319,13 +329,14 @@ class SuryadevAgent:
         tmp.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(self.nodes_file)
 
-    def device_heartbeat(self, payload):
+    def device_heartbeat(self, payload, *, authenticated=False):
         payload = dict(payload or {})
         device_id = self._text(payload.get("device_id"), 200)
         if not device_id:
             raise ValueError("device_id is required")
-        now = time.time()
+        now = float(self.clock())
         row = {
+            "authenticated": bool(authenticated),
             "device_id": device_id,
             "node_name": self._text(payload.get("node_name") or device_id, 200),
             "platform": self._text(payload.get("platform"), 100),
@@ -339,9 +350,72 @@ class SuryadevAgent:
             "thermal_state": self._text(payload.get("thermal_state") or "unknown", 60).lower(),
             "last_error": self._text(payload.get("last_error"), 1000),
         }
+        hardware = payload.get("hardware")
+        capacity = payload.get("capacity")
+        # Existing installed fleet clients send one normalized telemetry object.
+        # Translate at the authenticated Core boundary; keep all bounds checks.
+        telemetry = payload.get("telemetry")
+        if hardware is None and capacity is None and isinstance(telemetry, dict):
+            hardware = {
+                "available": True,
+                "sample_age_seconds": telemetry.get("sample_age_seconds"),
+                "cpu_percent": telemetry.get("cpu_percent"),
+                "ram_percent": telemetry.get("ram_percent"),
+                "disk_percent": telemetry.get("disk_percent"),
+                "logical_cpus": telemetry.get("logical_cpus"),
+                "ram_total_gb": telemetry.get("ram_total_gb"),
+                "disk_free_gb": telemetry.get("disk_free_gb"),
+                "gpu_inference": telemetry.get("gpu_inference") is True,
+                "gpu": {"name": telemetry.get("gpu_name","unknown")},
+            }
+            capacity = {
+                "available_slots": telemetry.get("max_total"),
+                "capabilities": telemetry.get("capabilities"),
+            }
+        if hardware is not None or capacity is not None:
+            if not isinstance(hardware, dict) or not isinstance(capacity, dict):
+                raise ValueError("fleet heartbeat needs hardware and capacity objects")
+            if hardware.get("available") is not True:
+                raise ValueError("fleet heartbeat requires measured hardware telemetry")
+            age = hardware.get("sample_age_seconds")
+            if (type(age) not in (int, float) or not math.isfinite(age)
+                    or not 0 <= age <= 15):
+                raise ValueError("hardware telemetry age must be measured and <=15 seconds")
+            for name in ("cpu_percent", "ram_percent", "disk_percent"):
+                n = hardware.get(name)
+                if type(n) not in (int,float) or not math.isfinite(n) or not 0 <= n <= 100:
+                    raise ValueError("invalid fleet telemetry for " + name)
+                row[name] = round(float(n), 2)
+            slots = capacity.get("available_slots")
+            if type(slots) is not int or not 0 <= slots <= 128:
+                raise ValueError("fleet capacity needs measured 0..128 available slots")
+            caps = capacity.get("capabilities")
+            allowed = {"website", "pdf", "youtube", "book", "experiment"}
+            if (not isinstance(caps,list) or len(caps)>5
+                    or any(not isinstance(x,str) or x not in allowed for x in caps)):
+                raise ValueError("fleet capabilities must be supported lanes")
+            row.update({
+                "telemetry_sample_at": now-float(age),
+                "available_slots": slots,
+                "capabilities": list(dict.fromkeys(caps)),
+                "gpu_inference": hardware.get("gpu_inference") is True,
+                "logical_cpus": hardware.get("logical_cpus"),
+                "ram_total_gb": hardware.get("ram_total_gb"),
+                "disk_free_gb": hardware.get("disk_free_gb"),
+                "gpu": dict(hardware.get("gpu") or {}) if isinstance(hardware.get("gpu"),dict) else {},
+                "hardware_profile_version": "suryadev.hardware.v1",
+            })
+        else:
+            # Old heartbeats cannot continue to advertise stale fleet capacity.
+            row.update({"telemetry_sample_at": None, "available_slots": 0,
+                        "capabilities": [], "gpu_inference": False})
         with self._node_lock:
             rows = self._load_nodes()
             previous = dict(rows.get(device_id) or {})
+            # Never reuse an old metric after a heartbeat missing fresh data.
+            for field in ("available_slots", "capabilities", "telemetry_sample_at",
+                          "cpu_percent", "ram_percent", "disk_percent"):
+                previous.pop(field, None)
             previous.update(row)
             rows[device_id] = previous
             self._save_nodes(rows)
@@ -356,11 +430,12 @@ class SuryadevAgent:
             "suryadev_working_green": bool(row["worker_running"] and row["network_online"] and not row["last_error"]),
             "learning_green": bool(learning_active and not row["last_error"]),
             "heartbeat_at": now,
+            "fresh_capacity_reported": bool(row.get("telemetry_sample_at") is not None and row.get("available_slots") is not None),
             "stale_after_seconds": 150,
         }
 
     def device_status(self, device_id=None):
-        now = time.time()
+        now = float(self.clock())
         with self._node_lock:
             rows = self._load_nodes()
         out = []
@@ -564,12 +639,22 @@ class SuryadevAgent:
             )
         return receipt
 
+    def mission_offer(self, request, *, device_id):
+        return self.mission_backlog.offer(request, device_id=device_id)
+
+    def mission_acknowledge(self, payload, *, device_id):
+        return self.mission_backlog.acknowledge(
+            request_id=payload.get("request_id"), device_id=device_id,
+            accepted=payload.get("accepted"), queued_urls=payload.get("queued_urls", 0))
+
     def status(self):
         jobs = len(list(self.jobs_dir.glob("SURYA-*.json")))
         reports = len(list(self.reports_dir.glob("*.json")))
         return {
             "agent": "SURYDEV",
             "version": self.VERSION,
+            "mission_backlog": self.mission_backlog.status(),
+            "fleet": self.fleet.status(),
             "role": "external overall eye + ear + UI/research reviewer",
             "capabilities": list(self.CAPABILITIES),
             "job_types": sorted(self.JOB_TYPES),
