@@ -62,6 +62,45 @@ class AgentRuntime:
     def list(self):
         return [x.as_dict() for x in sorted(self._agents.values(),key=lambda x:x.agent_id)]
 
+    def audit_connections(self):
+        """Read-only registration audit; never equates registration with live health."""
+        catalog = {row["name"]: row for row in self.action_bus.list()}
+        rows = []
+        for agent in sorted(self._agents.values(), key=lambda x: x.agent_id):
+            allowed = [name for name in catalog if self._allowed(agent, name)]
+            executable = [
+                name for name in allowed
+                if "agent" in catalog[name].get("sources", ())
+                and set(catalog[name].get("permissions", ())).issubset(agent.permissions)
+            ]
+            missing_permissions = {
+                name: sorted(set(catalog[name].get("permissions", ())) - set(agent.permissions))
+                for name in allowed if not set(catalog[name].get("permissions", ())).issubset(agent.permissions)
+            }
+            rows.append({
+                "agent_id": agent.agent_id,
+                "enabled": agent.enabled,
+                "declared_patterns": list(agent.actions),
+                "matched_actions": len(allowed),
+                "permission_compatible_actions": len(executable),
+                "missing_permissions": missing_permissions,
+                "unmatched_patterns": [
+                    pattern for pattern in agent.actions
+                    if not any(
+                        pattern == "*" or pattern == name
+                        or (pattern.endswith(".*") and name.startswith(pattern[:-1]))
+                        for name in catalog
+                    )
+                ],
+                "runtime_verified": False,
+            })
+        return {
+            "registered_agents": len(rows),
+            "registered_actions": len(catalog),
+            "agents": rows,
+            "scope": "static registry/action/permission audit; no heartbeat or execution proof",
+        }
+
     def status(self):
         recent = self.action_bus.recent(200)
         last = {}
