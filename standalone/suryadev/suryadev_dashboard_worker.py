@@ -204,24 +204,28 @@ class DashboardWorkerControl:
             actual_model = selection["model"]
             # A recently written heartbeat alone is not an active process.
             # The child independently acquires the lock before doing any work.
+            standalone_test = os.environ.get("SURYADEV_STANDALONE_TEST") == "1"
+            core = self.core_pairing() if not standalone_test else {"configured":False, "ready":False}
             plan = self.root/"learning-plan.json"
             args = [self.python, "-u", str(self.application_dir/"suryadev_extras.py"),
                     "--data", str(self.root), "worker", "--interval", "30",
                     "--model", actual_model]
             if plan.is_file():
                 from suryadev_feeder import read_plan
-                read_plan(plan)   # malformed plan prevents any launch
+                if not core["ready"]:
+                    read_plan(plan)   # paired policy is checked AFTER heartbeat
                 args += ["--plan", str(plan)]
             if actual_model == "collector":
                 # Evidence capture only: no local inference, Ollama process or model download.
                 args += ["--no-ollama"]
             approved_books = self.root / "book-plan.json"
             if approved_books.is_file():
-                from suryadev_book_continuity import read_book_plan
-                from suryadev_book_reader import file_sha256
-                entries = read_book_plan(approved_books)["books"]
-                if any(file_sha256(item["path"]) != item["sha256"] for item in entries):
-                    raise ValueError("Approved book bytes changed; refuse worker startup")
+                if not core["ready"]:
+                    from suryadev_book_continuity import read_book_plan
+                    from suryadev_book_reader import file_sha256
+                    entries = read_book_plan(approved_books)["books"]
+                    if any(file_sha256(item["path"]) != item["sha256"] for item in entries):
+                        raise ValueError("Approved book bytes changed; refuse worker startup")
                 # Collector indexes evidence only; a local model performs
                 # serialized checkpointed book interpretation when enabled.
                 args += (["--book-collect-plan", str(approved_books)]
@@ -236,8 +240,6 @@ class DashboardWorkerControl:
             if core["configured"] and not core["ready"]:
                 raise RuntimeError("Core pairing file is invalid; fix verified TLS device enrollment")
             if core["ready"]:
-                if not plan.is_file():
-                    raise ValueError("KRISHNA mission dispatch requires an approved source plan")
                 args += ["--core-mission-config", str(self.root/"core-mission-connection.json"),
                          "--fleet-mode"]
             # Persist the operator-selected 2B model for the next dashboard boot.

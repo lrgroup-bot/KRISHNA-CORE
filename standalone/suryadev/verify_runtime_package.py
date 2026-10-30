@@ -17,6 +17,7 @@ REQUIRED_ENTRYPOINTS = (
     "suryadev",
     "suryadev_extras",
     "suryadev_fleet_client",
+    "suryadev_connection_bootstrap",
     "suryadev_pairing_bootstrap",
     "suryadev_plugins",
     "suryadev_rakshak",

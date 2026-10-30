@@ -20,6 +20,7 @@ _ALLOWED = {
     ("POST", "/api/mobile/pair/request"),
     ("GET", "/api/suryadev/device/status"),
     ("POST", "/api/suryadev/device/heartbeat"),
+    ("POST", "/api/suryadev/learning-plan/request"),
     ("POST", "/api/suryadev/mission/request"),
     ("POST", "/api/suryadev/mission/ack"),
     ("POST", "/api/suryadev/fleet/claim"),

@@ -627,8 +627,12 @@ def work_loop(lib, interval, use_ollama, model, *,
         raise ValueError("Standalone test forbids Core mission/fleet/handoff")
     if fleet_mode and not core_mission_config:
         raise ValueError("fleet mode requires a pinned paired --core-mission-config")
-    if core_mission_config and not plan_path:
+    if core_mission_config and not plan_path and not fleet_mode:
         raise ValueError("Core mission relay requires an explicit approved --plan")
+    if fleet_mode:
+        # Connection precedes source policy, models and schedulers.
+        from suryadev_connection_bootstrap import wait_for_plan
+        plan_path = str(wait_for_plan(lib, core_mission_config, plan_path))
     # An existing owner-approved plan is a durable permission grant:
     # workers need not be relaunched with --plan after every restart.
     if plan_path is None and core_mission_config is None:

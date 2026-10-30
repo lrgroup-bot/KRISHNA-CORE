@@ -2473,7 +2473,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"error": str(exc)})
 
         if post_path in ("/api/suryadev/device/heartbeat","/api/suryadev/learning-bundle",
-                         "/api/suryadev/mission/request","/api/suryadev/mission/ack",
+                         "/api/suryadev/learning-plan/request", "/api/suryadev/mission/request","/api/suryadev/mission/ack",
                          "/api/suryadev/fleet/claim","/api/suryadev/fleet/renew",
                          "/api/suryadev/fleet/complete"):
             device,token=self._device_auth()
@@ -2482,6 +2482,14 @@ class Handler(BaseHTTPRequestHandler):
             body_device=str(data.get("device_id") or "").strip()
             if body_device and body_device!=device:
                 return self._json(403,{"error":"authenticated Suryadev Node ID does not match payload"})
+            if post_path == "/api/suryadev/learning-plan/request":
+                from .suryadev_plan_delivery import approved_plan
+                try:
+                    return self._json(200, approved_plan(orch.suryadev, device))
+                except (PermissionError, KeyError):
+                    return self._json(403, {"error": "fresh authenticated heartbeat required"})
+                except (ValueError, OSError):
+                    return self._json(400, {"error": "owner-approved catalogue unavailable or invalid"})
             if post_path.endswith("/heartbeat"):
                 data["device_id"]=device
                 return self._json(200,orch.suryadev.device_heartbeat(data,authenticated=True))
