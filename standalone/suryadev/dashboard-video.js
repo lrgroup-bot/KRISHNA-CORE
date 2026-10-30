@@ -24,12 +24,28 @@
           (data.runtime_ready ? ' · Observer source installed; device prerequisites unverified' : ' · Worker installation required') +
           (data.last_error ? ' · Last error: ' + data.last_error : '');
         list.append(status);
+        if (data.media_health) {
+          const media = data.media_health;
+          const live = document.createElement('p');
+          live.textContent = 'GARUDANETRA Media live · ' +
+            String(media.browser_channel || 'unknown') +
+            ' · Player: ' + String(media.player_state || 'unverified') +
+            ' · Time: ' + String(media.source_position_seconds ?? '?') + 's' +
+            ' · Ready/network: ' + String(media.ready_state ?? '?') +
+            '/' + String(media.network_state ?? '?') +
+            ' · Ad: ' + (media.ad_showing ? 'observed' : 'not detected') +
+            ' · Maximum tested: ' + String(media.measured_speed_ceiling_x ?? '?') + '×' +
+            ' · Learning not verified';
+          list.append(live);
+        }
         if (data.playback) {
           const current = document.createElement('p');
           const rate = data.playback.observed_rate;
           current.textContent = 'Measured playback: ' +
             (rate == null ? 'unavailable' : String(rate) + '×') +
             ' · Mode: ' + String(data.playback.category || 'unknown') +
+            ' · Measured-safe ceiling: ' + String(data.playback.measured_speed_ceiling_x ?? 'unverified') + '×' +
+            ' · Browser: ' + String(data.playback.browser_channel || 'not recorded') +
             ' · Video timestamp: ' + String(data.playback.video_seconds ?? '?') +
             's · Completeness: unverified';
           list.append(current);
@@ -115,9 +131,32 @@
             ' candidate topic chunks · ' + item.visual_frame_samples +
             ' selected frame samples');
           addLine(card, 'Recorded source: ' + item.caption_or_asr_source +
-            ' · high-speed 4x observed: ' + (item.four_x_observed ? 'yes' : 'no') +
+            ' · Playback interruption: ' + (item.stop_reason || 'not recorded') +
             ' · KRISHNA receipt: ' + (item.receipt_recorded ? 'recorded; independently unverified' :
               item.awaiting_server_ack ? 'pending' : 'not recorded'));
+          const media = item.garudanetra_media || {};
+          if (media.engine) {
+            addLine(card, 'GARUDANETRA Media: ' + media.engine +
+              ' · Browser: ' + (media.browser_channel || 'unknown') +
+              ' · Main-frame navigations: ' + (media.main_frame_navigations ?? '?') +
+              ' · Unexpected navigation: ' + (media.unexpected_navigation ? 'YES' : 'no'));
+            for (const event of (item.media_continuity_events || []).slice(-3)) {
+              addLine(card, 'Media event: ' + (event.reason || 'unknown') +
+                ' · Last confirmed source position: ' + durationText(event.last_source_seconds) +
+                ' · Player replaced: ' + (event.video_element_replaced == null ?
+                  'unknown' : event.video_element_replaced ? 'yes' : 'no') +
+                ' · Cause: not verified');
+            }
+            for (const fail of (media.failed_media_requests || []).slice(-3)) {
+              addLine(card, 'Streaming request failed: ' + (fail.host || 'unknown') +
+                ' · ' + (fail.resource_type || 'unknown') +
+                ' · ' + (fail.failure || 'unspecified'));
+            }
+            for (const fail of (media.media_http_errors || []).slice(-3)) {
+              addLine(card, 'Streaming HTTP: ' + (fail.host || 'unknown') +
+                ' · status ' + (fail.status ?? '?'));
+            }
+          }
           for (const chunk of item.what_was_collected || []) {
             addLine(card, 'Candidate topic ' + (chunk.topic || 'unclassified') +
               ' [' + durationText(chunk.start_seconds) + '–' +

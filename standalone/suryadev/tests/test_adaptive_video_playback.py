@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
+import tempfile
 import unittest
 
 
@@ -82,6 +84,65 @@ class AdaptiveVideoSpeedTests(unittest.TestCase):
         p = adapter.AdaptiveVideoSpeed(enabled=False)
         self.assertEqual(p.choose("Like and subscribe",
                                   video_seconds=4, caption_available=True)[0], 1.0)
+
+    def test_explicit_measured_cap_preserves_critical_and_limits_chatter(self):
+        reader=adapter.AdaptiveVideoSpeed(max_rate=1.5)
+        self.assertEqual(reader.choose("A security WARNING",
+                                      video_seconds=1,caption_available=True)[0],1.0)
+        self.assertEqual(reader.choose("Because of the parser",
+                                      video_seconds=2,caption_available=True)[0],1.5)
+        self.assertEqual(reader.choose("The session continues as expected",
+                                      video_seconds=3,caption_available=True)[0],1.5)
+        self.assertEqual(reader.choose("Welcome back to my channel",
+                                      video_seconds=4,caption_available=True)[0],1.5)
+        self.assertEqual(reader.choose("Like and subscribe to the channel",
+                                      video_seconds=5,caption_available=True)[0],1.5)
+        self.assertEqual(reader.choose("",video_seconds=6,caption_available=False)[0],1.0)
+
+    def test_measured_speed_limit_derived_from_real_compatible_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            report_dir=root/"benchmark-reports"
+            report_dir.mkdir()
+            self.assertEqual(adapter.verified_video_speed_ceiling(
+                root,browser_channel="chrome",now=10000)["max_rate"],1.0)
+            record={
+                "schema":"suryadev.video-speed-sweep.v1",
+                "browser_channel":"chrome","evidence_only":True,
+                "finished_at":9900,
+                "speed_results":{"speeds":[
+                    {"requested_speed_x":1.0,"pass":True},
+                    {"requested_speed_x":1.5,"pass":True},
+                    {"requested_speed_x":2.0,"pass":False},
+                    {"requested_speed_x":3.0,"pass":False}]}}
+            (report_dir/"video-speed-sweep-chrome-20261026-113816.json").write_text(
+                json.dumps(record),encoding="utf-8")
+            row=adapter.verified_video_speed_ceiling(root,browser_channel="chrome",now=10000)
+            self.assertEqual(row["max_rate"],1.5)
+            self.assertEqual(row["source"],"recent_local_media_clock_sweep")
+            self.assertEqual(adapter.verified_video_speed_ceiling(
+                root,browser_channel="msedge",now=10000)["max_rate"],1.0)
+            self.assertEqual(adapter.verified_video_speed_ceiling(
+                root,browser_channel="chrome",now=10000+8*86400)["max_rate"],1.0)
+            self.assertEqual(adapter.verified_video_speed_ceiling(
+                root,browser_channel=None,now=10000)["max_rate"],1.0)
+
+    def test_failed_lower_speed_blocks_higher_unverified_shortcut(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            path=root/"benchmark-reports"
+            path.mkdir()
+            (path/"video-speed-sweep-chrome-now.json").write_text(json.dumps({
+                "schema":"suryadev.video-speed-sweep.v1",
+                "browser_channel":"chrome","evidence_only":True,
+                "finished_at":100,
+                "speed_results":{"speeds":[
+                    {"requested_speed_x":1,"pass":False},
+                    {"requested_speed_x":1.5,"pass":True},
+                    {"requested_speed_x":2,"pass":True},
+                    {"requested_speed_x":3,"pass":True}]}}))
+            self.assertEqual(adapter.verified_video_speed_ceiling(
+                root,browser_channel="chrome",now=102)["max_rate"],1.0)
 
     def test_readback_is_used_not_unverified_requested_speed(self):
         class FakePage:

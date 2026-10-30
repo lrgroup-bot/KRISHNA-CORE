@@ -176,6 +176,80 @@ class BookLearningTests(unittest.TestCase):
             "ORDER BY ordinal",(obj["book_id"],)).fetchall()
         self.assertEqual(rows,[(1,1,"a"),(1,2,"b"),(2,1,"scanned image line")])
 
+    def test_structurally_empty_pdf_page_is_recorded_as_verified_blank(self):
+        file=self.root/"blank-page.pdf";file.write_bytes(b"%PDF-mocked")
+        class Blank:
+            def extract_text(self):
+                return ""
+            def get_contents(self):
+                return None
+            def get(self, name):
+                return None
+        class PDF:
+            is_encrypted=False
+            def __init__(self,*args,**kwargs):
+                self.pages=[types.SimpleNamespace(extract_text=lambda:"actual text"),
+                            Blank()]
+        with patch.dict(sys.modules,{"pypdf":types.SimpleNamespace(PdfReader=PDF)}):
+            item=self.ledger.import_book(file)
+        rows=self.ledger.db.execute(
+            "SELECT page_number,section,text FROM book_lines "
+            "WHERE book_id=? ORDER BY ordinal",(item["book_id"],)).fetchall()
+        self.assertEqual(rows[0],(1,"page 1","actual text"))
+        self.assertEqual(rows[1][0],2)
+        self.assertIn("verified blank",rows[1][1])
+        self.assertEqual(rows[1][2],"")
+        self.assertEqual(self.ledger.verify(item["book_id"])["indexed_lines_verified"],2)
+
+    def test_pdf_annotations_and_unverified_artwork_are_not_skipped(self):
+        file=self.root/"page-with-art.pdf";file.write_bytes(b"%PDF-mocked-art")
+        class Art:
+            def extract_text(self):
+                return ""
+            def get_contents(self):
+                return None
+            def get(self, name):
+                return [object()] if name=="/Annots" else None
+        class PDF:
+            is_encrypted=False
+            def __init__(self,*args,**kwargs):
+                self.pages=[types.SimpleNamespace(extract_text=lambda:"text"),
+                            Art()]
+        from suryadev_book_reader import VERIFIED_BLANK_PDF_PAGE
+        with patch.dict(sys.modules,{"pypdf":types.SimpleNamespace(PdfReader=PDF)}):
+            with self.assertRaisesRegex(ValueError,"needs local OCR"):
+                self.ledger.import_book(file)
+            with self.assertRaisesRegex(ValueError,"has annotations"):
+                self.ledger.import_book(file,
+                    ocr=lambda path,page: VERIFIED_BLANK_PDF_PAGE)
+            with self.assertRaisesRegex(ValueError,"OCR returned no text"):
+                self.ledger.import_book(file,ocr=lambda path,page:"")
+        self.assertEqual(self.ledger.status()["books"],[])
+
+    def test_rendered_blank_page_produces_empty_cited_page_not_fake_text(self):
+        file=self.root/"rendered-blank.pdf";file.write_bytes(b"%PDF-mocked-render")
+        class Unverified:
+            def extract_text(self):
+                return ""
+            def get_contents(self):
+                return b"has-graphics"
+            def get(self, name):
+                return None
+        class PDF:
+            is_encrypted=False
+            def __init__(self,*args,**kwargs):
+                self.pages=[types.SimpleNamespace(extract_text=lambda:"real words"),
+                            Unverified()]
+        from suryadev_book_reader import VERIFIED_BLANK_PDF_PAGE
+        with patch.dict(sys.modules,{"pypdf":types.SimpleNamespace(PdfReader=PDF)}):
+            result=self.ledger.import_book(
+                file,ocr=lambda path,page: VERIFIED_BLANK_PDF_PAGE)
+        row=self.ledger.db.execute(
+            "SELECT section,page_number,text FROM book_lines "
+            "WHERE book_id=? AND page_number=2",(result["book_id"],)).fetchone()
+        self.assertIn("fully white rendered page",row[0])
+        self.assertEqual(row[1:],(2,""))
+
     def test_detect_line_tampering_and_no_false_evidence_verification(self):
         file=self.root/"owned.txt";file.write_text("truth",encoding="utf-8")
         bid=self.ledger.import_book(file)["book_id"]

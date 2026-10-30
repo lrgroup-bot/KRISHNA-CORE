@@ -38,6 +38,20 @@ class MissionRenewalTests(unittest.TestCase):
         self.assertEqual(visible["request"]["request_id"],
                          first["request"]["request_id"])
 
+    def test_continuous_fleet_request_has_zero_mandatory_rest(self):
+        from suryadev_liveops import atomic_json
+        atomic_json(self.root, "fresh-workspace.json", {
+            "schema":"suryadev.fresh-workspace.v1",
+            "mission_rest_policy":"continuous", "node_profile":"fleet_adaptive"
+        })
+        first=renewal_tick(self.lib,now=100)
+        self.assertEqual(first["mission_cadence"]["mode"],"continuous")
+        self.assertEqual(first["mission_cadence"]["rest_seconds"],0)
+        self.assertEqual(first["request"]["rest_after_mission_minutes"],0)
+        self.assertFalse(first["delivered_to_krishna"])
+        again=renewal_tick(self.lib,now=200)
+        self.assertEqual(first["request"]["request_id"],again["request"]["request_id"])
+
     def test_local_sources_do_not_fabricate_core_delivery(self):
         request = renewal_tick(self.lib, now=100)
         for n in range(3):

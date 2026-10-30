@@ -137,6 +137,7 @@ class DashboardWorkerControl:
         # proves that an external process still owns the worker lane.
         external_lock = False if active else self._external_lock_held()
         core = self.core_pairing()
+        standalone_test = os.environ.get("SURYADEV_STANDALONE_TEST") == "1"
         try:
             from suryadev_feeder import read_plan
             policy=read_plan(self.root/"learning-plan.json")
@@ -147,19 +148,32 @@ class DashboardWorkerControl:
             host_count = 0
         workspace=_safe_read(self.root, "fresh-workspace.json", max_bytes=4096)
         is_fresh=workspace.get("schema")=="suryadev.fresh-workspace.v1"
+        fleet_adaptive = is_fresh and workspace.get("node_profile") == "fleet_adaptive"
         return {
             "workspace_mode":"fresh" if is_fresh else "existing",
-            "workspace_active_task_limit":3,
+            "node_profile":"fleet_adaptive" if fleet_adaptive else "legacy",
+            "workspace_active_task_limit":125 if fleet_adaptive else 3,
             "workspace_data_dir":str(self.root),
             "workspace_previous_retained":bool(is_fresh),
             "preferred_model":workspace.get("trial_model", "qwen3.5:2b") if is_fresh else None,
             "managed_model":self.running_model if active else None,
-            "learning_role":"collector_only" if self.running_model == "collector" and active else
-                            "local_inference" if active else "inactive",
+            # A CLI-launched worker owns the SAME canonical OS lock but is
+            # not a child of this dashboard. Its actual model is unknown
+            # here: don't falsely mark it "inactive" or borrow a stale model.
+            "learning_role":("collector_only" if self.running_model == "collector" else
+                             "local_inference") if active else
+                            "external_worker" if external_lock and fresh and
+                                pulse.get("state") not in ("offline","stopped") else
+                            "external_lock_only" if external_lock else "inactive",
+            "worker_owner":"dashboard" if active else
+                           "external_process" if external_lock else "none",
+            "managed_model_source":"dashboard_process" if active else
+                                   "not_reported",
             "paired_core_host_delegation":delegated,
             "paired_core_approved_host_count":host_count,
             "core_dispatch": core,
-            "dispatch_mode": "krishna_fleet_configured" if core["ready"] else "local_only",
+            "dispatch_mode": "standalone_test" if standalone_test else
+                             "krishna_fleet_configured" if core["ready"] else "local_only",
             "managed_running": active,
             "external_worker_active": external_lock,
             "can_start": not (active or external_lock),
@@ -176,35 +190,56 @@ class DashboardWorkerControl:
         }
 
     def start(self, *, model="qwen3.5:2b"):
-        if not isinstance(model, str) or model not in ("collector", "qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b", "gemma3:4b"):
+        if not isinstance(model, str) or model not in ("auto", "collector", "qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b", "gemma3:4b"):
             raise ValueError("Select one supported local Ollama model")
         with self.lock:
             if self.process is not None and self.process.poll() is None:
                 raise RuntimeError("Dashboard-managed worker already running")
             if self._external_lock_held():
                 raise RuntimeError("Another SURYADEV research or video process owns the worker lock")
+            # Select the actual model using only THIS node's telemetry.
+            # Auto never downloads model weights or selects heavy inference.
+            from suryadev_model_router import resolve_model
+            selection = resolve_model(model, self.root)
+            actual_model = selection["model"]
             # A recently written heartbeat alone is not an active process.
             # The child independently acquires the lock before doing any work.
+            standalone_test = os.environ.get("SURYADEV_STANDALONE_TEST") == "1"
+            core = self.core_pairing() if not standalone_test else {"configured":False, "ready":False}
             plan = self.root/"learning-plan.json"
             args = [self.python, "-u", str(self.application_dir/"suryadev_extras.py"),
                     "--data", str(self.root), "worker", "--interval", "30",
-                    "--model", model]
+                    "--model", actual_model]
             if plan.is_file():
                 from suryadev_feeder import read_plan
-                read_plan(plan)   # malformed plan prevents any launch
+                if not core["ready"]:
+                    read_plan(plan)   # paired policy is checked AFTER heartbeat
                 args += ["--plan", str(plan)]
-            if model == "collector":
+            if actual_model == "collector":
                 # Evidence capture only: no local inference, Ollama process or model download.
                 args += ["--no-ollama"]
+            approved_books = self.root / "book-plan.json"
+            if approved_books.is_file():
+                if not core["ready"]:
+                    from suryadev_book_continuity import read_book_plan
+                    from suryadev_book_reader import file_sha256
+                    entries = read_book_plan(approved_books)["books"]
+                    if any(file_sha256(item["path"]) != item["sha256"] for item in entries):
+                        raise ValueError("Approved book bytes changed; refuse worker startup")
+                # Collector indexes evidence only; a local model performs
+                # serialized checkpointed book interpretation when enabled.
+                args += (["--book-collect-plan", str(approved_books)]
+                         if actual_model == "collector" else
+                         ["--book-plan", str(approved_books)])
             # Once installed and authenticated by its existing pinned TLS
             # device credential, KRISHNA owns the mission queue. Never
             # derive permission from an unauthenticated LAN /health probe.
-            core = self.core_pairing()
+            standalone_test = os.environ.get("SURYADEV_STANDALONE_TEST") == "1"
+            core = self.core_pairing() if not standalone_test else {
+                "configured":False, "ready":False}
             if core["configured"] and not core["ready"]:
                 raise RuntimeError("Core pairing file is invalid; fix verified TLS device enrollment")
             if core["ready"]:
-                if not plan.is_file():
-                    raise ValueError("KRISHNA mission dispatch requires an approved source plan")
                 args += ["--core-mission-config", str(self.root/"core-mission-connection.json"),
                          "--fleet-mode"]
             # Persist the operator-selected 2B model for the next dashboard boot.
@@ -219,16 +254,21 @@ class DashboardWorkerControl:
             # Other KRISHNA workers and system-wide Ollama configuration stay untouched.
             env = os.environ.copy()
             env["SURYADEV_OLLAMA_THREADS"] = str(min(2, max(1, (os.cpu_count() or 2)//2)))
-            # Fresh learning: no more than THREE tasks TOTAL across sources,
-            # browser video observations and book model-reading slots.
-            # The hardware 85% guard may further reduce this to 0, 1 or 2.
-            # Never inherit a larger, unsafe operator cap.
+            workspace = _safe_read(self.root,"fresh-workspace.json",max_bytes=4096)
+            # Honor the persisted operator preference even when the dashboard
+            # is reopened directly instead of through start-node.py.
+            if "SURYADEV_BOOK_FAST" not in env:
+                env["SURYADEV_BOOK_FAST"] = "1" if workspace.get("fast_books") is True else "0"
+            fleet_adaptive = (workspace.get("schema") == "suryadev.fresh-workspace.v1"
+                              and workspace.get("node_profile") == "fleet_adaptive")
+            ceiling = 125 if fleet_adaptive else 3
             try:
-                requested = int(env.get("SURYADEV_MAX_PARALLEL", "3"))
+                requested = int(env.get("SURYADEV_MAX_PARALLEL", str(ceiling)))
             except (TypeError, ValueError):
                 requested = 1
-            env["SURYADEV_MAX_PARALLEL"] = str(max(1, min(3, requested)))
+            env["SURYADEV_MAX_PARALLEL"] = str(max(1, min(ceiling, requested)))
             env["SURYADEV_BROWSER_TABS"] = "auto"
+            env["SURYADEV_COLLECTOR_ONLY"] = "1" if actual_model == "collector" else "0"
             try:
                 proc = subprocess.Popen(args, cwd=str(self.application_dir),
                     stdin=subprocess.DEVNULL, stdout=handle, stderr=subprocess.STDOUT,
@@ -237,12 +277,19 @@ class DashboardWorkerControl:
                 handle.close()
                 raise
             self.process = proc
-            self.running_model = model
+            self.running_model = actual_model
             self.logfile = handle
             return {"ok": True, "status":"STARTING", "pid":proc.pid,
-                    "model":model, "learning_role":"collector_only" if model=="collector" else "local_inference",
-                    "ollama_required":model!="collector", "approved_plan_loaded":plan.is_file(),
-                    "core_dispatch_mode":"krishna_fleet" if core["ready"] else "local",
+                    "model":actual_model, "requested_model":model,
+                    "model_policy_reason":selection["reason"],
+                    "learning_role":"collector_only" if actual_model=="collector" else "local_inference",
+                    "ollama_required":actual_model!="collector", "approved_plan_loaded":plan.is_file(),
+                    "approved_books_loaded":approved_books.is_file(),
+                    "book_mode": ("indexed_evidence_only" if actual_model=="collector" else
+                                  "local_model_interpretation_unverified")
+                                 if approved_books.is_file() else "no_approved_books",
+                    "core_dispatch_mode":"standalone_test" if standalone_test else
+                                         "krishna_fleet" if core["ready"] else "local",
                     "cpu_thread_budget":int(env["SURYADEV_OLLAMA_THREADS"]),
                     "automatic_hardware_capacity":True,
                     "pdf_workload_limit":100,

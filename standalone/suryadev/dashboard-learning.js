@@ -49,15 +49,48 @@
           model.value = d.preferred_model;
         }
         preferenceLoaded = true;
+        const configured = Number(d.workspace_active_task_limit);
+        const ceiling = Number.isInteger(configured) && configured > 0
+          ? String(configured) : "unverified";
+        const fresh = d.workspace_mode === "fresh";
+        const adaptive = d.node_profile === "fleet_adaptive";
+        const heroLimit = el("learning-workspace-cap");
+        const heroDescription = el("learning-workspace-description");
+        if (heroLimit) heroLimit.textContent = fresh
+          ? (adaptive ? "· fleet-adaptive node" : "· legacy node")
+          : "· existing data";
+        if (heroDescription) heroDescription.textContent = fresh
+          ? "Configured upper ceiling: "+ceiling+
+            " simultaneous tasks total. Actual CPU/RAM admission may be lower; "+
+            "only approved website, video, PDF and book work is eligible."
+          : "Existing learning evidence is retained. Measured capacity and approved sources control new work.";
+        const profile = el("node-control-profile");
+        const planLabel = el("node-control-plan");
+        if (profile) profile.textContent = d.workspace_mode === "fresh"
+          ? (adaptive ? "Adaptive fleet · "+ceiling+" configured ceiling"
+                      : "Legacy · "+ceiling+" configured ceiling")
+          : "Existing workspace · profile not confirmed";
+        if (planLabel) planLabel.textContent = d.plan_exists
+          ? "Plan present · source approval checked separately" : "No approved source plan";
         const core = d.core_dispatch || {};
         const paired = core.ready === true;
+        const pairingLabel = el("node-control-pairing");
+        if (pairingLabel) pairingLabel.textContent = paired
+          ? "Credentials locally valid · live link unverified"
+          : "Unpaired · local collection only";
         const delegated = d.paired_core_host_delegation === true;
         const workspace = el("learning-workspace-state");
         if (workspace) {
           workspace.textContent = d.workspace_mode === "fresh"
             ? "FRESH WORKSPACE ACTIVE · Previous learning retained outside this session · " +
-              "Maximum " + Number(d.workspace_active_task_limit || 3) +
-              " simultaneous tasks total · 85% hardware guard"
+              (d.node_profile === "fleet_adaptive"
+                ? "HARDWARE-ADAPTIVE FLEET · " +
+                  ceiling +
+                  " configured upper cap, actual capacity measured · "
+                : "Maximum " + ceiling +
+                  " simultaneous tasks total · ") +
+              "85% hardware guard"
+
             : "EXISTING WORKSPACE · Earlier assignments are still in this data directory. " +
               "Run start-fresh-workspace.ps1 from the updated installation to begin a blank session.";
         }

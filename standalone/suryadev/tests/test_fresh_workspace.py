@@ -116,7 +116,7 @@ class FreshWorkspaceTests(unittest.TestCase):
         launcher=(SOURCE/"start-fresh-workspace.ps1").read_text(encoding="utf-8")
         install=(SOURCE/"install-windows.ps1").read_text(encoding="utf-8")
         for snippet in ('id="learning-workspace-state"','Current session assignments',
-                        "Fresh learning","qwen3.5:9b"):
+                        "Learning workspace",'id="node-control-capacity"', "qwen3.5:9b"):
             self.assertIn(snippet,html)
         self.assertNotIn('id="video-auto-url"',html)
         self.assertIn("start-fresh-workspace.ps1",install)

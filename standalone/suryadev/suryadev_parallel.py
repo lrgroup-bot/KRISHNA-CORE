@@ -20,6 +20,7 @@ from suryadev_sources import source_kind
 from suryadev_resources import snapshot
 from suryadev_liveops import atomic_json, worker_note, _safe_read
 from suryadev_garudanetra import GarudanetraLite
+from suryadev_trial_limits import trial_cap
 
 CAPACITY_FILE = "capacity-runtime.json"
 KINDS = ("website", "youtube", "pdf")
@@ -76,20 +77,63 @@ def record_youtube_rate_limit(root, now=None):
 
 def plan_capacity(reading, *, logical_cpus=None, collector_only=False):
     """Conservative measured headroom, not an invented fixed laptop capacity."""
-    if not reading.get("available"):
+    if not isinstance(reading, dict) or reading.get("available") is not True:
         return {"safe": False, "reason": "psutil telemetry unavailable",
                 "max_total": 0, "limits": {k:0 for k in KINDS},
                 "cpu_percent": None, "ram_percent": None}
-    cpus = max(1, int(logical_cpus or os.cpu_count() or 1))
-    cpu = float(reading.get("cpu_percent", 100))
-    ram = float(reading.get("ram_percent", 100))
-    disk = float(reading.get("disk_percent", 100))
-    free = float(reading.get("ram_total_gb", 0)) - float(reading.get("ram_used_gb", 0))
-    disk_free = float(reading.get("disk_free_gb", 0))
+
+    # A failed sensor or malformed cached sample must NEVER look like unused
+    # hardware. NaN silently bypasses numeric comparisons and can otherwise
+    # turn a damaged hardware report into positive worker admission.
+    required = ("cpu_percent", "ram_percent", "disk_percent",
+                "ram_total_gb", "ram_used_gb", "disk_free_gb")
+    values = {}
+    for metric in required:
+        value = reading.get(metric)
+        if type(value) not in (int, float) or not math.isfinite(value):
+            return {"safe": False, "reason": "Invalid or missing hardware telemetry: " + metric,
+                    "max_total": 0, "limits": {k: 0 for k in (*KINDS, "book")},
+                    "cpu_percent": None, "ram_percent": None}
+        values[metric] = float(value)
+    cpu, ram, disk, total_ram, used_ram, disk_free = (
+        values[name] for name in required)
+    if (not 0 <= cpu <= 100 or not 0 <= ram <= 100
+            or not 0 <= disk <= 100 or total_ram <= 0
+            or not 0 <= used_ram <= total_ram or disk_free < 0):
+        return {"safe": False, "reason": "Out-of-range hardware telemetry",
+                "max_total": 0, "limits": {k: 0 for k in (*KINDS, "book")},
+                "cpu_percent": None, "ram_percent": None}
     gpu = reading.get("gpu") or {}
-    gpu_hot = (gpu.get("available") and
-               (float(gpu.get("usage_percent") or 0) >= 85 or
-                float(gpu.get("vram_percent") or 0) >= 85))
+    if not isinstance(gpu, dict):
+        return {"safe": False, "reason": "Invalid GPU telemetry",
+                "max_total": 0, "limits": {k: 0 for k in (*KINDS, "book")},
+                "cpu_percent": cpu, "ram_percent": ram}
+    if gpu.get("available"):
+        for metric in ("usage_percent", "vram_percent"):
+            value = gpu.get(metric)
+            if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 100:
+                return {"safe": False, "reason": "Missing or invalid GPU telemetry: " + metric,
+                        "max_total": 0, "limits": {k: 0 for k in (*KINDS, "book")},
+                        "cpu_percent": cpu, "ram_percent": ram}
+    temp = reading.get("temperature_max_c")
+    if temp is not None and (type(temp) not in (int, float) or
+                             not math.isfinite(temp) or not -50 <= temp <= 200):
+        return {"safe": False, "reason": "Invalid thermal telemetry",
+                "max_total": 0, "limits": {k: 0 for k in (*KINDS, "book")},
+                "cpu_percent": cpu, "ram_percent": ram}
+    if reading.get("battery_plugged") is False:
+        battery = reading.get("battery_percent")
+        if type(battery) not in (int, float) or not math.isfinite(battery) or not 0 <= battery <= 100:
+            return {"safe": False, "reason": "Unverified unplugged battery charge",
+                    "max_total": 0, "limits": {k: 0 for k in (*KINDS, "book")},
+                    "cpu_percent": cpu, "ram_percent": ram}
+    try:
+        cpus = max(1, int(logical_cpus or os.cpu_count() or 1))
+    except (ValueError, TypeError, OverflowError):
+        cpus = 1
+    free = total_ram - used_ram
+    gpu_hot = (gpu.get("available") is True and
+               (gpu["usage_percent"] >= 85 or gpu["vram_percent"] >= 85))
     reason = ""
     if cpu >= 85 or ram >= 85 or disk >= 85 or disk_free < 2 or gpu_hot:
         reason = "Hardware guard: CPU/RAM/disk/GPU exceeded safe limits"
@@ -160,6 +204,7 @@ class AdaptiveResearchWorkers:
         self.books_enabled = bool(books_enabled)
         self.video_enabled = False
         self._dual_lane_turn = 0
+        self._single_lane_turn = 0
         self.external_active = 0
         self.browser = None
         self.browser_error = ""
@@ -212,15 +257,18 @@ class AdaptiveResearchWorkers:
         # The fresh-session limit belongs to the data root, not merely to
         # the dashboard launcher. It remains enforced for CLI workers too.
         # Historical/nonfresh high-capacity server profiles stay unchanged.
-        fresh_mode = (_safe_read(self.root,"fresh-workspace.json",max_bytes=4096)
-                      .get("schema") == "suryadev.fresh-workspace.v1")
+        workspace = _safe_read(self.root,"fresh-workspace.json",max_bytes=4096)
+        fresh_mode = workspace.get("schema") == "suryadev.fresh-workspace.v1"
+        fleet_adaptive = fresh_mode and workspace.get("node_profile") == "fleet_adaptive"
         requested = os.environ.get("SURYADEV_MAX_PARALLEL", "").strip()
         if fresh_mode:
             try:
-                cap = int(requested) if requested else 3
+                cap = int(requested) if requested else (TOTAL_TARGET if fleet_adaptive else 3)
             except ValueError:
                 cap = 1
-            requested = str(max(1,min(3,cap)))
+            # The cap can only REDUCE sampled resource admission; it can never
+            # bypass memory, CPU, GPU, temperature, source or provider gates.
+            requested = str(max(1,min(TOTAL_TARGET if fleet_adaptive else 3,cap)))
         if requested:
             try:
                 ceiling = int(requested)
@@ -233,11 +281,25 @@ class AdaptiveResearchWorkers:
                                   for kind,limit in capacity["limits"].items()}
             capacity["laptop_profile"] = ("single-job" if ceiling == 1 else
                                           "measured-maximum-" + str(ceiling))
+        # Operator trial ceilings only LOWER measured CPU/RAM admission.
+        # The independent caption downloader remains at one provider request.
+        for kind in ("website","pdf"):
+            limit=trial_cap(kind)
+            if limit is not None:
+                capacity["limits"][kind]=min(capacity["limits"][kind],limit)
+        capacity["trial_source_targets"]={
+            kind: trial_cap(kind) for kind in ("website","pdf","book","video")
+        }
+        capacity["node_profile"] = "fleet_adaptive" if fleet_adaptive else "legacy"
         # Reserve capacity for independent books and actual Chromium video
         # observations; all run inside THIS supervisor's one-worker lock.
         # Always retain at least one source lane when possible.
         total = capacity["max_total"]
-        reserve_books = (min(BOOK_TARGET, max(1,total // 4))
+        book_target=trial_cap("book")
+        book_target=BOOK_TARGET if book_target is None else min(BOOK_TARGET,book_target)
+        video_target=trial_cap("video")
+        video_target=SOURCE_TARGETS["youtube"] if video_target is None else min(SOURCE_TARGETS["youtube"],video_target)
+        reserve_books = (min(book_target, max(1,total // 4))
                          if self.books_enabled and total > 1 else 0)
         reserve_books = min(reserve_books,max(0,total-1))
         # When the approved queue contains ONLY browser videos, use spare
@@ -246,7 +308,7 @@ class AdaptiveResearchWorkers:
         # caption source keeps one source slot. Pending books keep their reserve.
         # This is still bounded by the shared fresh-node cap and 85% guard.
         pending_source = False
-        if self.video_enabled and total:
+        if (self.video_enabled or self.books_enabled) and total:
             queued_db = Library(self.root)
             try:
                 pending_source = bool(queued_db.db.execute(
@@ -255,14 +317,35 @@ class AdaptiveResearchWorkers:
             finally:
                 queued_db.db.close()
         video_budget = max(0, total - reserve_books - (1 if pending_source else 0))
-        reserve_video = (min(SOURCE_TARGETS["youtube"], video_budget)
+        reserve_video = (min(video_target, video_budget)
                          if self.video_enabled else 0)
+        # Low-memory nodes may admit only ONE safe task. Without explicit
+        # rotation, a permanently refilled website/PDF queue would starve
+        # approved video observers and book checkpoints indefinitely.
+        # Rotate only when no job is already running; all admissions remain
+        # bounded by measured max_total and the canonical single worker.
+        if total == 1 and not self.futures and not self.external_active:
+            choices=[]
+            if pending_source:
+                choices.append("source")
+            if self.video_enabled and video_target > 0:
+                choices.append("video")
+            if self.books_enabled and book_target > 0:
+                choices.append("book")
+            if choices:
+                chosen=choices[self._single_lane_turn % len(choices)]
+                self._single_lane_turn+=1
+                reserve_video=1 if chosen=="video" else 0
+                reserve_books=1 if chosen=="book" else 0
+                capacity["single_slot_lane"]=chosen
         if total == 2 and self.books_enabled and self.video_enabled:
             # Only one non-source slot exists. Alternate which lane may
             # claim it instead of permanently starving videos or books.
             self._dual_lane_turn += 1
             reserve_books, reserve_video = (
                 (1,0) if (self._dual_lane_turn // 5) % 2 == 0 else (0,1))
+            reserve_books=min(reserve_books,book_target)
+            reserve_video=min(reserve_video,video_target)
         capacity["reserved_book_slots"] = reserve_books
         capacity["reserved_video_slots"] = reserve_video
         capacity["source_execution_slots"] = max(

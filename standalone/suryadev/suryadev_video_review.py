@@ -212,7 +212,16 @@ class VideoReview:
                 if not self.auto_enabled():
                     self.auto_status="disabled"
                 elif self.active:
+                    # A previously launched observation may still be finishing.
+                    # This UI must report that real in-flight child honestly.
                     self.auto_status="watching"
+                elif (_safe_read(self.data_root, "fresh-workspace.json", max_bytes=4096)
+                      .get("node_profile") == "fleet_adaptive"):
+                    # A fleet-adaptive node uses the ONE research supervisor's
+                    # measured ParallelVideoReader pool. Never seize its
+                    # exclusive worker lock from the dashboard scheduler,
+                    # even when the worker has not started yet.
+                    self.auto_status="supervisor_owned_waiting_for_learning_worker"
                 else:
                     pulse=worker_control.snapshot()
                     if pulse["managed_running"] or pulse["worker_heartbeat_recent"]:
@@ -280,7 +289,38 @@ class VideoReview:
         return {"ok": True, "job_id": jid, "sha256": digest, "status": "QUEUED_FOR_REVIEW"}
 
     def snapshot(self):
+        # Imported job files are historical evidence, not perpetual permission.
+        # A source removed from the local owner-approved plan must no longer
+        # be offered for playback, even if its old inbox record remains.
+        approved_urls = set()
+        try:
+            if self.plan.is_file() and self.plan.stat().st_size <= 1_000_000:
+                plan = json.loads(self.plan.read_text(encoding="utf-8"))
+                if isinstance(plan, dict) and isinstance(plan.get("approved_urls"), list):
+                    approved_urls = {url for url in plan["approved_urls"]
+                                     if isinstance(url, str)}
+        except (OSError, ValueError, TypeError):
+            pass
         states = {row["job_id"]: row["status"] for row in self.snapshot_unlocked_jobs()}
+        from suryadev_liveops import _safe_read
+        outcomes = _safe_read(self.data_root, "video-observer-outcomes.json",
+                              max_bytes=131072)
+        final = outcomes.get("jobs", {}) if (
+            outcomes.get("schema") == "suryadev.video-outcomes.v1"
+            and isinstance(outcomes.get("jobs"), dict)) else {}
+        attempts = _safe_read(self.data_root, "video-observer-attempts.json",
+                              max_bytes=131072)
+        tried = set(attempts.get("job_ids", [])) if (
+            attempts.get("schema") == "suryadev.video-attempts.v1"
+            and isinstance(attempts.get("job_ids"), list)) else set()
+        running = _safe_read(self.data_root, "video-concurrent-runtime.json",
+                             max_bytes=8192)
+        updated = running.get("updated_at")
+        live = set(running.get("active_job_ids", [])) if (
+            running.get("schema") == "suryadev.parallel-video.v1"
+            and type(updated) in (int,float) and
+            0 <= time.time() - updated < 90 and
+            isinstance(running.get("active_job_ids"), list)) else set()
         with self.lock:
             active, error = self.active, self.last_error
         jobs = []
@@ -291,32 +331,114 @@ class VideoReview:
                 try:
                     row = json.loads(path.read_text(encoding="utf-8"))
                     jid = row["job_id"]
-                    status = "RUNNING" if jid == active else states.get(jid, "QUEUED_FOR_REVIEW")
-                    jobs.append({"job_id": jid, "target": row.get("target", ""),
+                    outcome_row = final.get(jid, {})
+                    if not isinstance(outcome_row, dict):
+                        outcome_row = {}
+                    prior_playback = (self.root/"runtime"/"jobs"/jid/
+                                      "playback-speed.json")
+                    has_prior_playback = (prior_playback.is_file()
+                                         and not prior_playback.is_symlink())
+                    # The historical worker-state.json may contain only one
+                    # of several concurrent video jobs. Per-job canonical
+                    # reports remain authoritative even if that index is lost.
+                    canonical = _safe_read(self.root/"runtime"/"jobs"/jid,
+                                           "worker-report.json",max_bytes=128000)
+                    canonical_status = canonical.get("status")
+                    if jid == active or jid in live:
+                        status = "RUNNING"
+                    elif isinstance(canonical_status,str) or states.get(jid):
+                        status = canonical_status or states[jid]
+                        if status == "AWAITING_SERVER_ACK":
+                            # Legacy observer may have produced a single
+                            # uncaptioned screenshot from a stalled lecture.
+                            # Show the original canonical record but with
+                            # an explicit incomplete status, without modifying
+                            # the durable receipt or retry permissions.
+                            bundle = _safe_read(self.root / "runtime" / "jobs"
+                                                / jid, "learning-bundle.json",
+                                                max_bytes=3_000_000)
+                            session = bundle.get("session", {})
+                            if (isinstance(session, dict) and
+                                session.get("end_reason") in (
+                                    "content_playback_stalled",
+                                    "advertisement_wait_limit",
+                                    "browser_snapshot_unavailable",
+                                    "media_unloaded_after_playback",
+                                    "video_element_replaced",
+                                    "unapproved_video_navigation",
+                                    "media_error")):
+                                status = "INCOMPLETE_STALLED_OBSERVATION"
+                    elif outcome_row.get("state"):
+                        status = str(outcome_row["state"])[:80]
+                    elif jid in tried or has_prior_playback:
+                        status = "ATTEMPTED_NO_FINAL_RECEIPT"
+                    else:
+                        status = "QUEUED_FOR_REVIEW"
+                    target_url = row.get("target", "")
+                    still_approved = (isinstance(target_url, str)
+                                      and target_url in approved_urls)
+                    jobs.append({"job_id": jid, "target": target_url,
                                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                                 "status": status, "can_run": status in (
-                                     "QUEUED_FOR_REVIEW", "FAILED", "EVIDENCE_REQUIRED", "ADAPTER_REQUIRED")})
+                                 "status": status,
+                                 "source_currently_approved": still_approved,
+                                 "error": str(outcome_row.get("error") or "")[:300],
+                                 # Never offer 'run' for an already attempted video
+                                 # or source removed from the current approved plan.
+                                 "can_run": still_approved and status == "QUEUED_FOR_REVIEW" and
+                                 jid not in tried and not has_prior_playback
+                                 and not canonical_status})
                 except (OSError, ValueError, KeyError, TypeError):
                     continue
         playback = None
-        if active and JOB_ID.fullmatch(active):
-            # Verified readback of actual HTML video playback rate, not guessed speed.
-            speed_file = self.root / "runtime" / "jobs" / active / "playback-speed.json"
+        primary = active if active else next(iter(sorted(live)),None)
+        if primary and JOB_ID.fullmatch(primary):
+            # A fleet-adaptive node owns video launches in the parent worker:
+            # its active ids come from the supervisor runtime heartbeat.
+            speed_file = self.root / "runtime" / "jobs" / primary / "playback-speed.json"
             if speed_file.is_file() and not speed_file.is_symlink() and speed_file.stat().st_size <= 8192:
                 try:
                     reading = json.loads(speed_file.read_text(encoding="utf-8"))
                     if (reading.get("schema") == "krishna.suryadev.playback-speed.v1"
-                            and reading.get("job_id") == active):
+                            and reading.get("job_id") == primary
+                            and type(reading.get("updated_at")) in (int,float)
+                            and 0 <= time.time()-reading["updated_at"] < 45):
                         playback = {
                             "observed_rate": reading.get("observed_rate"),
                             "requested_rate": reading.get("requested_rate"),
                             "category": reading.get("category"),
                             "video_seconds": reading.get("video_seconds"),
+                            "browser_channel": reading.get("browser_channel"),
+                            "measured_speed_ceiling_x": reading.get("measured_speed_ceiling_x"),
                             "coverage_verified": False,
                         }
                 except (OSError, ValueError, TypeError):
                     playback = None
-        return {"active_job": active, "last_error": error, "jobs": jobs,
+        media_health = None
+        if primary and JOB_ID.fullmatch(primary):
+            health = _safe_read(self.root/"runtime"/"jobs"/primary,
+                                "media-health.json",max_bytes=8192)
+            timestamp = health.get("updated_at")
+            if (health.get("schema") == "suryadev.garudanetra-media-health.v1"
+                    and health.get("job_id") == primary
+                    and type(timestamp) in (int,float)
+                    and 0 <= time.time()-timestamp < 30):
+                media_health = {
+                    "engine":health.get("engine"),
+                    "browser_channel":health.get("browser_channel"),
+                    "player_state":health.get("player_state"),
+                    "source_position_seconds":health.get("source_position_seconds"),
+                    "ready_state":health.get("ready_state"),
+                    "network_state":health.get("network_state"),
+                    "media_error_code":health.get("media_error_code"),
+                    "ad_showing":health.get("ad_showing"),
+                    "observed_playback_rate":health.get("observed_playback_rate"),
+                    "measured_speed_ceiling_x":health.get("measured_speed_ceiling_x"),
+                    "learning_verified":False,
+                }
+        return {"active_job": primary, "active_job_ids":sorted(set(live)|(
+                    {active} if active else set())),
+                "media_health": media_health,
+                "last_error": error, "jobs": jobs,
                 "auto_enabled": self.auto_enabled(),
                 "auto_status": self.auto_status,
                 "auto_error": self.auto_error,

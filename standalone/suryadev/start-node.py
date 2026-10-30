@@ -16,12 +16,13 @@ import sys
 from datetime import datetime, timezone
 
 
-MODELS = ("collector", "qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b", "gemma3:4b")
+MODELS = ("collector", "auto", "qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b", "gemma3:4b")
 MARKER_SCHEMA = "suryadev.fresh-workspace.v1"
 
 
 def prepare(data: Path, *, model: str, previous: Path | None = None,
-            new_session: bool = False) -> Path:
+            new_session: bool = False, adaptive_fleet: bool = False,
+            continuous: bool = False, fast_books: bool | None = None) -> Path:
     """Initialize or reopen a fresh study ledger without removing prior files."""
     if model not in MODELS:
         raise ValueError("Unsupported learning mode")
@@ -57,8 +58,19 @@ def prepare(data: Path, *, model: str, previous: Path | None = None,
         }
     if previous is not None and "previous_learning_preserved_at" not in state:
         state["previous_learning_preserved_at"] = str(previous)
+    # Fleet mode is deliberately opt-in for the first release. Existing laptop
+    # installations retain their legacy three-task safety contract.
+    if adaptive_fleet:
+        state["node_profile"] = "fleet_adaptive"
+        state["active_task_limit"] = 125  # Upper cap; resource admission always wins.
+    if continuous:
+        state["mission_rest_policy"] = "continuous"  # Never disables 85% safety.
     # Explicit mode selection may change the inference backend, not study evidence.
     state["trial_model"] = model
+    if fast_books is not None:
+        if type(fast_books) is not bool:
+            raise ValueError("fast_books must be a boolean")
+        state["fast_books"] = fast_books
     temp = data / (".fresh-workspace-" + secrets.token_hex(8) + ".tmp")
     try:
         temp.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n",
@@ -85,29 +97,80 @@ def main(argv=None):
     ap.add_argument("--data", type=Path, default=Path.home() / "SURYADEV-NODE-DATA")
     ap.add_argument("--previous-data", type=Path, default=None)
     ap.add_argument("--model", choices=MODELS, default="collector",
-                    help="collector=NO Ollama; other values require opt-in local Ollama")
+                    help="collector=NO Ollama; auto=installed lightweight model only with safe headroom")
     ap.add_argument("--port", type=int, default=8772)
     ap.add_argument("--new-session", action="store_true")
     ap.add_argument("--approved-trial", action="store_true",
                     help="Run the previously owner-approved fixed YouTube/book trial")
+    ap.add_argument("--standalone-test", action="store_true",
+                    help="Disable KRISHNA/Core mission pairing for independent local acceptance")
     ap.add_argument("--auto-approved-videos", action="store_true",
                     help="Automatically observe only exact approved video URLs under hardware guard")
+    ap.add_argument("--adaptive-fleet", action="store_true",
+                    help="Enable resource-measured fleet capacity instead of legacy three-task ceiling")
+    ap.add_argument("--continuous", action="store_true",
+                    help="Rollover six-hour mission accounting without forced rest; safety/source pauses remain")
+    ap.add_argument("--fast-books", action=argparse.BooleanOptionalAction, default=None,
+                    help="Use compact up-to-40-line sequential book checkpoints; no skipped source lines, same local 2B model")
     ap.add_argument("--prepare-only", action="store_true")
+    ap.add_argument("--video-target",type=int,choices=range(1,6),default=None,
+                    help="Trial: select at most 5 distinct previously unattempted approved videos")
+    ap.add_argument("--website-target",type=int,choices=range(1,6),default=None,
+                    help="Trial: at most 5 concurrent approved website tasks, hardware permitting")
+    ap.add_argument("--pdf-target",type=int,choices=range(1,11),default=None,
+                    help="Trial: at most 10 concurrent PDF tasks, hardware permitting")
+    ap.add_argument("--book-target",type=int,choices=range(1,6),default=None,
+                    help="Trial: at most 5 concurrent book-reading tasks, hardware permitting")
+    ap.add_argument("--max-parallel",type=int,default=None,
+                    help="Optional TOTAL cap (1..125); only reduces measured concurrency")
     args = ap.parse_args(argv)
+    if args.max_parallel is not None and not 1<=args.max_parallel<=125:
+        ap.error("--max-parallel must be 1..125")
     if not args.prepare_only and not available_port(args.port):
         ap.error("Dashboard port is in use; stop the previous dashboard first")
     data = prepare(args.data, model=args.model, previous=args.previous_data,
-                   new_session=args.new_session)
+                   new_session=args.new_session, adaptive_fleet=args.adaptive_fleet,
+                   continuous=args.continuous, fast_books=args.fast_books)
     print("SURYADEV data:", data, flush=True)
-    print("Node mode:", args.model, "| max active tasks: 3 | 85% safety guard", flush=True)
+    marker = json.loads((data / "fresh-workspace.json").read_text(encoding="utf-8"))
+    fleet_profile = marker.get("node_profile") == "fleet_adaptive"
+    active_cap = 125 if fleet_profile else 3
+    print("Node mode:", args.model, "| admission cap:", active_cap,
+          "| resource measured, never guaranteed | 85% safety guard", flush=True)
     print("Previous evidence remains untouched; KRISHNA pairing is not auto-provisioned.",flush=True)
     if args.prepare_only:
         return 0
     env = os.environ.copy()
-    env["SURYADEV_MAX_PARALLEL"] = "3"
+    env["SURYADEV_MAX_PARALLEL"] = str(min(active_cap,args.max_parallel or active_cap))
+    for attr, variable in (
+      ("video_target","SURYADEV_TRIAL_VIDEO_COUNT"),
+      ("website_target","SURYADEV_TRIAL_WEBSITE_TARGET"),
+      ("pdf_target","SURYADEV_TRIAL_PDF_TARGET"),
+      ("book_target","SURYADEV_TRIAL_BOOK_TARGET")):
+        value=getattr(args,attr)
+        if value is not None:
+            env[variable]=str(value)
+        else:
+            # Old shell environment must not silently activate a trial.
+            env.pop(variable,None)
+    if args.video_target is not None:
+        print("Approved-video target:",args.video_target,
+              "| one-time exact-URL selection; no replay or invented approvals",flush=True)
+    if any(getattr(args,n) is not None for n in
+           ("website_target","pdf_target","book_target")):
+        print("Other lane targets: websites",args.website_target,
+              "| PDFs",args.pdf_target,"| books",args.book_target,
+              "| measured admission may be lower",flush=True)
     # The approved public sources are not fetched implicitly on all fleet nodes.
+    env["SURYADEV_BOOK_FAST"] = "1" if marker.get("fast_books") is True else "0"
+    if marker.get("fast_books") is True:
+        print("FAST BOOKS: compact up-to-40-line batches; CPU guard and journal integrity unchanged.",
+              flush=True)
     env["SURYADEV_LEARNING_TRIAL"] = "1" if args.approved_trial else "0"
     env["SURYADEV_AUTO_APPROVED_VIDEOS"] = "1" if args.auto_approved_videos else "0"
+    env["SURYADEV_STANDALONE_TEST"] = "1" if args.standalone_test else "0"
+    if args.standalone_test:
+        print("STANDALONE TEST: KRISHNA pairing, mission relay, fleet polling and handoff disabled.",flush=True)
     entry = Path(__file__).resolve().with_name("suryadev_extras.py")
     return subprocess.call([sys.executable, str(entry), "--data", str(data),
                             "dashboard", "--port", str(args.port)],

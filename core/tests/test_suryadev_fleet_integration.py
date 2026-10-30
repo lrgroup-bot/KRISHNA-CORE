@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "standalone" / "suryadev"))
 from krishna_core.suryadev import SuryadevAgent
 from suryadev import Library
 from suryadev_fleet_client import FleetClient
+from suryadev_evidence import save_evidence
 
 
 class FleetIntegrationTests(unittest.TestCase):
@@ -66,12 +67,20 @@ class FleetIntegrationTests(unittest.TestCase):
                 return self.core.fleet.renew(device_id=device,
                               task_id=payload["task_id"],lease_id=payload["lease_id"])
             if path.endswith("/fleet/complete"):
-                return self.core.fleet.complete(device_id=device,
+                result=self.core.fleet.complete(device_id=device,
                               task_id=payload["task_id"],lease_id=payload["lease_id"],
                               outcome=payload["outcome"],
                               evidence_sha256=payload.get("evidence_sha256",""),
                               source_excerpt=payload.get("source_excerpt",""),
                               detail=payload.get("detail",""))
+                # Emulate the authenticated HTTP route's durable
+                # BRAHMAGYAN candidate-inbox acknowledgment.
+                if result.get("receipt"):
+                    receipt=result["receipt"]
+                    self.assertEqual(receipt["evidence_sha256"],
+                                     payload["evidence_sha256"])
+                    result["candidate_recorded"]=True
+                return result
             self.fail("unexpected route "+path)
         self.transport=transport
         self.lib=Library(self.local)
@@ -96,12 +105,13 @@ class FleetIntegrationTests(unittest.TestCase):
             self.assertNotEqual(first["task_id"],second["task_id"])
             self.assertEqual(self.core.fleet.status()["active_leases"],2)
             self.assertEqual(len(self.client.state["assignments"]),2)
+            evidence=save_evidence(self.local, "text", source=first["source_url"])
             self.lib.db.execute(
                 "UPDATE jobs SET status='done' WHERE id=?", (first["job_id"],))
             self.lib.db.execute(
                 "INSERT INTO findings(job_id,url,sha256,title,summary,excerpt,created,summary_method) "
                 "VALUES(?,?,?,?,?,?,?,?)",(
-                    first["job_id"],first["source_url"],"a"*64,
+                    first["job_id"],first["source_url"],evidence["sha256"],
                     "Verified acquisition","candidate evidence","text",self.clock[0],"extractive_preview"))
             self.lib.db.commit()
             self.clock[0]+=1
@@ -111,6 +121,7 @@ class FleetIntegrationTests(unittest.TestCase):
             self.assertEqual(receipt["source_excerpt"],"text")
             self.assertTrue(receipt["untrusted_source_text"])
             self.assertFalse(self.client.state["receipts"][first["task_id"]]["brahmagyan_accepted"])
+            self.assertTrue(self.client.state["receipts"][first["task_id"]]["brahmagyan_candidate_recorded"])
             resumed=FleetClient(self.local,self.plan,self.config,
                                 transport=self.transport,clock=lambda:self.clock[0])
             self.assertIn(second["task_id"],resumed.state["assignments"])

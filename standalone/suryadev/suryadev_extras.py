@@ -101,7 +101,15 @@ def _send_http_response(handler, status, mime, body):
         handler.send_header("Content-Length", str(len(body)))
         handler.send_header("Cache-Control", "no-store")
         handler.send_header("X-Content-Type-Options", "nosniff")
-        handler.send_header("Content-Security-Policy", "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'")
+        # The preview is optional and owner-operated. Do not permit the old
+        # official YouTube iframe, or any remote frame by default. Only the
+        # validated loopback Invidious origin can be framed after opt-in.
+        from suryadev_ai_player import player_config
+        player = player_config()
+        frame_source = player["origin"] if player["configured"] else "'none'"
+        handler.send_header("Content-Security-Policy",
+            "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
+            "form-action 'self'; base-uri 'none'; frame-src " + frame_source)
         handler.end_headers()
         handler.wfile.write(body)
     except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
@@ -143,8 +151,29 @@ def serve(lib, port=8769):
 
         def do_GET(self):
             route = urlsplit(self.path)
+            if route.path == "/api/setup":
+                from suryadev_setup import status
+                return self.respond(200, json.dumps(status(lib.root)), "application/json")
             if route.path == "/api/learning/control":
                 return self.respond(200, json.dumps(worker_control.snapshot()), "application/json")
+            if route.path == "/api/ai-learner/player":
+                # Capability discovery only. This never installs/starts an
+                # external player, authorizes a source, or implies playback.
+                from suryadev_ai_player import player_config
+                return self.respond(200, json.dumps(player_config()), "application/json")
+            if route.path == "/api/learning/readiness":
+                from suryadev_learning_readiness import snapshot as learning_readiness
+                payload=learning_readiness(lib.root, Path(__file__).resolve().parent,
+                                            control=worker_control.snapshot())
+                return self.respond(200,json.dumps(payload),"application/json")
+            if route.path == "/api/learning/phase1":
+                from suryadev_learning_phase1 import phase1
+                try:
+                    payload=phase1(lib.root)
+                except (OSError, ValueError, TypeError) as exc:
+                    return self.respond(503,json.dumps({"result":"BLOCKED_READ_ERROR",
+                        "error":type(exc).__name__+": "+str(exc)[:150]}),"application/json")
+                return self.respond(200,json.dumps(payload),"application/json")
             if route.path == "/api/trial/exam":
                 from suryadev_liveops import _safe_read
                 return self.respond(200, json.dumps(_safe_read(lib.root,
@@ -212,18 +241,19 @@ def serve(lib, port=8769):
                                      "has_single_date_filter": True,
                                      "has_static_video_review": True,
                                      "has_unified_frontend": True,
-                                     "has_node_control_console": True,
+                                     "has_ai_learner_four_source_page": True,
+                                     "has_in_page_video_preview": True,
+                                     "has_node_control_console": False,
+                                     "has_single_learning_intelligence_frontend": True,
                                      "has_dashboard_worker_controls": True,
                                      "has_fresh_isolated_workspace": True,
                                      "max_new_active_tasks": 3}),
                     "application/json")
-            # New dashboard default; complete legacy evidence console at /advanced.
+            # One Learning Intelligence interface: / and /advanced share the same frontend.
             ui_files = {
-                "/": "node-console.html",
+                "/": "dashboard.html",
                 "/advanced": "dashboard.html",
                 "/dashboard.html": "dashboard.html",
-                "/node-console.css": "node-console.css",
-                "/node-console.js": "node-console.js",
                 "/dashboard.css": "dashboard.css",
                 "/dashboard.js": "dashboard.js",
                 "/dashboard-settings.css": "dashboard-settings.css",
@@ -236,6 +266,10 @@ def serve(lib, port=8769):
                 "/dashboard-video.js": "dashboard-video.js",
                 "/dashboard-api.js": "dashboard-api.js",
                 "/dashboard-learning.js": "dashboard-learning.js",
+                "/dashboard-ai-learner.js": "dashboard-ai-learner.js",
+                "/dashboard-ai-learner.css": "dashboard-ai-learner.css",
+                "/dashboard-pages.js": "dashboard-pages.js",
+                "/dashboard-pages.css": "dashboard-pages.css",
             }
             if route.path in ui_files:
                 filename = ui_files[route.path]
@@ -359,6 +393,16 @@ def serve(lib, port=8769):
                 return self.respond(200, json.dumps(payload), "application/json")
             if route.path == "/api/resources":
                 return self.respond(200, json.dumps(snapshot(lib.root)), "application/json")
+            if route.path == "/api/plugins":
+                # Read-only registry. No plugin is executed or implicitly trusted.
+                from suryadev_plugins import plugin_registry
+                try:
+                    view = plugin_registry(lib.root)
+                except (ValueError, OSError) as exc:
+                    view = {"schema":"suryadev.plugin-registry.v1",
+                            "plugins":[],"rejected":[{"reason":str(exc)[:140]}],
+                            "execution_enabled":False}
+                return self.respond(200, json.dumps(view), "application/json")
             if route.path == "/health":
                 reader = DashboardReader(lib.root)
                 try:
@@ -448,27 +492,39 @@ def serve(lib, port=8769):
             # Mutating configuration is never exposed through the opt-in Core
             # read-only bridge. Only local browser requests with per-start CSRF
             # token and exact Origin/Host matching may change settings.
+            def reject(status, explanation):
+                # An unread POST body can make Windows abort the TCP connection
+                # before a test/client receives its intended 403/415 response.
+                # Drain only a small, bounded body; do not parse or execute
+                # unauthorized data. A short timeout prevents slow clients
+                # from holding a dashboard thread indefinitely.
+                try:
+                    rejected_length = int(self.headers.get("Content-Length", "0"))
+                    if 0 < rejected_length <= 4096:
+                        self.connection.settimeout(1.0)
+                        self.rfile.read(rejected_length)
+                except (OSError, ValueError):
+                    pass
+                self.close_connection = True
+                return self.respond(status, json.dumps({"error": explanation}),
+                                    "application/json")
             origin = f"http://127.0.0.1:{port}"
             if (self.client_address[0] != "127.0.0.1"
                     or self.headers.get("Host") != f"127.0.0.1:{port}"
                     or self.headers.get("Origin") != origin
                     or self.headers.get("X-SURYADEV-CSRF") != csrf_token):
-                return self.respond(403, json.dumps({"error": "Same-origin authorization required"}),
-                                    "application/json")
+                return reject(403, "Same-origin authorization required")
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                return self.respond(415, json.dumps({"error": "JSON body required"}),
-                                    "application/json")
+                return reject(415, "JSON body required")
             try:
                 length = int(self.headers.get("Content-Length", "0"))
             except ValueError:
                 length = 0
             if length < 2 or length > 4096:
-                return self.respond(413, json.dumps({"error": "Invalid request body length"}),
-                                    "application/json")
+                return reject(413, "Invalid request body length")
             route = urlsplit(self.path)
             if not route.path.startswith("/api/operator/"):
-                return self.respond(404, json.dumps({"error": "Unknown operation"}),
-                                    "application/json")
+                return reject(404, "Unknown operation")
             try:
                 body = json.loads(self.rfile.read(length))
                 # Consume the entire request body before responding, otherwise
@@ -509,16 +565,20 @@ def serve(lib, port=8769):
 
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     server.daemon_threads = True
+    if os.environ.get("SURYADEV_AUTO_SETUP") == "1":
+        from suryadev_setup import start as start_component_setup
+        start_component_setup(lib.root, Path(__file__).resolve().parent)
     # Pairing is a one-time owner action. A validated pinned-TLS device
     # credential and approved plan start the existing single fleet worker on
     # dashboard boot; manual URL input or per-session Start clicks are NOT
     # required. Never automatically pair or launch from LAN discovery alone.
+    standalone_test = os.environ.get("SURYADEV_STANDALONE_TEST") == "1"
     paired = worker_control.core_pairing()
     from suryadev_liveops import _safe_read
     fresh_workspace=_safe_read(lib.root,"fresh-workspace.json",max_bytes=4096)
     if (fresh_workspace.get("schema")=="suryadev.fresh-workspace.v1"
             and fresh_workspace.get("auto_start") is True
-            and not paired["configured"]):
+            and (not paired["configured"] or standalone_test)):
         # Only the deliberate, separate fresh-data launcher enables this.
         # Never overwrite or migrate older study data, credentials or files.
         try:
@@ -529,7 +589,7 @@ def serve(lib, port=8769):
         except (RuntimeError,ValueError,OSError) as exc:
             print("SURYADEV fresh trial could not auto-start: "+
                   type(exc).__name__+": "+str(exc)[:160],flush=True)
-    elif paired["ready"]:
+    elif paired["ready"] and not standalone_test:
         try:
             # Paired collectors may run without local AI as well.
             preferred=(fresh_workspace.get("trial_model", "collector")
@@ -562,10 +622,17 @@ def work_loop(lib, interval, use_ollama, model, *,
         raise ValueError("interval must be at least 10 seconds")
     if not 1 <= refill_minutes <= 360:
         raise ValueError("refill-minutes must be 1..360")
+    if os.environ.get("SURYADEV_STANDALONE_TEST") == "1" and (
+            core_mission_config or fleet_mode or sync_book_handoff):
+        raise ValueError("Standalone test forbids Core mission/fleet/handoff")
     if fleet_mode and not core_mission_config:
         raise ValueError("fleet mode requires a pinned paired --core-mission-config")
-    if core_mission_config and not plan_path:
+    if core_mission_config and not plan_path and not fleet_mode:
         raise ValueError("Core mission relay requires an explicit approved --plan")
+    if fleet_mode:
+        # Connection precedes source policy, models and schedulers.
+        from suryadev_connection_bootstrap import wait_for_plan
+        plan_path = str(wait_for_plan(lib, core_mission_config, plan_path))
     # An existing owner-approved plan is a durable permission grant:
     # workers need not be relaunched with --plan after every restart.
     if plan_path is None and core_mission_config is None:
@@ -597,7 +664,8 @@ def work_loop(lib, interval, use_ollama, model, *,
     # distinct books can progress concurrently under one worker lock.
     from suryadev_parallel_books import ParallelBookReader
     books = (ParallelBookReader(lib.root, book_plan_path, model=model,
-                               use_ollama=use_ollama,vision_model=book_visual_model)
+                               use_ollama=use_ollama,vision_model=book_visual_model,
+                               fast_mode=os.environ.get("SURYADEV_BOOK_FAST") == "1")
              if book_plan_path else None)
     collect_books = (BookEvidenceCollector(lib.root, book_collect_plan_path)
                      if book_collect_plan_path else None)
@@ -666,7 +734,9 @@ def work_loop(lib, interval, use_ollama, model, *,
                                 print('SURYADEV approved plan detected; local source continuity active.',flush=True)
                             except (OSError, ValueError) as exc:
                                 print('SURYADEV source plan not ready: '+type(exc).__name__,flush=True)
-                    if fleet is None and relay is None and core_mission_config is None and feeder is not None:
+                    if (os.environ.get("SURYADEV_STANDALONE_TEST") != "1"
+                            and fleet is None and relay is None
+                            and core_mission_config is None and feeder is not None):
                         cfg=Path(lib.root)/"core-mission-connection.json"
                         if cfg.is_file():
                             try:
@@ -785,6 +855,16 @@ def work_loop(lib, interval, use_ollama, model, *,
                 if mission["phase"] != "work":
                     worker_note(lib.root, "paused", interval,
                                 mission["note"], next_check_at=time.time()+min(30,interval))
+                elif end_active and not adaptive.futures:
+                    # The source pool's heartbeat was emitted before books
+                    # and video observers were admitted. An active book
+                    # MUST not be shown as "idle" just because there are
+                    # zero PDF/website/caption source tasks.
+                    book_active = len(books.futures) if books else 0
+                    video_active = len(videos.futures)
+                    worker_note(lib.root, "busy", interval,
+                                f"{book_active} book + {video_active} video tasks active",
+                                next_check_at=time.time()+2)
                 wait = 2 if end_active else interval
                 if mission["phase"] != "work":
                     wait = min(wait, 30)

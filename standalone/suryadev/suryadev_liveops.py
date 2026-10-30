@@ -15,6 +15,26 @@ from suryadev_sources import source_kind
 WORKER_FILE = "worker-runtime.json"
 READER_FILE = "krishna-reader-receipt.json"
 
+# On Windows another short-lived reader (including security/indexing tools)
+# can temporarily prevent destination replacement despite a closed temp file.
+# Retry ONLY Windows access/sharing/lock violations; preserve os.replace
+# atomicity and still fail closed on persistent errors.
+_WINDOWS_TRANSIENT_REPLACE_ERRORS = frozenset((5, 32, 33))
+_WINDOWS_REPLACE_DELAYS = (0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.0, 1.0)
+
+
+def _replace_windows_sharing_safe(source, destination):
+    for attempt in range(len(_WINDOWS_REPLACE_DELAYS) + 1):
+        try:
+            os.replace(source, destination)
+            return
+        except PermissionError as exc:
+            if getattr(exc, "winerror", None) not in _WINDOWS_TRANSIENT_REPLACE_ERRORS:
+                raise
+            if attempt == len(_WINDOWS_REPLACE_DELAYS):
+                raise
+            time.sleep(_WINDOWS_REPLACE_DELAYS[attempt])
+
 
 def atomic_json(root, filename, payload):
     directory = Path(root).resolve()
@@ -25,7 +45,7 @@ def atomic_json(root, filename, payload):
                                          dir=directory, delete=False) as file:
             temp_name = file.name
             json.dump(payload, file, separators=(",", ":"), ensure_ascii=False)
-        os.replace(temp_name, directory / filename)
+        _replace_windows_sharing_safe(temp_name, directory / filename)
     finally:
         if temp_name and os.path.exists(temp_name):
             os.unlink(temp_name)
@@ -70,6 +90,19 @@ def connection_indicators(root):
     fleet_connected = (fleet_ack.get("schema") == "suryadev.krishna-authenticated-heartbeat.v1"
                        and fleet_ack.get("authenticated_core_reply") is True
                        and 0 <= acknowledged_age < 150)
+    fleet = _safe_read(root, "suryadev-fleet-runtime.json", max_bytes=65536)
+    candidates = fleet.get("receipts") if fleet.get("schema") == "suryadev.fleet-node.v1" else {}
+    if not isinstance(candidates, dict):
+        candidates = {}
+    candidate_count = sum(
+        isinstance(row, dict) and
+        row.get("brahmagyan_candidate_recorded") is True and
+        row.get("device_id") == fleet_ack.get("device_id") and
+        row.get("core_acknowledged") is True and
+        row.get("outcome") == "collected"
+        for row in candidates.values()
+    )
+    candidate_connected = bool(fleet_connected and candidate_count)
     return {
         "krishna": {
             "connected": bool(fleet_connected),
@@ -82,8 +115,14 @@ def connection_indicators(root):
                        if trusted_read else "No recent authenticated KRISHNA fleet heartbeat." ),
         },
         "brahmagyan": {
-            "connected": False, "state": "not_connected",
-            "detail": "No authenticated BRAHMAGYAN delivery/ACK is configured.",
+            "connected": candidate_connected,
+            "state": "candidate_inbox_acknowledged" if candidate_connected else "not_connected",
+            "candidate_receipts": candidate_count,
+            "knowledge_accepted": False,
+            "detail": (
+                "Core confirmed BRAHMAGYAN L0 evidence candidates; no independent factual review, learning or mastery is verified."
+                if candidate_connected else
+                "No current authenticated Core heartbeat plus BRAHMAGYAN evidence-candidate receipt."),
         },
         "rishi": {
             "connected": False, "state": "not_connected",

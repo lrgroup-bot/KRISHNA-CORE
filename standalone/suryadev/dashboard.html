@@ -17,6 +17,10 @@
 <script src="/dashboard-video.js" defer></script>
 <link rel="stylesheet" href="/dashboard-books.css">
 <script src="/dashboard-books.js" defer></script>
+<link rel="stylesheet" href="/dashboard-ai-learner.css">
+<script src="/dashboard-ai-learner.js" defer></script>
+<link rel="stylesheet" href="/dashboard-pages.css">
+<script src="/dashboard-pages.js" defer></script>
 </head>
 <body>
 <div class="app-shell">
@@ -26,14 +30,15 @@
     <nav class="navigation">
       <a href="#overview" class="nav-item selected"><span>⌂</span> Overview</a>
       <a href="#garudanetra" class="nav-item"><span>◉</span> Live learning</a>
+      <a href="#ai-learner" class="nav-item"><span>✦</span> AI Learner</a>
       <a href="#assignments" class="nav-item"><span>▣</span> Assignments</a>
       <a href="#video-review" class="nav-item"><span>▶</span> Video review</a>
       <a href="#sources" class="nav-item"><span>◈</span> Evidence</a>
       <a href="#books-evidence" class="nav-item"><span>▧</span> Books</a>
       <a href="#date-center" class="nav-item"><span>◷</span> History</a>
       <div class="settings-menu-label">CONFIGURATION</div>
-      <button id="open-server-settings" type="button" class="nav-item nav-settings" aria-haspopup="dialog" aria-controls="server-settings-dialog"><span aria-hidden="true">◉</span> KRISHNA Server</button>
-      <button id="open-storage-settings" type="button" class="nav-item nav-settings" aria-haspopup="dialog" aria-controls="storage-settings-dialog"><span aria-hidden="true">▤</span> Storage & Cleanup</button>
+      <button id="open-server-settings" type="button" class="nav-item nav-settings" aria-controls="server-settings-dialog" aria-label="Open KRISHNA Server dashboard"><span aria-hidden="true">◉</span> KRISHNA Server</button>
+      <button id="open-storage-settings" type="button" class="nav-item nav-settings" aria-controls="storage-settings-dialog" aria-label="Open Storage and Cleanup dashboard"><span aria-hidden="true">▤</span> Storage & Cleanup</button>
     </nav>
     <div class="sidebar-bottom" aria-label="Live connection status at bottom of main menu">
       <div class="status-leds" aria-label="KRISHNA, BRAHMAGYAN and Rishi connections">
@@ -55,8 +60,8 @@
     <header class="hero" id="overview">
       <div class="hero-glow"></div>
       <div class="hero-content"><div class="eyebrow">SURYADEV · LEARNING CONTROL</div>
-        <h1>Fresh learning <em>· three tasks maximum</em></h1>
-        <p>New learning workspace. Up to three tasks total across websites, YouTube, PDFs and books; hardware safety always takes priority.</p>
+        <h1>Learning workspace <em id="learning-workspace-cap">· checking capacity</em></h1>
+        <p id="learning-workspace-description">Measured hardware admission and the configured node profile determine actual capacity. Source approval and hardware safety always take priority.</p>
         <a href="#assignments" class="hero-action">Inspect this session <span aria-hidden="true">↗</span></a>
       </div>
       <div class="hero-aside"><div class="live-chip" id="live-chip"><span class="pulse-dot"></span> LIVE · 5 SEC</div><div class="hero-time" id="clock">--:--:--</div><div class="hero-caption">Node-local mission control</div></div>
@@ -79,6 +84,7 @@
         <label for="learning-model">Learning mode
           <select id="learning-model">
             <option value="collector">Collector only · no Ollama</option>
+            <option value="auto">Auto · only installed lightweight model when hardware allows</option>
             <option value="qwen3.5:2b" selected>Qwen 3.5 2B · lightweight</option>
             <option value="qwen3.5:4b">Qwen 3.5 4B</option>
             <option value="qwen3.5:9b">Qwen 3.5 9B · deeper reading</option>
@@ -93,6 +99,12 @@
       <div class="learning-action-status" id="learning-action-status" role="status" aria-live="polite"></div>
       <div class="learning-action-status" id="learning-workspace-state" role="status" aria-live="polite">Checking fresh learning workspace. Previous databases remain separate.</div>
       <div class="learning-action-status" id="learning-core-status" aria-live="polite">KRISHNA mission feed: checking secure device pairing…</div>
+      <div class="unified-node-overview" aria-label="Node Control and fleet overview">
+        <div><span>Node profile</span><strong id="node-control-profile">Checking</strong></div>
+        <div><span>Approved source plan</span><strong id="node-control-plan">Checking</strong></div>
+        <div><span>KRISHNA dispatch</span><strong id="node-control-pairing">Checking</strong></div>
+        <div><span>Measured admission</span><strong id="node-control-capacity">Waiting for worker</strong></div>
+      </div>
     <div class="overview" aria-labelledby="overview-title">
       <div class="section-heading"><div><div class="overline">OVERVIEW</div><h2 id="overview-title">Mission pulse · Research workspaces</h2></div><span class="freshness" id="updated" aria-live="polite">Connecting to telemetry…</span></div>
       <div class="metric-grid">
@@ -180,6 +192,70 @@
         <div class="pagination"><span id="page-label">—</span><div><button type="button" id="page-prev" class="page-btn" disabled>← Previous</button><button type="button" id="page-next" class="page-btn" disabled>Next →</button></div></div>
       </div>
     </section>
+    <section id="ai-learner" class="surface ai-learner" aria-labelledby="ai-learner-title">
+      <div class="section-heading compact">
+        <div>
+          <div class="overline">SURYАDEV · ONE DASHBOARD · FOUR APPROVED LANES</div>
+          <h2 id="ai-learner-title">AI Learner</h2>
+          <p>Run all approved YouTube, PDF, website and book learning here, with live queues, source evidence and one supervised worker. No external player, duplicate worker or manual URL entry.</p>
+        </div>
+        <span class="eyebrow-chip">GARUDANETRA · LOCAL FIRST</span>
+      </div>
+      <section class="ai-studio-engine" aria-label="Learning engine controls">
+        <div class="ai-studio-engine-head">
+          <div><span class="ai-studio-kicker">ONE APPROVED LEARNING ENGINE</span>
+            <h3>Learning control room</h3>
+            <p>Start, stop, select the local model and monitor safety here. Four lanes share one worker.</p></div>
+          <div id="ai-learner-worker" role="status" aria-live="polite" class="ai-studio-live-indicator">Checking worker…</div>
+        </div>
+        <div id="ai-learner-control-mount"></div>
+        <div id="ai-learner-status-mount" aria-live="polite"></div>
+        <div id="ai-learner-node-summary"></div>
+      </section>
+      <section class="ai-studio-operations" aria-label="Current learning activity">
+        <div class="ai-studio-engine-head"><div>
+          <span class="ai-studio-kicker">REAL-TIME WORKSPACE</span>
+          <h3>Active work, capacity &amp; next queue</h3>
+          <p>These are genuine worker observations and database tasks—not simulated parallel tabs.</p>
+        </div><span id="ai-studio-last-update" class="ai-studio-timestamp">Waiting for local evidence</span></div>
+        <div id="ai-learner-readiness" role="status" aria-live="polite" class="ai-learner-warning">Checking approved-source readiness and current worker activity…</div>
+        <div id="ai-learner-lane-status" class="ai-studio-lane-status" aria-live="polite"></div>
+        <div id="ai-learner-operations-mount"></div>
+        <div id="ai-learner-live-workspaces-mount" aria-label="Real active source workspaces"></div>
+      </section>
+      <div class="ai-studio-lane-heading"><div><span class="ai-studio-kicker">APPROVED CONTENT · FOUR LANES</span>
+        <h3>Select the source workspace</h3></div>
+        <button id="ai-learner-refresh" type="button" class="ai-studio-refresh">Refresh learning evidence</button>
+      </div>
+      <div class="ai-learner-toolbar" role="toolbar" aria-label="AI Learner sources">
+        <button type="button" id="ai-tab-youtube" class="ai-learner-tab" data-lane="youtube" aria-pressed="true" aria-controls="ai-learner-content">▶ YouTube</button>
+        <button type="button" id="ai-tab-pdf" class="ai-learner-tab" data-lane="pdf" aria-pressed="false" aria-controls="ai-learner-content">▤ PDF</button>
+        <button type="button" id="ai-tab-website" class="ai-learner-tab" data-lane="website" aria-pressed="false" aria-controls="ai-learner-content">◎ Websites</button>
+        <button type="button" id="ai-tab-book" class="ai-learner-tab" data-lane="book" aria-pressed="false" aria-controls="ai-learner-content">▧ Books</button>
+      </div>
+
+      <p class="ai-learner-warning">The four source tabs filter the workspaces of one real, hardware-admitted learning worker. Start/Stop and model selection are above. Automatically running approved tasks continue across all eligible lanes. Record completion, browser playback and model summaries never imply verified comprehension.</p>
+      <div id="ai-learner-content" class="ai-learner-content" aria-live="polite">
+        <h3 id="ai-learner-lane-heading">YouTube · video evidence</h3>
+        <p id="ai-learner-lane-summary">Reading existing approval and evidence records…</p>
+        <div id="ai-learner-lane-results"></div>
+        <div id="ai-learner-book-tools" class="ai-studio-book-tools" hidden>
+          <h4>Search original book lines</h4>
+          <p>Find source text with line provenance; this is not a model comprehension score.</p>
+        </div>
+        <div id="ai-learner-youtube-preview" class="ai-learner-preview" hidden>
+          <p id="ai-learner-preview-hint">Optional in-page preview from an owner-configured local Invidious service. Availability and ad-free playback are unverified; preview never becomes a learning receipt.</p>
+          <div class="ai-learner-preview-controls">
+            <label for="ai-learner-video-choice">Previously approved video
+              <select id="ai-learner-video-choice"></select>
+            </label>
+            <button type="button" id="ai-learner-open-preview">Preview in AI Learner</button>
+            <button type="button" id="ai-learner-close-preview">Close preview</button>
+          </div>
+          <div id="ai-learner-player" class="ai-learner-player" aria-label="In-page approved, owner-configured video player"></div>
+        </div>
+      </div>
+    </section>
     <section id="video-review" class="surface video-review-panel" aria-labelledby="video-review-title">
       <div class="section-heading compact">
         <div><div class="overline">AUTOMATED VIDEO · APPROVED SOURCES</div>
@@ -252,11 +328,11 @@
   <div class="dialog-header"><div><div class="overline">ASSIGNMENT INSPECTOR</div><h2 id="detail-title">Task detail</h2></div><button class="close-button" id="close-detail" type="button" aria-label="Close task details">✕</button></div>
   <div id="detail-content" class="detail-content"><p>Loading task…</p></div>
 </dialog>
-<dialog id="server-settings-dialog" class="settings-dialog" aria-labelledby="server-dialog-title">
+<section id="server-settings-dialog" class="settings-dialog" aria-labelledby="server-dialog-title">
   <div class="settings-dialog-header server-header">
     <div class="settings-header-icon">◉</div>
     <div class="settings-header-text"><div class="settings-kicker">SECURE NODE SETTINGS</div><h2 id="server-dialog-title">KRISHNA Server</h2><p>Enter the server IP, save it locally, and run a connection diagnosis.</p></div>
-    <button type="button" id="close-server-settings" class="settings-close" aria-label="Close server settings">✕</button>
+    <button type="button" id="close-server-settings" class="settings-close" aria-label="Back to Overview dashboard">←</button>
   </div>
   <div class="settings-dialog-body">
     <div class="settings-alert"><strong>Connection ≠ Pairing.</strong> A green TCP or HTTP diagnosis only proves that an endpoint responds. SURYADEV's KRISHNA LED stays red until authenticated enrollment is verified.</div>
@@ -283,13 +359,21 @@
       </div>
       <p id="diagnosis-message">Click Diagnose to check the entered address. No pairing data is transmitted.</p>
     </div>
+    <h3>Secure device pairing</h3>
+    <p>Enter the HTTPS address and certificate fingerprint supplied by the KRISHNA owner. Approve this device on the KRISHNA PC, then activate here. The device credential is generated and stored locally.</p>
+    <label>KRISHNA HTTPS address <input id="pair-endpoint" placeholder="https://192.168.1.10:8767" autocomplete="off"></label>
+    <label>Certificate SHA-256 <input id="pair-fingerprint" autocomplete="off" spellcheck="false"></label>
+    <label>Unique device ID <input id="pair-device" placeholder="suryadev-laptop-1" autocomplete="off" spellcheck="false"></label>
+    <div class="settings-actions"><button type="button" id="pair-request">Request pairing</button><button type="button" id="pair-activate">Activate approved device</button></div>
+    <p id="pair-result" role="status">No pairing requested.</p>
+    <p id="component-setup-status" role="status">Local component setup status is available after startup.</p>
   </div>
-</dialog>
-<dialog id="storage-settings-dialog" class="settings-dialog wide" aria-labelledby="storage-dialog-title">
+</section>
+<section id="storage-settings-dialog" class="settings-dialog wide" aria-labelledby="storage-dialog-title">
   <div class="settings-dialog-header storage-header">
     <div class="settings-header-icon">▤</div>
     <div class="settings-header-text"><div class="settings-kicker">LOCAL STORAGE MANAGEMENT</div><h2 id="storage-dialog-title">Storage & Cleanup</h2><p>Check disk health, choose data storage, and safely remove temporary learning copies.</p></div>
-    <button type="button" id="close-storage-settings" class="settings-close" aria-label="Close storage settings">✕</button>
+    <button type="button" id="close-storage-settings" class="settings-close" aria-label="Back to Overview dashboard">←</button>
   </div>
   <div class="settings-dialog-body">
     <section class="settings-section">
@@ -332,6 +416,6 @@
       <div id="cleanup-result" class="settings-result" role="status">Permanent learning evidence is always retained. Failed and unfinished tasks are not cleaned.</div>
     </section>
   </div>
-</dialog>
+</section>
 </body>
 </html>

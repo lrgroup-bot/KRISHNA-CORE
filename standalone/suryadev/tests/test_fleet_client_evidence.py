@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from suryadev import Library
 from suryadev_fleet_client import FleetClient
+from suryadev_evidence import save_evidence
 
 URL="https://docs.python.org/3/library/asyncio.html"
 NOW=1000.0
@@ -50,7 +51,12 @@ class FleetClientTests(unittest.TestCase):
                             "kind":"website","rishi_id":"kanada"},
                     "expires_at":NOW+600}
         if path.endswith("/complete"):
-            return {"acknowledged":True,"brahmagyan_accepted":False}
+            return {"acknowledged":True,"brahmagyan_accepted":False,
+                    "candidate_recorded":True,
+                    "receipt":{"task_id":payload["task_id"],
+                               "device_id":config["device_id"],
+                               "lease_id":payload["lease_id"],
+                               "evidence_sha256":payload.get("evidence_sha256","")}}
         if path.endswith("/renew"):
             return {"renewed":True,"lease_id":self.lease_id,"expires_at":NOW+700}
         raise AssertionError(path)
@@ -71,18 +77,66 @@ class FleetClientTests(unittest.TestCase):
             self.assertIn(self.task_id,restarted.state["assignments"])
             self.assertEqual(restarted.state["assignments"][self.task_id]["url"],URL)
             job_id=result["job_id"]
+            digest = save_evidence(self.root, "Source text",
+                                   source=URL)["sha256"]
             with self.lib.db:
                 self.lib.db.execute("UPDATE jobs SET status='done' WHERE id=?",(job_id,))
                 self.lib.db.execute(
                     "INSERT INTO findings(job_id,url,sha256,title,summary,excerpt,created,summary_method) "
                     "VALUES (?,?,?,?,?,?,?,?)",
-                    (job_id,URL,"a"*64,"Verified source identity",
+                    (job_id,URL,digest,"Verified source identity",
                      "Extraction only","Source text",NOW,"extractive_preview"))
             ended=restarted.tick(self.lib)
             self.assertIn(self.task_id,restarted.state["receipts"])
             self.assertFalse(restarted.state["receipts"][self.task_id]["brahmagyan_accepted"])
+            self.assertTrue(restarted.state["receipts"][self.task_id]["brahmagyan_candidate_recorded"])
+            self.assertFalse(restarted.state["receipts"][self.task_id]["rishi_exam_verified"])
             self.assertEqual(self.lib.db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0],1)
             self.assertTrue(any(path.endswith("/complete") for path,_ in self.calls))
+
+    def test_done_without_matching_evidence_does_not_complete_core_lease(self):
+        with (patch("suryadev_fleet_client.load_config",return_value=self.mock_config),
+              patch("suryadev_fleet_client.hardware_report",return_value=self.fake_health)):
+            worker=self.create()
+            assigned=worker.tick(self.lib)
+            with self.lib.db:
+                self.lib.db.execute("UPDATE jobs SET status='done' WHERE id=?",
+                                    (assigned["job_id"],))
+                self.lib.db.execute(
+                    "INSERT INTO findings(job_id,url,sha256,title,summary,excerpt,created,summary_method) "
+                    "VALUES(?,?,?,?,?,?,?,?)",
+                    (assigned["job_id"], URL, "a"*64, "Unverified","Bad","Bad",
+                     NOW,"extractive_preview"))
+            worker.tick(self.lib)
+            self.assertFalse(any(path.endswith("/complete") for path,_ in self.calls))
+            self.assertEqual(worker.state["assignments"][self.task_id]["state"],
+                             "local_evidence_integrity_failed")
+            self.assertNotIn(self.task_id,worker.state["receipts"])
+
+    def test_missing_candidate_ack_never_completes_local_receipt(self):
+        evidence = save_evidence(self.root, "Verified source text",
+                                 source=URL)
+        with (patch("suryadev_fleet_client.load_config",return_value=self.mock_config),
+              patch("suryadev_fleet_client.hardware_report",return_value=self.fake_health)):
+            worker=self.create()
+            assigned=worker.tick(self.lib)
+            with self.lib.db:
+                self.lib.db.execute("UPDATE jobs SET status='done' WHERE id=?",
+                                    (assigned["job_id"],))
+                self.lib.db.execute(
+                    "INSERT INTO findings(job_id,url,sha256,title,summary,excerpt,created,summary_method) "
+                    "VALUES(?,?,?,?,?,?,?,?)",
+                    (assigned["job_id"],URL,evidence["sha256"],"Page",
+                     "Extractive","Verified source text",NOW,"extractive_preview"))
+            def uncommitted(config,path,payload):
+                if path.endswith("/complete"):
+                    return {"acknowledged":True}
+                return self.transport(config,path,payload)
+            worker.transport=uncommitted
+            reply=worker.tick(self.lib)
+            self.assertEqual(reply["state"],"offline_retry")
+            self.assertIn(self.task_id,worker.state["assignments"])
+            self.assertNotIn(self.task_id,worker.state["receipts"])
 
     def test_delegated_paired_core_url_is_queued_once_within_host(self):
         # This approval delegates only source selection to the paired,

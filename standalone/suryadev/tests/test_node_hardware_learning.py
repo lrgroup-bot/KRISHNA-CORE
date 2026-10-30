@@ -76,7 +76,11 @@ class HardwareLearningTests(unittest.TestCase):
             (root/"fresh-workspace.json").write_text(json.dumps({
                 "schema":"suryadev.fresh-workspace.v1",
                 "trial_model":"collector","active_task_limit":3}),encoding="utf-8")
-            result=hardware_report(root,sample=sample(),now=100)
+            with patch("suryadev_fleet_client.installed_capabilities",
+                       return_value={"capabilities":["website","youtube","pdf"],
+                                     "status":"installed_prerequisites_only",
+                                     "sources":{}}):
+                result=hardware_report(root,sample=sample(),now=100)
             self.assertEqual(result["processing_mode"],"collector_only")
             self.assertLessEqual(result["max_total"],3)
             self.assertGreaterEqual(result["max_total"],1)
@@ -84,6 +88,17 @@ class HardwareLearningTests(unittest.TestCase):
             self.assertIsNone(result["internet_reachable"])
             self.assertIsNone(result["internet_speed_mbps"])
             self.assertIn("youtube",result["capabilities"])
+
+    def test_fleet_report_rejects_untimestamped_and_stale_sensor_data(self):
+        with tempfile.TemporaryDirectory() as temp:
+            for bad_timestamp in (None, float("nan"), 88.0, 112.0, "100"):
+                with self.subTest(timestamp=str(bad_timestamp)):
+                    reading = sample()
+                    if bad_timestamp is None:
+                        del reading["sample_time"]
+                    else:
+                        reading["sample_time"] = bad_timestamp
+                    self.assertIsNone(hardware_report(temp, sample=reading, now=100.0))
 
     def test_three_videos_get_spare_capacity_but_not_if_sources_wait(self):
         with tempfile.TemporaryDirectory() as temp:

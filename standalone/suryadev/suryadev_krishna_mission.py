@@ -58,7 +58,7 @@ def load_config(path):
 
 
 def post_core(config, path, payload):
-    if path not in ("/api/suryadev/mission/request", "/api/suryadev/mission/ack",
+    if path not in ("/api/suryadev/learning-plan/request", "/api/suryadev/mission/request", "/api/suryadev/mission/ack",
                     "/api/suryadev/learning-bundle",
                     "/api/suryadev/device/heartbeat",
                     "/api/suryadev/fleet/claim", "/api/suryadev/fleet/renew",

@@ -24,6 +24,30 @@ class VideoReviewContractTests(unittest.TestCase):
         result = self.review.snapshot()
         self.assertEqual(result["jobs"][0]["target"], self.url)
         self.assertEqual(result["jobs"][0]["status"], "QUEUED_FOR_REVIEW")
+        self.assertTrue(result["jobs"][0]["source_currently_approved"])
+        self.assertTrue(result["jobs"][0]["can_run"])
+
+    def test_revoked_source_is_not_preview_eligible_without_erasing_history(self):
+        self.review.import_job(self.job)
+        before = self.review.snapshot()["jobs"][0]
+        self.assertTrue(before["source_currently_approved"])
+        # Removing a source approval is not permission to replay a saved job.
+        (self.root / "learning-plan.json").write_text(
+            json.dumps({"approved_urls": []}), encoding="utf-8")
+        after = self.review.snapshot()["jobs"][0]
+        self.assertFalse(after["source_currently_approved"])
+        self.assertFalse(after["can_run"])
+        self.assertEqual(after["sha256"], before["sha256"])
+        self.assertEqual(after["target"], self.url)
+        self.assertEqual(after["status"], "QUEUED_FOR_REVIEW")
+
+    def test_malformed_source_plan_fails_closed_for_preview(self):
+        self.review.import_job(self.job)
+        (self.root / "learning-plan.json").write_text(
+            "{ invalid json", encoding="utf-8")
+        after = self.review.snapshot()["jobs"][0]
+        self.assertFalse(after["source_currently_approved"])
+        self.assertFalse(after["can_run"])
 
     def test_duplicate_does_not_overwrite(self):
         self.review.import_job(self.job)

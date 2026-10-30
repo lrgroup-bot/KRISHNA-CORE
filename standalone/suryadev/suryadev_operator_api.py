@@ -62,6 +62,13 @@ def browse_local_directory(root):
 def handle_operator_action(root, path, body):
     if not isinstance(body, dict):
         raise ValueError("JSON object required")
+    if path == "/api/operator/pairing/request":
+        from suryadev_pairing_bootstrap import request_pairing
+        return request_pairing(root, body.get("endpoint"), body.get("cert_sha256"),
+                               body.get("device_id"))
+    if path == "/api/operator/pairing/activate":
+        from suryadev_pairing_bootstrap import activate_pairing
+        return activate_pairing(root)
     if path == "/api/operator/server/save":
         return save_core(root, body.get("ip"), body.get("port", 8766))
     if path == "/api/operator/server/diagnose":

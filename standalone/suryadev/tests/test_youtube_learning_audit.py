@@ -97,6 +97,51 @@ class YoutubeLearningAuditTests(unittest.TestCase):
         self.assertFalse(row["brahmagyan_exam_verified"])
         self.assertIn("needs validation",row["what_was_collected"][0]["candidate_text"])
 
+    def test_legacy_stalled_ack_is_not_misrepresented_as_learning_ready(self):
+        from suryadev_video_review import VideoReview
+        jid=self.add_observation()
+        folder=self.root/"video-review"/"runtime"/"jobs"/jid
+        path=folder/"learning-bundle.json"
+        bundle=json.loads(path.read_text(encoding="utf-8"))
+        bundle["session"].update({
+            "end_reason":"content_playback_stalled",
+            "watched_seconds":0,
+            "source_duration_seconds":0})
+        bundle["transcript"]={"source":"unavailable","line_count":0}
+        bundle["learning_chunks"]=[]
+        bundle["visual_evidence"]=[{"sha256":"d"*64,
+                                   "timestamp_seconds":0}]
+        path.write_text(json.dumps(bundle),encoding="utf-8")
+        report=observer_jobs(self.root)[0]
+        self.assertEqual(report["canonical_worker_status"],"AWAITING_SERVER_ACK")
+        self.assertEqual(report["status"],"INCOMPLETE_STALLED_OBSERVATION")
+        self.assertTrue(report["legacy_incomplete_evidence"])
+        self.assertFalse(report["awaiting_server_ack"])
+        self.assertFalse(report["brahmagyan_exam_verified"])
+        # The physical canary had a worker-state.json listing only the
+        # Loops job, even though Conditions had its own canonical report.
+        # Frontend must inspect the actual per-job report without that index.
+        panel=VideoReview(self.root,self.root).snapshot()["jobs"][0]
+        self.assertEqual(panel["status"],"INCOMPLETE_STALLED_OBSERVATION")
+        self.assertFalse(panel["can_run"])
+        # Historical source artifacts remain byte-for-byte unchanged.
+        self.assertEqual(bundle,json.loads(path.read_text(encoding="utf-8")))
+
+    def test_legacy_playback_receipt_prevents_false_queued_to_run(self):
+        from suryadev_video_review import VideoReview
+        jid=self.add_observation()
+        folder=self.root/"video-review"/"runtime"/"jobs"/jid
+        (folder/"worker-report.json").unlink()
+        (folder/"learning-bundle.json").unlink()
+        (folder/"playback-speed.json").write_text(json.dumps({
+            "schema":"krishna.suryadev.playback-speed.v1",
+            "job_id":jid,"video_seconds":7.59}),encoding="utf-8")
+        history=observer_jobs(self.root)[0]
+        self.assertEqual(history["status"],"attempted_no_final_receipt")
+        panel=VideoReview(self.root,self.root).snapshot()["jobs"][0]
+        self.assertEqual(panel["status"],"ATTEMPTED_NO_FINAL_RECEIPT")
+        self.assertFalse(panel["can_run"])
+
     def test_empty_is_honest_and_read_only(self):
         before=list(self.root.iterdir())
         result=youtube_audit(self.root,self.lib.db)

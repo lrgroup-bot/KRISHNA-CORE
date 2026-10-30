@@ -23,7 +23,8 @@ RUNTIME = "book-concurrent-runtime.json"
 
 class ParallelBookReader:
     def __init__(self, root, plan, *, model, use_ollama=True, vision_model=None,
-                 clock=time.time, min_gap_seconds=10, observe=None):
+                 clock=time.time, min_gap_seconds=10, observe=None,
+                 fast_mode=False):
         if not use_ollama:
             raise ValueError("Parallel model reading requires enabled local Ollama")
         self.root = Path(root).resolve()
@@ -32,7 +33,14 @@ class ParallelBookReader:
         self.model = model
         self.vision_model = vision_model
         self.clock = clock
-        self.min_gap_seconds = max(1.0, float(min_gap_seconds))
+        if type(fast_mode) is not bool:
+            raise ValueError("fast_mode must be a boolean")
+        self.fast_mode = fast_mode
+        # With a checkpoint fully committed, the next pass needs no
+        # arbitrary ten-second reading penalty. Capacity is remeasured by
+        # the one supervisor before admitting another book.
+        self.min_gap_seconds = (1.0 if fast_mode else
+                                max(1.0, float(min_gap_seconds)))
         self.observe = observe
         self.summary_lock = threading.Lock()
         self.pool = ThreadPoolExecutor(max_workers=MAX_ACTIVE_BOOKS,
@@ -84,10 +92,12 @@ class ParallelBookReader:
                         if self.observe:
                             return self.observe(prompt, model)
                         from suryadev import summarize
-                        return summarize(prompt, model)
+                        return summarize(prompt, model,
+                                         max_predict=320 if self.fast_mode else 512)
                 receipt = ledger.read(imported["book_id"],model=self.model,
                     use_ollama=True,lines_per_step=self.plan["lines_per_step"],
-                    max_steps=1,observe=model_call)
+                    max_steps=1,observe=model_call,
+                    fast_mode=self.fast_mode)
                 if file_sha256(path) != sha:
                     raise ValueError("Approved book changed during processing")
                 return {"state":"learning_book_step","book_id":receipt["book_id"],
@@ -149,6 +159,8 @@ class ParallelBookReader:
             "reserved_capacity":int(capacity.get("reserved_book_slots",0)),
             "safe":safe, "updated_at":now,
             "local_model_concurrency":1,
+            "fast_mode":self.fast_mode,
+            "batch_target_lines":40 if self.fast_mode else self.plan["lines_per_step"],
             "verified_learning":False}
         atomic_json(self.root,RUNTIME,record)
         return record

@@ -15,8 +15,10 @@ from suryadev_feeder import read_plan, paired_core_source_allowed
 from suryadev_krishna_mission import load_config, post_core
 from suryadev_liveops import atomic_json, _safe_read
 from suryadev_resources import snapshot, hardware_identity
+from suryadev_capabilities import installed_capabilities
 from suryadev_parallel import plan_capacity
 from suryadev_sources import source_kind
+from suryadev_task_details import _evidence_state
 
 FILE = "suryadev-fleet-runtime.json"
 RETRY_SECONDS = 30
@@ -27,18 +29,24 @@ MAX_LOCAL_QUEUED = 20
 def hardware_report(root, *, sample=None, now=None):
     """Normalized capacity. Missing measurements never become invented zeros."""
     report = snapshot(root) if sample is None else sample
-    if not report.get("available"):
+    if not isinstance(report, dict) or report.get("available") is not True:
         return None
     moment=time.time() if now is None else float(now)
     stamp=report.get("sample_time")
-    if stamp is not None and (not isinstance(stamp,(int,float))
-                             or not 0<=moment-float(stamp)<=10):
+    # Hardware admission requires a real, recent sample. A missing or NaN
+    # clock must not be represented to Core as an age-zero observation.
+    import math
+    if (type(moment) not in (int, float) or not math.isfinite(moment)
+            or type(stamp) not in (int, float) or not math.isfinite(stamp)
+            or not 0 <= moment - float(stamp) <= 10):
         return None
     # Report the exact collector/local model capacity measured for this node.
     workspace = _safe_read(root, "fresh-workspace.json", max_bytes=4096)
     selected = workspace.get("trial_model", "")
     collector_only = selected == "collector" or os.environ.get("SURYADEV_COLLECTOR_ONLY") == "1"
     capacity = plan_capacity(report, collector_only=collector_only)
+    fleet_adaptive = (workspace.get("schema") == "suryadev.fresh-workspace.v1"
+                      and workspace.get("node_profile") == "fleet_adaptive")
     required = ("cpu_percent", "ram_percent", "disk_percent", "ram_total_gb")
     if any(report.get(k) is None for k in required):
         return None
@@ -47,6 +55,7 @@ def hardware_report(root, *, sample=None, now=None):
     disk = report["disk_percent"]
     # Source acquisition is permitted independently of CPU-only model work.
     ident=hardware_identity()
+    backend=installed_capabilities(root)
     return {
         "sample_age_seconds": max(0.0,moment-float(stamp)) if stamp is not None else 0,
         "cpu_percent": round(float(cpu),2),
@@ -55,9 +64,13 @@ def hardware_report(root, *, sample=None, now=None):
         "ram_total_gb": report["ram_total_gb"],
         "disk_free_gb": report.get("disk_free_gb"),
         "max_total": max(0, min(
+            125 if fleet_adaptive else
             3 if workspace.get("schema") == "suryadev.fresh-workspace.v1" else 12,
             int(capacity.get("max_total") or 0))),
-        "capabilities": ["website","youtube","pdf","book"],
+        "node_profile": "fleet_adaptive" if fleet_adaptive else "legacy",
+        "capabilities": backend["capabilities"],
+        "capability_proof": backend["status"],
+        "installed_source_backends": backend["sources"],
         "logical_cpus": ident["logical_cpus"],
         "cpu_name": ident["cpu_name"],
         "platform": ident["platform"],
@@ -116,8 +129,12 @@ class FleetClient:
         thermal = ("hot" if measured_hot else
                    "normal" if telemetry is not None and telemetry.get("temperature_available")
                    else "unknown")
-        pending = lib.db.execute(
-            "SELECT COUNT(*) FROM jobs WHERE status IN ('running','queued')").fetchone()[0]
+        counts = dict(lib.db.execute(
+            "SELECT status, COUNT(*) FROM jobs WHERE status IN ('running','queued') GROUP BY status"
+        ).fetchall())
+        queued = int(counts.get("queued",0))
+        running = int(counts.get("running",0))
+        pending = queued + running
         reply = self._send("device/heartbeat", {
             "node_name": "SURYADEV-" + self.config["device_id"][-8:],
             "platform": platform.system(),
@@ -126,6 +143,8 @@ class FleetClient:
                                "draining" if phase == "draining" else
                                "researching" if pending else "idle"),
             "network_online": True,
+            "queued_jobs": queued,
+            "running_jobs": running,
             "thermal_state": thermal,
             "telemetry": telemetry,
         })
@@ -172,18 +191,51 @@ class FleetClient:
                     "429" in str(error) or "rate limit" in str(error).lower()) else "failed"
             else:
                 outcome = None
+            if outcome == "collected" and _evidence_state(self.root, digest) != "verified":
+                # SQLite 'done' is insufficient: never send a claimed SHA
+                # unless the complete local evidence bytes match it. Leave
+                # the active Core lease owned so renewal/recovery remains safe.
+                row["state"] = "local_evidence_integrity_failed"
+                self.state["last_error"] = (
+                    "Collected job has missing, invalid or corrupt SHA-256 evidence")
+                self._save()
+                if row.get("expires_at", 0) - now < 120:
+                    renewal = self._send("fleet/renew", {
+                        "task_id": task_id, "lease_id": lease})
+                    if renewal.get("renewed") is not True or renewal.get("lease_id") != lease:
+                        raise RuntimeError("Core refused integrity-hold lease renewal")
+                    row["expires_at"] = float(renewal["expires_at"])
+                    self._save()
+                continue
             if outcome:
                 reply = self._send("fleet/complete", {
                     "task_id": task_id, "lease_id": lease,
                     "outcome": outcome, "evidence_sha256": digest if outcome == "collected" else "",
                     "source_excerpt":str(excerpt or "")[:500] if outcome=="collected" else "",
                     "detail": str(error or "")[:300]})
-                if not reply.get("acknowledged"):
+                if not isinstance(reply, dict) or reply.get("acknowledged") is not True:
                     raise RuntimeError("Core did not acknowledge result")
+                if outcome == "collected":
+                    core_receipt = reply.get("receipt")
+                    if (not isinstance(core_receipt, dict) or
+                            core_receipt.get("task_id") != task_id or
+                            core_receipt.get("device_id") != self.config["device_id"] or
+                            core_receipt.get("lease_id") != lease or
+                            core_receipt.get("evidence_sha256") != digest or
+                            reply.get("candidate_recorded") is not True):
+                        # The server's authenticated route must commit both
+                        # the lease receipt AND BRAHMAGYAN's L0 candidate.
+                        # A retry of the same lease is idempotent on Core.
+                        raise RuntimeError(
+                            "Core evidence receipt or BRAHMAGYAN candidate ACK missing")
                 self.state["receipts"][task_id] = {
+                    "device_id": self.config["device_id"],
                     "outcome": outcome, "job_id": local_id,
                     "sha256": digest if outcome == "collected" else None,
-                    "core_acknowledged": True, "brahmagyan_accepted": False}
+                    "core_acknowledged": True,
+                    "brahmagyan_candidate_recorded": outcome == "collected",
+                    "brahmagyan_accepted": False,
+                    "rishi_exam_verified": False}
                 del self.state["assignments"][task_id]
                 self._save()
             elif row.get("expires_at", 0) - now < 120:
@@ -202,7 +254,9 @@ class FleetClient:
             return None
         pending = lib.db.execute(
             "SELECT COUNT(*) FROM jobs WHERE status IN ('queued','running')").fetchone()[0]
-        if pending >= MAX_LOCAL_QUEUED:
+        workspace = _safe_read(self.root, "fresh-workspace.json", max_bytes=4096)
+        max_local = 250 if workspace.get("node_profile") == "fleet_adaptive" else MAX_LOCAL_QUEUED
+        if pending >= max_local:
             return None
         reply = self._send("fleet/claim", {
             "known_task_ids": list(self.state["assignments"]),

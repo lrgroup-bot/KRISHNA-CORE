@@ -19,10 +19,12 @@ import time
 from suryadev_feeder import read_plan
 from suryadev_liveops import atomic_json, _safe_read
 from suryadev_video_review import VideoReview
+from suryadev_trial_limits import trial_cap, select_trial_videos, video_job_id
 
 MAX_VIDEO = 10
 RUNTIME = "video-concurrent-runtime.json"
 ATTEMPT_JOURNAL = "video-observer-attempts.json"
+OUTCOME_JOURNAL = "video-observer-outcomes.json"
 
 
 class ParallelVideoReader:
@@ -44,15 +46,25 @@ class ParallelVideoReader:
             if isinstance(x,str) and x.startswith("approved-video-") and len(x) <= 100
         )
         self.closed = False
+        self.trial_selection_error = ""
+        self.trial_selected_count = None
 
     def _tried(self, job_id, prior_states=None):
-        """Any previous real attempt/evidence forbids unattended video replay."""
+        """Only a real attempt/receipt excludes a previously staged job.
+
+        Historical worker-state can contain QUEUED_FOR_REVIEW entries from
+        import-only operations. Such entries are NOT an observation and must
+        not permanently empty the user's opted-in video trial. Unrecognized
+        or incomplete statuses still fail closed to prevent replays.
+        """
         if job_id in self.attempted:
             return True
         if prior_states is None:
-            prior_states = {row["job_id"] for row in self.review.snapshot_unlocked_jobs()}
-        return (job_id in prior_states or
-                (self.review.root / "runtime" / "jobs" / job_id).exists())
+            prior_states = {row["job_id"]: row.get("status")
+                            for row in self.review.snapshot_unlocked_jobs()}
+        if job_id in prior_states and prior_states[job_id] != "QUEUED_FOR_REVIEW":
+            return True
+        return (self.review.root / "runtime" / "jobs" / job_id).exists()
 
     def _mark_attempt(self, job_id):
         # Persist BEFORE child launch so an interrupted process cannot
@@ -63,6 +75,37 @@ class ParallelVideoReader:
                     {"schema": "suryadev.video-attempts.v1",
                      "job_ids": sorted(ids), "updated_at": float(self.clock())})
         self.attempted = ids
+
+    def _record_outcome(self, job_id, result):
+        """Persist failures/receipt states beyond the next supervisor tick.
+
+        A missing canonical worker-report.json previously left failed video
+        subprocesses looking 'pending_or_running' forever. Do not fabricate
+        evidence or authorize retries; this is a separate diagnostic journal.
+        """
+        old = _safe_read(self.root, OUTCOME_JOURNAL, max_bytes=131072)
+        if (self.root / OUTCOME_JOURNAL).exists() and (
+                old.get("schema") != "suryadev.video-outcomes.v1"
+                or not isinstance(old.get("jobs"), dict)):
+            raise RuntimeError("Corrupt video outcome journal; refusing overwrite")
+        jobs = dict(old.get("jobs", {}))
+        state = str(result.get("state", "unknown"))[:80]
+        jobs[job_id] = {
+            "state": state,
+            "worker_status": str(result.get("worker_status") or "")[:80],
+            "error": str(result.get("error") or "")[:300],
+            "finished_at": float(self.clock()),
+            "evidence_verified": False,
+            "rishi_exam_verified": False,
+        }
+        # Bound size without clearing the unrelated immutable evidence files.
+        if len(jobs) > 200:
+            keep=sorted(jobs.items(), key=lambda p:p[1].get("finished_at",0),
+                        reverse=True)[:200]
+            jobs=dict(keep)
+        atomic_json(self.root, OUTCOME_JOURNAL,
+                    {"schema":"suryadev.video-outcomes.v1",
+                     "jobs":jobs,"updated_at":float(self.clock())})
 
     def auto_enabled(self):
         """Only owner-activated reviewed video automation can launch work."""
@@ -81,10 +124,22 @@ class ParallelVideoReader:
             plan=read_plan(self.review.plan)
         except (OSError,ValueError,TypeError):
             return False
-        prior = {row["job_id"] for row in self.review.snapshot_unlocked_jobs()}
-        for url in self.review._approved_videos(plan["approved_urls"])[:80]:
-            jid="approved-video-"+hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-            if not self._tried(jid, prior):
+        prior = {row["job_id"]: row.get("status")
+                 for row in self.review.snapshot_unlocked_jobs()}
+        urls=self.review._approved_videos(plan["approved_urls"])[:80]
+        try:
+            selected=select_trial_videos(self.root,urls,
+                  previously_tried=lambda jid:self._tried(jid,prior),
+                  recover_empty=True)
+            self.trial_selection_error=""
+            self.trial_selected_count=len(selected) if selected is not None else None
+        except (RuntimeError,OSError,ValueError) as exc:
+            self.trial_selection_error=type(exc).__name__+": "+str(exc)[:160]
+            self.trial_selected_count=None
+            return False
+        for url in urls:
+            jid=video_job_id(url)
+            if (selected is None or jid in selected) and not self._tried(jid, prior):
                 return True
         return False
 
@@ -140,10 +195,26 @@ class ParallelVideoReader:
             except Exception as exc:
                 result={"state":"worker_failed","job":job_id,
                         "error":type(exc).__name__+": "+str(exc)[:150]}
+            # Preserve a durable result even when the child produced no
+            # canonical worker report, so the UI can show the real failure.
+            try:
+                self._record_outcome(job_id,result if isinstance(result,dict)
+                                     else {"state":"worker_failed","error":
+                                           "Malformed observer result"})
+            except (OSError, ValueError, RuntimeError, TypeError) as exc:
+                # Corrupt/unwritable diagnostic history must not shut down
+                # books, PDF, website or other video lanes. Never overwrite
+                # a damaged receipt as a "repair" or claim it was saved.
+                result = dict(result) if isinstance(result,dict) else {
+                    "state":"worker_failed","job":job_id}
+                result["outcome_persistence_error"] = (
+                    type(exc).__name__+": "+str(exc)[:140])
             done.append(result)
         safe=capacity.get("safe") is True
         enabled=self.auto_enabled()
-        slots=min(MAX_VIDEO,int(capacity.get("reserved_video_slots",0)),
+        target=trial_cap("video")
+        target=MAX_VIDEO if target is None else min(MAX_VIDEO,target)
+        slots=min(target,int(capacity.get("reserved_video_slots",0)),
                   max(0,int(capacity.get("max_total",0))-int(source_active)-int(books_active)))
         started=[]
         if enabled and safe and slots > len(self.futures):
@@ -153,11 +224,24 @@ class ParallelVideoReader:
             else:
                 urls=[]
             occupied=set(self.futures.values())
-            prior={row["job_id"] for row in self.review.snapshot_unlocked_jobs()}
+            prior={row["job_id"]: row.get("status")
+                   for row in self.review.snapshot_unlocked_jobs()}
+            try:
+                selected=select_trial_videos(self.root,urls[:80],
+                  previously_tried=lambda jid:self._tried(jid,prior),
+                  recover_empty=True)
+                self.trial_selection_error=""
+                self.trial_selected_count=len(selected) if selected is not None else None
+            except (RuntimeError,OSError,ValueError) as exc:
+                selected=frozenset()
+                self.trial_selection_error=type(exc).__name__+": "+str(exc)[:160]
+                self.trial_selected_count=None
             for url in urls[:80]:
                 if len(self.futures)>=slots:
                     break
-                jid="approved-video-"+hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+                jid=video_job_id(url)
+                if (selected is not None and jid not in selected):
+                    continue
                 if jid in occupied or self._tried(jid, prior):
                     continue
                 path=self.review._path(jid)
@@ -190,7 +274,9 @@ class ParallelVideoReader:
                 occupied.add(jid)
                 started.append(jid)
         receipt={"schema":"suryadev.parallel-video.v1",
-                 "target":MAX_VIDEO,"active":len(self.futures),
+                 "target":target,"trial_selected_count":self.trial_selected_count,
+                 "trial_selection_error":self.trial_selection_error,"active":len(self.futures),
+                 "active_job_ids":sorted(self.futures.values()),
                  "started_this_tick":started,"finished":done,
                  "enabled":enabled,"hardware_safe":safe,
                  "reserved_slots":int(capacity.get("reserved_video_slots",0)),

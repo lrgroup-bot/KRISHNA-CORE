@@ -191,6 +191,43 @@ def _validate_bundle(bundle_path, job):
         return {"valid": False, "reason": "learning bundle contains no learning/evidence"}
     if len(chunks) > 120 or len(visuals) > 120:
         return {"valid": False, "reason": "learning bundle exceeds bounded evidence limits"}
+    # Browser progress is NOT mastery, and a stopped eight-second lecture
+    # with a single screenshot is NOT a successful video collection.
+    # Keep all diagnostic files for inspection, but never promote stalled,
+    # ad-blocked or inaccessible playback into a Core ACK candidate.
+    session = row.get("session")
+    if isinstance(session, dict):
+        stop = str(session.get("end_reason") or "")
+        if stop in ("content_playback_stalled", "advertisement_wait_limit",
+                    "browser_snapshot_unavailable", "media_unloaded_after_playback",
+                    "video_element_replaced", "unapproved_video_navigation",
+                    "media_error"):
+            return {"valid": False, "reason": "video observation incomplete: " + stop}
+        try:
+            position = float(session.get("watched_seconds") or 0)
+            duration = float(session.get("source_duration_seconds") or 0)
+        except (TypeError, ValueError, OverflowError):
+            return {"valid": False, "reason": "video session timings malformed"}
+        if not (0 <= position <= 21600 and 0 <= duration <= 21600):
+            return {"valid": False, "reason": "video session timing outside supported range"}
+        transcript = row.get("transcript")
+        caption_lines = (transcript.get("line_count") if
+                         isinstance(transcript, dict) else None)
+        # When captions/ASR were absent, metadata-only chunks are not
+        # evidence of spoken lesson content. Require actual sustained
+        # progression and two distinct nonzero visual timestamps.
+        if not isinstance(caption_lines, int) or caption_lines <= 0:
+            stamps = sorted(set(
+                float(v.get("timestamp_seconds") or 0)
+                for v in visuals if isinstance(v, dict)
+                and type(v.get("timestamp_seconds")) in (int, float)
+                and 0 <= v.get("timestamp_seconds") <= 21600
+            ))
+            if not (position >= 30 and duration > 0 and len(stamps) >= 2
+                    and stamps[-1] - stamps[0] >= 15):
+                return {"valid": False, "reason":
+                        "no transcript and insufficient time-separated visual evidence"}
+
     for chunk in chunks:
         if not isinstance(chunk, dict):
             return {"valid": False, "reason": "learning chunk must be an object"}

@@ -21,6 +21,34 @@
     try { return await task(); }
     finally { button.disabled = false; button.textContent = original; }
   };
+  node("pair-request").addEventListener("click", () => busy(node("pair-request"), async () => {
+    try {
+      const data = await post("/api/operator/pairing/request", {
+        endpoint:node("pair-endpoint").value.trim(),
+        cert_sha256:node("pair-fingerprint").value.trim(),
+        device_id:node("pair-device").value.trim()
+      });
+      result("pair-result", "Request " + data.request_id + ": approve this device on the KRISHNA PC, then activate here.", "success");
+    } catch(err) { result("pair-result", fail(err), "error"); }
+  }));
+  node("pair-activate").addEventListener("click", () => busy(node("pair-activate"), async () => {
+    try {
+      const data = await post("/api/operator/pairing/activate", {});
+      result("pair-result", "Credential accepted for " + data.device_id +
+        ". Stop and start the learning worker to connect to KRISHNA. A heartbeat and evidence delivery still need verification.", "success");
+    } catch(err) { result("pair-result", fail(err), "error"); }
+  }));
+  async function readComponentSetup() {
+    try {
+      const response = await window.suryadevRead("/api/setup", {cache:"no-store"});
+      if (response.ok) {
+        const data = await response.json();
+        node("component-setup-status").textContent = "Components: " + data.state + " · " + data.note;
+      }
+    } catch(err) { node("component-setup-status").textContent = "Component status unavailable: " + fail(err); }
+  }
+  readComponentSetup();
+  setInterval(readComponentSetup, 15000);
   async function readSettings() {
     const response = await window.suryadevRead("/api/operator/settings", {cache:"no-store"});
     if (!response.ok) throw Error("Cannot read local operator settings ("+response.status+")");
@@ -59,8 +87,9 @@
     return body;
   }
   function open(id) {
-    const dialog = node(id);
-    if (!dialog.open) dialog.showModal();
+    // Configuration is a full-height in-app dashboard, not an OS/modal window.
+    const route=id==="server-settings-dialog"?"server-settings":"storage-settings";
+    location.hash="#"+route;
     readSettings().catch(err => result(
       id === "server-settings-dialog" ? "server-save-result" : "storage-result",
       fail(err), "error"
@@ -68,8 +97,18 @@
   }
   node("open-server-settings").addEventListener("click", () => open("server-settings-dialog"));
   node("open-storage-settings").addEventListener("click", () => open("storage-settings-dialog"));
-  node("close-server-settings").addEventListener("click", () => node("server-settings-dialog").close());
-  node("close-storage-settings").addEventListener("click", () => node("storage-settings-dialog").close());
+  node("close-server-settings").addEventListener("click", () => { location.hash="#overview"; });
+  node("close-storage-settings").addEventListener("click", () => { location.hash="#overview"; });
+  // Deep links and browser Back must load live data in the selected dashboard.
+  window.addEventListener("hashchange", () => {
+    if (location.hash==="#server-settings" || location.hash==="#storage-settings") {
+      readSettings().catch(err => result(
+        location.hash==="#server-settings"?"server-save-result":"storage-result",
+        fail(err),"error"));
+    }
+  });
+  if (location.hash==="#server-settings" || location.hash==="#storage-settings")
+    readSettings().catch(() => {});
   const coreValues = () => ({
     ip:node("server-ip").value.trim(), port:Number(node("server-port").value)
   });

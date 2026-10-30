@@ -21,7 +21,7 @@ from .suryadev_fleet_policy import plan_rishi_collection
 SCHEMA = "krishna.suryadev.fleet-leases.v1"
 LEASE_SECONDS = 600
 MAX_ATTEMPTS = 3
-MAX_ACTIVE_PER_NODE = 12
+MAX_ACTIVE_PER_NODE = 125
 
 
 class SuryadevFleetService:
@@ -91,12 +91,36 @@ class SuryadevFleetService:
         if type(capacity) is not int:
             return False
         profile["available_slots"] = min(MAX_ACTIVE_PER_NODE, max(0, capacity - active))
+        # A node enrolled solely for video must not fail a hardcoded
+        # website-only eligibility probe. Check its ACTUAL reported lane.
+        allowed = {"website", "youtube", "pdf", "book", "experiment"}
+        lane = next((kind for kind in (profile.get("capabilities") or [])
+                     if kind in allowed), None)
+        if lane is None:
+            return False
         sample = [{"task_id": "__probe__", "rishi_id": self.council.list()[0]["id"],
-                   "kind": "website", "priority": 0, "status": "queued",
+                   "kind": lane, "priority": 0, "status": "queued",
                    "approved": True}]
         result = plan_rishi_collection(sample, [profile],
             council_ids=[row["id"] for row in self.council.list()], now=now)
         return result["eligible_nodes"] == 1
+
+    @staticmethod
+    def _renewal_healthy(device_id, now, node):
+        """An in-flight lease can renew during resource pressure, but only
+        for a fresh, owner-paired and running worker."""
+        if not isinstance(node, dict):
+            return False
+        if (node.get("device_id") != device_id or
+                node.get("authenticated") is not True or
+                node.get("worker_running") is not True or
+                node.get("network_online") is not True or node.get("last_error")):
+            return False
+        for field, ttl in (("last_seen", 150), ("telemetry_sample_at", 45)):
+            value = node.get(field)
+            if type(value) not in (int, float) or not 0 <= now - value <= ttl:
+                return False
+        return True
 
     def status(self):
         with self.lock:
@@ -133,16 +157,22 @@ class SuryadevFleetService:
             active = [(tid, lease) for tid, lease in state["leases"].items()
                       if lease.get("expires_at", 0) > now and tid in tasks]
             owned = [(tid, lease) for tid, lease in active if lease.get("device_id") == device_id]
+            try:
+                node = self.node_reader(device_id)
+            except KeyError:
+                return {"status": "no_eligible_capacity", "reason": "device heartbeat missing"}
+            # A replay is an opportunity to resume work, not a bypass around
+            # pairing/fresh-heartbeat checks. Pressure is allowed for an
+            # already-held lease, but missing/offline/unpaired workers are not.
+            if owned and not self._renewal_healthy(device_id, now, node):
+                return {"status": "no_eligible_capacity",
+                        "reason": "lease owner heartbeat is stale, offline or unpaired"}
             for tid, lease in owned:
                 # Client crashed before persisting claim? Replay the still-owned
                 # lease. Once it reports a durable local job, offer a next slot.
                 if tid not in known:
                     return {"status": "leased", "task": tasks[tid], "lease_id": lease["lease_id"],
                             "expires_at": lease["expires_at"], "replay": True}
-            try:
-                node = self.node_reader(device_id)
-            except KeyError:
-                return {"status": "no_eligible_capacity", "reason": "device heartbeat missing"}
             if not self._eligible(device_id, now, node, len(owned)):
                 return {"status": "no_eligible_capacity", "reason": "paired node hardware admission refused"}
             occupied = {tid for tid, _ in active}
@@ -167,8 +197,14 @@ class SuryadevFleetService:
             # research. The previous node can no longer complete its old lease.
             expired = {tid for tid, lease in state["leases"].items()
                        if lease.get("expires_at",0) <= now and tid not in state["receipts"]}
+            # A specialist-only video node can process the video queue.
+            # A generalist prefers non-video tasks while those exist, so a
+            # heterogeneous fleet naturally allocates video to video-capable
+            # specialists without hardcoding a permanent node number.
+            is_generalist = len(set(capabilities) & {"website","pdf","book"}) > 0
             chosen = min(candidates, key=lambda x: (
                 0 if x["task_id"] in expired else 1,
+                int(is_generalist and x["kind"] == "youtube"),
                 totals.get(x["rishi_id"], 0), state["attempts"].get(x["task_id"], 0),
                 x["mission_id"], x["task_id"]))
             tid = chosen["task_id"]
@@ -191,8 +227,9 @@ class SuryadevFleetService:
                     lease.get("lease_id") != lease_id or lease["expires_at"] <= now):
                 raise PermissionError("expired or mismatched fleet lease")
             node = self.node_reader(device_id)
-            if not self._eligible(device_id, now, node, 0):
-                raise PermissionError("node is not healthy for lease renewal")
+            # Hardware headroom controls NEW work, not completion of an owned lease.
+            if not self._renewal_healthy(device_id, now, node):
+                raise PermissionError("lease owner heartbeat is stale, offline or unpaired")
             lease["expires_at"] = now + LEASE_SECONDS
             self._save(state)
             return {"renewed": True, "task_id": task_id,

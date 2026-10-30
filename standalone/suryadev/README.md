@@ -1,3 +1,185 @@
+### Atomic fresh three-lesson standalone test (explicit operator opt-in)
+
+The read-only Phase-1 report can legitimately say
+`BLOCKED_NO_NEW_APPROVED_VIDEO` when historical sessions have already
+been attempted. This is **not** permission to clear their receipts.
+
+Three independently reviewed, public Corey Schafer Python lessons can be
+staged as **one exact approved batch**, covering numeric types, sequences,
+and dictionaries. First preview (read-only), then execute the separate
+explicit approval command if those three titles are acceptable:
+
+```powershell
+$Data = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\data"
+$Repo = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\KRISHNA-CORE"
+$Python = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\.venv\\Scripts\\python.exe"
+& $Python "$Repo\\standalone\\suryadev\\suryadev_standalone_trial_sources.py" --data $Data
+# Operator approval, only when the exact three URLs in preview are accepted:
+& $Python "$Repo\\standalone\\suryadev\\suryadev_standalone_trial_sources.py" --data $Data --approve
+```
+
+`--approve` atomically appends all three URLs to `learning-plan.json`,
+validates the complete new plan, and retains a byte-for-byte backup.
+It refuses candidates with any existing attempt, worker state, evidence
+folder or staged inbox job. It never resets video selection/history,
+restarts the worker, contacts KRISHNA, installs a browser, or claims
+successful learning. The already running standalone supervisor can
+select at most three *fresh* jobs from the updated plan during its next
+normal scheduling cycle. Actual media playback remains dependent on
+YouTube access and measured laptop headroom; no ad, media or rate-limit
+restrictions are bypassed. Keep old media reports for debugging.
+
+## Standalone YouTube learning test (Phase 1, before any KRISHNA connection)
+
+Do **not** interrupt the active book worker. The Phase-1 acceptance
+diagnostic is strictly read-only and requires no browser, worker lock or
+new approval; it can run in a separate PowerShell terminal:
+
+```powershell
+$Data = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\data"
+$Python = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\.venv\\Scripts\\python.exe"
+$App = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\app"
+& $Python "$App\\suryadev_learning_phase1.py" --data $Data
+```
+
+Exit code 3 and `BLOCKED_NO_NEW_APPROVED_VIDEO` mean the existing
+approved sources have past evidence/attempts. Never delete those files
+or reset the once-only selection. To perform an **actual first-time**
+video observation, approve a *new exact public lesson URL* through the
+separately reviewed owner-approved source pipeline before launching a
+new trial. Explicit `--video-target 3` is a cap, not permission to
+replay earlier video jobs or accept any URL on the internet.
+
+For the next **graceful** restart (not while a book is processing), run
+`start-node.py` with `--standalone-test` alongside the usual model,
+continuous and four-lane workload flags. That launch profile disables
+Core fleet auto-activation, mission relay, and paired Core hot-attach
+even if a previously enrolled credential exists. It does not disable
+local sources, book Ollama processing, GARUDANETRA, or the 85% guard.
+
+Phase-1 acceptance is **not** satisfied by a moving video clock or
+one caption chunk. Validate complete content progression, media
+continuity, caption/audio and visual coverage, auditable model
+evidence, and independent source-grounded comprehension. The
+read-only report deliberately declares understanding unverified until
+independent evidence is available. No Core/Rishi network connection
+is attempted by this local test.
+
+## Empty video selection recovery and idle readiness
+
+With an opted-in `--video-target 3` and `--auto-approved-videos`,
+the worker now distinguishes legacy `QUEUED_FOR_REVIEW` imported jobs
+from genuine attempts. An existing **empty** trial selection may be
+reconciled just once to currently approved and genuinely unattempted
+videos. It archives the original under
+`video-trial-selection.before-empty-repair-<sha>.json` before changing
+only the selection receipt. Existing attempt journals, full playback
+evidence, nonempty frozen selections and source approvals remain intact.
+If only one new eligible video exists, the three-video target results in
+at most one selected job. Replaying the other three is prohibited.
+
+The AI Learner now reads `/api/learning/readiness` locally to show
+actual managed or externally locked worker state, approved and eligible
+videos, source queue limits, book runtime freshness, and idle reasons.
+A historical `book-concurrent-runtime.json` with `active: 1` does not
+prove the book worker is live when its timestamp is stale.
+
+The client must pull and reinstall after the corrected commit. Never
+modify or delete the video selection or attempted-video evidence
+manually. Preserve the dashboard/worker OS lock and stop gracefully
+before upgrading. This repair is for the empty-selection eligibility
+bug only, **not** permission to bypass provider access restrictions.
+
+## Operator-approved 3-video + 5-per-lane full-learning trial (27 Oct 2026)
+
+A concrete opt-in workload profile can now be launched with **one** existing
+SURYADEV node/dashboard, never a competing scheduler:
+
+```powershell
+$Root = "D:\\Work\\SURYADEV-FLEET-CANARY-20261025"
+$Python = "$Root\\.venv\\Scripts\\python.exe"
+& $Python "$Root\\app\\start-node.py" --data "$Root\\data" --model auto `
+  --adaptive-fleet --continuous --auto-approved-videos `
+  --video-target 3 --website-target 5 --pdf-target 5 --book-target 5 `
+  --max-parallel 18 --port 8872
+```
+
+**Stop the managed worker and its dashboard gracefully before reinstalling
+and starting a new version**, but never delete `suryadev.sqlite3`, locks or
+previous evidence to bypass a failed check. The installer runs its own tests.
+The operator's specific `--video-target 3` chooses only the first three
+*unattempted and currently approved* video URLs and freezes their SHA-derived
+job IDs in `video-trial-selection.json` across restarts. No extra or
+replacement videos are invented or silently approved. An existing selection
+that is invalid or conflicts with the requested target fails closed.
+If fewer than three approved unattempted sources exist, that shortage is
+reported; previously attempted videos are never replayed without a separate,
+explicitly approved new trial. The requested video count is distinct from
+measured concurrent slots. Remaining lanes are capped at five active
+website, PDF and book assignments each, not five guaranteed executions.
+
+The dynamic 85% safety thresholds, thermal/power guards, provider 429
+cooldowns, source-approval validation, one-caption-request-at-a-time rule,
+shared total concurrency, serialized local Ollama access and six-hour mission
+lifecycle remain authoritative. `--max-parallel 18` is an upper bound; the
+measured laptop may only admit one task.
+
+**Speeds:** normal adaptive video learning still uses only previously measured
+safe speeds, at or below its existing ceiling. The isolated speed-sweep
+diagnostic can now test a requested `--rate 4` on the *single*
+operator-reviewed trial video, with the canonical worker stopped and 85%
+resource guard enforced. This 4x experiment records real non-ad source-clock
+advance and frame drops; it **never authorizes 4x as a comprehension-speed
+ceiling**, full audiovisual coverage or a Rishi-verified lesson. The standard
+four-stage sweep remains 1x/1.5x/2x/3x so existing learning-speed audits are
+not bypassed.
+
+Full learning is only accepted when per-source audiovisual/text/image coverage,
+model processing, BRAHMAGYAN candidate acceptance and Rishi examination have
+durable independent receipts. Successful worker starts, snippets, partial
+video playback and 4x diagnostic progression do not establish those claims.
+
+> **GARUDANETRA Browser policy, 26 Oct 2026:** All browser-backed website research, YouTube observers, playback probes and Core browser inspectors use our GARUDANETRA-controlled **Playwright Chromium** engine; Google Chrome/Edge are not required or used as fallbacks. Chromium video codec capability is independently verified, never inferred from earlier Chrome results. Run `suryadev_browser_preflight.py --data <existing-data>` with the worker stopped. See `docs/GARUDANETRA_UNIFIED_BROWSER.md` in the repository root.
+
+## One SURYADEV Learning Intelligence dashboard — consolidated UI (October 25, 2026)
+
+The detailed Learning Intelligence interface is now **the only served frontend**.
+Both `http://127.0.0.1:8772/` and `http://127.0.0.1:8772/advanced`
+render the same `dashboard.html`, worker controls, data root and evidence.
+For a canary instance on port 8872, the equivalent links are
+`http://127.0.0.1:8872/` and `http://127.0.0.1:8872/advanced#video-review`.
+Existing deep links and section anchors remain valid. There is no separate
+Node Control application, no duplicate worker and no second learning ledger.
+
+Node profile, approved-plan presence, secure pairing state, measured admission,
+network link status and Start/Stop are integrated within this single interface.
+A configured maximum (3 in legacy mode or 125 in adaptive fleet mode) is not
+measured runnable capacity or a guarantee of actual parallel jobs. Evidence
+collection is not automatically certified as source comprehension.
+
+### Live KRISHNA pairing (opt-in, never automatic)
+
+The current Core supports **zero-code SHA-256 credential pairing**, not the
+legacy pairing-code proposal in `suryadev_enroll.py`. Use the new
+`suryadev_pairing_bootstrap.py` only after Core's restricted native HTTPS
+listener has been enabled and its certificate fingerprint independently
+verified. It creates a local token, submits its SHA-256 to
+`/api/mobile/pair/request`, requires approval on the **KRISHNA PC** via
+`/api/mobile/pair/approve`, verifies that approval over pinned TLS, and
+only then creates `core-mission-connection.json`. No dashboard process,
+source plan or evidence is replaced during pairing.
+
+The exact owner-controlled two-machine procedure and rollback boundaries
+are in `docs/SURYADEV_FLEET_ROLLOUT.md` at the repository root.
+A paired credential does not prove Core job intake, BRAHMAGYAN knowledge
+acceptance, Rishi exam grading or deep learning.
+
+**Historical release notes below may still describe the previous split-page
+UI and the original mandatory rest policy. Current behavior is controlled
+by the profile's continuous-mission policy and the single UI described here.**
+
+---
+
 ## Continuous missions: six hours of approved work / ten-minute device rest
 
 **New policy:** the single SURYADEV worker owns a durable
@@ -1450,3 +1632,499 @@ truthfully show zero live work even when measured hardware utilization is low.
 
 Imported books in SURYADEV-TEST-DATA do not appear in SURYADEV-DATA;
 explicitly approve a real book in the production data root.
+
+## 13-source hardware-adaptive learning load check (3 PDF / 2 web / 5 books / 3 YouTube)
+
+The same single Learning Intelligence UI and dashboard-managed worker execute
+approved sources under measured 85% CPU/RAM/disk/GPU admission. The configured
+125-workload ceiling is NOT a claim of 125 actual runnable laptop tasks.
+
+From the **already verified portable installed app**, use the PowerShell
+`START_SURYADEV_13_SOURCE_CHECK.ps1` launcher. It can bring the local canary
+dashboard back on `127.0.0.1:8872` without touching the persistent
+`data` directory or opening a duplicate service. It does not update app
+files while the worker is running. `-DashboardOnly` only opens/reuses the
+dashboard and does not require a full 13-source curriculum.
+
+```powershell
+$root = 'D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+& "$root\\app\\START_SURYADEV_13_SOURCE_CHECK.ps1" -Root $root -DashboardOnly
+# after explicit source approvals, run from another shell:
+& "$root\\app\\START_SURYADEV_13_SOURCE_CHECK.ps1" -Root $root -Model auto -Minutes 45
+```
+
+The full test **requires exactly 3 fresh, owner-approved PDF URLs, 2 fresh
+website URLs, 3 fresh YouTube URLs**, plus **5 SHA-256-approved local books** in
+`data/book-plan.json`. Extra historical approved sources may remain;
+`suryadev_workload_benchmark.py` selects the first suitable sources unless
+an explicit selection manifest (`--manifest`) is provided. A completed or
+failed old source URL cannot count as new throughput. The helper will print
+what is missing and refuse to fake timings.
+
+Use the existing operator-approved backend sources and CLI
+`suryadev_extras.py --data <data> book-approve <bookfile>` to approve each
+local supported TXT/MD/PDF/EPUB source while **the worker is stopped**.
+No frontend manual source controls are added. If approved books exist, one
+dashboard-managed collector will now attach `--book-collect-plan` for
+**indexing only**; local-model mode attaches `--book-plan` for checkpointed
+reading. The five-book model inference path is serialized on the shared
+model lock; five concurrent *source preparations* are not five parallel LLMs.
+`auto` chooses a locally installed eligible model or collector without
+downloading anything. If it chooses collector, deep book comprehension is
+NOT tested or claimed.
+
+Video visual-observation automation is enabled only for exactly approved
+YouTube URLs, and can stop with 429/provider restrictions. When the
+existing dashboard was started without `--auto-approved-videos`, restart
+the single dashboard through its normal controlled lifecycle before claiming
+video observation was enabled. Source captions are separately audited from
+actual observation; an `AWAITING_SERVER_ACK` status is NOT knowledge mastery.
+
+The read-only benchmark samples hardware, admission slots, queued and active
+workloads, website/PDF/caption timing receipts, book lines/model status,
+video observation and source SHA verification. It writes timestamped JSON
+under the sibling `benchmark-reports` folder and **does not kill, reset,
+or automatically restart** the worker on timeout. It distinguishes
+`collection_complete_no_book_model` from model-processed work,
+`terminal_with_failures`, and `time_limit_reached_jobs_may_still_be_running`.
+No elapsed-time target, deep learning certificate, full audiovisual
+coverage or independent Rishi examination is inferred.
+
+
+### Repair missing book-plan.json without touching completed evidence
+
+A healthy worker may report `actual_slots=4` with `WorkerRunning=True`
+yet the 13-source preflight will correctly refuse to run because no five-book
+owner approval file exists. This is **source authorization**, not a worker error.
+
+The operator can explicitly approve this *fixed*, reviewed test curriculum:
+5 Green Tea Press full technical books (Think Python, Think Stats, Think Bayes,
+Think Complexity, Think DSP), three short arXiv technical PDFs (Attention, LoRA,
+BERT), two Python official docs pages, and three CS50P YouTube lectures. The
+script is opt-in, makes a pre-change backup of `learning-plan.json`, stores
+full local books with SHA-256 pins, and preserves all prior SQLite evidence.
+It does not silently add sources, enable paid services, bypass YouTube 429 or
+run a second worker.
+
+With **the current dashboard still open**, use its **Stop learning** control;
+verify `/api/learning/control` reports `managed_running=False` and
+`external_worker_active=False`. Keep the dashboard process alive. Then:
+
+```powershell
+$root='D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+$py="$root\\.venv\\Scripts\\python.exe"
+$data="$root\\data"
+$app="$root\\app"
+& $py "$app\\suryadev_benchmark_prepare.py" --data $data --show
+# Review all exact licensed publisher/source URLs, then expressly authorize:
+& $py "$app\\suryadev_benchmark_prepare.py" --data $data --approve-curated-trial
+& $py "$app\\suryadev_workload_benchmark.py" --data $data `
+  --manifest "$data\\benchmark-13-manifest.json" --preflight
+```
+
+If the PDF book reader reports `ModuleNotFoundError: pypdf`, install this free
+local Python package into the active canary virtual environment before
+approving books: `& $py -m pip install pypdf`. A transient publisher failure
+must remain a real failed download; no synthetic book content is substituted.
+
+Once preflight succeeds, use the **same existing dashboard** to start a single
+`auto` worker; if the selected local model is unsupported/uninstalled, use
+`collector` for evidence-only acceptance and separately test model reading.
+The explicit manifest is necessary to exclude the historical Python/about
+and W3C dummy-PDF runs from a fresh timing test:
+
+```powershell
+& "$app\\START_SURYADEV_13_SOURCE_CHECK.ps1" -Root $root -Model auto `
+  -Manifest "$data\\benchmark-13-manifest.json" -Minutes 45
+```
+
+The benchmark writes read-only 15-second snapshots in the sibling
+`benchmark-reports` folder. Full five-book model reading may take longer
+than 45 minutes; the report documents partial lines accurately.
+The current `complete_verified`, visual-coverage and independent Rishi
+acceptance gates remain false without actual supporting evidence.
+
+
+### Full-book PDF frontmatter: verified blank pages versus scanned material
+
+For the explicit 13-source trial, a real PDF may include an intentionally
+blank page (for instance the second page of Think Python 2e). It must not
+be incorrectly marked as an OCR error, and a scanned diagram must not be
+quietly omitted. Import now distinguishes: (a) no page-content painting or
+annotations — structurally verified blank; (b) a **completely white** locally
+rendered page — visually verified blank; (c) a page containing visible
+content but no selectable text — OCR required; (d) failed/OCR-empty content —
+block approval and preserve the original source.
+
+The existing `book_lines` ledger records a verified blank page using its
+original page number, a `[verified blank: ...]` section tag and zero-length
+source text. No generated page text is substituted; text/image/comprehension
+mastery remains unverified until its separate evidence and Rishi stages.
+Nonblank figures and scanned text cannot pass as blank.
+
+The free optional renderer `pypdfium2` verifies white page images; it is
+required when a page is not provably structurally blank. Only pages with
+actual non-white content need the **additional** local `pytesseract` Python
+package and installed Tesseract OCR executable. Do not automatically install
+an unknown executable or bypass OCR warnings. With the worker stopped:
+
+```powershell
+$root='D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+$py="$root\\.venv\\Scripts\\python.exe"
+& $py -m pip install pypdf pypdfium2
+& $py "$root\\KRISHNA-CORE\\standalone\\suryadev\\suryadev_benchmark_prepare.py" `
+    --data "$root\\data" --approve-curated-trial
+```
+
+If an actually scanned/illustrated page requires OCR, install
+`pytesseract` using pip **and** a verified local Tesseract OCR binary, then
+retry. Downloaded PDFs already validated and saved are reused; never wipe
+`benchmark-books`, SQLite, or the source plan. Runtime installation from the
+feature branch should occur only after the canary regression tests pass.
+
+
+### YouTube ads, stalls and exclusive worker-lock contention (fleet-adaptive)
+
+The SOURCE of the earlier no-learning failure is not proven to be an ad.
+The laptop dashboard's *legacy standalone video auto scheduler* had started
+`approved-video-67f8dd17a7b32fd2` before the main learning worker, taking
+SURYADEV's **one canonical OS lock** while the site showed no confirmed
+captions, transcript chunks, or frames. This prevented 3 PDFs, 2 websites
+and five books from being admitted even when CPU/RAM were safe.
+
+**Corrected ownership:** in `fleet_adaptive` profile, the dashboard never
+starts a standalone video subprocess. All approved video observations
+are admitted ONLY by the main `ParallelVideoReader` under its existing
+single-worker supervisor lock and hardware admission. The same supervisor
+can schedule website/PDF and verified book model work as separate queues.
+A previously active legacy observer is reported as active and must finish or
+be explicitly stopped on the owner's Windows PC; this patch does not kill
+unrecognized processes or silently replay a partly viewed video.
+
+**Video reliability:** the Playwright adapter measures when YouTube actually
+reports an `.html5-video-player.ad-showing` ad. Ad timestamps, captions
+and frames are **excluded from the source learning record**. Ads that
+persist beyond 120 wall seconds or lectures with no content-clock progress
+for 60 seconds exit that video observation with an explicit reason,
+not a fake completed lesson. The canonical evidence validator refuses
+a bundle with zero real learning chunks AND zero visual observations.
+It never clicks or fast-forwards ads, pretends a provider restriction is
+comprehension, ignores HTTP 429 or claims that all captions were captured.
+`/api/youtube/audit` now exposes the stopped reason, ad event count,
+wall seconds, and whether filtering was requested. Live Playwright
+backends and YouTube behavior must still be checked on the actual laptop.
+
+**Optional reviewed GitHub content blocker:** The official open-source
+[uBO Lite](https://github.com/uBlockOrigin/uBOL-home) from
+[gorhill/uBlock (MV3 source)](https://github.com/gorhill/uBlock/tree/master/platform/mv3)
+uses declarative Manifest V3 rules. SURYADEV supports it ONLY if the
+owner has separately obtained/built/reviewed an **unpacked** uBO Lite
+Chromium directory and explicitly opts in by setting
+`SURYADEV_UBOL_EXTENSION_DIR` to its absolute local path before starting
+the dashboard. This is optional; no extension is downloaded, installed,
+auto-updated, or granted access to KRISHNA credentials by the code.
+
+```powershell
+# SAMPLE PATH ONLY — review the real official extension directory first
+$env:SURYADEV_UBOL_EXTENSION_DIR = 'D:\\Tools\\uBOLite.chromium'
+# Then restart the ONE existing dashboard through its controlled
+# single-node launch, and use Start Learning there.
+```
+
+The adapter verifies a bounded Manifest V3 extension with
+`declarativeNetRequest`, denies unexpected privileged native messaging/
+debugger grants, and loads it only in an isolated Playwright **Chromium
+persistent context**, as documented by Playwright. Its actual filtering
+effectiveness and provider availability are NEVER asserted just because an
+extension was present. Do not install unrelated unofficial CRX mirrors.
+
+**Canary after updating installed app while dashboard/worker are stopped:**
+check `/api/learning/control` for `managed_running` and
+`external_worker_active`, then start exactly one approved local worker,
+observe the feeder registering fresh PDF/web assignments, separate book
+journal `ollama:<model>` lines, and `/api/youtube/audit` for real video
+evidence/failures. The original previously attempted video is **not**
+silently retried after a failed/partial observation. A new one-time
+owner-approved attempt or a different approved video is needed; do not
+erase the previous evidence or alter the attempt journal.
+
+
+### Diagnostic fix: video observer exited but audit stays pending_or_running
+
+An approved YouTube review has THREE independent state sources:
+`data/video-review/approved-inbox/approved-video-*.json` (staged jobs),
+`data/video-review/runtime/jobs/<job_id>/worker-report.json` (canonical
+completion/error/evidence receipt), and
+`data/video-observer-attempts.json` (immutable once-only attempt history).
+Historically, `/api/youtube/audit` labeled a staged job with no canonical
+report `pending_or_running`, **even after** the subprocess failed, the
+parent lost its only ephemeral `finished` result on the next tick, or
+the child was interrupted. This was a reporting defect, not proof of
+continued playback.
+
+The adaptive supervisor now retains bounded per-job outcomes in
+`data/video-observer-outcomes.json`, with failure reason and timestamp,
+and publishes current `active_job_ids` in the 15-second
+`video-concurrent-runtime.json`. The read-only YouTube audit and dashboard
+video panel distinguish `worker_failed`,
+`attempted_no_final_receipt`, `running_without_final_report` and
+`approved_not_started`; the canonical worker report remains authoritative
+when present. A corrupt diagnostic-journal file must NOT stop healthy
+website/PDF/book lanes; preserve it for inspection.
+
+**Safety boundary:** no new YouTube request is made merely to fix
+telemetry, no old attempted job is silently replayed, no captured media or
+SQLite evidence is deleted, and the dashboard cannot claim caption
+comprehension/Rishi exam without real evidence.
+
+An operator can inspect the three exact IDs by:
+```powershell
+$root='D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\data'
+@('approved-video-bceb228031b31d0b',
+  'approved-video-67f8dd17a7b32fd2',
+  'approved-video-623e9ad6e4fafd06') | ForEach-Object {
+  $id=$_
+  $p=Join-Path $root "video-review\\runtime\\jobs\\$id"
+  [PSCustomObject]@{
+    Video=$id
+    WorkerReport=(Test-Path (Join-Path $p 'worker-report.json'))
+    LearningBundle=(Test-Path (Join-Path $p 'learning-bundle.json'))
+    PlaybackSpeed=(Test-Path (Join-Path $p 'playback-speed.json'))
+  }
+} | Format-Table -AutoSize
+Get-Content (Join-Path $root 'video-concurrent-runtime.json') -ErrorAction SilentlyContinue
+```
+
+Deploy only after stopping the dashboard and observer gracefully, updating the
+tested portable install and restarting exactly ONE dashboard. The previously
+attempted three videos may need additional *new* approved sources or
+owner-reviewed one-time retry after diagnoses. Video site restrictions
+and missing audio/captions remain possible and must stay visible as failures.
+
+
+### Verified 26 October canary: 8-second YouTube stall and caption-size failure
+
+The physical canary demonstrated **three distinct conditions**:
+- YouTube caption job #8 failed with
+  `ValueError: Caption transcript exceeds supported full-processing budget`
+  (formerly 220,000 characters). The extraction and bounded summarization
+  pipeline now accepts up to 1,000,000 characters of full timed caption text
+  without silently deleting later captions. It still requires actual locally
+  serialized model calls for every segment, and errors above that honest
+  ceiling; 2B-model processing time may be substantial.
+- Observers for Conditionals/Loops reported
+  `content_playback_stalled` at roughly 8 seconds, with 0 recorded captions,
+  1 screenshot and no verified lecture content. Older runtime marked these
+  `AWAITING_SERVER_ACK`. **New worker and the KRISHNA Core candidate intake
+  both reject stalled/advertisement-wait/no-snapshot bundles**, and they require
+  meaningful temporal coverage for a captionless visual-only session.
+  Existing canonical worker reports are retained, but the dashboard and
+  YouTube audit display `INCOMPLETE_STALLED_OBSERVATION` rather than a
+  success-like status.
+- A third observer produced a `playback-speed.json` at 7.59 seconds but no
+  canonical report/bundle; the durable observer-attempt audit distinguishes
+  interrupted/missing-final evidence without inventing a running task.
+  The frontend uses per-video canonical reports directly rather than trusting
+  the shared `worker-state.json` index, which the physical canary showed
+  could omit an otherwise completed concurrent video job.
+
+**Playback investigation:** The canonical adapter now logs HTMLVideoElement
+readyState, networkState, MediaError code, paused and advertisement state
+along with a bounded stop reason. It does not fake audio/caption data or
+bypass a provider block. If the default bundled Chromium lacks the relevant
+media codec, Playwright officially supports installed Google Chrome and
+Microsoft Edge channels with different codec coverage. The owner can
+OPTIONALLY compare the actual local Chrome/Edge browser by setting this
+environment variable **before launching the one supervisor/dashboard**:
+
+```powershell
+$env:SURYADEV_VIDEO_BROWSER_CHANNEL = 'chrome'  # OR 'msedge'
+```
+
+This **does not** install a browser, replay old videos, or guarantee playback.
+Chrome/Edge cannot load the optional unpacked uBO Lite Chromium extension
+through Playwright's extension-side-loading flags. If
+`SURYADEV_UBOL_EXTENSION_DIR` is configured, leave the browser channel
+unset or choose `chromium`; combining a branded browser with side-loaded
+uBO Lite fails closed instead of silently disabling the extension.
+Compare the source's normal YouTube playback in the same browser manually,
+then inspect the **new** read-only `/api/youtube/audit` fields:
+`stop_reason`, `last_media_diagnostic`,
+`browser_channel`, `caption_or_asr_source`,
+`learning_candidate_chunks` and `visual_frame_samples`.
+
+**No automatic retry of the original three attempts:** both previous
+`AWAITING_SERVER_ACK` and failed/attempted video files are preserved.
+A supervised owner-reviewed fresh attempt is required; do not edit/delete
+historical worker reports or attempt journals to force replay. Normal
+approved source/PDF/book work can continue independently.
+
+
+### Fresh Chrome/Edge 50-second playback probe, then one new approved video
+
+The fixed original CS50P trio is **historical** and must not be replayed by
+clearing worker journals. A separate previously defined SURYADEV test source,
+`https://www.youtube.com/watch?v=VZ5LU8vHT0s`
+("Playwright Python 1 | Getting Started" from Automation Step by Step), is a
+fresh diagnostic candidate. The free tutorial is ~44 minutes, but the first
+50 seconds suffice to discriminate an eight-second media-clock stall from
+normal browser progress. **A successful probe is not a learned lecture.**
+
+With the original dashboard learning worker gracefully stopped and the
+dashboard PowerShell process closed, update the feature checkout and the
+marked portable app, preserving the existing data directory. Then, while
+both dashboard and worker are **still stopped**, run:
+
+```powershell
+$root='D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+$py="$root\\.venv\\Scripts\\python.exe"
+$data="$root\\data"
+& $py "$root\\app\\suryadev_video_browser_probe.py" `
+  --data $data --channel chrome --seconds 50 `
+  --video 'https://www.youtube.com/watch?v=VZ5LU8vHT0s' `
+  --approve-after-passing
+```
+
+The probe uses the **same global worker lock**, requires the 85% hardware
+admission guard, opens one **locally installed branded Google Chrome** in a
+throwaway fresh profile, records only browser ready/network/error/media-clock
+samples and advertisement visibility, and saves a timestamped JSON to
+`data/benchmark-reports/video-browser-probe-chrome-*.json`. It never
+downloads raw video, skips advertisements, reads an authenticated browser
+profile, modifies historical source artifacts, claims full understanding, or
+bypasses YouTube access rules. An optional `--channel msedge` comparison
+uses a separately installed Edge browser. Its browser channel never loads
+the optional uBO Lite extension.
+
+The **explicit** `--approve-after-passing` opt-in stages this exact new
+public video in `learning-plan.json`, with the existing plan's automatic
+backup, **only if** the actual requested watch page shows 30+ seconds of
+non-ad source-video clock advancement and no media error. Failure leaves
+the approved curriculum unchanged and writes a diagnostic report.
+
+On success, restart **one** dashboard via the existing
+`START_SURYADEV_13_SOURCE_CHECK.ps1 -DashboardOnly` launcher and then use
+the UI's **Start learning** control (with model `auto` or an installed
+lightweight model). Hardware-admitted lanes will then schedule the newly
+approved video observation, caption extraction, and other pending sources,
+preserving the previous three attempts. After a real session, examine
+`/api/youtube/audit` for stop reasons, caption chunks, true content-clock
+coverage and BRAHMAGYAN/Rishi pending status. **An approved video or a
+browser probe passing alone never proves full video learning.**
+
+
+### Node-local adaptive video speed ceiling from measured playback
+
+The production video adapter reads the latest **7-day fresh** speed-sweep
+receipt from the SAME node's `data/benchmark-reports` folder, and only when
+the live browser channel exactly matches the tested Chrome/Edge/Chromium
+channel. A speed is allowed only when all lower speeds were independently
+verified via media-clock movement (not just `playbackRate`). If the receipt
+shows 1x and 1.5x passing but 2x/3x failing, the effective dynamic cap
+is **1.5x**. If no recent compatible receipt exists, the cap is **1x**.
+This is a performance safety ceiling, NOT a claim of learning or video/audio
+coverage; existing critical-captions/ASR rules still force 1x.
+
+To use the existing Chrome report on the physical SURYADEV 1 laptop, set
+`$env:SURYADEV_VIDEO_BROWSER_CHANNEL='chrome'` in the SAME PowerShell
+process that launches the dashboard, **before** starting its managed
+worker. This setting requires locally installed Google Chrome. An optional
+unpacked uBO Lite extension is Chromium-only; an explicitly configured
+`SURYADEV_UBOL_EXTENSION_DIR` cannot be combined with the Chrome channel.
+Do not disable a chosen extension silently. After a future independently
+successful 2x/3x test, the cap may safely increase, but only from that
+node's own newer compatible verified receipt.
+
+### Controlled 1x / 1.5x / 2x / 3x browser speed sweep
+
+For the operator-requested playback speed comparison, the new installed app
+ships `suryadev_video_speed_sweep.py`. It uses the existing reviewed
+Playwright-Python tutorial as a safe ONE-video canary, the normal cross-process
+`worker_lock`, 85% CPU/RAM/disk/GPU admission on startup and each phase,
+and a disposable **local Chrome** profile without account cookies. There are
+four sequential approximately 16-second windows: 1x, 1.5x, 2x, 3x. The
+125 configured-task ceiling has no bearing on this isolated test.
+
+IMPORTANT: **stop learning and close the one dashboard** before running the
+speed sweep; do not launch a second SURYADEV worker or clear any earlier
+YouTube attempts. Install only from the tested feature checkout and preserve
+`D:\\Work\\SURYADEV-FLEET-CANARY-20261025\\data`.
+
+```powershell
+$root='D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+$py="$root\\.venv\\Scripts\\python.exe"
+& $py "$root\\app\\suryadev_video_speed_sweep.py" `
+   --data "$root\\data" --channel chrome --seconds 115 `
+   --per-speed-seconds 16
+```
+
+The script reports **requested playback speed**, actual read-back playback
+rate, media-clock advance divided by *actual non-ad content-playing wall
+time*, whether it reached the requested ratio and HTML media errors. Frame
+quality counters, stall/buffering state, and ads are sampled separately in
+the JSON. A true 3x media-clock result is **not** proof that words or diagrams
+were captured/learned at 3x. An ad NEVER qualifies as course progress.
+Fewer than 6 seconds of valid continuous per-speed samples fail the rate's
+verification, rather than guessing.
+
+Results live at
+`data/benchmark-reports/video-speed-sweep-chrome-YYYYmmdd-HHMMSS.json`.
+The script never marks any historical jobs done, changes approved URLs,
+claims lesson comprehension, seeks ahead or bypasses provider restrictions.
+
+Afterward, start **one** dashboard:
+
+```powershell
+& "$root\\app\\START_SURYADEV_13_SOURCE_CHECK.ps1" `
+   -Root $root -Model auto -DashboardOnly
+```
+
+Then in the dashboard press **Start learning** once. The normal production
+adapter's caption-evidence-driven speeds are already constrained to
+1x for missing/stalled captions, ASR, critical commands, foreign language
+or important visual details; 1.5x for explanations; 2x for ordinary captioned
+material; and 3x **only** after at least two independently observed chatter
+segments. The speed sweep validates browser capability only. Continuous
+learning still requires actual surviving source jobs, eligible local model
+and source evidence; Rishi exams remain independently unverified.
+
+
+### YouTube 2x phase: media element unloads at 48.72s
+
+Operator-provided raw Chrome speed-sweep samples (26 Oct 2026):
+`currentTime=45.54,49.89,53.90` at the initial 2x phase with
+`readyState=4` and `networkState=2`. The next sample at **48.72s wall time**
+suddenly reported `currentTime=0`, `readyState=0`,
+`networkState=0`, `playbackRate=1`, `ended=false` and
+`ad_showing=false`. Later DOM speed set to 3x but video currentTime stayed
+zero. **This is media/player unload/reset, not evidence 3x failed to decode**;
+2x was too brief to qualify as sustained and must remain unverified.
+
+The speed sweep now **stops at the first post-playback media unload**, records
+the last previously playable sample and current media-element generation,
+a bounded summary of main-frame navigation events, and never attempts 3x
+against a broken/empty player. It marks the affected phase
+`interrupted_by_media_unload` and subsequent phases
+`not_tested_after_media_unload`. Scorecards only count genuine media-ready
+samples (readyState >=2, networkState 1/2), not browser playbackRate property
+on unloaded HTML video.
+
+To distinguish a transient YouTube player teardown from a real sustained
+speed problem, run **separate temporary-browser sessions** while the SURYADEV
+learning worker and dashboard are stopped, after updating the installed
+feature-branch app. These isolated reports do **not** increase the production
+learning-speed ceiling or overwrite any historical source receipts:
+
+```powershell
+$root='D:\\Work\\SURYADEV-FLEET-CANARY-20261025'
+$py="$root\\.venv\\Scripts\\python.exe"
+& $py "$root\\app\\suryadev_video_speed_sweep.py" --data "$root\\data" `
+    --channel chrome --rate 2 --per-speed-seconds 30 --seconds 75
+# Only after reviewing the 2x diagnosis:
+& $py "$root\\app\\suryadev_video_speed_sweep.py" --data "$root\\data" `
+    --channel chrome --rate 3 --per-speed-seconds 30 --seconds 75
+```
+
+The old 1x/1.5x verified rates still cap actual learning at 1.5x for a
+matching browser within seven days. Do not confuse measured video rate with
+caption, ASR, visual comprehension, or independent Rishi exam verification.

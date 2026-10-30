@@ -83,6 +83,24 @@ class FleetTests(unittest.TestCase):
             with self.subTest(changes=changes):
                 did=self.node(idx,**changes)
                 self.assertEqual(self.fleet.claim(device_id=did)["status"],"no_eligible_capacity")
+    def test_replay_needs_fresh_paired_worker_but_can_survive_pressure(self):
+        owner = self.node(11)
+        first = self.fleet.claim(device_id=owner)
+        for changes in ({"authenticated": False}, {"worker_running": False},
+                        {"network_online": False}, {"last_seen": NOW-151},
+                        {"telemetry_sample_at": NOW-46}):
+            with self.subTest(changes=changes):
+                self.node(11, **changes)
+                denied = self.fleet.claim(device_id=owner)
+                self.assertEqual(denied["status"], "no_eligible_capacity")
+        # Replaying already-owned work is still valid under overload, and
+        # does not create a second lease or reset the expiration timer.
+        self.node(11, ram_percent=92, cpu_percent=91, available_slots=0)
+        replay = self.fleet.claim(device_id=owner)
+        self.assertTrue(replay["replay"])
+        self.assertEqual(replay["lease_id"], first["lease_id"])
+        self.assertEqual(replay["expires_at"], first["expires_at"])
+
     def test_expired_lease_can_move_and_old_result_is_rejected(self):
         a=self.node(1)
         first=self.fleet.claim(device_id=a)
@@ -127,6 +145,58 @@ class FleetTests(unittest.TestCase):
                          lease_id=first["lease_id"],outcome="rate_limited",detail="HTTP 429")
         self.assertEqual(self.fleet.claim(device_id=b)["status"],"no_approved_work")
         self.assertGreater(self.fleet.status()["youtube_pause_until"],self.now[0])
+    def test_video_only_second_node_gets_youtube_without_website_probe(self):
+        dedicated = self.node(2, capabilities=["youtube"], available_slots=80,
+                              cpu_percent=18, ram_percent=22)
+        first = self.fleet.claim(device_id=dedicated)
+        self.assertEqual(first["status"], "leased")
+        self.assertEqual(first["task"]["kind"], "youtube")
+        self.assertEqual(first["task"]["url"], "https://www.youtube.com/watch?v=one")
+        # The general-purpose SURYADEV 1 can continue non-video research.
+        general = self.node(1, capabilities=["website","pdf"])
+        second = self.fleet.claim(device_id=general)
+        self.assertEqual(second["status"], "leased")
+        self.assertIn(second["task"]["kind"], {"website","pdf"})
+
+    def test_generalist_prefers_nonvideo_and_video_specialist_receives_youtube(self):
+        general = self.node(1, capabilities=["website","pdf","youtube"])
+        specialist = self.node(2, capabilities=["youtube"])
+        first = self.fleet.claim(device_id=general)
+        self.assertIn(first["task"]["kind"], {"website","pdf"})
+        second = self.fleet.claim(device_id=specialist)
+        self.assertEqual(second["task"]["kind"], "youtube")
+        self.assertNotEqual(first["task"]["task_id"], second["task"]["task_id"])
+
+    def test_specialist_node_still_obeys_live_hardware_guard(self):
+        blocked = self.node(9, capabilities=["youtube"], available_slots=100,
+                            ram_percent=87)
+        self.assertEqual(self.fleet.claim(device_id=blocked)["status"],
+                         "no_eligible_capacity")
+
+    def test_owned_lease_renews_under_hardware_pressure_without_new_admission(self):
+        owner = self.node(3, ram_percent=30, available_slots=4)
+        first = self.fleet.claim(device_id=owner)
+        task_id = first["task"]["task_id"]
+        # Same host became RAM-constrained AFTER it accepted the task.
+        self.node(3, ram_percent=92, available_slots=0, cpu_percent=88)
+        renewed = self.fleet.renew(device_id=owner, task_id=task_id,
+                                   lease_id=first["lease_id"])
+        self.assertTrue(renewed["renewed"])
+        self.assertEqual(self.fleet.claim(device_id=owner,
+                         known_task_ids=[task_id])["status"],
+                         "no_eligible_capacity")
+
+    def test_unpaired_or_offline_node_cannot_renew_existing_lease(self):
+        owner = self.node(7)
+        first = self.fleet.claim(device_id=owner)
+        tid = first["task"]["task_id"]
+        for changes in ({"authenticated":False},{"worker_running":False},
+                        {"network_online":False},{"last_seen":NOW-200},
+                        {"telemetry_sample_at":NOW-70}):
+            self.node(7,**changes)
+            with self.subTest(changes=changes), self.assertRaises(PermissionError):
+                self.fleet.renew(device_id=owner, task_id=tid, lease_id=first["lease_id"])
+
     def test_corrupt_ledger_fails_closed(self):
         self.fleet.file.write_text('{"schema":"bad"}',encoding="utf-8")
         with self.assertRaisesRegex(ValueError,"corrupt"):

@@ -53,9 +53,17 @@ function renderLive(data) {
         resourceGauge("Memory", r.ram_percent),
         resourceGauge("Storage", r.disk_percent),
         resourceGauge("GPU", r.gpu?.available ? r.gpu.usage_percent : null));
-    $("network").textContent = "Network received: " + (Number(r.network_bytes_received_total || 0) / 1e9).toFixed(2) +
-       " GB  ·  Sent: " + (Number(r.network_bytes_sent_total || 0) / 1e9).toFixed(2) +
-       " GB (cumulative)";
+    const interfaceState = r.network_interface_up === true ? "Interface UP" :
+      r.network_interface_up === false ? "Interface DOWN" : "Interface unverified";
+    const link = Number(r.network_interface_speed_mbps);
+    const linkState = Number.isFinite(link) && link > 0 ? " · Link "+format(link)+" Mbps" : "";
+    const sourceReachability = r.internet_reachable === true
+      ? " · Recent approved HTTPS source reached (not a bandwidth test)"
+      : " · Internet reachability unverified";
+    $("network").textContent = interfaceState + linkState + sourceReachability +
+       " · Received: " + (Number(r.network_bytes_received_total || 0) / 1e9).toFixed(2) +
+       " GB · Sent: " + (Number(r.network_bytes_sent_total || 0) / 1e9).toFixed(2) +
+       " GB (cumulative; not internet speed)";
   } else {
     gauges.append(textNode("div", "Telemetry unavailable: " + (r.reason || "psutil missing"), "empty-state"));
     $("network").textContent = "Hardware telemetry requires the optional psutil package.";
@@ -399,7 +407,7 @@ async function loadDiaryDay(day) {
     if (activity.total > activity.tasks.length) {
       const more = textNode("button", "View all " + format(activity.total) + " tasks for this date ↗", "diary-view-all");
       more.type = "button";
-      more.addEventListener("click", () => $("assignments").scrollIntoView({behavior:"smooth"}));
+      more.addEventListener("click", () => { location.hash="#assignments"; });
       report.append(more);
     }
   } catch (error) {

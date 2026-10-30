@@ -45,6 +45,8 @@ jobs:
           node --check standalone/suryadev/dashboard-garudanetra.js
           node --check standalone/suryadev/dashboard-learning.js
           node --check standalone/suryadev/dashboard-settings.js
+          node --check standalone/suryadev/dashboard-ai-learner.js
+          node --check standalone/suryadev/dashboard-pages.js
 
       - name: Verify Core six-hour mission scheduler and paired route contract
         env:
@@ -71,6 +73,9 @@ jobs:
           if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
           $errors = $null
           [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'standalone/suryadev/start-fresh-workspace.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'standalone/suryadev/VERIFY_AI_LEARNER_WINDOWS.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
           if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
 
   ui-browser:

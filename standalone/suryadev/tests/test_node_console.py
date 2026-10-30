@@ -1,68 +1,86 @@
-"""Node Control v9 UI contract: truthful evidence and no model requirement."""
+"""One SURYADEV Learning Intelligence frontend, with merged node controls.
+
+No duplicate dashboard on either URL: / and /advanced use the same HTML and
+API-backed worker. Historical video-review links remain valid.
+"""
 from __future__ import annotations
 
 from html.parser import HTMLParser
 from pathlib import Path
 import unittest
 
-
-ROOT=Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class Tags(HTMLParser):
     def __init__(self):
         super().__init__()
-        self.ids=[]
-        self.scripts=[]
-        self.anchors=[]
+        self.ids = []
+        self.scripts = []
+        self.anchors = []
+
     def handle_starttag(self, tag, attrs):
-        d=dict(attrs)
-        if "id" in d:self.ids.append(d["id"])
-        if tag=="script" and d.get("src"):self.scripts.append(d["src"])
-        if tag=="a" and d.get("href"):self.anchors.append(d["href"])
+        fields = dict(attrs)
+        if "id" in fields:
+            self.ids.append(fields["id"])
+        if tag == "script" and fields.get("src"):
+            self.scripts.append(fields["src"])
+        if tag == "a" and fields.get("href"):
+            self.anchors.append(fields["href"])
 
 
-class NodeConsoleTests(unittest.TestCase):
-    def test_homepage_is_clean_console_with_unmodified_advanced_evidence(self):
-        html=(ROOT/"node-console.html").read_text(encoding="utf-8")
-        p=Tags();p.feed(html)
-        self.assertEqual(len(p.ids),len(set(p.ids)))
-        for name in ("worker-state","action-status","learning-model",
-                     "stat-queued","job-list","job-dialog","health-grid","core-status"):
-            self.assertIn(name,p.ids)
-        self.assertIn("/advanced",p.anchors)
-        self.assertIn("/dashboard-api.js",p.scripts)
-        self.assertIn("/node-console.js",p.scripts)
-        self.assertNotIn('id="video-auto-url"',html)
-        self.assertNotIn('id="learning-enable-sources"',html)
-        self.assertEqual(html.count('<option value="collector"'),1)
-        self.assertTrue((ROOT/"dashboard.html").is_file())
+class UnifiedLearningDashboardTests(unittest.TestCase):
+    def test_single_learning_intelligence_ui_keeps_existing_sections(self):
+        html = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+        p = Tags()
+        p.feed(html)
+        self.assertEqual(len(p.ids), len(set(p.ids)))
+        for name in ("learning-start", "learning-stop", "learning-model",
+                     "garudanetra", "assignments", "video-review",
+                     "books-evidence", "book-ledger-list", "sources",
+                     "date-center", "server-settings-dialog",
+                     "storage-settings-dialog", "node-control-profile",
+                     "node-control-plan", "node-control-pairing",
+                     "node-control-capacity", "netra-total-capacity"):
+            self.assertIn(name, p.ids)
+        for anchor in ("#video-review", "#books-evidence", "#date-center"):
+            self.assertIn(anchor, p.anchors)
+        self.assertIn("/dashboard-api.js", p.scripts)
+        self.assertIn("/dashboard-learning.js", p.scripts)
+        self.assertNotIn("/node-console.js", p.scripts)
+        self.assertEqual(html.count('id="learning-start"'), 1)
+        self.assertEqual(html.count('id="learning-model"'), 1)
+        self.assertNotIn('id="video-auto-url"', html)
 
-    def test_live_only_read_api_and_csrf_mutations(self):
-        js=(ROOT/"node-console.js").read_text(encoding="utf-8")
-        server=(ROOT/"suryadev_extras.py").read_text(encoding="utf-8")
-        installer=(ROOT/"install-windows.ps1").read_text(encoding="utf-8")
-        verifier=(ROOT/"verify_runtime_package.py").read_text(encoding="utf-8")
-        self.assertIn('window.suryadevRead(path)',js)
-        for endpoint in ("/api/learning/control","/api/operations","/api/live",
-                         "/api/tasks?","/api/tasks/","/api/operator/settings"):
-            self.assertIn(endpoint,js)
-        self.assertIn('"X-SURYADEV-CSRF":state.csrf',js)
-        self.assertIn('method:"POST"',js)
-        self.assertNotIn("innerHTML",js)
-        self.assertNotIn("ollama pull",js)
-        self.assertNotIn("localStorage",js)
-        self.assertIn('"/": "node-console.html"',server)
-        self.assertIn('"/advanced": "dashboard.html"',server)
-        self.assertIn('"/node-console.js": "node-console.js"',server)
-        self.assertIn("'node-console.js'",installer)
-        self.assertIn('"node-console.js"',verifier)
+    def test_routes_alias_same_html_with_no_node_console_route(self):
+        server = (ROOT / "suryadev_extras.py").read_text(encoding="utf-8")
+        self.assertIn('"/": "dashboard.html"', server)
+        self.assertIn('"/advanced": "dashboard.html"', server)
+        self.assertIn('"/dashboard.html": "dashboard.html"', server)
+        self.assertNotIn('"/": "node-console.html"', server)
+        self.assertNotIn('"/node-console.js": "node-console.js"', server)
+        self.assertNotIn('"/node-console.css": "node-console.css"', server)
+        self.assertIn('"has_single_learning_intelligence_frontend": True', server)
 
-    def test_old_advanced_console_is_in_browser_smoke(self):
-        smoke=(ROOT/"dashboard_ui_smoke.py").read_text(encoding="utf-8")
-        self.assertIn("browser_node_console_check",smoke)
-        self.assertIn("/advanced",smoke)
-        self.assertIn("SURYADEV_NODE_CONTROL_UI_REPORT",smoke)
+    def test_merged_worker_controls_use_original_csrf_and_read_api(self):
+        js = (ROOT / "dashboard-learning.js").read_text(encoding="utf-8")
+        netra = (ROOT / "dashboard-garudanetra.js").read_text(encoding="utf-8")
+        self.assertIn('window.suryadevRead("/api/learning/control")', js)
+        self.assertIn('"/api/operator/learning/start"', js)
+        self.assertIn('"/api/operator/learning/stop"', js)
+        self.assertIn('"X-SURYADEV-CSRF":token', js)
+        self.assertIn('node-control-profile', js)
+        self.assertIn('node-control-pairing', js)
+        self.assertIn('node-control-capacity', netra)
+        self.assertNotIn('innerHTML', js)
+        self.assertNotIn('localStorage', js)
+        self.assertNotIn('ollama pull', js)
+
+    def test_real_browser_smoke_checks_both_aliases(self):
+        smoke = (ROOT / "dashboard_ui_smoke.py").read_text(encoding="utf-8")
+        self.assertIn('for route in ("/", "/advanced"):', smoke)
+        self.assertIn('single_learning_intelligence_frontend', smoke)
+        self.assertIn('browser_video_review_check', smoke)
 
 
 if __name__ == "__main__":

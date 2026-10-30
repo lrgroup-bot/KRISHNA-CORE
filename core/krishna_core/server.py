@@ -38,6 +38,7 @@ from .brahma_rishi_exam_author import RishiExamAuthor
 from .windows_desktop_fabric import WindowsDesktopFabric
 from .android_test_fabric import AndroidTestFabric
 from .http_server_runtime import KrishnaThreadingHTTPServer
+from .suryadev_tls_runtime import start_suryadev_tls_listener
 from .hawkeye_media_sync import HawkeyeMediaSyncStore
 
 # HTTP regression/acceptance subprocesses exercise API contracts deterministically.
@@ -1086,6 +1087,12 @@ class Handler(BaseHTTPRequestHandler):
             if self.client_address[0] not in ("127.0.0.1", "::1"):
                 return self._json(403, {"error": "fleet ledger is KRISHNA PC only"})
             return self._json(200,orch.suryadev.fleet.status())
+        if path == "/api/suryadev/fleet/nodes":
+            # SURYADEV RAKSHAK is a separate low-memory process. KRISHNA
+            # returns an on-demand read-only snapshot, not a scheduler.
+            if self.client_address[0] not in ("127.0.0.1", "::1"):
+                return self._json(403, {"error": "fleet health snapshot is KRISHNA PC only"})
+            return self._json(200,orch.suryadev.device_status())
         if path == "/api/suryadev/device/status":
             device,token=self._device_auth()
             if not _pairing.verify(device,token):
@@ -2466,7 +2473,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"error": str(exc)})
 
         if post_path in ("/api/suryadev/device/heartbeat","/api/suryadev/learning-bundle",
-                         "/api/suryadev/mission/request","/api/suryadev/mission/ack",
+                         "/api/suryadev/learning-plan/request", "/api/suryadev/mission/request","/api/suryadev/mission/ack",
                          "/api/suryadev/fleet/claim","/api/suryadev/fleet/renew",
                          "/api/suryadev/fleet/complete"):
             device,token=self._device_auth()
@@ -2475,6 +2482,14 @@ class Handler(BaseHTTPRequestHandler):
             body_device=str(data.get("device_id") or "").strip()
             if body_device and body_device!=device:
                 return self._json(403,{"error":"authenticated Suryadev Node ID does not match payload"})
+            if post_path == "/api/suryadev/learning-plan/request":
+                from .suryadev_plan_delivery import approved_plan
+                try:
+                    return self._json(200, approved_plan(orch.suryadev, device))
+                except (PermissionError, KeyError):
+                    return self._json(403, {"error": "fresh authenticated heartbeat required"})
+                except (ValueError, OSError):
+                    return self._json(400, {"error": "owner-approved catalogue unavailable or invalid"})
             if post_path.endswith("/heartbeat"):
                 data["device_id"]=device
                 return self._json(200,orch.suryadev.device_heartbeat(data,authenticated=True))
@@ -4467,6 +4482,17 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = KrishnaThreadingHTTPServer((settings.host, settings.port), Handler)
+    try:
+        # Opt-in, directly bound private NIC listener. It preserves actual
+        # remote client addresses for pairing and Core authorization checks.
+        # No HTTP-to-HTTPS proxy or implicit certificate generation is used.
+        suryadev_tls, suryadev_tls_thread = start_suryadev_tls_listener(Handler)
+    except BaseException:
+        server.server_close()
+        raise
+    if suryadev_tls is not None:
+        print("[KRISHNA] Owner-paired SURYADEV HTTPS ready on "
+              +str(suryadev_tls.server_address[0])+":"+str(suryadev_tls.server_address[1]))
     if os.getenv("KRISHNA_LAN_DISCOVERY","0") == "1":
         _lan_discovery = LanDiscoveryService(settings.port)
         _lan_discovery.start()
@@ -4479,6 +4505,10 @@ if __name__ == "__main__":
     finally:
         if _lan_discovery:
             _lan_discovery.stop()
+        if suryadev_tls is not None:
+            suryadev_tls.shutdown()
+            suryadev_tls.server_close()
+            suryadev_tls_thread.join(timeout=5)
         shutdown_failures=shutdown_runtime_services()
         for failure in shutdown_failures:
             print(f"[KRISHNA] shutdown warning: {failure}", file=sys.stderr)

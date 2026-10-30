@@ -98,6 +98,29 @@ class SuryadevLearningPipelineTests(unittest.TestCase):
             self.assertEqual(receipt["accepted_chunks"],1)
             self.assertIn("Do not infer unseen/spoken claims",brahma.calls[0]["content"])
 
+    def test_core_rejects_legacy_eight_second_stalled_video_before_rishi(self):
+        with tempfile.TemporaryDirectory() as td:
+            brahma=BrahmaStub()
+            agent=SuryadevAgent(Path(td)/"surya",brahma=brahma)
+            legacy={
+                "schema":"krishna.suryadev.learning-bundle.v1",
+                "job_id":"approved-video-stall",
+                "source":{"url":"https://www.youtube.com/watch?v=abcdefghijk",
+                          "title":"CS50P","subject":"Loops"},
+                "session":{"end_reason":"content_playback_stalled",
+                           "watched_seconds":8,
+                           "source_duration_seconds":0},
+                "transcript":{"source":"unavailable","line_count":0},
+                "learning_chunks":[{"topic":"Loops",
+                    "text":"Visual-only learning session. Captions were unavailable."}],
+                "visual_evidence":[{"sha256":"a"*64,"timestamp_seconds":0}],
+                "raw_media_included":False,
+            }
+            with self.assertRaisesRegex(ValueError,"incomplete video"):
+                agent.route_learning_bundle(legacy,device_id="suryadev-canary")
+            self.assertEqual(brahma.calls,[])
+            self.assertEqual(list(agent.receipts_dir.glob("*.json")),[])
+
     def test_node_green_requires_recent_heartbeat_and_real_work_state(self):
         with tempfile.TemporaryDirectory() as td:
             agent=SuryadevAgent(Path(td)/"surya")

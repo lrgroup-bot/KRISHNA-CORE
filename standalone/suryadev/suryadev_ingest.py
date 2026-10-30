@@ -16,6 +16,10 @@ from urllib.request import Request, build_opener, ProxyHandler
 MAX_PDF_BYTES = 20 * 1024 * 1024
 MAX_PDF_PAGES = 500
 MAX_LEARNING_CHARS = 220_000
+# Long lectures can legitimately exceed a short web/PDF text budget.
+# Keep the entire bounded timed transcript rather than silently truncating.
+# Full video/audio coverage still requires separate verification.
+MAX_YOUTUBE_LEARNING_CHARS = 1_000_000
 MAX_CAPTION_BYTES = 2_000_000
 _YT_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com",
              "youtu.be", "www.youtu.be", "www.youtube-nocookie.com"}
@@ -276,8 +280,11 @@ def ingest_youtube(url):
         text += "\n\n[VIDEO CHAPTER MARKERS]\n" + "\n".join(chapter_lines)
         if comments_opt_in:
             text += "\n\n[PUBLIC COMMENTS - UNVERIFIED OPINIONS]\n" + "\n".join(comments_text)
-        if len(text) > MAX_LEARNING_CHARS:
-            raise ValueError("Caption transcript exceeds supported full-processing budget")
+        if len(text) > MAX_YOUTUBE_LEARNING_CHARS:
+            raise ValueError(
+                "Timed caption text exceeds the one-million-character complete "
+                "processing ceiling; all source cues are retained upstream but "
+                "this job is NOT marked complete. Use reviewed segmentation.")
         report.update({
             "kind": "youtube", "video_id": video_id,
             "caption_file": selected.name, "caption_language": selected.suffixes[-2].lstrip("."),

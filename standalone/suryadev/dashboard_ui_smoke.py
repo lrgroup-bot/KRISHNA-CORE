@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import socket
 from pathlib import Path
 import tempfile
@@ -27,7 +28,11 @@ def available_port():
 
 
 async def browser_node_console_check(port):
-    """Exercise new default homepage, API-backed status and evidence drilldown."""
+    """Both public UI routes render ONE Learning Intelligence workspace.
+
+    Test real Chromium pages and controls, not a mocked HTML string.
+    The legacy function name stays for external CI callers.
+    """
     from playwright.async_api import async_playwright, expect
     async with async_playwright() as p:
         browser=await p.chromium.launch(headless=True)
@@ -35,23 +40,29 @@ async def browser_node_console_check(port):
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
             page.on("pageerror",lambda err:errors.append(str(err)))
-            await page.goto(f"http://127.0.0.1:{port}/",wait_until="domcontentloaded")
-            await expect(page.locator("h1")).to_have_text("Node command center")
-            await expect(page.locator("#learning-model option[value='collector']")).to_have_count(1)
-            await expect(page.locator("#stat-active")).to_have_text("3",timeout=12000)
-            await expect(page.locator("#connection")).to_have_text("Local service online")
-            await expect(page.locator("#job-list .record")).to_have_count(3)
-            assert "Collector only" in await page.locator("#learning-model").inner_text()
-            assert await page.locator('input[placeholder="Search source or task ID"]').count()==1
-            # Ledger detail opened from real SQLite task, never copied into HTML.
-            await page.locator("#job-list .record").first.click()
-            await expect(page.locator("#job-dialog[open]")).to_be_visible()
-            await expect(page.locator("#job-detail")).to_contain_text("Not verified by this console")
-            await page.locator("#close-detail").click()
-            assert not errors, "New Node Control JavaScript errors: "+str(errors)
-            return {"status":"PASS","node_control_default":True,
-                    "live_assignments":3,"source_records":3,
-                    "collector_mode_visible":True,"javascript_errors":errors}
+            for route in ("/", "/advanced"):
+                await page.goto(f"http://127.0.0.1:{port}{route}", wait_until="domcontentloaded")
+                await expect(page.locator(".identity small")).to_have_text("LEARNING INTELLIGENCE")
+                await expect(page.locator("#learning-start")).to_have_count(1)
+                await expect(page.locator("#learning-stop")).to_have_count(1)
+                await expect(page.locator("#learning-model")).to_have_count(1)
+                await expect(page.locator("#learning-model option[value='collector']")).to_have_count(1)
+                await expect(page.locator("#learning-model option[value='auto']")).to_have_count(1)
+                await expect(page.locator("#video-review")).to_have_count(1)
+                await expect(page.locator("#book-ledger-list")).to_have_count(1)
+                await expect(page.locator("#node-control-profile")).to_have_count(1)
+                await expect(page.locator("#node-control-plan")).to_have_count(1)
+                await expect(page.locator("#node-control-pairing")).to_have_count(1)
+                await expect(page.locator("#node-control-capacity")).to_have_count(1)
+                await expect(page.locator("#total")).to_have_text("3",timeout=12000)
+                await expect(page.locator("#connection")).to_have_text("Online · local service",timeout=12000)
+                assert await page.locator('script[src="/node-console.js"]').count()==0
+                assert await page.locator('a[href="#video-review"]').count()==1
+            assert not errors, "Unified Learning Intelligence JS errors: "+str(errors)
+            return {"status":"PASS","node_control_default":False,
+                    "single_learning_intelligence_frontend":True,
+                    "home_and_advanced_same_ui":True,"live_assignments":3,
+                    "source_records":3,"collector_mode_visible":True,"javascript_errors":errors}
         finally:
             await browser.close()
 
@@ -64,7 +75,7 @@ async def browser_check(port):
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
             page.on("pageerror",lambda e:errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/advanced",wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced#ai-learner",wait_until="domcontentloaded")
             await expect(page.locator("#netra-web-running")).to_have_text("2",timeout=12000)
             await expect(page.locator("#netra-video-running")).to_have_text("1",timeout=12000)
             await expect(page.locator("#netra-engine-state")).to_contain_text("Chromium browsing", timeout=12000)
@@ -73,7 +84,7 @@ async def browser_check(port):
             cap=await page.locator("#netra-total-capacity").inner_text()
             assert web=="2", "Genuine Chromium tab count not rendered"
             assert tabs==3, f"Expected 3 source workspace cards, got {tabs}"
-            assert "3 active / 4 currently admitted" in cap, f"capacity display wrong: {cap}"
+            assert "3 active / 4 measured admission slots" in cap, f"capacity display wrong: {cap}"
             assert await page.locator("#netra-web-capacity").inner_text()=="3"
             assert await page.locator("#netra-pdf-capacity").inner_text()=="1"
             await page.locator(".netra-workspace-tab.website").first.click()
@@ -93,7 +104,7 @@ async def browser_check(port):
 
 
 async def browser_books_check(port):
-    """Books render inside three existing panels, never a separate tab/section."""
+    """Books retain their source ledger inside their own main menu dashboard."""
     from playwright.async_api import async_playwright, expect
     async with async_playwright() as p:
         browser=await p.chromium.launch(headless=True)
@@ -110,6 +121,9 @@ async def browser_books_check(port):
             await expect(page.locator(".source-card.books")).to_have_count(0)
             await expect(page.locator("#book-health")).to_have_count(0)
             await expect(page.locator("#netra-books-lines")).to_have_text("1 / 3")
+            await page.locator('.navigation a[href="#books-evidence"]').click()
+            await expect(page.locator("#books-evidence")).to_be_visible()
+            await expect(page.locator("#garudanetra")).to_be_hidden()
             # The learning book ledger is canonical; hardware/source summaries
             # no longer duplicate its details.
             await expect(page.locator("#book-ledger-list .book-session")).to_have_count(
@@ -134,7 +148,7 @@ async def browser_continuity_check(port):
             page = await browser.new_page()
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/advanced", wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced#garudanetra", wait_until="domcontentloaded")
             await expect(page.locator("#netra-capacity-heading")).to_have_text(
                 "YouTube rate-limited — website/PDF research continues", timeout=12000)
             await expect(page.locator("#netra-continuity-status")).to_contain_text(
@@ -162,7 +176,7 @@ async def browser_offline_check(port):
             page = await browser.new_page()
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
-            await page.goto(f"http://127.0.0.1:{port}/advanced",wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced#garudanetra",wait_until="domcontentloaded")
             await expect(page.locator("#netra-capacity-heading")).to_have_text(
                 "Learning worker offline — dashboard is running", timeout=12000)
             label = await page.locator("#netra-total-capacity").inner_text()
@@ -193,25 +207,143 @@ async def browser_video_review_check(port, approved_url):
         try:
             page=await browser.new_page(viewport={"width":1366,"height":768})
             errors=[]
+            # Prove the default is fail-closed even if a developer's machine
+            # has an unrelated Invidious environment configuration.
+            previous_player_origin = os.environ.pop("SURYADEV_LOCAL_INVIDIOUS_ORIGIN", None)
             page.on("pageerror", lambda exc: errors.append(str(exc)))
-            await page.goto(f"http://127.0.0.1:{port}/advanced", wait_until="domcontentloaded")
+            await page.goto(f"http://127.0.0.1:{port}/advanced#video-review", wait_until="domcontentloaded")
             await expect(page.locator("#video-review")).to_have_count(1)
             await expect(page.locator("#video-review")).to_be_visible(timeout=12000)
+            # Four in-page AI Learner buttons and one same-page menu item.
+            await expect(page.locator("#ai-learner")).to_have_count(1)
+            await expect(page.locator('a[href="#ai-learner"]')).to_have_count(1)
+            await expect(page.locator(".ai-learner-tab")).to_have_count(4)
+            await expect(page.locator("#ai-tab-youtube")).to_have_attribute("aria-pressed","true")
+            await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
+            await expect(page.locator("#ai-learner")).to_be_hidden()
+            await page.locator('a[href="#ai-learner"]').click()
+            await expect(page.locator("#ai-learner")).to_be_visible()
+            # Actual worker/model/approved-source controls, not an off-page
+            # proxy button, are mounted in the AI Learner studio.
+            await expect(page.locator("#ai-learner-control-mount #learning-start")).to_be_visible()
+            await expect(page.locator("#ai-learner-control-mount #learning-stop")).to_be_visible()
+            await expect(page.locator("#ai-learner-control-mount #learning-model")).to_be_visible()
+            await expect(page.locator("#ai-learner-operations-mount #live-learning")).to_be_visible()
+            await expect(page.locator("#ai-learner-operations-mount #active-work")).to_be_visible()
+            await expect(page.locator("#ai-learner-node-summary #node-control-capacity")).to_be_visible()
+            await expect(page.locator("#ai-learner-live-workspaces-mount #netra-workspace-tabs")).to_be_visible()
+            await expect(page.locator("#ai-learner-live-workspaces-mount #netra-continuity-status")).to_be_visible()
+            await expect(page.locator("#ai-learner-start")).to_have_count(0)
+            await expect(page.locator("#ai-learner-stop")).to_have_count(0)
+            await page.locator("#ai-tab-pdf").click()
+            await expect(page.locator("#ai-tab-pdf")).to_have_attribute("aria-pressed","true")
+            await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("PDF")
+            await page.locator("#ai-tab-website").click()
+            await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("Websites")
+            await expect(page.locator("#ai-learner-lane-results .ai-learner-record")).to_have_count(
+                2,timeout=12000)
+            await page.locator("#ai-learner-lane-results .ai-learner-record button").first.click()
+            await expect(page.locator("#ai-learner-lane-results .ai-learner-record").first).to_contain_text(
+                "Evidence hash integrity: not_recorded",timeout=12000)
+            await page.locator("#ai-tab-book").click()
+            await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("Books")
+            await expect(page.locator("#ai-learner-book-tools #book-search-form")).to_be_visible()
+            await expect(page.locator("#ai-learner-book-tools #book-search-input")).to_be_visible()
+            await page.locator("#ai-tab-youtube").click()
+            await expect(page.locator("#ai-learner-book-tools")).to_be_hidden()
+            await expect(page.locator("#ai-learner-lane-heading")).to_contain_text("YouTube")
+            await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
+            # Missing local player must disable preview: no YouTube fallback,
+            # provider request, new window, or artificial learning evidence.
+            popups=[]
+            page.on("popup", lambda popup: popups.append(popup))
+            await page.locator('a[href="#ai-learner"]').click()
+            await expect(page.locator("#ai-learner")).to_be_visible()
+            await expect(page.locator("#overview")).to_be_hidden()
+            await expect(page.locator("#video-review")).to_be_hidden()
+            await expect(page.locator("#ai-learner-video-choice option")).to_have_count(
+                1,timeout=12000)
+            await expect(page.locator("#ai-learner-open-preview")).to_be_disabled()
+            await expect(page.locator("#ai-learner-preview-hint")).to_contain_text(
+                "not configured")
+            await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
+
+            # Simulate *explicit* local opt-in with an isolated, mocked loopback
+            # embed. We exercise the real server CSP and browser iframe, while
+            # never starting an Invidious process or requesting external media.
+            local_origin = "http://127.0.0.1:" + str(available_port())
+            os.environ["SURYADEV_LOCAL_INVIDIOUS_ORIGIN"] = local_origin
+            await page.route(local_origin + "/embed/**", lambda route: route.fulfill(
+                status=200, content_type="text/html",
+                body='<html><body><p id="local-video-stub">Local preview fixture</p></body></html>'))
+            response = await page.reload(wait_until="domcontentloaded")
+            assert response is not None
+            policy = response.headers.get("content-security-policy", "")
+            assert "frame-src " + local_origin in policy, policy
+            assert "youtube-nocookie" not in policy, policy
+            await expect(page.locator("#ai-learner")).to_be_visible(timeout=12000)
+            await expect(page.locator("#ai-learner-video-choice option")).to_have_count(
+                1,timeout=12000)
+            await expect(page.locator("#ai-learner-open-preview")).to_be_enabled(
+                timeout=12000)
+            await page.locator("#ai-learner-open-preview").click()
+            await expect(page.locator("#ai-learner-player iframe")).to_have_attribute(
+                "src", local_origin + "/embed/mgBpcQRDtl0")
+            await expect(page.frame_locator("#ai-learner-player iframe").locator(
+                "#local-video-stub")).to_have_text("Local preview fixture",timeout=12000)
+            await page.locator("#ai-tab-pdf").click()
+            await expect(page.locator("#ai-learner-player iframe")).to_have_count(0)
+            assert not popups, "Approved YouTube preview opened a new OS/browser window"
+            await page.locator('.navigation a[href="#overview"]').click()
+            await expect(page.locator("#overview")).to_be_visible()
+            await expect(page.locator("#video-review")).to_be_hidden()
+            await expect(page.locator("#ai-learner")).to_be_hidden()
+            await expect(page.locator("#hardware")).to_be_visible()
+            # The preview never starts itself and the page never creates
+            # a competing Playwright profile or a second native window.
+            opened=[]
+            page.on("popup",lambda popup: opened.append(popup))
+            assert not opened, "AI Learner unexpectedly opened an external window"
             await expect(page.locator('a[href="#video-review"]')).to_have_count(1)
-            order = await page.evaluate("""() => {
-                const ys = ids => ids.map(id => document.getElementById(id).getBoundingClientRect().top + window.scrollY);
-                return ys(['garudanetra','assignments','date-center']);
-            }""")
-            assert order[0] < order[1] < order[2], "Mission/history sections rendered out of order"
+            # Exactly one main menu dashboard is visible; all panels still exist.
+            await expect(page.locator(".suryadev-page:not([hidden])")).to_have_count(1)
+            await expect(page.locator(".suryadev-page")).to_have_count(10)
+            await expect(page.locator("#overview")).to_be_visible()
+            await expect(page.locator("#garudanetra")).to_be_hidden()
+            # Visit every sidebar destination without new tabs, popup windows or worker launch.
+            for dest, expected_id in [
+                ("garudanetra","garudanetra"),("assignments","assignments"),
+                ("video-review","video-review"),("sources","sources"),
+                ("books-evidence","books-evidence"),("date-center","date-center")]:
+                await page.locator(f'.navigation a[href="#{dest}"]').click()
+                await expect(page.locator("#"+expected_id)).to_be_visible()
+                await expect(page.locator(".suryadev-page:not([hidden])")).to_have_count(1)
+                await expect(page.locator(f'.navigation a[href="#{dest}"]')).to_have_attribute(
+                    "aria-current","page")
+            await page.locator("#open-server-settings").click()
+            await expect(page.locator("#server-settings-dialog")).to_be_visible()
+            await expect(page.locator("#storage-settings-dialog")).to_be_hidden()
+            await expect(page.locator("#server-ip")).to_be_visible()
+            await page.locator("#open-storage-settings").click()
+            await expect(page.locator("#storage-settings-dialog")).to_be_visible()
+            await expect(page.locator("#server-settings-dialog")).to_be_hidden()
+            await expect(page.locator("#cleanup-enabled")).to_be_visible()
+            await expect(page.locator(".suryadev-page:not([hidden])")).to_have_count(1)
+            await page.locator('.navigation a[href="#garudanetra"]').click()
             await expect(page.locator("#learning-enable-sources")).to_have_count(0)
+            # Fleet telemetry is read-only; operational learning stays inside AI Learner.
+            await expect(page.locator("#learning-start")).to_be_hidden()
+            await page.locator('.navigation a[href="#ai-learner"]').click()
             await expect(page.locator("#learning-start")).to_be_visible(timeout=12000)
             await expect(page.locator("#learning-start")).to_be_enabled(timeout=12000)
+            await expect(page.locator("#learning-model")).to_be_enabled(timeout=12000)
             await expect(page.locator("#video-auto-url")).to_have_count(0)
             await expect(page.locator("#video-auto-approve")).to_have_count(0)
             await expect(page.locator("#video-auto-toggle")).to_have_count(0)
             await expect(page.locator("#video-review-import")).to_have_count(0)
             await expect(page.locator("#video-review-json")).to_have_count(0)
             await expect(page.locator(".video-manual-details")).to_have_count(0)
+            await page.locator('.navigation a[href="#video-review"]').click()
             await expect(page.locator("#learning-trial-audit")).to_be_visible(timeout=12000)
             await expect(page.locator('input[type="date"]')).to_have_count(1)
             await expect(page.locator("#ui-version")).to_contain_text("2026-10-25-v8", timeout=12000)
@@ -222,8 +354,15 @@ async def browser_video_review_check(port, approved_url):
             return {"status":"PASS", "repo_frontend":True,
                     "manual_source_controls_removed":True,
                     "trial_evidence_panel_visible":True,
+                    "four_lanes_in_one_page":True,
+                    "unrequested_iframe_count":0,
                     "javascript_errors":errors}
         finally:
+            if 'previous_player_origin' in locals():
+                if previous_player_origin is None:
+                    os.environ.pop("SURYADEV_LOCAL_INVIDIOUS_ORIGIN", None)
+                else:
+                    os.environ["SURYADEV_LOCAL_INVIDIOUS_ORIGIN"] = previous_player_origin
             await browser.close()
 
 
@@ -274,9 +413,25 @@ def main():
             approved_url = "https://www.youtube.com/watch?v=mgBpcQRDtl0"
             temporary_plan = Path(root) / "learning-plan.json"
             temporary_plan.write_text(json.dumps({"approved_urls":[approved_url]}), encoding="utf-8")
+            # A disposable approved source fixture; never a production video
+            # launch, data migration, provider access or evidence claim.
+            inbox=Path(root)/"video-review"/"approved-inbox"
+            inbox.mkdir(parents=True,exist_ok=True)
+            (inbox/"smoke-approved-job.json").write_text(json.dumps({
+                "schema":"krishna.suryadev.job.v1",
+                "job_id":"smoke-approved-job",
+                "kind":"video_research",
+                "target":approved_url
+            }),encoding="utf-8")
             try:
                 video = asyncio.run(browser_video_review_check(port, approved_url))
                 print("SURYDEV_VIDEO_REVIEW_UI_REPORT="+json.dumps(video),flush=True)
+                # Reuse the public, read-only acceptance check on a disposable
+                # dashboard/ledger so routing regressions fail real Chromium CI.
+                from verify_live_dashboard_ui import verify as verify_live_pages
+                live_pages = verify_live_pages(f"http://127.0.0.1:{port}")
+                assert live_pages["pages_passed"] == 10
+                print("SURYADEV_LIVE_TEN_DASHBOARD_REPORT="+json.dumps(live_pages),flush=True)
             finally:
                 temporary_plan.unlink(missing_ok=True)
             from suryadev_book_reader import BookLedger

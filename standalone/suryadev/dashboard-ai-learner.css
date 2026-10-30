@@ -1,0 +1,180 @@
+/* SURYADEV AI Learner: one page, four source actions, no new window. */
+main > [hidden]{display:none!important}
+.ai-learner{margin:22px 0;padding:24px;scroll-margin-top:12px}
+.ai-learner .section-heading{margin-bottom:14px}
+.ai-learner-toolbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.ai-learner-tab{border:1px solid #b7c5d9;border-radius:12px;background:#f6f7ff;color:#293755;padding:16px 10px;font-weight:780;min-height:52px}
+.ai-learner-tab[aria-pressed="true"]{background:#4839a0;color:white;border-color:#4839a0;box-shadow:0 2px 6px #29177b25}
+.ai-learner-tab:focus-visible,.ai-learner-actions button:focus-visible,
+.ai-learner-preview-controls button:focus-visible,.ai-learner-preview-controls select:focus-visible{outline:3px solid #ad81ff;outline-offset:3px}
+.ai-learner-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:17px 0 10px}
+.ai-learner-actions button,.ai-learner-preview-controls button{border:0;border-radius:9px;background:#4936a0;color:#fff;padding:11px 14px;font-weight:700;min-height:40px}
+.ai-learner-actions #ai-learner-stop,.ai-learner-preview-controls #ai-learner-close-preview{background:#4d6079}
+.ai-learner-actions #ai-learner-refresh{background:#ecf0f9;color:#2f3556;border:1px solid #b9c6d7}
+#ai-learner-worker{font-size:12px;color:#46526d;font-weight:650}
+.ai-learner-warning{font-size:12px;color:#585d79;line-height:1.55;margin:9px 0 14px}
+.ai-learner-content{border:1px solid #e0e6f1;background:#fff;border-radius:15px;padding:18px}
+.ai-learner-content h3{margin:0 0 9px;color:#383077;font-size:18px}
+#ai-learner-lane-summary{color:#536179;font-size:13px;line-height:1.5}
+#ai-learner-lane-results{display:grid;gap:10px}
+.ai-learner-metric,.ai-learner-record{background:#f8f9ff;border:1px solid #e6e7f2;padding:13px;border-radius:10px;overflow-wrap:anywhere}
+.ai-learner-metric strong,.ai-learner-record strong{font-size:13px}
+.ai-learner-metric p,.ai-learner-record p{font-size:12px;color:#536177;margin:6px 0 0}
+.ai-learner-evidence-link{color:#4a328f;background:transparent;border:0;text-align:left;padding:2px 0;text-decoration:underline;font-size:13px;font-weight:700;max-width:max-content}
+.ai-learner-preview{margin-top:20px;border-top:1px solid #d9dbea;padding-top:15px}
+.ai-learner-preview p{color:#515e79;font-size:12px}
+.ai-learner-preview-controls{display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin:10px 0}
+.ai-learner-preview-controls label{display:flex;flex:1 1 280px;flex-direction:column;gap:5px;font-size:12px;font-weight:750;color:#454f70}
+.ai-learner-preview-controls select{width:100%;padding:10px;background:#fff;border-radius:8px;border:1px solid #aeb9cc;color:#293755}
+.ai-learner-player{width:100%;max-width:900px}
+.ai-learner-player iframe{display:block;width:100%;border:0;aspect-ratio:16/9;background:#101318;border-radius:10px}
+@media(max-width:850px){.ai-learner-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.ai-learner{padding:15px}}
+@media(max-width:400px){.ai-learner-tab{padding:12px 6px}.ai-learner-preview-controls button{flex:1}}
+
+/* SURYADEV AI Learner Mission Studio — operational learning lives here.
+   Responsive, local CSS only: no CDN, heavy renderer or faux activity. */
+.suryadev-page[data-page="ai-learner"]{max-width:1600px;gap:14px}
+.suryadev-page[data-page="ai-learner"]>.ai-learner{
+  background:transparent;border:0;padding:0;box-shadow:none!important;
+  display:grid;gap:20px;min-width:0;
+}
+.ai-learner>.section-heading{
+  padding:22px 26px;border-radius:23px;border:1px solid #ddd7f6;
+  background:linear-gradient(105deg,#fff,#f1efff 63%,#e7f6ff);
+  box-shadow:0 5px 0 #d6cdf1,0 11px 22px #38247319;
+}
+.ai-learner .section-heading h2{font-size:clamp(25px,2vw,34px);color:#312163}
+.ai-learner .section-heading p{max-width:760px;color:#585273;line-height:1.65}
+.ai-studio-engine,.ai-studio-operations{
+  border-radius:23px;padding:clamp(17px,2vw,27px);
+  background:linear-gradient(134deg,#ffffff,#f5f6ff);
+  border:1px solid #dfddf6;
+  box-shadow:0 7px 0 #d5caed,0 18px 28px #38306d20;
+  min-width:0;
+}
+.ai-studio-operations{background:linear-gradient(125deg,#f9feff,#f5f4ff)}
+.ai-studio-engine-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:13px}
+.ai-studio-kicker{font-size:10px;font-weight:900;letter-spacing:.18em;color:#7054bd}
+.ai-studio-engine-head h3,.ai-studio-lane-heading h3{
+  margin:4px 0 5px;color:#272156;font-size:clamp(19px,1.7vw,25px);
+  letter-spacing:-.035em;line-height:1.25}
+.ai-studio-engine-head p{margin:0;color:#646481;font-size:12px;line-height:1.5}
+.ai-studio-live-indicator{font-weight:850;font-size:12px;
+  border:1px solid #c3d4eb;background:#eef5ff;color:#344673;
+  border-radius:999px;padding:11px 15px;white-space:normal}
+.ai-studio-live-indicator[data-state="running"]{
+  border-color:#a5e5d2;background:linear-gradient(130deg,#e4fff1,#e9fcff);
+  color:#15735a;box-shadow:0 3px 0 #89d6bf}
+.ai-studio-live-indicator[data-state="blocked"]{
+  border-color:#efc0b1;background:#fff3e6;color:#8b472b}
+.ai-studio-timestamp{font-size:11px;font-weight:750;color:#79728c}
+#ai-learner-control-mount .learning-controls{
+  display:grid;grid-template-columns:minmax(200px,1fr) minmax(190px,260px) auto auto auto;
+  align-items:end;gap:12px;background:#fff;
+  border:1px solid #e3ddf5;border-radius:17px;padding:16px;margin:17px 0 0;
+  box-shadow:inset 0 1px #fff,0 4px 0 #e0d9ed;
+}
+#ai-learner-control-mount .learning-control-text{min-width:0;align-self:center}
+#ai-learner-control-mount .learning-control-text strong{font-size:15px;color:#302358}
+#ai-learner-control-mount .learning-control-text span{line-height:1.5}
+#ai-learner-control-mount label{font-size:11px;color:#57577b}
+#ai-learner-control-mount select{min-height:44px;border:1px solid #c7b9ed;
+  border-radius:11px;padding:10px;background:#faf8ff;max-width:100%}
+#ai-learner-control-mount button{
+  min-height:44px;max-width:100%;border-radius:12px;
+  box-shadow:0 4px 0 #3c3268,0 7px 12px #3c326827;
+}
+#ai-learner-control-mount #learning-start{
+  background:linear-gradient(140deg,#218e7d,#0f7c8c);
+  color:#fff;font-weight:850;box-shadow:0 4px 0 #0d5659,0 10px 15px #0d56592a}
+#ai-learner-control-mount #learning-stop{
+  background:linear-gradient(145deg,#5a6175,#3b425a);color:#fff;
+  box-shadow:0 4px 0 #252c45,0 10px 15px #252c4533}
+#ai-learner-control-mount button:disabled{box-shadow:none;opacity:.47;cursor:not-allowed}
+#ai-learner-status-mount{display:grid;gap:7px;margin-top:12px}
+#ai-learner-status-mount>div{padding:9px 12px;background:#faf8ff;border:1px solid #ece7f7;border-radius:10px;
+  font-size:12px;color:#524b75;overflow-wrap:anywhere}
+.ai-studio-engine #ai-learner-node-summary .unified-node-overview{
+  margin-top:15px;border-radius:13px;box-shadow:0 4px 0 #e2ddf1;
+}
+#ai-learner-live-workspaces-mount{margin-top:20px;padding:14px;
+  background:linear-gradient(120deg,#fff,#f9f6ff);border-radius:15px;
+  border:1px solid #e5dff4;box-shadow:0 4px 0 #e2dcf2}
+#ai-learner-live-workspaces-mount .netra-tab-title{margin-bottom:11px;
+  font-size:14px;color:#38266d;font-weight:850}
+#ai-learner-live-workspaces-mount .netra-workspace-tabs{margin:0}
+#ai-learner-live-workspaces-mount .netra-continuity{
+  margin:0 0 15px}
+.ai-studio-lane-status{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:17px}
+.ai-studio-lane-tile{display:flex;flex-direction:column;gap:7px;min-width:0;
+  background:#fff;border-radius:14px;border:1px solid #dce6f6;padding:15px;
+  box-shadow:0 4px 0 #cdd9ea,0 9px 19px #45609518}
+.ai-studio-lane-tile strong{color:#38306d;font-size:15px}
+.ai-studio-lane-tile span{color:#656c85;font-size:12px;line-height:1.5}
+.ai-studio-lane-tile:nth-child(2){border-top:3px solid #d47ac0}
+.ai-studio-lane-tile:nth-child(3){border-top:3px solid #69c8b8}
+.ai-studio-lane-tile:nth-child(4){border-top:3px solid #eda55c}
+#ai-learner-operations-mount .operations-panel{margin:17px 0 0}
+#ai-learner-operations-mount .operations-panel summary{
+  cursor:pointer;font-weight:850;color:#372967;padding:8px 5px}
+#ai-learner-operations-mount .operations-panel[open]>summary{margin-bottom:15px}
+.ai-studio-lane-heading{display:flex;align-items:center;justify-content:space-between;
+  gap:12px;flex-wrap:wrap;padding:0 4px}
+.ai-studio-refresh{border:1px solid #d4c7e9;border-radius:12px;
+  background:#fff;color:#584496;font-weight:800;padding:11px 15px}
+.ai-learner-toolbar{gap:12px}
+.ai-learner-tab{position:relative;border:1px solid #c9c7ee;border-radius:15px;
+  padding:18px 12px;min-height:68px;background:linear-gradient(145deg,#fff,#edf3ff);
+  box-shadow:0 5px 0 #c1c8e0,0 10px 18px #4b3e8721;
+  color:#3e3372;font-size:15px}
+.ai-learner-tab[aria-pressed="true"]{background:linear-gradient(135deg,#6543d2,#3d6bc6);
+  color:#fff;border-color:#3d3194;box-shadow:0 5px 0 #2f287e,0 14px 22px #4434a142}
+.ai-learner-tab:hover:not(:disabled){filter:brightness(1.07);transform:translateY(-3px)}
+.ai-learner-tab:active:not(:disabled){transform:translateY(2px)}
+.suryadev-page[data-page="ai-learner"] .ai-learner-content{
+  padding:clamp(17px,2.3vw,28px);
+  background:linear-gradient(160deg,#fff,#fbfcff);
+  border:1px solid #e1e1f4;border-radius:22px;
+  box-shadow:0 6px 0 #e1daee,0 14px 26px #45366e1d;
+}
+.ai-learner-content h3{font-size:clamp(19px,1.5vw,24px);color:#342869}
+#ai-learner-lane-summary{border-left:4px solid #694fd0;padding:9px 12px;
+  background:#f4f4ff;border-radius:0 10px 10px 0}
+#ai-learner-lane-results{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:13px}
+.ai-learner-metric,.ai-learner-record{background:#fff;border:1px solid #e2dff2;
+  border-radius:14px;padding:17px;box-shadow:0 4px 0 #e1def0;overflow-wrap:anywhere}
+.ai-learner-record{min-width:0}
+.ai-learner-record strong{display:block;font-size:14px;color:#342762;line-height:1.5}
+.ai-learner-record p{line-height:1.65;white-space:pre-wrap;max-height:none}
+.ai-learner-evidence-link{background:#eee9ff;border-radius:10px;padding:9px 12px;
+  text-decoration:none;color:#5940a1;max-width:100%;font-size:12px}
+.ai-studio-book-tools[hidden],.ai-learner-preview[hidden]{display:none!important}
+.ai-studio-book-tools{padding:22px;margin-top:22px;border:1px solid #d9e7f3;
+  border-radius:16px;background:linear-gradient(145deg,#f0fbff,#f8f4ff)}
+.ai-studio-book-tools h4{font-size:17px;color:#2f3167;margin:0}
+.ai-studio-book-tools p{font-size:12px;color:#646d81}
+.ai-studio-book-tools form{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ai-studio-book-tools #book-search-results{max-height:480px;overflow-y:auto}
+@media(max-width:1300px){
+  #ai-learner-control-mount .learning-controls{
+    grid-template-columns:minmax(200px,1fr) minmax(160px,220px) repeat(2,auto)}
+  #ai-learner-control-mount #learning-core-delegation{grid-column:1/-1;justify-self:start}
+}
+@media(max-width:920px){
+  #ai-learner-control-mount .learning-controls{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #ai-learner-control-mount .learning-control-text{grid-column:1/-1}
+  #ai-learner-control-mount #learning-core-delegation{grid-column:auto}
+  .ai-studio-lane-status{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #ai-learner-lane-results{grid-template-columns:1fr}
+}
+@media(max-width:520px){
+  #ai-learner-control-mount .learning-controls{display:flex;flex-direction:column;align-items:stretch}
+  #ai-learner-control-mount .learning-controls>*{width:100%}
+  #ai-learner-control-mount button{width:100%}
+  .ai-studio-lane-status{grid-template-columns:1fr 1fr;gap:8px}
+  .ai-studio-lane-tile{padding:10px}
+  .ai-learner-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ai-learner-tab{min-height:64px;padding:12px 8px}
+  .ai-studio-engine,.ai-studio-operations{padding:14px}
+}
+@media(prefers-reduced-motion:reduce){.ai-learner-tab{transition:none!important}}

@@ -43,6 +43,10 @@ class MissionCycle:
             "work_started_at": when, "rest_started_at": None,
             "rest_until": None, "completed_missions": 0,
         }
+        workspace = _safe_read(self.root, "fresh-workspace.json", max_bytes=4096)
+        continuous = (workspace.get("schema") == "suryadev.fresh-workspace.v1"
+                      and workspace.get("mission_rest_policy") == "continuous")
+        # Existing legacy rest intervals are never skipped mid-rest on upgrade.
         phase = state.get("phase")
         start = state.get("work_started_at")
         if phase not in ("work", "draining", "rest"):
@@ -55,9 +59,22 @@ class MissionCycle:
             state["phase"] = phase
             state["clock_adjustment_detected"] = True
         elif phase == "work" and when - start >= WORK_SECONDS:
-            phase = "draining"
-            state["phase"] = phase
-            state["drain_started_at"] = when
+            if continuous:
+                # A six-hour marker is accounting, not six hours of certified
+                # knowledge. In-flight work continues; admission remains solely
+                # subject to measured hardware and owner-approved sources.
+                state["completed_missions"] = int(state["completed_missions"]) + 1
+                state["mission_number"] = int(state["mission_number"]) + 1
+                state["work_started_at"] = when
+                state["rest_started_at"] = None
+                state["rest_until"] = None
+                state["phase"] = "work"
+                state["continuous_rollover_at"] = when
+                phase = "work"
+            else:
+                phase = "draining"
+                state["phase"] = phase
+                state["drain_started_at"] = when
 
         if phase == "draining" and active_jobs == 0:
             phase = "rest"
@@ -83,6 +100,7 @@ class MissionCycle:
         state["last_checked_at"] = when
         state["active_jobs_observed"] = active_jobs
         state["admission_allowed"] = phase == "work"
+        state["mission_rest_policy"] = "continuous" if continuous else "legacy_ten_minute_rest"
         state["work_until"] = float(state["work_started_at"]) + WORK_SECONDS
         state["remaining_work_seconds"] = max(0, round(state["work_until"] - when)) if phase == "work" else 0
         state["remaining_rest_seconds"] = (
