@@ -1,6 +1,7 @@
 """Regression tests for bounded, loopback-safe Ollama generation."""
 import json
 import os
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -19,6 +20,12 @@ class _Response:
 
 
 class TestBoundedOllama(unittest.TestCase):
+    def setUp(self):
+        # These requests mock the network; give them an independent capacity slot.
+        slot_patch = patch('krishna_core.local_model_transport._SLOTS', threading.BoundedSemaphore(1))
+        slot_patch.start()
+        self.addCleanup(slot_patch.stop)
+
     def test_bounded_payload_and_transport(self):
         captured = {}
 

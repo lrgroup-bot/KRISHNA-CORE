@@ -1,10 +1,17 @@
 import json
+import threading
 import unittest
 from unittest.mock import Mock, patch
 from krishna_core.local_model_transport import request_local_json, validate_local_url, _NoRedirect
 
 
 class LocalModelTransportTests(unittest.TestCase):
+    def setUp(self):
+        # Mocked transport tests must not contend with another test's live request.
+        slot_patch = patch('krishna_core.local_model_transport._SLOTS', threading.BoundedSemaphore(1))
+        slot_patch.start()
+        self.addCleanup(slot_patch.stop)
+
     def test_private_prompts_cannot_target_remote_urls_or_redirects(self):
         for url in ('https://public.example/v1','http://192.168.0.100/api/generate','http://127.0.0.1@public.example','http://127.0.0.1/?secret=x'):
             with self.subTest(url=url), self.assertRaises(PermissionError):validate_local_url(url)
