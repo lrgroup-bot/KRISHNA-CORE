@@ -57,7 +57,7 @@ try{
     $uiResponse=Invoke-WebRequest -Method Get -Uri ($base+"/") -TimeoutSec 20
     $uiHtml=[string]$uiResponse.Content
     if($uiHtml -match 'data-krishna-spatial-ui="2026\.09"'){
-      $uiResponse=Invoke-WebRequest -Method Get -Uri ($base+"/spatial/legacy-dashboard.html") -TimeoutSec 20
+      $uiResponse=Invoke-WebRequest -Method Get -Uri ($base+"/validation") -TimeoutSec 20
       $uiHtml=[string]$uiResponse.Content
       Add-Check "Brahmand frontend bundle" "PASS" "Production shell and embedded dashboard are served by Core" $null
     }
