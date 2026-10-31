@@ -56,6 +56,11 @@ try{
   try{
     $uiResponse=Invoke-WebRequest -Method Get -Uri ($base+"/") -TimeoutSec 20
     $uiHtml=[string]$uiResponse.Content
+    if($uiHtml -match 'data-krishna-spatial-ui="2026\.09"'){
+      $uiResponse=Invoke-WebRequest -Method Get -Uri ($base+"/spatial/legacy-dashboard.html") -TimeoutSec 20
+      $uiHtml=[string]$uiResponse.Content
+      Add-Check "Brahmand frontend bundle" "PASS" "Production shell and embedded dashboard are served by Core" $null
+    }
     $mainMenuMatch=[regex]::Match($uiHtml,'(?s)<div class="section">MAIN MENU</div><div class="nav mainMenuNav">(.*?)</div>\s*<div class="sidebarWorkspace">')
     $mainMenu=if($mainMenuMatch.Success){$mainMenuMatch.Groups[1].Value}else{""}
     $mainMenuButtonCount=([regex]::Matches($mainMenu,'<button\b')).Count

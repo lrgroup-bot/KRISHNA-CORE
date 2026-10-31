@@ -115,6 +115,7 @@ core\krishna_core\graph_dataset.py
 core\krishna_core\graph_intelligence.py
 core\krishna_core\gyan_bhandar.py
 core\krishna_core\gyan_security.py
+core\krishna_core\hawkeye_active_vision.py
 core\krishna_core\hawkeye_coordinator.py
 core\krishna_core\hawkeye_diagnostic.py
 core\krishna_core\hawkeye_endpoint.py
@@ -230,8 +231,12 @@ core\krishna_core\resource_locks.py
 core\krishna_core\revenue_engine.py
 core\krishna_core\reviewer.py
 core\krishna_core\rishi_council.py
+core\krishna_core\rishi_curriculum.py
+core\krishna_core\rishi_deep_sources.py
+core\krishna_core\rishi_gyan_sagar.py
 core\krishna_core\rishi_learning.py
 core\krishna_core\rishi_live_research.py
+core\krishna_core\rishi_training_policy.py
 core\krishna_core\router.py
 core\krishna_core\ruflo_adapter.py
 core\krishna_core\runtime_deployer.py
@@ -270,6 +275,7 @@ core\krishna_core\verification.py
 core\krishna_core\video_avatar.py
 core\krishna_core\vishvakarma_curriculum.py
 core\krishna_core\vishvakarma_learning.py
+core\krishna_core\vishvakarma_repair_shishya.py
 core\krishna_core\vishvakarma_rishi.py
 core\krishna_core\vishvakarma_team.py
 core\krishna_core\vision_adapter.py

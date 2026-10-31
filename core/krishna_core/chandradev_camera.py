@@ -185,7 +185,7 @@ class ChandradevOsmoCameraAdapter:
             else ""
         )
         source=str(env_source or stored_source or CHANDRADEV_CAMERA_SELECTION["active_validation_source"]).strip()
-        if source not in {"usb_uvc_webcam","dji_osmo_action_rtmp"}:
+        if source not in {"usb_uvc_webcam","dji_osmo_action_rtmp","xiaomi_mi_home"}:
             source=CHANDRADEV_CAMERA_SELECTION["active_validation_source"]
         row.update({
             "version":self.VERSION,
@@ -371,7 +371,7 @@ class ChandradevOsmoCameraAdapter:
     @property
     def camera_source(self):
         source=str(self._state.get("camera_source") or CHANDRADEV_CAMERA_SELECTION["active_validation_source"]).strip()
-        return source if source in {"usb_uvc_webcam","dji_osmo_action_rtmp"} else "usb_uvc_webcam"
+        return source if source in {"usb_uvc_webcam","dji_osmo_action_rtmp","xiaomi_mi_home"} else "usb_uvc_webcam"
 
     @property
     def webcam_index(self):
@@ -385,11 +385,12 @@ class ChandradevOsmoCameraAdapter:
             "webcam":"usb_uvc_webcam","uvc":"usb_uvc_webcam","usb":"usb_uvc_webcam",
             "zeb":"usb_uvc_webcam","zeb_pure_plus":"usb_uvc_webcam",
             "osmo":"dji_osmo_action_rtmp","rtmp":"dji_osmo_action_rtmp",
+            "xiaomi":"xiaomi_mi_home","mi_home":"xiaomi_mi_home",
         }
         requested=str(source or "usb_uvc_webcam").strip().lower()
         selected=aliases.get(requested,requested)
-        if selected not in {"usb_uvc_webcam","dji_osmo_action_rtmp"}:
-            raise ValueError("camera source must be usb_uvc_webcam or dji_osmo_action_rtmp")
+        if selected not in {"usb_uvc_webcam","dji_osmo_action_rtmp","xiaomi_mi_home"}:
+            raise ValueError("camera source must be usb_uvc_webcam, dji_osmo_action_rtmp or xiaomi_mi_home")
         previous=self.camera_source
         self._state["camera_source"]=selected
         if webcam_index is not None:
@@ -520,6 +521,30 @@ class ChandradevOsmoCameraAdapter:
                 f"Chandradev USB webcam index {index} is not available or produced no frame; "
                 +" | ".join(errors)
             )
+
+        if self.camera_source=="xiaomi_mi_home":
+            # A separate, trusted bridge must provide this URL; the Xiaomi IP
+            # alone is not an RTSP/HTTP stream on stock firmware.
+            from urllib.parse import urlsplit
+            source=str(os.getenv("CHANDRADEV_XIAOMI_STREAM_URL") or "").strip()
+            parsed=urlsplit(source)
+            if parsed.scheme not in {"rtsp","rtsps","rtmp","http","https"} or not parsed.hostname:
+                raise RuntimeError("Set CHANDRADEV_XIAOMI_STREAM_URL to a verified video bridge URL")
+            cap=cv2.VideoCapture(source)
+            if not cap.isOpened():
+                cap.release()
+                raise RuntimeError("Xiaomi video bridge is not available or cannot be opened")
+            ok,first=cap.read()
+            if not ok or first is None:
+                cap.release()
+                raise RuntimeError("Xiaomi bridge opened but produced no video frame")
+            h,w=first.shape[:2]
+            return cap,first,{
+                "kind":"xiaomi_mi_home",
+                "source":f"{parsed.scheme}://{parsed.hostname}" ,
+                "backend":"video_bridge",
+                "actual":{"width":int(w),"height":int(h)},
+            }
 
         source=self.urls()["local_rtmp_url"]
         cap=cv2.VideoCapture()

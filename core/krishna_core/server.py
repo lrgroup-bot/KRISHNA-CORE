@@ -37,6 +37,7 @@ from .brahma_memory_intelligence import BrahmaConsolidationScheduler
 from .windows_desktop_fabric import WindowsDesktopFabric
 from .android_test_fabric import AndroidTestFabric
 from .http_server_runtime import KrishnaThreadingHTTPServer
+from .suryadev_tls_runtime import start_suryadev_tls_listener
 from .hawkeye_media_sync import HawkeyeMediaSyncStore
 
 # HTTP regression/acceptance subprocesses exercise API contracts deterministically.
@@ -2407,16 +2408,25 @@ class Handler(BaseHTTPRequestHandler):
             except PermissionError as exc:
                 return self._json(400, {"error": str(exc)})
 
-        if post_path in ("/api/suryadev/device/heartbeat","/api/suryadev/learning-bundle"):
+        if post_path in ("/api/suryadev/device/heartbeat", "/api/suryadev/learning-plan/request",
+                         "/api/suryadev/learning-bundle"):
             device,token=self._device_auth()
             if not _pairing.verify(device,token):
                 return self._json(401,{"error":"paired Suryadev device required"})
             body_device=str(data.get("device_id") or "").strip()
             if body_device and body_device!=device:
                 return self._json(403,{"error":"authenticated Suryadev Node ID does not match payload"})
+            if post_path.endswith("/learning-plan/request"):
+                from .suryadev_plan_delivery import approved_plan
+                try:
+                    return self._json(200,approved_plan(orch.suryadev,device))
+                except (PermissionError,KeyError):
+                    return self._json(403,{"error":"fresh authenticated heartbeat required"})
+                except (ValueError,OSError):
+                    return self._json(400,{"error":"owner-approved catalogue unavailable or invalid"})
             if post_path.endswith("/heartbeat"):
                 data["device_id"]=device
-                return self._json(200,orch.suryadev.device_heartbeat(data))
+                return self._json(200,orch.suryadev.device_heartbeat(data,authenticated=True))
             bundle=data.get("bundle") if isinstance(data.get("bundle"),dict) else data
             if bundle is data:
                 bundle={k:v for k,v in data.items() if k!="device_id"}
@@ -4367,6 +4377,11 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = KrishnaThreadingHTTPServer((settings.host, settings.port), Handler)
+    try:
+        suryadev_tls, suryadev_tls_thread = start_suryadev_tls_listener(Handler)
+    except BaseException:
+        server.server_close()
+        raise
     if os.getenv("KRISHNA_LAN_DISCOVERY","0") == "1":
         _lan_discovery = LanDiscoveryService(settings.port)
         _lan_discovery.start()
@@ -4379,6 +4394,10 @@ if __name__ == "__main__":
     finally:
         if _lan_discovery:
             _lan_discovery.stop()
+        if suryadev_tls is not None:
+            suryadev_tls.shutdown()
+            suryadev_tls.server_close()
+            suryadev_tls_thread.join(timeout=5)
         shutdown_failures=shutdown_runtime_services()
         for failure in shutdown_failures:
             print(f"[KRISHNA] shutdown warning: {failure}", file=sys.stderr)

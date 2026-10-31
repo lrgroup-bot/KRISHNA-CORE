@@ -319,7 +319,7 @@ class SuryadevAgent:
         tmp.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(self.nodes_file)
 
-    def device_heartbeat(self, payload):
+    def device_heartbeat(self, payload, *, authenticated=False):
         payload = dict(payload or {})
         device_id = self._text(payload.get("device_id"), 200)
         if not device_id:
@@ -338,6 +338,7 @@ class SuryadevAgent:
             "charging": bool(payload.get("charging", False)),
             "thermal_state": self._text(payload.get("thermal_state") or "unknown", 60).lower(),
             "last_error": self._text(payload.get("last_error"), 1000),
+            "authenticated": authenticated is True,
         }
         with self._node_lock:
             rows = self._load_nodes()

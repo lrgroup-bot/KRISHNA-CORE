@@ -11,7 +11,18 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $KrishnaRoot=[IO.Path]::GetFullPath($KrishnaRoot)
-$authoritative = if($SourceRoot){[IO.Path]::GetFullPath($SourceRoot)}elseif(Test-Path "E:\KRISHNA-SOURCE\.git"){"E:\KRISHNA-SOURCE"}else{""}
+$manifestPath=Join-Path $KrishnaRoot "state\deployment\DEPLOYED_COMMIT.json"
+$manifestSource=""
+if(Test-Path -LiteralPath $manifestPath){
+    try{
+        $deployment=Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+        if($deployment.PSObject.Properties['source_root'] -and $deployment.source_root){
+            $candidate=[IO.Path]::GetFullPath([string]$deployment.source_root)
+            if(Test-Path -LiteralPath (Join-Path $candidate '.git')){$manifestSource=$candidate}
+        }
+    }catch{Write-Warning "Could not resolve source from deployment manifest: $($_.Exception.Message)"}
+}
+$authoritative = if($SourceRoot){[IO.Path]::GetFullPath($SourceRoot)}elseif($manifestSource){$manifestSource}elseif(Test-Path "E:\KRISHNA-SOURCE\.git"){"E:\KRISHNA-SOURCE"}else{""}
 $coreDir=Join-Path $KrishnaRoot "core"
 $py=Join-Path $KrishnaRoot ".venv\Scripts\python.exe"
 $logDir=Join-Path $KrishnaRoot "logs"
@@ -38,6 +49,8 @@ if($authoritative -and (Test-Path "$authoritative\.git")){
 
 if(!(Test-Path $coreDir)){throw "KRISHNA core directory not found: $coreDir"}
 $env:PYTHONPATH=$coreDir
+$frontendConfig=Join-Path $KrishnaRoot "config\frontend-runtime.ps1"
+if(Test-Path -LiteralPath $frontendConfig){. $frontendConfig}
 $voiceConfig=Join-Path $KrishnaRoot "config\voice-runtime.ps1"
 if(Test-Path $voiceConfig){. $voiceConfig}
 $browserConfig=Join-Path $KrishnaRoot "config\browser-runtime.ps1"
