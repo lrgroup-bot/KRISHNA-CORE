@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GARUDA Repair Studio</title><style>
+:root{font:15px system-ui;color-scheme:dark;background:#091321;color:#e9f2fc}
+body{margin:0 auto;max-width:1100px;padding:24px}h1{color:#9fd6ff}nav{display:flex;gap:8px;flex-wrap:wrap}
+button,input,textarea,select{font:inherit;background:#14293e;color:inherit;border:1px solid #426780;border-radius:8px;padding:10px}
+button{cursor:pointer}button:focus-visible{outline:2px solid #7acaff}.panel{background:#101e2f;border:1px solid #34516c;padding:18px;border-radius:14px;margin:14px 0}
+label{display:block;margin:12px 0}label input,label textarea,label select{display:block;width:100%;box-sizing:border-box;margin-top:5px}
+[hidden]{display:none!important}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+small{color:#b6ccdf}.warn{color:#ffd69a}pre{white-space:pre-wrap;word-break:break-word}
+</style></head><body>
+<header><h1>GARUDA Repair Studio</h1><p>Original offline repair workspace · HAWKEYE reference companion</p></header>
+<nav aria-label="Repair Studio sections"><button data-tab="case">New case</button><button data-tab="guide">Guide builder</button><button data-tab="library">Local library</button><button data-tab="about">Safety & integration</button></nav>
+<section class="panel" id="case"><h2>Repair case</h2><form id="caseForm">
+<div class="grid"><label>Device ID<input name="device" required pattern="[A-Za-z0-9_.:-]{1,128}" placeholder="laptop-01"></label>
+<label>Category<select name="category"><option>storage</option><option>thermal</option><option>power</option><option>software</option></select></label></div>
+<label>Observed symptom<textarea name="symptom" required minlength="3" maxlength="2000"></textarea></label>
+<button type="submit">Create local draft</button></form><p class="warn">Draft only. Does not diagnose, connect to, or repair a device.</p><pre id="caseResult" aria-live="polite"></pre></section>
+<section class="panel" id="guide" hidden><h2>Original guide builder</h2><form id="guideForm">
+<label>Device model<input name="model" required maxlength="160"></label>
+<label>Guide title<input name="title" required maxlength="200"></label>
+<div class="grid"><label>Difficulty<select name="difficulty"><option>easy</option><option>moderate</option><option>difficult</option><option>expert</option></select></label>
+<label>Estimated minutes<input name="minutes" type="number" min="1" max="10080" value="20" required></label></div>
+<label>Step instructions (one step per line)<textarea name="steps" required placeholder="Inspect the device exterior&#10;Record the observed fault"></textarea></label>
+<label>Media references (one URL per line; references only)<textarea name="media" placeholder="https://example.org/original-photo.jpg"></textarea></label>
+<button type="submit">Create guide draft</button></form><pre id="guideResult" aria-live="polite"></pre></section>
+<section class="panel" id="library" hidden><h2>Drafts in this session</h2><p>No server storage or account access is connected. Export drafts as JSON before closing this page.</p><button id="export">Export JSON</button><pre id="libraryResult" aria-live="polite"></pre></section>
+<section class="panel" id="about" hidden><h2>Integration boundary</h2><p>This is a standalone original UI prototype. Live HAWKEYE camera, paired GARUDA diagnostics, VISHVAKARMA reasoning and BRAHMAGYAN examination require authenticated backend wiring.</p><p>External repair guides are attributed links, not copied guide content. No destructive action runs here.</p></section>
+<script>
+(()=>{'use strict';const drafts=[];const tabs=[...document.querySelectorAll('[data-tab]')];
+for(const b of tabs)b.addEventListener('click',()=>{for(const x of tabs){const active=x===b;x.setAttribute('aria-pressed',String(active));document.getElementById(x.dataset.tab).hidden=!active;}});
+tabs[0].click();
+document.getElementById('caseForm').addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.target);
+const draft={kind:'repair_case',device_id:f.get('device'),category:f.get('category'),symptom:f.get('symptom'),status:'draft',repair_authorized:false};
+drafts.push(draft);document.getElementById('caseResult').textContent=JSON.stringify(draft,null,2);});
+document.getElementById('guideForm').addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.target);
+const steps=String(f.get('steps')).split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+if(!steps.length)return;
+const draft={kind:'repair_guide',model:f.get('model'),title:f.get('title'),difficulty:f.get('difficulty'),estimated_minutes:Number(f.get('minutes')),steps:steps.map((instruction,i)=>({index:i+1,instruction,verified:false})),media_references:String(f.get('media')).split(/\r?\n/).filter(Boolean),status:'draft'};
+drafts.push(draft);document.getElementById('guideResult').textContent=JSON.stringify(draft,null,2);});
+document.getElementById('export').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(drafts,null,2)],{type:'application/json'});
+const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='garuda-repair-drafts.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+document.getElementById('libraryResult').textContent=drafts.length+' drafts prepared for export.';});
+})();
+</script></body></html>
