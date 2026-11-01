@@ -7,6 +7,7 @@ import re
 from threading import RLock
 import time
 import uuid
+from .ecc_workflows import copied_sources_verified
 
 
 _SLUG = re.compile(r"^[a-z][a-z0-9_-]{1,63}$")
@@ -19,6 +20,7 @@ _RETIRED_PLUGIN_IDS = {
 }
 _RETIRED_PROVIDER_WORDS = ("amazon", "flipkart", "meesho", "alibaba", "shopify")
 _BUILTIN_RUNTIME = {
+    "ecc-workflows": ("native_ready", "sudarshan-ecc-guidance", "Pinned MIT workflow references are selected by role; no agent or execution authority is granted."),
     "pc": ("native_ready", "krishna-pc", "KRISHNA PC capabilities are provided by the local core and remain permission-gated."),
     "github": ("native_ready", "github-core", "GitHub research and PR-review capabilities exist in KRISHNA; account write access remains separately authorized."),
     "ollama": ("native_ready", "model-router", "Local Ollama execution is handled by KRISHNA ModelRouter."),
@@ -55,6 +57,9 @@ def _runtime_info(item) -> dict:
     if not item.free:
         state = "policy_blocked"
         hint = "Paid/non-free plugin is blocked by KRISHNA zero-spend policy."
+    if item.id == "ecc-workflows" and not copied_sources_verified():
+        state = "setup_required"
+        hint = "Pinned local ECC reference files failed verification."
     return {"runtime_state": state, "adapter": adapter, "setup_hint": hint, "can_enable": state in {"ready", "native_ready"}}
 
 
@@ -152,6 +157,7 @@ class PluginRegistry:
 
     def _seed(self):
         defaults = [
+            {"id":"ecc-workflows","name":"ECC · curated workflow guidance","description":"Six pinned, locally copied MIT reference skills inform KRISHNA worker planning. No ECC installer, hook, external agent, cloud model, or paid service is enabled.","kind":"local","auth_type":"none","permissions":["workflow.advice.read"],"risk":"low","builtin":True,"enabled":True,"source_url":"https://github.com/affaan-m/ECC","license":"MIT","free":True},
             {"id":"pc","name":"PC","description":"Local registered projects, browser inspection, logs and approved PC actions.","kind":"local","auth_type":"local","permissions":["projects.read","files.read","browser.inspect","logs.read"],"risk":"high","builtin":True,"source_url":"local://krishna-pc","license":"KRISHNA-local","free":True},
             {"id":"github","name":"GitHub","description":"Repositories, issues, pull requests and CI workflows through an authorized connector.","kind":"connector","auth_type":"oauth","permissions":["repos.read","issues.read","pull_requests.read","actions.read"],"risk":"medium","builtin":True,"source_url":"https://github.com","license":"service-connector","free":True},
             {"id":"ollama","name":"Ollama","description":"Free local model runtime already supported by KRISHNA; no cloud credential required.","kind":"local","auth_type":"local","permissions":["models.local","models.invoke"],"risk":"low","builtin":True,"source_url":"https://github.com/ollama/ollama","license":"MIT","free":True},

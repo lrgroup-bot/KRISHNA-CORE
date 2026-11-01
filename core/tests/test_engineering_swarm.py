@@ -57,6 +57,11 @@ class EngineeringSwarmTests(unittest.TestCase):
             self.assertIsNotNone(backend["worktree"])
             self.assertIsNone(security["worktree"])
             self.assertTrue(out["policy"]["hr_defines_staffing"])
+            self.assertEqual(["agentic-engineering", "contract-first", "ai-regression-testing"],
+                             backend["workflow_guidance"]["selected_skills"])
+            self.assertFalse(backend["workflow_guidance"]["execution_authorized"])
+            self.assertEqual(backend["workflow_guidance"],
+                             missions.rows[0]["metadata"]["workflow_guidance"])
 
     def test_staff_is_idempotent_for_same_parent_mission(self):
         with tempfile.TemporaryDirectory() as td:

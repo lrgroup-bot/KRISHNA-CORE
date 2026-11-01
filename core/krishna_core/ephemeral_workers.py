@@ -5,6 +5,7 @@ import json
 import os
 import time
 import uuid
+from .ecc_workflows import bounded_worker_hint, workflow_for_task
 
 
 class EphemeralWorkerRuntime:
@@ -111,6 +112,9 @@ class EphemeralWorkerRuntime:
                 "Never delegate merely to increase worker count. "
                 "Your worker identity will be destroyed immediately after handover; only findings/provenance are retained."
             )
+            if model_assignment.get("local") is True:
+                role = str(request.get("role") or work.get("specialty") or "").strip().lower()
+                prompt += bounded_worker_hint(workflow_for_task(role, project=project))
             if self.control_plane:
                 receipt=self.control_plane.action(
                     "model.complete",

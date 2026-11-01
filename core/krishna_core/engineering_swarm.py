@@ -5,6 +5,7 @@ from typing import Any
 from datetime import datetime, timezone
 import json
 import re
+from .ecc_workflows import workflow_for_task
 
 
 def _now() -> str:
@@ -94,6 +95,7 @@ class EngineeringSwarmManager:
                     "batch": allocation.get("batch"),
                     "reasoning_route": allocation.get("reasoning_route") or {},
                     "worktree": worktree,
+                    "workflow_guidance": workflow_for_task(role, project=project),
                 }
                 child = mission_engine.create(
                     str(task.get("description") or f"{role}: {task_id}"),
@@ -117,6 +119,7 @@ class EngineeringSwarmManager:
                     "execution_host": allocation.get("execution_host"),
                     "reasoning_route": allocation.get("reasoning_route") or {},
                     "worktree": worktree,
+                    "workflow_guidance": metadata["workflow_guidance"],
                     "status": "QUEUED",
                 })
         except Exception:
