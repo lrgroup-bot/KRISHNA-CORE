@@ -367,6 +367,42 @@ public class MainActivity extends Activity {
       }
     }
     @JavascriptInterface public String status(){return call("/api/status",null);}
+    void emitLrMailResult(String callback,String result){
+      final String safe=result==null?"{}":result;
+      runOnUiThread(()->{
+        try{
+          if(web!=null&&webReady)web.evaluateJavascript(
+            "window."+callback+"&&window."+callback+"("+JSONObject.quote(safe)+")",null);
+        }catch(Exception ignored){}
+      });
+    }
+    @JavascriptInterface public void lrMailStatusAsync(){
+      new Thread(()->emitLrMailResult("onLrMailStatus",call("/api/lr-mail/status",null)),"krishna-lr-mail-status").start();
+    }
+    @JavascriptInterface public void lrMailSummaryAsync(int limit){
+      final int bounded=Math.max(1,Math.min(limit,100));
+      new Thread(()->emitLrMailResult("onLrMailSummary",call("/api/lr-mail/summary?limit="+bounded,null)),"krishna-lr-mail-summary").start();
+    }
+    @JavascriptInterface public void lrMailListAsync(int limit,int position,String text){
+      final int bounded=Math.max(1,Math.min(limit,100));
+      final int pos=Math.max(0,position);
+      final String q=text==null?"":text.trim();
+      new Thread(()->{
+        try{
+          String url="/api/lr-mail/messages?limit="+bounded+"&position="+pos+"&text="+URLEncoder.encode(q,"UTF-8");
+          emitLrMailResult("onLrMailList",call(url,null));
+        }catch(Exception e){emitLrMailResult("onLrMailList",error(e));}
+      },"krishna-lr-mail-list").start();
+    }
+    @JavascriptInterface public void lrMailMessageAsync(String messageId){
+      final String id=messageId==null?"":messageId.trim();
+      new Thread(()->{
+        try{
+          if(id.isEmpty())throw new IllegalArgumentException("message id is required");
+          emitLrMailResult("onLrMailMessage",call("/api/lr-mail/message?id="+URLEncoder.encode(id,"UTF-8"),null));
+        }catch(Exception e){emitLrMailResult("onLrMailMessage",error(e));}
+      },"krishna-lr-mail-message").start();
+    }
     @JavascriptInterface public void pollAsync(){
       new Thread(()->{
         String link=connection(),coreState="{}";

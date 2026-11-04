@@ -1,0 +1,56 @@
+name: Apply LR Mail Owner View
+
+on:
+  push:
+    branches:
+      - feature/secure-communication-gateway
+    paths:
+      - scripts/apply_lr_mail_owner_view.py
+      - .github/workflows/apply-lr-mail-owner-view.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/secure-communication-gateway
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Apply narrow integration patch
+        run: python scripts/apply_lr_mail_owner_view.py
+      - name: Static verification
+        run: |
+          python -m py_compile core/krishna_core/lr_mail_gateway.py core/krishna_core/server.py
+          node --check mobile_v3/realtime-client.js
+          grep -q 'from .lr_mail_gateway import LRMailGateway' core/krishna_core/server.py
+          grep -q '/api/lr-mail/summary' core/krishna_core/server.py
+          grep -q 'lrMailSummaryAsync' mobile_v3/MainActivity.java
+          grep -q 'id=.mailQuick.' mobile_v3/realtime-client.js || grep -q "mailQuick" mobile_v3/realtime-client.js
+          git diff --check
+      - name: Run focused LR mail tests
+        working-directory: core
+        env:
+          PYTHONPATH: .
+        run: python -m unittest tests.test_lr_mail_gateway
+      - name: Commit generated integration patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "Patch already applied."
+            exit 0
+          fi
+          git config user.name "lrgroup-bot"
+          git config user.email "lrdevelopersbbsr@gmail.com"
+          git add core/krishna_core/server.py mobile_v3/MainActivity.java
+          git commit -m "Wire read-only LR mail into KRISHNA Mobile"
+          git push origin HEAD:feature/secure-communication-gateway
