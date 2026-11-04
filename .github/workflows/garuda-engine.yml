@@ -1,0 +1,30 @@
+name: GARUDA Engine safety tests
+on:
+  push:
+    paths:
+      - 'garuda_engine/**'
+      - 'tests/test_garuda_engine.py'
+      - '.github/workflows/garuda-engine.yml'
+  pull_request:
+    paths:
+      - 'garuda_engine/**'
+      - 'tests/test_garuda_engine.py'
+      - '.github/workflows/garuda-engine.yml'
+permissions:
+  contents: read
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile GARUDA engine
+        run: python -m compileall -q garuda_engine tests/test_garuda_engine.py
+      - name: Run GARUDA safety tests
+        run: python -m unittest discover -s tests -p 'test_garuda_engine.py' -v
