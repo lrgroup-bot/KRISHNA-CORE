@@ -4741,6 +4741,12 @@ class Orchestrator:
         )
 
         self.agent_runtime.register(
+            "vishvakarma","evidence-guided design, electronics repair and verification",
+            permissions=("design.read","memory.read","design.write","memory.write"),
+            actions=("vishvakarma.retrieve","vishvakarma.learn","vishvakarma.verify","vishvakarma.repair.*"),
+        )
+
+        self.agent_runtime.register(
             "lab-bot","Rishi experiment planner, simulator and approved laboratory adapter coordinator",
             permissions=("lab.plan","lab.simulate","lab.record","lab.quantum","lab.nano","evidence.write","runtime.read"),
             actions=("lab.*",),
