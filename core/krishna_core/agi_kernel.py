@@ -13,6 +13,8 @@ from .avatar_fabric import AvatarFabric
 from .avatar_age_profile import AvatarAgeProfile
 from .character_persona import KrishnaCharacterPersona
 from .brahmagyan import BrahmagyanRuntime
+from .external_learning_ledger import ExternalLearningLedger
+from .brahmagyan_learning_bridge import BrahmagyanLearningBridge
 from .revenue_engine import RevenueEngine
 from .integrations import CodebaseMemoryAdapter, GraftMemoryAdapter, WebhookAdapter
 from .narad import NaradRuntime, NaradMessageStore
@@ -48,6 +50,8 @@ class AGIKernel:
         self.character=KrishnaCharacterPersona()
         self.avatar_age=AvatarAgeProfile(self.root)
         self.brahmagyan=BrahmagyanRuntime(self.root/"brahmagyan",gyan,memory)
+        self.external_learning_ledger=ExternalLearningLedger(self.root/"brahmagyan"/"external-learning.sqlite3")
+        self.brahmagyan_learning=BrahmagyanLearningBridge(self.brahmagyan,self.external_learning_ledger)
         self.revenue=RevenueEngine(self.bus)
         self.specialists=SpecialistRegistry()
         self.context=ContextGovernor()
