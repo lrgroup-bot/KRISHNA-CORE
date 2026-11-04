@@ -39,6 +39,8 @@ class HawkeyeLearningRuntime:
         "temporal": "What changed compared with 5 seconds, 5 minutes or previous sessions?",
         "reasoner": "What conclusions are supported by multiple independent sources?",
         "diagnostic": "What fault hypotheses are supported, what test should come next, and was the repair verified?",
+        "spatial": "Where is the observation, has this place been seen before, and is spatial alignment supported?",
+        "investigator": "What evidence is missing and what bounded next observation would reduce uncertainty?",
     }
 
     RESEARCH_FIELDS = {
@@ -48,6 +50,8 @@ class HawkeyeLearningRuntime:
         "temporal": ("change detection", "tracking", "temporal models", "sequence analysis", "memory"),
         "reasoner": ("evidence fusion", "uncertainty", "provenance", "causal reasoning", "verification"),
         "diagnostic": ("electronics diagnostics", "vehicle diagnostics", "machine condition monitoring", "acoustic diagnostics", "circuit analysis", "fault isolation", "repair verification"),
+        "spatial": ("visual place recognition", "loop closure", "visual inertial odometry", "SLAM", "3D scene graphs", "episodic spatial memory"),
+        "investigator": ("active perception", "next best view", "evidence acquisition", "uncertainty reduction", "sensor scheduling"),
     }
 
     ALLOWED_EVIDENCE_STATES = {"candidate", "replicated", "verified", "rejected"}
@@ -79,6 +83,7 @@ class HawkeyeLearningRuntime:
                     "cross-check important claims with independent sources",
                     "do not treat body language, gaze or physiology as proof of deception or private mental state",
                     "do not modify production code from research results",
+                    "convert useful discoveries into owner discussion proposals; never enable, install, execute or promote them automatically",
                 ],
             }
             for name, question in self.SPECIALISTS.items()
@@ -135,6 +140,8 @@ class HawkeyeLearningRuntime:
             "rollback_plan": str(rollback_plan).strip(),
             "status": "sandbox-only",
             "production_modified": False,
+            "owner_discussion_required": True,
+            "owner_approved": False,
             "created_at": time.time(),
         }
         (self.candidates / f"{candidate_id}.json").write_text(
@@ -161,7 +168,7 @@ class HawkeyeLearningRuntime:
             "eligible_for_promotion_review": eligible,
             "evaluated_at": time.time(),
         }
-        row["status"] = "verified-candidate" if eligible else "rejected-or-needs-work"
+        row["status"] = "verified-awaiting-owner-discussion" if eligible else "rejected-or-needs-work"
         row["production_modified"] = False
         path.write_text(json.dumps(row, indent=2, sort_keys=True), encoding="utf-8")
         return row

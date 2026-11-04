@@ -34,7 +34,9 @@ class HawkeyeActiveVisionRuntimeTests(unittest.TestCase):
             installed_engines=["pp_ocr_v6","mobile_sam","florence2","grounding_dino"],
         )
         self.assertEqual(out["route"],"mobile-active-vision")
-        self.assertEqual(out["status"],"retry-mobile")
+        self.assertEqual(out["status"],"propose")
+        self.assertTrue(out["owner_approval_required"])
+        self.assertTrue(out["actions"])
 
     def test_complete_read_never_escalates(self):
         packet=self.packet(read={

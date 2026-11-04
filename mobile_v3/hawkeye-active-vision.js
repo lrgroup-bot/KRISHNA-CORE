@@ -90,6 +90,44 @@
     return best?{item:best,source:"AUTO",ray,key:targetKey(best),score}:null;
   }
 
+
+  const descriptorColors=new Set(["black","white","gray","grey","red","blue","green","yellow","orange","purple","pink","brown","beige","maroon","navy","cyan","teal"]);
+  function descriptorQuery(text){
+    const words=String(text||"").toLowerCase().match(/[a-z0-9-]+/g)||[];
+    const colors=[...new Set(words.filter(x=>descriptorColors.has(x)).map(x=>x==="grey"?"gray":x))];
+    const clothing=[...new Set(words.filter(x=>["shirt","tshirt","t-shirt","jacket","coat","dress","pants","trouser","trousers","jeans","shorts","helmet","cap","hat"].includes(x)))];
+    const objects=[...new Set(words.filter(x=>["person","man","woman","boy","girl","car","truck","bus","bike","motorcycle","dog","cat","box","bag","backpack","excavator","machine"].includes(x)))];
+    return {raw:String(text||""),colors,clothing,objects,words};
+  }
+  function descriptorTerms(item){
+    const terms=[];
+    terms.push(String(item&&item.label||""));
+    for(const x of (item&&Array.isArray(item.labels)?item.labels:[]))terms.push(String((x&&x.text)||x||""));
+    const a=item&&item.attributes||{};
+    if(a&&typeof a==="object")for(const [k,v] of Object.entries(a)){terms.push(k);if(Array.isArray(v))terms.push(...v);else terms.push(String(v||""));}
+    return new Set(terms.join(" ").toLowerCase().match(/[a-z0-9-]+/g)||[]);
+  }
+  function matchByDescription(objects,text,minScore=.48,margin=.08){
+    const q=descriptorQuery(text),rows=[];
+    for(const item of (objects||[])){
+      if(!item||!boxValid(item.bbox))continue;
+      const terms=descriptorTerms(item);let score=0;
+      for(const color of q.colors)if(terms.has(color))score+=.35;
+      for(const cloth of q.clothing)if(terms.has(cloth))score+=.16;
+      for(const obj of q.objects){
+        const alias=(obj==="man"||obj==="woman"||obj==="boy"||obj==="girl")?"person":obj;
+        if(terms.has(obj)||terms.has(alias)||String(item.label||"").toLowerCase()===alias)score+=.30;
+      }
+      if(!q.objects.length&&q.colors.length)score+=.08;
+      score=Math.min(1,score+Math.min(.12,area(item.bbox)*.35));
+      rows.push({item,score});
+    }
+    rows.sort((a,b)=>b.score-a.score);
+    if(!rows.length||rows[0].score<minScore)return {state:"SEARCHING",query:q,candidates:rows.slice(0,5)};
+    if(rows.length>1&&rows[0].score-rows[1].score<margin)return {state:"AMBIGUOUS",query:q,candidates:rows.slice(0,5)};
+    return {state:"LOCKED",query:q,item:rows[0].item,score:rows[0].score,candidates:rows.slice(0,5)};
+  }
+
   function normalizeText(value){
     return String(value||"")
       .replace(/\[SECRET REDACTED\]|\[WIFI CREDENTIAL REDACTED\]/gi,"")
@@ -205,7 +243,7 @@
   }
 
   window.HawkeyeActiveVision={
-    selectTarget,targetKey,registerRead,recovery,zoomFactor,pointingRay,status,area,center,
+    selectTarget,targetKey,matchByDescription,descriptorQuery,registerRead,recovery,zoomFactor,pointingRay,status,area,center,
     reset:key=>{if(key)histories.delete(key);else histories.clear();}
   };
 })();

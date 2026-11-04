@@ -10,6 +10,8 @@ import uuid
 
 from .field_perception import FieldPerceptionPolicy
 from .vision_adapter import VisionAdapter
+from .hawkeye_target_lock import HawkeyeTargetLock, HawkeyeTargetBackendPlan
+from .hawkeye_edge_reflex import HawkeyeEdgeReflex
 
 
 EARTH_RADIUS_M = 6_371_008.8
@@ -35,7 +37,7 @@ class BhumiputraAgent:
     """
 
     AGENT_ID = "bhumiputra"
-    VERSION = "0.2.0"
+    VERSION = "0.3.0"
 
     HEAVY_PIPELINE = (
         "mobile-camera-ingest",
@@ -95,6 +97,8 @@ class BhumiputraAgent:
         self.evidence_cipher = None
         self.require_evidence_encryption = False
         self.vision = vision_adapter or VisionAdapter()
+        self.target_lock = HawkeyeTargetLock()
+        self.edge_reflex = HawkeyeEdgeReflex()
 
     def bind_evidence_cipher(self, cipher, *, require_encryption=False):
         self.evidence_cipher = cipher
@@ -520,6 +524,25 @@ class BhumiputraAgent:
             raise KeyError(f"survey not found: {survey_id}")
         return json.loads(path.read_text(encoding="utf-8"))
 
+    def acquire_visual_target(self, command: str, candidates, *, edge_available=False, reid_available=False, grounding_available=False):
+        result=self.target_lock.acquire(command,candidates)
+        result["backend_plan"]=HawkeyeTargetBackendPlan.plan(
+            self.target_lock.query or command,
+            edge_available=edge_available,
+            reid_available=reid_available,
+            grounding_available=grounding_available,
+        )
+        return result
+
+    def update_visual_target(self, candidates):
+        return self.target_lock.update(candidates)
+
+    def release_visual_target(self):
+        return self.target_lock.reset()
+
+    def ingest_edge_reflex(self, event: dict):
+        return self.edge_reflex.ingest(event)
+
     def status(self):
         surveys = sorted(self.surveys_dir.glob("*.json"))
         return {
@@ -533,6 +556,8 @@ class BhumiputraAgent:
             "scene_modes": sorted(self.SCENE_MODES),
             "structural_truth_policy": dict(self.STRUCTURAL_TRUTH_POLICY),
             "perception": FieldPerceptionPolicy.status(),
+            "visual_target_lock": self.target_lock.status(),
+            "edge_reflex": self.edge_reflex.status(),
             "heavy_pipeline": list(self.HEAVY_PIPELINE),
             "main_loop_blocking": False,
             "menu_visible": False,

@@ -22,6 +22,8 @@
     aiMode: "LOCAL",
     cloudApproved: false,
     lockedTrackingId: null,
+    descriptorLockQuery: "",
+    descriptorLockState: "UNLOCKED",
     translationEnabled: false,
     translationTarget: "en",
     translationText: "",
@@ -379,6 +381,63 @@
     if(state.activeSelection)await applyActiveCameraPlan(state.activeSelection,state.activeRead,state.activeRecovery,null);
   }
 
+  function basicColorName(r,g,b){
+    const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min,v=max/255,s=max?d/max:0;
+    if(v<.18)return "black";if(v>.84&&s<.14)return "white";if(s<.16)return "gray";
+    let h=0;if(d){if(max===r)h=((g-b)/d)%6;else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4;h=(h*60+360)%360;}
+    if(h<15||h>=345)return "red";if(h<40)return "orange";if(h<68)return "yellow";if(h<165)return "green";
+    if(h<195)return "cyan";if(h<255)return "blue";if(h<290)return "purple";if(h<345)return "pink";return "brown";
+  }
+
+  function addVisualAttributes(objects){
+    const v=video();if(!v||!v.videoWidth||!v.videoHeight)return objects||[];
+    for(const item of (objects||[])){
+      const b=item&&item.bbox;if(!Array.isArray(b)||b.length!==4)continue;
+      try{
+        const sx=Math.max(0,Math.floor((Number(b[0])+.22*Number(b[2]))*v.videoWidth));
+        const sy=Math.max(0,Math.floor((Number(b[1])+.16*Number(b[3]))*v.videoHeight));
+        const sw=Math.max(2,Math.floor(Number(b[2])*v.videoWidth*.56));
+        const sh=Math.max(2,Math.floor(Number(b[3])*v.videoHeight*.34));
+        const probe=document.createElement("canvas");probe.width=12;probe.height=12;
+        const ctx=probe.getContext("2d",{alpha:false,willReadFrequently:true});
+        ctx.drawImage(v,sx,sy,Math.min(sw,v.videoWidth-sx),Math.min(sh,v.videoHeight-sy),0,0,12,12);
+        const px=ctx.getImageData(0,0,12,12).data;let rr=0,gg=0,bb=0,n=0;
+        for(let i=0;i<px.length;i+=4){rr+=px[i];gg+=px[i+1];bb+=px[i+2];n++;}
+        const color=basicColorName(rr/n,gg/n,bb/n);
+        item.attributes={...(item.attributes||{}),upper_color:color,colors:[color]};
+      }catch(_){}
+    }
+    return objects||[];
+  }
+
+  function applyDescriptorLock(){
+    if(!state.descriptorLockQuery||!window.HawkeyeActiveVision)return null;
+    const found=HawkeyeActiveVision.matchByDescription(activeObjects(),state.descriptorLockQuery,.38,.08);
+    state.descriptorLockState=found.state;
+    if(found.state==="LOCKED"&&found.item&&found.item.tracking_id!==null&&found.item.tracking_id!==undefined){
+      state.lockedTrackingId=found.item.tracking_id;
+      const btn=byId("cameraLock");if(btn){btn.classList.add("active");btn.textContent="LOCK · "+state.descriptorLockQuery.slice(0,18);}
+    }else if(found.state==="AMBIGUOUS"){
+      state.lockedTrackingId=null;
+    }
+    return found;
+  }
+
+  async function lockByDescription(text){
+    const q=String(text||"").replace(/^.*?\block\b/i,"").trim();
+    if(!q){if(typeof reply==="function")reply("Tell HAWKEYE what to lock, for example blue shirt person.","warn");return {state:"SEARCHING"};}
+    state.descriptorLockQuery=q;state.descriptorLockState="SEARCHING";
+    if(!cameraActive())return {state:"SEARCHING",query:q,waiting_for_camera:true};
+    await detect();
+    const found=applyDescriptorLock()||{state:"SEARCHING",query:q};
+    if(typeof reply==="function"){
+      if(found.state==="LOCKED")reply("HAWKEYE locked "+q+". Tracking stays session-local.","good");
+      else if(found.state==="AMBIGUOUS")reply("I see multiple matching targets. Add another visible detail.","warn");
+      else reply("Searching for "+q+".","warn");
+    }
+    return found;
+  }
+
   async function detect(){
     if(!cameraActive()||state.detectBusy||!window.Krishna||!Krishna.hawkeyeDetectObjects)return;
     const frame=captureFrame(480,0.55);if(!frame||!frame.b64)return;
@@ -386,7 +445,8 @@
     try{
       const result=JSON.parse(Krishna.hawkeyeDetectObjects(frame.b64));
       if(result.error)return;
-      state.objects=Array.isArray(result.objects)?result.objects:[];
+      state.objects=addVisualAttributes(Array.isArray(result.objects)?result.objects:[]);
+      applyDescriptorLock();
       refreshActiveSelection();
       drawObjects(state.objects);
       await autoZoom(state.objects);
@@ -982,10 +1042,16 @@
     }catch(e){state.recorder=null;if(btn){btn.classList.remove("recording");btn.textContent="REC+DATA";}if(typeof reply==="function")reply("Recording: "+e.message,"bad");}
   }
 
-  function toggleTargetLock(){
+  function toggleTargetLock(forceRelease=false){
     const btn=byId("cameraLock");
+    if(forceRelease){
+      state.lockedTrackingId=null;state.descriptorLockQuery="";state.descriptorLockState="UNLOCKED";
+      if(btn){btn.classList.remove("active");btn.textContent="LOCK";}
+      if(typeof reply==="function")reply("HAWKEYE target lock released.","good");
+      return;
+    }
     if(state.lockedTrackingId!==null){
-      state.lockedTrackingId=null;
+      state.lockedTrackingId=null;state.descriptorLockQuery="";state.descriptorLockState="UNLOCKED";
       if(btn){btn.classList.remove("active");btn.textContent="LOCK";}
       if(typeof reply==="function")reply("HAWKEYE target lock released.","good");
       return;
@@ -1041,7 +1107,7 @@
     stopGeminiLive();
     if(state.torchOn&&fieldStream){try{const t=fieldStream.getVideoTracks()[0];if(t&&t.applyConstraints)t.applyConstraints({advanced:[{torch:false}]});}catch(_){}}
     state.objects=[];state.researchQueries=[];state.lastLearnText="";state.rich=null;state.handResult=null;state.localSummary="";state.geminiAnalysis="";state.freeCloudAnalysis="";state.lastFreeCloudSignature="";state.lastFreeCloudProvider="";state.lastFreeCloudModel="";state.lastFreeCloudRole="";state.lastFreeCloudReviews=[];state.lastFreeCloudPc=null;
-    state.aiMode="LOCAL";state.cloudApproved=false;state.lockedTrackingId=null;
+    state.aiMode="LOCAL";state.cloudApproved=false;state.lockedTrackingId=null;state.descriptorLockQuery="";state.descriptorLockState="UNLOCKED";
     state.activeSelection=null;state.activeRead=null;state.activeRecovery=null;state.lastTargetKey="";state.targetReadBusy=false;state.autoTorchOwned=false;state.cameraProfile=null;state.announcedCompleteKey="";
     if(window.HawkeyeActiveVision)HawkeyeActiveVision.reset();
     setActiveVisionState("SEARCH","DETECTING ITEM",{});
@@ -1059,5 +1125,5 @@
 
   setInterval(()=>{if(cameraActive())activate();else deactivate();},500);
 
-  window.HawkeyeObserverUI={isLearning,toggleLearn,research,photo,photographerPhoto,record,detect,richPerception,activeVisionTick,learningTick,onResearchResult,toggleAI,freeCloudTick,pcOffloadContext,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
+  window.HawkeyeObserverUI={lockByDescription,isLearning,toggleLearn,research,photo,photographerPhoto,record,detect,richPerception,activeVisionTick,learningTick,onResearchResult,toggleAI,freeCloudTick,pcOffloadContext,geminiTick,toggleGeminiLive,stopGeminiLive,toggleTargetLock,toggleTranslation,toggleGestures,toggleTorch,captureBestFrame,handPerception};
 })();
