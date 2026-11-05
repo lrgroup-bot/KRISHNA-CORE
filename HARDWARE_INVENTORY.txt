@@ -2,7 +2,7 @@ KRISHNA OWNER HARDWARE INVENTORY
 ===============================
 Purpose: Persistent source-of-truth inventory for hardware/electronics already owned by the owner.
 Rule: When the owner identifies or adds hardware, append/update it here rather than creating another inventory file.
-Last updated: 2026-10-27
+Last updated: 2026-11-05
 
 COMPUTER COMPONENTS
 -------------------
@@ -344,3 +344,22 @@ DIY 20-HDD NAS GAP LIST
 Needed before functioning Ryzen host: tested AM4 motherboard supporting 3200G with usable PCIe expansion and video outputs; CPU cooler if missing; safe quality PSU; cabinet; preferably SSD for OS; Ethernet connection.
 Needed for 20 drives simultaneously: IT-mode SAS HBA, compatible SAS expander or backplane, correct forward breakout and Mini-SAS cables, safe rated HDD power distribution sized for spin-up, grounded protective 20-bay rack with airflow, drive labels, SMART/extended tests and backups. Exact HDD size/count/interface and PSU current budget TO VERIFY.
 Suggested software: Debian Linux, Samba, SMART monitoring, Docker for lightweight KUBER; use MacBook for remote management. Avoid overcommitting 8GB RAM or mixing untested disks in a fault-tolerant pool.
+
+2026-11-05 PHOTO INVENTORY: AMD COOLERS AND LAPTOP RAM
+------------------------------------------------------
+Items below are owner-confirmed physical inventory, photographed 2026-11-05. Working condition remains UNTESTED. Do not count these as components available for the proposed dual-Xeon LGA2011-3 machines.
+
+- AMD round stock air CPU cooler assemblies: 2 pieces (owner-confirmed).
+  Identification: AMD-branded fans over radial aluminium heatsinks with four captive spring screws, from photographs. Exact AMD cooler model/part number, CPU origin, connector type, fan RPM and cooling rating: TO VERIFY from labels.
+  Possible family: Wraith Stealth style; not formally confirmed.
+  Condition: visibly used; functional fan test, mounting-hardware condition, cleaned thermal interface and temperature test: PENDING.
+  Reuse: compatible AMD-socket build after verifying mounting, CPU TDP and fan functionality; fans may be reused for auxiliary airflow with safe independent mounting.
+  Dual-Xeon compatibility: NOT directly compatible with Intel LGA2011-3 mount; NOT recommended to cool 135W E5-2698 v4 or 145W E5-2699 v4. Do not count these as 2 of the 4 required Xeon coolers.
+
+- Samsung laptop RAM SO-DIMM: 1 piece photographed (additional quantity TO VERIFY).
+  Label model/part: M471B5173DB0-YK0.
+  Label: 4GB 1Rx8 PC3L-12800S-11-13-B4.
+  Type: DDR3L-1600, 204-pin SO-DIMM (laptop form factor), nominal 1.35V, unbuffered/non-ECC.
+  Condition: visually present; POST and memory diagnostic: PENDING.
+  Reuse: older DDR3L-capable laptops or mini PCs, subject to device-specific compatibility.
+  Dual-Xeon compatibility: NOT compatible with planned DDR4 ECC-RDIMM dual E5-2698 v4 / E5-2699 v4 motherboards. Do not count towards the 64GB+ DDR4 procurement target.
